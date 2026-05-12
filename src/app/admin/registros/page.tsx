@@ -8,9 +8,9 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, CartesianGrid,
 } from 'recharts';
-import { ChevronRight, Filter, X, Calendar as CalendarIcon, AlertTriangle, TrendingUp, ArrowRight } from 'lucide-react';
-import { BEHAVIORS, REASONS, TIME_SLOTS, CONTEXTS, PRESENT_PEOPLE } from '@/lib/constants';
-import type { AbcStudent } from '@/db/schema';
+import { ChevronRight, Filter, X, Calendar as CalendarIcon, AlertTriangle, TrendingUp, ArrowRight, FileText, MessageSquare, ExternalLink } from 'lucide-react';
+import { BEHAVIORS, REASONS, TIME_SLOTS, CONTEXTS, PRESENT_PEOPLE, STAGE_LABELS, type StageValue } from '@/lib/constants';
+import type { AbcStudent, Teacher } from '@/db/schema';
 
 type ReportRow = {
   id: string;
@@ -23,10 +23,16 @@ type ReportRow = {
   contextNote: string | null;
   timeSlot: string;
   presentPeople: string[];
+  presentNames: string | null;
   behaviors: string[];
   involvedWith: string | null;
+  antecedents: string | null;
+  consequences: string | null;
+  redirectActions: string | null;
   reasons: string[] | null;
+  reasonOther: string | null;
   effectivenessRating: string | null;
+  comments: string | null;
   createdAt: string;
 };
 
@@ -67,8 +73,11 @@ export default function RegistrosPage() {
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
 
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+
   useEffect(() => {
     fetch('/api/students').then((r) => r.json()).then(setStudents);
+    fetch('/api/teachers').then((r) => r.json()).then(setTeachers);
   }, []);
 
   useEffect(() => {
@@ -99,6 +108,12 @@ export default function RegistrosPage() {
     return m;
   }, [students]);
 
+  const teacherMap = useMemo(() => {
+    const m = new Map<string, Teacher>();
+    teachers.forEach((t) => m.set(t.id, t));
+    return m;
+  }, [teachers]);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -125,7 +140,7 @@ export default function RegistrosPage() {
 
       {mode === 'list'
         ? <ListView reports={reports} studentMap={studentMap} loading={loading} page={page} onPageChange={setPage} />
-        : <InformeView reports={reports} loading={loading} timePreset={timePreset} />
+        : <InformeView reports={reports} loading={loading} timePreset={timePreset} studentMap={studentMap} teacherMap={teacherMap} selectedStudentIds={selectedStudentIds} />
       }
     </div>
   );
@@ -322,12 +337,22 @@ function ListView({
 
 // ─────────────────────────────────────────────────────────────────────────
 function InformeView({
-  reports, loading, timePreset,
+  reports, loading, timePreset, studentMap, teacherMap, selectedStudentIds,
 }: {
   reports: ReportRow[];
   loading: boolean;
   timePreset: string;
+  studentMap: Map<string, AbcStudent>;
+  teacherMap: Map<string, Teacher>;
+  selectedStudentIds: string[];
 }) {
+  const [showAllRecords, setShowAllRecords] = useState(false);
+
+  // Modo "un solo alumno seleccionado" → vista enfocada en ese alumno
+  const focusedStudent = selectedStudentIds.length === 1
+    ? studentMap.get(selectedStudentIds[0]) ?? null
+    : null;
+
   const stats = useMemo(() => {
     if (reports.length === 0) return null;
 
@@ -337,6 +362,17 @@ function InformeView({
 
     const effVals = reports.map((r) => r.effectivenessRating).filter((v): v is string => !!v).map(parseFloat);
     const avgEff = effVals.length > 0 ? effVals.reduce((s, v) => s + v, 0) / effVals.length : null;
+
+    // Última fecha de registro
+    const lastReport = reports[0]; // ya vienen ordenados desc
+    const lastDate = lastReport ? lastReport.reportDate : null;
+
+    // Conducta más frecuente
+    const behaviorCount0 = new Map<string, number>();
+    reports.forEach((r) => (r.behaviors ?? []).forEach((b) => behaviorCount0.set(b, (behaviorCount0.get(b) ?? 0) + 1)));
+    const topBehavior = BEHAVIORS
+      .map((b) => ({ value: b.value, label: b.label, count: behaviorCount0.get(b.value) ?? 0 }))
+      .sort((a, b) => b.count - a.count)[0];
 
     const behaviorCount = new Map<string, number>();
     reports.forEach((r) => (r.behaviors ?? []).forEach((b) => behaviorCount.set(b, (behaviorCount.get(b) ?? 0) + 1)));
@@ -416,7 +452,7 @@ function InformeView({
       .sort((a, b) => b.count - a.count);
 
     return {
-      total, uniqueStudents, uniqueTeachers, avgEff,
+      total, uniqueStudents, uniqueTeachers, avgEff, lastDate, topBehavior,
       behaviorRanking, maxBehavior, reasonRanking, contextData,
       weekdayData, slotData, heatmap, heatmapMax, trendData,
       effBuckets, effValsCount: effVals.length, peopleData,
@@ -430,19 +466,60 @@ function InformeView({
     return <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-12 text-center text-sm text-zinc-400">Sin datos para estos filtros.</div>;
   }
 
+  const displayedReports = showAllRecords ? reports : reports.slice(0, 20);
+
   return (
     <div className="space-y-4">
-      {/* KPIs */}
+      {/* ── Perfil del alumno (cuando hay UNO seleccionado) ────────────── */}
+      {focusedStudent && (
+        <div className="rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 dark:from-teal-600 dark:to-cyan-700 text-white p-5 shadow-sm">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-xl font-bold shrink-0">
+              {focusedStudent.displayName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium uppercase tracking-widest text-teal-100/80">Informe individual</p>
+              <h2 className="text-2xl font-bold leading-tight">{focusedStudent.displayName}</h2>
+              <p className="text-sm text-teal-50/90 mt-0.5">{focusedStudent.fullName} · {focusedStudent.className}</p>
+            </div>
+            <div className="text-right text-xs">
+              <p className="text-teal-100/80 uppercase tracking-widest">Período</p>
+              <p className="font-semibold text-sm">{TIME_PRESETS.find((p) => p.value === timePreset)?.label}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── KPIs adaptativos ───────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="Registros" value={stats.total} hint="en el rango" accent />
-        <KpiCard label="Alumnos" value={stats.uniqueStudents} hint="con registros" />
-        <KpiCard label="Profesores" value={stats.uniqueTeachers} hint="que registran" />
-        <KpiCard
-          label="Efectividad media"
-          value={stats.avgEff != null ? stats.avgEff.toFixed(1) : '—'}
-          hint={`sobre 5.0 · ${stats.effValsCount} valoraciones`}
-          valueClass={stats.avgEff == null ? '' : stats.avgEff >= 3.5 ? 'text-emerald-600 dark:text-emerald-400' : stats.avgEff >= 2.5 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}
-        />
+        <KpiCard label="Registros" value={stats.total} hint="en el período" accent />
+        {focusedStudent ? (
+          <>
+            <KpiCard
+              label="Último registro"
+              value={stats.lastDate ? format(parseISO(stats.lastDate), "d MMM", { locale: es }) : '—'}
+              hint={stats.lastDate ? format(parseISO(stats.lastDate), "EEEE", { locale: es }) : ''}
+            />
+            <KpiCard label="Profesores" value={stats.uniqueTeachers} hint="que registran" />
+            <KpiCard
+              label="Conducta más frecuente"
+              value={stats.topBehavior?.count || 0}
+              hint={stats.topBehavior?.label}
+              valueClass="text-rose-600 dark:text-rose-400"
+            />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Alumnos" value={stats.uniqueStudents} hint="con registros" />
+            <KpiCard label="Profesores" value={stats.uniqueTeachers} hint="que registran" />
+            <KpiCard
+              label="Conducta más frecuente"
+              value={stats.topBehavior?.count || 0}
+              hint={stats.topBehavior?.label}
+              valueClass="text-rose-600 dark:text-rose-400"
+            />
+          </>
+        )}
       </div>
 
       {/* Tendencia */}
@@ -501,38 +578,17 @@ function InformeView({
         </Card>
       </div>
 
-      {/* Hipótesis + Efectividad */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card title="¿Por qué? · Hipótesis registradas">
-          <div className="space-y-2">
+      {/* Hipótesis · sin la efectividad al lado (se baja de tono) */}
+      <Card title="¿Por qué? · Hipótesis registradas">
+        {stats.reasonRanking.some((r) => r.count > 0) ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
             {stats.reasonRanking.map((r) => {
               const maxReason = stats.reasonRanking[0]?.count || 1;
               return <ProgressBar key={r.name} label={r.name} count={r.count} max={maxReason} color="teal" />;
             })}
           </div>
-        </Card>
-
-        <Card title="Distribución de efectividad">
-          {stats.effValsCount > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={stats.effBuckets} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
-                  <CartesianGrid stroke="#e4e4e7" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#a1a1aa' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e4e4e7', fontSize: 12 }} />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                    {stats.effBuckets.map((_, i) => (
-                      <Cell key={i} fill={i < 2 ? '#fb7185' : i < 3 ? '#fbbf24' : '#10b981'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-              <p className="text-[10px] text-zinc-400 text-center mt-1">Rangos de puntuación · {stats.effValsCount} valoraciones</p>
-            </>
-          ) : <EmptyHint />}
-        </Card>
-      </div>
+        ) : <EmptyHint />}
+      </Card>
 
       {/* Día semana + Franja horaria */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -577,6 +633,204 @@ function InformeView({
           </div>
         ) : <EmptyHint />}
       </Card>
+
+      {/* ── Efectividad · indicador subjetivo (de tono bajado) ──────────── */}
+      {stats.effValsCount > 0 && (
+        <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-dashed border-zinc-200 dark:border-zinc-800 p-4">
+          <div className="flex items-center gap-2 mb-2.5">
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+              Efectividad de reconducción
+            </h3>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-600 italic">
+              indicador subjetivo y opcional · {stats.effValsCount} de {stats.total} valoraron
+            </span>
+          </div>
+          <div className="flex items-center gap-6 flex-wrap">
+            <div>
+              <p className="text-2xl font-bold font-mono text-zinc-500 dark:text-zinc-400 tabular-nums leading-none">
+                {stats.avgEff?.toFixed(1)}
+                <span className="text-sm text-zinc-400 dark:text-zinc-600 ml-1">/ 5.0</span>
+              </p>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-600 mt-1">media</p>
+            </div>
+            <div className="flex-1 min-w-[240px]">
+              <ResponsiveContainer width="100%" height={70}>
+                <BarChart data={stats.effBuckets} margin={{ top: 4, right: 0, left: -36, bottom: 0 }}>
+                  <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+                  <YAxis hide />
+                  <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e4e4e7', fontSize: 12 }} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {stats.effBuckets.map((_, i) => (
+                      <Cell key={i} fill={i < 2 ? '#fda4af' : i < 3 ? '#fcd34d' : '#86efac'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Detalle de cada registro · TODA la info ──────────────────────── */}
+      <Card
+        title={`Detalle de cada registro · ${reports.length} ${reports.length === 1 ? 'entrada' : 'entradas'}`}
+        icon={<FileText className="w-3.5 h-3.5" />}
+      >
+        <div className="space-y-3">
+          {displayedReports.map((r) => (
+            <RecordDetail
+              key={r.id}
+              report={r}
+              student={studentMap.get(r.studentId) ?? null}
+              teacher={r.teacherId ? teacherMap.get(r.teacherId) ?? null : null}
+              hideStudent={!!focusedStudent}
+            />
+          ))}
+          {reports.length > 20 && (
+            <button
+              onClick={() => setShowAllRecords(!showAllRecords)}
+              className="w-full py-3 text-xs font-medium text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-xl transition-colors border border-dashed border-teal-200 dark:border-teal-900/50"
+            >
+              {showAllRecords
+                ? `Mostrar solo los 20 más recientes`
+                : `Mostrar los ${reports.length - 20} registros restantes`}
+            </button>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+function RecordDetail({
+  report, student, teacher, hideStudent,
+}: {
+  report: ReportRow;
+  student: AbcStudent | null;
+  teacher: Teacher | null;
+  hideStudent: boolean;
+}) {
+  const behaviors = report.behaviors ?? [];
+  const presentPeople = report.presentPeople ?? [];
+  const reasons = report.reasons ?? [];
+  const dateObj = parseISO(report.reportDate);
+
+  const teacherName = teacher
+    ? `${teacher.firstName} ${teacher.lastName}`
+    : report.otherTeacherName ?? 'Desconocido';
+
+  // Solo renderiza los campos de texto libre con contenido
+  const freeTexts = [
+    { label: 'Producido con', value: report.involvedWith },
+    { label: 'A · Antecedentes', value: report.antecedents },
+    { label: 'C · Consecuencias', value: report.consequences },
+    { label: 'Acciones de reconducción', value: report.redirectActions },
+    { label: 'Comentarios', value: report.comments },
+    { label: 'Personas presentes (nombres)', value: report.presentNames },
+    { label: 'Contexto especificado', value: report.contextNote },
+    { label: 'Hipótesis · otro', value: report.reasonOther },
+  ].filter((f) => f.value && String(f.value).trim().length > 0);
+
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+      {/* Header del registro */}
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 capitalize">
+            {format(dateObj, "EEE d 'de' MMM yyyy", { locale: es })}
+          </span>
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+            {!hideStudent && student && <>{student.displayName} · </>}
+            {teacherName}
+            {teacher && <span className="text-zinc-300 dark:text-zinc-600 ml-1">({STAGE_LABELS[teacher.stage as StageValue] ?? teacher.stage})</span>}
+          </span>
+        </div>
+        <div className="flex-1" />
+        <Link
+          href={`/admin/registros/${report.id}`}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
+        >
+          Ver completo
+          <ExternalLink className="w-3 h-3" />
+        </Link>
+      </div>
+
+      <div className="p-4 space-y-3 text-sm">
+        {/* Conductas como pills destacadas */}
+        <div className="flex flex-wrap gap-1.5">
+          {behaviors.map((b) => (
+            <span
+              key={b}
+              className="text-xs font-medium px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50"
+            >
+              {label(BEHAVIORS, b)}
+            </span>
+          ))}
+        </div>
+
+        {/* Línea de contexto · franja · presentes */}
+        <div className="text-xs text-zinc-500 dark:text-zinc-400 flex flex-wrap gap-x-3 gap-y-1">
+          <span><strong className="text-zinc-700 dark:text-zinc-300">{label(CONTEXTS, report.context)}</strong></span>
+          <span>{label(TIME_SLOTS, report.timeSlot)}</span>
+          {presentPeople.length > 0 && (
+            <span>
+              Presentes: {presentPeople.map((p) => label(PRESENT_PEOPLE, p)).join(', ')}
+            </span>
+          )}
+        </div>
+
+        {/* Hipótesis como pills (si las hay) */}
+        {reasons.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-[10px] uppercase tracking-widest text-zinc-400 dark:text-zinc-500 font-medium">
+              Por qué:
+            </span>
+            {reasons.map((r) => (
+              <span
+                key={r}
+                className="text-[11px] px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-200/60 dark:border-teal-800/60"
+              >
+                {label(REASONS, r)}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Efectividad si existe */}
+        {report.effectivenessRating != null && (
+          <div className="text-xs text-zinc-500">
+            <span className="text-[10px] uppercase tracking-widest text-zinc-400 dark:text-zinc-500 font-medium mr-2">
+              Efectividad:
+            </span>
+            <span className="font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+              {parseFloat(report.effectivenessRating).toFixed(1)} / 5.0
+            </span>
+          </div>
+        )}
+
+        {/* Textos libres — TODOS los que tengan contenido */}
+        {freeTexts.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+            {freeTexts.map((f) => (
+              <div key={f.label}>
+                <p className="text-[10px] uppercase tracking-widest text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">
+                  {f.label}
+                </p>
+                <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                  {f.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {freeTexts.length === 0 && (
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-600 italic pt-1 border-t border-zinc-100 dark:border-zinc-800">
+            Sin textos libres registrados en este parte.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
