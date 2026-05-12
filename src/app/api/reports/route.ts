@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
-import { behaviorReports } from '@/db/schema';
-import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
+import { behaviorReports, students, teachers } from '@/db/schema';
+import { eq, desc, and, gte, lte } from 'drizzle-orm';
+import { getResend, FROM } from '@/lib/email';
+import { buildReportEmail } from '@/lib/email-template';
 
 const reportSchema = z.object({
   studentId: z.string().uuid(),
@@ -14,7 +16,7 @@ const reportSchema = z.object({
   timeSlot: z.enum(['primera_hora', 'antes_patio', 'bajadas', 'patio', 'almuerzo', 'despues_patio', 'ultima_hora']),
   presentPeople: z.array(z.string()),
   presentNames: z.string().nullable().optional(),
-  behaviors: z.array(z.string()).min(1, 'Selecciona al menos una conducta'),
+  behaviors: z.array(z.string()).min(1),
   involvedWith: z.string().nullable().optional(),
   antecedents: z.string().nullable().optional(),
   consequences: z.string().nullable().optional(),
@@ -64,8 +66,7 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data;
-    const date = new Date(data.reportDate);
-    const dayOfWeek = date.getDay();
+    const dayOfWeek = new Date(data.reportDate).getDay();
 
     const [report] = await db.insert(behaviorReports).values({
       ...data,
@@ -84,9 +85,58 @@ export async function POST(request: Request) {
       comments: data.comments ?? null,
     }).returning();
 
+    // Enviar email de notificación (sin bloquear la respuesta)
+    sendNotificationEmail(report.studentId, data).catch((err) =>
+      console.error('Error enviando email de notificación:', err)
+    );
+
     return NextResponse.json(report, { status: 201 });
   } catch (error) {
     console.error('Error guardando registro:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
+}
+
+async function sendNotificationEmail(studentId: string, data: z.infer<typeof reportSchema>) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  // Obtener datos del alumno y del profesor
+  const [student] = await db.select().from(students).where(eq(students.id, studentId));
+  if (!student || !student.emailRecipients || student.emailRecipients.length === 0) return;
+
+  let teacherName = data.otherTeacherName ?? 'Desconocido';
+  if (data.teacherId) {
+    const [teacher] = await db.select().from(teachers).where(eq(teachers.id, data.teacherId));
+    if (teacher) teacherName = `${teacher.firstName} ${teacher.lastName}`;
+  }
+
+  const { subject, html } = buildReportEmail({
+    studentDisplayName: student.displayName,
+    studentFullName: student.fullName,
+    studentClassName: student.className,
+    teacherName,
+    reportDate: data.reportDate,
+    context: data.context,
+    contextNote: data.contextNote,
+    timeSlot: data.timeSlot,
+    presentPeople: data.presentPeople,
+    behaviors: data.behaviors,
+    involvedWith: data.involvedWith,
+    reasons: data.reasons ?? [],
+    reasonOther: data.reasonOther,
+    antecedents: data.antecedents,
+    consequences: data.consequences,
+    redirectActions: data.redirectActions,
+    effectivenessRating: data.effectivenessRating != null ? String(data.effectivenessRating) : null,
+    comments: data.comments,
+  });
+
+  const resend = getResend();
+  // Resend acepta hasta 50 destinatarios por envío; limitamos a 20 en la UI
+  await resend.emails.send({
+    from: FROM,
+    to: student.emailRecipients as string[],
+    subject,
+    html,
+  });
 }

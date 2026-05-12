@@ -14,3 +14,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    await db.delete(teachers).where(eq(teachers.id, id));
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('Error eliminando profesor:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}

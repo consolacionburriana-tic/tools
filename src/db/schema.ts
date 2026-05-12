@@ -18,6 +18,8 @@ export const abcStudents = pgTable('abc_students', {
   displayName: text('display_name').notNull(),
   className: text('class_name').notNull(),
   active: boolean('active').default(true).notNull(),
+  // Hasta 20 emails que reciben notificación cuando se guarda un registro de este alumno
+  emailRecipients: jsonb('email_recipients').$type<string[]>().notNull().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
