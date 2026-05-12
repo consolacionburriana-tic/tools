@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
 import { behaviorReports, students, teachers } from '@/db/schema';
-import { eq, desc, and, gte, lte } from 'drizzle-orm';
+import { eq, desc, and, gte, lte, inArray } from 'drizzle-orm';
 import { getResend, FROM } from '@/lib/email';
 import { buildReportEmail } from '@/lib/email-template';
 
@@ -31,25 +31,34 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
+    const studentIds = searchParams.get('studentIds')?.split(',').filter(Boolean);
     const from = searchParams.get('from');
     const to = searchParams.get('to');
+    const all = searchParams.get('all') === 'true';
     const page = parseInt(searchParams.get('page') ?? '1');
     const limit = parseInt(searchParams.get('limit') ?? '20');
     const offset = (page - 1) * limit;
 
     const conditions = [];
     if (studentId) conditions.push(eq(behaviorReports.studentId, studentId));
+    if (studentIds && studentIds.length > 0) {
+      conditions.push(inArray(behaviorReports.studentId, studentIds));
+    }
     if (from) conditions.push(gte(behaviorReports.reportDate, from));
     if (to) conditions.push(lte(behaviorReports.reportDate, to));
 
-    const result = await db
+    let query = db
       .select()
       .from(behaviorReports)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(behaviorReports.reportDate), desc(behaviorReports.createdAt))
-      .limit(limit)
-      .offset(offset);
+      .$dynamic();
 
+    if (!all) {
+      query = query.limit(limit).offset(offset);
+    }
+
+    const result = await query;
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error cargando registros:', error);
