@@ -36,12 +36,12 @@ const schema = z.object({
   presentNames: z.string().optional(),
   behaviors: z.array(z.string()).min(1, 'Selecciona al menos una conducta'),
   involvedWith: z.string().optional(),
+  reasons: z.array(z.string()),
+  reasonOther: z.string().optional(),
   antecedents: z.string().optional(),
   consequences: z.string().optional(),
   redirectActions: z.string().optional(),
   effectivenessRating: z.number().nullable(),
-  reasons: z.array(z.string()),
-  reasonOther: z.string().optional(),
   comments: z.string().optional(),
 });
 
@@ -77,12 +77,12 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
       presentNames: '',
       behaviors: [],
       involvedWith: '',
+      reasons: [],
+      reasonOther: '',
       antecedents: '',
       consequences: '',
       redirectActions: '',
       effectivenessRating: null,
-      reasons: [],
-      reasonOther: '',
       comments: '',
     },
   });
@@ -115,7 +115,6 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
   }, [formValues]);
 
   const contextVal = watch('context');
-  const teacherId = watch('teacherId');
   const reasons = watch('reasons');
 
   const onSubmit = async (data: FormValues) => {
@@ -184,7 +183,29 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
 
   return (
     <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8 pb-32">
-      {/* Alumno */}
+
+      {/* ── Header ABC ─────────────────────────────────────────────── */}
+      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 space-y-2">
+        <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+          Registro de conductas
+        </p>
+        <p className="text-base font-medium text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          Análisis{' '}
+          <span className="font-bold text-teal-600 dark:text-teal-400">A</span>ntecedentes
+          {' — '}
+          <span className="font-bold text-teal-600 dark:text-teal-400">C</span>onducta
+          {' — '}
+          <span className="font-bold text-teal-600 dark:text-teal-400">C</span>onsecuencias
+        </p>
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          Rellena los campos obligatorios{' '}
+          <span className="text-teal-600 dark:text-teal-400 font-medium">*</span>
+          {' '}· Los demás son opcionales y puedes completarlos después.
+        </p>
+      </div>
+
+      {/* ── Campos obligatorios ────────────────────────────────────── */}
+
       <FormSection title="Alumno" required error={errors.studentId?.message}>
         <Controller
           name="studentId"
@@ -195,12 +216,7 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         />
       </FormSection>
 
-      {/* Profesor */}
-      <FormSection
-        title="Profesor/a que rellena"
-        required
-        error={errors.teacherId?.message}
-      >
+      <FormSection title="Profesor/a que rellena" required error={errors.teacherId?.message}>
         <Controller
           name="teacherId"
           control={control}
@@ -216,7 +232,6 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         />
       </FormSection>
 
-      {/* Fecha */}
       <FormSection title="Fecha" required error={errors.reportDate?.message}>
         <Controller
           name="reportDate"
@@ -227,7 +242,6 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         />
       </FormSection>
 
-      {/* Contexto */}
       <FormSection title="¿Dónde ocurre?" required error={errors.context?.message}>
         <Controller
           name="context"
@@ -261,7 +275,6 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         </AnimatePresence>
       </FormSection>
 
-      {/* Franja horaria */}
       <FormSection title="¿Cuándo ocurre?" required error={errors.timeSlot?.message}>
         <Controller
           name="timeSlot"
@@ -272,8 +285,12 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         />
       </FormSection>
 
-      {/* Personas presentes */}
-      <FormSection title="¿Qué personas estaban presentes?" required error={errors.presentPeople?.message}>
+      <FormSection
+        title="¿Qué personas estaban presentes?"
+        required
+        multiselect
+        error={errors.presentPeople?.message}
+      >
         <Controller
           name="presentPeople"
           control={control}
@@ -294,8 +311,7 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         />
       </FormSection>
 
-      {/* Conductas */}
-      <FormSection title="Conducta que te preocupa" required error={errors.behaviors?.message}>
+      <FormSection title="Conducta que te preocupa" required multiselect error={errors.behaviors?.message}>
         <Controller
           name="behaviors"
           control={control}
@@ -305,7 +321,6 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         />
       </FormSection>
 
-      {/* Con quién */}
       <FormSection title="El problema se ha producido con…">
         <Controller
           name="involvedWith"
@@ -320,66 +335,8 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         />
       </FormSection>
 
-      <OptionalDivider />
-
-      {/* Antecedentes */}
-      <FormSection title="Antecedentes">
-        <Controller
-          name="antecedents"
-          control={control}
-          render={({ field }) => (
-            <Textarea
-              {...field}
-              placeholder="¿Qué ocurre antes de que se desarrolle esta conducta?"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
-            />
-          )}
-        />
-      </FormSection>
-
-      {/* Consecuencias */}
-      <FormSection title="Consecuencias">
-        <Controller
-          name="consequences"
-          control={control}
-          render={({ field }) => (
-            <Textarea
-              {...field}
-              placeholder="¿Qué ocurre después?"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
-            />
-          )}
-        />
-      </FormSection>
-
-      {/* Acciones para reconducir */}
-      <FormSection title="Acciones para reconducir">
-        <Controller
-          name="redirectActions"
-          control={control}
-          render={({ field }) => (
-            <Textarea
-              {...field}
-              placeholder="¿Qué hiciste para reconducir la situación?"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
-            />
-          )}
-        />
-      </FormSection>
-
-      {/* Slider de efectividad */}
-      <FormSection title="¿Ha servido para reconducir?">
-        <Controller
-          name="effectivenessRating"
-          control={control}
-          render={({ field }) => (
-            <EffectivenessSlider value={field.value} onChange={field.onChange} />
-          )}
-        />
-      </FormSection>
-
-      {/* Motivos */}
-      <FormSection title="¿Por qué crees que ha hecho esto?">
+      {/* ¿Por qué? — opcional pero antes del divisor */}
+      <FormSection title="¿Por qué crees que ha hecho esto?" multiselect>
         <Controller
           name="reasons"
           control={control}
@@ -412,7 +369,62 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
         </AnimatePresence>
       </FormSection>
 
-      {/* Comentarios */}
+      <OptionalDivider />
+
+      {/* ── Análisis A-B-C completo (opcional) ────────────────────── */}
+
+      <FormSection title="Antecedentes">
+        <Controller
+          name="antecedents"
+          control={control}
+          render={({ field }) => (
+            <Textarea
+              {...field}
+              placeholder="¿Qué ocurre antes de que se desarrolle esta conducta?"
+              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+            />
+          )}
+        />
+      </FormSection>
+
+      <FormSection title="Consecuencias">
+        <Controller
+          name="consequences"
+          control={control}
+          render={({ field }) => (
+            <Textarea
+              {...field}
+              placeholder="¿Qué ocurre después?"
+              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+            />
+          )}
+        />
+      </FormSection>
+
+      <FormSection title="Acciones para reconducir">
+        <Controller
+          name="redirectActions"
+          control={control}
+          render={({ field }) => (
+            <Textarea
+              {...field}
+              placeholder="¿Qué hiciste para reconducir la situación?"
+              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+            />
+          )}
+        />
+      </FormSection>
+
+      <FormSection title="¿Ha servido para reconducir?">
+        <Controller
+          name="effectivenessRating"
+          control={control}
+          render={({ field }) => (
+            <EffectivenessSlider value={field.value} onChange={field.onChange} />
+          )}
+        />
+      </FormSection>
+
       <FormSection title="Otros comentarios">
         <Controller
           name="comments"
