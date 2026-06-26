@@ -72,14 +72,31 @@ exigente (≥3 letras, prefijo → fallback amplio) · arreglado el foco del inp
 hoisted) · `5º EP` fuera este curso · logo `logobur.jpg` mobile-first · acento azul de marca.
 Verificado visualmente en claro y oscuro.
 
+### Retoques 2 (feedback David, commit cc51042)
+
+- [x] Logo PNG transparente (con `<img>` plano, robusto) en portada y formulario
+- [x] Animaciones al confirmar (transiciones) + check "latente" en la pantalla final
+- [x] Resumen del pedido tipo recibo, más bonito
+- [x] Q&A en la confirmación según fecha (antes/después del 7 sep) + "¿algo más?"
+- [x] Textos del formulario original (no obligatorias, contacto tic@…)
+- [x] Optativas visualmente distintas (ámbar + badge) con aviso de tutorías/primera opción
+- [x] **Nueva portada pública** (sin exponer ABC): botones a licencias + admin; landing
+      interno guardado en `backups/landing-internal.tsx`
+- [x] Commit + push a `main` (deploy a tools.consolacionburriana.com)
+
 ## Fase 2 · Panel de gestión + export a Google Sheets
 
-- [ ] Login y layout del panel
-- [ ] Dashboard: % enviados, quién falta, totales por curso/editorial, ingresos
+- [x] Login simple (`licencias@consolacionburriana.com` / `Licencias2025`) — cookie + middleware
+- [x] Panel en `/gestion` (fuera del layout de `/admin` para no exponer las rutas del ABC)
+- [x] Dashboard: KPIs (alumnos, con pedido, % , faltan, ingresos, licencias) + desglose por curso
+- [ ] Listado de "quién falta" (alumnos sin pedido) descargable
 - [ ] Editor de packs/itinerarios por curso
 - [ ] Export a Google Sheet → hojas `ENVIAR` (SI/NO BdL + GRATIS) en formato FormMule
   - [ ] Credenciales: cuenta de servicio de Google con acceso a la hoja
 - [ ] (Después) XLS Educamos por curso · informe pagos consolidado · pagos por libro
+
+> Auth: credenciales en `src/lib/licencias-auth.ts` (override por env `LICENCIAS_ADMIN_*`).
+> Para producción en Vercel, definir `LICENCIAS_ADMIN_PASSWORD` y `LICENCIAS_ADMIN_TOKEN`.
 
 ## Fase 3 · Códigos de activación + seguimiento
 

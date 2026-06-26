@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { licBooks, licCampaigns, licOrderItems, licOrders, licStudents, type LicStudent } from '@/db/schema';
 import { type CatalogBook, maskApellidos, maskName, normalize, resolveBilingual } from '@/lib/licencias';
@@ -109,6 +109,54 @@ export async function getOrderForStudent(campaignId: string, studentId: string) 
     .from(licOrderItems)
     .where(eq(licOrderItems.orderId, order.id));
   return { order, cods: items.map((i) => i.cod) };
+}
+
+export interface DashboardStats {
+  totalStudents: number;
+  conPedido: number;
+  sinPedido: number;
+  totalLicencias: number;
+  ingresos: number;
+  porCurso: { curso: string; total: number; conPedido: number; sinPedido: number }[];
+}
+
+export async function getDashboardStats(campaignId: string): Promise<DashboardStats> {
+  const students = await db
+    .select({ id: licStudents.id, curso: licStudents.curso })
+    .from(licStudents)
+    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
+  const orders = await db
+    .select({ studentId: licOrders.studentId, total: licOrders.totalPrice })
+    .from(licOrders)
+    .where(eq(licOrders.campaignId, campaignId));
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(licOrderItems)
+    .innerJoin(licOrders, eq(licOrderItems.orderId, licOrders.id))
+    .where(eq(licOrders.campaignId, campaignId));
+
+  const withOrder = new Set(orders.map((o) => o.studentId));
+  const ingresos = orders.reduce((s, o) => s + parseFloat(o.total || '0'), 0);
+
+  const byCurso = new Map<string, { total: number; conPedido: number }>();
+  for (const s of students) {
+    const e = byCurso.get(s.curso) ?? { total: 0, conPedido: 0 };
+    e.total++;
+    if (withOrder.has(s.id)) e.conPedido++;
+    byCurso.set(s.curso, e);
+  }
+  const porCurso = [...byCurso.entries()]
+    .map(([curso, e]) => ({ curso, total: e.total, conPedido: e.conPedido, sinPedido: e.total - e.conPedido }))
+    .sort((a, b) => a.curso.localeCompare(b.curso));
+
+  return {
+    totalStudents: students.length,
+    conPedido: students.filter((s) => withOrder.has(s.id)).length,
+    sinPedido: students.filter((s) => !withOrder.has(s.id)).length,
+    totalLicencias: n ?? 0,
+    ingresos,
+    porCurso,
+  };
 }
 
 export interface UpsertResult {

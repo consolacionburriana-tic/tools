@@ -77,7 +77,7 @@ export default function HomePage() {
           className="mt-10"
         >
           <Link
-            href="/admin/licencias"
+            href="/gestion"
             className="inline-flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
           >
             <Lock className="h-3.5 w-3.5" />
