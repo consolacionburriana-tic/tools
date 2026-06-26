@@ -1,9 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { LogOut, Users } from 'lucide-react';
+import { LogOut, PiggyBank, Users } from 'lucide-react';
 import { getCurrentCampaign, getDashboardStats } from '@/lib/licencias-server';
-import { euros } from '@/lib/licencias';
 
 export const metadata = { title: 'Panel · Licencias' };
 
@@ -48,13 +47,17 @@ export default async function GestionPage() {
               <Kpi label="Alumnos" value={String(stats.totalStudents)} />
               <Kpi label="Con pedido" value={`${stats.conPedido} · ${pct}%`} />
               <Kpi label="Faltan" value={String(stats.sinPedido)} accent />
-              <Kpi label="Ingresos" value={euros(stats.ingresos)} />
+              <Kpi label="Licencias" value={String(stats.totalLicencias)} />
             </div>
 
-            <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <p className="text-xs text-zinc-500">Licencias solicitadas</p>
-              <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{stats.totalLicencias}</p>
-            </div>
+            <Link
+              href="/gestion/economia"
+              className="mt-3 flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              <PiggyBank className="h-4 w-4 text-emerald-600" />
+              Gestión económica
+              <span className="ml-auto text-zinc-400">→</span>
+            </Link>
 
             <section className="mt-6">
               <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">

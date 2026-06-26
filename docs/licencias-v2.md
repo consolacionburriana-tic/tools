@@ -89,11 +89,17 @@ Verificado visualmente en claro y oscuro.
 - [x] Login simple (`licencias@consolacionburriana.com` / `Licencias2025`) — cookie + middleware
 - [x] Panel en `/gestion` (fuera del layout de `/admin` para no exponer las rutas del ABC)
 - [x] Dashboard: KPIs (alumnos, con pedido, % , faltan, ingresos, licencias) + desglose por curso
+- [x] Indicadores en el formulario: banco de libros destacado, idioma de clase (Cast/Val) y badge "Valencià" en libros
+- [x] Desglose por curso con PDC separados (por curso efectivo del pedido)
+- [x] Subpanel de gestión económica (`/gestion/economia`) con los ingresos (fuera del dashboard)
+- [x] Login rediseñado con logo
 - [ ] Listado de "quién falta" (alumnos sin pedido) descargable
 - [ ] Editor de packs/itinerarios por curso
 - [ ] Export a Google Sheet → hojas `ENVIAR` (SI/NO BdL + GRATIS) en formato FormMule
   - [ ] Credenciales: cuenta de servicio de Google con acceso a la hoja
 - [ ] (Después) XLS Educamos por curso · informe pagos consolidado · pagos por libro
+- [ ] **Envío de correos desde el panel** (PENDIENTE, no hecho): recordatorio a quienes FALTAN
+      las licencias + aviso a quienes ya las TIENEN, con un editor visual sencillo y con buena pinta
 
 > Auth: credenciales en `src/lib/licencias-auth.ts` (override por env `LICENCIAS_ADMIN_*`).
 > Para producción en Vercel, definir `LICENCIAS_ADMIN_PASSWORD` y `LICENCIAS_ADMIN_TOKEN`.

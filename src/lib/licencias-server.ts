@@ -117,7 +117,7 @@ export interface DashboardStats {
   sinPedido: number;
   totalLicencias: number;
   ingresos: number;
-  porCurso: { curso: string; total: number; conPedido: number; sinPedido: number }[];
+  porCurso: { curso: string; total: number; conPedido: number; sinPedido: number; ingresos: number }[];
 }
 
 export async function getDashboardStats(campaignId: string): Promise<DashboardStats> {
@@ -126,7 +126,7 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
     .from(licStudents)
     .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
   const orders = await db
-    .select({ studentId: licOrders.studentId, total: licOrders.totalPrice })
+    .select({ studentId: licOrders.studentId, total: licOrders.totalPrice, curso: licOrders.curso })
     .from(licOrders)
     .where(eq(licOrders.campaignId, campaignId));
   const [{ n }] = await db
@@ -135,24 +135,30 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
     .innerJoin(licOrders, eq(licOrderItems.orderId, licOrders.id))
     .where(eq(licOrders.campaignId, campaignId));
 
-  const withOrder = new Set(orders.map((o) => o.studentId));
+  const orderByStudent = new Map(orders.map((o) => [o.studentId, o]));
   const ingresos = orders.reduce((s, o) => s + parseFloat(o.total || '0'), 0);
 
-  const byCurso = new Map<string, { total: number; conPedido: number }>();
+  // Agrupamos por curso "efectivo": el del pedido (que distingue PDC) o el base si no ha pedido
+  const groups = new Map<string, { total: number; conPedido: number; ingresos: number }>();
   for (const s of students) {
-    const e = byCurso.get(s.curso) ?? { total: 0, conPedido: 0 };
-    e.total++;
-    if (withOrder.has(s.id)) e.conPedido++;
-    byCurso.set(s.curso, e);
+    const ord = orderByStudent.get(s.id);
+    const eff = ord?.curso?.trim() ? ord.curso : s.curso;
+    const g = groups.get(eff) ?? { total: 0, conPedido: 0, ingresos: 0 };
+    g.total++;
+    if (ord) {
+      g.conPedido++;
+      g.ingresos += parseFloat(ord.total || '0');
+    }
+    groups.set(eff, g);
   }
-  const porCurso = [...byCurso.entries()]
-    .map(([curso, e]) => ({ curso, total: e.total, conPedido: e.conPedido, sinPedido: e.total - e.conPedido }))
+  const porCurso = [...groups.entries()]
+    .map(([curso, g]) => ({ curso, total: g.total, conPedido: g.conPedido, sinPedido: g.total - g.conPedido, ingresos: g.ingresos }))
     .sort((a, b) => a.curso.localeCompare(b.curso));
 
   return {
     totalStudents: students.length,
-    conPedido: students.filter((s) => withOrder.has(s.id)).length,
-    sinPedido: students.filter((s) => !withOrder.has(s.id)).length,
+    conPedido: students.filter((s) => orderByStudent.has(s.id)).length,
+    sinPedido: students.filter((s) => !orderByStudent.has(s.id)).length,
     totalLicencias: n ?? 0,
     ingresos,
     porCurso,

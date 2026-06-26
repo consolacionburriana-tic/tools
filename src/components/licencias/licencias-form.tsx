@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Check, ChevronLeft, Info, Loader2, TriangleAlert } from 'lucide-react';
+import { BookOpen, Check, ChevronLeft, Info, Languages, Loader2, TriangleAlert } from 'lucide-react';
 import {
   type Candidate,
   type CatalogBook,
@@ -29,6 +29,7 @@ interface SubmitResult {
 }
 
 const isOptativa = (b: CatalogBook) => /optativa/i.test(b.asignatura);
+const isValenciano = (lengua: string | null) => /valenc/i.test(lengua ?? '');
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -96,6 +97,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
 
   const [catalog, setCatalog] = useState<CatalogBook[]>([]);
   const [bancoLibros, setBancoLibros] = useState(false);
+  const [lenguaBase, setLenguaBase] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [email, setEmail] = useState('');
@@ -150,6 +152,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
       if (!catRes.ok) throw new Error(cat.error ?? 'Error');
       setCatalog(cat.books);
       setBancoLibros(cat.bancoLibros);
+      setLenguaBase(cat.lenguaBase ?? null);
       const ord = await ordRes.json();
       setSelected(new Set<string>(ord.order ? (ord.cods ?? []) : []));
       if (ord.order?.email) setEmail(ord.order.email);
@@ -319,7 +322,31 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
               <h2 className="mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                 Licencias para {student.maskedName} {student.apellidos}
               </h2>
-              <p className="mt-1 text-sm text-zinc-500">
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${
+                    bancoLibros
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100'
+                  }`}
+                >
+                  <BookOpen className="h-4 w-4" />
+                  {bancoLibros ? 'Banco de Libros' : 'Sin Banco de Libros'}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
+                    isValenciano(lenguaBase)
+                      ? 'bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300'
+                      : 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
+                  }`}
+                >
+                  <Languages className="h-4 w-4" />
+                  Clase en {isValenciano(lenguaBase) ? 'Valencià' : 'Castellano'}
+                </span>
+              </div>
+
+              <p className="mt-3 text-sm text-zinc-500">
                 {bancoLibros
                   ? 'Como estáis en el Banco de Libros, los libros del banco se gestionan aparte. Aquí solo eliges las licencias de pago.'
                   : 'Selecciona las licencias digitales que quieras solicitar.'}
@@ -364,6 +391,11 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
                           {opt && (
                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
                               Optativa
+                            </span>
+                          )}
+                          {isValenciano(b.lengua) && (
+                            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
+                              Valencià
                             </span>
                           )}
                         </span>

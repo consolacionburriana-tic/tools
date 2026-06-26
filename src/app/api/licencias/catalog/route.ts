@@ -13,7 +13,11 @@ export async function GET(request: Request) {
     if (!student) return NextResponse.json({ error: 'Alumno no encontrado' }, { status: 404 });
 
     const books = await getCatalog(student, curso);
-    return NextResponse.json({ books, bancoLibros: student.bancoLibros });
+    return NextResponse.json({
+      books,
+      bancoLibros: student.bancoLibros,
+      lenguaBase: student.lenguaBase,
+    });
   } catch (error) {
     console.error('Error en catalog:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
