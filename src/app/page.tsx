@@ -1,83 +1,89 @@
-import Link from 'next/link';
-import { ClipboardList, Lock, Settings } from 'lucide-react';
+'use client';
 
-const tools = [
-  {
-    href: '/registro-abc',
-    icon: ClipboardList,
-    title: 'Registro ABC',
-    description: 'Registro de conductas disruptivas · Análisis A-B-C',
-    protected: false,
-  },
-];
+import Link from 'next/link';
+import { motion } from 'motion/react';
+import { ArrowRight, Lock, SearchCheck } from 'lucide-react';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col">
-      {/* Banner de auth pendiente */}
-      <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-2.5 text-center">
-        <p className="text-sm text-amber-700 dark:text-amber-400">
-          <Lock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          Acceso con autenticación pendiente de implementar · Fase 2 (Clerk)
-        </p>
-      </div>
+    <div className="relative min-h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+      {/* Fondo animado sutil */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-blue-400/20 blur-3xl dark:bg-blue-500/10"
+        animate={{ x: [0, 40, 0], y: [0, 30, 0], scale: [1, 1.15, 1] }}
+        transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-teal-400/20 blur-3xl dark:bg-teal-500/10"
+        animate={{ x: [0, -40, 0], y: [0, -20, 0], scale: [1, 1.2, 1] }}
+        transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
-      <main className="flex-1 container max-w-2xl mx-auto px-4 py-12 space-y-10">
-        <header className="space-y-1.5">
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            Tools Consolación
-          </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm">
-            Herramientas internas · Colegio Consolación Burriana
-          </p>
-        </header>
-
-        <section className="space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
-            Herramientas disponibles
-          </h2>
-          <div className="grid gap-3">
-            {tools.map((tool) => (
-              <Link
-                key={tool.href}
-                href={tool.href}
-                className="group flex items-start gap-4 p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-teal-300 dark:hover:border-teal-700 transition-colors duration-150"
-              >
-                <div className="mt-0.5 p-2.5 rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 shrink-0">
-                  <tool.icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
-                      {tool.title}
-                    </span>
-                    <span className={[
-                      'text-[10px] font-medium px-2 py-0.5 rounded-full',
-                      tool.protected
-                        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
-                        : 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400',
-                    ].join(' ')}>
-                      {tool.protected ? '🔒 Restringido' : 'Acceso libre'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
-                    {tool.description}
-                  </p>
-                </div>
-              </Link>
-            ))}
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="flex flex-col items-center text-center"
+        >
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200/70">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logobur.png"
+              alt="Colegio Consolación · Burriana"
+              width={260}
+              height={130}
+              className="h-auto w-[220px] sm:w-[260px]"
+            />
           </div>
-        </section>
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            Licencias digitales
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500">Curso 2026/2027 · Colegio Consolación Burriana</p>
+        </motion.div>
 
-        <footer className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.12, ease: 'easeOut' }}
+          className="mt-8 w-full space-y-3"
+        >
           <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+            href="/licencias"
+            className="group flex w-full items-center justify-between gap-3 rounded-2xl bg-blue-600 px-5 py-4 font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
           >
-            <Settings className="w-4 h-4" />
-            Panel de administración
+            <span>Solicitar licencias digitales</span>
+            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
           </Link>
-        </footer>
+
+          <Link
+            href="/licencias"
+            className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-5 py-4 font-semibold text-zinc-800 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <span className="flex items-center gap-2">
+              <SearchCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              ¿He hecho mi pedido de licencias?
+            </span>
+            <ArrowRight className="h-5 w-5 text-zinc-400 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-10"
+        >
+          <Link
+            href="/admin/licencias"
+            className="inline-flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            Administrador
+          </Link>
+        </motion.div>
       </main>
     </div>
   );

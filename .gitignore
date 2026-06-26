@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# datos de alumnos (PII) — se generan desde el Excel y viven en Neon
+/src/db/data/
+
+# logos fuente sueltos en la raíz (el que usa la app está en public/)
+/logobur*.jpg
+/logobur*.png
