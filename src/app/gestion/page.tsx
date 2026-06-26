@@ -74,16 +74,21 @@ export default async function GestionPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {stats.porCurso.map((c) => (
-                      <tr key={c.curso} className="bg-white dark:bg-zinc-900">
-                        <td className="px-4 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">{c.curso}</td>
-                        <td className="px-4 py-2.5 text-right text-zinc-600 dark:text-zinc-300">{c.total}</td>
-                        <td className="px-4 py-2.5 text-right text-zinc-600 dark:text-zinc-300">{c.conPedido}</td>
-                        <td className={`px-4 py-2.5 text-right font-medium ${c.sinPedido > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400'}`}>
-                          {c.sinPedido}
-                        </td>
-                      </tr>
-                    ))}
+                    {stats.porCurso.map((c) => {
+                      const pdc = c.curso.endsWith('PDC');
+                      return (
+                        <tr key={c.curso} className={pdc ? 'bg-zinc-50/60 dark:bg-zinc-800/30' : 'bg-white dark:bg-zinc-900'}>
+                          <td className={`py-2.5 ${pdc ? 'pl-9 text-zinc-500 dark:text-zinc-400' : 'px-4 font-medium text-zinc-900 dark:text-zinc-100'}`}>
+                            {pdc ? `↳ ${c.curso}` : c.curso}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-zinc-600 dark:text-zinc-300">{c.total}</td>
+                          <td className="px-4 py-2.5 text-right text-zinc-600 dark:text-zinc-300">{c.conPedido}</td>
+                          <td className={`px-4 py-2.5 text-right font-medium ${c.sinPedido > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400'}`}>
+                            {c.sinPedido}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

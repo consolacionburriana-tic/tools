@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { licBooks, licCampaigns, licOrderItems, licOrders, licStudents, type LicStudent } from '@/db/schema';
-import { type CatalogBook, maskApellidos, maskName, normalize, resolveBilingual } from '@/lib/licencias';
+import { type CatalogBook, CURSOS_FORM, maskApellidos, maskName, normalize, resolveBilingual } from '@/lib/licencias';
 
 export async function getCurrentCampaign() {
   const [campaign] = await db
@@ -138,8 +138,10 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
   const orderByStudent = new Map(orders.map((o) => [o.studentId, o]));
   const ingresos = orders.reduce((s, o) => s + parseFloat(o.total || '0'), 0);
 
-  // Agrupamos por curso "efectivo": el del pedido (que distingue PDC) o el base si no ha pedido
+  // Agrupamos por curso "efectivo": el del pedido (que distingue PDC) o el base si no ha pedido.
+  // Sembramos todos los cursos del formulario (incl. 3PDC/4PDC) para que siempre salgan como fila.
   const groups = new Map<string, { total: number; conPedido: number; ingresos: number }>();
+  for (const c of CURSOS_FORM) groups.set(c.value, { total: 0, conPedido: 0, ingresos: 0 });
   for (const s of students) {
     const ord = orderByStudent.get(s.id);
     const eff = ord?.curso?.trim() ? ord.curso : s.curso;
