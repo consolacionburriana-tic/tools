@@ -178,6 +178,44 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
   };
 }
 
+export interface MissingStudent {
+  apellidos: string;
+  nombre: string;
+  curso: string;
+  letra: string | null;
+  email: string | null;
+}
+
+export async function getMissingStudents(campaignId: string): Promise<MissingStudent[]> {
+  const students = await db
+    .select({
+      id: licStudents.id,
+      apellidos: licStudents.apellidos,
+      nombre: licStudents.nombre,
+      curso: licStudents.curso,
+      letra: licStudents.letra,
+      email: licStudents.email,
+    })
+    .from(licStudents)
+    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
+  const orders = await db
+    .select({ studentId: licOrders.studentId })
+    .from(licOrders)
+    .where(eq(licOrders.campaignId, campaignId));
+  const withOrder = new Set(orders.map((o) => o.studentId));
+
+  return students
+    .filter((s) => !withOrder.has(s.id))
+    .map((s) => ({
+      apellidos: s.apellidos,
+      nombre: s.nombre,
+      curso: isPdcLetra(s.letra) ? toPdcCurso(s.curso) : s.curso,
+      letra: s.letra,
+      email: s.email,
+    }))
+    .sort((a, b) => a.curso.localeCompare(b.curso) || a.apellidos.localeCompare(b.apellidos, 'es'));
+}
+
 export interface UpsertResult {
   orderId: string;
   editToken: string;

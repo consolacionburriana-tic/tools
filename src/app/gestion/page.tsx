@@ -50,14 +50,24 @@ export default async function GestionPage() {
               <Kpi label="Licencias" value={String(stats.totalLicencias)} />
             </div>
 
-            <Link
-              href="/gestion/economia"
-              className="mt-3 flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              <PiggyBank className="h-4 w-4 text-emerald-600" />
-              Gestión económica
-              <span className="ml-auto text-zinc-400">→</span>
-            </Link>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Link
+                href="/gestion/faltan"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <Users className="h-4 w-4 text-blue-600" />
+                Quién falta (listado y CSV)
+                <span className="ml-auto text-zinc-400">→</span>
+              </Link>
+              <Link
+                href="/gestion/economia"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <PiggyBank className="h-4 w-4 text-emerald-600" />
+                Gestión económica
+                <span className="ml-auto text-zinc-400">→</span>
+              </Link>
+            </div>
 
             <section className="mt-6">
               <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
