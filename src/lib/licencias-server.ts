@@ -22,6 +22,10 @@ export async function getCurrentCampaign() {
   return campaign ?? null;
 }
 
+export async function setCampaignStatus(campaignId: string, status: string) {
+  await db.update(licCampaigns).set({ status }).where(eq(licCampaigns.id, campaignId));
+}
+
 // Mapa { baseCurso: [añosNacimiento] } para los botones del formulario
 export async function getBirthYearsByCurso(campaignId: string): Promise<Record<string, number[]>> {
   const rows = await db

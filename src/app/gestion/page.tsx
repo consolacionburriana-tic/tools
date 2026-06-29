@@ -30,11 +30,32 @@ export default async function GestionPage() {
             <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Panel de licencias</h1>
             <p className="text-xs text-zinc-500">{campaign?.name ?? 'Sin campaña'}</p>
           </div>
-          <form action="/api/licencias/admin/logout" method="post">
-            <button className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer">
-              <LogOut className="h-4 w-4" /> Salir
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            {campaign && (
+              <>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    campaign.status === 'open'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                      : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200'
+                  }`}
+                >
+                  {campaign.status === 'open' ? 'Abierta' : campaign.status === 'closed' ? 'Cerrada' : 'Borrador'}
+                </span>
+                <form action="/api/licencias/admin/campaign" method="post">
+                  <input type="hidden" name="status" value={campaign.status === 'open' ? 'closed' : 'open'} />
+                  <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer">
+                    {campaign.status === 'open' ? 'Cerrar' : 'Abrir'}
+                  </button>
+                </form>
+              </>
+            )}
+            <form action="/api/licencias/admin/logout" method="post">
+              <button className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer">
+                <LogOut className="h-4 w-4" /> Salir
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 
@@ -129,7 +150,8 @@ export default async function GestionPage() {
             </section>
 
             <p className="mt-6 text-xs text-zinc-400">
-              Próximamente: editor de packs/itinerarios, listado de quién falta y exportación a Google Sheets (hojas ENVIAR).{' '}
+              Pendiente (requiere credenciales externas): escritura directa en el Google Sheet (cuenta de
+              servicio de Google) y sincronización con la API de Educamos.{' '}
               <Link href="/" className="underline">Inicio</Link>
             </p>
           </>
