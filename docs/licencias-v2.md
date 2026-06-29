@@ -116,19 +116,14 @@ Verificado visualmente en claro y oscuro.
 
 ---
 
-## Para la próxima sesión (IMPORTANTE)
+### Retoques 4 (PDC por letra + 5PRI)
 
-- **PDC está en el dato del alumno**: la columna `letra` (BBDD Alumnos) puede valer `"PDC"`.
-  No es solo una elección del formulario. Ahora mismo hay **12 alumnos con `letra='PDC'`**
-  (todos `curso=4ESO` → son **4PDC** del curso 2026/27). El 3PDC del año que viene aún no
-  está marcado (los alumnos vienen de 2ESO regular y se les asigna PDC al entrar).
-  - TODO: usar `letra='PDC'` para asignar el **curso efectivo PDC** en el dashboard
-    (`getDashboardStats`) en lugar de depender solo del curso del pedido. Un 4ESO con
-    `letra='PDC'` debe contar como 4PDC por defecto.
-  - Revisar también identificación/catálogo: un alumno PDC debería ver el catálogo PDC
-    sin tener que acordarse de pulsar el botón "4º ESO PDC".
-- **5PRI (50 alumnos)**: 5º EP no entra este año (fuera del formulario), pero siguen
-  contando como "faltan". Decidir si marcarlos inactivos para esta campaña.
+- [x] **PDC desde `letra='PDC'`**: helper `cursoEfectivo(base, letra, seleccionado)` en `licencias.ts`.
+      Catálogo y pedido fuerzan el curso PDC si el alumno es PDC (aunque pulse otro botón);
+      el dashboard agrupa a los PDC por su letra. Verificado: 4ESO 49 + 4PDC 12.
+      Indicador "Programa PDC" en el formulario. (3PDC=0: los futuros 3PDC aún no están marcados.)
+- [x] **5PRI desactivado** (5º EP no entra este curso): `active=false` para los 50 alumnos de 5PRI.
+      Total alumnos: 323 → **273**.
 
 ## Inputs pendientes de David
 

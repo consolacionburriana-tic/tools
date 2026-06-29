@@ -98,6 +98,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
   const [catalog, setCatalog] = useState<CatalogBook[]>([]);
   const [bancoLibros, setBancoLibros] = useState(false);
   const [lenguaBase, setLenguaBase] = useState<string | null>(null);
+  const [effCurso, setEffCurso] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [email, setEmail] = useState('');
@@ -153,6 +154,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
       setCatalog(cat.books);
       setBancoLibros(cat.bancoLibros);
       setLenguaBase(cat.lenguaBase ?? null);
+      setEffCurso(cat.curso ?? curso);
       const ord = await ordRes.json();
       setSelected(new Set<string>(ord.order ? (ord.cods ?? []) : []));
       if (ord.order?.email) setEmail(ord.order.email);
@@ -184,7 +186,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
       const res = await fetch('/api/licencias/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: student!.id, curso, email, cods: [...selected] }),
+        body: JSON.stringify({ studentId: student!.id, curso: effCurso || curso, email, cods: [...selected] }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error');
@@ -344,6 +346,11 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
                   <Languages className="h-4 w-4" />
                   Clase en {isValenciano(lenguaBase) ? 'Valencià' : 'Castellano'}
                 </span>
+                {effCurso.endsWith('PDC') && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-sm font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
+                    Programa PDC
+                  </span>
+                )}
               </div>
 
               <p className="mt-3 text-sm text-zinc-500">
@@ -456,7 +463,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
 
               <div className="mt-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-4">
                 <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                  {student.maskedName} {student.apellidos} · {cursoLabel(curso)}
+                  {student.maskedName} {student.apellidos} · {cursoLabel(effCurso || curso)}
                 </p>
                 <ul className="mt-2 space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
                   {selectedBooks.map((b) => (
@@ -536,7 +543,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
                   <p className="font-medium text-zinc-900 dark:text-zinc-100">
                     {student.maskedName} {student.apellidos}
                   </p>
-                  <p className="text-xs text-zinc-400">{cursoLabel(curso)} · {result.itemCount} licencia(s)</p>
+                  <p className="text-xs text-zinc-400">{cursoLabel(effCurso || curso)} · {result.itemCount} licencia(s)</p>
                 </div>
                 <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                   {selectedBooks.map((b) => (

@@ -1,7 +1,17 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { licBooks, licCampaigns, licOrderItems, licOrders, licStudents, type LicStudent } from '@/db/schema';
-import { type CatalogBook, CURSOS_FORM, maskApellidos, maskName, normalize, resolveBilingual } from '@/lib/licencias';
+import {
+  type CatalogBook,
+  CURSOS_FORM,
+  cursoEfectivo,
+  isPdcLetra,
+  maskApellidos,
+  maskName,
+  normalize,
+  resolveBilingual,
+  toPdcCurso,
+} from '@/lib/licencias';
 
 export async function getCurrentCampaign() {
   const [campaign] = await db
@@ -122,7 +132,7 @@ export interface DashboardStats {
 
 export async function getDashboardStats(campaignId: string): Promise<DashboardStats> {
   const students = await db
-    .select({ id: licStudents.id, curso: licStudents.curso })
+    .select({ id: licStudents.id, curso: licStudents.curso, letra: licStudents.letra })
     .from(licStudents)
     .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
   const orders = await db
@@ -144,7 +154,8 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
   for (const c of CURSOS_FORM) groups.set(c.value, { total: 0, conPedido: 0, ingresos: 0 });
   for (const s of students) {
     const ord = orderByStudent.get(s.id);
-    const eff = ord?.curso?.trim() ? ord.curso : s.curso;
+    // PDC (letra) manda; si no, el curso del pedido; si no, el base
+    const eff = isPdcLetra(s.letra) ? toPdcCurso(s.curso) : ord?.curso?.trim() ? ord.curso : s.curso;
     const g = groups.get(eff) ?? { total: 0, conPedido: 0, ingresos: 0 };
     g.total++;
     if (ord) {
@@ -180,8 +191,10 @@ export async function upsertOrder(
   email: string,
   cods: string[],
 ): Promise<UpsertResult> {
+  // Si el alumno es PDC, su curso efectivo manda sobre lo seleccionado
+  const cursoFinal = cursoEfectivo(student.curso, student.letra, curso);
   // Validar códigos contra el catálogo real del alumno (precio de confianza desde la BD)
-  const catalog = await getCatalog(student, curso);
+  const catalog = await getCatalog(student, cursoFinal);
   const byCod = new Map(catalog.map((b) => [b.cod, b]));
   const valid = cods.filter((c) => byCod.has(c));
   const total = valid.reduce((sum, c) => sum + parseFloat(byCod.get(c)!.precio || '0'), 0);
@@ -197,7 +210,7 @@ export async function upsertOrder(
     editToken = existing.order.editToken;
     await db
       .update(licOrders)
-      .set({ email, curso, totalPrice: totalStr, bancoLibros: student.bancoLibros, updatedAt: new Date(), confirmedAt: new Date() })
+      .set({ email, curso: cursoFinal, totalPrice: totalStr, bancoLibros: student.bancoLibros, updatedAt: new Date(), confirmedAt: new Date() })
       .where(eq(licOrders.id, orderId));
     await db.delete(licOrderItems).where(eq(licOrderItems.orderId, orderId));
   } else {
@@ -207,7 +220,7 @@ export async function upsertOrder(
       .values({
         campaignId: student.campaignId,
         studentId: student.id,
-        curso,
+        curso: cursoFinal,
         email,
         bancoLibros: student.bancoLibros,
         status: 'confirmado',

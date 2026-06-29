@@ -22,6 +22,23 @@ export function cursoLabel(curso: string): string {
   return CURSOS_FORM.find((c) => c.value === curso)?.label ?? curso;
 }
 
+// PDC: en la BBDD el alumno PDC tiene letra = "PDC". Solo 3ESO/4ESO tienen PDC.
+export function isPdcLetra(letra: string | null | undefined): boolean {
+  return /pdc/i.test(letra ?? '');
+}
+
+export function toPdcCurso(curso: string): string {
+  if (curso === '3ESO') return '3PDC';
+  if (curso === '4ESO') return '4PDC';
+  return curso;
+}
+
+// Curso "efectivo" para catálogo/pedido: si el alumno es PDC, su variante PDC
+export function cursoEfectivo(baseCurso: string, letra: string | null | undefined, seleccionado?: string): string {
+  if (isPdcLetra(letra)) return toPdcCurso(baseCurso);
+  return seleccionado ?? baseCurso;
+}
+
 // Nombre enmascarado: "María" -> "Mar." (no revela el nombre completo)
 export function maskName(nombre: string): string {
   const first = (nombre ?? '').trim().split(/\s+/)[0] ?? '';

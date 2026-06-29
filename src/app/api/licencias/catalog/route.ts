@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cursoEfectivo } from '@/lib/licencias';
 import { getCatalog, getStudentById } from '@/lib/licencias-server';
 
 export async function GET(request: Request) {
@@ -12,11 +13,15 @@ export async function GET(request: Request) {
     const student = await getStudentById(studentId);
     if (!student) return NextResponse.json({ error: 'Alumno no encontrado' }, { status: 404 });
 
-    const books = await getCatalog(student, curso);
+    // Si el alumno es PDC (letra='PDC'), forzamos su catálogo PDC aunque haya pulsado otro botón
+    const cursoFinal = cursoEfectivo(student.curso, student.letra, curso);
+    const books = await getCatalog(student, cursoFinal);
     return NextResponse.json({
       books,
       bancoLibros: student.bancoLibros,
       lenguaBase: student.lenguaBase,
+      curso: cursoFinal,
+      esPdc: cursoFinal.endsWith('PDC'),
     });
   } catch (error) {
     console.error('Error en catalog:', error);
