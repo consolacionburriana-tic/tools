@@ -9,6 +9,23 @@ Migración del Google Apps Script de gestión de licencias (repo `licenciasv1`) 
 
 ---
 
+## Estado: funcionalmente completa ✅
+
+Todo lo definido está construido, verificado y desplegado en `main`:
+
+- **Formulario público** (`/licencias`): identificación, catálogo dinámico (BdL/idioma/PDC),
+  packs, indicadores, pedido anti-duplicado, animaciones, emails de confirmación.
+- **Portada** (`/`): landing con accesos a licencias y administración (sin exponer ABC).
+- **Panel** (`/gestion`, login simple): dashboard "quién falta" por curso (PDC separado),
+  abrir/cerrar campaña, listado descargable, exportaciones CSV (ENVIAR/GRATIS/pagos/Educamos/
+  por libro), gestión económica, editor de packs y envío de correos masivos.
+
+Pendiente **solo por credenciales/accesos externos** (no por código):
+- Escritura directa en el Google Sheet → necesita cuenta de servicio de Google (hoy: descarga CSV).
+- Sincronización con la **API de Educamos** → necesita acceso (hoy: import desde Excel).
+- Gestión de códigos de activación dentro de la app → diferida a propósito (hoy: FormMule sobre
+  las plantillas ENVIAR exportadas).
+
 ## Decisiones cerradas
 
 - **Neon = fuente de verdad.** El Excel/Google Sheet pasa a ser solo destino de exportación.
