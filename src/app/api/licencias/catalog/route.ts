@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cursoEfectivo } from '@/lib/licencias';
-import { getCatalog, getStudentById } from '@/lib/licencias-server';
+import { getCatalog, getPacks, getStudentById } from '@/lib/licencias-server';
 
 export async function GET(request: Request) {
   try {
@@ -15,13 +15,17 @@ export async function GET(request: Request) {
 
     // Si el alumno es PDC (letra='PDC'), forzamos su catálogo PDC aunque haya pulsado otro botón
     const cursoFinal = cursoEfectivo(student.curso, student.letra, curso);
-    const books = await getCatalog(student, cursoFinal);
+    const [books, packs] = await Promise.all([
+      getCatalog(student, cursoFinal),
+      getPacks(student.campaignId, cursoFinal),
+    ]);
     return NextResponse.json({
       books,
       bancoLibros: student.bancoLibros,
       lenguaBase: student.lenguaBase,
       curso: cursoFinal,
       esPdc: cursoFinal.endsWith('PDC'),
+      packs: packs.map((p) => ({ name: p.name, selectionMode: p.selectionMode, bookCods: p.bookCods })),
     });
   } catch (error) {
     console.error('Error en catalog:', error);

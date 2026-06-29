@@ -94,6 +94,11 @@ export function resolveBilingual<T extends { cod: string }>(books: T[], lengua: 
   return out;
 }
 
+// Código base sin sufijo de idioma (-CAS/-VAL), para casar packs con libros resueltos
+export function baseCod(cod: string): string {
+  return cod.replace(/-(CAS|VAL)$/, '');
+}
+
 export function euros(n: number): string {
   return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 }

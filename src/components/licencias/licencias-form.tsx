@@ -7,11 +7,18 @@ import {
   type Candidate,
   type CatalogBook,
   CURSOS_FORM,
+  baseCod,
   cursoBase,
   cursoLabel,
   euros,
   normalize,
 } from '@/lib/licencias';
+
+interface Pack {
+  name: string;
+  selectionMode: string;
+  bookCods: string[];
+}
 
 type Step = 'identify' | 'licenses' | 'review' | 'done';
 
@@ -75,6 +82,57 @@ function Choice({
   );
 }
 
+function BookCard({ book, on, onToggle }: { book: CatalogBook; on: boolean; onToggle: () => void }) {
+  const opt = isOptativa(book);
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors cursor-pointer ${
+        on
+          ? opt
+            ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10'
+            : 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
+          : opt
+            ? 'border-amber-300/70 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10'
+            : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+      }`}
+    >
+      <span
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+          on
+            ? opt
+              ? 'border-amber-600 bg-amber-600 text-white'
+              : 'border-blue-600 bg-blue-600 text-white'
+            : 'border-zinc-300 dark:border-zinc-600'
+        }`}
+      >
+        {on && <Check className="h-3.5 w-3.5" />}
+      </span>
+      <span className="flex-1">
+        <span className="flex items-center gap-2">
+          <span className="font-medium text-zinc-900 dark:text-zinc-100">{book.asignatura}</span>
+          {opt && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+              Optativa
+            </span>
+          )}
+          {isValenciano(book.lengua) && (
+            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
+              Valencià
+            </span>
+          )}
+        </span>
+        <span className="block text-xs text-zinc-400">
+          {book.editorial}
+          {book.nombreLibro ? ` · ${book.nombreLibro}` : ''}
+        </span>
+      </span>
+      <span className="font-semibold text-zinc-700 dark:text-zinc-200">{euros(parseFloat(book.precio || '0'))}</span>
+    </button>
+  );
+}
+
 const stepAnim = {
   initial: { opacity: 0, y: 10 },
   animate: { opacity: 1, y: 0 },
@@ -99,6 +157,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
   const [bancoLibros, setBancoLibros] = useState(false);
   const [lenguaBase, setLenguaBase] = useState<string | null>(null);
   const [effCurso, setEffCurso] = useState('');
+  const [packs, setPacks] = useState<Pack[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [email, setEmail] = useState('');
@@ -111,6 +170,24 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
     [selectedBooks],
   );
   const anyOptativaSelected = selectedBooks.some(isOptativa);
+
+  const grupos = useMemo(() => {
+    if (!packs.length) return [{ name: null as string | null, hint: null as string | null, books: catalog }];
+    const hintFor = (m: string) =>
+      m === 'one' ? 'Elige una' : m === 'one_or_none' ? 'Elige una o ninguna' : m === 'todos' ? 'Recomendadas todas' : null;
+    const used = new Set<string>();
+    const gs = packs
+      .map((p) => {
+        const bases = new Set(p.bookCods.map(baseCod));
+        const books = catalog.filter((b) => bases.has(baseCod(b.cod)));
+        books.forEach((b) => used.add(b.cod));
+        return { name: p.name as string | null, hint: hintFor(p.selectionMode), books };
+      })
+      .filter((g) => g.books.length > 0);
+    const resto = catalog.filter((b) => !used.has(b.cod));
+    if (resto.length) gs.push({ name: 'Otras licencias' as string | null, hint: null, books: resto });
+    return gs;
+  }, [packs, catalog]);
   const deadlineLabel = deadline
     ? new Date(deadline + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
     : null;
@@ -155,6 +232,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
       setBancoLibros(cat.bancoLibros);
       setLenguaBase(cat.lenguaBase ?? null);
       setEffCurso(cat.curso ?? curso);
+      setPacks(cat.packs ?? []);
       const ord = await ordRes.json();
       setSelected(new Set<string>(ord.order ? (ord.cods ?? []) : []));
       if (ord.order?.email) setEmail(ord.order.email);
@@ -359,64 +437,23 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
                   : 'Selecciona las licencias digitales que quieras solicitar.'}
               </p>
 
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 space-y-4">
                 {catalog.length === 0 && (
                   <p className="text-sm text-zinc-500">No hay licencias disponibles para este curso.</p>
                 )}
-                {catalog.map((b) => {
-                  const on = selected.has(b.cod);
-                  const opt = isOptativa(b);
-                  return (
-                    <button
-                      key={b.cod}
-                      type="button"
-                      onClick={() => toggle(b.cod)}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors cursor-pointer ${
-                        on
-                          ? opt
-                            ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10'
-                            : 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
-                          : opt
-                            ? 'border-amber-300/70 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10'
-                            : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                      }`}
-                    >
-                      <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                          on
-                            ? opt
-                              ? 'border-amber-600 bg-amber-600 text-white'
-                              : 'border-blue-600 bg-blue-600 text-white'
-                            : 'border-zinc-300 dark:border-zinc-600'
-                        }`}
-                      >
-                        {on && <Check className="h-3.5 w-3.5" />}
-                      </span>
-                      <span className="flex-1">
-                        <span className="flex items-center gap-2">
-                          <span className="font-medium text-zinc-900 dark:text-zinc-100">{b.asignatura}</span>
-                          {opt && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                              Optativa
-                            </span>
-                          )}
-                          {isValenciano(b.lengua) && (
-                            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
-                              Valencià
-                            </span>
-                          )}
-                        </span>
-                        <span className="block text-xs text-zinc-400">
-                          {b.editorial}
-                          {b.nombreLibro ? ` · ${b.nombreLibro}` : ''}
-                        </span>
-                      </span>
-                      <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                        {euros(parseFloat(b.precio || '0'))}
-                      </span>
-                    </button>
-                  );
-                })}
+                {grupos.map((g, gi) => (
+                  <div key={gi} className="space-y-2">
+                    {g.name && (
+                      <div className="flex items-center justify-between px-1 pt-1">
+                        <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{g.name}</p>
+                        {g.hint && <span className="text-xs text-zinc-400">{g.hint}</span>}
+                      </div>
+                    )}
+                    {g.books.map((b) => (
+                      <BookCard key={b.cod} book={b} on={selected.has(b.cod)} onToggle={() => toggle(b.cod)} />
+                    ))}
+                  </div>
+                ))}
               </div>
 
               <AnimatePresence>

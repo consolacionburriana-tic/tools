@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { licBooks, licCampaigns, licOrderItems, licOrders, licStudents, type LicStudent } from '@/db/schema';
+import { licBooks, licCampaigns, licOrderItems, licOrders, licPacks, licStudents, type LicPack, type LicStudent } from '@/db/schema';
 import {
   type CatalogBook,
   CURSOS_FORM,
@@ -176,6 +176,55 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
     ingresos,
     porCurso,
   };
+}
+
+// ── Packs / itinerarios ───────────────────────────────────────────────────────
+export interface CursoBook {
+  cod: string;
+  asignatura: string;
+  lengua: string | null;
+  bancoLibros: boolean;
+  precio: string | null;
+}
+
+export async function getBooksByCurso(campaignId: string, curso: string): Promise<CursoBook[]> {
+  const rows = await db
+    .select()
+    .from(licBooks)
+    .where(and(eq(licBooks.campaignId, campaignId), eq(licBooks.curso, curso), eq(licBooks.active, true)));
+  return rows
+    .map((b) => ({ cod: b.cod, asignatura: b.asignatura ?? '', lengua: b.lengua, bancoLibros: b.bancoLibros, precio: b.precio }))
+    .sort((a, b) => a.asignatura.localeCompare(b.asignatura, 'es'));
+}
+
+export async function getPacks(campaignId: string, curso: string): Promise<LicPack[]> {
+  return db
+    .select()
+    .from(licPacks)
+    .where(and(eq(licPacks.campaignId, campaignId), eq(licPacks.curso, curso)))
+    .orderBy(licPacks.sortOrder);
+}
+
+export interface PackInput {
+  name: string;
+  selectionMode: string;
+  bookCods: string[];
+}
+
+export async function savePacks(campaignId: string, curso: string, packs: PackInput[]) {
+  await db.delete(licPacks).where(and(eq(licPacks.campaignId, campaignId), eq(licPacks.curso, curso)));
+  if (packs.length > 0) {
+    await db.insert(licPacks).values(
+      packs.map((p, i) => ({
+        campaignId,
+        curso,
+        name: p.name,
+        selectionMode: p.selectionMode,
+        bookCods: p.bookCods,
+        sortOrder: i,
+      })),
+    );
+  }
 }
 
 export interface MissingStudent {

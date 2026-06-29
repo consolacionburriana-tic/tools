@@ -94,7 +94,9 @@ Verificado visualmente en claro y oscuro.
 - [x] Subpanel de gestión económica (`/gestion/economia`) con los ingresos (fuera del dashboard)
 - [x] Login rediseñado con logo
 - [x] Listado de "quién falta" (alumnos sin pedido) — `/gestion/faltan`, filtro por curso + CSV
-- [ ] Editor de packs/itinerarios por curso
+- [x] Editor de packs/itinerarios por curso — `/gestion/packs`: crea packs (nombre, modo
+      `todos`/`elige uno`/`elige uno o ninguno`/`libre`, libros). El formulario agrupa el
+      catálogo por pack con su pista (display, no bloqueante). Casado por código base (CAS/VAL).
 - [x] Exportaciones CSV — `/gestion/exportar`: ENVIAR SI/NO (FormMule) + GRATIS BdL,
       pagos consolidado, Educamos (ID+importe), pagos por libro. Descargas protegidas por cookie.
   - [ ] Escritura directa en el Google Sheet (pendiente: cuenta de servicio de Google)
