@@ -93,11 +93,11 @@ Verificado visualmente en claro y oscuro.
 - [x] Desglose por curso con PDC separados (por curso efectivo del pedido)
 - [x] Subpanel de gestión económica (`/gestion/economia`) con los ingresos (fuera del dashboard)
 - [x] Login rediseñado con logo
-- [ ] Listado de "quién falta" (alumnos sin pedido) descargable
+- [x] Listado de "quién falta" (alumnos sin pedido) — `/gestion/faltan`, filtro por curso + CSV
 - [ ] Editor de packs/itinerarios por curso
-- [ ] Export a Google Sheet → hojas `ENVIAR` (SI/NO BdL + GRATIS) en formato FormMule
-  - [ ] Credenciales: cuenta de servicio de Google con acceso a la hoja
-- [ ] (Después) XLS Educamos por curso · informe pagos consolidado · pagos por libro
+- [x] Exportaciones CSV — `/gestion/exportar`: ENVIAR SI/NO (FormMule) + GRATIS BdL,
+      pagos consolidado, Educamos (ID+importe), pagos por libro. Descargas protegidas por cookie.
+  - [ ] Escritura directa en el Google Sheet (pendiente: cuenta de servicio de Google)
 - [ ] **Envío de correos desde el panel** (PENDIENTE, no hecho): recordatorio a quienes FALTAN
       las licencias + aviso a quienes ya las TIENEN, con un editor visual sencillo y con buena pinta
 
