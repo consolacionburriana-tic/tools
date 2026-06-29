@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { Download, Layers, LogOut, PiggyBank, Users } from 'lucide-react';
+import { Download, Layers, LogOut, Mail, PiggyBank, Users } from 'lucide-react';
 import { getCurrentCampaign, getDashboardStats } from '@/lib/licencias-server';
 
 export const metadata = { title: 'Panel · Licencias' };
@@ -81,6 +81,14 @@ export default async function GestionPage() {
               >
                 <PiggyBank className="h-4 w-4 text-emerald-600" />
                 Económica
+                <span className="ml-auto text-zinc-400">→</span>
+              </Link>
+              <Link
+                href="/gestion/correos"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <Mail className="h-4 w-4 text-blue-600" />
+                Correos
                 <span className="ml-auto text-zinc-400">→</span>
               </Link>
             </div>

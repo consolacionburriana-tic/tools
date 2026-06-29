@@ -100,8 +100,9 @@ Verificado visualmente en claro y oscuro.
 - [x] Exportaciones CSV — `/gestion/exportar`: ENVIAR SI/NO (FormMule) + GRATIS BdL,
       pagos consolidado, Educamos (ID+importe), pagos por libro. Descargas protegidas por cookie.
   - [ ] Escritura directa en el Google Sheet (pendiente: cuenta de servicio de Google)
-- [ ] **Envío de correos desde el panel** (PENDIENTE, no hecho): recordatorio a quienes FALTAN
-      las licencias + aviso a quienes ya las TIENEN, con un editor visual sencillo y con buena pinta
+- [x] **Envío de correos desde el panel** — `/gestion/correos`: destinatarios "quienes faltan"
+      o "quienes ya tienen", asunto + mensaje con variables `{nombre}/{apellidos}/{curso}`,
+      vista previa, envío de prueba y envío masivo con confirmación (Resend batch de 100).
 
 > Auth: credenciales en `src/lib/licencias-auth.ts` (override por env `LICENCIAS_ADMIN_*`).
 > Para producción en Vercel, definir `LICENCIAS_ADMIN_PASSWORD` y `LICENCIAS_ADMIN_TOKEN`.

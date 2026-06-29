@@ -1,5 +1,6 @@
 import { FROM, getResend } from '@/lib/email';
 import { euros } from '@/lib/licencias';
+import type { Recipient } from '@/lib/licencias-server';
 
 export interface OrderEmailData {
   alumno: string;
@@ -69,4 +70,56 @@ export async function notifyGestores(d: OrderEmailData) {
       `,
     }),
   );
+}
+
+// ── Correos masivos (panel) ───────────────────────────────────────────────────
+export function applyVars(text: string, r: { nombre: string; apellidos: string; curso: string }): string {
+  return (text ?? '')
+    .replace(/\{nombre\}/gi, r.nombre)
+    .replace(/\{apellidos\}/gi, r.apellidos)
+    .replace(/\{curso\}/gi, r.curso);
+}
+
+function wrapHtml(bodyText: string): string {
+  const html = bodyText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+  return `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222;line-height:1.6">${html}<br><br>—<br>Colegio Consolación · Burriana</div>`;
+}
+
+export async function sendBlastTest(email: string, subject: string, body: string, sample: Recipient) {
+  return safeSend(() =>
+    getResend().emails.send({
+      from: FROM,
+      to: email,
+      subject: '[PRUEBA] ' + applyVars(subject, sample),
+      html: wrapHtml(applyVars(body, sample)),
+    }),
+  );
+}
+
+export async function sendBlast(
+  recipients: Recipient[],
+  subject: string,
+  body: string,
+): Promise<{ sent: number; errors: number; skipped: boolean }> {
+  if (!process.env.RESEND_API_KEY) return { sent: 0, errors: 0, skipped: true };
+  const resend = getResend();
+  let sent = 0;
+  let errors = 0;
+  for (let i = 0; i < recipients.length; i += 100) {
+    const chunk = recipients.slice(i, i + 100);
+    const payload = chunk.map((r) => ({
+      from: FROM,
+      to: r.email,
+      subject: applyVars(subject, r),
+      html: wrapHtml(applyVars(body, r)),
+    }));
+    try {
+      await resend.batch.send(payload);
+      sent += chunk.length;
+    } catch (e) {
+      console.error('sendBlast chunk error:', e);
+      errors += chunk.length;
+    }
+  }
+  return { sent, errors, skipped: false };
 }

@@ -265,6 +265,49 @@ export async function getMissingStudents(campaignId: string): Promise<MissingStu
     .sort((a, b) => a.curso.localeCompare(b.curso) || a.apellidos.localeCompare(b.apellidos, 'es'));
 }
 
+export interface Recipient {
+  email: string;
+  nombre: string;
+  apellidos: string;
+  curso: string;
+}
+
+// Destinatarios para correos masivos: 'faltan' (sin pedido, correo del alumno) o 'tienen' (correo del pedido)
+export async function getRecipients(campaignId: string, grupo: 'faltan' | 'tienen'): Promise<Recipient[]> {
+  const students = await db
+    .select({
+      id: licStudents.id,
+      apellidos: licStudents.apellidos,
+      nombre: licStudents.nombre,
+      curso: licStudents.curso,
+      letra: licStudents.letra,
+      email: licStudents.email,
+    })
+    .from(licStudents)
+    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
+  const orders = await db
+    .select({ studentId: licOrders.studentId, email: licOrders.email })
+    .from(licOrders)
+    .where(eq(licOrders.campaignId, campaignId));
+  const orderByStudent = new Map(orders.map((o) => [o.studentId, o]));
+  const eff = (s: { curso: string; letra: string | null }) => (isPdcLetra(s.letra) ? toPdcCurso(s.curso) : s.curso);
+
+  const out: Recipient[] = [];
+  if (grupo === 'faltan') {
+    for (const s of students) {
+      if (orderByStudent.has(s.id) || !s.email) continue;
+      out.push({ email: s.email, nombre: s.nombre, apellidos: s.apellidos, curso: eff(s) });
+    }
+  } else {
+    for (const s of students) {
+      const ord = orderByStudent.get(s.id);
+      if (!ord?.email) continue;
+      out.push({ email: ord.email, nombre: s.nombre, apellidos: s.apellidos, curso: eff(s) });
+    }
+  }
+  return out;
+}
+
 export interface UpsertResult {
   orderId: string;
   editToken: string;
