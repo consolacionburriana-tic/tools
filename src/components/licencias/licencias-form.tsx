@@ -8,7 +8,6 @@ import {
   type CatalogBook,
   CURSOS_FORM,
   baseCod,
-  cursoBase,
   cursoLabel,
   euros,
   normalize,
@@ -25,7 +24,6 @@ type Step = 'identify' | 'licenses' | 'review' | 'done';
 interface Props {
   campaignName: string;
   deadline: string | null;
-  yearsByCurso: Record<string, number[]>;
   processedBeforeStart: boolean;
 }
 
@@ -140,14 +138,13 @@ const stepAnim = {
   transition: { duration: 0.22, ease: 'easeOut' as const },
 };
 
-export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: Props) {
+export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
   const [step, setStep] = useState<Step>('identify');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
 
   const [curso, setCurso] = useState<string>('');
-  const [birthYear, setBirthYear] = useState<number | null>(null);
   const [apellidos, setApellidos] = useState('');
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -163,7 +160,6 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
   const [email, setEmail] = useState('');
   const [result, setResult] = useState<SubmitResult | null>(null);
 
-  const years = curso ? (yearsByCurso[cursoBase(curso)] ?? []) : [];
   const selectedBooks = useMemo(() => catalog.filter((b) => selected.has(b.cod)), [catalog, selected]);
   const total = useMemo(
     () => selectedBooks.reduce((s, b) => s + parseFloat(b.precio || '0'), 0),
@@ -193,7 +189,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
     : null;
 
   useEffect(() => {
-    if (!curso || !birthYear || normalize(apellidos).length < 3) {
+    if (!curso || normalize(apellidos).length < 3) {
       setCandidates([]);
       setSearching(false);
       return;
@@ -204,7 +200,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
         const res = await fetch('/api/licencias/identify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ curso, birthYear, apellidos }),
+          body: JSON.stringify({ curso, apellidos }),
         });
         const data = await res.json();
         setCandidates(res.ok ? (data.candidates ?? []) : []);
@@ -215,7 +211,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
       }
     }, 300);
     return () => clearTimeout(handle);
-  }, [curso, birthYear, apellidos]);
+  }, [curso, apellidos]);
 
   async function elegirAlumno(c: Candidate) {
     setError(null);
@@ -280,7 +276,6 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
   function otroHijo() {
     setStep('identify');
     setCurso('');
-    setBirthYear(null);
     setApellidos('');
     setCandidates([]);
     setStudent(null);
@@ -308,10 +303,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
                   <Choice
                     key={c.value}
                     active={curso === c.value}
-                    onClick={() => {
-                      setCurso(c.value);
-                      setBirthYear(null);
-                    }}
+                    onClick={() => setCurso(c.value)}
                   >
                     {c.label}
                   </Choice>
@@ -319,19 +311,6 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
               </div>
 
               {curso && (
-                <>
-                  <p className="mt-5 mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Año de nacimiento</p>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                    {years.map((y) => (
-                      <Choice key={y} active={birthYear === y} onClick={() => setBirthYear(y)}>
-                        {y}
-                      </Choice>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {curso && birthYear && (
                 <>
                   <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                     Apellidos del alumno/a
@@ -352,7 +331,7 @@ export function LicenciasForm({ deadline, yearsByCurso, processedBeforeStart }: 
                     )}
                     {!searching && normalize(apellidos).length >= 3 && candidates.length === 0 && (
                       <p className="text-sm text-zinc-500">
-                        No encontramos a nadie con esos datos. Escribe el apellido más completo o revisa el curso y el año.
+                        No encontramos a nadie con esos datos. Escribe el apellido más completo o revisa el curso.
                       </p>
                     )}
                   </div>

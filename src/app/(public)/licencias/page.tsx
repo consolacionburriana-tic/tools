@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { getBirthYearsByCurso, getCurrentCampaign } from '@/lib/licencias-server';
+import { getCurrentCampaign } from '@/lib/licencias-server';
 import { LicenciasForm } from '@/components/licencias/licencias-form';
 
 export const metadata = {
@@ -10,7 +10,6 @@ export const metadata = {
 
 export default async function LicenciasPage() {
   const campaign = await getCurrentCampaign();
-  const yearsByCurso = campaign ? await getBirthYearsByCurso(campaign.id) : {};
 
   // ¿El pedido se procesa antes del inicio de curso? (7 de septiembre del año de inicio)
   const startYear = campaign ? parseInt(campaign.academicYear, 10) : new Date().getFullYear();
@@ -44,7 +43,6 @@ export default async function LicenciasPage() {
           <LicenciasForm
             campaignName={campaign.name}
             deadline={campaign.orderDeadline}
-            yearsByCurso={yearsByCurso}
             processedBeforeStart={processedBeforeStart}
           />
         )}
