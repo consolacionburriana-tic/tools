@@ -83,7 +83,7 @@ export const licStudents = pgTable('lic_students', {
   apellido2: text('apellido2'),
   nombre: text('nombre').notNull(),
   birthYear: integer('birth_year'),
-  curso: text('curso').notNull(), // curso del año de la campaña (ya promocionado)
+  curso: text('curso').notNull(), // curso actual del alumno; se gestiona a mano en el origen (Sheet/BD), la app nunca lo avanza sola
   letra: text('letra'),
   email: text('email'),
   bancoLibros: boolean('banco_libros').notNull().default(false),

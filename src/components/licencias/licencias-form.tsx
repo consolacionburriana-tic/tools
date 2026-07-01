@@ -251,7 +251,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
 
   async function confirmar() {
     setError(null);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError('Introduce un correo electrónico válido.');
       return;
     }
@@ -497,7 +497,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
               </div>
 
               <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Correo electrónico para la confirmación
+                Correo electrónico para la confirmación <span className="font-normal text-zinc-400">(opcional)</span>
               </label>
               <input
                 type="email"
@@ -507,6 +507,9 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
                 autoComplete="email"
                 className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               />
+              <p className="mt-1.5 text-xs text-zinc-400">
+                Si no lo indicas, no recibirás un correo de confirmación pero el pedido quedará registrado igualmente.
+              </p>
 
               {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 

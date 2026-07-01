@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { getBooksFromSheet } from '@/lib/google-sheets';
+import { getBooksFromSheet, getStudentsFromSheet, type SheetBookRow, type SheetStudentRow } from '@/lib/google-sheets';
 import {
   licBooks,
   licCampaigns,
@@ -8,6 +8,7 @@ import {
   licOrders,
   licPacks,
   licStudents,
+  type LicBook,
   type LicOrder,
   type LicOrderItem,
   type LicPack,
@@ -322,6 +323,8 @@ export async function upsertOrder(
   email: string,
   cods: string[],
 ): Promise<UpsertResult> {
+  // El email es opcional: guardamos null (no '') para que los `??` de fallback funcionen aguas abajo
+  const cleanEmail = email.trim() || null;
   // Si el alumno es PDC, su curso efectivo manda sobre lo seleccionado
   const cursoFinal = cursoEfectivo(student.curso, student.letra, curso);
   // Validar códigos contra el catálogo real del alumno (precio de confianza desde la BD)
@@ -342,7 +345,7 @@ export async function upsertOrder(
     await db
       .update(licOrders)
       .set({
-        email,
+        email: cleanEmail,
         curso: cursoFinal,
         totalPrice: totalStr,
         bancoLibros: student.bancoLibros,
@@ -361,7 +364,7 @@ export async function upsertOrder(
         campaignId: student.campaignId,
         studentId: student.id,
         curso: cursoFinal,
-        email,
+        email: cleanEmail,
         bancoLibros: student.bancoLibros,
         status: 'confirmado',
         totalPrice: totalStr,
@@ -507,7 +510,7 @@ export async function updateOrderItemsAdmin(orderId: string, cods: string[], ema
   }
   await db
     .update(licOrders)
-    .set({ totalPrice: total.toFixed(2), updatedAt: new Date(), ...(email?.trim() ? { email: email.trim() } : {}) })
+    .set({ totalPrice: total.toFixed(2), updatedAt: new Date(), ...(email !== undefined ? { email: email.trim() || null } : {}) })
     .where(eq(licOrders.id, orderId));
 }
 
@@ -623,6 +626,99 @@ export async function markSentToTemplate(orderIds: string[]): Promise<number> {
   return orderIds.length;
 }
 
+// ── Vista previa y aplicación de sincronizaciones desde Google Sheets ──────────────────
+// Patrón común: un "plan" (solo lectura, sin escribir en BD) que muestra fila a fila qué
+// cambiaría, y una función "apply" separada que hace el upsert real. Apply no reutiliza el
+// plan (vuelve a leer el Sheet): así, si el usuario tarda en confirmar y el Sheet cambia
+// mientras tanto, se aplica siempre el estado más reciente (comportamiento esperado en un
+// botón "sincronizar ahora", no una transacción larga).
+export interface FieldChange {
+  field: string;
+  before: string;
+  after: string;
+}
+
+function diffFields(pairs: [string, string, string][]): FieldChange[] {
+  const changes: FieldChange[] = [];
+  for (const [field, before, after] of pairs) {
+    if ((before ?? '') !== (after ?? '')) changes.push({ field, before: before || '—', after: after || '—' });
+  }
+  return changes;
+}
+
+// "23.50" vs "23.5" son el mismo precio — comparar como texto daría un falso cambio en
+// cada libro cuyo precio termine en 0 (visto en datos reales al probar la sincronización).
+function samePrice(a: string, b: string): boolean {
+  const na = parseFloat(a);
+  const nb = parseFloat(b);
+  if (!isNaN(na) && !isNaN(nb)) return na === nb;
+  return a === b;
+}
+
+export interface BookPlanItem {
+  key: string;
+  cod: string;
+  curso: string;
+  label: string;
+  changes: FieldChange[];
+}
+export interface BookSyncPlan {
+  toInsert: BookPlanItem[];
+  toUpdate: BookPlanItem[];
+  toDeactivate: { key: string; cod: string; curso: string; label: string }[];
+  unchanged: number;
+}
+
+function bookLabel(r: { editorial: string | null; asignatura: string | null; curso: string }) {
+  return `${r.editorial || 'Sin editorial'} · ${r.asignatura || 'Sin asignatura'} (${r.curso})`;
+}
+
+function diffBook(r: SheetBookRow, dbRow: LicBook): FieldChange[] {
+  const changes = diffFields([
+    ['Editorial', dbRow.editorial ?? '', r.editorial],
+    ['Lengua', dbRow.lengua ?? '', r.lengua],
+    ['Asignatura', dbRow.asignatura ?? '', r.asignatura],
+    ['Nombre libro', dbRow.nombreLibro ?? '', r.nombreLibro],
+    ['ISBN', dbRow.isbn ?? '', r.isbn],
+    ['Banco Libros', dbRow.bancoLibros ? 'Sí' : 'No', r.bancoLibros ? 'Sí' : 'No'],
+  ]);
+  if (!samePrice(dbRow.precio ?? '', r.precio)) {
+    changes.push({ field: 'Precio', before: dbRow.precio || '—', after: r.precio || '—' });
+  }
+  return changes;
+}
+
+// Vista previa: qué cambiaría en lic_books si se sincroniza ahora. No escribe nada.
+export async function getBooksSyncPlan(campaignId: string): Promise<BookSyncPlan> {
+  const [rows, existing] = await Promise.all([
+    getBooksFromSheet(),
+    db.select().from(licBooks).where(and(eq(licBooks.campaignId, campaignId), eq(licBooks.active, true))),
+  ]);
+  const existingByKey = new Map(existing.map((b) => [`${b.curso}::${b.cod}`, b]));
+  const sheetKeys = new Set(rows.map((r) => `${r.curso}::${r.cod}`));
+
+  const toInsert: BookPlanItem[] = [];
+  const toUpdate: BookPlanItem[] = [];
+  let unchanged = 0;
+  for (const r of rows) {
+    const key = `${r.curso}::${r.cod}`;
+    const dbRow = existingByKey.get(key);
+    const label = bookLabel(r);
+    if (!dbRow) {
+      toInsert.push({ key, cod: r.cod, curso: r.curso, label, changes: [] });
+    } else {
+      const changes = diffBook(r, dbRow);
+      if (changes.length > 0) toUpdate.push({ key, cod: r.cod, curso: r.curso, label, changes });
+      else unchanged++;
+    }
+  }
+  const toDeactivate = existing
+    .filter((b) => !sheetKeys.has(`${b.curso}::${b.cod}`))
+    .map((b) => ({ key: `${b.curso}::${b.cod}`, cod: b.cod, curso: b.curso, label: bookLabel(b) }));
+
+  return { toInsert, toUpdate, toDeactivate, unchanged };
+}
+
 // ── Sincronizar catálogo de libros desde la pestaña "BBDD Libros" del Google Sheet ─────
 // Upsert por (campaña, curso, código): actualiza si ya existe, inserta si es nuevo.
 // Los libros de la campaña que ya no aparecen en el Sheet se desactivan (no se borran,
@@ -675,4 +771,159 @@ export async function syncBooksFromSheet(campaignId: string): Promise<{ upserted
   }
 
   return { upserted: rows.length, deactivated: toDeactivate.length };
+}
+
+// ── Alumnos: vista previa y sincronización desde la pestaña "BBDD Alumnos" ─────────────
+// La hoja "BBDD Alumnos" contiene TODO el colegio (Infantil a ESO); esta campaña de
+// licencias solo cubre los cursos de CURSOS_FORM (6PRI-4ESO/PDC), así que filtramos por
+// curso base antes de tocar nada — el resto de filas del Sheet se ignoran (ni se cuentan
+// como "a desactivar", porque nunca formaron parte de esta campaña).
+const IN_SCOPE_CURSOS = new Set<string>(CURSOS_FORM.map((c) => c.base));
+
+export interface StudentPlanItem {
+  key: string;
+  studentCode: string;
+  label: string;
+  changes: FieldChange[];
+  warning?: string;
+}
+export interface StudentSyncPlan {
+  toInsert: StudentPlanItem[];
+  toUpdate: StudentPlanItem[];
+  toDeactivate: { key: string; label: string; hasOrder: boolean }[];
+  outOfScope: number;
+  unchanged: number;
+}
+
+function studentLabel(r: { apellidos: string; nombre: string; curso: string; letra?: string | null }) {
+  return `${r.apellidos}, ${r.nombre} (${r.curso}${r.letra ? ' · ' + r.letra : ''})`;
+}
+
+function diffStudent(r: SheetStudentRow, dbRow: LicStudent): FieldChange[] {
+  const changes = diffFields([
+    ['Curso', dbRow.curso, r.curso],
+    ['Letra', dbRow.letra ?? '', r.letra ?? ''],
+    ['Apellidos', dbRow.apellidos, r.apellidos],
+    ['Apellido 1', dbRow.apellido1 ?? '', r.apellido1 ?? ''],
+    ['Apellido 2', dbRow.apellido2 ?? '', r.apellido2 ?? ''],
+    ['Nombre', dbRow.nombre, r.nombre],
+    ['Año nacimiento', dbRow.birthYear != null ? String(dbRow.birthYear) : '', r.birthYear != null ? String(r.birthYear) : ''],
+    ['Email', dbRow.email ?? '', r.email ?? ''],
+    ['Banco Libros', dbRow.bancoLibros ? 'Sí' : 'No', r.bancoLibros ? 'Sí' : 'No'],
+    ['Lengua base', dbRow.lenguaBase ?? '', r.lenguaBase ?? ''],
+  ]);
+  // "ID Educamos" no está poblado en el Sheet (comprobado: 0/599 filas lo traen). Si viene
+  // vacío no lo tocamos ni lo mostramos como cambio — evita borrar un dato que solo existe en Neon.
+  if (r.educamosId && r.educamosId !== (dbRow.educamosId ?? '')) {
+    changes.push({ field: 'ID Educamos', before: dbRow.educamosId || '—', after: r.educamosId });
+  }
+  return changes;
+}
+
+// Vista previa: qué cambiaría en lic_students si se sincroniza ahora. No escribe nada.
+// Avisa cuando un alumno con pedido ya confirmado cambiaría de curso o Banco de Libros,
+// porque eso puede dejar de encajar con las licencias que la familia ya eligió.
+export async function getStudentsSyncPlan(campaignId: string): Promise<StudentSyncPlan> {
+  const [allRows, existing, orders] = await Promise.all([
+    getStudentsFromSheet(),
+    db.select().from(licStudents).where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
+    db
+      .select({ studentId: licOrders.studentId })
+      .from(licOrders)
+      .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
+  ]);
+  const rows = allRows.filter((r) => IN_SCOPE_CURSOS.has(r.curso));
+  const outOfScope = allRows.length - rows.length;
+
+  const studentsWithOrder = new Set(orders.map((o) => o.studentId));
+  const existingByCode = new Map(existing.map((s) => [s.studentCode, s]));
+  const sheetCodes = new Set(rows.map((r) => r.studentCode));
+
+  const toInsert: StudentPlanItem[] = [];
+  const toUpdate: StudentPlanItem[] = [];
+  let unchanged = 0;
+  for (const r of rows) {
+    const dbRow = existingByCode.get(r.studentCode);
+    const label = studentLabel(r);
+    if (!dbRow) {
+      toInsert.push({ key: r.studentCode, studentCode: r.studentCode, label, changes: [] });
+      continue;
+    }
+    const changes = diffStudent(r, dbRow);
+    if (changes.length === 0) {
+      unchanged++;
+      continue;
+    }
+    let warning: string | undefined;
+    if (studentsWithOrder.has(dbRow.id) && changes.some((c) => c.field === 'Curso' || c.field === 'Banco Libros')) {
+      warning = 'Ya tiene un pedido confirmado en esta campaña: al cambiar curso/Banco de Libros, las licencias ya elegidas podrían dejar de encajar con su catálogo.';
+    }
+    toUpdate.push({ key: r.studentCode, studentCode: r.studentCode, label, changes, warning });
+  }
+  const toDeactivate = existing
+    .filter((s) => !sheetCodes.has(s.studentCode))
+    .map((s) => ({ key: s.studentCode, label: studentLabel(s), hasOrder: studentsWithOrder.has(s.id) }));
+
+  return { toInsert, toUpdate, toDeactivate, outOfScope, unchanged };
+}
+
+// Aplica la sincronización: upsert por (campaña, código) preservando el id del alumno
+// (los pedidos referencian ese id) y desactivando — nunca borrando — a quien ya no esté
+// en el Sheet, para no romper la referencia de pedidos ya hechos (lic_orders.student_id).
+export async function syncStudentsFromSheet(campaignId: string): Promise<{ upserted: number; deactivated: number; outOfScope: number }> {
+  const allRows = await getStudentsFromSheet();
+  const rows = allRows.filter((r) => IN_SCOPE_CURSOS.has(r.curso));
+  if (rows.length === 0) return { upserted: 0, deactivated: 0, outOfScope: allRows.length };
+
+  for (const r of rows) {
+    await db
+      .insert(licStudents)
+      .values({
+        campaignId,
+        studentCode: r.studentCode,
+        educamosId: r.educamosId,
+        apellidos: r.apellidos,
+        apellido1: r.apellido1,
+        apellido2: r.apellido2,
+        nombre: r.nombre,
+        birthYear: r.birthYear,
+        curso: r.curso,
+        letra: r.letra,
+        email: r.email,
+        bancoLibros: r.bancoLibros,
+        lenguaBase: r.lenguaBase,
+        active: true,
+      })
+      .onConflictDoUpdate({
+        target: [licStudents.campaignId, licStudents.studentCode],
+        set: {
+          // "ID Educamos" no viene poblado en el Sheet: si llega vacío, no lo incluimos en el
+          // update para no borrar un valor que solo existe en Neon (ver diffStudent).
+          ...(r.educamosId ? { educamosId: r.educamosId } : {}),
+          apellidos: r.apellidos,
+          apellido1: r.apellido1,
+          apellido2: r.apellido2,
+          nombre: r.nombre,
+          birthYear: r.birthYear,
+          curso: r.curso,
+          letra: r.letra,
+          email: r.email,
+          bancoLibros: r.bancoLibros,
+          lenguaBase: r.lenguaBase,
+          active: true,
+        },
+      });
+  }
+
+  const currentCodes = new Set(rows.map((r) => r.studentCode));
+  const existing = await db
+    .select({ id: licStudents.id, studentCode: licStudents.studentCode })
+    .from(licStudents)
+    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
+  const toDeactivate = existing.filter((s) => !currentCodes.has(s.studentCode)).map((s) => s.id);
+  if (toDeactivate.length > 0) {
+    await db.update(licStudents).set({ active: false }).where(inArray(licStudents.id, toDeactivate));
+  }
+
+  return { upserted: rows.length, deactivated: toDeactivate.length, outOfScope: allRows.length - rows.length };
 }

@@ -37,16 +37,17 @@ export async function POST(request: Request) {
     const { studentId, curso, email, cods } = (await request.json()) as {
       studentId: string;
       curso: string;
-      email: string;
+      email?: string;
       cods: string[];
     };
-    if (!studentId || !curso || !email?.trim()) {
+    if (!studentId || !curso) {
       return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
     }
     const student = await getStudentById(studentId);
     if (!student) return NextResponse.json({ error: 'Alumno no encontrado' }, { status: 404 });
 
-    const result = await upsertOrder(student, curso, email.trim(), Array.isArray(cods) ? cods : []);
+    const cleanEmail = email?.trim() ?? '';
+    const result = await upsertOrder(student, curso, cleanEmail, Array.isArray(cods) ? cods : []);
 
     // Datos para los correos (precios de confianza desde el catálogo)
     const catalog = await getCatalog(student, curso);
@@ -59,13 +60,13 @@ export async function POST(request: Request) {
     const emailData = {
       alumno: `${maskName(student.nombre)} ${student.apellidos}`,
       curso: cursoLabel(curso),
-      email: email.trim(),
+      email: cleanEmail,
       items,
       total: result.total,
       editUrl: `${origin}/licencias`,
     };
     const [familyStatus] = await Promise.all([
-      sendFamilyConfirmation(emailData),
+      cleanEmail ? sendFamilyConfirmation(emailData) : Promise.resolve('skipped' as const),
       notifyGestores(emailData),
     ]);
 
