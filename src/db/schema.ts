@@ -138,6 +138,12 @@ export const licOrders = pgTable('lic_orders', {
   editToken: text('edit_token').notNull().unique(),
   emailConfirmedAt: timestamp('email_confirmed_at'),
   confirmedAt: timestamp('confirmed_at'),
+  // Estado tipo Excel (Q🧾/R📤/S💰): pedido a la editorial, pasado a plantillas de envío, pagado
+  editorialProcessedAt: timestamp('editorial_processed_at'),
+  sentToTemplateAt: timestamp('sent_to_template_at'),
+  paidAt: timestamp('paid_at'),
+  archived: boolean('archived').notNull().default(false), // soft-delete: se guarda como backup, no cuenta en stats
+  archivedReason: text('archived_reason'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [

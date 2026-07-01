@@ -8,13 +8,8 @@ import {
   getGratisRows,
   getPagosConsolidado,
   getPagosPorLibro,
+  toCsv,
 } from '@/lib/licencias-exports';
-
-function toCsv(header: string[], rows: (string | number)[][]): string {
-  const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const body = [header, ...rows].map((r) => r.map(esc).join(';')).join('\n');
-  return '﻿' + body; // BOM para que Excel respete acentos
-}
 
 const ENVIAR_HEADER = [
   'COD ALU', 'COD LIBRO', 'Licencia Activación', 'Curso', 'Asignatura', 'Editorial',

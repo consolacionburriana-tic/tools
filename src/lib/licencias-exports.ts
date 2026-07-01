@@ -38,6 +38,12 @@ export interface EducamosRow {
   importe: string;
 }
 
+export function toCsv(header: string[], rows: (string | number)[][]): string {
+  const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const body = [header, ...rows].map((r) => r.map(esc).join(';')).join('\n');
+  return '﻿' + body; // BOM para que Excel respete acentos
+}
+
 export interface LibroRow {
   cod: string;
   editorial: string;
@@ -51,7 +57,7 @@ async function loadBase(campaignId: string) {
   const [students, books, orders, items] = await Promise.all([
     db.select().from(licStudents).where(eq(licStudents.campaignId, campaignId)),
     db.select().from(licBooks).where(eq(licBooks.campaignId, campaignId)),
-    db.select().from(licOrders).where(eq(licOrders.campaignId, campaignId)),
+    db.select().from(licOrders).where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
     db
       .select({
         orderId: licOrderItems.orderId,
@@ -175,6 +181,51 @@ export async function getEducamosRows(campaignId: string): Promise<EducamosRow[]
   return pagos
     .filter((p) => parseFloat(p.total) > 0)
     .map((p) => ({ curso: p.curso, educamosId: p.educamosId, importe: p.total.replace('.', ',') }));
+}
+
+export interface SheetSyncRow {
+  studentCode: string;
+  apellidos: string;
+  nombre: string;
+  birthYear: number | null;
+  curso: string;
+  email: string;
+  codigos: string[];
+  letra: string | null;
+  lengua: string | null;
+  confirmedAt: Date | null;
+}
+
+// Agrupa los pedidos activos (no archivados) por banco de libros, para sincronizar con
+// las pestañas "SI/NO BdL - FORM26" del Google Sheet histórico.
+export async function getSheetSyncData(campaignId: string): Promise<{ si: SheetSyncRow[]; no: SheetSyncRow[] }> {
+  const { orders, items, studentById } = await loadBase(campaignId);
+  const itemsByOrder = new Map<string, typeof items>();
+  for (const it of items) {
+    const arr = itemsByOrder.get(it.orderId) ?? [];
+    arr.push(it);
+    itemsByOrder.set(it.orderId, arr);
+  }
+  const si: SheetSyncRow[] = [];
+  const no: SheetSyncRow[] = [];
+  for (const o of orders) {
+    const s = studentById.get(o.studentId);
+    if (!s) continue;
+    const row: SheetSyncRow = {
+      studentCode: s.studentCode,
+      apellidos: s.apellidos,
+      nombre: s.nombre,
+      birthYear: s.birthYear,
+      curso: o.curso ?? s.curso,
+      email: o.email ?? s.email ?? '',
+      codigos: (itemsByOrder.get(o.id) ?? []).map((i) => i.bookCod),
+      letra: s.letra,
+      lengua: s.lenguaBase,
+      confirmedAt: o.confirmedAt,
+    };
+    (o.bancoLibros ? si : no).push(row);
+  }
+  return { si, no };
 }
 
 export async function getPagosPorLibro(campaignId: string): Promise<LibroRow[]> {
