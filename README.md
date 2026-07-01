@@ -2,6 +2,17 @@
 
 Hub de micro-herramientas internas para el Colegio Consolación de Burriana (Castellón).
 
+## Documentación de la plataforma
+
+Este repo será la "navaja suiza" digital del colegio: varios módulos independientes que reciben
+información por formulario y la notifican a quien corresponde. Antes de desarrollar nada, lee:
+
+- [`docs/plataforma.md`](./docs/plataforma.md) — visión general, mapa de módulos y **tabla de
+  estado** (qué está planificado a nivel funcional, qué tiene plan técnico y qué está implementado).
+- [`docs/00-desarollos-futuros.md`](./docs/00-desarrollos-futuros.md) — decisiones pendientes e ideas
+  para el próximo curso.
+- `docs/<nn>-<modulo>.md` — ficha de cada módulo (plan funcional, técnico y checklist de fases).
+
 ## Stack
 
 - **Next.js 16** (App Router, TypeScript)
@@ -91,8 +102,6 @@ Formulario para registrar conductas disruptivas de alumnos con NEE. Diseñado pa
 ### Admin (`/admin`)
 
 Gestión de alumnos, profesores y visualización de registros con gráficos.
-
-⚠️ **Sin autenticación todavía** — añadir Clerk antes de exponer públicamente.
 
 ## Deploy en Vercel
 
