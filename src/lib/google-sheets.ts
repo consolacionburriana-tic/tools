@@ -136,6 +136,59 @@ export async function getBooksFromSheet(): Promise<SheetBookRow[]> {
     }));
 }
 
+// ── Alumnos: lee la pestaña "BBDD Alumnos".
+// OJO: la fila de cabeceras (fila 2) NO coincide con las columnas reales de datos a partir
+// de la I — verificado leyendo filas reales del Sheet. La cabecera dice I=Nombre, J=Mail,
+// K=Banco Libros, L=Lengua Base, M=ID Educamos, pero los datos reales son:
+//   I = nombre completo calculado (apellidos + nombre) → no lo usamos, es redundante
+//   J = Nombre (real)      K = Mail (real)      L = Banco Libros (real, TRUE/FALSE)
+//   M = Lengua Base (real) N = ID Educamos (vacío en todas las filas actuales)
+// Usamos los índices verificados contra datos reales, no los literales de la cabecera.
+export interface SheetStudentRow {
+  studentCode: string;
+  curso: string;
+  letra: string | null;
+  birthYear: number | null;
+  apellidos: string;
+  apellido1: string | null;
+  apellido2: string | null;
+  nombre: string;
+  email: string | null;
+  bancoLibros: boolean;
+  lenguaBase: string | null;
+  educamosId: string | null;
+}
+
+export async function getStudentsFromSheet(): Promise<SheetStudentRow[]> {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: 'v4', auth });
+  const spreadsheetId = getSpreadsheetId();
+
+  // La cabecera real ocupa las filas 1-2; los datos empiezan en la fila 3.
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: "'BBDD Alumnos'!A3:N",
+  });
+  const rows = res.data.values ?? [];
+
+  return rows
+    .filter((r) => cellToString(r[1])) // sin código (columna B) → fila vacía, se ignora
+    .map((r) => ({
+      studentCode: cellToString(r[1]),
+      curso: cellToString(r[2]),
+      letra: cellToString(r[3]) || null,
+      birthYear: parseInt(cellToString(r[4]), 10) || null,
+      apellidos: cellToString(r[5]),
+      apellido1: cellToString(r[6]) || null,
+      apellido2: cellToString(r[7]) || null,
+      nombre: cellToString(r[9]), // J (no la I, que es el nombre completo calculado)
+      email: cellToString(r[10]) || null, // K
+      bancoLibros: truthy(r[11]), // L
+      lenguaBase: cellToString(r[12]) || null, // M
+      educamosId: cellToString(r[13]) || null, // N
+    }));
+}
+
 export interface SyncResult {
   tab: string;
   updated: number;

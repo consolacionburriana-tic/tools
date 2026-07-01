@@ -10,7 +10,9 @@ async function isAdmin() {
 
 const HEADER = ['Código', 'Editorial', 'ISBN', 'UDs', 'Curso', 'Asignatura', 'Nombre del libro', 'Banco de libros', 'Precio', 'Fecha'];
 
-// Genera el CSV del informe pendiente y marca esos pedidos como "pedidos a la editorial" (🧾)
+// Genera el CSV del informe pendiente y marca esos pedidos como "pedidos a la editorial" (🧾).
+// El informe por editorial en el propio Sheet lo sigue generando el GAS existente, una vez
+// los pedidos están sincronizados en las pestañas FORM26 (ver /gestion/sincronizar).
 export async function POST() {
   if (!(await isAdmin())) return new Response('No autorizado', { status: 401 });
   const campaign = await getCurrentCampaign();
