@@ -30,7 +30,7 @@ export default async function LicenciasPage() {
             />
           </div>
           <h1 className="mt-5 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-            Solicitud de licencias digitales
+            Solicitud de licencias digitales 📲
           </h1>
           {campaign && <p className="mt-1 text-sm text-zinc-500">Curso {campaign.academicYear}</p>}
         </div>

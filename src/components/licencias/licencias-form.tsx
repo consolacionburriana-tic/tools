@@ -267,7 +267,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
       setResult({ total: data.total, itemCount: data.itemCount, emailStatus: data.emailStatus });
       setStep('done');
     } catch {
-      setError('No se pudo registrar el pedido. Inténtalo de nuevo.');
+      setError('No se pudo registrar el pedido. Inténtalo de nuevo y si continua contacta con licencias@consolacionburriana.com');
     } finally {
       setLoading(false);
     }
@@ -291,13 +291,15 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
         {step === 'identify' && (
           <motion.div key="identify" {...stepAnim}>
             <Card>
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">¿Quién es el alumno/a?</h2>
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Nuevo pedido de licencias</h2>
               <p className="mt-2 text-sm text-zinc-500">
-                Las licencias digitales <strong>no son obligatorias</strong>. Marca solo las que quieras solicitar.
-                {deadlineLabel && <> Plazo: hasta el <strong>{deadlineLabel}</strong>.</>}
+
+                Las licencias digitales <strong>no son obligatorias</strong>. 
+                Marca solo las que quieras solicitar.
+                {deadlineLabel && <> Plazo: hasta el <strong>{deadlineLabel}</strong> (no se permitirán pedidos después)</>}
               </p>
 
-              <p className="mt-5 mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Curso 2026/2027</p>
+              <p className="mt-5 mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">¿En qué curso estará EL AÑO QUE VIENE?</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {CURSOS_FORM.map((c) => (
                   <Choice
@@ -331,7 +333,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
                     )}
                     {!searching && normalize(apellidos).length >= 3 && candidates.length === 0 && (
                       <p className="text-sm text-zinc-500">
-                        No encontramos a nadie con esos datos. Escribe el apellido más completo o revisa el curso.
+                        No encontramos a nadie con esos datos. Escribe el <strong>APELLIDO</strong> más completo o revisa el curso.
                       </p>
                     )}
                   </div>
@@ -367,7 +369,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
               <p className="mt-6 text-xs text-zinc-400">
                 ¿Dudas o algún error? Escríbenos a{' '}
                 <a href="mailto:tic@consolacionburriana.com" className="underline hover:text-zinc-600 dark:hover:text-zinc-300">
-                  tic@consolacionburriana.com
+                  licencias@consolacionburriana.com
                 </a>
               </p>
             </Card>
@@ -418,7 +420,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
 
               <div className="mt-4 space-y-4">
                 {catalog.length === 0 && (
-                  <p className="text-sm text-zinc-500">No hay licencias disponibles para este curso.</p>
+                  <p className="text-sm text-zinc-500">No hay licencias disponibles para este curso, es posible que sea un error. Contacta con licencias@consolacionburriana.com</p>
                 )}
                 {grupos.map((g, gi) => (
                   <div key={gi} className="space-y-2">
@@ -446,9 +448,9 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
                     <div className="mt-3 flex gap-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200">
                       <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>
-                        Es posible que aún no se hayan asignado las tutorías. Asegúrate de que el alumno ha solicitado esa
-                        optativa como <strong>primera opción</strong>. Si finalmente no la cursara, se reembolsaría la
-                        licencia, pero <strong>márcala solo si estás seguro/a</strong> de que era la primera opción.
+                        Es posible que aún no sepas la optativa del año que viene. Asegúrate de que el alumno ha solicitado esa
+                        optativa como <strong>primera opción</strong>. Si finalmente no la cursara, se devolverá la licencia
+                       y no se cobrará.  <strong>Márcala solo si estás seguro/a</strong> de que era la primera opción.
                       </span>
                     </div>
                   </motion.div>
@@ -509,6 +511,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
               />
               <p className="mt-1.5 text-xs text-zinc-400">
                 Si no lo indicas, no recibirás un correo de confirmación pero el pedido quedará registrado igualmente.
+                Las licencias LLEGARÁN A LOS ALUMNOS A FINALES DE SEPTIEMBRE - INICIO DE OCTUBRE
               </p>
 
               {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -599,7 +602,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
                     <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">¿Tengo que hacer algo más?</p>
                     <p className="mt-0.5 text-sm text-zinc-500">
                       Nada más, hemos recibido tu pedido y lo hemos anotado. Las licencias llegarán directamente al iPad
-                      del alumno en los plazos previstos.
+                      del alumno en los plazos previstos. Se cobrará al final del primer trimestre.
                     </p>
                   </div>
                 </div>
