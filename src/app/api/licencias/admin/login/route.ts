@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { ADMIN_COOKIE, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_TOKEN } from '@/lib/licencias-auth';
+import { ADMIN_COOKIE, ADMIN_PASSWORD, ADMIN_TOKEN } from '@/lib/licencias-auth';
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = (await request.json()) as { email: string; password: string };
-    const ok =
-      (email ?? '').trim().toLowerCase() === ADMIN_EMAIL.toLowerCase() && password === ADMIN_PASSWORD;
-    if (!ok) {
-      return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 });
+    const { password } = (await request.json()) as { password: string };
+    if (password !== ADMIN_PASSWORD) {
+      return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 });
     }
     const res = NextResponse.json({ ok: true });
     res.cookies.set(ADMIN_COOKIE, ADMIN_TOKEN, {
