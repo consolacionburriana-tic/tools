@@ -412,11 +412,18 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
                 )}
               </div>
 
-              <p className="mt-3 text-sm text-zinc-500">
-                {bancoLibros
-                  ? 'Como estáis en el Banco de Libros, los libros del banco se gestionan aparte. Aquí solo eliges las licencias de pago.'
-                  : 'Selecciona las licencias digitales que quieras solicitar.'}
-              </p>
+              {bancoLibros ? (
+                <div className="mt-3 space-y-1.5 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
+                  <p>▶️ Al estar en el banco de libros, tenéis incluidos los libros <strong>en papel</strong> y <strong>algunas licencias digitales</strong> de esos libros.</p>
+                  <p>📙 Otros libros (inglés, optativas…) <strong>no</strong> están incluidos en el banco de libros, y por eso podéis solicitar aquí sus licencias digitales, junto a algunos que no incluyen licencia digital.</p>
+                  <p>❌ Adquirir la licencia digital no incluye el libro en papel.</p>
+                </div>
+              ) : (
+                <div className="mt-3 space-y-1.5 rounded-xl bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">
+                  <p>▶️ Los alumnos que no forman parte del banco de libros pueden solicitar aquí sus licencias digitales — podéis elegir todas o ninguna.</p>
+                  <p>❌ La licencia digital no incluye el libro en papel.</p>
+                </div>
+              )}
 
               <div className="mt-4 space-y-4">
                 {catalog.length === 0 && (
