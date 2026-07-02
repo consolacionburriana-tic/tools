@@ -90,8 +90,24 @@ activar/desactivar. Sin más — la matriz es por rol y vive en código.
 
 ## Fases
 
+### Pasitos para David · crear el OAuth client (una vez, ~10 min)
+
+1. Entra en [console.cloud.google.com](https://console.cloud.google.com) con tu cuenta del
+   dominio. Crea (o elige) un proyecto, p. ej. `tools-consolacion`.
+2. **APIs y servicios → Pantalla de consentimiento OAuth**: tipo **Interno** (solo cuentas del
+   dominio — así Google ni pide verificación). Nombre "Tools Consolación", tu email de soporte.
+3. **APIs y servicios → Credenciales → Crear credenciales → ID de cliente de OAuth**:
+   - Tipo: **Aplicación web**, nombre "Tools Consolación".
+   - URIs de redireccionamiento autorizados (los dos):
+     - `https://tools.consolacionburriana.com/api/auth/callback/google`
+     - `http://localhost:3000/api/auth/callback/google`
+4. Copia el **Client ID** y el **Client secret** y mételos en Vercel (proyecto → Settings →
+   Environment Variables) y en tu `.env.local`:
+   - `AUTH_GOOGLE_ID` = client ID · `AUTH_GOOGLE_SECRET` = client secret
+   - `AUTH_SECRET` = el resultado de `openssl rand -base64 32` en tu terminal
+
 ### Fase 0 · Cimientos
-- [ ] Crear OAuth client en Google Cloud (input de David: acceso a la consola del dominio)
+- [ ] OAuth client creado y env vars puestas (pasitos de arriba — David)
 - [ ] Instalar Auth.js v5, config con provider Google + restricción de dominio server-side
 - [ ] Tabla `auth_users` + `src/lib/permissions.ts` con la matriz por defecto
 - [ ] Seed inicial: David como `supertic`
