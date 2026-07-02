@@ -21,7 +21,8 @@ Todo lo definido está construido, verificado y desplegado en `main`:
   por libro), gestión económica, editor de packs y envío de correos masivos.
 
 Pendiente **solo por credenciales/accesos externos** (no por código):
-- Escritura directa en el Google Sheet → necesita cuenta de servicio de Google (hoy: descarga CSV).
+- Escritura directa en el Google Sheet → cuenta de servicio ✅ creada (jul 2026); queda
+  verificar la escritura de punta a punta y marcar la casilla de Fase 2.
 - Sincronización con la **API de Educamos** → necesita acceso (hoy: import desde Excel).
 - Gestión de códigos de activación dentro de la app → diferida a propósito (hoy: FormMule sobre
   las plantillas ENVIAR exportadas).
@@ -150,5 +151,6 @@ Verificado visualmente en claro y oscuro.
 ## Inputs pendientes de David
 
 - Reglas de packs/itinerarios por curso (cuáles y en qué modo) — configurable también en el panel.
-- Credenciales de cuenta de servicio de Google para escribir en la hoja (Fase 2).
-- Confirmar dominio/remitente verificado en Resend para `licencias@consolacionburriana.com`.
+- ~~Credenciales de cuenta de servicio de Google~~ ✅ hecha (jul 2026).
+- Confirmar dominio/remitente verificado en Resend para `licencias@consolacionburriana.com` —
+  pendiente, faltan cosas del dominio.

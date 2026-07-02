@@ -39,11 +39,12 @@ perder ideas por el camino.
 
 Recopilados de las fichas, para verlos de un vistazo:
 
-- **Educamos**: un export real de alumnado y de tutores (para fijar el mapeo de columnas).
-- **Google Cloud**: crear el OAuth client para el login (acceso a la consola del dominio).
-- **Vercel Blob**: activar el store y el token para la subida de justificantes (Salidas).
-- **Licencias** (heredado de la ficha `11`): cuenta de servicio de Google para escribir en el
-  Sheet · confirmar remitente verificado en Resend.
+- ~~**Educamos**: un export real de alumnado y de tutores~~ ✅ recibido (jul 2026) — mapeo de
+  columnas fijado en `02-integracion-educamos.md`. El fichero NO se commitea (`.gitignore`).
+- **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
+- **Vercel Blob**: activar el store para justificantes — pasitos en `15-salidasypagos.md`.
+- **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
+  en Resend — pendiente, faltan cosas del dominio.
 
 ---
 

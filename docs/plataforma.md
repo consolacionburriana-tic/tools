@@ -62,6 +62,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2; 3-4 pendientes) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
 | BBDD central Educamos (alumnos + tutores) | ✅ | ✅ | ⬜ (hoy: import manual en licencias) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ⬜ | [`01-auth-roles.md`](./01-auth-roles.md) |
+| Escritorio de administración (bienvenida) | ✅ | ✅ | ⬜ | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
 | Salidas y pagos | ✅ | ✅ | ⬜ | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ⬜ | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ⬜ | [`16-evaluaciones.md`](./16-evaluaciones.md) |
@@ -83,7 +84,7 @@ empieza un hito hasta que el anterior está funcional (no hace falta que esté p
 | # | Hito | Ficha | Por qué en este orden |
 |---|---|---|---|
 | 1 | **BBDD central Educamos → Neon** (`edu_*`) | [`02`](./02-integracion-educamos.md) | Todo lo demás consume alumnado/tutores de aquí. Sin esto, cada módulo repetiría su import manual. |
-| 2 | **Auth + roles** (`auth_*`) | [`01`](./01-auth-roles.md) | Los módulos nuevos nacen ya detrás del login; evita construir auth "de andar por casa" otra vez. |
+| 2 | **Auth + roles** (`auth_*`) + **escritorio de administración** | [`01`](./01-auth-roles.md) · [`03`](./03-escritorio-admin.md) | Los módulos nuevos nacen ya detrás del login; el escritorio es "lo que ves tras el login", así que va junto. |
 | 3 | **Migración de ABC y Licencias** al nuevo login y a `edu_students` | [`10`](./10-registro-abc.md) · [`11`](./11-licencias-v2.md) | Cierra la deuda: `/admin` sin auth y `licencias-auth.ts` con password fija. |
 | 4 | **Salidas y pagos** (`sal_*`) | [`15`](./15-salidasypagos.md) | Primer módulo nuevo completo; introduce la subida de archivos (Vercel Blob). |
 | 5 | **Banco de libros** (`bl_*`) | [`12`](./12-bancolibros.md) | Necesita el modelo anual lote↔alumno bien pensado; se apoya en `edu_students`. |

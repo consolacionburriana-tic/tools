@@ -84,9 +84,17 @@ sal_signups (
 
 ## Fases
 
+### Pasitos para David · activar Vercel Blob (una vez, ~3 min)
+
+1. En [vercel.com](https://vercel.com), abre el proyecto `tools` → pestaña **Storage**.
+2. **Create Database → Blob**, nombre p. ej. `tools-blob`, y conéctalo al proyecto.
+3. Al conectarlo, Vercel añade solo la env var `BLOB_READ_WRITE_TOKEN` al proyecto. Para
+   desarrollo local: cópiala a tu `.env.local` (o `vercel env pull` si tienes la CLI).
+
 ### Fase 0 · Cimientos
+- [ ] Blob store creado y token disponible (pasitos de arriba — David)
 - [ ] Schema `sal_*` + `pnpm db:push`
-- [ ] Helper `src/lib/blob.ts` + token de Blob en Vercel (input de David: activar Blob)
+- [ ] Helper `src/lib/blob.ts`
 
 ### Fase 1 · Alta de salidas (gestión)
 - [ ] Crear/editar salida (nombre, descripción, fecha, importe, clases, estado)

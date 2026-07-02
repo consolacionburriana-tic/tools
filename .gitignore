@@ -46,3 +46,9 @@ next-env.d.ts
 # logos fuente sueltos en la raíz (el que usa la app está en public/)
 /logobur*.jpg
 /logobur*.png
+
+# Exports de Educamos con datos personales — NUNCA commitear
+ejemploeducamos*
+*educamos*.csv
+*educamos*.xls
+*educamos*.xlsx
