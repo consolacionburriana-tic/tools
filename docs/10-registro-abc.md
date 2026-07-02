@@ -17,10 +17,10 @@ posteriori lo ya construido y deja abierto lo que falta.
 
 Pendiente, no por código sino por **decisión/infraestructura**:
 - Login — hoy el panel `/admin` no tiene autenticación (ver aviso en el README histórico). Se
-  resolverá con el módulo transversal de auth/roles (`docs/auth-roles.md`), no de forma
-  independiente para este módulo.
-- Origen del alumnado — hoy `abc_students` se gestiona a mano desde el panel; a futuro podría
-  nutrirse de Educamos como Licencias (ver `docs/educamos.md`).
+  resolverá con el módulo transversal de auth/roles (`docs/01-auth-roles.md`), no de forma
+  independiente para este módulo. Es parte del **hito 3 del roadmap** (ver `plataforma.md`).
+- Origen del alumnado — hoy `abc_students` se gestiona a mano desde el panel; pasará a nutrirse
+  de la BBDD central con un buscador sobre `edu_students` (ver `docs/02-integracion-educamos.md`).
 
 ## Decisiones cerradas
 
@@ -47,7 +47,7 @@ Pendiente, no por código sino por **decisión/infraestructura**:
 - [x] Listado de registros con detalle (`/admin/registros/[id]`) y borrado
 - [x] Gráficos agregados
 
-## Fase 3 · Pendiente (bloqueada por piezas transversales)
-- [ ] Login/permisos del panel (bloqueado por `docs/auth-roles.md`)
-- [ ] Alumnado desde Educamos en vez de alta manual (bloqueado por `docs/educamos.md`)
-- [ ] (Idea, sin decidir) sugerencias de redirección con IA — ver `docs/desarrollos-futuros.md`
+## Fase 3 · Pendiente (= hito 3 del roadmap, tras auth y BBDD central)
+- [ ] Login/permisos del panel (requiere `docs/01-auth-roles.md` implementado)
+- [ ] Alta de alumnos con buscador sobre `edu_students` (requiere `docs/02-integracion-educamos.md`)
+- [ ] (Idea, sin decidir) sugerencias de redirección con IA — ver `docs/00-desarrollos-futuros.md`

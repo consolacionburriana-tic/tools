@@ -9,9 +9,11 @@ información por formulario y la notifican a quien corresponde. Antes de desarro
 
 - [`docs/plataforma.md`](./docs/plataforma.md) — visión general, mapa de módulos y **tabla de
   estado** (qué está planificado a nivel funcional, qué tiene plan técnico y qué está implementado).
-- [`docs/00-desarollos-futuros.md`](./docs/00-desarrollos-futuros.md) — decisiones pendientes e ideas
+- [`docs/00-desarrollos-futuros.md`](./docs/00-desarrollos-futuros.md) — decisiones pendientes e ideas
   para el próximo curso.
 - `docs/<nn>-<modulo>.md` — ficha de cada módulo (plan funcional, técnico y checklist de fases).
+
+El **roadmap de hitos** (en qué orden se construye todo) está en `docs/plataforma.md`.
 
 ## Stack
 

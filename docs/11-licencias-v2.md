@@ -129,9 +129,11 @@ Verificado visualmente en claro y oscuro.
 - [ ] Pegar/subir códigos de activación y casarlos con las líneas de pedido
 - [ ] Estado por línea (pendiente / enviado / error)
 
-## Fase 4 · Educamos API
+## Fase 4 · Enganche a la BBDD central Educamos (= hito 3 del roadmap)
 
-- [ ] Sustituir el proveedor de alumnos (import BBDD → sync Educamos)
+- [ ] Poblar `lic_students` de cada campaña desde `edu_students` (ver
+      `docs/02-integracion-educamos.md`; el import Excel queda como fallback documentado)
+- [ ] Login del panel con el auth central, retirar `licencias-auth.ts` (ver `docs/01-auth-roles.md`)
 - [ ] (Futuro) cobro/envío nativo desde la plataforma
 
 ---

@@ -1,7 +1,8 @@
 # Banco de libros · plan y checklist
 
 Módulo de gestión del banco de libros: qué alumnado participa, si se le ha entregado su lote, si
-ha entregado la documentación requerida, y en qué estado físico está cada lote.
+ha entregado la documentación requerida, y en qué estado físico está cada lote. Es el **hito 5
+del roadmap**.
 
 > Nota: este módulo es distinto del "banco de libros" que ya aparece en Licencias digitales
 > (`lic_students.banco_libros`, que solo indica si un alumno paga o no los libros fuera del
@@ -9,63 +10,95 @@ ha entregado la documentación requerida, y en qué estado físico está cada lo
 
 ---
 
-## Estado: boceto funcional 🟡 (sin plan técnico, sin implementar) — "a pensar muy bien el diseño"
+## Estado: plan técnico listo ✅ · implementación sin empezar ⬜
 
-## Objetivo funcional
+Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-roles.md`).
+David señaló el diseño del modelo anual como el punto a pensar mejor — está resuelto abajo
+(lote físico estable + asignación por curso académico), pero la Fase 0 incluye validarlo con
+datos reales antes de construir encima.
 
-- Tener registrado con claridad qué alumnado **es o no** del banco de libros.
-- Por cada alumno del banco: si se le ha **entregado el lote**, y si se ha recibido la
-  **documentación firmada** que corresponde entregar a principio y a final de curso.
-- Cada lote tiene un **número** asociado a una clase/curso concreto (p. ej. lote nº15 de 2ºESO A).
-  Ese número se reasocia **cada curso** a un alumno distinto (el lote 15 de este año puede ser
-  del alumno 15 de esta clase, pero el año que viene puede tocarle a otro alumno de esa misma
-  letra). El modelo tiene que reflejar esta reasignación anual sin perder el histórico.
-- Cada profesor **revisa el libro** del alumno en cuestión (asociado a su lote) y dejar constancia
-  de su estado: si tiene funda o no, y si está en buen/regular/mal estado.
+## Decisiones cerradas
 
-### Flujo principal (orientativo, a validar con las decisiones pendientes)
+- **Los registros son POR CURSO ACADÉMICO.** Cada año se guarda qué lote tuvo qué alumno y en
+  qué estado quedó todo; el histórico no se sobrescribe jamás.
+- **La asignación lote→alumno se hace a mano desde el panel**: "1ºESO A, lote 15 → alumno X"
+  (buscando el alumno en la BBDD central `edu_students`).
+- **Estado del libro/lote**: `Nuevo` · `Muy bien` · `Bien` · `Regular` · `Mal` · `Mojado`.
+- **Se registra además**: `borrado` (sí/no, por defecto **sí**) y `forrado` (sí/no, por
+  defecto **sí**).
+- **Documentación firmada** (inicio y fin de curso) sigue siendo papel: la app solo marca
+  recibido **sí/no**, por clase y con **botones bulk** para marcar muchos de golpe.
+- **De primeras, todos los roles con acceso al módulo acceden a todo** (sin restricción por
+  tutor/asignatura; se afinará si hace falta).
 
-1. Alta/objetivo por curso: qué alumnos son del banco de libros ese año y qué lote (número +
-   clase) les corresponde.
-2. Entrega de lote: marcar que un alumno ha recibido su lote.
-3. Documentación: marcar recepción de documento firmado (inicio de curso / fin de curso).
-4. Revisión de estado: cada profesor, para el alumno/lote de su clase, registra estado del
-   libro (bueno/regular/malo) y si tiene funda.
+## Plan técnico
 
-## Decisiones pendientes
+### Schema (`bl_*`)
 
-Ver la sección "Banco de libros" en [`desarrollos-futuros.md`](./desarrollos-futuros.md): cómo
-se reasocia lote→alumno cada curso, qué valores exactos tienen los estados, si la documentación
-se recoge digital o en papel, y quién hace la revisión del libro.
+El objeto físico (lote) es estable; lo que cambia cada año es a quién se asigna y cómo queda.
 
-## Apartado técnico (orientativo, a concretar tras cerrar decisiones)
+```ts
+bl_lotes (
+  id uuid pk,
+  curso text, letra text,             // la clase a la que pertenece el lote: '2ESO' 'A'
+  numero integer,                     // nº de lote dentro de la clase
+  activo boolean default true,
+  unique(curso, letra, numero)
+)
 
-- Prefijo de tablas propuesto: `bl_*`.
-- Modelo probable: una tabla de **lotes** por curso académico + clase + número (p. ej.
-  `bl_lotes(academic_year, curso, letra, numero)`), y una tabla de **asignaciones** que vincula
-  un lote de un curso académico concreto a un alumno concreto (`bl_asignaciones(lote_id,
-  student_id, academic_year)`) — así el histórico de "qué alumno tuvo qué lote cada año" queda
-  intacto en vez de sobrescribirse.
-- Estado del lote (funda, condición) probablemente vive en la propia asignación anual, no en el
-  lote en sí (el lote es el mismo objeto físico, pero su estado se revisa y registra cada año).
-- Reutilizar alumnado desde Educamos si para entonces ya está disponible (`docs/educamos.md`),
-  en vez de repetir un import manual más.
+bl_asignaciones (                     // UNA fila por lote y curso académico
+  id uuid pk,
+  lote_id -> bl_lotes,
+  academic_year text,                 // '2026-27'
+  student_id -> edu_students,
+  entregado boolean default false,        // lote entregado al alumno
+  doc_inicio boolean default false,       // documentación firmada inicio de curso
+  doc_fin boolean default false,          // documentación firmada fin de curso
+  estado text,                            // 'nuevo'|'muy_bien'|'bien'|'regular'|'mal'|'mojado'
+  borrado boolean default true,
+  forrado boolean default true,
+  notas text,
+  revisado_por uuid -> auth_users, revisado_at timestamp,
+  created_at, updated_at,
+  unique(lote_id, academic_year)
+)
+```
+
+- El histórico sale gratis: `select * from bl_asignaciones where lote_id = X order by
+  academic_year` = la vida del lote. Y por alumno, igual con `student_id`.
+- "Quién es del banco este año" = tiene asignación en el `academic_year` en vigor (no hace
+  falta flag aparte; el flag de Licencias es otra cosa).
+- El curso académico en vigor: constante en `src/lib/constants.ts` o tabla mínima de config —
+  decidir al implementar (no bloquea).
+
+### Rutas (todo panel interno, `/gestion/bancolibros`)
+
+- **Vista por clase** (pantalla principal): selector curso+letra → tabla de lotes con alumno
+  asignado, checkboxes de entregado/doc_inicio/doc_fin (con **bulk buttons**: "marcar toda la
+  clase"), estado, borrado, forrado. Edición inline, pensada para pasar lista rápido con iPad.
+- **Asignación anual**: al empezar curso, por clase: lista de lotes + buscador de alumno de esa
+  clase (desde `edu_students`) para asignar. Botón "copiar lotes del año pasado" (crea los
+  lotes que falten).
+- **Ficha de lote**: histórico año a año.
+- API: `api/bancolibros/*` protegido con `requireModule('bancolibros')`.
 
 ## Fases
 
-### Fase 0 · Decisiones y diseño (el propio David lo señala como el punto que más hay que pensar)
-- [ ] Cerrar decisiones funcionales (ver arriba)
-- [ ] Validar el modelo lote↔alumno↔curso académico con un caso real (p. ej. 2 años de datos)
-- [ ] Diseñar schema (`bl_*`)
+### Fase 0 · Validación del modelo y schema
+- [ ] Validar el modelo con un caso real (2 años de datos de una clase, aunque sea en papel)
+- [ ] Schema `bl_*` + `pnpm db:push`
+- [ ] Decidir dónde vive el `academic_year` en vigor (constante vs. config)
 
-### Fase 1 · Alta de lotes y asignación anual
-- [ ] Alta de lotes por clase/curso
-- [ ] Asignación lote→alumno del curso académico en vigor
+### Fase 1 · Lotes y asignación anual
+- [ ] Alta de lotes por clase (individual y "crear N lotes de golpe")
+- [ ] Asignación lote→alumno con buscador sobre `edu_students`
+- [ ] Ficha de lote con histórico
 
 ### Fase 2 · Entrega y documentación
-- [ ] Marcar entrega de lote
-- [ ] Marcar recepción de documentación firmada (inicio/fin de curso)
+- [ ] Vista por clase con checkboxes entregado / doc_inicio / doc_fin
+- [ ] Bulk buttons por clase (marcar/desmarcar todos)
 
-### Fase 3 · Revisión de estado por profesor
-- [ ] Formulario de revisión (funda sí/no, estado bueno/regular/malo) por alumno/lote
-- [ ] Panel con visión agregada por clase/curso
+### Fase 3 · Revisión de estado
+- [ ] Registro de estado (6 valores), borrado y forrado por asignación, con revisor y fecha
+- [ ] Vista agregada: resumen por clase/curso (cuántos entregados, estados, pendientes de doc)
+- [ ] Export CSV por clase/curso

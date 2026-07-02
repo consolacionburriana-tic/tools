@@ -2,55 +2,111 @@
 
 Pieza transversal de la que dependen todos los módulos. Sustituye a las soluciones "de andar
 por casa" que hay hoy: Registro ABC sin login y Licencias con un email/password fijo
-(`src/lib/licencias-auth.ts`).
+(`src/lib/licencias-auth.ts`). Es el **hito 2 del roadmap** (ver `plataforma.md`).
 
 ---
 
-## Estado: sin empezar ⬜
+## Estado: plan técnico listo ✅ · implementación sin empezar ⬜
 
-Todavía no hay ni plan técnico ni implementación. Hay decisiones funcionales por cerrar antes
-de diseñar el schema (ver `docs/desarrollos-futuros.md` → sección Autenticación y roles).
+## Decisiones cerradas
 
-## Objetivo funcional
+- **Login único con Google.** Ninguna cuenta/contraseña propia de la app.
+- **Para administración/gestión, solo cuentas del dominio del colegio.** Los módulos públicos
+  (formularios de familias) siguen abiertos sin login, aunque un módulo concreto puede decidir
+  exigir login del colegio.
+- **El acceso se controla por rol** (no módulo a módulo por usuario). Roles base:
+  `profe` · `tutor` · `jefe` (jefe de departamento / coordinador de ciclo, es el mismo) ·
+  `direccion` · `tic` · `orientacion` · `secretaria` · `supertic`.
+- **`supertic`** es el super-admin: gestiona la pantalla de usuarios/roles y accede a todo.
 
-- **Login único con Google.** Ninguna cuenta/contraseña propia de la app; se entra con una
-  cuenta de Google.
-- **Acceso por módulo.** Cada usuario tiene acceso a un subconjunto de módulos, configurable
-  desde una pantalla sencilla de administración (marcar/desmarcar módulos por usuario).
-- **Roles.** Se pueden agrupar permisos en roles (p. ej. "jefe de departamento") y asignar el rol
-  a un usuario en vez de marcar módulo a módulo.
-- **Pantalla de configuración sencilla**, pensada para que la use dirección/coordinación sin
-  ayuda técnica: alta de usuario, asignación de rol y/o módulos sueltos.
+## Plan técnico
 
-## Decisiones pendientes
+### Proveedor: Auth.js (NextAuth v5) con provider Google
 
-Ver la sección "Autenticación y roles" en [`desarrollos-futuros.md`](./desarrollos-futuros.md).
-Un apunte técnico ya intuido, sujeto a las decisiones: probablemente hará falta una tabla de
-`users` (identificados por email de Google), una de `roles` con sus permisos por módulo, y una
-tabla puente `user_module_access` para las excepciones por usuario que no vengan del rol.
+Elegido frente a Clerk por coste cero, control total y porque solo necesitamos un provider.
+Estrategia **JWT** (sin tablas de sesión); la autorización se resuelve contra `auth_users`.
 
-## Apartado técnico (orientativo, a concretar cuando se cierren decisiones)
+- Restricción de dominio: parámetro `hd` en el provider **y** verificación server-side del
+  dominio del email en el callback `signIn` (el `hd` solo es cosmético).
+- Env vars: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` (crear OAuth client en Google
+  Cloud Console con redirect `https://tools.consolacionburriana.com/api/auth/callback/google`).
 
-- Proveedor de auth: Google OAuth (candidatos a evaluar: NextAuth/Auth.js con provider Google,
-  o Clerk ya mencionado en el README histórico — a decidir cuando se aborde esta fase).
-- Middleware de Next.js para proteger rutas de `gestion/*` y `admin/*` según módulo.
-- Prefijo de tablas propuesto: `auth_*` (a confirmar al diseñar el schema).
+### Schema (`auth_*`)
+
+```ts
+auth_users (
+  id uuid pk,
+  email text unique not null,        // email Google del dominio
+  nombre text,
+  role text not null,                // 'profe'|'tutor'|'jefe'|'direccion'|'tic'|'orientacion'|'secretaria'|'supertic'
+  active boolean default true,
+  created_at, updated_at
+)
+```
+
+Sin tabla de permisos: **la matriz rol→módulos vive en código**, en `src/lib/permissions.ts`:
+
+```ts
+export const MODULES = ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'educamos', 'usuarios'] as const;
+export const ROLE_MODULES: Record<Role, Module[]> = {
+  supertic:   [...MODULES],
+  tic:        [...MODULES],
+  direccion:  ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'educamos'],
+  jefe:       ['salidas', 'bancolibros', 'evaluaciones'],
+  orientacion:['abc', 'evaluaciones'],
+  secretaria: ['licencias', 'salidas', 'bancolibros'],
+  tutor:      ['salidas', 'bancolibros', 'evaluaciones'],
+  profe:      ['salidas', 'bancolibros', 'evaluaciones'],
+};
+```
+
+> La asignación de arriba es la **propuesta por defecto** — ajustarla con David al implementar
+> es un cambio de una línea, por eso no bloquea. Matices *dentro* de un módulo (p. ej. "profe
+> solo ve sus salidas, dirección ve todas") se resuelven en el propio módulo consultando
+> `session.role`, no aquí.
+
+### Protección de rutas
+
+- `middleware.ts` (o `proxy.ts` según la versión de Next 16 — comprobar
+  `node_modules/next/dist/docs/` antes de tocar) protege `/gestion/*` y `/admin/*`:
+  sin sesión → redirect a login; con sesión, el **layout de cada sección** comprueba
+  `canAccess(role, modulo)` y muestra 403 amable si no toca.
+- Helper `requireModule(modulo)` para las rutas API de gestión (sustituye al patrón
+  `isAdmin()` con cookie de `licencias-auth.ts`).
+- Usuario no dado de alta en `auth_users` = puede autenticarse con Google pero ve pantalla
+  "pídele acceso al equipo TIC" (alta previa por supertic/tic; sin auto-registro).
+
+### Pantalla de usuarios
+
+`/gestion/usuarios` (solo `supertic`/`tic`): listado, alta por email, selector de rol,
+activar/desactivar. Sin más — la matriz es por rol y vive en código.
+
+### Migración de lo existente (hito 3 del roadmap)
+
+1. Registro ABC: mover `/admin` detrás del login (roles con módulo `abc`).
+2. Licencias: sustituir cookie propia por sesión + `requireModule('licencias')` en las ~15
+   rutas `api/licencias/admin/*`; retirar `src/lib/licencias-auth.ts` y sus env vars.
+3. La portada `/` muestra solo los módulos a los que el usuario tiene acceso (si hay sesión).
 
 ## Fases
 
-### Fase 0 · Decisiones y diseño de schema
-- [ ] Cerrar decisiones funcionales (ver arriba)
-- [ ] Elegir proveedor de auth (NextAuth/Clerk/otro)
-- [ ] Diseñar tablas `users` / `roles` / `user_module_access`
+### Fase 0 · Cimientos
+- [ ] Crear OAuth client en Google Cloud (input de David: acceso a la consola del dominio)
+- [ ] Instalar Auth.js v5, config con provider Google + restricción de dominio server-side
+- [ ] Tabla `auth_users` + `src/lib/permissions.ts` con la matriz por defecto
+- [ ] Seed inicial: David como `supertic`
 
 ### Fase 1 · Login
-- [ ] Login con Google funcionando
-- [ ] Sesión persistente (cookie) y logout
+- [ ] Página de login con Google (diseño con logo, como el login actual de Licencias)
+- [ ] Sesión JWT + logout
+- [ ] Pantalla "sin acceso, pide alta al TIC" para autenticados sin fila en `auth_users`
 
 ### Fase 2 · Permisos por módulo
-- [ ] Middleware que restringe rutas según módulos permitidos del usuario
-- [ ] Pantalla de administración de accesos (usuarios, roles, módulos)
+- [ ] Middleware protegiendo `/gestion/*` y `/admin/*`
+- [ ] `requireModule()` para rutas API + `canAccess()` para layouts
+- [ ] `/gestion/usuarios`: CRUD de usuarios y roles (solo tic/supertic)
 
-### Fase 3 · Migración de los módulos existentes
+### Fase 3 · Migración de los módulos existentes (= hito 3 del roadmap)
 - [ ] Registro ABC (`/admin`) detrás del nuevo login
 - [ ] Licencias (`/gestion`) detrás del nuevo login (retirar `licencias-auth.ts`)
+- [ ] Portada `/` sensible a la sesión (muestra los módulos permitidos)

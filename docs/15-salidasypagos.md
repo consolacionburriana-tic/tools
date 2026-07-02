@@ -2,67 +2,103 @@
 
 Módulo de excursiones/salidas escolares. La gestión de la salida en sí (autorización, permisos)
 ya se hace en Educamos; lo que aporta este módulo es el circuito de **inscripción restringida
-por grupo** y, sobre todo, el **justificante de pago**.
+por grupo** y, sobre todo, el **justificante de pago**. Es el **hito 4 del roadmap**: primer
+módulo que nace ya sobre `edu_students` y el login por roles.
 
 ---
 
-## Estado: boceto funcional 🟡 (sin plan técnico, sin implementar)
+## Estado: plan técnico listo ✅ · implementación sin empezar ⬜
 
-## Objetivo funcional
+Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-roles.md`).
 
-Un usuario autorizado (p. ej. rol "profesor") crea una **salida** asociada a un curso/grupo
-concreto (p. ej. "2º ESO"). Solo el alumnado de ese grupo puede apuntarse. Las familias reciben
-un enlace donde:
+## Decisiones cerradas
 
-1. Confirman la inscripción de su hijo/a a la salida.
-2. Suben su justificante de pago.
+- **Cualquier profesor puede crear una salida.** `profe`/`tutor` solo ven **sus** salidas; el
+  resto de roles con acceso al módulo (dirección, jefe, secretaría, tic…) ven las de todos.
+- **La salida se restringe por clase** usando `curso` + `letra` de `edu_students` (se pueden
+  marcar varias clases: p. ej. todo 2ºESO = 2ESO A + 2ESO B + PDC).
+- **El justificante se sube como archivo** (foto/PDF) y un gestor puede marcarlo como
+  **revisado/validado**.
+- **Un alumno puede "no ir" a la salida**: se marca y deja de contar como pendiente (no se le
+  reclama justificante, obvio).
+- **Sin recordatorios automáticos**, pero sí **envío manual de correos masivos** a las familias
+  que faltan ("oye, me falta tu justificante") — mismo patrón que `/gestion/correos` de
+  Licencias.
+- Idea aparcada (no bloquea, ver `00-desarrollos-futuros.md`): plataforma de **pago online**
+  en vez de justificante subido.
 
-El profesorado autorizado ve en todo momento **qué alumnos del grupo faltan por apuntarse y/o
-pagar** — el mismo patrón de "listado de quién falta" que ya existe en Licencias
-(`/gestion/faltan`).
+## Plan técnico
 
-### Flujo principal
+### Schema (`sal_*`)
 
-1. Profesor crea la salida: nombre, fecha, curso/grupo al que va dirigida, importe.
-2. La app genera un enlace único para las familias de ese grupo (o por alumno, a decidir).
-3. Familia entra, confirma inscripción y sube el justificante de pago (archivo).
-4. Profesor consulta el panel: apuntados / pendientes de apuntarse / pendientes de pago.
-5. (Posible) recordatorio a quien falta — pendiente de decidir alcance.
+```ts
+sal_trips (
+  id uuid pk,
+  nombre text, descripcion text,
+  fecha date,
+  importe numeric,
+  clases jsonb,                       // [{curso:'2ESO', letra:'A'}, ...] — a qué clases va dirigida
+  estado text default 'abierta',      // 'abierta' | 'cerrada'
+  created_by uuid -> auth_users,      // para el filtro "solo veo mis salidas"
+  created_at, updated_at
+)
 
-## Decisiones pendientes
+sal_signups (
+  id uuid pk,
+  trip_id -> sal_trips,
+  student_id -> edu_students,
+  estado text not null,               // 'apuntado' | 'no_va'   (sin fila = pendiente)
+  justificante_url text,              // Vercel Blob
+  justificante_estado text,           // null | 'subido' | 'validado' | 'rechazado'
+  email_contacto text,                // email de la familia que confirmó
+  created_at, updated_at,
+  unique(trip_id, student_id)
+)
+```
 
-Ver la sección "Salidas y pagos" en [`desarrollos-futuros.md`](./desarrollos-futuros.md): quién
-puede crear salidas, cómo se restringe por grupo (a mano o vía Educamos), si el justificante
-necesita validación manual, y si hacen falta recordatorios automáticos.
+"Quién falta" = alumnado de las clases de la salida (desde `edu_students`) sin fila en
+`sal_signups`, más los `'apuntado'` sin justificante validado. Los `'no_va'` se excluyen.
 
-## Apartado técnico (orientativo, a concretar tras cerrar decisiones)
+### Subida de archivos: Vercel Blob (primera vez en el repo)
 
-- Prefijo de tablas propuesto: `sal_*` (`sal_trips`, `sal_students` o reuso de alumnado común si
-  ya está disponible vía Educamos, `sal_signups`).
-- Subida de archivo (justificante): almacenamiento a decidir (¿Vercel Blob? revisar qué ya usa
-  el repo — hoy no hay subida de archivos en ningún módulo, sería la primera vez).
-- Reutilizar `src/lib/email.ts` (Resend) para el enlace a la familia y para el resumen al
-  profesorado.
-- Reutilizar el patrón de "panel + listado de quién falta" ya construido en Licencias
-  (`src/app/gestion/faltan`) como referencia de diseño.
+- Helper compartido `src/lib/blob.ts` (put/delete + URL firmada); acceso **privado**, se sirve
+  vía ruta API que comprueba permisos. Env var `BLOB_READ_WRITE_TOKEN` (Vercel → Storage → Blob).
+- Límite razonable (p. ej. 10 MB, jpg/png/pdf/heic) validado en servidor.
+
+### Rutas
+
+- Gestión (`/gestion/salidas`): listado (filtrado por rol), crear/editar salida, detalle con
+  tres listas (apuntados / pendientes / no van) + validar justificantes + correos masivos a
+  pendientes + export CSV.
+- Público (`/salidas/[tripId]`): la familia se identifica con el patrón de Licencias
+  (curso + año nacimiento + apellidos, restringido a las clases de la salida), confirma
+  inscripción o marca "no va", y sube el justificante. Email de confirmación (Resend).
+- API: `api/salidas/{identify,signup,upload}` (público con token de salida) ·
+  `api/salidas/admin/*` (protegido con `requireModule('salidas')`).
+
+### Reutilización
+
+- Identificación de familia: extraer a helper común lo ya hecho en `api/licencias/identify`.
+- Correos masivos: mismo patrón que `/gestion/correos` (Resend batch, variables `{nombre}…`).
+- Listado "quién falta" + CSV: patrón de `/gestion/faltan` y `licencias-exports.ts`.
 
 ## Fases
 
-### Fase 0 · Decisiones y diseño
-- [ ] Cerrar decisiones funcionales (ver arriba)
-- [ ] Diseñar schema (`sal_*`)
-- [ ] Decidir mecanismo de subida de archivos
+### Fase 0 · Cimientos
+- [ ] Schema `sal_*` + `pnpm db:push`
+- [ ] Helper `src/lib/blob.ts` + token de Blob en Vercel (input de David: activar Blob)
 
 ### Fase 1 · Alta de salidas (gestión)
-- [ ] Crear/editar salida (nombre, fecha, grupo, importe)
-- [ ] Restringir por curso/grupo
+- [ ] Crear/editar salida (nombre, descripción, fecha, importe, clases, estado)
+- [ ] Listado con filtro por rol (profe/tutor → solo suyas; resto → todas)
 
 ### Fase 2 · Formulario público (familias)
-- [ ] Confirmar inscripción
-- [ ] Subir justificante de pago
-- [ ] Email de confirmación a la familia
+- [ ] Identificación del alumno restringida a las clases de la salida
+- [ ] Confirmar inscripción / marcar "no va"
+- [ ] Subir justificante (Blob) con validaciones
+- [ ] Email de confirmación a la familia (Resend)
 
 ### Fase 3 · Panel de seguimiento
-- [ ] Listado apuntados / pendientes de apuntarse / pendientes de pago
-- [ ] Exportación (CSV, como en Licencias)
-- [ ] (Si se decide) recordatorios automáticos a quien falta
+- [ ] Detalle de salida: apuntados / pendientes / no van, con estado de justificante
+- [ ] Validar/rechazar justificante (visor del archivo)
+- [ ] Correos masivos a pendientes + export CSV
