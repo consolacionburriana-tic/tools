@@ -11,10 +11,14 @@ import { google } from 'googleapis';
 // G-N Selección de licencias por curso (formulario antiguo, ya no se usa: la dejamos vacía)
 // O Columna 1 (campo del formulario antiguo sin uso conocido: la dejamos vacía)
 // P Codigo alumno (clave para localizar/actualizar la fila)
-// Q🧾 / R📤 / S💰 · estado — NO TOCAR
+// Q🧾 / R📤 / S💰 · estado — en filas EXISTENTES no se tocan nunca; en filas NUEVAS se
+// inicializan a FALSE (checkbox sin marcar), que es su estado de partida real.
 // T Apellido · U Nombre · V Correo · W Nacimiento · X Curso · Y Licencias (códigos)
 // Z Fecha petición licencias (la escribe el informe de editoriales) · AA Fecha informe de pago — NO TOCAR
-// AB Fecha rellenó el form · AC Letra · AD Línea (idioma)
+// AB Fecha rellenó el form (valor real, lo escribimos siempre)
+// AC Letra · AD Línea (idioma) — en la fila 2 son fórmulas (VLOOKUP contra BBDD Alumnos);
+// en vez de escribir un valor estático, copiamos esas fórmulas fila a fila (como un
+// copiar/pegar normal de Sheets, con las referencias ajustándose solas)
 
 export interface SheetOrderRow {
   studentCode: string;
@@ -72,15 +76,17 @@ function rowTtoY(r: SheetOrderRow): (string | number)[] {
   return [r.apellidos, r.nombre, r.email, r.birthYear ?? '', r.curso, r.codigos.join(', ')];
 }
 
-// AB..AD (3 valores)
-function rowABtoAD(r: SheetOrderRow): (string | number)[] {
-  return [fmtDate(r.confirmedAt), r.letra ?? '', r.lengua ?? ''];
+// AB (1 valor) — Fecha rellenó el form. AC/AD no se tocan en filas existentes (son fórmulas).
+function rowAB(r: SheetOrderRow): (string | number)[] {
+  return [fmtDate(r.confirmedAt)];
 }
 
-// Fila completa (30 valores, A..AD) para alta de fila nueva — aquí sí dejamos Q/R/S/Z/AA
-// en blanco porque la fila no existía: no hay nada que "pisar".
-function rowFull(r: SheetOrderRow): (string | number)[] {
-  return [...rowAtoP(r), '', '', '', ...rowTtoY(r), '', '', ...rowABtoAD(r)];
+// Fila completa (30 valores, A..AD) para alta de fila nueva.
+// Q/R/S = FALSE (checkbox sin marcar, no vacío). Z/AA en blanco (sin procesar aún).
+// AC/AD se dejan vacíos aquí: se rellenan después copiando la fórmula de la fila 2
+// (ver copyFormulaColumns), no como texto estático.
+function rowFull(r: SheetOrderRow): (string | number | boolean)[] {
+  return [...rowAtoP(r), false, false, false, ...rowTtoY(r), '', '', ...rowAB(r), '', ''];
 }
 
 // ── Libros: lee la pestaña "BBDD Libros" (A COD · B Editorial · C Curso · D Lengua ·
@@ -195,8 +201,50 @@ export interface SyncResult {
   appended: number;
 }
 
+async function getSheetIdByTitle(
+  sheets: ReturnType<typeof google.sheets>,
+  spreadsheetId: string,
+  title: string,
+): Promise<number> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheetId = meta.data.sheets?.find((s) => s.properties?.title === title)?.properties?.sheetId;
+  if (sheetId == null) throw new Error(`No se encontró la pestaña "${title}" en el Sheet`);
+  return sheetId;
+}
+
+// Copia las fórmulas de AC2:AD2 a AC{startRow}:AD{startRow+count-1}, igual que un
+// copiar/pegar normal de Sheets (las referencias relativas se ajustan solas por fila).
+async function copyFormulaColumns(
+  sheets: ReturnType<typeof google.sheets>,
+  spreadsheetId: string,
+  sheetId: number,
+  startRow: number,
+  count: number,
+): Promise<void> {
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          copyPaste: {
+            source: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 28, endColumnIndex: 30 }, // AC2:AD2
+            destination: {
+              sheetId,
+              startRowIndex: startRow - 1,
+              endRowIndex: startRow - 1 + count,
+              startColumnIndex: 28,
+              endColumnIndex: 30,
+            },
+            pasteType: 'PASTE_FORMULA',
+          },
+        },
+      ],
+    },
+  });
+}
+
 // Upsert por código de alumno (columna P). Actualiza en sitio si ya existe la fila,
-// añade al final si no. Nunca escribe en Q, R, S, Z ni AA.
+// añade al final si no. En filas existentes nunca se escribe en Q, R, S, Z, AA, AC ni AD.
 export async function syncOrdersToSheet(tab: string, rows: SheetOrderRow[]): Promise<SyncResult> {
   if (rows.length === 0) return { tab, updated: 0, appended: 0 };
 
@@ -215,14 +263,14 @@ export async function syncOrdersToSheet(tab: string, rows: SheetOrderRow[]): Pro
   });
 
   const updateData: { range: string; values: (string | number)[][] }[] = [];
-  const toAppend: (string | number)[][] = [];
+  const toAppend: (string | number | boolean)[][] = [];
 
   for (const r of rows) {
     const rowNum = codeToRow.get(r.studentCode);
     if (rowNum) {
       updateData.push({ range: `'${tab}'!A${rowNum}:P${rowNum}`, values: [rowAtoP(r)] });
       updateData.push({ range: `'${tab}'!T${rowNum}:Y${rowNum}`, values: [rowTtoY(r)] });
-      updateData.push({ range: `'${tab}'!AB${rowNum}:AD${rowNum}`, values: [rowABtoAD(r)] });
+      updateData.push({ range: `'${tab}'!AB${rowNum}:AB${rowNum}`, values: [rowAB(r)] });
     } else {
       toAppend.push(rowFull(r));
     }
@@ -235,13 +283,19 @@ export async function syncOrdersToSheet(tab: string, rows: SheetOrderRow[]): Pro
     });
   }
   if (toAppend.length > 0) {
-    await sheets.spreadsheets.values.append({
+    const appendRes = await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: `'${tab}'!A1:AD1`,
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values: toAppend },
     });
+    const updatedRange = appendRes.data.updates?.updatedRange ?? '';
+    const startRow = Number(updatedRange.match(/![A-Z]+(\d+):/)?.[1]);
+    if (startRow) {
+      const sheetId = await getSheetIdByTitle(sheets, spreadsheetId, tab);
+      await copyFormulaColumns(sheets, spreadsheetId, sheetId, startRow, toAppend.length);
+    }
   }
 
   return { tab, updated: updateData.length / 3, appended: toAppend.length };
