@@ -180,8 +180,12 @@ consultan `edu_*` a pelo desde sus rutas.
 
 ### Fase 0 · Schema y parser
 - [ ] Tablas `edu_*` en `src/db/schema.ts` + `pnpm db:push`
-- [ ] Parser SheetJS con mapa de cabeceras + normalización, probado contra el export real
-      (139 filas de ejemplo) y contra un CSV recortado con columna A = código interno
+- [ ] Parser SheetJS con mapa de cabeceras + normalización, probado contra **fixtures con
+      datos inventados** que imiten la estructura real documentada arriba (el export real está
+      borrado y prohibido en git; los fixtures NO deben llamarse `*educamos*` o el `.gitignore`
+      los bloqueará — usar p. ej. `src/db/data/fixture-sync-alumnado.csv`): uno "completo"
+      (~200 columnas) y uno recortado con columna A = código interno
+- [ ] Prueba final con un export real que David sube por el wizard (nunca al repo)
 - [ ] Cascada de matching + generación de código interno con detección de colisiones
 - [ ] `getStudents` / `getGuardians` tipados
 

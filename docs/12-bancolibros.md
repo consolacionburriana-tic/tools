@@ -66,8 +66,11 @@ bl_asignaciones (                     // UNA fila por lote y curso académico
 
 - El histórico sale gratis: `select * from bl_asignaciones where lote_id = X order by
   academic_year` = la vida del lote. Y por alumno, igual con `student_id`.
-- "Quién es del banco este año" = tiene asignación en el `academic_year` en vigor (no hace
-  falta flag aparte; el flag de Licencias es otra cosa).
+- **Quién participa en el banco vive en `edu_students.banco_libros`** (default `true`, con
+  toggle+bulk en `/gestion/educamos` — ver `02-integracion-educamos.md`). Este módulo lo
+  consume: las pantallas de asignación solo ofrecen alumnado con `banco_libros=true` (con
+  filtro para ver también a los que no, por si hay que corregir el flag). Tener asignación en
+  el `academic_year` en vigor = participa *efectivamente* este año.
 - El curso académico en vigor: constante en `src/lib/constants.ts` o tabla mínima de config —
   decidir al implementar (no bloquea).
 
@@ -91,7 +94,8 @@ bl_asignaciones (                     // UNA fila por lote y curso académico
 
 ### Fase 1 · Lotes y asignación anual
 - [ ] Alta de lotes por clase (individual y "crear N lotes de golpe")
-- [ ] Asignación lote→alumno con buscador sobre `edu_students`
+- [ ] Asignación lote→alumno con buscador sobre `edu_students` (filtrado por defecto a
+      `banco_libros=true` de esa clase)
 - [ ] Ficha de lote con histórico
 
 ### Fase 2 · Entrega y documentación

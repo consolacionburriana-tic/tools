@@ -50,8 +50,8 @@ Recopilados de las fichas, para verlos de un vistazo:
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
 
-- **Mejorar la PWA** (instalación en iPad) para que cubra todos los módulos, no solo Registro
-  ABC. **PRIORIZAR** — buen candidato a colarse entre hito y hito.
+- ~~**Mejorar la PWA** (instalación en iPad)~~ → promocionada a ficha propia con plan y
+  checklist: [`05-pwa.md`](./05-pwa.md).
 - **Plataforma de pago online** para Salidas (y quizá Licencias): sustituiría el justificante
   subido por pago real. Implica pasarela (Stripe u otra), comisiones y decisión de dirección.
 - IA (Gemini u otro modelo) para sugerir redirecciones o detectar patrones en Registro ABC

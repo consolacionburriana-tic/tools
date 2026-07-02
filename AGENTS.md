@@ -13,6 +13,9 @@ alumnado `edu_*` y login por roles `auth_*`).
 - **Empieza SIEMPRE por `docs/plataforma.md`**: tabla maestra de estado, roadmap de hitos y
   principios de arquitectura. Cada módulo tiene su ficha en `docs/<nn>-<modulo>.md` con
   decisiones cerradas, plan técnico y checklist de fases.
+- **Antes de escribir código, lee `docs/04-convenciones-tecnicas.md`**: patrones del repo,
+  gotchas del stack (@base-ui sin asChild, db lazy, force-dynamic…), reglas de datos personales
+  y definition of done.
 - Si David dice **"sigue haciendo"** sin más contexto: aplica el protocolo descrito en
   `docs/plataforma.md` (buscar la primera casilla `[ ]` del hito activo, implementar, verificar,
   y marcar `[x]` en el mismo commit).
