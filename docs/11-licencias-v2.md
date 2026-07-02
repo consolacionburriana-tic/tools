@@ -122,8 +122,9 @@ Verificado visualmente en claro y oscuro.
       o "quienes ya tienen", asunto + mensaje con variables `{nombre}/{apellidos}/{curso}`,
       vista previa, envío de prueba y envío masivo con confirmación (Resend batch de 100).
 
-> Auth: credenciales en `src/lib/licencias-auth.ts` (override por env `LICENCIAS_ADMIN_*`).
-> Para producción en Vercel, definir `LICENCIAS_ADMIN_PASSWORD` y `LICENCIAS_ADMIN_TOKEN`.
+> Auth: credenciales **fijas en código** en `src/lib/licencias-auth.ts` (el override por env
+> `LICENCIAS_ADMIN_*` se retiró a propósito: fallaba en Vercel y era indepurable a distancia).
+> Se sustituye entero por el login central en el hito 3 (`01-auth-roles.md`).
 
 ## Fase 3 · Códigos de activación + seguimiento
 

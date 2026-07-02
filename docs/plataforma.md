@@ -22,9 +22,12 @@ Léelo en este orden si te incorporas a una sesión de desarrollo (persona o age
 
 1. **`docs/plataforma.md`** *(este documento)* — el mapa: qué módulos hay, en qué estado está
    cada uno, el roadmap de hitos y las decisiones de arquitectura compartidas.
-2. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — decisiones pendientes de
+2. **[`docs/04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md)** — CÓMO se escribe
+   código aquí: patrones, gotchas del stack, reglas de datos personales y definition of done.
+   Lectura obligada antes de implementar nada.
+3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — decisiones pendientes de
    tomar (arriba) e ideas/caminos de crecimiento sin decidir todavía (abajo). Documento vivo.
-3. **`docs/<nn>-<modulo>.md`** — un documento por módulo/pieza con su plan funcional, plan
+4. **`docs/<nn>-<modulo>.md`** — un documento por módulo/pieza con su plan funcional, plan
    técnico y checklist de fases (formato heredado de `11-licencias-v2.md`, que fue el primero).
 
 **Regla de oro:** antes de tocar un módulo, lee su ficha. Antes de decidir alcance nuevo, mira
@@ -66,6 +69,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Salidas y pagos | ✅ | ✅ | ⬜ | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ⬜ | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ⬜ | [`16-evaluaciones.md`](./16-evaluaciones.md) |
+| PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (manifest global; falta start_url/SW) | [`05-pwa.md`](./05-pwa.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.
 
@@ -90,8 +94,9 @@ empieza un hito hasta que el anterior está funcional (no hace falta que esté p
 | 5 | **Banco de libros** (`bl_*`) | [`12`](./12-bancolibros.md) | Necesita el modelo anual lote↔alumno bien pensado; se apoya en `edu_students`. |
 | 6 | **Evaluaciones** (`eval_*`) | [`16`](./16-evaluaciones.md) | Motorcito de formularios propio; el más independiente, puede ir en paralelo si conviene. |
 
-Transversales sin hito propio (se hacen "de paso", ver `00-desarrollos-futuros.md`): mejorar la
-PWA para todos los módulos (priorizado por David), auditoría de cambios, dashboard de dirección.
+Transversales sin hito propio: la **PWA** ([`05-pwa.md`](./05-pwa.md), priorizada por David —
+su Fase 1 encaja natural justo después del escritorio del hito 2); auditoría de cambios y
+dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
 
 ---
 
@@ -125,7 +130,7 @@ PWA para todos los módulos (priorizado por David), auditoría de cambios, dashb
 ### Cómo añadir un módulo nuevo (para el próximo que se plantee)
 
 1. Crear `docs/1x-<modulo>.md` con el mismo formato (Estado → Decisiones cerradas → Plan
-   técnico → Fases con checklist).
+   técnico → Fases con checklist). Implementar siguiendo `04-convenciones-tecnicas.md`.
 2. Añadir su fila en la tabla maestra y, si procede, en el roadmap de este documento.
 3. Elegir prefijo de tablas y declararlo en `src/db/schema.ts`.
 4. Decidir en la ficha qué roles acceden (ver `01-auth-roles.md`) y registrarlo en la matriz de
