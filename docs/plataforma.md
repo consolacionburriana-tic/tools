@@ -63,7 +63,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 |---|---|---|---|---|
 | Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ | [`10-registro-abc.md`](./10-registro-abc.md) |
 | Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2; 3-4 pendientes) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
-| BBDD central Educamos (alumnos + tutores) | ✅ | ✅ | ⬜ (hoy: import manual en licencias) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
+| BBDD central Educamos (alumnos + tutores) | ✅ | ✅ | 🟡 (Fase 0 hecha: schema + parser + matching) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ⬜ | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ⬜ | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
 | Salidas y pagos | ✅ | ✅ | ⬜ | [`15-salidasypagos.md`](./15-salidasypagos.md) |

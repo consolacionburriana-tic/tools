@@ -179,15 +179,17 @@ consultan `edu_*` a pelo desde sus rutas.
 ## Fases
 
 ### Fase 0 · Schema y parser
-- [ ] Tablas `edu_*` en `src/db/schema.ts` + `pnpm db:push`
-- [ ] Parser SheetJS con mapa de cabeceras + normalización, probado contra **fixtures con
+- [x] Tablas `edu_*` en `src/db/schema.ts` + `pnpm db:push`
+- [x] Parser SheetJS con mapa de cabeceras + normalización, probado contra **fixtures con
       datos inventados** que imiten la estructura real documentada arriba (el export real está
       borrado y prohibido en git; los fixtures NO deben llamarse `*educamos*` o el `.gitignore`
       los bloqueará — usar p. ej. `src/db/data/fixture-sync-alumnado.csv`): uno "completo"
       (~200 columnas) y uno recortado con columna A = código interno
+      *(los fixtures viven en `src/db/data/`, gitignoreado: existen en local, no en el repo)*
 - [ ] Prueba final con un export real que David sube por el wizard (nunca al repo)
-- [ ] Cascada de matching + generación de código interno con detección de colisiones
-- [ ] `getStudents` / `getGuardians` tipados
+- [x] Cascada de matching + generación de código interno con detección de colisiones
+- [x] `getStudents` / `getGuardians` tipados (en `src/lib/educamos-server.ts`; el parser puro
+      queda en `src/lib/educamos.ts` siguiendo `04-convenciones-tecnicas.md`)
 
 ### Fase 1 · Wizard de sincronización
 - [ ] Subida de fichero + parseo en memoria (`.csv/.xls/.xlsx`)

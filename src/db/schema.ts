@@ -164,6 +164,100 @@ export const licOrderItems = pgTable('lic_order_items', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ─── BBDD central Educamos (prefijo edu_) ─────────────────────────────────────
+export const eduStudents = pgTable('edu_students', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  codigo: text('codigo').unique(), // 14PONROS — clave humana, la de Licencias
+  educamosPersonaId: text('educamos_persona_id').unique(), // GUID 'ID PERSONA' del export
+  nia: text('nia'),
+  dni: text('dni'),
+  matricula: text('matricula'),
+  nombre: text('nombre'),
+  apellido1: text('apellido1'),
+  apellido2: text('apellido2'),
+  sexo: text('sexo'),
+  fechaNacimiento: date('fecha_nacimiento'),
+  curso: text('curso'), // derivado de CLASE ('2ESOB' → '2ESO')
+  letra: text('letra'), // '2ESOB' → 'B'; PDC = letra
+  claseCodigo: text('clase_codigo'),
+  tutorPersonal: text('tutor_personal'), // nombre del tutor/a de clase
+  modeloLinguistico: text('modelo_linguistico'),
+  deficit: text('deficit'),
+  email: text('email'),
+  emailGoogle: text('email_google'),
+  movil1: text('movil1'),
+  movil2: text('movil2'),
+  telEmergencia: text('tel_emergencia'),
+  familiaId: text('familia_id'), // GUID ID FAMILIA
+  bancoLibros: boolean('banco_libros').notNull().default(true),
+  active: boolean('active').notNull().default(true),
+  extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN bloque pagadores)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  lastSyncedAt: timestamp('last_synced_at'),
+}, (t) => [
+  index('edu_students_curso_letra_idx').on(t.curso, t.letra),
+]);
+
+export const eduGuardians = pgTable('edu_guardians', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  educamosPersonaId: text('educamos_persona_id').unique(), // GUID 'IDPERSONA TUTORn' — clave de dedupe
+  nombre: text('nombre'),
+  apellido1: text('apellido1'),
+  apellido2: text('apellido2'),
+  dni: text('dni'),
+  sexo: text('sexo'),
+  email: text('email'),
+  emailGoogle: text('email_google'),
+  telCasa: text('tel_casa'),
+  telPersonal: text('tel_personal'),
+  movilTrabajo: text('movil_trabajo'),
+  direccion: text('direccion'),
+  cp: text('cp'),
+  localidad: text('localidad'),
+  provincia: text('provincia'),
+  extra: jsonb('extra').$type<Record<string, string>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const eduStudentGuardians = pgTable('edu_student_guardians', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  studentId: uuid('student_id').notNull().references(() => eduStudents.id),
+  guardianId: uuid('guardian_id').notNull().references(() => eduGuardians.id),
+  orden: integer('orden'), // 1 = TUTOR1, 2 = TUTOR2
+  parentesco: text('parentesco'), // 'PADRE' | 'MADRE' | ...
+  recibeInformacion: boolean('recibe_informacion'),
+  guardaCustodia: boolean('guarda_custodia'),
+}, (t) => [
+  uniqueIndex('edu_student_guardians_uq').on(t.studentId, t.guardianId),
+]);
+
+export const eduSyncRuns = pgTable('edu_sync_runs', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  filename: text('filename'),
+  formato: text('formato'), // 'csv' | 'xls' | 'xlsx'
+  resumen: jsonb('resumen').$type<{
+    altas: number;
+    cambios: number;
+    desactivados: number;
+    conflictosResueltos: number;
+    errores: string[];
+  }>(),
+  opciones: jsonb('opciones').$type<Record<string, unknown>>(), // { respetarCursoDe: 'bbdd'|'excel', ... }
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─── Types Educamos ───────────────────────────────────────────────────────────
+export type EduStudent = typeof eduStudents.$inferSelect;
+export type NewEduStudent = typeof eduStudents.$inferInsert;
+export type EduGuardian = typeof eduGuardians.$inferSelect;
+export type NewEduGuardian = typeof eduGuardians.$inferInsert;
+export type EduStudentGuardian = typeof eduStudentGuardians.$inferSelect;
+export type NewEduStudentGuardian = typeof eduStudentGuardians.$inferInsert;
+export type EduSyncRun = typeof eduSyncRuns.$inferSelect;
+export type NewEduSyncRun = typeof eduSyncRuns.$inferInsert;
+
 // ─── Types Licencias ──────────────────────────────────────────────────────────
 export type LicCampaign = typeof licCampaigns.$inferSelect;
 export type NewLicCampaign = typeof licCampaigns.$inferInsert;
