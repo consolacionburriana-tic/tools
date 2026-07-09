@@ -20,9 +20,12 @@ Registro ABC con alta manual. El código interno de alumno ya viaja en Licencias
 - **Formatos soportados: `.xls`, `.xlsx` y `.csv`** (el CSV real es UTF-8 con BOM, separado por
   comas). Detección de columnas **por nombre de cabecera, nunca por posición**.
 - **El código interno de alumno (`AAXXXYYY`) es la clave humana**: `AA` = año de nacimiento en
-  2 cifras, `XXX` = 3 letras del primer apellido, `YYY` = 3 letras del segundo (ej. `14PONROS`,
-  `12EDOSER`). Si la columna A del fichero lo trae, se usa para casar; si es el export crudo de
-  Educamos sin él, también se acepta (ver cascada de matching).
+  2 cifras, `XXX` = 3 letras del primer apellido, `YYY` = 3 letras del **nombre** (ej. Zacarías
+  Naranjo Serrano n. 2015 → `15NARZAC`). Colisión → variantes deslizando letras del nombre y
+  luego del apellido. Si la columna A del fichero lo trae, se usa para casar; si es el export
+  crudo de Educamos sin él, también se acepta (ver cascada de matching). *(2026-07-09: se
+  regeneraron los 642 códigos a esta regla; 1 variante y 4 alumnos sin fecha de nacimiento
+  quedaron sin código.)*
 - **El sync nunca borra**: upsert; quien desaparece del export se puede marcar `active=false`
   (opt-in en la vista previa).
 - **Conflicto de curso**: ahora mismo Educamos tiene el curso "antiguo" y el Sheets de David el

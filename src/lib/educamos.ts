@@ -200,19 +200,42 @@ function letrasCodigo(apellido: string): string {
 
 /**
  * Genera el código interno AAXXXYYY: año de nacimiento en 2 cifras + 3 letras del
- * primer apellido + 3 del segundo. Null si faltan datos suficientes.
+ * primer apellido + 3 del NOMBRE (ej. Zacarías Naranjo Serrano n. 2015 → 15NARZAC).
+ * Null si faltan datos suficientes.
  */
 export function generarCodigo(
   fechaNacimientoISO: string | null,
   apellido1: string | null,
-  apellido2: string | null,
+  nombre: string | null,
 ): string | null {
-  if (!fechaNacimientoISO || !apellido1 || !apellido2) return null;
+  if (!fechaNacimientoISO || !apellido1 || !nombre) return null;
   const aa = fechaNacimientoISO.slice(2, 4);
   const a1 = letrasCodigo(apellido1).slice(0, 3);
-  const a2 = letrasCodigo(apellido2).slice(0, 3);
-  if (a1.length < 3 || a2.length < 3) return null;
-  return `${aa}${a1}${a2}`;
+  const n = letrasCodigo(nombre).slice(0, 3);
+  if (a1.length < 3 || n.length < 3) return null;
+  return `${aa}${a1}${n}`;
+}
+
+/**
+ * Variantes del código para resolver colisiones sin inventar formatos: desliza las
+ * letras del nombre y luego las del apellido (siempre 8 caracteres AAXXXYYY).
+ */
+export function variantesCodigo(
+  fechaNacimientoISO: string | null,
+  apellido1: string | null,
+  nombre: string | null,
+): string[] {
+  if (!fechaNacimientoISO || !apellido1 || !nombre) return [];
+  const aa = fechaNacimientoISO.slice(2, 4);
+  const a1 = letrasCodigo(apellido1);
+  const n = letrasCodigo(nombre);
+  if (a1.length < 3 || n.length < 3) return [];
+  const variantes: string[] = [];
+  // Deslizar la ventana de 3 letras del nombre: ZAC → ACA → CAR…
+  for (let i = 1; i + 3 <= n.length; i++) variantes.push(`${aa}${a1.slice(0, 3)}${n.slice(i, i + 3)}`);
+  // Después, deslizar la del apellido
+  for (let i = 1; i + 3 <= a1.length; i++) variantes.push(`${aa}${a1.slice(i, i + 3)}${n.slice(0, 3)}`);
+  return variantes;
 }
 
 // ─── Parseo del fichero ───────────────────────────────────────────────────────
@@ -466,7 +489,7 @@ export function asignarCodigoAlta(
   row: ParsedStudentRow,
   codigosOcupados: Set<string>,
 ): { codigo: string | null; colision: boolean } {
-  const generado = generarCodigo(row.fechaNacimiento, row.apellido1, row.apellido2);
+  const generado = generarCodigo(row.fechaNacimiento, row.apellido1, row.nombre);
   if (!generado) return { codigo: null, colision: false };
   if (codigosOcupados.has(generado)) return { codigo: null, colision: true };
   codigosOcupados.add(generado);
