@@ -233,6 +233,30 @@ export const eduStudentGuardians = pgTable('edu_student_guardians', {
   uniqueIndex('edu_student_guardians_uq').on(t.studentId, t.guardianId),
 ]);
 
+export const eduTeachers = pgTable('edu_teachers', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  alias: text('alias').unique(), // código humano del profe (columna ALIAS del export)
+  educamosPersonaId: text('educamos_persona_id').unique(), // GUID 'ID PERSONA'
+  nombre: text('nombre'),
+  apellido1: text('apellido1'),
+  apellido2: text('apellido2'),
+  dni: text('dni'),
+  sexo: text('sexo'),
+  fechaNacimiento: date('fecha_nacimiento'),
+  email: text('email'), // correo @consolacionburriana.com — casa con el login Google
+  emailOtro: text('email_otro'), // el otro correo del export, si lo hay
+  movilPersonal: text('movil_personal'),
+  fechaAlta: date('fecha_alta'),
+  fechaBaja: date('fecha_baja'),
+  esTutor: boolean('es_tutor').notNull().default(false),
+  claseTutor: text('clase_tutor'), // p. ej. '3º INFA'
+  active: boolean('active').notNull().default(true), // false si tiene fecha de baja
+  extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN pagadores/bancos/SS/retribuciones)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  lastSyncedAt: timestamp('last_synced_at'),
+});
+
 export const eduSyncRuns = pgTable('edu_sync_runs', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   filename: text('filename'),
@@ -249,6 +273,8 @@ export const eduSyncRuns = pgTable('edu_sync_runs', {
 });
 
 // ─── Types Educamos ───────────────────────────────────────────────────────────
+export type EduTeacher = typeof eduTeachers.$inferSelect;
+export type NewEduTeacher = typeof eduTeachers.$inferInsert;
 export type EduStudent = typeof eduStudents.$inferSelect;
 export type NewEduStudent = typeof eduStudents.$inferInsert;
 export type EduGuardian = typeof eduGuardians.$inferSelect;

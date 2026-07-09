@@ -9,8 +9,10 @@ import {
   eduStudentGuardians,
   eduStudents,
   eduSyncRuns,
+  eduTeachers,
   type EduGuardian,
   type EduStudent,
+  type EduTeacher,
   type NewEduStudent,
 } from '@/db/schema';
 import { ADMIN_COOKIE, ADMIN_TOKEN } from '@/lib/licencias-auth';
@@ -21,6 +23,7 @@ import {
   normalizar,
   type MatchTarget,
   type ParsedStudentRow,
+  type ParsedTeacherRow,
   type StudentLike,
   type SyncOpciones,
   type SyncPlan,
@@ -370,6 +373,136 @@ export async function aplicarSync(input: {
 
   await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
   return { syncRunId, resumen };
+}
+
+// ─── Profesorado ──────────────────────────────────────────────────────────────
+
+export async function getTeachers(filters: { active?: boolean } = {}): Promise<EduTeacher[]> {
+  const conds = [eq(eduTeachers.active, filters.active ?? true)];
+  return db
+    .select()
+    .from(eduTeachers)
+    .where(and(...conds))
+    .orderBy(asc(eduTeachers.apellido1), asc(eduTeachers.apellido2), asc(eduTeachers.nombre));
+}
+
+export async function getTeacherByEmail(email: string): Promise<EduTeacher | null> {
+  const [row] = await db
+    .select()
+    .from(eduTeachers)
+    .where(eq(eduTeachers.email, email.toLowerCase()))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Upsert de profesorado desde el export (dedupe GUID → alias → DNI → email).
+ * active = sin fecha de baja. Mismo espíritu que el sync de alumnado, en una transacción.
+ */
+export async function aplicarSyncProfesores(input: {
+  rows: ParsedTeacherRow[];
+  filename: string;
+  formato: string;
+  parseWarnings?: string[];
+  dryRun?: boolean;
+}): Promise<{ altas: number; cambios: number; sinCambios: number; bajas: number; errores: string[] }> {
+  const { rows, filename, formato, dryRun } = input;
+  const errores = [...(input.parseWarnings ?? [])];
+  const existentes = await db.select().from(eduTeachers);
+  const porClave = new Map<string, EduTeacher>();
+  for (const t of existentes) {
+    for (const clave of [
+      t.educamosPersonaId ? `guid:${t.educamosPersonaId.toLowerCase()}` : null,
+      t.alias ? `alias:${t.alias}` : null,
+      t.dni ? `dni:${normalizar(t.dni)}` : null,
+      t.email ? `email:${t.email}` : null,
+    ]) {
+      if (clave && !porClave.has(clave)) porClave.set(clave, t);
+    }
+  }
+
+  const ahora = new Date();
+  const statements: BatchItem<'pg'>[] = [];
+  let altas = 0, cambios = 0, sinCambios = 0, bajas = 0;
+
+  for (const r of rows) {
+    const existente =
+      (r.educamosPersonaId && porClave.get(`guid:${r.educamosPersonaId.toLowerCase()}`)) ||
+      (r.alias && porClave.get(`alias:${r.alias}`)) ||
+      (r.dni && porClave.get(`dni:${normalizar(r.dni)}`)) ||
+      (r.email && porClave.get(`email:${r.email}`)) ||
+      null;
+
+    const activo = r.fechaBaja === null;
+    const campos = {
+      alias: r.alias,
+      educamosPersonaId: r.educamosPersonaId,
+      nombre: r.nombre,
+      apellido1: r.apellido1,
+      apellido2: r.apellido2,
+      dni: r.dni,
+      sexo: r.sexo,
+      fechaNacimiento: r.fechaNacimiento,
+      email: r.email,
+      emailOtro: r.emailOtro,
+      movilPersonal: r.movilPersonal,
+      fechaAlta: r.fechaAlta,
+      fechaBaja: r.fechaBaja,
+      esTutor: r.esTutor,
+      claseTutor: r.claseTutor,
+    };
+    if (!existente) {
+      altas++;
+      if (!activo) bajas++;
+      statements.push(
+        db.insert(eduTeachers).values({
+          ...campos,
+          active: activo,
+          extra: Object.keys(r.extra).length ? r.extra : null,
+          lastSyncedAt: ahora,
+          updatedAt: ahora,
+        }),
+      );
+    } else {
+      const set: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(campos)) {
+        // esTutor/claseTutor y fechaBaja pueden "vaciarse" de un curso a otro: se pisan siempre
+        const pisaSiempre = k === 'esTutor' || k === 'claseTutor' || k === 'fechaBaja';
+        if ((v !== null || pisaSiempre) && v !== existente[k as keyof EduTeacher]) set[k] = v;
+      }
+      if (activo !== existente.active) {
+        set.active = activo;
+        if (!activo) bajas++;
+      }
+      if (Object.keys(r.extra).length) {
+        const mezclado = { ...(existente.extra ?? {}), ...r.extra };
+        if (JSON.stringify(mezclado) !== JSON.stringify(existente.extra ?? {})) set.extra = mezclado;
+      }
+      if (Object.keys(set).length === 0) {
+        sinCambios++;
+        statements.push(db.update(eduTeachers).set({ lastSyncedAt: ahora }).where(eq(eduTeachers.id, existente.id)));
+      } else {
+        cambios++;
+        statements.push(
+          db.update(eduTeachers).set({ ...set, updatedAt: ahora, lastSyncedAt: ahora }).where(eq(eduTeachers.id, existente.id)),
+        );
+      }
+    }
+  }
+
+  const resumen = { altas, cambios, sinCambios, bajas, errores };
+  if (!dryRun) {
+    statements.push(
+      db.insert(eduSyncRuns).values({
+        filename,
+        formato,
+        resumen: { altas, cambios, desactivados: bajas, conflictosResueltos: 0, errores },
+        opciones: { tipo: 'profesores' },
+      }),
+    );
+    await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
+  }
+  return resumen;
 }
 
 /** ¿Esta fila parseada corresponde a este alumno? (mismas claves que la cascada de matching). */

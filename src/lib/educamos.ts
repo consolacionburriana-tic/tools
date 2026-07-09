@@ -83,8 +83,12 @@ export interface ParseResult {
 
 // ─── Mapa de cabeceras (por nombre normalizado, nunca por posición) ───────────
 
-// El bloque PAGADOR1-3 (IBAN, cuentas, firmas) NO se importa: ni tipado ni en extra.
-const PATRONES_BLOQUEADOS = [/PAGADOR/, /IBAN/, /\bCUENTA\b/, /N[º°.]? ?CUENTA/, /FIRMA/, /ORDENANTE/];
+// Los bloques de pagadores/bancos (y en profes: seg. social y retribuciones) NO se
+// importan: ni tipados ni en extra.
+const PATRONES_BLOQUEADOS = [
+  /PAGADOR/, /IBAN/, /\bCUENTA\b/, /N[º°.]? ?CUENTA/, /FIRMA/, /ORDENANTE/,
+  /SEG\.? ?SOCIAL/, /RETRIB/, /\bCONTRATO\b/, /JORNADA/, /REGISTRO PERSONAL/,
+];
 
 function esCabeceraBloqueada(header: string): boolean {
   return PATRONES_BLOQUEADOS.some((re) => re.test(header));
@@ -412,6 +416,113 @@ export function parseEducamosFile(buffer: ArrayBuffer | Buffer, filename: string
   }
 
   return { formato, rows, cabecerasExtra, cabecerasDescartadas, warnings };
+}
+
+// ─── Export de profesorado ────────────────────────────────────────────────────
+
+export const DOMINIO_COLE = 'consolacionburriana.com';
+
+export interface ParsedTeacherRow {
+  fila: number;
+  alias: string | null;
+  educamosPersonaId: string | null;
+  nombre: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
+  dni: string | null;
+  sexo: string | null;
+  fechaNacimiento: string | null; // ISO
+  email: string | null; // el @consolacionburriana.com si lo hay
+  emailOtro: string | null;
+  movilPersonal: string | null;
+  fechaAlta: string | null;
+  fechaBaja: string | null;
+  esTutor: boolean;
+  claseTutor: string | null;
+  extra: Record<string, string>;
+}
+
+const CAMPOS_PROFESOR: FieldMatcher[] = [
+  { field: 'alias', aliases: ['ALIAS'] },
+  { field: 'educamosPersonaId', aliases: ['ID PERSONA', 'IDPERSONA'] },
+  { field: 'nombre', aliases: ['NOMBRE'] },
+  { field: 'apellido1', aliases: ['APELLIDO 1', 'APELLIDO1'] },
+  { field: 'apellido2', aliases: ['APELLIDO 2', 'APELLIDO2'] },
+  { field: 'dni', aliases: ['DNI'] },
+  { field: 'sexo', aliases: ['SEXO'] },
+  { field: 'fechaNacimiento', aliases: ['FECHA NACIMIENTO', 'FECHA DE NACIMIENTO'] },
+  { field: 'correo', aliases: ['CORREO ELECTRONICO', 'EMAIL'] },
+  { field: 'correoGoogle', aliases: ['CORREO ELECTRONICO GOOGLE', 'EMAIL GOOGLE', 'EMAILGOOGLE'] },
+  { field: 'movilPersonal', aliases: ['MOVIL PERSONAL', 'MOVIL'] },
+  { field: 'fechaAlta', aliases: ['FECHA ALTA'] },
+  { field: 'fechaBaja', aliases: ['FECHA BAJA'] },
+  { field: 'esTutor', aliases: ['TUTOR'] },
+  { field: 'claseTutor', aliases: ['CLASE TUTOR'] },
+];
+
+/** Parsea el export de profesorado de Educamos (mismos formatos que el de alumnado). */
+export function parseProfesoresFile(buffer: ArrayBuffer | Buffer, filename: string): {
+  formato: 'csv' | 'xls' | 'xlsx';
+  rows: ParsedTeacherRow[];
+  warnings: string[];
+} {
+  const formato = detectarFormato(filename);
+  if (!formato) throw new Error(`Formato no soportado: ${filename} (se admite .csv, .xls, .xlsx)`);
+  const wb =
+    formato === 'csv'
+      ? XLSX.read(new TextDecoder('utf-8').decode(buffer as ArrayBuffer).replace(/^﻿/, ''), { type: 'string', raw: false })
+      : XLSX.read(buffer, { type: Buffer.isBuffer(buffer) ? 'buffer' : 'array', raw: false });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  if (!sheet) throw new Error('El fichero no tiene ninguna hoja de datos');
+  const matriz: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+  if (matriz.length < 2) throw new Error('El fichero no tiene filas de datos');
+
+  const cabeceras = matriz[0].map((h) => normalizar(String(h ?? '').replace(/^﻿/, '')));
+  const warnings: string[] = [];
+  const rows: ParsedTeacherRow[] = [];
+
+  for (let i = 1; i < matriz.length; i++) {
+    const fila = matriz[i];
+    if (fila.every((v) => limpiar(v) === null)) continue;
+    const campos: Record<string, string | null> = {};
+    const extra: Record<string, string> = {};
+    cabeceras.forEach((h, col) => {
+      const valor = limpiar(fila[col]);
+      if (valor === null || !h || esCabeceraBloqueada(h)) return;
+      const field = buscarCampo(CAMPOS_PROFESOR, h);
+      if (field) campos[field] = valor;
+      else extra[matriz[0][col]] = valor;
+    });
+
+    // Correos: el del dominio del cole manda (para casar con el login Google)
+    const correos = [campos.correoGoogle, campos.correo].filter(Boolean) as string[];
+    const delCole = correos.find((c) => c.toLowerCase().endsWith(`@${DOMINIO_COLE}`)) ?? null;
+    const otro = correos.find((c) => c.toLowerCase() !== delCole?.toLowerCase()) ?? null;
+    if (!delCole && correos.length) {
+      warnings.push(`Fila ${i + 1}: ningún correo @${DOMINIO_COLE} (${campos.alias ?? 'sin alias'})`);
+    }
+
+    rows.push({
+      fila: i + 1,
+      alias: campos.alias ? normalizar(campos.alias) : null,
+      educamosPersonaId: campos.educamosPersonaId ?? null,
+      nombre: campos.nombre ?? null,
+      apellido1: campos.apellido1 ?? null,
+      apellido2: campos.apellido2 ?? null,
+      dni: campos.dni ?? null,
+      sexo: campos.sexo ?? null,
+      fechaNacimiento: parseFechaES(campos.fechaNacimiento ?? null),
+      email: delCole ? delCole.toLowerCase() : null,
+      emailOtro: otro ? otro.toLowerCase() : null,
+      movilPersonal: campos.movilPersonal ?? null,
+      fechaAlta: parseFechaES(campos.fechaAlta ?? null),
+      fechaBaja: parseFechaES(campos.fechaBaja ?? null),
+      esTutor: parseBooleano(campos.esTutor ?? null) ?? false,
+      claseTutor: campos.claseTutor ?? null,
+      extra,
+    });
+  }
+  return { formato, rows, warnings };
 }
 
 // ─── Cascada de matching ──────────────────────────────────────────────────────
