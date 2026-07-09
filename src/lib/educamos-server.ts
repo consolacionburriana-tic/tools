@@ -16,7 +16,6 @@ import {
 import { ADMIN_COOKIE, ADMIN_TOKEN } from '@/lib/licencias-auth';
 import {
   CODIGO_INTERNO_RE,
-  claveGuardian,
   computeSyncPlan,
   dedupeGuardians,
   normalizar,
