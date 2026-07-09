@@ -472,3 +472,272 @@ export function asignarCodigoAlta(
   codigosOcupados.add(generado);
   return { codigo: generado, colision: false };
 }
+
+// ─── Plan de sincronización (vista previa) ────────────────────────────────────
+
+export interface SyncOpciones {
+  /** Quién manda en curso/letra cuando difieren. Por defecto la BBDD actual. */
+  respetarCursoDe: 'bbdd' | 'excel';
+}
+
+/** Campos de edu_students que participan en el diff (subset de EduStudent, ya en ISO/derivados). */
+export interface StudentLike {
+  id: string;
+  codigo: string | null;
+  educamosPersonaId: string | null;
+  nia: string | null;
+  dni: string | null;
+  matricula: string | null;
+  nombre: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
+  sexo: string | null;
+  fechaNacimiento: string | null;
+  curso: string | null;
+  letra: string | null;
+  claseCodigo: string | null;
+  tutorPersonal: string | null;
+  modeloLinguistico: string | null;
+  deficit: string | null;
+  email: string | null;
+  emailGoogle: string | null;
+  movil1: string | null;
+  movil2: string | null;
+  telEmergencia: string | null;
+  familiaId: string | null;
+  active: boolean;
+  extra: Record<string, string> | null;
+}
+
+export interface DiffCampo {
+  campo: keyof StudentLike | 'extra';
+  actual: string | null;
+  nuevo: string | null;
+  /** Conflicto "gordo" (probable mismatch): pide elección explícita en la vista previa. */
+  gordo: boolean;
+}
+
+export interface PlanAlta {
+  fila: number;
+  codigo: string | null;
+  colision: boolean; // código generado ya ocupado → revisión manual
+  row: ParsedStudentRow;
+}
+
+export interface PlanCambio {
+  studentId: string;
+  via: MatchVia;
+  codigo: string | null; // el de la BBDD (o el nuevo si la BBDD no tenía)
+  nombreActual: string; // "Nombre Apellido1 Apellido2" según BBDD, para pintar la lista
+  diffs: DiffCampo[];
+  tieneGordos: boolean;
+  row: ParsedStudentRow;
+}
+
+export interface PlanSinCambios {
+  studentId: string;
+  codigo: string | null;
+  nombreActual: string;
+}
+
+export interface PlanDesaparecido {
+  studentId: string;
+  codigo: string | null;
+  nombreActual: string;
+  curso: string | null;
+  letra: string | null;
+}
+
+export interface SyncPlan {
+  altas: PlanAlta[];
+  cambios: PlanCambio[];
+  sinCambios: PlanSinCambios[];
+  desaparecidos: PlanDesaparecido[];
+  /** Cursos presentes en el fichero: acotan el cubo de desaparecidos (fichero parcial = caso normal). */
+  cursosEnFichero: string[];
+  /** Fichero parcial = no están todos los cursos de la BBDD (pista para desmarcar "desactivar"). */
+  pareceParcial: boolean;
+  warnings: string[];
+}
+
+// Campos "gordos": si difieren, probable mismatch → elección explícita alumno a alumno.
+const CAMPOS_GORDOS: (keyof StudentLike)[] = ['nombre', 'apellido1', 'apellido2', 'fechaNacimiento'];
+// Campos normales: por defecto gana el excel (Educamos va más fresco). Solo se tocan si el
+// fichero trae valor (ausente = no se toca).
+const CAMPOS_NORMALES: (keyof StudentLike)[] = [
+  'educamosPersonaId', 'nia', 'dni', 'matricula', 'sexo', 'claseCodigo', 'tutorPersonal',
+  'modeloLinguistico', 'deficit', 'email', 'emailGoogle', 'movil1', 'movil2',
+  'telEmergencia', 'familiaId',
+];
+
+function nombreCompleto(s: { nombre: string | null; apellido1: string | null; apellido2: string | null }): string {
+  return [s.nombre, s.apellido1, s.apellido2].filter(Boolean).join(' ') || '(sin nombre)';
+}
+
+function extraCambia(actual: Record<string, string> | null, nuevo: Record<string, string>): boolean {
+  return Object.entries(nuevo).some(([k, v]) => (actual ?? {})[k] !== v);
+}
+
+/**
+ * Calcula la vista previa completa (no escribe nada): altas, cambios campo a campo,
+ * desaparecidos acotados a los cursos del fichero y sin cambios.
+ */
+export function computeSyncPlan(
+  rows: ParsedStudentRow[],
+  existentes: StudentLike[],
+  opciones: SyncOpciones,
+  parseWarnings: string[] = [],
+): SyncPlan {
+  const warnings = [...parseWarnings];
+  const targets: MatchTarget[] = existentes.map((e) => ({
+    id: e.id,
+    codigo: e.codigo,
+    educamosPersonaId: e.educamosPersonaId,
+    nia: e.nia,
+    dni: e.dni,
+    apellido1: e.apellido1,
+    apellido2: e.apellido2,
+    fechaNacimiento: e.fechaNacimiento,
+  }));
+  const porId = new Map(existentes.map((e) => [e.id, e]));
+
+  const altas: PlanAlta[] = [];
+  const cambios: PlanCambio[] = [];
+  const sinCambios: PlanSinCambios[] = [];
+  const matcheados = new Set<string>();
+  const codigosOcupados = new Set(existentes.map((e) => e.codigo).filter(Boolean) as string[]);
+
+  for (const row of rows) {
+    const { target, via } = matchStudent(row, targets);
+    if (!target) {
+      const asignado = row.codigo
+        ? { codigo: codigosOcupados.has(row.codigo) ? null : row.codigo, colision: codigosOcupados.has(row.codigo) }
+        : asignarCodigoAlta(row, codigosOcupados);
+      if (row.codigo && asignado.codigo) codigosOcupados.add(asignado.codigo);
+      altas.push({ fila: row.fila, codigo: asignado.codigo, colision: asignado.colision, row });
+      continue;
+    }
+    if (matcheados.has(target.id)) {
+      warnings.push(`Fila ${row.fila}: casa con un alumno ya usado por otra fila (${target.codigo ?? target.id}); se ignora esta fila`);
+      continue;
+    }
+    matcheados.add(target.id);
+    const actual = porId.get(target.id)!;
+
+    const diffs: DiffCampo[] = [];
+    // Código interno: se rellena si faltaba; si difiere, es conflicto gordo.
+    if (row.codigo && row.codigo !== actual.codigo) {
+      diffs.push({ campo: 'codigo', actual: actual.codigo, nuevo: row.codigo, gordo: actual.codigo !== null });
+    }
+    for (const campo of CAMPOS_GORDOS) {
+      const nuevo = row[campo as keyof ParsedStudentRow] as string | null;
+      if (nuevo !== null && nuevo !== actual[campo]) {
+        diffs.push({ campo, actual: actual[campo] as string | null, nuevo, gordo: actual[campo] !== null });
+      }
+    }
+    // Curso/letra: obedecen al selector (si manda la BBDD, ni se listan).
+    if (opciones.respetarCursoDe === 'excel') {
+      for (const campo of ['curso', 'letra'] as const) {
+        const nuevo = row[campo];
+        if (nuevo !== null && nuevo !== actual[campo]) {
+          diffs.push({ campo, actual: actual[campo], nuevo, gordo: false });
+        }
+      }
+    }
+    for (const campo of CAMPOS_NORMALES) {
+      const nuevo = row[campo as keyof ParsedStudentRow] as string | null;
+      if (nuevo !== null && nuevo !== actual[campo]) {
+        diffs.push({ campo, actual: actual[campo] as string | null, nuevo, gordo: false });
+      }
+    }
+    if (extraCambia(actual.extra, row.extra)) {
+      diffs.push({ campo: 'extra', actual: null, nuevo: `${Object.keys(row.extra).length} datos adicionales`, gordo: false });
+    }
+    // Reactivación: si estaba desactivado y vuelve a aparecer, se reactiva.
+    if (!actual.active) {
+      diffs.push({ campo: 'active', actual: 'inactivo', nuevo: 'activo', gordo: false });
+    }
+
+    if (diffs.length === 0) {
+      sinCambios.push({ studentId: actual.id, codigo: actual.codigo, nombreActual: nombreCompleto(actual) });
+    } else {
+      cambios.push({
+        studentId: actual.id,
+        via: via!,
+        codigo: actual.codigo ?? row.codigo,
+        nombreActual: nombreCompleto(actual),
+        diffs,
+        tieneGordos: diffs.some((d) => d.gordo),
+        row,
+      });
+    }
+  }
+
+  // Desaparecidos: activos de la BBDD, del mismo ámbito (cursos presentes en el fichero),
+  // que no han casado con ninguna fila.
+  const cursosEnFichero = [...new Set(rows.map((r) => r.curso).filter(Boolean) as string[])].sort();
+  const cursosBbdd = new Set(existentes.filter((e) => e.active).map((e) => e.curso).filter(Boolean) as string[]);
+  const pareceParcial = [...cursosBbdd].some((c) => !cursosEnFichero.includes(c));
+  const desaparecidos: PlanDesaparecido[] = existentes
+    .filter((e) => e.active && !matcheados.has(e.id) && e.curso !== null && cursosEnFichero.includes(e.curso))
+    .map((e) => ({
+      studentId: e.id,
+      codigo: e.codigo,
+      nombreActual: nombreCompleto(e),
+      curso: e.curso,
+      letra: e.letra,
+    }));
+
+  return { altas, cambios, sinCambios, desaparecidos, cursosEnFichero, pareceParcial, warnings };
+}
+
+// ─── Tutores: dedupe en memoria para el upsert ────────────────────────────────
+
+export interface GuardianAgrupado {
+  /** Clave de dedupe usada: GUID → dni → email (en ese orden). */
+  clave: string;
+  datos: ParsedGuardian; // el primero visto gana; los siguientes solo rellenan huecos
+  /** Vínculos con los alumnos del fichero (por nº de fila). */
+  vinculos: { fila: number; orden: number; parentesco: string | null; recibeInformacion: boolean | null; guardaCustodia: boolean | null }[];
+}
+
+export function claveGuardian(g: ParsedGuardian): string | null {
+  if (g.educamosPersonaId) return `guid:${g.educamosPersonaId.toLowerCase()}`;
+  if (g.dni) return `dni:${normalizar(g.dni)}`;
+  if (g.email) return `email:${g.email.trim().toLowerCase()}`;
+  return null;
+}
+
+/** Agrupa los tutores de todas las filas (hermanos comparten tutor) para un upsert único. */
+export function dedupeGuardians(rows: ParsedStudentRow[]): { agrupados: GuardianAgrupado[]; sinClave: number } {
+  const mapa = new Map<string, GuardianAgrupado>();
+  let sinClave = 0;
+  for (const row of rows) {
+    for (const t of row.tutores) {
+      const clave = claveGuardian(t);
+      if (!clave) {
+        sinClave++;
+        continue;
+      }
+      let g = mapa.get(clave);
+      if (!g) {
+        g = { clave, datos: t, vinculos: [] };
+        mapa.set(clave, g);
+      } else {
+        // Relleno de huecos: campos que el primero no traía
+        for (const k of Object.keys(t) as (keyof ParsedGuardian)[]) {
+          if (k === 'extra' || k === 'orden') continue;
+          if (g.datos[k] === null && t[k] !== null) (g.datos as unknown as Record<string, unknown>)[k] = t[k];
+        }
+      }
+      g.vinculos.push({
+        fila: row.fila,
+        orden: t.orden,
+        parentesco: t.parentesco,
+        recibeInformacion: t.recibeInformacion,
+        guardaCustodia: t.guardaCustodia,
+      });
+    }
+  }
+  return { agrupados: [...mapa.values()], sinClave };
+}

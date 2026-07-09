@@ -192,10 +192,13 @@ consultan `edu_*` a pelo desde sus rutas.
       queda en `src/lib/educamos.ts` siguiendo `04-convenciones-tecnicas.md`)
 
 ### Fase 1 · Wizard de sincronización
-- [ ] Subida de fichero + parseo en memoria (`.csv/.xls/.xlsx`)
-- [ ] Vista previa con los 4 cubos + selector "respetar curso de" + resolución de conflictos gordos
-- [ ] Aplicar: upsert transaccional (alumnos + tutores + relaciones) + `edu_sync_runs`
-- [ ] Manejo de fichero parcial (desaparecidos acotados a los cursos presentes)
+- [x] Subida de fichero + parseo en memoria (`.csv/.xls/.xlsx`)
+- [x] Vista previa con los 4 cubos + selector "respetar curso de" + resolución de conflictos gordos
+- [x] Aplicar: upsert transaccional (alumnos + tutores + relaciones) + `edu_sync_runs`
+      *(un único `db.batch()` del driver neon-http = una transacción; el plan se recalcula
+      en servidor, no se fía del diff del cliente)*
+- [x] Manejo de fichero parcial (desaparecidos acotados a los cursos presentes; checkbox
+      "desactivar" desmarcado por defecto si el fichero parece parcial)
 
 ### Fase 2 · Pantallas de gestión
 - [ ] Listado de alumnado con filtros + toggle/bulk de `banco_libros`
