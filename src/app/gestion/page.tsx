@@ -185,6 +185,14 @@ export default async function EscritorioPage() {
               desc="Sincronizar alumnado y profesorado desde los exports"
             />
           )}
+          {puede('salidas') && (
+            <ModuleCard
+              href="/gestion/salidas"
+              icon={<Bus className="h-6 w-6" />}
+              title="Salidas y pagos"
+              desc="Excursiones, justificantes de pago y seguimiento por clase"
+            />
+          )}
           {puede('usuarios') && (
             <ModuleCard
               href="/gestion/usuarios"
@@ -195,8 +203,7 @@ export default async function EscritorioPage() {
           )}
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-3">
-          <ComingSoon icon={<Bus className="h-6 w-6" />} title="Salidas y pagos" />
+        <section className="grid gap-3 sm:grid-cols-2">
           <ComingSoon icon={<Library className="h-6 w-6" />} title="Banco de libros" />
           <ComingSoon icon={<Users className="h-6 w-6" />} title="Evaluaciones" />
         </section>
