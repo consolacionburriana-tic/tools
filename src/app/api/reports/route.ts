@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
-import { behaviorReports, students, teachers } from '@/db/schema';
+import { behaviorReports, abcStudents, teachers, eduTeachers } from '@/db/schema';
 import { eq, desc, and, gte, lte, inArray } from 'drizzle-orm';
 import { getResend, FROM } from '@/lib/email';
 import { buildReportEmail } from '@/lib/email-template';
+import { hasModule, isGuardResponse, requireSession } from '@/lib/auth-guards';
+import { getTeacherFromSession, resolveAbcStudent } from '@/lib/abc-server';
 
 const reportSchema = z.object({
-  studentId: z.string().uuid(),
-  teacherId: z.string().uuid().nullable().optional(),
-  otherTeacherName: z.string().nullable().optional(),
+  // Alumno: fila de config del ABC o alumno de la BBDD central (se autocrea la config)
+  abcStudentId: z.string().uuid().optional(),
+  eduStudentId: z.string().uuid().optional(),
   reportDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   context: z.enum(['aula', 'patio', 'comedor', 'otros']),
   contextNote: z.string().nullable().optional(),
@@ -27,7 +29,9 @@ const reportSchema = z.object({
   comments: z.string().nullable().optional(),
 });
 
+// Listado para el panel del módulo
 export async function GET(request: Request) {
+  if (!(await hasModule('abc'))) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
@@ -59,31 +63,50 @@ export async function GET(request: Request) {
     }
 
     const result = await query;
-    return NextResponse.json(result);
+    // teacherId unificado: los registros nuevos llevan edu_teacher_id, los viejos teacher_id.
+    // /api/teachers devuelve ambos catálogos, así el panel resuelve nombres sin distinguir.
+    return NextResponse.json(result.map((r) => ({ ...r, teacherId: r.eduTeacherId ?? r.teacherId })));
   } catch (error) {
     console.error('Error cargando registros:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
 
+// Guardar registro: cualquier persona del claustro con sesión. El profesor sale
+// del login (edu_teachers por email), ya no se elige en el formulario.
 export async function POST(request: Request) {
+  const guard = await requireSession();
+  if (isGuardResponse(guard)) return guard;
   try {
     const body = await request.json();
     const parsed = reportSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.issues }, { status: 400 });
     }
-
     const data = parsed.data;
+    if (!data.abcStudentId && !data.eduStudentId) {
+      return NextResponse.json({ error: 'Falta el alumno' }, { status: 400 });
+    }
+
+    const student = await resolveAbcStudent(data);
+    if (!student) return NextResponse.json({ error: 'Alumno no encontrado' }, { status: 404 });
+
+    const profe = await getTeacherFromSession(guard.email);
     const dayOfWeek = new Date(data.reportDate).getDay();
 
     const [report] = await db.insert(behaviorReports).values({
-      ...data,
+      studentId: student.id,
+      eduTeacherId: profe?.id ?? null,
+      teacherId: null,
+      otherTeacherName: profe ? null : (guard.nombre ?? guard.email),
+      reportDate: data.reportDate,
       dayOfWeek,
-      teacherId: data.teacherId ?? null,
-      otherTeacherName: data.otherTeacherName ?? null,
+      context: data.context,
       contextNote: data.contextNote ?? null,
+      timeSlot: data.timeSlot,
+      presentPeople: data.presentPeople,
       presentNames: data.presentNames ?? null,
+      behaviors: data.behaviors,
       involvedWith: data.involvedWith ?? null,
       antecedents: data.antecedents ?? null,
       consequences: data.consequences ?? null,
@@ -94,8 +117,10 @@ export async function POST(request: Request) {
       comments: data.comments ?? null,
     }).returning();
 
-    // Enviar email de notificación (sin bloquear la respuesta)
-    sendNotificationEmail(report.studentId, data).catch((err) =>
+    const teacherName = profe
+      ? [profe.nombre, profe.apellido1, profe.apellido2].filter(Boolean).join(' ')
+      : (guard.nombre ?? guard.email);
+    sendNotificationEmail(student.id, teacherName, data).catch((err) =>
       console.error('Error enviando email de notificación:', err)
     );
 
@@ -106,18 +131,11 @@ export async function POST(request: Request) {
   }
 }
 
-async function sendNotificationEmail(studentId: string, data: z.infer<typeof reportSchema>) {
+async function sendNotificationEmail(abcStudentId: string, teacherName: string, data: z.infer<typeof reportSchema>) {
   if (!process.env.RESEND_API_KEY) return;
 
-  // Obtener datos del alumno y del profesor
-  const [student] = await db.select().from(students).where(eq(students.id, studentId));
+  const [student] = await db.select().from(abcStudents).where(eq(abcStudents.id, abcStudentId));
   if (!student || !student.emailRecipients || student.emailRecipients.length === 0) return;
-
-  let teacherName = data.otherTeacherName ?? 'Desconocido';
-  if (data.teacherId) {
-    const [teacher] = await db.select().from(teachers).where(eq(teachers.id, data.teacherId));
-    if (teacher) teacherName = `${teacher.firstName} ${teacher.lastName}`;
-  }
 
   const { subject, html } = buildReportEmail({
     studentDisplayName: student.displayName,
@@ -141,7 +159,6 @@ async function sendNotificationEmail(studentId: string, data: z.infer<typeof rep
   });
 
   const resend = getResend();
-  // Resend acepta hasta 50 destinatarios por envío; limitamos a 20 en la UI
   await resend.emails.send({
     from: FROM,
     to: student.emailRecipients as string[],

@@ -1,5 +1,6 @@
-import { cookies } from 'next/headers';
-import { ADMIN_COOKIE, ADMIN_TOKEN } from '@/lib/licencias-auth';
+import { hasModule } from '@/lib/auth-guards';
+
+const isAdmin = () => hasModule('licencias');
 import { getCurrentCampaign } from '@/lib/licencias-server';
 import {
   type EnviarRow,
@@ -22,8 +23,7 @@ const enviarToRow = (r: EnviarRow) => [
 ];
 
 export async function GET(request: Request) {
-  const jar = await cookies();
-  if (jar.get(ADMIN_COOKIE)?.value !== ADMIN_TOKEN) {
+  if (!(await isAdmin())) {
     return new Response('No autorizado', { status: 401 });
   }
   const tipo = new URL(request.url).searchParams.get('tipo') ?? '';

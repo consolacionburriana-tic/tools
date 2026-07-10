@@ -39,9 +39,11 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `LICENCIAS_GESTORES` | Lista de correos de aviso de Licencias |
 | `GOOGLE_SHEETS_CLIENT_EMAIL` · `GOOGLE_SHEETS_PRIVATE_KEY` · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio para escribir en el Sheet de Licencias |
 
-Reservadas para los hitos siguientes: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
-(hito 2) · `BLOB_READ_WRITE_TOKEN` (Salidas). Cualquier var nueva se añade a esta tabla y a
-`.env.local.example` en el mismo commit que el código que la usa.
+| `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
+
+Reservadas para los hitos siguientes: `BLOB_READ_WRITE_TOKEN` (Salidas). Cualquier var nueva
+se añade a esta tabla y a `.env.local.example` en el mismo commit que el código que la usa.
+Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2).
 
 ## Base de datos (Drizzle + Neon)
 
@@ -72,10 +74,10 @@ src/lib/<modulo>-email.ts         # plantillas/envíos si el módulo manda corre
 src/components/<modulo>/          # componentes propios del módulo
 ```
 
-- **Guard de auth**: hoy es la cookie de `src/lib/licencias-auth.ts` (patrón `isAdmin()` al
-  principio de cada handler). Desde el hito 2 se sustituye por `requireModule('<modulo>')` de
-  la capa central — los módulos nuevos deben dejar el guard en UN solo helper por módulo para
-  que ese cambio sea de una línea.
+- **Guard de auth**: `src/lib/auth-guards.ts` — `requireModule('<modulo>')` /
+  `hasModule('<modulo>')` en route handlers de gestión, `requireSession()` para endpoints que
+  solo exigen claustro (formulario ABC), y `canAccess()` en el layout de cada sección de
+  `/gestion/<modulo>`. `src/proxy.ts` (Next 16, sustituye a middleware) solo exige sesión.
 - **Server Actions vs route handlers**: los formularios públicos y las descargas usan route
   handlers (`route.ts`, como todo lo existente). Para mutaciones de paneles internos nuevos se
   permiten Server Actions si simplifican; en ese caso el guard de auth va dentro de la action.

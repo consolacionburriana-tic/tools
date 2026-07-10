@@ -6,7 +6,7 @@ desde ahí elige módulo. Es transversal: cada módulo nuevo añade su tarjeta a
 
 ---
 
-## Estado: plan funcional ✅ · plan técnico ✅ · implementación sin empezar ⬜
+## Estado: implementado ✅ (2026-07-10)
 
 Se construye dentro del **hito 2 del roadmap** (auth), porque el escritorio es justo "lo que
 ves después del login" y depende de la matriz rol→módulos.
@@ -47,11 +47,11 @@ ves después del login" y depende de la matriz rol→módulos.
 ## Fases
 
 ### Fase 1 · Escritorio básico
-- [ ] Registro de módulos en `src/lib/modules.ts`
-- [ ] `/gestion` = tarjetas por rol (o todas, si aún no hay auth) con diseño de marca
-- [ ] Mover el dashboard de Licencias a `/gestion/licencias` (redirect desde las rutas viejas)
+- [x] Registro de módulos (matriz rol→módulos en `src/lib/permissions.ts`; tarjetas en `/gestion`)
+- [x] `/gestion` = tarjetas por rol con diseño de marca + 'próximamente' (salidas, banco, evaluaciones)
+- [x] Dashboard de Licencias movido a `/gestion/licencias` (las stats de licencias viven dentro del módulo)
 
 ### Fase 2 · Stats y avisos
-- [ ] `getCardStats()` de Licencias (pedidos %, campaña) y de Educamos (último sync, nº alumnos)
+- [x] Stats por rol en el escritorio: alumnado y profesorado activos + fecha del último sync (educamos), nº pedidos (licencias), nº registros (abc)
 - [ ] Franja de avisos con `getAlerts()` (primer caso real: justificantes pendientes de Salidas)
 - [ ] Stats del resto de módulos según se vayan implementando (cada ficha lo añade a su checklist)

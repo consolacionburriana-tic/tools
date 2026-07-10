@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { getBooksFromSheet, getStudentsFromSheet, type SheetBookRow, type SheetStudentRow } from '@/lib/google-sheets';
+import { getBooksFromSheet, type SheetBookRow, type SheetStudentRow } from '@/lib/google-sheets';
+import { getStudents as getEduStudents } from '@/lib/educamos-server';
 import {
   licBooks,
   licCampaigns,
@@ -823,9 +824,38 @@ function diffStudent(r: SheetStudentRow, dbRow: LicStudent): FieldChange[] {
 // Vista previa: qué cambiaría en lic_students si se sincroniza ahora. No escribe nada.
 // Avisa cuando un alumno con pedido ya confirmado cambiaría de curso o Banco de Libros,
 // porque eso puede dejar de encajar con las licencias que la familia ya eligió.
+
+// ─── Alumnado desde la BBDD central (edu_students) ───────────────────────────
+// Licencias vive de la BBDD central: el "sync de alumnos" puebla el snapshot de campaña
+// (lic_students) desde edu_students, ya no desde el Google Sheet.
+type CentralStudentRow = SheetStudentRow & { eduStudentId: string };
+
+const MODELO_TO_LENGUA: Record<string, string> = { PIP: 'CAS', PEV: 'VAL' };
+
+export async function getStudentsFromCentral(): Promise<CentralStudentRow[]> {
+  const rows = await getEduStudents();
+  return rows
+    .filter((r) => r.codigo && r.curso)
+    .map((r) => ({
+      eduStudentId: r.id,
+      studentCode: r.codigo!,
+      educamosId: r.educamosPersonaId,
+      curso: r.curso!,
+      letra: r.letra,
+      birthYear: r.fechaNacimiento ? Number(r.fechaNacimiento.slice(0, 4)) : null,
+      apellidos: [r.apellido1, r.apellido2].filter(Boolean).join(' '),
+      apellido1: r.apellido1,
+      apellido2: r.apellido2,
+      nombre: r.nombre ?? '',
+      email: r.email ?? r.emailGoogle,
+      bancoLibros: r.bancoLibros,
+      lenguaBase: r.modeloLinguistico ? (MODELO_TO_LENGUA[r.modeloLinguistico.toUpperCase()] ?? null) : null,
+    }));
+}
+
 export async function getStudentsSyncPlan(campaignId: string): Promise<StudentSyncPlan> {
   const [allRows, existing, orders] = await Promise.all([
-    getStudentsFromSheet(),
+    getStudentsFromCentral(),
     db.select().from(licStudents).where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
       .select({ studentId: licOrders.studentId })
@@ -871,7 +901,7 @@ export async function getStudentsSyncPlan(campaignId: string): Promise<StudentSy
 // (los pedidos referencian ese id) y desactivando — nunca borrando — a quien ya no esté
 // en el Sheet, para no romper la referencia de pedidos ya hechos (lic_orders.student_id).
 export async function syncStudentsFromSheet(campaignId: string): Promise<{ upserted: number; deactivated: number; outOfScope: number }> {
-  const allRows = await getStudentsFromSheet();
+  const allRows = await getStudentsFromCentral();
   const rows = allRows.filter((r) => IN_SCOPE_CURSOS.has(r.curso));
   if (rows.length === 0) return { upserted: 0, deactivated: 0, outOfScope: allRows.length };
 
@@ -881,6 +911,7 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
       .values({
         campaignId,
         studentCode: r.studentCode,
+        eduStudentId: r.eduStudentId,
         educamosId: r.educamosId,
         apellidos: r.apellidos,
         apellido1: r.apellido1,
@@ -900,6 +931,7 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
           // "ID Educamos" no viene poblado en el Sheet: si llega vacío, no lo incluimos en el
           // update para no borrar un valor que solo existe en Neon (ver diffStudent).
           ...(r.educamosId ? { educamosId: r.educamosId } : {}),
+          eduStudentId: r.eduStudentId,
           apellidos: r.apellidos,
           apellido1: r.apellido1,
           apellido2: r.apellido2,

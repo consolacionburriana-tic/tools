@@ -7,11 +7,11 @@ enseña los conflictos, decides, y listo. Es el **hito 1 del roadmap** (ver `pla
 
 ---
 
-## Estado: plan técnico listo ✅ (mapeo fijado con export real) · implementación sin empezar ⬜
+## Estado: fases 0-1 + import de profesorado implementados ✅ · faltan pantallas de gestión (Fase 2)
 
-Hoy cada módulo importa su propio listado: Licencias desde la hoja de cálculo que David
-mantiene en Google Sheets (`/gestion/sincronizar`, cuenta de servicio ya configurada) y
-Registro ABC con alta manual. El código interno de alumno ya viaja en Licencias.
+La BBDD central ya está poblada (642 alumnos, 97 profes) y Licencias y el Registro ABC
+leen de ella. Quedan las pantallas de gestión (listado con bulk de banco de libros, ficha
+de alumno, historial de syncs).
 
 ## Decisiones cerradas
 
@@ -20,9 +20,12 @@ Registro ABC con alta manual. El código interno de alumno ya viaja en Licencias
 - **Formatos soportados: `.xls`, `.xlsx` y `.csv`** (el CSV real es UTF-8 con BOM, separado por
   comas). Detección de columnas **por nombre de cabecera, nunca por posición**.
 - **El código interno de alumno (`AAXXXYYY`) es la clave humana**: `AA` = año de nacimiento en
-  2 cifras, `XXX` = 3 letras del primer apellido, `YYY` = 3 letras del segundo (ej. `14PONROS`,
-  `12EDOSER`). Si la columna A del fichero lo trae, se usa para casar; si es el export crudo de
-  Educamos sin él, también se acepta (ver cascada de matching).
+  2 cifras, `XXX` = 3 letras del primer apellido, `YYY` = 3 letras del **nombre** (ej. Zacarías
+  Naranjo Serrano n. 2015 → `15NARZAC`). Colisión → variantes deslizando letras del nombre y
+  luego del apellido. Si la columna A del fichero lo trae, se usa para casar; si es el export
+  crudo de Educamos sin él, también se acepta (ver cascada de matching). *(2026-07-09: se
+  regeneraron los 642 códigos a esta regla; 1 variante y 4 alumnos sin fecha de nacimiento
+  quedaron sin código.)*
 - **El sync nunca borra**: upsert; quien desaparece del export se puede marcar `active=false`
   (opt-in en la vista previa).
 - **Conflicto de curso**: ahora mismo Educamos tiene el curso "antiguo" y el Sheets de David el
@@ -129,7 +132,7 @@ edu_sync_runs (
   4. `dni`
   5. `apellido1 + apellido2 + fecha_nacimiento` (último recurso, exige match exacto)
   6. Sin match → **alta nueva**. Si no traía código interno, se **genera**
-     (`AA` + 3 letras apellido1 + 3 letras apellido2, mayúsculas sin acentos; si colisiona,
+     (`AA` + 3 letras apellido1 + 3 letras del nombre, mayúsculas sin acentos; si colisiona,
      se marca para revisión manual en la vista previa, no se inventa sufijo en silencio).
 - **Tutores**: dedupe por su GUID; sin GUID (export recortado), dedupe por `dni` y si no por
   `email`. La relación (parentesco, recibe info, custodia) se upsertea en la tabla puente.
@@ -179,21 +182,26 @@ consultan `edu_*` a pelo desde sus rutas.
 ## Fases
 
 ### Fase 0 · Schema y parser
-- [ ] Tablas `edu_*` en `src/db/schema.ts` + `pnpm db:push`
-- [ ] Parser SheetJS con mapa de cabeceras + normalización, probado contra **fixtures con
+- [x] Tablas `edu_*` en `src/db/schema.ts` + `pnpm db:push`
+- [x] Parser SheetJS con mapa de cabeceras + normalización, probado contra **fixtures con
       datos inventados** que imiten la estructura real documentada arriba (el export real está
       borrado y prohibido en git; los fixtures NO deben llamarse `*educamos*` o el `.gitignore`
       los bloqueará — usar p. ej. `src/db/data/fixture-sync-alumnado.csv`): uno "completo"
       (~200 columnas) y uno recortado con columna A = código interno
+      *(los fixtures viven en `src/db/data/`, gitignoreado: existen en local, no en el repo)*
 - [ ] Prueba final con un export real que David sube por el wizard (nunca al repo)
-- [ ] Cascada de matching + generación de código interno con detección de colisiones
-- [ ] `getStudents` / `getGuardians` tipados
+- [x] Cascada de matching + generación de código interno con detección de colisiones
+- [x] `getStudents` / `getGuardians` tipados (en `src/lib/educamos-server.ts`; el parser puro
+      queda en `src/lib/educamos.ts` siguiendo `04-convenciones-tecnicas.md`)
 
 ### Fase 1 · Wizard de sincronización
-- [ ] Subida de fichero + parseo en memoria (`.csv/.xls/.xlsx`)
-- [ ] Vista previa con los 4 cubos + selector "respetar curso de" + resolución de conflictos gordos
-- [ ] Aplicar: upsert transaccional (alumnos + tutores + relaciones) + `edu_sync_runs`
-- [ ] Manejo de fichero parcial (desaparecidos acotados a los cursos presentes)
+- [x] Subida de fichero + parseo en memoria (`.csv/.xls/.xlsx`)
+- [x] Vista previa con los 4 cubos + selector "respetar curso de" + resolución de conflictos gordos
+- [x] Aplicar: upsert transaccional (alumnos + tutores + relaciones) + `edu_sync_runs`
+      *(un único `db.batch()` del driver neon-http = una transacción; el plan se recalcula
+      en servidor, no se fía del diff del cliente)*
+- [x] Manejo de fichero parcial (desaparecidos acotados a los cursos presentes; checkbox
+      "desactivar" desmarcado por defecto si el fichero parece parcial)
 
 ### Fase 2 · Pantallas de gestión
 - [ ] Listado de alumnado con filtros + toggle/bulk de `banco_libros`
@@ -203,5 +211,13 @@ consultan `edu_*` a pelo desde sus rutas.
       simple de `/gestion`)
 
 ### Fase 3 · Adopción (= hito 3 del roadmap, checklist en cada ficha)
-- [ ] Licencias pobla su campaña desde `edu_students`
-- [ ] Registro ABC busca sobre `edu_students`
+- [x] Licencias pobla su campaña desde `edu_students` (enlace `lic_students.edu_student_id`;
+      backfill 2026-07-10: 329/338, 0 pedidos sin enlace)
+- [x] Registro ABC busca sobre `edu_students` (destacados + buscador; profes por sesión)
+
+### Profesorado (añadido 2026-07-10)
+- [x] Tabla `edu_teachers`: **ALIAS** como código, correo del dominio priorizado para casar
+      con el login; activo = sin fecha de baja; tutor/clase tipados
+- [x] Import desde `ExportacionDatosProfesores.xls` en `/gestion/educamos` (vista previa +
+      aplicar); **excluidos** pagadores/IBAN/nº seg. social/retribuciones/contrato/jornada
+- [x] Importados los 97 profes reales (54 activos)

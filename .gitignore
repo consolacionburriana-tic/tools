@@ -52,3 +52,6 @@ ejemploeducamos*
 *educamos*.csv
 *educamos*.xls
 *educamos*.xlsx
+
+# Exports con datos personales para desarrollo local — NUNCA commitear
+/refs/

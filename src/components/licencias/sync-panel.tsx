@@ -63,7 +63,7 @@ function PlanView({ plan }: { plan: Plan }) {
   return (
     <div className="mt-3 space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-800/40">
       {plan.outOfScope != null && plan.outOfScope > 0 && (
-        <p className="text-xs text-zinc-400">{plan.outOfScope} fila(s) del Sheet ignoradas (curso fuera de esta campaña).</p>
+        <p className="text-xs text-zinc-400">{plan.outOfScope} fila(s) ignoradas (curso fuera de esta campaña).</p>
       )}
       {warnings.length > 0 && (
         <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
@@ -323,21 +323,21 @@ export function SyncPanel() {
 
       <SyncCard
         icon={<Users className="h-4 w-4 text-blue-600" />}
-        title="Google Sheets → Alumnos"
+        title="BBDD central → Alumnos"
         description={
           <>
-            Lee la pestaña <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">BBDD Alumnos</code> y actualiza el alumnado de esta campaña (solo los cursos del formulario: 6ºEP a 4ºESO/PDC).
+            Lee la BBDD central de alumnado (Educamos) y actualiza el snapshot de esta campaña (solo los cursos del formulario: 6ºEP a 4ºESO/PDC).
           </>
         }
         bullets={[
           'Empareja por código de alumno: actualiza datos (curso, letra, nombre, banco de libros...) o da de alta si es nuevo.',
-          'Quien ya no esté en el Sheet se desactiva (nunca se borra): los pedidos ya hechos siguen intactos y visibles.',
+          'Quien ya no esté en la BBDD central se desactiva (nunca se borra): los pedidos ya hechos siguen intactos y visibles.',
           'Si un alumno con pedido ya confirmado cambia de curso o Banco de Libros, se avisa antes de aplicar.',
         ]}
         applyLabel="Confirmar y aplicar"
         resultSummary={(r) => (
           <>
-            <p>{r.upserted ?? 0} alumno(s) leídos/actualizados desde el Sheet.</p>
+            <p>{r.upserted ?? 0} alumno(s) leídos/actualizados desde la BBDD central.</p>
             {(r.deactivated ?? 0) > 0 && <p>{r.deactivated} alumno(s) desactivados (ya no estaban en el Sheet).</p>}
             {(r.outOfScope ?? 0) > 0 && <p>{r.outOfScope} fila(s) ignoradas (curso fuera de esta campaña).</p>}
           </>

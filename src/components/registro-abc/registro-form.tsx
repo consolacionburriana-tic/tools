@@ -9,8 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { StudentPicker } from './student-picker';
-import { TeacherPicker, OTHER_TEACHER_VALUE } from './teacher-picker';
+import { StudentPicker, type StudentSelection } from './student-picker';
 import { DateQuickPicker } from './date-quick-picker';
 import { ChipSelect } from './chip-select';
 import { ChipMultiselect } from './chip-multiselect';
@@ -22,12 +21,16 @@ import { Button } from '@/components/ui/button';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/draft-storage';
 import { haptic } from '@/lib/haptics';
 import { CONTEXTS, TIME_SLOTS, PRESENT_PEOPLE, BEHAVIORS, REASONS } from '@/lib/constants';
-import type { Student, Teacher } from '@/db/schema';
+import type { DestacadoItem, RosterItem } from '@/lib/abc-server';
+
+const seleccionAlumno = z.object({
+  abcStudentId: z.string().uuid().optional(),
+  eduStudentId: z.string().uuid().optional(),
+  label: z.string(),
+});
 
 const schema = z.object({
-  studentId: z.string().uuid('Selecciona un alumno'),
-  teacherId: z.string().nullable(),
-  otherTeacherName: z.string().optional(),
+  student: seleccionAlumno.nullable(),
   reportDate: z.date(),
   context: z.enum(['aula', 'patio', 'comedor', 'otros']),
   contextNote: z.string().optional(),
@@ -48,12 +51,14 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 interface RegistroFormProps {
-  students: Student[];
-  teachers: Teacher[];
+  destacados: DestacadoItem[];
+  roster: RosterItem[];
+  /** Quién registra (de la sesión) — solo informativo, el servidor lo resuelve por su cuenta */
+  registradoPor: string;
   onSuccess?: () => void;
 }
 
-export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProps) {
+export function RegistroForm({ destacados, roster, registradoPor, onSuccess }: RegistroFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -66,9 +71,7 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      studentId: students.length === 1 ? students[0].id : '',
-      teacherId: null,
-      otherTeacherName: '',
+      student: destacados.length === 1 ? { abcStudentId: destacados[0].abcStudentId, label: destacados[0].nombre } : null,
       reportDate: new Date(),
       context: 'aula',
       contextNote: '',
@@ -118,13 +121,19 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
   const reasons = watch('reasons');
 
   const onSubmit = async (data: FormValues) => {
+    if (!data.student) {
+      toast.error('Selecciona un alumno');
+      haptic.warning();
+      return;
+    }
     setSubmitting(true);
     try {
+      const { student, ...resto } = data;
       const payload = {
-        ...data,
+        ...resto,
+        abcStudentId: student?.abcStudentId,
+        eduStudentId: student?.eduStudentId,
         reportDate: format(data.reportDate, 'yyyy-MM-dd'),
-        teacherId: data.teacherId === OTHER_TEACHER_VALUE ? null : data.teacherId,
-        otherTeacherName: data.teacherId === OTHER_TEACHER_VALUE ? data.otherTeacherName : null,
       };
 
       const res = await fetch('/api/reports', {
@@ -206,30 +215,22 @@ export function RegistroForm({ students, teachers, onSuccess }: RegistroFormProp
 
       {/* ── Campos obligatorios ────────────────────────────────────── */}
 
-      <FormSection title="Alumno" required error={errors.studentId?.message}>
+      <FormSection title="Alumno" required error={errors.student?.message}>
         <Controller
-          name="studentId"
+          name="student"
           control={control}
           render={({ field }) => (
-            <StudentPicker students={students} value={field.value || null} onChange={field.onChange} />
-          )}
-        />
-      </FormSection>
-
-      <FormSection title="Profesor/a que rellena" required error={errors.teacherId?.message}>
-        <Controller
-          name="teacherId"
-          control={control}
-          render={({ field }) => (
-            <TeacherPicker
-              teachers={teachers}
-              value={field.value}
+            <StudentPicker
+              destacados={destacados}
+              roster={roster}
+              value={(field.value as StudentSelection) ?? null}
               onChange={field.onChange}
-              otherName={watch('otherTeacherName') ?? ''}
-              onOtherNameChange={(name) => setValue('otherTeacherName', name)}
             />
           )}
         />
+        <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+          Registrando como <span className="font-medium text-zinc-500 dark:text-zinc-400">{registradoPor}</span>
+        </p>
       </FormSection>
 
       <FormSection title="Fecha" required error={errors.reportDate?.message}>

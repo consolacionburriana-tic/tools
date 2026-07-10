@@ -6,7 +6,7 @@ por casa" que hay hoy: Registro ABC sin login y Licencias con un email/password 
 
 ---
 
-## Estado: plan técnico listo ✅ · implementación sin empezar ⬜
+## Estado: implementado ✅ (2026-07-10) — pendiente solo la prueba real del flujo OAuth por David
 
 ## Decisiones cerradas
 
@@ -18,6 +18,9 @@ por casa" que hay hoy: Registro ABC sin login y Licencias con un email/password 
   `profe` · `tutor` · `jefe` (jefe de departamento / coordinador de ciclo, es el mismo) ·
   `direccion` · `tic` · `orientacion` · `secretaria` · `supertic`.
 - **`supertic`** es el super-admin: gestiona la pantalla de usuarios/roles y accede a todo.
+- **Profe activo = rol `profe` automático** (decisión 2026-07-10): cualquier cuenta del dominio
+  que sea profe activo en `edu_teachers` entra como `profe` sin alta manual en `auth_users`;
+  la fila explícita en `auth_users` solo hace falta para roles superiores (o para vetar).
 
 ## Plan técnico
 
@@ -107,22 +110,22 @@ activar/desactivar. Sin más — la matriz es por rol y vive en código.
    - `AUTH_SECRET` = el resultado de `openssl rand -base64 32` en tu terminal
 
 ### Fase 0 · Cimientos
-- [ ] OAuth client creado y env vars puestas (pasitos de arriba — David)
-- [ ] Instalar Auth.js v5, config con provider Google + restricción de dominio server-side
-- [ ] Tabla `auth_users` + `src/lib/permissions.ts` con la matriz por defecto
-- [ ] Seed inicial: David como `supertic`
+- [x] OAuth client creado y env vars puestas (pasitos de arriba — David)
+- [x] Instalar Auth.js v5, config con provider Google + restricción de dominio server-side (`src/auth.ts`)
+- [x] Tabla `auth_users` + `src/lib/permissions.ts` con la matriz por defecto
+- [x] Seed inicial: los 5 `supertic` (Bárbara, Amparo, José Miguel, tic@, David)
 
 ### Fase 1 · Login
-- [ ] Página de login con Google (diseño con logo, como el login actual de Licencias)
-- [ ] Sesión JWT + logout
-- [ ] Pantalla "sin acceso, pide alta al TIC" para autenticados sin fila en `auth_users`
+- [x] Página de login con Google (diseño con logo, en `/gestion/login`)
+- [x] Sesión JWT de **10 meses** (dura el curso; el rol se refresca contra BBDD cada 15 min) + logout en el escritorio
+- [x] Pantalla "sin acceso, pide alta al TIC" (`/gestion/sin-acceso`)
 
 ### Fase 2 · Permisos por módulo
-- [ ] Middleware protegiendo `/gestion/*` y `/admin/*`
-- [ ] `requireModule()` para rutas API + `canAccess()` para layouts
-- [ ] `/gestion/usuarios`: CRUD de usuarios y roles (solo tic/supertic)
+- [x] `src/proxy.ts` (Next 16; middleware está deprecado) protege `/gestion/*`, `/admin/*` y `/registro-abc`
+- [x] `requireModule()`/`hasModule()` para rutas API + `canAccess()` en layouts por módulo (`src/lib/auth-guards.ts`)
+- [x] `/gestion/usuarios`: asignación de rol en 1 click por fila + alta por email (solo tic/supertic)
 
 ### Fase 3 · Migración de los módulos existentes (= hito 3 del roadmap)
-- [ ] Registro ABC (`/admin`) detrás del nuevo login
-- [ ] Licencias (`/gestion`) detrás del nuevo login (retirar `licencias-auth.ts`)
-- [ ] Portada `/` sensible a la sesión (muestra los módulos permitidos)
+- [x] Registro ABC detrás del nuevo login (panel movido a `/gestion/abc`; `/admin` redirige)
+- [x] Licencias detrás del nuevo login en `/gestion/licencias` (retirado `licencias-auth.ts` y sus rutas de cookie)
+- [x] La portada `/` sigue siendo de familias (campaña de licencias); el papel de "módulos según tu rol" lo cumple el escritorio `/gestion`

@@ -12,11 +12,16 @@ export const teachers = pgTable('teachers', {
 });
 
 // ─── Tool: Registro ABC (prefijo abc_) ────────────────────────────────────────
+// Config del alumnado en el ABC: enlaza con la BBDD central y guarda los avisos.
+// `destacado` = sale arriba en el formulario (lo configura el admin del módulo);
+// al registrar sobre un alumno buscado en la BBDD central se autocrea su fila (destacado=false).
 export const abcStudents = pgTable('abc_students', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
   fullName: text('full_name').notNull(),
   displayName: text('display_name').notNull(),
   className: text('class_name').notNull(),
+  destacado: boolean('destacado').default(true).notNull(),
   active: boolean('active').default(true).notNull(),
   // Hasta 20 emails que reciben notificación cuando se guarda un registro de este alumno
   emailRecipients: jsonb('email_recipients').$type<string[]>().notNull().default([]),
@@ -26,7 +31,8 @@ export const abcStudents = pgTable('abc_students', {
 export const abcBehaviorReports = pgTable('abc_behavior_reports', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   studentId: uuid('student_id').notNull().references(() => abcStudents.id),
-  teacherId: uuid('teacher_id').references(() => teachers.id),
+  teacherId: uuid('teacher_id').references(() => teachers.id), // legado (pre-login)
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id), // quién registró (por sesión)
   otherTeacherName: text('other_teacher_name'),
   reportDate: date('report_date').notNull(),
   dayOfWeek: integer('day_of_week').notNull(),
@@ -76,8 +82,9 @@ export const licCampaigns = pgTable('lic_campaigns', {
 export const licStudents = pgTable('lic_students', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id),
-  studentCode: text('student_code').notNull(), // "N" de la BBDD, p.ej. 11SOLJOA
+  studentCode: text('student_code').notNull(), // código interno, p.ej. 11SOLJOA
   educamosId: text('educamos_id'),
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id), // enlace a la BBDD central
   apellidos: text('apellidos').notNull(),
   apellido1: text('apellido1'),
   apellido2: text('apellido2'),
@@ -163,6 +170,140 @@ export const licOrderItems = pgTable('lic_order_items', {
   emailSentAt: timestamp('email_sent_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── BBDD central Educamos (prefijo edu_) ─────────────────────────────────────
+export const eduStudents = pgTable('edu_students', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  codigo: text('codigo').unique(), // 14PONROS — clave humana, la de Licencias
+  educamosPersonaId: text('educamos_persona_id').unique(), // GUID 'ID PERSONA' del export
+  nia: text('nia'),
+  dni: text('dni'),
+  matricula: text('matricula'),
+  nombre: text('nombre'),
+  apellido1: text('apellido1'),
+  apellido2: text('apellido2'),
+  sexo: text('sexo'),
+  fechaNacimiento: date('fecha_nacimiento'),
+  curso: text('curso'), // derivado de CLASE ('2ESOB' → '2ESO')
+  letra: text('letra'), // '2ESOB' → 'B'; PDC = letra
+  claseCodigo: text('clase_codigo'),
+  tutorPersonal: text('tutor_personal'), // nombre del tutor/a de clase
+  modeloLinguistico: text('modelo_linguistico'),
+  deficit: text('deficit'),
+  email: text('email'),
+  emailGoogle: text('email_google'),
+  movil1: text('movil1'),
+  movil2: text('movil2'),
+  telEmergencia: text('tel_emergencia'),
+  familiaId: text('familia_id'), // GUID ID FAMILIA
+  bancoLibros: boolean('banco_libros').notNull().default(true),
+  active: boolean('active').notNull().default(true),
+  extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN bloque pagadores)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  lastSyncedAt: timestamp('last_synced_at'),
+}, (t) => [
+  index('edu_students_curso_letra_idx').on(t.curso, t.letra),
+]);
+
+export const eduGuardians = pgTable('edu_guardians', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  educamosPersonaId: text('educamos_persona_id').unique(), // GUID 'IDPERSONA TUTORn' — clave de dedupe
+  nombre: text('nombre'),
+  apellido1: text('apellido1'),
+  apellido2: text('apellido2'),
+  dni: text('dni'),
+  sexo: text('sexo'),
+  email: text('email'),
+  emailGoogle: text('email_google'),
+  telCasa: text('tel_casa'),
+  telPersonal: text('tel_personal'),
+  movilTrabajo: text('movil_trabajo'),
+  direccion: text('direccion'),
+  cp: text('cp'),
+  localidad: text('localidad'),
+  provincia: text('provincia'),
+  extra: jsonb('extra').$type<Record<string, string>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const eduStudentGuardians = pgTable('edu_student_guardians', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  studentId: uuid('student_id').notNull().references(() => eduStudents.id),
+  guardianId: uuid('guardian_id').notNull().references(() => eduGuardians.id),
+  orden: integer('orden'), // 1 = TUTOR1, 2 = TUTOR2
+  parentesco: text('parentesco'), // 'PADRE' | 'MADRE' | ...
+  recibeInformacion: boolean('recibe_informacion'),
+  guardaCustodia: boolean('guarda_custodia'),
+}, (t) => [
+  uniqueIndex('edu_student_guardians_uq').on(t.studentId, t.guardianId),
+]);
+
+export const eduTeachers = pgTable('edu_teachers', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  alias: text('alias').unique(), // código humano del profe (columna ALIAS del export)
+  educamosPersonaId: text('educamos_persona_id').unique(), // GUID 'ID PERSONA'
+  nombre: text('nombre'),
+  apellido1: text('apellido1'),
+  apellido2: text('apellido2'),
+  dni: text('dni'),
+  sexo: text('sexo'),
+  fechaNacimiento: date('fecha_nacimiento'),
+  email: text('email'), // correo @consolacionburriana.com — casa con el login Google
+  emailOtro: text('email_otro'), // el otro correo del export, si lo hay
+  movilPersonal: text('movil_personal'),
+  fechaAlta: date('fecha_alta'),
+  fechaBaja: date('fecha_baja'),
+  esTutor: boolean('es_tutor').notNull().default(false),
+  claseTutor: text('clase_tutor'), // p. ej. '3º INFA'
+  active: boolean('active').notNull().default(true), // false si tiene fecha de baja
+  extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN pagadores/bancos/SS/retribuciones)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  lastSyncedAt: timestamp('last_synced_at'),
+});
+
+export const eduSyncRuns = pgTable('edu_sync_runs', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  filename: text('filename'),
+  formato: text('formato'), // 'csv' | 'xls' | 'xlsx'
+  resumen: jsonb('resumen').$type<{
+    altas: number;
+    cambios: number;
+    desactivados: number;
+    conflictosResueltos: number;
+    errores: string[];
+  }>(),
+  opciones: jsonb('opciones').$type<Record<string, unknown>>(), // { respetarCursoDe: 'bbdd'|'excel', ... }
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─── Auth: usuarios y roles (prefijo auth_) ───────────────────────────────────
+export const authUsers = pgTable('auth_users', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  email: text('email').unique().notNull(), // email Google del dominio
+  nombre: text('nombre'),
+  role: text('role').notNull(), // ver Role en src/lib/permissions.ts
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type AuthUser = typeof authUsers.$inferSelect;
+export type NewAuthUser = typeof authUsers.$inferInsert;
+
+// ─── Types Educamos ───────────────────────────────────────────────────────────
+export type EduTeacher = typeof eduTeachers.$inferSelect;
+export type NewEduTeacher = typeof eduTeachers.$inferInsert;
+export type EduStudent = typeof eduStudents.$inferSelect;
+export type NewEduStudent = typeof eduStudents.$inferInsert;
+export type EduGuardian = typeof eduGuardians.$inferSelect;
+export type NewEduGuardian = typeof eduGuardians.$inferInsert;
+export type EduStudentGuardian = typeof eduStudentGuardians.$inferSelect;
+export type NewEduStudentGuardian = typeof eduStudentGuardians.$inferInsert;
+export type EduSyncRun = typeof eduSyncRuns.$inferSelect;
+export type NewEduSyncRun = typeof eduSyncRuns.$inferInsert;
 
 // ─── Types Licencias ──────────────────────────────────────────────────────────
 export type LicCampaign = typeof licCampaigns.$inferSelect;

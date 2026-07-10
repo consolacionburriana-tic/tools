@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { ADMIN_COOKIE, ADMIN_TOKEN } from '@/lib/licencias-auth';
+import { hasModule } from '@/lib/auth-guards';
+
+const isAdmin = () => hasModule('licencias');
 import { getSheetSyncData } from '@/lib/licencias-exports';
 import { syncOrdersToSheet } from '@/lib/google-sheets';
 import { getCurrentCampaign } from '@/lib/licencias-server';
 
-async function isAdmin() {
-  const jar = await cookies();
-  return jar.get(ADMIN_COOKIE)?.value === ADMIN_TOKEN;
-}
 
 // Sincroniza los pedidos activos (no archivados) con las pestañas "SI/NO BdL - FORM26"
 // del Google Sheet histórico. Solo escribe datos de identidad/licencias; nunca toca

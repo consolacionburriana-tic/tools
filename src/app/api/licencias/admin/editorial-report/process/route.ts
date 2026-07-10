@@ -1,12 +1,9 @@
-import { cookies } from 'next/headers';
-import { ADMIN_COOKIE, ADMIN_TOKEN } from '@/lib/licencias-auth';
+import { hasModule } from '@/lib/auth-guards';
+
+const isAdmin = () => hasModule('licencias');
 import { toCsv } from '@/lib/licencias-exports';
 import { getCurrentCampaign, getEditorialReport, markEditorialProcessed } from '@/lib/licencias-server';
 
-async function isAdmin() {
-  const jar = await cookies();
-  return jar.get(ADMIN_COOKIE)?.value === ADMIN_TOKEN;
-}
 
 const HEADER = ['Código', 'Editorial', 'ISBN', 'UDs', 'Curso', 'Asignatura', 'Nombre del libro', 'Banco de libros', 'Precio', 'Fecha'];
 
