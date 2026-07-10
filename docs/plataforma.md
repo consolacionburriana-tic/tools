@@ -66,7 +66,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
-| Salidas y pagos | ✅ | ✅ | ⬜ | [`15-salidasypagos.md`](./15-salidasypagos.md) |
+| Salidas y pagos | ✅ | ✅ | ✅ (falta activar Blob en Vercel y correos masivos a pendientes) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ⬜ | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ⬜ | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (manifest global; falta start_url/SW) | [`05-pwa.md`](./05-pwa.md) |
@@ -121,6 +121,11 @@ dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
 - **Login único con Google, permisos por rol.** Un login central con Google (cuentas del dominio
   para gestión) y una matriz rol→módulos. Sustituye al `/admin` sin auth y al password fijo de
   Licencias. Ver `01-auth-roles.md`.
+- **Identificación pública de familias SIN datos personales**: los formularios de familias
+  nunca buscan por nombre/apellidos ni muestran datos sin enmascarar. Patrón común en
+  `src/lib/familias{,-server}.ts`: DNI/NIE del tutor → sus hijos como "Fra. M. Luc." · NIA →
+  alumno directo · token de acceso (magic link, generación pendiente). Decisión de protección
+  de datos (2026-07-11), obligatoria para cualquier módulo público nuevo.
 - **Subida de archivos con Vercel Blob** (cuando un módulo la necesite; el primero será Salidas
   y pagos). Un único helper compartido en `src/lib/blob.ts` cuando exista.
 - **Cada módulo se documenta con el mismo patrón**: sección "Estado", "Decisiones cerradas",
@@ -150,7 +155,8 @@ redirección se aplicó. Panel de administración con listado y gráficos. **Sin
 (se resuelve en el hito 3). Detalle completo en [`10-registro-abc.md`](./10-registro-abc.md).
 
 ### Licencias digitales
-Formulario público donde las familias se identifican (curso + año + apellidos), eligen sus
+Formulario público donde las familias se identifican (DNI del tutor o NIA del alumno,
+identificación común de `src/lib/familias-server.ts`), eligen sus
 libros digitales con precios en vivo y confirman el pedido; panel de gestión (`/gestion`) con
 dashboard "quién falta", exportaciones CSV, packs, correos masivos y sincronización con Google
 Sheets. Funcionalmente completa (Fases 0-2); quedan códigos de activación (Fase 3) y el enganche

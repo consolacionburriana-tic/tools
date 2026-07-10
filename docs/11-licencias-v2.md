@@ -34,7 +34,12 @@ Pendiente **solo por credenciales/accesos externos** (no por código):
   y el formulario va solo. Confirmado con los 2 Google Forms reales.
 - **Regla Banco de Libros:** alumno BdL paga solo los libros fuera del banco (Inglés, Francés
   optativa, Digitalización 4ESO); no-BdL paga todo. Bilingüe CAS/VAL se resuelve por `Lengua Base`.
-- **Identificación de familia:** botones de curso + año de nacimiento + teclear apellidos →
+- **Identificación de familia (SUSTITUIDA el 2026-07-11 por protección de datos):** ahora la
+  familia teclea el **DNI/NIE del tutor** (lista solo sus hijos, enmascarados "Fra. M. Luc.")
+  o el **NIA del alumno**; también aceptará **tokens de acceso** (magic link) cuando se
+  implemente su generación (`fam_access_tokens`, ver `00-desarrollos-futuros.md`). La
+  identificación vive en la lib común `src/lib/familias{,-server}.ts` y la comparten todos
+  los módulos públicos. El sistema anterior era: botones de curso + año de nacimiento + apellidos →
   match contra la BBDD mostrando el nombre enmascarado a 3 letras ("David → Dav.").
   Validado: 95,5 % únicos solo con curso+año+apellidos.
 - **Packs/itinerarios:** configurables en el dashboard, solo ayuda visual (modo por pack:
@@ -71,7 +76,7 @@ Pendiente **solo por credenciales/accesos externos** (no por código):
 
 ## Fase 1 · Formulario inteligente (familias) — ✅ funcional, verificada por API
 
-- [x] Identificación: curso (botones) + año + apellidos → match con nombre enmascarado
+- [x] Identificación: ~~curso + año + apellidos~~ → **DNI del tutor o NIA** (2026-07-11, privacidad)
 - [x] Catálogo dinámico por curso derivado de `lic_books` (filtro banco_libros) — BdL solo no-banco, no-BdL todo
 - [x] Resolución idioma CAS/VAL por `lengua_base` (verificado: 1ESO-TECNO-CAS resuelto)
 - [ ] Render de packs/itinerarios — *se configurarán en el panel (Fase 2); ahora selección libre*

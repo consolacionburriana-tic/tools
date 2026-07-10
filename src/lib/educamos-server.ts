@@ -20,7 +20,6 @@ import {
   computeSyncPlan,
   dedupeGuardians,
   normalizar,
-  type MatchTarget,
   type ParsedStudentRow,
   type ParsedTeacherRow,
   type StudentLike,
@@ -92,21 +91,6 @@ export async function getGuardians(studentId: string): Promise<StudentGuardian[]
   }));
 }
 
-/** Carga los campos mínimos de TODOS los alumnos (activos o no) para la cascada de matching del sync. */
-export async function getMatchTargets(): Promise<MatchTarget[]> {
-  return db
-    .select({
-      id: eduStudents.id,
-      codigo: eduStudents.codigo,
-      educamosPersonaId: eduStudents.educamosPersonaId,
-      nia: eduStudents.nia,
-      dni: eduStudents.dni,
-      apellido1: eduStudents.apellido1,
-      apellido2: eduStudents.apellido2,
-      fechaNacimiento: eduStudents.fechaNacimiento,
-    })
-    .from(eduStudents);
-}
 
 // ─── Sincronización desde export ──────────────────────────────────────────────
 
