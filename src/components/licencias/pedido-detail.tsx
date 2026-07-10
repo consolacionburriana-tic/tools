@@ -154,7 +154,7 @@ export function PedidoDetail({ orderId }: { orderId: string }) {
     setBusy(true);
     try {
       await fetch(`/api/licencias/admin/orders/${orderId}`, { method: 'DELETE' });
-      router.push('/gestion/pedidos');
+      router.push('/gestion/licencias/pedidos');
     } finally {
       setBusy(false);
     }

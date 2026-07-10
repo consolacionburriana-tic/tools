@@ -76,8 +76,9 @@ export const licCampaigns = pgTable('lic_campaigns', {
 export const licStudents = pgTable('lic_students', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id),
-  studentCode: text('student_code').notNull(), // "N" de la BBDD, p.ej. 11SOLJOA
+  studentCode: text('student_code').notNull(), // código interno, p.ej. 11SOLJOA
   educamosId: text('educamos_id'),
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id), // enlace a la BBDD central
   apellidos: text('apellidos').notNull(),
   apellido1: text('apellido1'),
   apellido2: text('apellido2'),

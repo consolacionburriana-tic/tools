@@ -21,7 +21,7 @@ export default async function EconomiaPage() {
             <p className="text-xs text-zinc-500">{campaign?.name ?? 'Sin campaña'}</p>
           </div>
           <Link
-            href="/gestion"
+            href="/gestion/licencias"
             className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             <ChevronLeft className="h-4 w-4" /> Panel

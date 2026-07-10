@@ -14,7 +14,7 @@ export default async function PedidoDetailPage({ params }: { params: Promise<{ i
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Detalle del pedido</h1>
           <Link
-            href="/gestion/pedidos"
+            href="/gestion/licencias/pedidos"
             className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             <ChevronLeft className="h-4 w-4" /> Pedidos
