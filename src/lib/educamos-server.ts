@@ -2,7 +2,6 @@
 // alumnado/tutores desde aquí, nunca consultan las tablas edu_* a pelo.
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
-import { cookies } from 'next/headers';
 import { db } from '@/db';
 import {
   eduGuardians,
@@ -15,7 +14,7 @@ import {
   type EduTeacher,
   type NewEduStudent,
 } from '@/db/schema';
-import { ADMIN_COOKIE, ADMIN_TOKEN } from '@/lib/licencias-auth';
+import { hasModule } from '@/lib/auth-guards';
 import {
   CODIGO_INTERNO_RE,
   computeSyncPlan,
@@ -29,12 +28,9 @@ import {
   type SyncPlan,
 } from '@/lib/educamos';
 
-// Guard del módulo en UN solo helper: hoy reutiliza el login simple de /gestion
-// (cookie de licencias-auth); en el hito 2 esta función pasa a ser requireModule('educamos')
-// y este es el único sitio que hay que tocar.
+// Guard del módulo en UN solo helper (rol con módulo 'educamos').
 export async function isEducamosAdmin(): Promise<boolean> {
-  const jar = await cookies();
-  return jar.get(ADMIN_COOKIE)?.value === ADMIN_TOKEN;
+  return hasModule('educamos');
 }
 
 export interface GetStudentsFilters {

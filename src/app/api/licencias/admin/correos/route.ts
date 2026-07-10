@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { ADMIN_COOKIE, ADMIN_TOKEN } from '@/lib/licencias-auth';
+import { hasModule } from '@/lib/auth-guards';
+
+const isAdmin = () => hasModule('licencias');
 import { getCurrentCampaign, getRecipients } from '@/lib/licencias-server';
 import { sendBlast, sendBlastTest } from '@/lib/licencias-email';
 
-async function isAdmin() {
-  const jar = await cookies();
-  return jar.get(ADMIN_COOKIE)?.value === ADMIN_TOKEN;
-}
 
 export async function POST(request: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });

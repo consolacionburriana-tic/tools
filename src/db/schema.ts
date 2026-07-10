@@ -272,6 +272,20 @@ export const eduSyncRuns = pgTable('edu_sync_runs', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ─── Auth: usuarios y roles (prefijo auth_) ───────────────────────────────────
+export const authUsers = pgTable('auth_users', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  email: text('email').unique().notNull(), // email Google del dominio
+  nombre: text('nombre'),
+  role: text('role').notNull(), // ver Role en src/lib/permissions.ts
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type AuthUser = typeof authUsers.$inferSelect;
+export type NewAuthUser = typeof authUsers.$inferInsert;
+
 // ─── Types Educamos ───────────────────────────────────────────────────────────
 export type EduTeacher = typeof eduTeachers.$inferSelect;
 export type NewEduTeacher = typeof eduTeachers.$inferInsert;
