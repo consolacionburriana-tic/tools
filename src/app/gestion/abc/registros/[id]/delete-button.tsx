@@ -15,7 +15,7 @@ export function DeleteReportButton({ id }: { id: string }) {
     const res = await fetch(`/api/reports/${id}`, { method: 'DELETE' });
     if (res.ok) {
       toast.success('Registro eliminado');
-      router.push('/admin/registros');
+      router.push('/gestion/abc/registros');
     } else {
       toast.error('Error al eliminar');
       setDeleting(false);

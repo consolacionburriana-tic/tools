@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { hasModule } from '@/lib/auth-guards';
 import { db } from '@/db';
 import { students } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await hasModule('abc'))) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   try {
     const { id } = await params;
     const body = await request.json() as Partial<{

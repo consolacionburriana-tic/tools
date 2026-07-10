@@ -12,11 +12,16 @@ export const teachers = pgTable('teachers', {
 });
 
 // ─── Tool: Registro ABC (prefijo abc_) ────────────────────────────────────────
+// Config del alumnado en el ABC: enlaza con la BBDD central y guarda los avisos.
+// `destacado` = sale arriba en el formulario (lo configura el admin del módulo);
+// al registrar sobre un alumno buscado en la BBDD central se autocrea su fila (destacado=false).
 export const abcStudents = pgTable('abc_students', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
   fullName: text('full_name').notNull(),
   displayName: text('display_name').notNull(),
   className: text('class_name').notNull(),
+  destacado: boolean('destacado').default(true).notNull(),
   active: boolean('active').default(true).notNull(),
   // Hasta 20 emails que reciben notificación cuando se guarda un registro de este alumno
   emailRecipients: jsonb('email_recipients').$type<string[]>().notNull().default([]),
@@ -26,7 +31,8 @@ export const abcStudents = pgTable('abc_students', {
 export const abcBehaviorReports = pgTable('abc_behavior_reports', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   studentId: uuid('student_id').notNull().references(() => abcStudents.id),
-  teacherId: uuid('teacher_id').references(() => teachers.id),
+  teacherId: uuid('teacher_id').references(() => teachers.id), // legado (pre-login)
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id), // quién registró (por sesión)
   otherTeacherName: text('other_teacher_name'),
   reportDate: date('report_date').notNull(),
   dayOfWeek: integer('day_of_week').notNull(),

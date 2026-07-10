@@ -6,7 +6,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Clock, MapPin, Users as UsersIcon, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
 import { db } from '@/db';
-import { behaviorReports, students, teachers } from '@/db/schema';
+import { behaviorReports, eduTeachers, students, teachers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import {
   BEHAVIORS, CONTEXTS, TIME_SLOTS, PRESENT_PEOPLE, REASONS,
@@ -26,23 +26,27 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
       report: behaviorReports,
       student: students,
       teacher: teachers,
+      eduTeacher: eduTeachers,
     })
     .from(behaviorReports)
     .leftJoin(students, eq(behaviorReports.studentId, students.id))
     .leftJoin(teachers, eq(behaviorReports.teacherId, teachers.id))
+    .leftJoin(eduTeachers, eq(behaviorReports.eduTeacherId, eduTeachers.id))
     .where(eq(behaviorReports.id, id))
     .limit(1);
 
   if (!row) notFound();
 
-  const { report, student, teacher } = row;
+  const { report, student, teacher, eduTeacher } = row;
   const behaviors = (report.behaviors as string[]) ?? [];
   const presentPeople = (report.presentPeople as string[]) ?? [];
   const reasons = (report.reasons as string[]) ?? [];
   const dateObj = parseISO(report.reportDate);
-  const teacherName = teacher
-    ? `${teacher.firstName} ${teacher.lastName}`
-    : (report.otherTeacherName ?? 'Desconocido');
+  const teacherName = eduTeacher
+    ? [eduTeacher.nombre, eduTeacher.apellido1, eduTeacher.apellido2].filter(Boolean).join(' ')
+    : teacher
+      ? `${teacher.firstName} ${teacher.lastName}`
+      : (report.otherTeacherName ?? 'Desconocido');
 
   const eff = report.effectivenessRating ? parseFloat(report.effectivenessRating) : null;
   const effColor = eff == null
@@ -56,7 +60,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
       {/* ── Toolbar ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <Link
-          href="/admin/registros"
+          href="/gestion/abc/registros"
           className="inline-flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

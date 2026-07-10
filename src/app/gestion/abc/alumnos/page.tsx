@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PlusCircle, Mail, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Link2, PlusCircle, Mail, Star, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -168,6 +168,15 @@ export default function AlumnosPage() {
     }
   };
 
+  const toggleDestacado = async (id: string, destacado: boolean) => {
+    const res = await fetch(`/api/students/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destacado: !destacado }),
+    });
+    if (res.ok) setStudents((prev) => prev.map((s) => s.id === id ? { ...s, destacado: !destacado } : s));
+  };
+
   const toggleActive = async (id: string, active: boolean) => {
     const res = await fetch(`/api/students/${id}`, {
       method: 'PATCH',
@@ -186,7 +195,9 @@ export default function AlumnosPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Alumnos</h1>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Específico del Registro ABC · Alta manual</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+            La estrella = sale destacado arriba en el formulario · los avisos por email se configuran aquí
+          </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors">
@@ -230,8 +241,23 @@ export default function AlumnosPage() {
           students.map((s) => (
             <div key={s.id} className="px-5 py-4">
               <div className="flex items-center gap-4">
+                <button
+                  onClick={() => toggleDestacado(s.id, s.destacado)}
+                  className="shrink-0 cursor-pointer"
+                  aria-label={s.destacado ? 'Quitar de destacados' : 'Destacar en el formulario'}
+                  title={s.destacado ? 'Destacado en el formulario' : 'Destacar en el formulario'}
+                >
+                  <Star className={`h-5 w-5 ${s.destacado ? 'fill-amber-400 text-amber-400' : 'text-zinc-300 dark:text-zinc-600'}`} />
+                </button>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{s.displayName}</p>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                    {s.displayName}
+                    {s.eduStudentId && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                        <Link2 className="h-3 w-3" /> BBDD central
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-zinc-400 dark:text-zinc-500">{s.fullName} · {s.className}</p>
                 </div>
                 <button
