@@ -6,11 +6,9 @@ import { BookOpen, Check, ChevronLeft, Info, Languages, Loader2, TriangleAlert }
 import {
   type Candidate,
   type CatalogBook,
-  CURSOS_FORM,
   baseCod,
   cursoLabel,
   euros,
-  normalize,
 } from '@/lib/licencias';
 
 interface Pack {
@@ -52,30 +50,6 @@ function Back({ onClick }: { onClick: () => void }) {
       className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
     >
       <ChevronLeft className="h-4 w-4" /> Atrás
-    </button>
-  );
-}
-
-function Choice({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-xl border px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
-        active
-          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
-          : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-      }`}
-    >
-      {children}
     </button>
   );
 }
@@ -144,8 +118,8 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  const [curso, setCurso] = useState<string>('');
-  const [apellidos, setApellidos] = useState('');
+  const [curso, setCurso] = useState<string>(''); // curso del candidato elegido (para el catálogo)
+  const [identificador, setIdentificador] = useState('');
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [student, setStudent] = useState<Candidate | null>(null);
@@ -189,18 +163,19 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
     : null;
 
   useEffect(() => {
-    if (!curso || normalize(apellidos).length < 3) {
-      setCandidates([]);
-      setSearching(false);
-      return;
-    }
-    setSearching(true);
+    const q = identificador.trim();
     const handle = setTimeout(async () => {
+      if (q.length < 5) {
+        setCandidates([]);
+        setSearching(false);
+        return;
+      }
+      setSearching(true);
       try {
         const res = await fetch('/api/licencias/identify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ curso, apellidos }),
+          body: JSON.stringify({ identificador: q }),
         });
         const data = await res.json();
         setCandidates(res.ok ? (data.candidates ?? []) : []);
@@ -209,17 +184,18 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
       } finally {
         setSearching(false);
       }
-    }, 300);
+    }, q.length < 5 ? 0 : 350);
     return () => clearTimeout(handle);
-  }, [curso, apellidos]);
+  }, [identificador]);
 
   async function elegirAlumno(c: Candidate) {
     setError(null);
     setLoading(true);
     setStudent(c);
+    setCurso(c.cursoLabel);
     try {
       const [catRes, ordRes] = await Promise.all([
-        fetch(`/api/licencias/catalog?studentId=${c.id}&curso=${encodeURIComponent(curso)}`),
+        fetch(`/api/licencias/catalog?studentId=${c.id}&curso=${encodeURIComponent(c.cursoLabel)}`),
         fetch(`/api/licencias/orders?studentId=${c.id}`),
       ]);
       const cat = await catRes.json();
@@ -227,7 +203,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
       setCatalog(cat.books);
       setBancoLibros(cat.bancoLibros);
       setLenguaBase(cat.lenguaBase ?? null);
-      setEffCurso(cat.curso ?? curso);
+      setEffCurso(cat.curso ?? c.cursoLabel);
       setPacks(cat.packs ?? []);
       const ord = await ordRes.json();
       setSelected(new Set<string>(ord.order ? (ord.cods ?? []) : []));
@@ -276,7 +252,7 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
   function otroHijo() {
     setStep('identify');
     setCurso('');
-    setApellidos('');
+    setIdentificador('');
     setCandidates([]);
     setStudent(null);
     setCatalog([]);
@@ -299,72 +275,63 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
                 {deadlineLabel && <> Plazo: hasta el <strong>{deadlineLabel}</strong> (no se permitirán pedidos después)</>}
               </p>
 
-              <p className="mt-5 mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">¿En qué curso estará EL AÑO QUE VIENE?</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {CURSOS_FORM.map((c) => (
-                  <Choice
-                    key={c.value}
-                    active={curso === c.value}
-                    onClick={() => setCurso(c.value)}
-                  >
-                    {c.label}
-                  </Choice>
-                ))}
+              <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                DNI/NIE de la madre, padre o tutor legal — o NIA del alumno/a
+              </label>
+              <input
+                value={identificador}
+                onChange={(e) => setIdentificador(e.target.value)}
+                placeholder="12345678A"
+                autoComplete="off"
+                inputMode="text"
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              />
+              <p className="mt-2 text-xs text-zinc-400">
+                El NIA es el número de identificación del alumnado (sale en el boletín de notas y en Educamos).
+                Por protección de datos ya no se busca por nombre.
+              </p>
+
+              <div className="mt-3 min-h-[1.25rem]">
+                {searching && (
+                  <p className="flex items-center gap-2 text-sm text-zinc-400">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Buscando…
+                  </p>
+                )}
+                {!searching && identificador.trim().length >= 5 && candidates.length === 0 && (
+                  <p className="text-sm text-zinc-500">
+                    No encontramos ningún alumno con ese dato. Revisa el DNI/NIA o escríbenos abajo.
+                  </p>
+                )}
               </div>
 
-              {curso && (
-                <>
-                  <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Apellidos del alumno/a
-                  </label>
-                  <input
-                    value={apellidos}
-                    onChange={(e) => setApellidos(e.target.value)}
-                    placeholder="Escribe los apellidos…"
-                    autoComplete="off"
-                    className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                  />
-
-                  <div className="mt-3 min-h-[1.25rem]">
-                    {searching && (
-                      <p className="flex items-center gap-2 text-sm text-zinc-400">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Buscando…
-                      </p>
-                    )}
-                    {!searching && normalize(apellidos).length >= 3 && candidates.length === 0 && (
-                      <p className="text-sm text-zinc-500">
-                        No encontramos a nadie con esos datos. Escribe el <strong>APELLIDO</strong> más completo o revisa el curso.
-                      </p>
-                    )}
-                  </div>
-
-                  {candidates.length > 0 && (
-                    <div className="mt-1 space-y-2">
-                      <p className="text-xs text-zinc-400">Selecciona al alumno/a (datos abreviados por privacidad):</p>
-                      {candidates.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => elegirAlumno(c)}
-                          disabled={loading}
-                          className="flex w-full items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer disabled:opacity-50"
-                        >
-                          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                            {c.maskedName} {c.apellidos}
-                          </span>
-                          {loading ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-                          ) : (
-                            <ChevronLeft className="h-4 w-4 rotate-180 text-zinc-400" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
-                </>
+              {candidates.length > 0 && (
+                <div className="mt-1 space-y-2">
+                  <p className="text-xs text-zinc-400">
+                    {candidates.length > 1 ? 'Selecciona a tu hijo/a' : 'Confirma al alumno/a'} (nombre abreviado por privacidad):
+                  </p>
+                  {candidates.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => elegirAlumno(c)}
+                      disabled={loading}
+                      className="flex w-full items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer disabled:opacity-50"
+                    >
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {c.maskedName}
+                        <span className="ml-2 text-xs font-normal text-zinc-400">{cursoLabel(c.cursoLabel)}</span>
+                      </span>
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                      ) : (
+                        <ChevronLeft className="h-4 w-4 rotate-180 text-zinc-400" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               )}
+
+              {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
               <p className="mt-6 text-xs text-zinc-400">
                 ¿Dudas o algún error? Escríbenos a{' '}

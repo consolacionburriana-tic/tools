@@ -20,12 +20,11 @@ import {
   CURSOS_FORM,
   cursoEfectivo,
   isPdcLetra,
-  maskApellidos,
-  maskName,
   normalize,
   resolveBilingual,
   toPdcCurso,
 } from '@/lib/licencias';
+import { identifyFamily } from '@/lib/familias-server';
 
 export async function getCurrentCampaign() {
   const [campaign] = await db
@@ -40,38 +39,33 @@ export async function setCampaignStatus(campaignId: string, status: string) {
   await db.update(licCampaigns).set({ status }).where(eq(licCampaigns.id, campaignId));
 }
 
-export async function identifyStudents(
-  campaignId: string,
-  baseCurso: string,
-  apellidos: string,
-) {
+// Identificación por privacidad (2026-07-11): la familia teclea el DNI/NIE del tutor,
+// el NIA del alumno o un token de acceso; NUNCA se busca por nombre/apellidos ni se
+// devuelven datos sin enmascarar (decisión de protección de datos).
+export async function identifyStudentsByFamily(campaignId: string, identificador: string) {
+  const identity = await identifyFamily(identificador);
+  if (!identity) return [];
+  const ids = identity.hijos.map((h) => h.eduStudentId);
+  if (ids.length === 0) return [];
   const rows = await db
     .select()
     .from(licStudents)
     .where(
       and(
         eq(licStudents.campaignId, campaignId),
-        eq(licStudents.curso, baseCurso),
+        inArray(licStudents.eduStudentId, ids),
         eq(licStudents.active, true),
       ),
     );
-  const q = normalize(apellidos);
-  if (q.length < 3) return []; // exigimos algo más que 2 letras
-
-  // Nivel 1 (exigente): el apellido (o alguna de sus palabras) empieza por lo tecleado
-  const strict = rows.filter((s) => {
-    const na = normalize(s.apellidos);
-    return na.startsWith(q) || na.split(' ').some((w) => w.startsWith(q));
+  return rows.map((s) => {
+    const hijo = identity.hijos.find((h) => h.eduStudentId === s.eduStudentId)!;
+    return {
+      id: s.id,
+      maskedName: hijo.maskedName, // "Fra. M. Luc."
+      apellidos: '',
+      cursoLabel: s.curso,
+    };
   });
-  // Nivel 2 (fallback amplio): solo si el exigente no encuentra nada
-  const matched = strict.length > 0 ? strict : rows.filter((s) => normalize(s.apellidos).includes(q));
-
-  return matched.slice(0, 8).map((s) => ({
-    id: s.id,
-    maskedName: maskName(s.nombre),
-    apellidos: maskApellidos(s.apellidos, apellidos),
-    cursoLabel: s.curso,
-  }));
 }
 
 export async function getStudentById(id: string): Promise<LicStudent | null> {
