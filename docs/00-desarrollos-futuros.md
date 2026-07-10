@@ -27,6 +27,14 @@ con propósito y caducidad) y **enviarlos por Resend** como magic link. Pensado 
 Licencias ("entra aquí para pedir tus licencias") pero sirve para cualquier módulo público
 (Salidas incluido). Decidir: caducidad, un-uso vs multiuso, y desde qué pantalla se lanzan.
 
+### Legacy pendiente de retirar del todo (cuando deje de hacer falta)
+- Tabla `teachers` (ABC pre-login): solo se usa para pintar nombres de los 6 registros
+  históricos (`/api/teachers` devuelve unión central+legado). Cuando dé igual, migrar esos
+  nombres a texto y borrar tabla + join.
+- Aliases `students`/`behaviorReports` en `src/db/schema.ts` (apuntan a `abc_*`): renombrar
+  imports y quitarlos en una pasada mecánica.
+- Columna `lic_students.educamos_id` (texto) duplicada por el enlace `edu_student_id`.
+
 ### Salidas: flecos
 - Activar el **Blob store** en Vercel y copiar `BLOB_READ_WRITE_TOKEN` a `.env.local`
   (pasitos en `15-salidasypagos.md`) — sin esto la subida de justificantes da error guiado.
