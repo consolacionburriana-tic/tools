@@ -61,11 +61,11 @@ a construir) y si está **implementado** (ya funciona en el repo).
 
 | Módulo / pieza | Plan funcional | Plan técnico | Implementado | Ficha |
 |---|---|---|---|---|
-| Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ | [`10-registro-abc.md`](./10-registro-abc.md) |
-| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2; 3-4 pendientes) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
-| BBDD central Educamos (alumnos + tutores) | ✅ | ✅ | 🟡 (Fases 0-1 hechas: schema, parser y wizard de sync; faltan pantallas de gestión) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
-| Auth (login Google) + roles/permisos | ✅ | ✅ | ⬜ | [`01-auth-roles.md`](./01-auth-roles.md) |
-| Escritorio de administración (bienvenida) | ✅ | ✅ | ⬜ | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
+| Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (migrado a login + BBDD central; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
+| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2; ya vive de `edu_students`; quedan códigos de activación) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
+| BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
+| Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
+| Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
 | Salidas y pagos | ✅ | ✅ | ⬜ | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ⬜ | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ⬜ | [`16-evaluaciones.md`](./16-evaluaciones.md) |

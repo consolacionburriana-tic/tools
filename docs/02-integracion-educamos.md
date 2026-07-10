@@ -7,11 +7,11 @@ enseña los conflictos, decides, y listo. Es el **hito 1 del roadmap** (ver `pla
 
 ---
 
-## Estado: plan técnico listo ✅ (mapeo fijado con export real) · implementación sin empezar ⬜
+## Estado: fases 0-1 + import de profesorado implementados ✅ · faltan pantallas de gestión (Fase 2)
 
-Hoy cada módulo importa su propio listado: Licencias desde la hoja de cálculo que David
-mantiene en Google Sheets (`/gestion/sincronizar`, cuenta de servicio ya configurada) y
-Registro ABC con alta manual. El código interno de alumno ya viaja en Licencias.
+La BBDD central ya está poblada (642 alumnos, 97 profes) y Licencias y el Registro ABC
+leen de ella. Quedan las pantallas de gestión (listado con bulk de banco de libros, ficha
+de alumno, historial de syncs).
 
 ## Decisiones cerradas
 
@@ -132,7 +132,7 @@ edu_sync_runs (
   4. `dni`
   5. `apellido1 + apellido2 + fecha_nacimiento` (último recurso, exige match exacto)
   6. Sin match → **alta nueva**. Si no traía código interno, se **genera**
-     (`AA` + 3 letras apellido1 + 3 letras apellido2, mayúsculas sin acentos; si colisiona,
+     (`AA` + 3 letras apellido1 + 3 letras del nombre, mayúsculas sin acentos; si colisiona,
      se marca para revisión manual en la vista previa, no se inventa sufijo en silencio).
 - **Tutores**: dedupe por su GUID; sin GUID (export recortado), dedupe por `dni` y si no por
   `email`. La relación (parentesco, recibe info, custodia) se upsertea en la tabla puente.
@@ -211,5 +211,13 @@ consultan `edu_*` a pelo desde sus rutas.
       simple de `/gestion`)
 
 ### Fase 3 · Adopción (= hito 3 del roadmap, checklist en cada ficha)
-- [ ] Licencias pobla su campaña desde `edu_students`
-- [ ] Registro ABC busca sobre `edu_students`
+- [x] Licencias pobla su campaña desde `edu_students` (enlace `lic_students.edu_student_id`;
+      backfill 2026-07-10: 329/338, 0 pedidos sin enlace)
+- [x] Registro ABC busca sobre `edu_students` (destacados + buscador; profes por sesión)
+
+### Profesorado (añadido 2026-07-10)
+- [x] Tabla `edu_teachers`: **ALIAS** como código, correo del dominio priorizado para casar
+      con el login; activo = sin fecha de baja; tutor/clase tipados
+- [x] Import desde `ExportacionDatosProfesores.xls` en `/gestion/educamos` (vista previa +
+      aplicar); **excluidos** pagadores/IBAN/nº seg. social/retribuciones/contrato/jornada
+- [x] Importados los 97 profes reales (54 activos)

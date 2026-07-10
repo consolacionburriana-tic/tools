@@ -20,6 +20,23 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Cabos sueltos de la sesión 2026-07-10 (revisar con David)
+- **4 alumnos sin código interno** por venir sin fecha de nacimiento en el export de Educamos
+  (Ncogo Roca, Perdomo Montenegro, Rodríguez Lamilla, Pastor Monsonis): o se les añade la fecha
+  en Educamos y se re-sincroniza, o se les pone código a mano.
+- **1 colisión de código resuelta con variante**: Marina Santos Miró (3ESO B) → `11SANARI`
+  (11SANMAR ya estaba ocupado). Confirmar que no choca con el código que use el Sheet.
+- **9 alumnos de Licencias sin enlace** a la BBDD central (sin pedido; parecen bajas que ya no
+  vienen en el export): se pueden ignorar o desactivar.
+- **1 alumno del ABC sin enlazar** a la BBDD central (su nombre está anonimizado "R. …"):
+  enlazarlo a mano si se quiere historial unificado.
+- **Import de profes: datos laborales excluidos** (contrato, jornada, nº seg. social,
+  retribuciones, pagadores/IBAN) — decisión tomada por prudencia de datos; revisar si algún
+  módulo futuro los necesitara.
+- **Probar el flujo OAuth real** (Google) en local y en Vercel: las env vars están, pero el
+  login de verdad solo lo puede probar una cuenta del dominio. Añadir también las 3 vars
+  `AUTH_*` en Vercel antes del deploy.
+
 ### Auth y roles
 - Validar (o ajustar) la **matriz rol→módulos por defecto** propuesta en
   [`01-auth-roles.md`](./01-auth-roles.md) — es un cambio de una línea en
