@@ -19,8 +19,8 @@ Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-r
   marcar varias clases: p. ej. todo 2ºESO = 2ESO A + 2ESO B + PDC).
 - **El justificante se sube como archivo** (foto/PDF) y un gestor puede marcarlo como
   **revisado/validado**.
-- **Un alumno puede "no ir" a la salida**: se marca y deja de contar como pendiente (no se le
-  reclama justificante, obvio).
+- **"No va" lo marca el PROFESORADO desde el panel** (cambio 2026-07-11: antes podía la
+  familia). El alumno deja de contar como pendiente; la familia lo ve como estado informativo.
 - **Sin recordatorios automáticos**, pero sí **envío manual de correos masivos** a las familias
   que faltan ("oye, me falta tu justificante") — mismo patrón que `/gestion/correos` de
   Licencias.
@@ -30,6 +30,13 @@ Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-r
   (`sal_trip_managers`) que reciben por Resend un aviso minimalista con cada justificante:
   mini-report (progreso, entregados/pendientes/validados/no van) y un footer con un dato
   curioso rotatorio para alegrar la gestión.
+- **Entrada MANUAL de respaldo (2026-07-11)**: si la identificación por DNI/NIA no encuentra
+  a la familia, puede teclear clase (solo las que tienen salidas abiertas) + nombre del alumno
+  y subir el justificante igualmente. La inscripción queda con `student_id = null` + campos
+  `manual_*` (incluido lo que tecleó, para depurar), sale **muy marcada en ámbar** en el panel
+  y en el email a responsables ("⚠️ entrada manual — enlazar alumno"): toca arreglar el enlace
+  y el dato de origen en Educamos. Cobertura actual verificada: 0 alumnos activos sin vía de
+  identificación (todos tienen NIA o tutor con documento).
 - **Modelo preparado para la API de Educamos**: `sal_trips.educamos_actividad_id` + `extra`
   jsonb y `sal_signups.educamos_autorizado`/`educamos_synced_at`, por si en el futuro la
   salida y sus autorizaciones se consultan directamente de Educamos.
@@ -100,7 +107,7 @@ sal_signups (
    desarrollo local: cópiala a tu `.env.local` (o `vercel env pull` si tienes la CLI).
 
 ### Fase 0 · Cimientos
-- [ ] Blob store creado y token disponible (pasitos de arriba — David); el código ya está y da error guiado si falta
+- [x] Blob store creado y token disponible; subida y visor verificados con archivos reales
 - [x] Schema `sal_*` + `pnpm db:push` (con campos previstos para la API de Educamos)
 - [x] Helper `src/lib/blob.ts` (privado, 10MB, jpg/png/heic/pdf)
 
@@ -110,7 +117,7 @@ sal_signups (
 
 ### Fase 2 · Formulario público (familias)
 - [x] Identificación por DNI/NIA (lib común de familias); las salidas ya vienen filtradas por la clase del alumno
-- [x] Marcar "no va" (la inscripción se da por hecha al subir el justificante)
+- [x] "No va" desde el panel (profesorado); la inscripción se da por hecha al subir el justificante
 - [x] Subir justificante (Blob privado) con validaciones de tipo y tamaño
 - [x] Email de confirmación a la familia (Resend, opcional) + alerta con report a los responsables
 

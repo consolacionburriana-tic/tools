@@ -10,7 +10,7 @@ export const metadata = {
 export default function SalidasPage() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <main className="mx-auto w-full max-w-xl px-4 py-8">
+      <main className="anim-stagger mx-auto w-full max-w-xl px-4 py-8">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-zinc-200/70">
             {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -17,7 +17,7 @@ export default async function LoginPage({
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-      <div className="w-full max-w-sm">
+      <div className="anim-stagger w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center">
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70">
             {/* eslint-disable-next-line @next/next/no-img-element */}

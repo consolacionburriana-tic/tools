@@ -134,9 +134,9 @@ export default async function EscritorioPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+      <main className="anim-stagger mx-auto max-w-3xl space-y-6 px-4 py-6">
         {(alumnos || pedidos || registrosAbc) && (
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <section className="anim-stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
             {alumnos && <Stat label="Alumnado activo" value={alumnos[0].n} />}
             {profes && (
               <Stat
@@ -154,7 +154,7 @@ export default async function EscritorioPage() {
           </section>
         )}
 
-        <section className="space-y-3">
+        <section className="anim-stagger space-y-3">
           <ModuleCard
             href="/registro-abc"
             icon={<ClipboardList className="h-6 w-6" />}

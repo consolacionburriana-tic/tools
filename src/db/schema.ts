@@ -353,7 +353,12 @@ export const salTripManagers = pgTable('sal_trip_managers', {
 export const salSignups = pgTable('sal_signups', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   tripId: uuid('trip_id').notNull().references(() => salTrips.id),
-  studentId: uuid('student_id').notNull().references(() => eduStudents.id),
+  // null = entrada MANUAL: la familia no se encontró con DNI/NIA y tecleó los datos.
+  // Sale muy marcada en el panel para arreglar el enlace (y el dato de origen).
+  studentId: uuid('student_id').references(() => eduStudents.id),
+  manualNombre: text('manual_nombre'),
+  manualClase: text('manual_clase'),
+  manualIdentificador: text('manual_identificador'), // lo que tecleó y no casó, para depurar
   estado: text('estado').notNull().default('apuntado'), // 'apuntado' | 'no_va' (sin fila = pendiente)
   justificanteUrl: text('justificante_url'), // Vercel Blob (privado)
   justificanteEstado: text('justificante_estado'), // null | 'subido' | 'validado' | 'rechazado'

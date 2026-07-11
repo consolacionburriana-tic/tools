@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 
 export interface AlumnoRow {
-  eduStudentId: string;
+  eduStudentId: string | null; // null = entrada manual
   nombre: string;
   clase: string;
   signupId: string | null;
@@ -14,6 +14,8 @@ export interface AlumnoRow {
   justificanteEstado: string | null;
   justificanteSubidoAt: string | null;
   emailContacto: string | null;
+  manual: boolean;
+  manualIdentificador: string | null;
 }
 
 type Cubo = 'pendientes' | 'entregados' | 'validados' | 'no_van';
@@ -26,10 +28,34 @@ function cuboDe(a: AlumnoRow): Cubo {
 }
 
 // Seguimiento del detalle de salida: filtros por estado + acciones de validación.
-export function TripSeguimiento({ alumnos: inicial }: { alumnos: AlumnoRow[] }) {
+// El "no va" lo marca el PROFESORADO desde aquí (las familias no pueden).
+export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoRow[]; tripId: string }) {
   const [alumnos, setAlumnos] = useState(inicial);
   const [filtro, setFiltro] = useState<Cubo>('entregados');
   const [ocupado, setOcupado] = useState<string | null>(null);
+
+  async function marcarNoVa(a: AlumnoRow) {
+    if (!a.eduStudentId) return;
+    setOcupado(a.eduStudentId);
+    try {
+      const res = await fetch('/api/salidas/admin/no-va', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tripId, eduStudentId: a.eduStudentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAlumnos((prev) =>
+        prev.map((x) => (x.eduStudentId === a.eduStudentId ? { ...x, estado: 'no_va', signupId: data.signupId ?? x.signupId } : x)),
+      );
+      haptic.tap();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      haptic.warning();
+    } finally {
+      setOcupado(null);
+    }
+  }
 
   const cuentas = useMemo(() => {
     const c: Record<Cubo, number> = { pendientes: 0, entregados: 0, validados: 0, no_van: 0 };
@@ -92,17 +118,30 @@ export function TripSeguimiento({ alumnos: inicial }: { alumnos: AlumnoRow[] }) 
       ) : (
         <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {visibles.map((a) => (
-            <li key={a.eduStudentId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+            <li
+              key={a.signupId ?? a.eduStudentId}
+              className={`flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 ${
+                a.manual ? 'border-l-4 border-amber-400 bg-amber-50/60 dark:bg-amber-500/10' : ''
+              }`}
+            >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   {a.nombre}
                   <span className="ml-2 text-xs font-normal text-zinc-400">{a.clase}</span>
+                  {a.manual && (
+                    <span className="ml-2 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-amber-950">
+                      ⚠️ ENTRADA MANUAL — enlazar alumno
+                    </span>
+                  )}
                   {a.justificanteEstado === 'rechazado' && (
                     <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-300">
                       rechazado
                     </span>
                   )}
                 </p>
+                {a.manual && a.manualIdentificador && (
+                  <p className="text-xs text-amber-700 dark:text-amber-300">tecleó: {a.manualIdentificador}</p>
+                )}
                 {a.justificanteSubidoAt && (
                   <p className="text-xs text-zinc-400">
                     subido el {new Date(a.justificanteSubidoAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -111,7 +150,7 @@ export function TripSeguimiento({ alumnos: inicial }: { alumnos: AlumnoRow[] }) 
                 )}
               </div>
               <div className="flex items-center gap-1.5">
-                {ocupado === a.signupId && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
+                {(ocupado === a.signupId || ocupado === a.eduStudentId) && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
                 {a.signupId && a.justificanteEstado && (
                   <a
                     href={`/api/salidas/admin/justificante/${a.signupId}`}
@@ -121,6 +160,16 @@ export function TripSeguimiento({ alumnos: inicial }: { alumnos: AlumnoRow[] }) 
                   >
                     <ExternalLink className="h-3.5 w-3.5" /> Ver
                   </a>
+                )}
+                {filtro === 'pendientes' && a.eduStudentId && (
+                  <button
+                    type="button"
+                    onClick={() => void marcarNoVa(a)}
+                    disabled={ocupado === a.eduStudentId}
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    <CircleSlash className="h-3.5 w-3.5" /> No va
+                  </button>
                 )}
                 {filtro === 'entregados' && a.justificanteEstado === 'subido' && (
                   <>
@@ -165,8 +214,7 @@ export function TripSeguimiento({ alumnos: inicial }: { alumnos: AlumnoRow[] }) 
       )}
       <p className="border-t border-zinc-100 px-4 py-2.5 text-xs text-zinc-400 dark:border-zinc-800">
         <CircleSlash className="mr-1 inline h-3.5 w-3.5" />
-        Para marcar &quot;no va&quot; desde aquí pídeselo a la familia (lo hacen en el enlace público) o usa
-        &quot;Rechazar&quot; para reclamar otro justificante.
+        &quot;No va&quot; se marca aquí (lo decide el profesorado). &quot;Rechazar&quot; reclama otro justificante a la familia.
       </p>
     </div>
   );

@@ -66,7 +66,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
-| Salidas y pagos | ✅ | ✅ | ✅ (falta activar Blob en Vercel y correos masivos a pendientes) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
+| Salidas y pagos | ✅ | ✅ | ✅ (Blob activo; falta solo correos masivos a pendientes) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ⬜ | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ⬜ | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (manifest global; falta start_url/SW) | [`05-pwa.md`](./05-pwa.md) |

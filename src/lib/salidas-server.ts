@@ -54,6 +54,7 @@ export interface TripStats {
   entregados: number; // justificante subido o validado
   validados: number;
   pendientes: number; // objetivo - noVan - entregados
+  manuales: number; // entradas manuales (familia no encontrada): revisar y enlazar
 }
 
 async function statsDe(trip: SalTrip, signups: SalSignup[]): Promise<TripStats> {
@@ -62,10 +63,12 @@ async function statsDe(trip: SalTrip, signups: SalSignup[]): Promise<TripStats> 
     .from(eduStudents)
     .where(eq(eduStudents.active, true));
   const objetivo = alumnado.filter((a) => tripIncluye(trip, a.curso, a.letra)).length;
-  const noVan = signups.filter((s) => s.estado === 'no_va').length;
-  const entregados = signups.filter((s) => s.estado !== 'no_va' && s.justificanteEstado !== null && s.justificanteEstado !== 'rechazado').length;
+  const conAlumno = signups.filter((s) => s.studentId !== null);
+  const manuales = signups.length - conAlumno.length;
+  const noVan = conAlumno.filter((s) => s.estado === 'no_va').length;
+  const entregados = conAlumno.filter((s) => s.estado !== 'no_va' && s.justificanteEstado !== null && s.justificanteEstado !== 'rechazado').length;
   const validados = signups.filter((s) => s.justificanteEstado === 'validado').length;
-  return { objetivo, noVan, entregados, validados, pendientes: Math.max(0, objetivo - noVan - entregados) };
+  return { objetivo, noVan, entregados, validados, pendientes: Math.max(0, objetivo - noVan - entregados), manuales };
 }
 
 export async function getTripStats(tripId: string): Promise<TripStats | null> {
@@ -154,7 +157,7 @@ export async function updateTrip(
 // ─── Detalle: listas de seguimiento ───────────────────────────────────────────
 
 export interface SeguimientoAlumno {
-  eduStudentId: string;
+  eduStudentId: string | null; // null = entrada manual (¡enlazar!)
   nombre: string; // completo — zona de gestión
   clase: string;
   signupId: string | null;
@@ -162,6 +165,8 @@ export interface SeguimientoAlumno {
   justificanteEstado: string | null;
   justificanteSubidoAt: Date | null;
   emailContacto: string | null;
+  manual: boolean;
+  manualIdentificador: string | null;
 }
 
 export async function getTripSeguimiento(tripId: string): Promise<{ trip: SalTrip; responsables: EduTeacher[]; alumnos: SeguimientoAlumno[] } | null> {
@@ -176,8 +181,8 @@ export async function getTripSeguimiento(tripId: string): Promise<{ trip: SalTri
       .innerJoin(eduTeachers, eq(salTripManagers.eduTeacherId, eduTeachers.id))
       .where(eq(salTripManagers.tripId, tripId)),
   ]);
-  const porStudent = new Map(signups.map((s) => [s.studentId, s]));
-  const alumnos = alumnado
+  const porStudent = new Map(signups.filter((s) => s.studentId).map((s) => [s.studentId!, s]));
+  const alumnos: SeguimientoAlumno[] = alumnado
     .filter((a) => tripIncluye(trip, a.curso, a.letra))
     .map((a) => {
       const s = porStudent.get(a.id) ?? null;
@@ -190,10 +195,27 @@ export async function getTripSeguimiento(tripId: string): Promise<{ trip: SalTri
         justificanteEstado: s?.justificanteEstado ?? null,
         justificanteSubidoAt: s?.justificanteSubidoAt ?? null,
         emailContacto: s?.emailContacto ?? null,
+        manual: false,
+        manualIdentificador: null,
       };
     })
     .sort((a, b) => a.clase.localeCompare(b.clase) || a.nombre.localeCompare(b.nombre));
-  return { trip, responsables: managers.map((m) => m.t), alumnos };
+  // Entradas manuales al principio: son las que hay que revisar y enlazar
+  const manuales: SeguimientoAlumno[] = signups
+    .filter((s) => s.studentId === null)
+    .map((s) => ({
+      eduStudentId: null,
+      nombre: s.manualNombre ?? '(sin nombre)',
+      clase: s.manualClase ?? '¿?',
+      signupId: s.id,
+      estado: (s.estado ?? 'apuntado') as SeguimientoAlumno['estado'],
+      justificanteEstado: s.justificanteEstado ?? null,
+      justificanteSubidoAt: s.justificanteSubidoAt ?? null,
+      emailContacto: s.emailContacto ?? null,
+      manual: true,
+      manualIdentificador: s.manualIdentificador,
+    }));
+  return { trip, responsables: managers.map((m) => m.t), alumnos: [...manuales, ...alumnos] };
 }
 
 // ─── Flujo público (familias) ─────────────────────────────────────────────────
@@ -261,6 +283,51 @@ export async function registrarJustificante(input: {
     })
     .returning();
   return row;
+}
+
+/** Entrada MANUAL: la familia no se encontró con DNI/NIA y tecleó clase + nombre. */
+export async function registrarJustificanteManual(input: {
+  tripId: string;
+  nombre: string;
+  clase: string;
+  identificador: string | null; // lo que tecleó y no casó
+  pathname: string;
+  emailContacto: string | null;
+}): Promise<SalSignup> {
+  const [row] = await db
+    .insert(salSignups)
+    .values({
+      tripId: input.tripId,
+      studentId: null,
+      manualNombre: input.nombre,
+      manualClase: input.clase,
+      manualIdentificador: input.identificador,
+      estado: 'apuntado',
+      justificanteUrl: input.pathname,
+      justificanteEstado: 'subido',
+      justificanteSubidoAt: new Date(),
+      emailContacto: input.emailContacto,
+    })
+    .returning();
+  return row;
+}
+
+/** Clases (curso+letra) que tienen alguna salida abierta — para el flujo manual. */
+export async function getClasesConSalidasAbiertas(): Promise<Clase[]> {
+  const abiertas = await db.select().from(salTrips).where(eq(salTrips.estado, 'abierta'));
+  const mapa = new Map<string, Clase>();
+  for (const t of abiertas) {
+    for (const c of t.clases ?? []) mapa.set(claseKey(c.curso, c.letra), c);
+  }
+  return [...mapa.values()].sort((a, b) => claseLabel(a).localeCompare(claseLabel(b)));
+}
+
+/** Salidas abiertas de una clase concreta (flujo manual, sin alumno enlazado). */
+export async function getTripsAbiertasDeClase(clase: Clase): Promise<SalTrip[]> {
+  const abiertas = await db.select().from(salTrips).where(eq(salTrips.estado, 'abierta'));
+  return abiertas
+    .filter((t) => tripIncluye(t, clase.curso, clase.letra))
+    .sort((a, b) => (a.fecha ?? '').localeCompare(b.fecha ?? ''));
 }
 
 export async function marcarNoVa(tripId: string, eduStudentId: string): Promise<void> {
