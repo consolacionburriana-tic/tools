@@ -7,7 +7,7 @@ módulo que nace ya sobre `edu_students` y el login por roles.
 
 ---
 
-## Estado: plan técnico listo ✅ · implementación sin empezar ⬜
+## Estado: implementado ✅ (2026-07-11) — pendiente activar Blob (David) y correos masivos a pendientes
 
 Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-roles.md`).
 
@@ -26,6 +26,13 @@ Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-r
   Licencias.
 - Idea aparcada (no bloquea, ver `00-desarrollos-futuros.md`): plataforma de **pago online**
   en vez de justificante subido.
+- **Responsables por salida** (2026-07-11): a cada salida se le marcan profes responsables
+  (`sal_trip_managers`) que reciben por Resend un aviso minimalista con cada justificante:
+  mini-report (progreso, entregados/pendientes/validados/no van) y un footer con un dato
+  curioso rotatorio para alegrar la gestión.
+- **Modelo preparado para la API de Educamos**: `sal_trips.educamos_actividad_id` + `extra`
+  jsonb y `sal_signups.educamos_autorizado`/`educamos_synced_at`, por si en el futuro la
+  salida y sus autorizaciones se consultan directamente de Educamos.
 
 ## Plan técnico
 
@@ -70,9 +77,10 @@ sal_signups (
 - Gestión (`/gestion/salidas`): listado (filtrado por rol), crear/editar salida, detalle con
   tres listas (apuntados / pendientes / no van) + validar justificantes + correos masivos a
   pendientes + export CSV.
-- Público (`/salidas/[tripId]`): la familia se identifica con el patrón de Licencias
-  (curso + año nacimiento + apellidos, restringido a las clases de la salida), confirma
-  inscripción o marca "no va", y sube el justificante. Email de confirmación (Resend).
+- Público (`/salidas`, sin tripId en la URL): la familia se identifica con la lib común
+  (DNI del tutor / NIA / token futuro), ve las salidas abiertas de su hijo/a con el estado
+  del justificante (si solo hay una se selecciona sola), sube el justificante o marca
+  "no va". Email de confirmación (Resend) si deja su correo.
 - API: `api/salidas/{identify,signup,upload}` (público con token de salida) ·
   `api/salidas/admin/*` (protegido con `requireModule('salidas')`).
 
@@ -92,21 +100,21 @@ sal_signups (
    desarrollo local: cópiala a tu `.env.local` (o `vercel env pull` si tienes la CLI).
 
 ### Fase 0 · Cimientos
-- [ ] Blob store creado y token disponible (pasitos de arriba — David)
-- [ ] Schema `sal_*` + `pnpm db:push`
-- [ ] Helper `src/lib/blob.ts`
+- [ ] Blob store creado y token disponible (pasitos de arriba — David); el código ya está y da error guiado si falta
+- [x] Schema `sal_*` + `pnpm db:push` (con campos previstos para la API de Educamos)
+- [x] Helper `src/lib/blob.ts` (privado, 10MB, jpg/png/heic/pdf)
 
 ### Fase 1 · Alta de salidas (gestión)
-- [ ] Crear/editar salida (nombre, descripción, fecha, importe, clases, estado)
-- [ ] Listado con filtro por rol (profe/tutor → solo suyas; resto → todas)
+- [x] Crear/editar salida (nombre, descripción, fecha, importe, clases reales de edu_students, responsables, abrir/cerrar)
+- [x] Listado con filtro por rol (profe/tutor → solo suyas o de las que son responsables; resto → todas) + barra de progreso
 
 ### Fase 2 · Formulario público (familias)
-- [ ] Identificación del alumno restringida a las clases de la salida
-- [ ] Confirmar inscripción / marcar "no va"
-- [ ] Subir justificante (Blob) con validaciones
-- [ ] Email de confirmación a la familia (Resend)
+- [x] Identificación por DNI/NIA (lib común de familias); las salidas ya vienen filtradas por la clase del alumno
+- [x] Marcar "no va" (la inscripción se da por hecha al subir el justificante)
+- [x] Subir justificante (Blob privado) con validaciones de tipo y tamaño
+- [x] Email de confirmación a la familia (Resend, opcional) + alerta con report a los responsables
 
 ### Fase 3 · Panel de seguimiento
-- [ ] Detalle de salida: apuntados / pendientes / no van, con estado de justificante
-- [ ] Validar/rechazar justificante (visor del archivo)
-- [ ] Correos masivos a pendientes + export CSV
+- [x] Detalle de salida: pendientes / entregados / validados / no van, con estado de justificante
+- [x] Validar/rechazar justificante (visor del archivo servido por API con permisos)
+- [ ] Correos masivos a pendientes + export CSV (patrón /gestion/correos — pendiente)

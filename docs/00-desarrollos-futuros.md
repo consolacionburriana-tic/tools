@@ -20,6 +20,27 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Magic links para familias (`fam_access_tokens`) — pendiente de implementar
+La tabla y la búsqueda por token ya funcionan (un `tok_…` tecleado en cualquier formulario
+de familias identifica igual que el DNI). Falta: **generar** tokens (por tutor o por alumno,
+con propósito y caducidad) y **enviarlos por Resend** como magic link. Pensado primero para
+Licencias ("entra aquí para pedir tus licencias") pero sirve para cualquier módulo público
+(Salidas incluido). Decidir: caducidad, un-uso vs multiuso, y desde qué pantalla se lanzan.
+
+### Legacy pendiente de retirar del todo (cuando deje de hacer falta)
+- Tabla `teachers` (ABC pre-login): solo se usa para pintar nombres de los 6 registros
+  históricos (`/api/teachers` devuelve unión central+legado). Cuando dé igual, migrar esos
+  nombres a texto y borrar tabla + join.
+- Aliases `students`/`behaviorReports` en `src/db/schema.ts` (apuntan a `abc_*`): renombrar
+  imports y quitarlos en una pasada mecánica.
+- Columna `lic_students.educamos_id` (texto) duplicada por el enlace `edu_student_id`.
+
+### Salidas: flecos
+- Activar el **Blob store** en Vercel y copiar `BLOB_READ_WRITE_TOKEN` a `.env.local`
+  (pasitos en `15-salidasypagos.md`) — sin esto la subida de justificantes da error guiado.
+- **Correos masivos a familias pendientes** de una salida (patrón `/gestion/correos`) + CSV.
+
+
 ### Cabos sueltos de la sesión 2026-07-10 (revisar con David)
 - **4 alumnos sin código interno** por venir sin fecha de nacimiento en el export de Educamos
   (Ncogo Roca, Perdomo Montenegro, Rodríguez Lamilla, Pastor Monsonis): o se les añade la fecha

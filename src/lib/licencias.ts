@@ -14,9 +14,6 @@ export const CURSOS_FORM = [
 
 export type CursoForm = (typeof CURSOS_FORM)[number]['value'];
 
-export function cursoBase(curso: string): string {
-  return CURSOS_FORM.find((c) => c.value === curso)?.base ?? curso;
-}
 
 export function cursoLabel(curso: string): string {
   return CURSOS_FORM.find((c) => c.value === curso)?.label ?? curso;
@@ -40,24 +37,9 @@ export function cursoEfectivo(baseCurso: string, letra: string | null | undefine
 }
 
 // Nombre enmascarado: "María" -> "Mar." (no revela el nombre completo)
-export function maskName(nombre: string): string {
-  const first = (nombre ?? '').trim().split(/\s+/)[0] ?? '';
-  return first ? `${first.slice(0, 3)}.` : '';
-}
 
 // Apellidos enmascarados: revela solo las palabras que la familia ha tecleado,
 // el resto a inicial. "Felguera Martínez" + "fel" -> "Felguera M."
-export function maskApellidos(full: string, query: string): string {
-  const words = (full ?? '').trim().split(/\s+/).filter(Boolean);
-  const qTokens = normalize(query).split(' ').filter(Boolean);
-  return words
-    .map((w) => {
-      const nw = normalize(w);
-      const matched = qTokens.some((t) => nw.startsWith(t) || t.startsWith(nw));
-      return matched ? w : `${(w[0] ?? '').toUpperCase()}.`;
-    })
-    .join(' ');
-}
 
 // Normaliza para comparar apellidos (sin acentos, minúsculas, espacios colapsados)
 export function normalize(s: string): string {

@@ -12,22 +12,23 @@ posteriori lo ya construido y deja abierto lo que falta.
   Auto-guardado de borrador en `localStorage` (debounced 500ms), botón guardar sticky con
   safe-area-inset, animaciones con `motion/react`, haptics en iOS Safari ≥17.4 (PWA) y Android
   Chrome, dark mode automático.
-- **Panel admin** (`/admin`): gestión de alumnos y profesores, listado de registros con filtros,
-  gráficos agregados.
-
-Pendiente, no por código sino por **decisión/infraestructura**:
-- Login — hoy el panel `/admin` no tiene autenticación (ver aviso en el README histórico). Se
-  resolverá con el módulo transversal de auth/roles (`docs/01-auth-roles.md`), no de forma
-  independiente para este módulo. Es parte del **hito 3 del roadmap** (ver `plataforma.md`).
-- Origen del alumnado — hoy `abc_students` se gestiona a mano desde el panel; pasará a nutrirse
-  de la BBDD central con un buscador sobre `edu_students` (ver `docs/02-integracion-educamos.md`).
+- **Panel** (`/gestion/abc`, migrado desde `/admin` el 2026-07-10): listado de registros con
+  filtros, gráficos agregados y configuración del alumnado (destacados + emails de aviso).
+  `/admin` redirige. Protegido con el módulo `abc` de la matriz de roles.
 
 ## Decisiones cerradas
 
 - **Prefijo de tablas:** `abc_*` (`abc_students`, `abc_behavior_reports`) en `src/db/schema.ts`.
 - **Notificación:** cada alumno tiene hasta 20 emails de aviso (`email_recipients`) que reciben
   notificación cuando se guarda un registro suyo.
-- **Dónde vive:** formulario público en `src/app/(public)/registro-abc`, panel en `src/app/admin`.
+- **Dónde vive:** formulario en `src/app/(public)/registro-abc` (detrás del login del claustro),
+  panel en `src/app/gestion/abc`.
+- **Profesor por sesión (2026-07-10):** fuera el selector de profe; el registro guarda
+  `edu_teacher_id` resuelto del login. La tabla `teachers` vieja queda SOLO como lectura
+  histórica de registros antiguos (no se gestiona; los profes viven en `edu_teachers`).
+- **Alumnado (2026-07-10):** `abc_students` es la tabla de config del módulo, enlazada a
+  `edu_students` (`edu_student_id`) y con flag `destacado` (salen arriba en el formulario);
+  cualquier alumno del cole se encuentra con el buscador y su config se autocrea al registrar.
 - **Sin exponer desde la portada pública junto a Licencias** (ver retoques en `licencias-v2.md`):
   la portada de `/` solo enlaza a Licencias + administración, no expone directamente el ABC.
 
@@ -44,10 +45,11 @@ Pendiente, no por código sino por **decisión/infraestructura**:
 
 ## Fase 2 · Panel de administración — ✅
 - [x] Listado de alumnos y profesores
-- [x] Listado de registros con detalle (`/admin/registros/[id]`) y borrado
+- [x] Listado de registros con detalle (`/gestion/abc/registros/[id]`) y borrado
 - [x] Gráficos agregados
 
-## Fase 3 · Pendiente (= hito 3 del roadmap, tras auth y BBDD central)
-- [ ] Login/permisos del panel (requiere `docs/01-auth-roles.md` implementado)
-- [ ] Alta de alumnos con buscador sobre `edu_students` (requiere `docs/02-integracion-educamos.md`)
+## Fase 3 · Migración a auth + BBDD central — ✅ (2026-07-10)
+- [x] Login obligatorio en formulario y panel; permisos por módulo `abc`
+- [x] Profesor resuelto por sesión (edu_teacher_id); backfill de registros antiguos por email
+- [x] Alumnado destacado configurable + buscador sobre `edu_students` (config autocreada)
 - [ ] (Idea, sin decidir) sugerencias de redirección con IA — ver `docs/00-desarrollos-futuros.md`

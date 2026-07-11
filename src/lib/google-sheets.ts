@@ -165,36 +165,8 @@ export interface SheetStudentRow {
   educamosId: string | null;
 }
 
-export async function getStudentsFromSheet(): Promise<SheetStudentRow[]> {
-  const auth = getAuth();
-  const sheets = google.sheets({ version: 'v4', auth });
-  const spreadsheetId = getSpreadsheetId();
-
-  // La cabecera real ocupa las filas 1-2; los datos empiezan en la fila 3.
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: "'BBDD Alumnos'!A3:N",
-  });
-  const rows = res.data.values ?? [];
-
-  return rows
-    .filter((r) => cellToString(r[1])) // sin código (columna B) → fila vacía, se ignora
-    .map((r) => ({
-      studentCode: cellToString(r[1]),
-      curso: cellToString(r[2]),
-      letra: cellToString(r[3]) || null,
-      birthYear: parseInt(cellToString(r[4]), 10) || null,
-      apellidos: cellToString(r[5]),
-      apellido1: cellToString(r[6]) || null,
-      apellido2: cellToString(r[7]) || null,
-      nombre: cellToString(r[9]), // J (no la I, que es el nombre completo calculado)
-      email: cellToString(r[10]) || null, // K
-      bancoLibros: truthy(r[11]), // L
-      lenguaBase: cellToString(r[12]) || null, // M
-      educamosId: cellToString(r[13]) || null, // N
-    }));
-}
-
+// (getStudentsFromSheet se retiró: el alumnado de Licencias se puebla desde la BBDD
+// central edu_students, ver licencias-server.getStudentsFromCentral)
 export interface SyncResult {
   tab: string;
   updated: number;

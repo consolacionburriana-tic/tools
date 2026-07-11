@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cursoLabel, maskName } from '@/lib/licencias';
+import { cursoLabel } from '@/lib/licencias';
+import { maskAlumno } from '@/lib/familias';
 import {
   getCatalog,
   getCurrentCampaign,
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
 
     const origin = new URL(request.url).origin;
     const emailData = {
-      alumno: `${maskName(student.nombre)} ${student.apellidos}`,
+      alumno: maskAlumno(student.nombre, student.apellido1, student.apellido2 ?? student.apellidos),
       curso: cursoLabel(curso),
       email: cleanEmail,
       items,

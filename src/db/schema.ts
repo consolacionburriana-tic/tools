@@ -279,6 +279,23 @@ export const eduSyncRuns = pgTable('edu_sync_runs', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ─── Acceso de familias (prefijo fam_) ────────────────────────────────────────
+// Tokens de acceso para familias (magic links por email). La BÚSQUEDA por token ya
+// está integrada en la identificación (familias-server.ts); la GENERACIÓN y el envío
+// por Resend quedan pendientes (ver docs/00-desarrollos-futuros.md).
+export const famAccessTokens = pgTable('fam_access_tokens', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  token: text('token').unique().notNull(), // formato tok_<aleatorio>
+  guardianId: uuid('guardian_id').references(() => eduGuardians.id), // acceso a todos sus hijos…
+  studentId: uuid('student_id').references(() => eduStudents.id), // …o a un alumno concreto
+  proposito: text('proposito'), // 'licencias' | 'salidas' | null (cualquiera)
+  expiresAt: timestamp('expires_at'),
+  usedAt: timestamp('used_at'), // para tokens de un solo uso (null = reutilizable hasta expirar)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type FamAccessToken = typeof famAccessTokens.$inferSelect;
+
 // ─── Auth: usuarios y roles (prefijo auth_) ───────────────────────────────────
 export const authUsers = pgTable('auth_users', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -304,6 +321,58 @@ export type EduStudentGuardian = typeof eduStudentGuardians.$inferSelect;
 export type NewEduStudentGuardian = typeof eduStudentGuardians.$inferInsert;
 export type EduSyncRun = typeof eduSyncRuns.$inferSelect;
 export type NewEduSyncRun = typeof eduSyncRuns.$inferInsert;
+
+// ─── Tool: Salidas y pagos (prefijo sal_) ─────────────────────────────────────
+export const salTrips = pgTable('sal_trips', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(),
+  descripcion: text('descripcion'),
+  fecha: date('fecha'),
+  importe: numeric('importe', { precision: 6, scale: 2 }),
+  clases: jsonb('clases').$type<{ curso: string; letra: string | null }[]>().notNull().default([]),
+  estado: text('estado').notNull().default('abierta'), // 'abierta' | 'cerrada'
+  createdByEmail: text('created_by_email'), // email de sesión de quien la creó
+  createdByTeacherId: uuid('created_by_teacher_id').references(() => eduTeachers.id),
+  // Previsto para la futura API de Educamos (la salida y sus autorizaciones se
+  // gestionan allí): id de la actividad en Educamos + resto de datos en extra.
+  educamosActividadId: text('educamos_actividad_id'),
+  extra: jsonb('extra').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Responsables de la salida: reciben las alertas por email cuando entra un justificante.
+export const salTripManagers = pgTable('sal_trip_managers', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tripId: uuid('trip_id').notNull().references(() => salTrips.id, { onDelete: 'cascade' }),
+  eduTeacherId: uuid('edu_teacher_id').notNull().references(() => eduTeachers.id),
+}, (t) => [
+  uniqueIndex('sal_trip_managers_uq').on(t.tripId, t.eduTeacherId),
+]);
+
+export const salSignups = pgTable('sal_signups', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tripId: uuid('trip_id').notNull().references(() => salTrips.id),
+  studentId: uuid('student_id').notNull().references(() => eduStudents.id),
+  estado: text('estado').notNull().default('apuntado'), // 'apuntado' | 'no_va' (sin fila = pendiente)
+  justificanteUrl: text('justificante_url'), // Vercel Blob (privado)
+  justificanteEstado: text('justificante_estado'), // null | 'subido' | 'validado' | 'rechazado'
+  justificanteSubidoAt: timestamp('justificante_subido_at'),
+  emailContacto: text('email_contacto'),
+  // Previsto para la futura API de Educamos: autorización firmada allí.
+  educamosAutorizado: boolean('educamos_autorizado'),
+  educamosSyncedAt: timestamp('educamos_synced_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('sal_signups_trip_student_uq').on(t.tripId, t.studentId),
+]);
+
+// ─── Types Salidas ────────────────────────────────────────────────────────────
+export type SalTrip = typeof salTrips.$inferSelect;
+export type NewSalTrip = typeof salTrips.$inferInsert;
+export type SalSignup = typeof salSignups.$inferSelect;
+export type NewSalSignup = typeof salSignups.$inferInsert;
 
 // ─── Types Licencias ──────────────────────────────────────────────────────────
 export type LicCampaign = typeof licCampaigns.$inferSelect;

@@ -41,8 +41,10 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 
 | `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
 
-Reservadas para los hitos siguientes: `BLOB_READ_WRITE_TOKEN` (Salidas). Cualquier var nueva
-se añade a esta tabla y a `.env.local.example` en el mismo commit que el código que la usa.
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) — **pendiente de crear el store** |
+
+Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
+código que la usa.
 Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2).
 
 ## Base de datos (Drizzle + Neon)
@@ -110,9 +112,13 @@ src/components/<modulo>/          # componentes propios del módulo
 
 - CSV de descarga: route handler protegido + generación en `src/lib/<modulo>-exports.ts`
   (referencia: `licencias-exports.ts`).
-- Subida de archivos (desde Salidas en adelante): **Vercel Blob privado** vía `src/lib/blob.ts`,
-  servido por ruta API que comprueba permisos. Límite ~10 MB, tipos `jpg/png/pdf/heic`,
-  validados en servidor.
+- Subida de archivos: **Vercel Blob privado** vía `src/lib/blob.ts` (ya existe; lo estrenó
+  Salidas). Límite 10 MB, tipos `jpg/png/pdf/heic` validados en servidor; se sirve SIEMPRE por
+  ruta API que comprueba permisos, nunca URL pública.
+- **Identificación pública de familias**: nunca por nombre/apellidos. Usa
+  `identifyFamily`/`verifyFamilyStudent` de `src/lib/familias-server.ts` (DNI tutor / NIA /
+  token) y muestra solo `maskAlumno` ("Fra. M. Luc."). En cada petición posterior del flujo se
+  revalida el identificador contra el alumno (los flujos públicos no tienen sesión).
 - Parseo de excels: **SheetJS (`xlsx`)** para `.csv/.xls/.xlsx`, detección de columnas por
   cabecera normalizada (mayúsculas sin acentos), nunca por posición.
 
