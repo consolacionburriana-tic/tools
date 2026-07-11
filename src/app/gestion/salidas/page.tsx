@@ -13,7 +13,7 @@ export default async function SalidasListPage() {
   const soloMias = user.role === 'profe' || user.role === 'tutor';
 
   return (
-    <div className="space-y-3">
+    <div className="anim-stagger space-y-3">
       {soloMias && (
         <p className="text-xs text-zinc-400">Ves las salidas que has creado o de las que eres responsable.</p>
       )}

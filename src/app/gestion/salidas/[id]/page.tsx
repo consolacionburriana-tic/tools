@@ -60,6 +60,7 @@ export default async function SalidaDetallePage({ params }: { params: Promise<{ 
       </div>
 
       <TripSeguimiento
+        tripId={trip.id}
         alumnos={alumnos.map((a) => ({ ...a, justificanteSubidoAt: a.justificanteSubidoAt?.toISOString() ?? null }))}
       />
     </div>

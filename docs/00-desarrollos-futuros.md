@@ -36,9 +36,9 @@ Licencias ("entra aquí para pedir tus licencias") pero sirve para cualquier mó
 - Columna `lic_students.educamos_id` (texto) duplicada por el enlace `edu_student_id`.
 
 ### Salidas: flecos
-- Activar el **Blob store** en Vercel y copiar `BLOB_READ_WRITE_TOKEN` a `.env.local`
-  (pasitos en `15-salidasypagos.md`) — sin esto la subida de justificantes da error guiado.
 - **Correos masivos a familias pendientes** de una salida (patrón `/gestion/correos`) + CSV.
+- Pantalla/acción para **enlazar una entrada manual** a su alumno real (hoy: se ve muy marcada
+  en el panel con lo que tecleó la familia; el enlace se arregla en BBDD o re-subiendo).
 
 
 ### Cabos sueltos de la sesión 2026-07-10 (revisar con David)

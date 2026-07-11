@@ -21,6 +21,13 @@ interface Hijo {
   maskedName: string;
   curso: string | null;
   letra: string | null;
+  /** Entrada manual: la familia no se encontró y tecleó clase + nombre */
+  manual?: boolean;
+}
+interface ClaseOpt {
+  curso: string;
+  letra: string | null;
+  label: string;
 }
 interface Trip {
   tripId: string;
@@ -73,9 +80,60 @@ export function SalidasFamilia() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [email, setEmail] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [hecho, setHecho] = useState<'subido' | 'no_va' | null>(null);
+  const [hecho, setHecho] = useState<'subido' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  // Camino manual ("no me encuentra")
+  const [modoManual, setModoManual] = useState(false);
+  const [clases, setClases] = useState<ClaseOpt[] | null>(null);
+  const [claseManual, setClaseManual] = useState<ClaseOpt | null>(null);
+  const [nombreManual, setNombreManual] = useState('');
+
+  async function abrirManual() {
+    setModoManual(true);
+    if (clases === null) {
+      try {
+        const res = await fetch('/api/salidas/clases');
+        const data = await res.json();
+        setClases(data.clases ?? []);
+      } catch {
+        setClases([]);
+      }
+    }
+  }
+
+  async function continuarManual() {
+    if (!claseManual || nombreManual.trim().length < 5) {
+      toast.error('Elige la clase y escribe el nombre completo del alumno/a');
+      return;
+    }
+    const h: Hijo = {
+      eduStudentId: '',
+      maskedName: nombreManual.trim(),
+      curso: claseManual.curso,
+      letra: claseManual.letra,
+      manual: true,
+    };
+    setHijo(h);
+    setTrips(null);
+    setHecho(null);
+    try {
+      const res = await fetch('/api/salidas/estado-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ curso: claseManual.curso, letra: claseManual.letra }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const lista: Trip[] = data.trips ?? [];
+      setTrips(lista);
+      if (lista.length === 1) setTrip(lista[0]);
+      haptic.tap();
+    } catch {
+      toast.error('No se pudieron cargar las salidas. Inténtalo de nuevo.');
+      setHijo(null);
+    }
+  }
 
   // Buscar hijos con debounce
   useEffect(() => {
@@ -133,7 +191,12 @@ export function SalidasFamilia() {
     try {
       const fd = new FormData();
       fd.append('identificador', identificador.trim());
-      fd.append('eduStudentId', hijo.eduStudentId);
+      if (hijo.manual) {
+        fd.append('manualNombre', hijo.maskedName);
+        fd.append('manualClase', `${hijo.curso ?? ''}${hijo.letra && hijo.letra !== 'PDC' ? ` ${hijo.letra}` : ''}`);
+      } else {
+        fd.append('eduStudentId', hijo.eduStudentId);
+      }
       fd.append('tripId', trip.tripId);
       if (email.trim()) fd.append('email', email.trim());
       fd.append('file', file);
@@ -144,27 +207,6 @@ export function SalidasFamilia() {
       haptic.success();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error inesperado');
-      haptic.warning();
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  async function noVa() {
-    if (!hijo || !trip) return;
-    if (!confirm(`¿Confirmas que ${hijo.maskedName} NO irá a "${trip.nombre}"?`)) return;
-    setEnviando(true);
-    try {
-      const res = await fetch('/api/salidas/no-va', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identificador: identificador.trim(), eduStudentId: hijo.eduStudentId, tripId: trip.tripId }),
-      });
-      if (!res.ok) throw new Error();
-      setHecho('no_va');
-      haptic.success();
-    } catch {
-      toast.error('No se pudo guardar. Inténtalo de nuevo.');
       haptic.warning();
     } finally {
       setEnviando(false);
@@ -209,6 +251,72 @@ export function SalidasFamilia() {
                   <p className="text-sm text-zinc-500">No encontramos ningún alumno con ese dato. Revisa el DNI o el NIA.</p>
                 )}
               </div>
+              {!modoManual && (
+                <button
+                  type="button"
+                  onClick={() => void abrirManual()}
+                  className="mb-1 text-sm text-zinc-400 underline-offset-2 hover:text-zinc-600 hover:underline dark:hover:text-zinc-300"
+                >
+                  ¿No te encuentra? Introduce los datos a mano
+                </button>
+              )}
+
+              {modoManual && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      Sin problema: dinos la clase y el nombre y lo revisamos nosotros.
+                    </p>
+                    <p className="mb-3 mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">
+                      Solo salen las clases con salidas activas.
+                    </p>
+                    {clases === null ? (
+                      <p className="flex items-center gap-2 text-sm text-zinc-400">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Cargando clases…
+                      </p>
+                    ) : clases.length === 0 ? (
+                      <p className="text-sm text-zinc-500">Ahora mismo no hay ninguna salida activa.</p>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-1.5">
+                          {clases.map((c) => (
+                            <button
+                              key={c.label}
+                              type="button"
+                              onClick={() => setClaseManual(c)}
+                              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                                claseManual?.label === c.label
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700'
+                              }`}
+                            >
+                              {c.label}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          value={nombreManual}
+                          onChange={(e) => setNombreManual(e.target.value)}
+                          placeholder="Nombre y apellidos del alumno/a"
+                          className="mt-3 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void continuarManual()}
+                          className="mt-3 w-full rounded-xl bg-amber-500 px-4 py-2.5 font-semibold text-amber-950 hover:bg-amber-400"
+                        >
+                          Continuar
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
               {hijos !== null && hijos.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs text-zinc-400">
@@ -240,6 +348,11 @@ export function SalidasFamilia() {
               <button type="button" onClick={() => { setHijo(null); setTrips(null); }} className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
                 <ChevronLeft className="h-4 w-4" /> Cambiar de alumno
               </button>
+              {hijo.manual && (
+                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                  Datos introducidos a mano: el equipo del cole los revisará al validar el justificante.
+                </p>
+              )}
               <h2 className="mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                 Salidas de {hijo.maskedName} <span className="text-sm font-normal text-zinc-400">{claseDe(hijo)}</span>
               </h2>
@@ -301,7 +414,8 @@ export function SalidasFamilia() {
                 </p>
               ) : trip.estado === 'no_va' ? (
                 <p className="mt-5 rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                  Marcasteis que no irá a esta salida. Si cambiáis de idea, subid el justificante y quedará apuntado/a.
+                  El profesorado ha anotado que no irá a esta salida. Si es un error, subid igualmente el justificante
+                  o habladlo con el tutor/a.
                 </p>
               ) : null}
 
@@ -347,16 +461,6 @@ export function SalidasFamilia() {
                     Enviar justificante
                   </button>
 
-                  {trip.estado === 'pendiente' && (
-                    <button
-                      type="button"
-                      onClick={() => void noVa()}
-                      disabled={enviando}
-                      className="mt-3 w-full text-center text-sm text-zinc-400 underline-offset-2 hover:text-zinc-600 hover:underline dark:hover:text-zinc-300"
-                    >
-                      {hijo.maskedName} no irá a esta salida
-                    </button>
-                  )}
                 </>
               )}
             </div>
@@ -366,20 +470,13 @@ export function SalidasFamilia() {
         {paso === 'hecho' && hijo && trip && (
           <motion.div key="hecho" {...stepAnim}>
             <div className="flex flex-col items-center rounded-3xl border border-zinc-200 bg-white p-10 text-center dark:border-zinc-800 dark:bg-zinc-900">
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
-                {hecho === 'subido' ? (
-                  <CheckCircle2 className="h-16 w-16 text-emerald-500" />
-                ) : (
-                  <CircleSlash className="h-16 w-16 text-zinc-400" />
-                )}
+              <motion.div initial={{ scale: 0, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}>
+                <CheckCircle2 className="h-16 w-16 text-emerald-500" />
               </motion.div>
-              <p className="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                {hecho === 'subido' ? '¡Justificante enviado!' : 'Anotado: no irá'}
-              </p>
+              <p className="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">¡Justificante enviado!</p>
               <p className="mt-1 text-sm text-zinc-500">
-                {hecho === 'subido'
-                  ? `El equipo responsable de "${trip.nombre}" lo revisará. ${email.trim() ? 'Te hemos enviado una confirmación por email.' : ''}`
-                  : `Hemos registrado que ${hijo.maskedName} no irá a "${trip.nombre}".`}
+                El equipo responsable de &quot;{trip.nombre}&quot; lo revisará.{' '}
+                {email.trim() ? 'Te hemos enviado una confirmación por email.' : ''}
               </p>
               <button
                 type="button"
