@@ -37,8 +37,7 @@ Licencias ("entra aquí para pedir tus licencias") pero sirve para cualquier mó
 
 ### Salidas: flecos
 - **Correos masivos a familias pendientes** de una salida (patrón `/gestion/correos`) + CSV.
-- Pantalla/acción para **enlazar una entrada manual** a su alumno real (hoy: se ve muy marcada
-  en el panel con lo que tecleó la familia; el enlace se arregla en BBDD o re-subiendo).
+  *(Enlazar entradas manuales ya está: botón "Enlazar" en el panel, 2026-07-11.)*
 
 
 ### Cabos sueltos de la sesión 2026-07-10 (revisar con David)

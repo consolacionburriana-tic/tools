@@ -84,3 +84,10 @@ export const STAGE_LABELS: Record<StageValue, string> = {
   Direccion: 'Dirección',
   Orientacion: 'Orientación',
 };
+
+// Curso académico en vigor (sep-ago): en julio de 2026 → '2025-26'.
+export function academicYearActual(fecha = new Date()): string {
+  const y = fecha.getFullYear();
+  const inicio = fecha.getMonth() + 1 >= 9 ? y : y - 1;
+  return `${inicio}-${String((inicio + 1) % 100).padStart(2, '0')}`;
+}

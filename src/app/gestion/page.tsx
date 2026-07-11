@@ -193,6 +193,14 @@ export default async function EscritorioPage() {
               desc="Excursiones, justificantes de pago y seguimiento por clase"
             />
           )}
+          {puede('bancolibros') && (
+            <ModuleCard
+              href="/gestion/bancolibros"
+              icon={<Library className="h-6 w-6" />}
+              title="Banco de libros"
+              desc="Participantes, lotes por clase y valoración de cada libro"
+            />
+          )}
           {puede('usuarios') && (
             <ModuleCard
               href="/gestion/usuarios"
@@ -204,7 +212,6 @@ export default async function EscritorioPage() {
         </section>
 
         <section className="grid gap-3 sm:grid-cols-2">
-          <ComingSoon icon={<Library className="h-6 w-6" />} title="Banco de libros" />
           <ComingSoon icon={<Users className="h-6 w-6" />} title="Evaluaciones" />
         </section>
       </main>

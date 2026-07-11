@@ -1,10 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Send, TriangleAlert } from 'lucide-react';
+import { BookmarkPlus, Loader2, Send, Trash2, TriangleAlert } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Grupo = 'faltan' | 'tienen';
 const SAMPLE = { nombre: 'María', apellidos: 'García López', curso: '1ESO' };
+
+interface Plantilla {
+  id: string;
+  nombre: string;
+  subject: string;
+  body: string;
+}
+
+// Plantillas de fábrica: editables tras cargarlas; los cambios se pueden guardar como propias.
+const PREDEFINIDAS: Omit<Plantilla, 'id'>[] = [
+  {
+    nombre: 'Recordatorio: falta tu pedido',
+    subject: 'Licencias digitales de {nombre} — falta vuestro pedido',
+    body: 'Hola,\n\nOs recordamos que todavía no hemos recibido el pedido de licencias digitales de {nombre} ({curso}) para el próximo curso.\n\nPodéis hacerlo en un par de minutos desde:\nhttps://tools.consolacionburriana.com/licencias\n\nSi ya lo habéis hecho estos días, ignorad este correo.\n\nGracias,\nColegio Consolación · Burriana',
+  },
+  {
+    nombre: 'Últimos días de plazo',
+    subject: '⏰ Últimos días: licencias digitales de {nombre}',
+    body: 'Hola,\n\nEl plazo para pedir las licencias digitales de {nombre} ({curso}) está a punto de terminar. Después del cierre no podremos garantizar el pedido.\n\nSe hace en 2 minutos:\nhttps://tools.consolacionburriana.com/licencias\n\nGracias,\nColegio Consolación · Burriana',
+  },
+];
 
 function fillSample(t: string) {
   return t.replace(/\{nombre\}/gi, SAMPLE.nombre).replace(/\{apellidos\}/gi, SAMPLE.apellidos).replace(/\{curso\}/gi, SAMPLE.curso);
@@ -19,6 +41,52 @@ export function CorreosForm() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
+  const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/licencias/admin/plantillas')
+      .then((r) => r.json())
+      .then((d) => setPlantillas(d.plantillas ?? []))
+      .catch(() => {});
+  }, []);
+
+  function cargarPlantilla(p: { subject: string; body: string }) {
+    setSubject(p.subject);
+    setBody(p.body);
+  }
+
+  async function guardarComoPlantilla() {
+    const nombre = prompt('Nombre de la plantilla:');
+    if (!nombre?.trim()) return;
+    setGuardandoPlantilla(true);
+    try {
+      const existente = plantillas.find((p) => p.nombre.toLowerCase() === nombre.trim().toLowerCase());
+      const res = await fetch('/api/licencias/admin/plantillas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: existente?.id, nombre: nombre.trim(), subject, body }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setPlantillas((prev) => [d.plantilla, ...prev.filter((p) => p.id !== d.plantilla.id)]);
+      toast.success(existente ? 'Plantilla actualizada' : 'Plantilla guardada');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setGuardandoPlantilla(false);
+    }
+  }
+
+  async function borrarPlantilla(p: Plantilla) {
+    if (!confirm(`¿Borrar la plantilla "${p.nombre}"?`)) return;
+    const res = await fetch('/api/licencias/admin/plantillas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id }),
+    });
+    if (res.ok) setPlantillas((prev) => prev.filter((x) => x.id !== p.id));
+  }
 
   useEffect(() => {
     setCount(null);
@@ -94,6 +162,52 @@ export function CorreosForm() {
             {count === null ? '…' : `${count} destinatarios`}
           </span>
         </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Plantillas</p>
+        <div className="flex flex-wrap gap-1.5">
+          {PREDEFINIDAS.map((p) => (
+            <button
+              key={p.nombre}
+              type="button"
+              onClick={() => cargarPlantilla(p)}
+              className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20 cursor-pointer"
+            >
+              {p.nombre}
+            </button>
+          ))}
+          {plantillas.map((p) => (
+            <span key={p.id} className="inline-flex items-center overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <button
+                type="button"
+                onClick={() => cargarPlantilla(p)}
+                className="px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+              >
+                {p.nombre}
+              </button>
+              <button
+                type="button"
+                onClick={() => void borrarPlantilla(p)}
+                aria-label={`Borrar plantilla ${p.nombre}`}
+                className="px-1.5 py-1.5 text-zinc-400 hover:text-red-500 cursor-pointer"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => void guardarComoPlantilla()}
+            disabled={guardandoPlantilla || !subject || !body}
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-zinc-300 px-3 py-1.5 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 disabled:opacity-40 dark:border-zinc-600 dark:hover:text-zinc-300 cursor-pointer"
+          >
+            <BookmarkPlus className="h-3 w-3" /> Guardar actual
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-zinc-400">
+          Carga una plantilla, personalízala a tu gusto y (si quieres) guárdala para la próxima. Se comparten entre gestores.
+        </p>
       </div>
 
       <div>
