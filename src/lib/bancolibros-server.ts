@@ -16,6 +16,7 @@ import { academicYearActual } from '@/lib/constants';
 export interface AlumnoBanco {
   eduStudentId: string;
   nombre: string;
+  numeroLista: number; // orden alfabético apellido1 → apellido2 → nombre (PDC = clase aparte)
   banco: boolean;
   asignacionId: string | null;
   lote: number | null;
@@ -31,8 +32,7 @@ export async function getAlumnadoClase(curso: string, letra: string | null): Pro
     db
       .select()
       .from(eduStudents)
-      .where(and(eq(eduStudents.active, true), eq(eduStudents.curso, curso), letra === null ? isNull(eduStudents.letra) : eq(eduStudents.letra, letra)))
-      .orderBy(asc(eduStudents.apellido1), asc(eduStudents.apellido2)),
+      .where(and(eq(eduStudents.active, true), eq(eduStudents.curso, curso), letra === null ? isNull(eduStudents.letra) : eq(eduStudents.letra, letra))),
     db
       .select({ a: blAsignaciones, numero: blLotes.numero })
       .from(blAsignaciones)
@@ -40,11 +40,12 @@ export async function getAlumnadoClase(curso: string, letra: string | null): Pro
       .where(and(eq(blAsignaciones.academicYear, year), eq(blLotes.curso, curso), letra === null ? isNull(blLotes.letra) : eq(blLotes.letra, letra))),
   ]);
   const porStudent = new Map(asignaciones.map((x) => [x.a.studentId, x]));
-  return alumnos.map((s) => {
+  return ordenLista(alumnos).map((s, i) => {
     const asig = porStudent.get(s.id);
     return {
       eduStudentId: s.id,
       nombre: [s.apellido1, s.apellido2].filter(Boolean).join(' ') + (s.nombre ? `, ${s.nombre}` : ''),
+      numeroLista: i + 1,
       banco: s.bancoLibros,
       asignacionId: asig?.a.id ?? null,
       lote: asig?.numero ?? null,
@@ -53,6 +54,14 @@ export async function getAlumnadoClase(curso: string, letra: string | null): Pro
       docFin: asig?.a.docFin ?? false,
     };
   });
+}
+
+/** Orden de lista oficial: apellido1 → apellido2 → nombre (colación española). */
+function ordenLista<T extends { apellido1: string | null; apellido2: string | null; nombre: string | null }>(alumnos: T[]): T[] {
+  const cmp = (a: string | null, b: string | null) => (a ?? '').localeCompare(b ?? '', 'es', { sensitivity: 'base' });
+  return [...alumnos].sort(
+    (a, b) => cmp(a.apellido1, b.apellido1) || cmp(a.apellido2, b.apellido2) || cmp(a.nombre, b.nombre),
+  );
 }
 
 export async function setBanco(eduStudentId: string, banco: boolean): Promise<void> {
@@ -182,6 +191,7 @@ export async function getLibrosBanco(curso: string, letra: string | null): Promi
 
 export interface FilaPasarLista {
   asignacionId: string;
+  numeroLista: number;
   lote: number;
   alumno: string;
   estado: string | null;
@@ -206,11 +216,18 @@ export async function getPasarLista(curso: string, letra: string | null, bookCod
         .where(and(inArray(blLibroRegistros.asignacionId, filas.map((f) => f.a.id)), eq(blLibroRegistros.bookCod, bookCod)))
     : [];
   const porAsig = new Map(registros.map((r) => [r.asignacionId, r]));
+  // Nº de lista sobre TODA la clase (aunque solo listemos a quien tiene lote)
+  const clase = await db
+    .select({ id: eduStudents.id, apellido1: eduStudents.apellido1, apellido2: eduStudents.apellido2, nombre: eduStudents.nombre })
+    .from(eduStudents)
+    .where(and(eq(eduStudents.active, true), eq(eduStudents.curso, curso), letra === null ? isNull(eduStudents.letra) : eq(eduStudents.letra, letra)));
+  const numeroDe = new Map(ordenLista(clase).map((s, i) => [s.id, i + 1]));
   return filas
     .map((f) => {
       const r = porAsig.get(f.a.id);
       return {
         asignacionId: f.a.id,
+        numeroLista: numeroDe.get(f.s.id) ?? 0,
         lote: f.numero,
         alumno: [f.s.apellido1, f.s.apellido2].filter(Boolean).join(' ') + (f.s.nombre ? `, ${f.s.nombre}` : ''),
         estado: r?.estado ?? null,
@@ -219,7 +236,7 @@ export async function getPasarLista(curso: string, letra: string | null, bookCod
         notas: r?.notas ?? null,
       };
     })
-    .sort((a, b) => a.lote - b.lote);
+    .sort((a, b) => a.numeroLista - b.numeroLista);
 }
 
 export async function upsertRegistro(input: {

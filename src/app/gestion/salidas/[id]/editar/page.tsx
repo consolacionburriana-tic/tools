@@ -23,6 +23,7 @@ export default async function EditarSalidaPage({ params }: { params: Promise<{ i
         importe: detalle.trip.importe,
         clases: detalle.trip.clases ?? [],
         responsables: detalle.responsables.map((r) => r.id),
+        tipoPago: (detalle.trip.tipoPago as 'transferencia' | 'mano') ?? 'transferencia',
       }}
     />
   );

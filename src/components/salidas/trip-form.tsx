@@ -28,6 +28,7 @@ interface TripFormProps {
     importe: string | null;
     clases: { curso: string; letra: string | null }[];
     responsables: string[];
+    tipoPago: 'transferencia' | 'mano';
   };
 }
 
@@ -41,7 +42,22 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
   const [importe, setImporte] = useState(inicial?.importe ?? '');
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set((inicial?.clases ?? []).map(claseKey)));
   const [responsables, setResponsables] = useState<Set<string>>(new Set(inicial?.responsables ?? []));
+  const [tipoPago, setTipoPago] = useState<'transferencia' | 'mano'>(inicial?.tipoPago ?? 'transferencia');
+  // Modo bloque: una salida POR CLASE seleccionada (convivencias de inicio de curso:
+  // cada tutor recibe solo lo de su clase). Solo al crear, no al editar.
+  const [porClase, setPorClase] = useState(false);
+  const [filasBulk, setFilasBulk] = useState<Record<string, { nombre: string; descripcion: string; responsables: Set<string> }>>({});
   const [guardando, setGuardando] = useState(false);
+
+  function filaBulk(k: string, label: string) {
+    return (
+      filasBulk[k] ?? {
+        nombre: nombre.trim() ? `${nombre.trim()} — ${label}` : label,
+        descripcion: descripcion,
+        responsables: new Set<string>(),
+      }
+    );
+  }
 
   function toggle<T>(set: Set<T>, valor: T, setter: (s: Set<T>) => void) {
     const s = new Set(set);
@@ -55,6 +71,35 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
     if (seleccion.size === 0) return void toast.error('Selecciona al menos una clase');
     setGuardando(true);
     try {
+      if (!inicial && porClase) {
+        // Bloque: una salida por clase, cada una con su nombre/lugar y sus responsables
+        const elegidas = clases.filter((c) => seleccion.has(claseKey(c)));
+        let creadas = 0;
+        for (const c of elegidas) {
+          const f = filaBulk(claseKey(c), c.label);
+          const res = await fetch('/api/salidas/admin/trips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nombre: f.nombre.trim() || `${nombre.trim()} — ${c.label}`,
+              descripcion: f.descripcion.trim() || null,
+              fecha: fecha || null,
+              importe: importe.trim() ? importe.trim().replace(',', '.') : null,
+              clases: [{ curso: c.curso, letra: c.letra }],
+              responsables: [...f.responsables],
+              tipoPago,
+            }),
+          });
+          if (!res.ok) throw new Error((await res.json()).error ?? `No se pudo crear la salida de ${c.label}`);
+          creadas++;
+        }
+        haptic.success();
+        toast.success(`${creadas} salidas creadas (una por clase)`);
+        router.push('/gestion/salidas');
+        router.refresh();
+        return;
+      }
+
       const payload = {
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || null,
@@ -62,6 +107,7 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
         importe: importe.trim() ? importe.trim().replace(',', '.') : null,
         clases: clases.filter((c) => seleccion.has(claseKey(c))).map(({ curso, letra }) => ({ curso, letra })),
         responsables: [...responsables],
+        tipoPago,
       };
       const res = await fetch(inicial ? `/api/salidas/admin/trips/${inicial.id}` : '/api/salidas/admin/trips', {
         method: inicial ? 'PATCH' : 'POST',
@@ -107,6 +153,34 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
       </div>
 
       <div>
+        <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">¿Cómo se paga?</label>
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              { v: 'transferencia', titulo: 'Por banco', desc: 'Las familias suben el justificante' },
+              { v: 'mano', titulo: 'En mano', desc: 'Yo recojo el dinero y marco pagos aquí' },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => setTipoPago(o.v)}
+              className={`rounded-xl border p-3 text-left transition-colors ${
+                tipoPago === o.v
+                  ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-500/10'
+                  : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700'
+              }`}
+            >
+              <p className={`text-sm font-semibold ${tipoPago === o.v ? 'text-blue-700 dark:text-blue-300' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                {o.titulo}
+              </p>
+              <p className="text-xs text-zinc-500">{o.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
         <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Clases a las que va dirigida *</label>
         <div className="flex flex-wrap gap-1.5">
           {clases.map((c) => {
@@ -130,6 +204,76 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
         </div>
       </div>
 
+      {!inicial && seleccion.size > 1 && (
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+          <input type="checkbox" checked={porClase} onChange={(e) => setPorClase(e.target.checked)} className="mt-0.5" />
+          <span>
+            <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              Crear una salida POR CLASE ({seleccion.size} salidas)
+            </span>
+            <span className="block text-xs text-zinc-500">
+              Para convivencias de inicio de curso y similares: cada clase tiene su fichita con su lugar y sus
+              responsables, y a cada tutor le llega solo lo suyo.
+            </span>
+          </span>
+        </label>
+      )}
+
+      {!inicial && porClase && seleccion.size > 1 && (
+        <div className="space-y-2.5">
+          {clases
+            .filter((c) => seleccion.has(claseKey(c)))
+            .map((c) => {
+              const k = claseKey(c);
+              const f = filaBulk(k, c.label);
+              const set = (cambios: Partial<typeof f>) => setFilasBulk((prev) => ({ ...prev, [k]: { ...f, ...cambios } }));
+              return (
+                <div key={k} className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">{c.label}</p>
+                  <input
+                    value={f.nombre}
+                    onChange={(e) => set({ nombre: e.target.value })}
+                    placeholder={`${nombre || 'Salida'} — ${c.label}`}
+                    className={inputCls}
+                  />
+                  <input
+                    value={f.descripcion}
+                    onChange={(e) => set({ descripcion: e.target.value })}
+                    placeholder="Lugar / nota para las familias (opcional)"
+                    className={`${inputCls} mt-2`}
+                  />
+                  <p className="mb-1 mt-2 text-xs text-zinc-500">Responsables de esta clase:</p>
+                  <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
+                    {profes.map((p) => {
+                      const activo = f.responsables.has(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            const r = new Set(f.responsables);
+                            if (r.has(p.id)) r.delete(p.id);
+                            else r.add(p.id);
+                            set({ responsables: r });
+                          }}
+                          className={`rounded-full px-2.5 py-1 text-xs ${
+                            activo
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                          }`}
+                        >
+                          {p.nombre}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
+
+      {(inicial || !porClase || seleccion.size <= 1) && (
       <div>
         <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Responsables (reciben aviso por email con cada justificante)
@@ -154,6 +298,7 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
           })}
         </div>
       </div>
+      )}
 
       <button
         type="button"
@@ -162,7 +307,7 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
       >
         {guardando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-        {inicial ? 'Guardar cambios' : 'Crear salida'}
+        {inicial ? 'Guardar cambios' : porClase && seleccion.size > 1 ? `Crear ${seleccion.size} salidas` : 'Crear salida'}
       </button>
     </div>
   );

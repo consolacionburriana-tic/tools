@@ -3,6 +3,8 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import {
+  eduGuardians,
+  eduStudentGuardians,
   eduStudents,
   eduTeachers,
   salSignups,
@@ -119,6 +121,7 @@ export async function createTrip(input: {
   importe: string | null;
   clases: Clase[];
   responsables: string[]; // edu_teacher ids
+  tipoPago?: 'transferencia' | 'mano';
   user: SessionUser;
 }): Promise<SalTrip> {
   const [profe] = await db.select().from(eduTeachers).where(eq(eduTeachers.email, input.user.email)).limit(1);
@@ -130,6 +133,7 @@ export async function createTrip(input: {
       fecha: input.fecha,
       importe: input.importe,
       clases: input.clases,
+      tipoPago: input.tipoPago ?? 'transferencia',
       createdByEmail: input.user.email,
       createdByTeacherId: profe?.id ?? null,
     })
@@ -142,7 +146,7 @@ export async function createTrip(input: {
 
 export async function updateTrip(
   tripId: string,
-  cambios: Partial<Pick<SalTrip, 'nombre' | 'descripcion' | 'fecha' | 'importe' | 'clases' | 'estado'>>,
+  cambios: Partial<Pick<SalTrip, 'nombre' | 'descripcion' | 'fecha' | 'importe' | 'clases' | 'estado' | 'tipoPago'>>,
   responsables?: string[],
 ): Promise<void> {
   await db.update(salTrips).set({ ...cambios, updatedAt: new Date() }).where(eq(salTrips.id, tripId));
@@ -233,8 +237,8 @@ export interface TripFamilia {
 export async function getActiveTripsForStudent(eduStudentId: string): Promise<TripFamilia[]> {
   const [alumno] = await db.select().from(eduStudents).where(eq(eduStudents.id, eduStudentId)).limit(1);
   if (!alumno) return [];
-  const abiertas = (await db.select().from(salTrips).where(eq(salTrips.estado, 'abierta'))).filter((t) =>
-    tripIncluye(t, alumno.curso, alumno.letra),
+  const abiertas = (await db.select().from(salTrips).where(eq(salTrips.estado, 'abierta'))).filter(
+    (t) => t.tipoPago !== 'mano' && tripIncluye(t, alumno.curso, alumno.letra),
   );
   if (abiertas.length === 0) return [];
   const signups = await db
@@ -338,6 +342,69 @@ export async function marcarNoVa(tripId: string, eduStudentId: string): Promise<
       target: [salSignups.tripId, salSignups.studentId],
       set: { estado: 'no_va', updatedAt: new Date() },
     });
+}
+
+/** Pago en mano: el profe marca pagado/no pagado desde el panel (sin archivo). */
+export async function marcarPagado(tripId: string, eduStudentId: string, pagado: boolean): Promise<string | null> {
+  await db
+    .insert(salSignups)
+    .values({
+      tripId,
+      studentId: eduStudentId,
+      estado: 'apuntado',
+      justificanteEstado: pagado ? 'validado' : null,
+      justificanteSubidoAt: pagado ? new Date() : null,
+    })
+    .onConflictDoUpdate({
+      target: [salSignups.tripId, salSignups.studentId],
+      set: {
+        estado: 'apuntado',
+        justificanteEstado: pagado ? 'validado' : null,
+        ...(pagado ? { justificanteSubidoAt: new Date() } : {}),
+        updatedAt: new Date(),
+      },
+    });
+  const [row] = await db
+    .select({ id: salSignups.id })
+    .from(salSignups)
+    .where(and(eq(salSignups.tripId, tripId), eq(salSignups.studentId, eduStudentId)))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+export interface PendientePago {
+  eduStudentId: string;
+  nombre: string; // el correo va solo a SU familia
+  emails: string[]; // tutores con email
+}
+
+/** Familias con el pago pendiente (excluye 'no va' y ya pagados/entregados). */
+export async function getPendientesPago(tripId: string): Promise<PendientePago[]> {
+  const detalle = await getTripSeguimiento(tripId);
+  if (!detalle) return [];
+  const pendientes = detalle.alumnos.filter(
+    (a) => !a.manual && a.estado !== 'no_va' && (a.justificanteEstado === null || a.justificanteEstado === 'rechazado'),
+  );
+  if (pendientes.length === 0) return [];
+  const ids = pendientes.map((p) => p.eduStudentId!);
+  const tutores = await db
+    .select({ studentId: eduStudentGuardians.studentId, email: eduGuardians.email, emailGoogle: eduGuardians.emailGoogle })
+    .from(eduStudentGuardians)
+    .innerJoin(eduGuardians, eq(eduStudentGuardians.guardianId, eduGuardians.id))
+    .where(inArray(eduStudentGuardians.studentId, ids));
+  const emailsDe = new Map<string, Set<string>>();
+  for (const t of tutores) {
+    const e = (t.email ?? t.emailGoogle)?.trim().toLowerCase();
+    if (!e) continue;
+    (emailsDe.get(t.studentId) ?? emailsDe.set(t.studentId, new Set()).get(t.studentId)!).add(e);
+  }
+  return pendientes
+    .map((p) => ({
+      eduStudentId: p.eduStudentId!,
+      nombre: p.nombre,
+      emails: [...(emailsDe.get(p.eduStudentId!) ?? [])],
+    }))
+    .filter((p) => p.emails.length > 0);
 }
 
 export async function getResponsablesEmails(tripId: string): Promise<string[]> {

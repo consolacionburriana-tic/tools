@@ -10,6 +10,7 @@ const tripSchema = z.object({
   importe: z.string().nullable().default(null),
   clases: z.array(z.object({ curso: z.string(), letra: z.string().nullable() })).min(1),
   responsables: z.array(z.string().uuid()).default([]),
+  tipoPago: z.enum(['transferencia', 'mano']).default('transferencia'),
 });
 
 export async function POST(request: Request) {

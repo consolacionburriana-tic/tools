@@ -117,3 +117,39 @@ export async function sendJustificanteConfirmacion(input: {
     html,
   });
 }
+
+/** Recordatorio de pago: un email por familia pendiente, con variables sustituidas. */
+export async function sendRecordatorioPago(input: {
+  trip: SalTrip;
+  subject: string;
+  body: string;
+  familias: { nombre: string; emails: string[] }[];
+}): Promise<{ enviados: number; errores: number }> {
+  if (!process.env.RESEND_API_KEY) return { enviados: 0, errores: 0 };
+  const resend = getResend();
+  let enviados = 0;
+  let errores = 0;
+  const rellenar = (t: string, nombre: string) =>
+    t
+      .replace(/\{alumno\}/gi, nombre)
+      .replace(/\{salida\}/gi, input.trip.nombre)
+      .replace(/\{fecha\}/gi, fechaBonita(input.trip.fecha))
+      .replace(/\{importe\}/gi, input.trip.importe ? `${input.trip.importe} €` : '');
+  for (const f of input.familias) {
+    try {
+      await resend.emails.send({
+        from: FROM,
+        to: f.emails,
+        subject: rellenar(input.subject, f.nombre),
+        html: `<div style="font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px 16px;color:#18181b;white-space:pre-wrap;font-size:15px">${rellenar(
+          input.body,
+          f.nombre,
+        )}</div>`,
+      });
+      enviados++;
+    } catch {
+      errores++;
+    }
+  }
+  return { enviados, errores };
+}

@@ -11,6 +11,7 @@ const patchSchema = z.object({
   clases: z.array(z.object({ curso: z.string(), letra: z.string().nullable() })).optional(),
   estado: z.enum(['abierta', 'cerrada']).optional(),
   responsables: z.array(z.string().uuid()).optional(),
+  tipoPago: z.enum(['transferencia', 'mano']).optional(),
 });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
