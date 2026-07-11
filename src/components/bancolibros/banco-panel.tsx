@@ -13,6 +13,7 @@ interface ClaseOpt {
 interface AlumnoRow {
   eduStudentId: string;
   nombre: string;
+  numeroLista: number;
   banco: boolean;
   asignacionId: string | null;
   lote: number | null;
@@ -29,6 +30,7 @@ interface LibroCard {
 }
 interface FilaLista {
   asignacionId: string;
+  numeroLista: number;
   lote: number;
   alumno: string;
   estado: string | null;
@@ -283,6 +285,7 @@ export function BancoPanel({ clases }: { clases: ClaseOpt[] }) {
                       >
                         <span className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${a.banco ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
+                      <span className="w-6 shrink-0 text-right text-xs font-bold text-zinc-400">{a.numeroLista}</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{a.nombre}</span>
                       {a.banco && (
                         <>
@@ -377,7 +380,25 @@ export function BancoPanel({ clases }: { clases: ClaseOpt[] }) {
             <div className="border-b border-zinc-100 p-3.5 dark:border-zinc-800">
               <p className="font-semibold text-zinc-900 dark:text-zinc-100">{libro.asignatura ?? libro.nombre}</p>
               <p className="text-xs text-zinc-400">{libro.nombre} · {clase.label} · registro de valoración</p>
-              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                <a
+                  href={`/gestion/bancolibros/ficha?curso=${encodeURIComponent(clase.curso)}&letra=${encodeURIComponent(clase.letra ?? '')}&cod=${encodeURIComponent(libro.cod)}&modo=datos`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300"
+                >
+                  🖨 Ficha con datos
+                </a>
+                <a
+                  href={`/gestion/bancolibros/ficha?curso=${encodeURIComponent(clase.curso)}&letra=${encodeURIComponent(clase.letra ?? '')}&cod=${encodeURIComponent(libro.cod)}&modo=blanco`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300"
+                >
+                  🖨 Ficha en blanco
+                </a>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                 <span className="mr-1 text-zinc-400">Toda la clase:</span>
                 <button type="button" onClick={() => void bulkRegistro({ estado: 'mb' })} className="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300">
                   Todos MB
@@ -404,9 +425,12 @@ export function BancoPanel({ clases }: { clases: ClaseOpt[] }) {
                   <li key={f.asignacionId} className="px-3.5 py-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex h-7 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                        {f.lote}
+                        {f.numeroLista}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{f.alumno}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {f.alumno}
+                        <span className="ml-1.5 text-xs font-normal text-zinc-400">lote {f.lote}</span>
+                      </span>
                       <span className="flex gap-1">
                         {ESTADOS.map((e) => (
                           <button

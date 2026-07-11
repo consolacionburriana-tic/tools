@@ -331,6 +331,9 @@ export const salTrips = pgTable('sal_trips', {
   importe: numeric('importe', { precision: 6, scale: 2 }),
   clases: jsonb('clases').$type<{ curso: string; letra: string | null }[]>().notNull().default([]),
   estado: text('estado').notNull().default('abierta'), // 'abierta' | 'cerrada'
+  // 'transferencia' (defecto): las familias suben justificante · 'mano': el profe
+  // recoge el dinero en mano y marca pagos desde el panel (no aparece en /salidas)
+  tipoPago: text('tipo_pago').notNull().default('transferencia'),
   createdByEmail: text('created_by_email'), // email de sesión de quien la creó
   createdByTeacherId: uuid('created_by_teacher_id').references(() => eduTeachers.id),
   // Previsto para la futura API de Educamos (la salida y sus autorizaciones se

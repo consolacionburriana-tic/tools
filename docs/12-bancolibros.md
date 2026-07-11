@@ -119,7 +119,10 @@ bl_libro_registros (                  // valoración de UN libro de UNA asignaci
 - [x] Pestaña Libros con progreso por libro (X/N valorados)
 - [x] Pasar lista: estado one-tap + borrado/forrado + notas, con bulks ('todos MB'…), guardado optimista
 
-### Fase 3 · Extras (no bloquean)
-- [ ] Ficha de lote con histórico año a año
-- [ ] Export CSV por clase/libro (para quien quiera su Word de vuelta)
+### Fase 3 · Extras
+- [x] **Ficha imprimible** por libro+clase (`/gestion/bancolibros/ficha`): hoja 1 = tabla de
+      valoración (en blanco como plantilla de papel, o con los datos), hoja 2 = miembros del
+      banco. Se descarga con Imprimir → Guardar PDF. Con **nº de lista** oficial (orden
+      alfabético apellido1 → apellido2 → nombre; PDC es clase aparte).
+- [x] ~~Ficha de lote con histórico~~ (David, 2026-07-11: no hace falta)
 - [ ] Resumen agregado por curso (estados, pendientes de doc)

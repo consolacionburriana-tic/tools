@@ -30,7 +30,7 @@ function cuboDe(a: AlumnoRow): Cubo {
 
 // Seguimiento del detalle de salida: filtros por estado + acciones de validación.
 // El "no va" lo marca el PROFESORADO desde aquí (las familias no pueden).
-export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoRow[]; tripId: string }) {
+export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transferencia' }: { alumnos: AlumnoRow[]; tripId: string; tipoPago?: string }) {
   const router = useRouter();
   const [alumnos, setAlumnos] = useState(inicial);
   const [filtro, setFiltro] = useState<Cubo>('entregados');
@@ -54,6 +54,33 @@ export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoR
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo enlazar');
+      haptic.warning();
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  async function marcarPagado(a: AlumnoRow, pagado: boolean) {
+    if (!a.eduStudentId) return;
+    setOcupado(a.eduStudentId);
+    try {
+      const res = await fetch('/api/salidas/admin/pagado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tripId, eduStudentId: a.eduStudentId, pagado }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAlumnos((prev) =>
+        prev.map((x) =>
+          x.eduStudentId === a.eduStudentId
+            ? { ...x, estado: 'apuntado', justificanteEstado: pagado ? 'validado' : null, signupId: data.signupId ?? x.signupId }
+            : x,
+        ),
+      );
+      haptic.tap();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar');
       haptic.warning();
     } finally {
       setOcupado(null);
@@ -113,10 +140,11 @@ export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoR
     }
   }
 
+  const enMano = tipoPago === 'mano';
   const chips: { key: Cubo; label: string; tono: string }[] = [
     { key: 'pendientes', label: 'Pendientes', tono: 'text-amber-600 dark:text-amber-400' },
-    { key: 'entregados', label: 'Entregados', tono: 'text-blue-600 dark:text-blue-400' },
-    { key: 'validados', label: 'Validados', tono: 'text-emerald-600 dark:text-emerald-400' },
+    ...(enMano ? [] : [{ key: 'entregados' as Cubo, label: 'Entregados', tono: 'text-blue-600 dark:text-blue-400' }]),
+    { key: 'validados', label: enMano ? 'Pagados' : 'Validados', tono: 'text-emerald-600 dark:text-emerald-400' },
     { key: 'no_van', label: 'No van', tono: 'text-zinc-500' },
   ];
 
@@ -228,6 +256,16 @@ export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoR
                     <ExternalLink className="h-3.5 w-3.5" /> Ver
                   </a>
                 )}
+                {filtro === 'pendientes' && a.eduStudentId && enMano && (
+                  <button
+                    type="button"
+                    onClick={() => void marcarPagado(a, true)}
+                    disabled={ocupado === a.eduStudentId}
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                  >
+                    💶 Pagado
+                  </button>
+                )}
                 {filtro === 'pendientes' && a.eduStudentId && (
                   <button
                     type="button"
@@ -259,10 +297,14 @@ export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoR
                 {filtro === 'validados' && (
                   <button
                     type="button"
-                    onClick={() => void patch(a, { justificanteEstado: 'subido' }, { justificanteEstado: 'subido' })}
+                    onClick={() =>
+                      enMano
+                        ? void marcarPagado(a, false)
+                        : void patch(a, { justificanteEstado: 'subido' }, { justificanteEstado: 'subido' })
+                    }
                     className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                   >
-                    <RotateCcw className="h-3.5 w-3.5" /> Quitar validación
+                    <RotateCcw className="h-3.5 w-3.5" /> {enMano ? 'No pagado' : 'Quitar validación'}
                   </button>
                 )}
                 {filtro === 'no_van' && a.signupId && (
@@ -281,7 +323,8 @@ export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoR
       )}
       <p className="border-t border-zinc-100 px-4 py-2.5 text-xs text-zinc-400 dark:border-zinc-800">
         <CircleSlash className="mr-1 inline h-3.5 w-3.5" />
-        &quot;No va&quot; se marca aquí (lo decide el profesorado). &quot;Rechazar&quot; reclama otro justificante a la familia.
+        &quot;No va&quot; se marca aquí (lo decide el profesorado).{' '}
+        {enMano ? 'Pago en mano: las familias no suben nada; marca 💶 al recoger.' : '\u201CRechazar\u201D reclama otro justificante a la familia.'}
       </p>
     </div>
   );

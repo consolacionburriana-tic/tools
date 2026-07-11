@@ -37,6 +37,15 @@ Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-r
   y en el email a responsables ("⚠️ entrada manual — enlazar alumno"): toca arreglar el enlace
   y el dato de origen en Educamos. Cobertura actual verificada: 0 alumnos activos sin vía de
   identificación (todos tienen NIA o tutor con documento).
+- **Dos tipos de pago (2026-07-11)**: `transferencia` (defecto: familias suben justificante)
+  y `mano` (el profe recoge el dinero: la salida NO aparece a las familias y en el panel se
+  marca 💶 pagado/no pagado en un toque; los cubos pasan a Pendientes/Pagados/No van).
+- **Creación en bloque por clase (2026-07-11)**: al crear con varias clases se puede marcar
+  "una salida POR CLASE" (convivencias de inicio de curso): cada clase con su nombre/lugar y
+  sus responsables, para que a cada tutor le llegue solo lo suyo.
+- **Recordatorio de pago manual (2026-07-11)**: desde el detalle, correo a las familias
+  pendientes (excluye 'no va'), personalizable con variables {alumno}/{salida}/{fecha}/{importe},
+  con prueba y confirmación. Cada familia recibe solo lo de su hijo/a.
 - **Modelo preparado para la API de Educamos**: `sal_trips.educamos_actividad_id` + `extra`
   jsonb y `sal_signups.educamos_autorizado`/`educamos_synced_at`, por si en el futuro la
   salida y sus autorizaciones se consultan directamente de Educamos.
@@ -124,4 +133,5 @@ sal_signups (
 ### Fase 3 · Panel de seguimiento
 - [x] Detalle de salida: pendientes / entregados / validados / no van, con estado de justificante
 - [x] Validar/rechazar justificante (visor del archivo servido por API con permisos)
-- [ ] Correos masivos a pendientes + export CSV (patrón /gestion/correos — pendiente)
+- [x] Correos de recordatorio de pago a pendientes (personalizables, con prueba)
+- [ ] Export CSV (pendiente, no bloquea)

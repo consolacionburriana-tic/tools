@@ -6,6 +6,7 @@ import { CalendarDays, LinkIcon, Pencil, Users } from 'lucide-react';
 import { claseLabel, getTripSeguimiento } from '@/lib/salidas-server';
 import { TripSeguimiento } from '@/components/salidas/trip-seguimiento';
 import { TripEstadoToggle } from '@/components/salidas/trip-estado-toggle';
+import { RecordatorioPanel } from '@/components/salidas/recordatorio-panel';
 
 export const metadata = { title: 'Salida · Gestión' };
 
@@ -29,6 +30,15 @@ export default async function SalidaDetallePage({ params }: { params: Promise<{ 
                 </span>
               )}
               {trip.importe && <span>{trip.importe} €</span>}
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  trip.tipoPago === 'mano'
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
+                }`}
+              >
+                {trip.tipoPago === 'mano' ? '💶 pago en mano' : '🏦 por banco'}
+              </span>
               <span className="inline-flex items-center gap-1">
                 <Users className="h-4 w-4" />
                 {(trip.clases ?? []).map((c) => claseLabel(c)).join(', ')}
@@ -55,12 +65,22 @@ export default async function SalidaDetallePage({ params }: { params: Promise<{ 
         <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-800/60">
           <LinkIcon className="h-3.5 w-3.5" />
           Enlace para las familias: <code className="rounded bg-white px-1.5 py-0.5 dark:bg-zinc-900">tools.consolacionburriana.com/salidas</code>
-          — se identifican con su DNI (o el NIA) y suben el justificante.
+          — se identifican con su DNI (o el NIA) y suben el justificante.{' '}
+          {trip.tipoPago === 'mano' && 'Esta salida es de pago EN MANO: no les aparece a las familias.'}
         </p>
       </div>
 
+      <RecordatorioPanel
+        tripId={trip.id}
+        nombre={trip.nombre}
+        fecha={trip.fecha}
+        importe={trip.importe}
+        tipoPago={trip.tipoPago}
+      />
+
       <TripSeguimiento
         tripId={trip.id}
+        tipoPago={trip.tipoPago}
         alumnos={alumnos.map((a) => ({ ...a, justificanteSubidoAt: a.justificanteSubidoAt?.toISOString() ?? null }))}
       />
     </div>

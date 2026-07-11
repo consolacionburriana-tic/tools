@@ -36,8 +36,8 @@ Licencias ("entra aquí para pedir tus licencias") pero sirve para cualquier mó
 - Columna `lic_students.educamos_id` (texto) duplicada por el enlace `edu_student_id`.
 
 ### Salidas: flecos
-- **Correos masivos a familias pendientes** de una salida (patrón `/gestion/correos`) + CSV.
-  *(Enlazar entradas manuales ya está: botón "Enlazar" en el panel, 2026-07-11.)*
+- Export CSV del seguimiento de una salida (los recordatorios de pago y el enlace de
+  entradas manuales ya están, 2026-07-11).
 
 
 ### Cabos sueltos de la sesión 2026-07-10 (revisar con David)
