@@ -373,11 +373,69 @@ export const salSignups = pgTable('sal_signups', {
   uniqueIndex('sal_signups_trip_student_uq').on(t.tripId, t.studentId),
 ]);
 
+// ─── Tool: Banco de libros (prefijo bl_) ──────────────────────────────────────
+// El lote físico es estable (nº dentro de una clase); cada curso académico se asigna
+// a un alumno y se valora POR LIBRO (digitaliza el Word "Registro de valoración").
+export const blLotes = pgTable('bl_lotes', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  curso: text('curso').notNull(),
+  letra: text('letra'),
+  numero: integer('numero').notNull(),
+  activo: boolean('activo').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('bl_lotes_clase_numero_uq').on(t.curso, t.letra, t.numero),
+]);
+
+export const blAsignaciones = pgTable('bl_asignaciones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  loteId: uuid('lote_id').notNull().references(() => blLotes.id),
+  academicYear: text('academic_year').notNull(), // '2025-26'
+  studentId: uuid('student_id').notNull().references(() => eduStudents.id),
+  entregado: boolean('entregado').notNull().default(false),
+  docInicio: boolean('doc_inicio').notNull().default(false),
+  docFin: boolean('doc_fin').notNull().default(false),
+  notas: text('notas'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('bl_asignaciones_lote_year_uq').on(t.loteId, t.academicYear),
+]);
+
+export const blLibroRegistros = pgTable('bl_libro_registros', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  asignacionId: uuid('asignacion_id').notNull().references(() => blAsignaciones.id, { onDelete: 'cascade' }),
+  bookCod: text('book_cod').notNull(), // COD de lic_books (banco_libros=true)
+  estado: text('estado'), // 'nuevo'|'mb'|'b'|'r'|'m'|'mojado'
+  borrado: boolean('borrado').notNull().default(true),
+  forrado: boolean('forrado').notNull().default(true),
+  notas: text('notas'),
+  revisadoPorEmail: text('revisado_por_email'),
+  revisadoAt: timestamp('revisado_at'),
+}, (t) => [
+  uniqueIndex('bl_libro_registros_uq').on(t.asignacionId, t.bookCod),
+]);
+
+export type BlLote = typeof blLotes.$inferSelect;
+export type BlAsignacion = typeof blAsignaciones.$inferSelect;
+export type BlLibroRegistro = typeof blLibroRegistros.$inferSelect;
+
 // ─── Types Salidas ────────────────────────────────────────────────────────────
 export type SalTrip = typeof salTrips.$inferSelect;
 export type NewSalTrip = typeof salTrips.$inferInsert;
 export type SalSignup = typeof salSignups.$inferSelect;
 export type NewSalSignup = typeof salSignups.$inferInsert;
+
+export const licEmailTemplates = pgTable('lic_email_templates', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  createdByEmail: text('created_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+export type LicEmailTemplate = typeof licEmailTemplates.$inferSelect;
 
 // ─── Types Licencias ──────────────────────────────────────────────────────────
 export type LicCampaign = typeof licCampaigns.$inferSelect;

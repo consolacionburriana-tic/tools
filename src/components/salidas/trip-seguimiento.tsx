@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Check, CircleSlash, ExternalLink, Loader2, RotateCcw, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Check, CircleSlash, ExternalLink, Link2, Loader2, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 
@@ -30,9 +31,34 @@ function cuboDe(a: AlumnoRow): Cubo {
 // Seguimiento del detalle de salida: filtros por estado + acciones de validación.
 // El "no va" lo marca el PROFESORADO desde aquí (las familias no pueden).
 export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoRow[]; tripId: string }) {
+  const router = useRouter();
   const [alumnos, setAlumnos] = useState(inicial);
   const [filtro, setFiltro] = useState<Cubo>('entregados');
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [enlazando, setEnlazando] = useState<string | null>(null); // signupId manual abierto
+  const [busquedaEnlace, setBusquedaEnlace] = useState('');
+
+  async function enlazar(signupId: string, eduStudentId: string) {
+    setOcupado(signupId);
+    try {
+      const res = await fetch('/api/salidas/admin/enlazar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signupId, eduStudentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success('Entrada enlazada con el alumno');
+      haptic.success();
+      setEnlazando(null);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo enlazar');
+      haptic.warning();
+    } finally {
+      setOcupado(null);
+    }
+  }
 
   async function marcarNoVa(a: AlumnoRow) {
     if (!a.eduStudentId) return;
@@ -142,6 +168,35 @@ export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoR
                 {a.manual && a.manualIdentificador && (
                   <p className="text-xs text-amber-700 dark:text-amber-300">tecleó: {a.manualIdentificador}</p>
                 )}
+                {a.manual && enlazando === a.signupId && (
+                  <div className="mt-2 w-72 max-w-full rounded-xl border border-amber-300 bg-white p-2 dark:border-amber-500/40 dark:bg-zinc-900">
+                    <input
+                      autoFocus
+                      value={busquedaEnlace}
+                      onChange={(e) => setBusquedaEnlace(e.target.value)}
+                      placeholder="Busca al alumno real…"
+                      className="mb-1.5 w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm text-zinc-900 outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    />
+                    <ul className="max-h-44 overflow-y-auto">
+                      {alumnos
+                        .filter((x) => !x.manual && x.eduStudentId)
+                        .filter((x) => x.nombre.toLowerCase().includes(busquedaEnlace.toLowerCase()))
+                        .slice(0, 8)
+                        .map((x) => (
+                          <li key={x.eduStudentId}>
+                            <button
+                              type="button"
+                              onClick={() => void enlazar(a.signupId!, x.eduStudentId!)}
+                              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm text-zinc-800 hover:bg-amber-50 dark:text-zinc-200 dark:hover:bg-amber-500/10"
+                            >
+                              <span>{x.nombre}</span>
+                              <span className="text-xs text-zinc-400">{x.clase}</span>
+                            </button>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
                 {a.justificanteSubidoAt && (
                   <p className="text-xs text-zinc-400">
                     subido el {new Date(a.justificanteSubidoAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -151,6 +206,18 @@ export function TripSeguimiento({ alumnos: inicial, tripId }: { alumnos: AlumnoR
               </div>
               <div className="flex items-center gap-1.5">
                 {(ocupado === a.signupId || ocupado === a.eduStudentId) && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
+                {a.manual && a.signupId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusquedaEnlace(a.nombre.split(' ')[0] ?? '');
+                      setEnlazando(enlazando === a.signupId ? null : a.signupId);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg bg-amber-400 px-2.5 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-300"
+                  >
+                    <Link2 className="h-3.5 w-3.5" /> Enlazar
+                  </button>
+                )}
                 {a.signupId && a.justificanteEstado && (
                   <a
                     href={`/api/salidas/admin/justificante/${a.signupId}`}
