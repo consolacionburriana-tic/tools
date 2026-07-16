@@ -1,7 +1,8 @@
 // Capa de servidor de Salidas y pagos: salidas, responsables, inscripciones y
 // justificantes. Lee alumnado de la BBDD central (edu_students), nunca lista propia.
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
+import { compararClases } from '@/lib/cursos';
 import {
   eduGuardians,
   eduStudentGuardians,
@@ -33,14 +34,14 @@ function tripIncluye(trip: SalTrip, curso: string | null, letra: string | null):
   return (trip.clases ?? []).some((c) => claseKey(c.curso, c.letra) === claseKey(curso, letra));
 }
 
-/** Clases reales disponibles (curso+letra distintos del alumnado activo). */
+/** Clases reales disponibles (curso+letra distintos del alumnado activo),
+ *  ordenadas por etapa (infantil → primaria → secundaria) y curso. */
 export async function getClasesDisponibles(): Promise<Clase[]> {
   const rows = await db
     .selectDistinct({ curso: eduStudents.curso, letra: eduStudents.letra })
     .from(eduStudents)
-    .where(eq(eduStudents.active, true))
-    .orderBy(asc(eduStudents.curso), asc(eduStudents.letra));
-  return rows.filter((r): r is Clase => r.curso !== null);
+    .where(eq(eduStudents.active, true));
+  return rows.filter((r): r is Clase => r.curso !== null).sort(compararClases);
 }
 
 // ─── Salidas ──────────────────────────────────────────────────────────────────

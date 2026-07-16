@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Loader2, Plus, Search } from 'lucide-react';
+import { Ban, Loader2, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { ROLES, ROLE_LABELS, type Role } from '@/lib/permissions';
@@ -13,6 +13,8 @@ export interface FilaUsuario {
   rolExplicito: Role | null;
   /** Es profe activo de la BBDD central (rol automático 'profe' si no hay fila) */
   esProfe: boolean;
+  /** Fila en auth_users con active=false → sin acceso pese a estar en el claustro */
+  bloqueado: boolean;
 }
 
 // Asignación de roles en UN click: cada fila tiene los chips de rol; tocar un chip asigna.
@@ -29,29 +31,54 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
     return datos.filter((f) => f.email.includes(q) || (f.nombre ?? '').toLowerCase().includes(q));
   }, [datos, busqueda]);
 
-  async function asignar(fila: FilaUsuario, role: Role | null) {
-    setGuardando(fila.email);
+  async function enviar(email: string, body: Record<string, unknown>, optimista: (f: FilaUsuario) => FilaUsuario) {
+    setGuardando(email);
     const previo = datos;
-    setDatos((d) => d.map((f) => (f.email === fila.email ? { ...f, rolExplicito: role } : f)));
+    setDatos((d) => d.map((f) => (f.email === email ? optimista(f) : f)));
     try {
       const res = await fetch('/api/usuarios/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: fila.email, role, nombre: fila.nombre ?? undefined }),
+        body: JSON.stringify({ email, ...body }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo guardar');
       haptic.tap();
+      return true;
     } catch (e) {
       setDatos(previo);
       toast.error(e instanceof Error ? e.message : 'Error inesperado');
       haptic.warning();
+      return false;
     } finally {
       setGuardando(null);
     }
   }
 
+  function asignar(fila: FilaUsuario, role: Role | null) {
+    return enviar(fila.email, { action: 'set', role, nombre: fila.nombre ?? undefined }, (f) => ({
+      ...f,
+      rolExplicito: role,
+      bloqueado: false,
+    }));
+  }
+
+  function bloquear(fila: FilaUsuario) {
+    return enviar(fila.email, { action: 'block', nombre: fila.nombre ?? undefined }, (f) => ({
+      ...f,
+      rolExplicito: null,
+      bloqueado: true,
+    }));
+  }
+
+  async function eliminar(fila: FilaUsuario) {
+    if (!confirm(`¿Eliminar definitivamente a ${fila.nombre ?? fila.email}?\n\nDejará de aparecer y sin acceso. Sus registros históricos se conservan.`)) return;
+    const ok = await enviar(fila.email, { action: 'delete' }, (f) => f);
+    if (ok) setDatos((d) => d.filter((f) => f.email !== fila.email));
+  }
+
   function rolEfectivo(f: FilaUsuario): Role | null {
+    if (f.bloqueado) return null;
     return f.rolExplicito ?? (f.esProfe ? 'profe' : null);
   }
 
@@ -85,28 +112,67 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   {guardando === f.email && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />}
-                  {ROLES.map((r) => {
-                    const activo = efectivo === r;
-                    const esAutomatico = activo && f.rolExplicito === null;
-                    return (
+                  {f.bloqueado ? (
+                    <>
+                      <span className="rounded-full bg-red-100 px-2 py-1 text-[11px] font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-300">
+                        Sin acceso
+                      </span>
                       <button
-                        key={r}
                         type="button"
                         disabled={guardando === f.email}
-                        onClick={() => void asignar(f, f.rolExplicito === r ? null : r)}
-                        title={esAutomatico ? 'Automático (profe del claustro)' : undefined}
-                        className={`rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
-                          activo
-                            ? esAutomatico
-                              ? 'bg-blue-100 text-blue-700 ring-1 ring-inset ring-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-700'
-                              : 'bg-blue-600 text-white'
-                            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
-                        }`}
+                        onClick={() => void asignar(f, f.esProfe ? null : 'profe')}
+                        title="Reactivar acceso"
+                        className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                       >
-                        {ROLE_LABELS[r]}
+                        <RotateCcw className="h-3 w-3" /> Reactivar
                       </button>
-                    );
-                  })}
+                      <button
+                        type="button"
+                        disabled={guardando === f.email}
+                        onClick={() => void eliminar(f)}
+                        title="Eliminar definitivamente"
+                        className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+                      >
+                        <Trash2 className="h-3 w-3" /> Eliminar
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {ROLES.map((r) => {
+                        const activo = efectivo === r;
+                        const esAutomatico = activo && f.rolExplicito === null;
+                        return (
+                          <button
+                            key={r}
+                            type="button"
+                            disabled={guardando === f.email}
+                            onClick={() => void asignar(f, f.rolExplicito === r ? null : r)}
+                            title={esAutomatico ? 'Automático (profe del claustro)' : undefined}
+                            className={`rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                              activo
+                                ? esAutomatico
+                                  ? 'bg-blue-100 text-blue-700 ring-1 ring-inset ring-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-700'
+                                  : 'bg-blue-600 text-white'
+                                : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                            }`}
+                          >
+                            {ROLE_LABELS[r]}
+                          </button>
+                        );
+                      })}
+                      {f.email !== miEmail && (
+                        <button
+                          type="button"
+                          disabled={guardando === f.email}
+                          onClick={() => void bloquear(f)}
+                          title="Quitar el acceso a esta persona"
+                          className="ml-0.5 inline-flex items-center rounded-full bg-zinc-100 p-1.5 text-zinc-400 hover:bg-red-100 hover:text-red-600 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-red-500/15 dark:hover:text-red-300"
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </li>
@@ -124,7 +190,7 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
             toast.info('Ese correo ya está en la lista');
             return;
           }
-          setDatos((d) => [{ email, nombre: null, rolExplicito: null, esProfe: false }, ...d]);
+          setDatos((d) => [{ email, nombre: null, rolExplicito: null, esProfe: false, bloqueado: false }, ...d]);
           setNuevoEmail('');
         }}
       >

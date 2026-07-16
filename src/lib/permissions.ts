@@ -9,6 +9,7 @@ export const MODULES = [
   'evaluaciones',
   'educamos',
   'usuarios',
+  'profes',
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -38,8 +39,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   supertic: [...MODULES],
   tic: [...MODULES],
-  direccion: ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'educamos'],
-  jefe: ['salidas', 'bancolibros', 'evaluaciones'],
+  direccion: ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'educamos', 'profes'],
+  jefe: ['salidas', 'bancolibros', 'evaluaciones', 'profes'],
   orientacion: ['abc', 'evaluaciones'],
   secretaria: ['licencias', 'salidas', 'bancolibros'],
   tutor: ['salidas', 'bancolibros', 'evaluaciones'],

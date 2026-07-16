@@ -257,12 +257,33 @@ export const eduTeachers = pgTable('edu_teachers', {
   fechaBaja: date('fecha_baja'),
   esTutor: boolean('es_tutor').notNull().default(false),
   claseTutor: text('clase_tutor'), // p. ej. '3º INFA'
+  // Etapa a la que pertenece el profe: 'EI' | 'EP' | 'ESO' (o null si sin asignar).
+  // En tutores se deriva de claseTutor; en no-tutores se asigna a mano (no está en Educamos).
+  etapa: text('etapa'),
   active: boolean('active').notNull().default(true), // false si tiene fecha de baja
   extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN pagadores/bancos/SS/retribuciones)
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   lastSyncedAt: timestamp('last_synced_at'),
 });
+
+// Tutorías gestionadas a mano desde /gestion/profes (muchos-a-muchos: una clase puede
+// tener varios tutores, un profe puede tutorizar varias clases). Se siembra una vez desde
+// eduTeachers.esTutor/claseTutor pero a partir de ahí esta tabla es la fuente de verdad;
+// el sync de Educamos ya NO la toca.
+export const eduTutorias = pgTable('edu_tutorias', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  curso: text('curso').notNull(),
+  letra: text('letra'),
+  eduTeacherId: uuid('edu_teacher_id').notNull().references(() => eduTeachers.id),
+  academicYear: text('academic_year').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('edu_tutorias_uq').on(t.curso, t.letra, t.eduTeacherId, t.academicYear),
+]);
+
+export type EduTutoria = typeof eduTutorias.$inferSelect;
+export type NewEduTutoria = typeof eduTutorias.$inferInsert;
 
 export const eduSyncRuns = pgTable('edu_sync_runs', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),

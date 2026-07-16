@@ -20,6 +20,20 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Tutorías: botón "promocionar todos +1 curso" — sin implementar, falta confirmar reglas de ciclo
+La pantalla `/gestion/profes` (nueva, 2026-07-16) ya permite asignar/quitar tutores por clase
+a mano (tabla `edu_tutorias`, muchos-a-muchos: sin límite de tutores por clase ni de clases por
+profe, decisión explícita de David). Lo que falta es el botón de promoción automática que pidió
+originalmente, y su regla de negocio no está clara en los bordes:
+- **ESO**: sube todo el mundo +1 curso, salvo 4º ESO → se queda sin tutoría (hay que reasignar
+  a mano el año que viene). Esto sí está claro.
+- **Primaria**: "cambia dentro del ciclo" (1º→2º, 3º→4º, 5º→6º, misma letra) — pero no se
+  especificó qué pasa con los tutores que YA están en 2º/4º/6º (fin de ciclo): ¿se quedan sin
+  tutoría como el 4º ESO, o se dejan intactos hasta reasignar a mano? Hay que confirmarlo antes
+  de tocar código, porque mover mal esto desordenaría tutorías reales de todo el centro.
+- **Infantil**: "cíclico 3-4-5" — ¿significa que el tutor de 5INF vuelve a 3INF (rota) o se queda
+  sin tutoría igual que el resto de finales de ciclo? También sin confirmar.
+
 ### Magic links para familias (`fam_access_tokens`) — pendiente de implementar
 La tabla y la búsqueda por token ya funcionan (un `tok_…` tecleado en cualquier formulario
 de familias identifica igual que el DNI). Falta: **generar** tokens (por tutor o por alumno,

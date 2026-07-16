@@ -14,7 +14,13 @@ export default async function EditarSalidaPage({ params }: { params: Promise<{ i
   return (
     <TripForm
       clases={clases.map((c) => ({ ...c, label: claseLabel(c) }))}
-      profes={profes.map((p) => ({ id: p.id, nombre: [p.nombre, p.apellido1].filter(Boolean).join(' ') }))}
+      profes={profes.map((p) => ({
+        id: p.id,
+        nombre: [p.nombre, p.apellido1].filter(Boolean).join(' '),
+        etapa: p.etapa,
+        esTutor: p.esTutor,
+        claseTutor: p.claseTutor,
+      }))}
       inicial={{
         id: detalle.trip.id,
         nombre: detalle.trip.nombre,

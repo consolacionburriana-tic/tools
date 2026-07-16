@@ -12,7 +12,7 @@ export default async function BancoLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-4">
           <span className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             <Library className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Banco de libros

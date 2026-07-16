@@ -221,3 +221,11 @@ consultan `edu_*` a pelo desde sus rutas.
 - [x] Import desde `ExportacionDatosProfesores.xls` en `/gestion/educamos` (vista previa +
       aplicar); **excluidos** pagadores/IBAN/nº seg. social/retribuciones/contrato/jornada
 - [x] Importados los 97 profes reales (54 activos)
+- [x] Columna `edu_teachers.etapa` (EI/EP/ESO): se deriva sola en tutores desde `claseTutor`
+      en cada sync; en no-tutores se asigna a mano (Educamos no la trae). Backfill 2026-07-15/16.
+- [x] Tutorías como recurso muchos-a-muchos (`edu_tutorias`, prefijo `edu_`, sin límite de
+      cardinalidad): pantalla `/gestion/profes` (módulo nuevo `profes` en `permissions.ts`,
+      acceso SuperTIC/TIC/Dirección/Jefatura) para asignar/quitar tutores por clase. Sembrada
+      desde `esTutor`/`claseTutor` de Educamos; a partir de ahora es la fuente de verdad, el
+      sync de Educamos ya no la toca. Pendiente: botón "promocionar +1 curso" — reglas de
+      ciclo sin confirmar, ver `00-desarrollos-futuros.md`.

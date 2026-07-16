@@ -1,20 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { etapaDeCurso } from '@/lib/cursos';
+import { agruparProfes, claseTutorAKey, type ProfeItem } from '@/lib/profes';
 
 export interface ClaseOption {
   curso: string;
   letra: string | null;
   label: string;
 }
-export interface ProfeOption {
-  id: string;
-  nombre: string;
-}
+export type ProfeOption = ProfeItem;
 
 interface TripFormProps {
   clases: ClaseOption[];
@@ -33,6 +32,82 @@ interface TripFormProps {
 }
 
 const claseKey = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
+
+/**
+ * Selector de responsables agrupado por etapa. Los tutores salen primero con un
+ * puntito de color; si su clase (o su etapa) está entre las seleccionadas de la
+ * salida, la sección se marca como "sugerida" y el tutor exacto se resalta.
+ */
+function ProfeChips({
+  profes,
+  seleccion,
+  onToggle,
+  etapasSugeridas,
+  clasesSugeridas,
+}: {
+  profes: ProfeOption[];
+  seleccion: Set<string>;
+  onToggle: (id: string) => void;
+  etapasSugeridas: Set<string>;
+  clasesSugeridas: Set<string>;
+}) {
+  const grupos = useMemo(() => agruparProfes(profes), [profes]);
+  // Etapas sugeridas primero, para que lo relevante quede arriba.
+  const ordenados = [...grupos].sort((a, b) => {
+    const sa = etapasSugeridas.has(a.clave) ? 0 : 1;
+    const sb = etapasSugeridas.has(b.clave) ? 0 : 1;
+    return sa - sb;
+  });
+
+  return (
+    <div className="space-y-3">
+      {ordenados.map((g) => {
+        const sugerida = etapasSugeridas.has(g.clave);
+        return (
+          <div key={g.clave}>
+            <p className="mb-1 flex items-center gap-1.5 px-0.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+              {g.label}
+              {sugerida && (
+                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold normal-case text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                  sugeridos
+                </span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {g.items.map((p) => {
+                const activo = seleccion.has(p.id);
+                const esTutorSeleccionado = p.esTutor && !!claseTutorAKey(p.claseTutor) && clasesSugeridas.has(claseTutorAKey(p.claseTutor)!);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onToggle(p.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors ${
+                      activo
+                        ? 'bg-emerald-600 text-white'
+                        : esTutorSeleccionado
+                          ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-300 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/40'
+                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    {p.esTutor && (
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${activo ? 'bg-white/80' : 'bg-amber-500'}`}
+                        title={p.claseTutor ? `Tutor/a de ${p.claseTutor}` : 'Tutor/a'}
+                      />
+                    )}
+                    {p.nombre}
+                    {esTutorSeleccionado && !activo && <Star className="h-3 w-3 fill-blue-500 text-blue-500" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function TripForm({ clases, profes, inicial }: TripFormProps) {
   const router = useRouter();
@@ -131,6 +206,19 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
   const inputCls =
     'w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100';
 
+  // Sugerencias: etapas y clases de la selección actual, para priorizar a sus profes/tutores.
+  const clasesSugeridas = seleccion;
+  const etapasSugeridas = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of clases) {
+      if (seleccion.has(claseKey(c))) {
+        const e = etapaDeCurso(c.curso);
+        if (e) set.add(e);
+      }
+    }
+    return set;
+  }, [clases, seleccion]);
+
   return (
     <div className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
       <div>
@@ -138,7 +226,8 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
         <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Excursión al Oceanogràfic" className={inputCls} />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Descripción (la ven las familias)</label>
+        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Descripción</label>
+        <p className="mb-1.5 text-xs text-zinc-500">Pueden verla las familias al entregar justificante</p>
         <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={2} placeholder="Salida de todo el día. Llevar almuerzo y gorra." className={inputCls} />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -243,29 +332,19 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
                     className={`${inputCls} mt-2`}
                   />
                   <p className="mb-1 mt-2 text-xs text-zinc-500">Responsables de esta clase:</p>
-                  <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
-                    {profes.map((p) => {
-                      const activo = f.responsables.has(p.id);
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => {
-                            const r = new Set(f.responsables);
-                            if (r.has(p.id)) r.delete(p.id);
-                            else r.add(p.id);
-                            set({ responsables: r });
-                          }}
-                          className={`rounded-full px-2.5 py-1 text-xs ${
-                            activo
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
-                          }`}
-                        >
-                          {p.nombre}
-                        </button>
-                      );
-                    })}
+                  <div className="max-h-52 overflow-y-auto">
+                    <ProfeChips
+                      profes={profes}
+                      seleccion={f.responsables}
+                      onToggle={(id) => {
+                        const r = new Set(f.responsables);
+                        if (r.has(id)) r.delete(id);
+                        else r.add(id);
+                        set({ responsables: r });
+                      }}
+                      etapasSugeridas={new Set([etapaDeCurso(c.curso)].filter(Boolean) as string[])}
+                      clasesSugeridas={new Set([claseKey(c)])}
+                    />
                   </div>
                 </div>
               );
@@ -278,24 +357,14 @@ export function TripForm({ clases, profes, inicial }: TripFormProps) {
         <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Responsables (reciben aviso por email con cada justificante)
         </label>
-        <div className="flex max-h-44 flex-wrap gap-1.5 overflow-y-auto">
-          {profes.map((p) => {
-            const activo = responsables.has(p.id);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => toggle(responsables, p.id, setResponsables)}
-                className={`rounded-full px-3 py-1.5 text-sm ${
-                  activo
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-                }`}
-              >
-                {p.nombre}
-              </button>
-            );
-          })}
+        <div className="max-h-72 overflow-y-auto">
+          <ProfeChips
+            profes={profes}
+            seleccion={responsables}
+            onToggle={(id) => toggle(responsables, id, setResponsables)}
+            etapasSugeridas={etapasSugeridas}
+            clasesSugeridas={clasesSugeridas}
+          />
         </div>
       </div>
       )}

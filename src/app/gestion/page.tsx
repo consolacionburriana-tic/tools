@@ -7,6 +7,7 @@ import {
   Bus,
   ClipboardList,
   Database,
+  GraduationCap,
   KeyRound,
   Library,
   LogOut,
@@ -207,6 +208,14 @@ export default async function EscritorioPage() {
               icon={<KeyRound className="h-6 w-6" />}
               title="Usuarios y roles"
               desc="Quién puede entrar y con qué permisos"
+            />
+          )}
+          {puede('profes') && (
+            <ModuleCard
+              href="/gestion/profes"
+              icon={<GraduationCap className="h-6 w-6" />}
+              title="Tutorías"
+              desc="Asignar rápido qué profe tutoriza cada clase"
             />
           )}
         </section>

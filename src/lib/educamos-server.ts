@@ -15,6 +15,7 @@ import {
   type NewEduStudent,
 } from '@/db/schema';
 import { hasModule } from '@/lib/auth-guards';
+import { etapaDeCurso } from '@/lib/cursos';
 import {
   CODIGO_INTERNO_RE,
   computeSyncPlan,
@@ -430,6 +431,8 @@ export async function aplicarSyncProfesores(input: {
       fechaBaja: r.fechaBaja,
       esTutor: r.esTutor,
       claseTutor: r.claseTutor,
+      // Etapa: en tutores se deriva de la clase; en no-tutores se deja a mano (null no pisa).
+      etapa: r.esTutor ? etapaDeCurso(r.claseTutor) : null,
     };
     if (!existente) {
       altas++;

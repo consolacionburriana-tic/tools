@@ -9,7 +9,15 @@ interface ClaseOpt {
   curso: string;
   letra: string | null;
   label: string;
+  etapa: 'EI' | 'EP' | 'ESO' | null;
 }
+
+const ETAPA_LABEL: Record<'EI' | 'EP' | 'ESO', string> = {
+  EI: 'Infantil',
+  EP: 'Primaria',
+  ESO: 'Secundaria',
+};
+const ETAPA_ORDEN: ('EI' | 'EP' | 'ESO')[] = ['EI', 'EP', 'ESO'];
 interface AlumnoRow {
   eduStudentId: string;
   nombre: string;
@@ -203,21 +211,32 @@ export function BancoPanel({ clases }: { clases: ClaseOpt[] }) {
   // ── Render ──
   return (
     <div className="space-y-4">
-      {/* Selector de clase */}
-      <div className="anim-up flex flex-wrap gap-1.5">
-        {clases.map((c) => (
-          <button
-            key={c.label}
-            type="button"
-            onClick={() => setClase(c)}
-            className={`rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
-              clase?.label === c.label
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800'
-            }`}
-          >
-            {c.label}
-          </button>
+      {/* Selector de clase, agrupado por etapa (primaria → secundaria) */}
+      <div className="anim-up space-y-2.5">
+        {ETAPA_ORDEN.filter((et) => clases.some((c) => c.etapa === et)).map((et) => (
+          <div key={et}>
+            <p className="mb-1 px-0.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+              {ETAPA_LABEL[et]}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {clases
+                .filter((c) => c.etapa === et)
+                .map((c) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => setClase(c)}
+                    className={`rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
+                      clase?.label === c.label
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+            </div>
+          </div>
         ))}
       </div>
 
