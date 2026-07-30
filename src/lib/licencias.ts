@@ -85,6 +85,49 @@ export function euros(n: number): string {
   return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 }
 
+// ── Correos a familias (magic links) ──────────────────────────────────────────
+// Helpers puros compartidos por la vista previa del panel y por el envío real, para que
+// lo que David ve en pantalla sea EXACTAMENTE lo que recibe la familia.
+
+export function fechaLimiteLabel(deadline: string | null | undefined): string {
+  if (!deadline) return 'la fecha que indique el colegio';
+  // Sin la coma que mete toLocaleDateString ("sábado, 12 de septiembre"): el texto se lee
+  // dentro de una frase ("el plazo termina el sábado 12 de septiembre").
+  return new Date(deadline + 'T00:00:00')
+    .toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+    .replace(',', '');
+}
+
+/** "Marc (3º ESO) y Laia (6º EP)" — nombre de pila + curso, en lenguaje natural. */
+export function listaHijos(hijos: { nombre: string; curso: string }[]): string {
+  const partes = hijos.map((h) => `${h.nombre} (${cursoLabel(h.curso)})`);
+  if (partes.length <= 1) return partes[0] ?? '';
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+}
+
+export interface FamiliaVarsInput {
+  tutorNombre: string | null;
+  hijos: { nombre: string; curso: string }[];
+  enlace: string;
+  deadline: string | null;
+  academicYear: string;
+}
+
+/** Variables disponibles en el cuerpo del correo a familias. */
+export function varsDeFamilia(i: FamiliaVarsInput): Record<string, string> {
+  return {
+    tutor: i.tutorNombre?.trim() || 'familia',
+    hijos: listaHijos(i.hijos),
+    hijo: i.hijos[0]?.nombre ?? '',
+    cursos: [...new Set(i.hijos.map((h) => cursoLabel(h.curso)))].join(', '),
+    enlace: i.enlace,
+    fecha_limite: fechaLimiteLabel(i.deadline),
+    curso_escolar: i.academicYear,
+  };
+}
+
+export const VARIABLES_FAMILIA = ['tutor', 'hijos', 'hijo', 'cursos', 'fecha_limite', 'curso_escolar', 'enlace'] as const;
+
 // Tipos compartidos cliente/servidor
 export interface Candidate {
   id: string;

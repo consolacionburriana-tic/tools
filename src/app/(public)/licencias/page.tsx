@@ -8,7 +8,15 @@ export const metadata = {
   description: 'Solicitud de licencias digitales · curso 2026/2027',
 };
 
-export default async function LicenciasPage() {
+// Magic link de familias: `/licencias?t=tok_…` (se acepta `?tok=` como alias porque es lo
+// que la gente teclea al copiar el enlace a mano). El token se valida al identificar.
+export default async function LicenciasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ t?: string; tok?: string }>;
+}) {
+  const { t, tok } = await searchParams;
+  const tokenAcceso = (t ?? tok ?? '').trim() || null;
   const campaign = await getCurrentCampaign();
 
   // ¿El pedido se procesa antes del inicio de curso? (7 de septiembre del año de inicio)
@@ -44,6 +52,7 @@ export default async function LicenciasPage() {
             campaignName={campaign.name}
             deadline={campaign.orderDeadline}
             processedBeforeStart={processedBeforeStart}
+            tokenAcceso={tokenAcceso}
           />
         )}
       </main>

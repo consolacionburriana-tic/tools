@@ -301,21 +301,35 @@ export const eduSyncRuns = pgTable('edu_sync_runs', {
 });
 
 // ─── Acceso de familias (prefijo fam_) ────────────────────────────────────────
-// Tokens de acceso para familias (magic links por email). La BÚSQUEDA por token ya
-// está integrada en la identificación (familias-server.ts); la GENERACIÓN y el envío
-// por Resend quedan pendientes (ver docs/00-desarrollos-futuros.md).
+// Tokens de acceso para familias (magic links por email): un token = un correo de
+// familia + los hijos que ese correo puede gestionar. Multiuso hasta que caduque o
+// se revoque (una familia entra varias veces: un hijo, luego otro, luego a editar).
+// Búsqueda/canje en `familias-server.ts`; generación y envío en `fam-tokens-server.ts`.
 export const famAccessTokens = pgTable('fam_access_tokens', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   token: text('token').unique().notNull(), // formato tok_<aleatorio>
   guardianId: uuid('guardian_id').references(() => eduGuardians.id), // acceso a todos sus hijos…
   studentId: uuid('student_id').references(() => eduStudents.id), // …o a un alumno concreto
+  // …o a una lista explícita de hermanos, que es el caso normal de los magic links: un
+  // mismo correo puede estar dado de alta como tutor DISTINTO en cada hijo (o incluso con
+  // parentescos distintos), así que el token combina a mano a todos los hijos de ese
+  // correo. Tiene prioridad sobre guardianId/studentId al resolver.
+  studentIds: jsonb('student_ids').$type<string[]>(),
+  email: text('email'), // destinatario al que se envió: clave de reutilización del token
   proposito: text('proposito'), // 'licencias' | 'salidas' | null (cualquiera)
   expiresAt: timestamp('expires_at'),
-  usedAt: timestamp('used_at'), // para tokens de un solo uso (null = reutilizable hasta expirar)
+  usedAt: timestamp('used_at'), // primer uso (informativo: el token NO es de un solo uso)
+  lastUsedAt: timestamp('last_used_at'),
+  useCount: integer('use_count').notNull().default(0),
+  sentAt: timestamp('sent_at'), // última vez que se envió por correo
+  revokedAt: timestamp('revoked_at'), // anulado a mano desde el panel
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('fam_access_tokens_proposito_email_idx').on(t.proposito, t.email),
+]);
 
 export type FamAccessToken = typeof famAccessTokens.$inferSelect;
+export type NewFamAccessToken = typeof famAccessTokens.$inferInsert;
 
 // ─── Auth: usuarios y roles (prefijo auth_) ───────────────────────────────────
 export const authUsers = pgTable('auth_users', {

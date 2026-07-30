@@ -19,6 +19,9 @@ Todo lo definido está construido, verificado y desplegado en `main`:
 - **Panel** (`/gestion`, login simple): dashboard "quién falta" por curso (PDC separado),
   abrir/cerrar campaña, listado descargable, exportaciones CSV (ENVIAR/GRATIS/pagos/Educamos/
   por libro), gestión económica, editor de packs y envío de correos masivos.
+- **Magic links de familias** (Fase 2b): enlaces personales por familia (`/licencias?t=tok_…`)
+  y correo masivo por cursos y clases con esos enlaces. Queda generar los de la campaña real
+  en Neon (ver "Inputs pendientes de David").
 
 Pendiente **solo por credenciales/accesos externos** (no por código):
 - Escritura directa en el Google Sheet → cuenta de servicio ✅ creada (jul 2026); queda
@@ -36,12 +39,35 @@ Pendiente **solo por credenciales/accesos externos** (no por código):
   optativa, Digitalización 4ESO); no-BdL paga todo. Bilingüe CAS/VAL se resuelve por `Lengua Base`.
 - **Identificación de familia (SUSTITUIDA el 2026-07-11 por protección de datos):** ahora la
   familia teclea el **DNI/NIE del tutor** (lista solo sus hijos, enmascarados "Fra. M. Luc.")
-  o el **NIA del alumno**; también aceptará **tokens de acceso** (magic link) cuando se
-  implemente su generación (`fam_access_tokens`, ver `00-desarrollos-futuros.md`). La
+  o el **NIA del alumno**; y desde 2026-07-30 también entra por **magic link**
+  (`/licencias?t=tok_…`, tabla `fam_access_tokens`) sin teclear nada. La
   identificación vive en la lib común `src/lib/familias{,-server}.ts` y la comparten todos
   los módulos públicos. El sistema anterior era: botones de curso + año de nacimiento + apellidos →
   match contra la BBDD mostrando el nombre enmascarado a 3 letras ("David → Dav.").
   Validado: 95,5 % únicos solo con curso+año+apellidos.
+- **Tokens de acceso de familias (magic links, 2026-07-30):**
+  - **Un token = un correo de familia + sus hijos.** Se agrupa por **correo de tutor**
+    (normalizado a minúsculas), no por tutor: si padre y madre comparten correo es un único
+    destinatario y un único enlace. Si el mismo correo aparece como tutor *distinto* en cada
+    hijo (pasa en Educamos), se combinan igual → `student_ids` en el token.
+  - El token cubre **todos los hijos activos** de esos tutores, aunque el hermano esté en otra
+    clase o etapa; cada módulo filtra después lo que puede pedir (Licencias, solo los de la
+    campaña). Así un enlace le sirve a la familia para todo.
+  - **Multiuso y reutilizable**: se puede entrar varias veces (un hijo, luego otro, luego
+    editar). Regenerar es idempotente y **no invalida los enlaces ya enviados**; para
+    invalidarlos hay que revocarlos a mano ("Anular todos los enlaces").
+  - **Caducidad 120 días** por defecto (cubre apertura en julio → cierre en octubre).
+  - El token **no restringe por módulo**: `proposito` dice para qué se generó, pero la familia
+    es la misma en Licencias y en Salidas. Reutilizable tal cual para el resto de módulos.
+  - Se generan en **tres sitios, el mismo código** (`src/lib/fam-tokens-server.ts`): al enviar
+    los correos (automático, lo que falte), desde `/gestion/licencias/accesos` (botón) y por
+    terminal (`pnpm tokens:familias`).
+- **Correos a familias (2026-07-30):** el envío masivo tiene dos modos — *familias* (al correo
+  del tutor de la BBDD central, con su enlace: uno por familia) y el clásico *alumnos* (al
+  correo del alumno). En modo familias se filtra por **cursos y clases**, con casilla "solo
+  familias con algún hijo sin pedido", y el correo lleva **nombre de pila + curso de los hijos**
+  (`{hijos}`): va a la dirección de sus propios tutores, así que ahí no se enmascara — el
+  enmascarado ("Fra. M. Luc.") sigue siendo obligatorio en las **pantallas** públicas.
 - **Packs/itinerarios:** configurables en el dashboard, solo ayuda visual (modo por pack:
   `todos` · `elige uno` · `elige uno o ninguno` · `libre`). No bloquean.
 - **Envío de licencias:** la app **exporta a tu Google Sheet** (hojas `ENVIAR`) y FormMule
@@ -131,6 +157,35 @@ Verificado visualmente en claro y oscuro.
 > `LICENCIAS_ADMIN_*` se retiró a propósito: fallaba en Vercel y era indepurable a distancia).
 > Se sustituye entero por el login central en el hito 3 (`01-auth-roles.md`).
 
+## Fase 2b · Magic links de familias + correo masivo por cursos y clases
+
+Objetivo: que la familia **no tenga que teclear nada**. Se le manda un correo ("se abre el
+plazo, tenéis hasta el X") con un enlace propio que la identifica y le lista a todos sus hijos.
+
+- [x] Esquema: `fam_access_tokens` ampliada (`student_ids`, `email`, `use_count`, `last_used_at`,
+      `sent_at`, `revoked_at` + índice por `proposito,email`) — cambios aditivos
+- [x] Generación de tokens en `src/lib/fam-tokens-server.ts`: agrupación por correo de tutor,
+      unión de hermanos, reutilización idempotente, revocación y resumen de cobertura
+- [x] Canje del token en `familias-server.ts`: resuelve `student_ids`/`guardian_id`/`student_id`,
+      respeta caducidad y revocación, y cuenta los usos
+- [x] Formulario público con `?t=tok_…`: entra sin DNI, salta directo si hay un solo hijo, lista
+      a los hermanos si hay varios, y si el enlace ya no vale cae al DNI/NIA con aviso
+- [x] Panel `/gestion/licencias/accesos`: cobertura (familias con correo / con enlace / usados),
+      botón "generar los que falten", CSV de enlaces y "anular todos"
+- [x] Correos masivos en modo **familias**: filtro por cursos y clases, "solo quienes faltan",
+      variables `{tutor}/{hijos}/{hijo}/{cursos}/{fecha_limite}/{curso_escolar}/{enlace}`,
+      botón de acceso en el HTML, vista previa, envío de prueba a mí y **envío real a una sola
+      familia** antes del masivo
+- [x] Aviso en el panel de los **alumnos sin correo de tutor** (esos no reciben enlace)
+- [x] Script de terminal `pnpm tokens:familias` (`--listar`, `--dias N`) para generarlos en masa
+- [ ] **Generar los tokens de la campaña 2026/27 contra Neon** — pendiente de David: no se pudo
+      hacer desde la sesión de desarrollo (sin `DATABASE_URL`). Es `pnpm db:push` (columnas
+      nuevas) y luego el botón "Generar los enlaces que falten" o `pnpm tokens:familias`
+- [ ] Envío real de estreno (probar con una familia y luego el masivo por cursos)
+
+> Ojo: los enlaces son **credenciales**. El CSV de `/gestion/licencias/accesos` da acceso a los
+> pedidos de cada familia: se usa y se borra, no se sube a Drive ni se comparte.
+
 ## Fase 3 · Códigos de activación + seguimiento
 
 - [ ] Pegar/subir códigos de activación y casarlos con las líneas de pedido
@@ -156,6 +211,8 @@ Verificado visualmente en claro y oscuro.
 
 ## Inputs pendientes de David
 
+- **Aplicar el schema y generar los enlaces** de la campaña en vigor: `pnpm db:push` +
+  `pnpm tokens:familias` (o el botón de `/gestion/licencias/accesos`). Ver Fase 2b.
 - Reglas de packs/itinerarios por curso (cuáles y en qué modo) — configurable también en el panel.
 - ~~Credenciales de cuenta de servicio de Google~~ ✅ hecha (jul 2026).
 - Confirmar dominio/remitente verificado en Resend para `licencias@consolacionburriana.com` —

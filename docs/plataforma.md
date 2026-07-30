@@ -62,7 +62,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Módulo / pieza | Plan funcional | Plan técnico | Implementado | Ficha |
 |---|---|---|---|---|
 | Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (migrado a login + BBDD central; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
-| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2; ya vive de `edu_students`; quedan códigos de activación) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
+| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2b; magic links de familias listos, falta generarlos en Neon; quedan códigos de activación) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
@@ -124,8 +124,9 @@ dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
 - **Identificación pública de familias SIN datos personales**: los formularios de familias
   nunca buscan por nombre/apellidos ni muestran datos sin enmascarar. Patrón común en
   `src/lib/familias{,-server}.ts`: DNI/NIE del tutor → sus hijos como "Fra. M. Luc." · NIA →
-  alumno directo · token de acceso (magic link, generación pendiente). Decisión de protección
-  de datos (2026-07-11), obligatoria para cualquier módulo público nuevo.
+  alumno directo · **magic link** (`?t=tok_…`, un enlace por familia que combina a todos sus
+  hijos; generación en `src/lib/fam-tokens-server.ts`, transversal a los módulos). Decisión de
+  protección de datos (2026-07-11), obligatoria para cualquier módulo público nuevo.
 - **Subida de archivos con Vercel Blob** (cuando un módulo la necesite; el primero será Salidas
   y pagos). Un único helper compartido en `src/lib/blob.ts` cuando exista.
 - **Cada módulo se documenta con el mismo patrón**: sección "Estado", "Decisiones cerradas",

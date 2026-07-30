@@ -34,12 +34,13 @@ originalmente, y su regla de negocio no está clara en los bordes:
 - **Infantil**: "cíclico 3-4-5" — ¿significa que el tutor de 5INF vuelve a 3INF (rota) o se queda
   sin tutoría igual que el resto de finales de ciclo? También sin confirmar.
 
-### Magic links para familias (`fam_access_tokens`) — pendiente de implementar
-La tabla y la búsqueda por token ya funcionan (un `tok_…` tecleado en cualquier formulario
-de familias identifica igual que el DNI). Falta: **generar** tokens (por tutor o por alumno,
-con propósito y caducidad) y **enviarlos por Resend** como magic link. Pensado primero para
-Licencias ("entra aquí para pedir tus licencias") pero sirve para cualquier módulo público
-(Salidas incluido). Decidir: caducidad, un-uso vs multiuso, y desde qué pantalla se lanzan.
+### ~~Magic links para familias (`fam_access_tokens`)~~ ✅ hecho (2026-07-30)
+Implementado para Licencias y **reutilizable tal cual** por cualquier módulo público: un token
+por correo de familia que combina a todos sus hijos, `/licencias?t=tok_…`, correo masivo por
+cursos y clases desde `/gestion/licencias/correos`. Decisiones cerradas (agrupación por correo,
+multiuso, caducidad 120 días, revocación) en [`11-licencias-v2.md`](./11-licencias-v2.md).
+Queda como idea: **estrenarlo en Salidas** (`urlAccesoFamilia(base, 'salidas', token)` ya
+existe; el formulario de Salidas todavía no lee el `?t=`).
 
 ### Legacy pendiente de retirar del todo (cuando deje de hacer falta)
 - Tabla `teachers` (ABC pre-login): solo se usa para pintar nombres de los 6 registros

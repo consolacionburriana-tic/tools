@@ -5,7 +5,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { eduStudentGuardians, eduStudents, famAccessTokens, type EduStudent } from '@/db/schema';
-import { detectarIdentificador, maskAlumno, normalizarDni, type TipoIdentificador } from '@/lib/familias';
+import { detectarIdentificador, maskAlumno, type TipoIdentificador } from '@/lib/familias';
 
 export interface FamilyChild {
   eduStudentId: string;
@@ -51,6 +51,15 @@ async function hijosPorDocumento(valorNormalizado: string): Promise<FamilyChild[
   return [...unicos.values()].map(toChild);
 }
 
+async function hijosPorIds(ids: string[]): Promise<FamilyChild[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(eduStudents)
+    .where(and(inArray(eduStudents.id, ids), eq(eduStudents.active, true)));
+  return rows.map(toChild);
+}
+
 async function hijosDeGuardian(guardianId: string): Promise<FamilyChild[]> {
   const rows = await db
     .select({ s: eduStudents })
@@ -85,23 +94,37 @@ export async function identifyFamily(input: string): Promise<FamilyIdentity | nu
     return hijos.length ? { tipo: 'dni', hijos } : null;
   }
 
-  // Token (magic link): la generación está pendiente; la búsqueda ya funciona.
+  // Token (magic link). Un token vale para cualquier módulo público: `proposito` dice para
+  // qué se generó/envió, pero no restringe (la familia es la misma en Licencias y en Salidas).
   const [t] = await db.select().from(famAccessTokens).where(eq(famAccessTokens.token, ident.valor)).limit(1);
   if (!t) return null;
+  if (t.revokedAt) return null;
   if (t.expiresAt && t.expiresAt < new Date()) return null;
-  if (t.guardianId) {
-    const hijos = await hijosDeGuardian(t.guardianId);
-    return hijos.length ? { tipo: 'token', hijos } : null;
-  }
-  if (t.studentId) {
-    const [s] = await db
-      .select()
-      .from(eduStudents)
-      .where(and(eq(eduStudents.id, t.studentId), eq(eduStudents.active, true)))
-      .limit(1);
-    return s ? { tipo: 'token', hijos: [toChild(s)] } : null;
-  }
-  return null;
+  const hijos = t.studentIds?.length
+    ? await hijosPorIds(t.studentIds)
+    : t.guardianId
+      ? await hijosDeGuardian(t.guardianId)
+      : t.studentId
+        ? await hijosPorIds([t.studentId])
+        : [];
+  if (hijos.length === 0) return null;
+  await marcarUsoToken(t.id);
+  return { tipo: 'token', hijos };
+}
+
+/**
+ * Contador de usos del token (para ver en el panel si las familias entran por el enlace).
+ * `usedAt` guarda el primer uso; el token sigue siendo válido (multiuso).
+ */
+async function marcarUsoToken(id: string): Promise<void> {
+  await db
+    .update(famAccessTokens)
+    .set({
+      usedAt: sql`coalesce(${famAccessTokens.usedAt}, now())`,
+      lastUsedAt: new Date(),
+      useCount: sql`${famAccessTokens.useCount} + 1`,
+    })
+    .where(eq(famAccessTokens.id, id));
 }
 
 /**

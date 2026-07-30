@@ -85,6 +85,15 @@ export const STAGE_LABELS: Record<StageValue, string> = {
   Orientacion: 'Orientación',
 };
 
+/**
+ * URL pública de la app, para construir enlaces que viajan por correo (magic links de
+ * familias, avisos a gestores…). Se puede fijar con `APP_BASE_URL`; por defecto el
+ * dominio de producción. Sin barra final.
+ */
+export function appBaseUrl(): string {
+  return (process.env.APP_BASE_URL || 'https://tools.consolacionburriana.com').replace(/\/+$/, '');
+}
+
 // Curso académico en vigor (sep-ago): en julio de 2026 → '2025-26'.
 export function academicYearActual(fecha = new Date()): string {
   const y = fecha.getFullYear();

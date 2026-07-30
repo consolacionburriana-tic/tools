@@ -25,6 +25,7 @@ import {
   toPdcCurso,
 } from '@/lib/licencias';
 import { identifyFamily } from '@/lib/familias-server';
+import { getFamiliasDeAlumnos, getTokensVigentes, type FamiliaDestino } from '@/lib/fam-tokens-server';
 
 export async function getCurrentCampaign() {
   const [campaign] = await db
@@ -303,6 +304,153 @@ export async function getRecipients(campaignId: string, grupo: 'faltan' | 'tiene
     }
   }
   return out;
+}
+
+// ── Destinatarios "por familia" (magic links) ─────────────────────────────────
+// El envío clásico (getRecipients) va al correo del ALUMNO, uno por alumno. Este va al
+// correo del TUTOR (de la BBDD central), agrupado por correo: una familia con tres hijos
+// recibe UN correo con UN enlace que le abre los tres. Ver `fam-tokens-server.ts`.
+
+export interface ClaseLic {
+  curso: string;
+  letra: string | null;
+}
+
+export function claseLicKey(c: { curso: string; letra: string | null }): string {
+  return `${c.curso}|${c.letra ?? ''}`;
+}
+
+export function claseLicLabel(c: ClaseLic): string {
+  return c.letra ? `${c.curso} ${c.letra}` : c.curso;
+}
+
+/** Clases reales de la campaña (curso+letra de los alumnos activos), para los filtros. */
+export async function getClasesCampaign(campaignId: string): Promise<ClaseLic[]> {
+  const rows = await db
+    .selectDistinct({ curso: licStudents.curso, letra: licStudents.letra })
+    .from(licStudents)
+    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
+  return rows.sort((a, b) => a.curso.localeCompare(b.curso) || (a.letra ?? '').localeCompare(b.letra ?? ''));
+}
+
+export interface HijoDeFamilia {
+  nombre: string;
+  apellido1: string;
+  curso: string; // curso efectivo (PDC incluido)
+  conPedido: boolean;
+}
+
+export interface FamiliaRecipient extends FamiliaDestino {
+  /** Hijos de esta familia que entran en la campaña (los que el enlace le deja pedir). */
+  hijos: HijoDeFamilia[];
+}
+
+export interface FamiliasResumen {
+  familias: FamiliaRecipient[];
+  alumnosObjetivo: number;
+  /** Alumnos del grupo elegido sin ningún tutor con correo: no reciben enlace. */
+  alumnosSinCorreo: { nombre: string; apellidos: string; curso: string }[];
+  /** Alumnos sin enlace a la BBDD central (no se les puede localizar el tutor). */
+  alumnosSinEnlaceCentral: number;
+}
+
+/**
+ * Familias a las que escribir, filtradas por clases (curso+letra; vacío = toda la campaña)
+ * y opcionalmente solo las que tienen algún hijo sin pedido.
+ *
+ * Los hijos que se listan son TODOS los de la campaña, no solo los de las clases elegidas:
+ * el enlace se los abre igual, y así el correo no se contradice con lo que ven al entrar.
+ */
+export async function getFamiliaRecipients(
+  campaignId: string,
+  opts: { clases?: ClaseLic[]; soloFaltan?: boolean } = {},
+): Promise<FamiliasResumen> {
+  const alumnos = await db
+    .select({
+      id: licStudents.id,
+      eduStudentId: licStudents.eduStudentId,
+      nombre: licStudents.nombre,
+      apellidos: licStudents.apellidos,
+      apellido1: licStudents.apellido1,
+      curso: licStudents.curso,
+      letra: licStudents.letra,
+    })
+    .from(licStudents)
+    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
+  const orders = await db
+    .select({ studentId: licOrders.studentId })
+    .from(licOrders)
+    .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false)));
+  const conPedido = new Set(orders.map((o) => o.studentId));
+
+  const conEdu = alumnos.filter((a) => a.eduStudentId);
+  const porEdu = new Map(conEdu.map((a) => [a.eduStudentId!, a]));
+  const claves = new Set((opts.clases ?? []).map(claseLicKey));
+  const objetivo = claves.size > 0 ? conEdu.filter((a) => claves.has(claseLicKey(a))) : conEdu;
+
+  const { familias, alumnosSinCorreo } = await getFamiliasDeAlumnos(objetivo.map((a) => a.eduStudentId!));
+
+  const conHijos: FamiliaRecipient[] = familias
+    .map((f) => ({
+      ...f,
+      hijos: f.hijosTodos
+        .map((id) => porEdu.get(id))
+        .filter((a): a is NonNullable<typeof a> => !!a)
+        .map((a) => ({
+          nombre: a.nombre,
+          apellido1: a.apellido1 ?? a.apellidos,
+          curso: isPdcLetra(a.letra) ? toPdcCurso(a.curso) : a.curso,
+          conPedido: conPedido.has(a.id),
+        }))
+        .sort((x, y) => x.curso.localeCompare(y.curso) || x.nombre.localeCompare(y.nombre, 'es')),
+    }))
+    .filter((f) => f.hijos.length > 0)
+    .filter((f) => !opts.soloFaltan || f.hijos.some((h) => !h.conPedido));
+
+  const sinCorreo = alumnosSinCorreo
+    .map((id) => porEdu.get(id))
+    .filter((a): a is NonNullable<typeof a> => !!a)
+    .map((a) => ({
+      nombre: a.nombre,
+      apellidos: a.apellidos,
+      curso: isPdcLetra(a.letra) ? toPdcCurso(a.curso) : a.curso,
+    }))
+    .sort((x, y) => x.curso.localeCompare(y.curso) || x.apellidos.localeCompare(y.apellidos, 'es'));
+
+  return {
+    familias: conHijos,
+    alumnosObjetivo: objetivo.length,
+    alumnosSinCorreo: sinCorreo,
+    alumnosSinEnlaceCentral: alumnos.length - conEdu.length,
+  };
+}
+
+export interface EstadoAccesos {
+  familias: number;
+  conEnlace: number;
+  usados: number;
+  enviados: number;
+  alumnosObjetivo: number;
+  alumnosSinCorreo: { nombre: string; apellidos: string; curso: string }[];
+  alumnosSinEnlaceCentral: number;
+}
+
+/** Cobertura de los enlaces de acceso de la campaña (panel de "Enlaces de familias"). */
+export async function getEstadoAccesos(campaignId: string): Promise<EstadoAccesos> {
+  const resumen = await getFamiliaRecipients(campaignId);
+  const tokens = await getTokensVigentes(
+    'licencias',
+    resumen.familias.map((f) => f.email),
+  );
+  return {
+    familias: resumen.familias.length,
+    conEnlace: resumen.familias.filter((f) => tokens.has(f.email)).length,
+    usados: resumen.familias.filter((f) => tokens.get(f.email)?.usedAt).length,
+    enviados: resumen.familias.filter((f) => tokens.get(f.email)?.sentAt).length,
+    alumnosObjetivo: resumen.alumnosObjetivo,
+    alumnosSinCorreo: resumen.alumnosSinCorreo,
+    alumnosSinEnlaceCentral: resumen.alumnosSinEnlaceCentral,
+  };
 }
 
 export interface UpsertResult {

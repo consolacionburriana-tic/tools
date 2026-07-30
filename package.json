@@ -11,7 +11,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "npx dotenv-cli -e .env.local tsx src/db/seed.ts",
-    "db:seed:licencias": "npx dotenv-cli -e .env.local tsx src/db/seed-licencias.ts"
+    "db:seed:licencias": "npx dotenv-cli -e .env.local tsx src/db/seed-licencias.ts",
+    "tokens:familias": "npx dotenv-cli -e .env.local tsx src/db/generate-fam-tokens.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

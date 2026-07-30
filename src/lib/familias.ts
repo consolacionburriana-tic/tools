@@ -13,6 +13,33 @@ const NIA_RE = /^[0-9]{5,12}$/; // NIA (número de identificación del alumnado)
 
 export type TipoIdentificador = 'dni' | 'nia' | 'token';
 
+// ── Tokens de acceso (magic links) ────────────────────────────────────────────
+
+export const TOKEN_PREFIX = 'tok_';
+
+// Alfabeto sin caracteres confundibles (l/I/1, o/O/0) para que un token se pueda
+// dictar por teléfono o teclear a mano si el enlace se rompe en el correo.
+const TOKEN_ALFABETO = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+/** Token nuevo, formato `tok_<24 chars>` (~118 bits de entropía). */
+export function nuevoTokenFamilia(largo = 24): string {
+  const bytes = new Uint8Array(largo);
+  crypto.getRandomValues(bytes);
+  return TOKEN_PREFIX + Array.from(bytes, (b) => TOKEN_ALFABETO[b % TOKEN_ALFABETO.length]).join('');
+}
+
+/** Propósitos de token = módulos públicos que tienen formulario de familias. */
+export const PROPOSITOS = { licencias: '/licencias', salidas: '/salidas' } as const;
+export type PropositoToken = keyof typeof PROPOSITOS;
+
+/**
+ * URL del magic link: el formulario público del módulo con el token en `?t=`.
+ * `base` sin barra final (ver `appBaseUrl()` en `lib/constants.ts`).
+ */
+export function urlAccesoFamilia(base: string, proposito: PropositoToken, token: string): string {
+  return `${base}${PROPOSITOS[proposito]}?t=${encodeURIComponent(token)}`;
+}
+
 /**
  * Clasifica lo que ha tecleado la familia: token de acceso (magic link), NIA del
  * alumno (solo dígitos; el servidor prueba también DNI-sin-letra como fallback) o
@@ -21,7 +48,9 @@ export type TipoIdentificador = 'dni' | 'nia' | 'token';
 export function detectarIdentificador(input: string): { tipo: TipoIdentificador; valor: string } | null {
   const bruto = input.trim();
   if (!bruto) return null;
-  if (bruto.toLowerCase().startsWith('tok_')) return { tipo: 'token', valor: bruto };
+  // Los tokens se generan en minúsculas; normalizamos porque algunos clientes de correo
+  // capitalizan el primer carácter del enlace al "autocorregir" el texto.
+  if (bruto.toLowerCase().startsWith(TOKEN_PREFIX)) return { tipo: 'token', valor: bruto.toLowerCase() };
   const norm = normalizarDni(bruto);
   if (NIA_RE.test(norm)) return { tipo: 'nia', valor: norm };
   if (DOCUMENTO_RE.test(norm)) return { tipo: 'dni', valor: norm };

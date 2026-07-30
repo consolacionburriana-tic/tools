@@ -73,31 +73,48 @@ export async function notifyGestores(d: OrderEmailData) {
 }
 
 // ── Correos masivos (panel) ───────────────────────────────────────────────────
-export function applyVars(text: string, r: { nombre: string; apellidos: string; curso: string }): string {
-  return (text ?? '')
-    .replace(/\{nombre\}/gi, r.nombre)
-    .replace(/\{apellidos\}/gi, r.apellidos)
-    .replace(/\{curso\}/gi, r.curso);
+
+/**
+ * Sustituye las variables `{clave}` del texto (insensible a mayúsculas). Las claves que no
+ * existan se dejan tal cual, para que un `{typo}` se vea en la vista previa y no desaparezca.
+ */
+export function applyVars(text: string, vars: Record<string, string>): string {
+  const porClave = new Map(Object.entries(vars).map(([k, v]) => [k.toLowerCase(), v]));
+  return (text ?? '').replace(/\{(\w+)\}/g, (m, k: string) => porClave.get(k.toLowerCase()) ?? m);
 }
 
-function wrapHtml(bodyText: string): string {
-  const html = bodyText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-  return `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222;line-height:1.6">${html}<br><br>—<br>Colegio Consolación · Burriana</div>`;
+function escapar(texto: string): string {
+  return texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export async function sendBlastTest(email: string, subject: string, body: string, sample: Recipient) {
-  return safeSend(() =>
-    getResend().emails.send({
-      from: FROM,
-      to: email,
-      subject: '[PRUEBA] ' + applyVars(subject, sample),
-      html: wrapHtml(applyVars(body, sample)),
-    }),
+// Los enlaces que el gestor escribe en el mensaje (o el `{enlace}` del magic link) tienen que
+// llegar clicables aunque el cuerpo sea texto plano.
+function enlazarUrls(htmlEscapado: string): string {
+  return htmlEscapado.replace(
+    /https?:\/\/[^\s<]+/g,
+    (url) => `<a href="${url}" style="color:#2563eb;word-break:break-all">${url}</a>`,
   );
 }
 
-export async function sendBlast(
-  recipients: Recipient[],
+function boton(url: string, label: string): string {
+  return `<div style="margin:22px 0"><a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:13px 22px;border-radius:12px">${label}</a></div>`;
+}
+
+function wrapHtml(bodyText: string, cta?: { url: string; label: string }): string {
+  const html = enlazarUrls(escapar(bodyText)).replace(/\n/g, '<br>');
+  return `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222;line-height:1.6">${html}${
+    cta ? boton(cta.url, cta.label) : '<br><br>'
+  }—<br>Colegio Consolación · Burriana</div>`;
+}
+
+interface BlastItem {
+  email: string;
+  vars: Record<string, string>;
+  cta?: { url: string; label: string };
+}
+
+async function sendChunks(
+  items: BlastItem[],
   subject: string,
   body: string,
 ): Promise<{ sent: number; errors: number; skipped: boolean }> {
@@ -105,13 +122,13 @@ export async function sendBlast(
   const resend = getResend();
   let sent = 0;
   let errors = 0;
-  for (let i = 0; i < recipients.length; i += 100) {
-    const chunk = recipients.slice(i, i + 100);
+  for (let i = 0; i < items.length; i += 100) {
+    const chunk = items.slice(i, i + 100);
     const payload = chunk.map((r) => ({
       from: FROM,
       to: r.email,
-      subject: applyVars(subject, r),
-      html: wrapHtml(applyVars(body, r)),
+      subject: applyVars(subject, r.vars),
+      html: wrapHtml(applyVars(body, r.vars), r.cta),
     }));
     try {
       await resend.batch.send(payload);
@@ -122,4 +139,59 @@ export async function sendBlast(
     }
   }
   return { sent, errors, skipped: false };
+}
+
+// Variables del envío clásico (uno por alumno).
+function varsDeAlumno(r: Recipient): Record<string, string> {
+  return { nombre: r.nombre, apellidos: r.apellidos, curso: r.curso };
+}
+
+export async function sendBlastTest(email: string, subject: string, body: string, sample: Recipient) {
+  const vars = varsDeAlumno(sample);
+  return safeSend(() =>
+    getResend().emails.send({
+      from: FROM,
+      to: email,
+      subject: '[PRUEBA] ' + applyVars(subject, vars),
+      html: wrapHtml(applyVars(body, vars)),
+    }),
+  );
+}
+
+export async function sendBlast(recipients: Recipient[], subject: string, body: string) {
+  return sendChunks(
+    recipients.map((r) => ({ email: r.email, vars: varsDeAlumno(r) })),
+    subject,
+    body,
+  );
+}
+
+// ── Correos a familias con magic link ─────────────────────────────────────────
+export const CTA_LICENCIAS = 'Entrar y pedir las licencias';
+
+export interface FamilyBlastItem {
+  email: string;
+  vars: Record<string, string>;
+  enlace: string;
+}
+
+/** Envío masivo a familias: cada correo lleva su propio enlace de acceso (botón + `{enlace}`). */
+export async function sendFamilyBlast(items: FamilyBlastItem[], subject: string, body: string) {
+  return sendChunks(
+    items.map((i) => ({ email: i.email, vars: i.vars, cta: { url: i.enlace, label: CTA_LICENCIAS } })),
+    subject,
+    body,
+  );
+}
+
+/** Prueba de un correo de familia (con su enlace real) a la dirección que diga el gestor. */
+export async function sendFamilyBlastTest(email: string, subject: string, body: string, sample: FamilyBlastItem) {
+  return safeSend(() =>
+    getResend().emails.send({
+      from: FROM,
+      to: email,
+      subject: '[PRUEBA] ' + applyVars(subject, sample.vars),
+      html: wrapHtml(applyVars(body, sample.vars), { url: sample.enlace, label: CTA_LICENCIAS }),
+    }),
+  );
 }

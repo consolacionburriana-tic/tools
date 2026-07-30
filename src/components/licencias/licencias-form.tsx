@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BookOpen, Check, ChevronLeft, Info, Languages, Loader2, TriangleAlert } from 'lucide-react';
+import { BookOpen, Check, ChevronLeft, Info, Languages, Link2, Loader2, TriangleAlert } from 'lucide-react';
 import {
   type Candidate,
   type CatalogBook,
@@ -23,6 +23,8 @@ interface Props {
   campaignName: string;
   deadline: string | null;
   processedBeforeStart: boolean;
+  /** Token del magic link (`/licencias?t=tok_…`): identifica a la familia sin teclear nada. */
+  tokenAcceso?: string | null;
 }
 
 interface SubmitResult {
@@ -112,7 +114,7 @@ const stepAnim = {
   transition: { duration: 0.22, ease: 'easeOut' as const },
 };
 
-export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
+export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = null }: Props) {
   const [step, setStep] = useState<Step>('identify');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -120,6 +122,11 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
 
   const [curso, setCurso] = useState<string>(''); // curso del candidato elegido (para el catálogo)
   const [identificador, setIdentificador] = useState('');
+  // Acceso por enlace: el token hace de identificador en todas las llamadas. Si el enlace ya
+  // no vale (caducado/revocado) se descarta y la familia sigue con su DNI/NIA como siempre.
+  const [token, setToken] = useState<string | null>(tokenAcceso);
+  const [tokenInvalido, setTokenInvalido] = useState(false);
+  const autoElegido = useRef(false);
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [student, setStudent] = useState<Candidate | null>(null);
@@ -162,8 +169,10 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
     ? new Date(deadline + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
     : null;
 
+  const identificadorActivo = (token ?? identificador).trim();
+
   useEffect(() => {
-    const q = identificador.trim();
+    const q = identificadorActivo;
     const handle = setTimeout(async () => {
       if (q.length < 5) {
         setCandidates([]);
@@ -178,15 +187,29 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
           body: JSON.stringify({ identificador: q }),
         });
         const data = await res.json();
-        setCandidates(res.ok ? (data.candidates ?? []) : []);
+        const encontrados: Candidate[] = res.ok ? (data.candidates ?? []) : [];
+        setCandidates(encontrados);
+        if (token && encontrados.length === 0) {
+          setTokenInvalido(true);
+          setToken(null); // enlace caducado: volvemos al DNI/NIA de siempre
+        }
       } catch {
         setCandidates([]);
       } finally {
         setSearching(false);
       }
-    }, q.length < 5 ? 0 : 350);
+    }, q.length < 5 || token ? 0 : 350); // por enlace no hay que esperar al "deja de teclear"
     return () => clearTimeout(handle);
-  }, [identificador]);
+  }, [identificadorActivo, token]);
+
+  // Enlace con un solo hijo: entramos directos a sus licencias (un clic menos).
+  useEffect(() => {
+    if (!token || autoElegido.current) return;
+    if (step !== 'identify' || loading || candidates.length !== 1) return;
+    autoElegido.current = true;
+    void elegirAlumno(candidates[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, candidates, step]);
 
   async function elegirAlumno(c: Candidate) {
     setError(null);
@@ -252,13 +275,24 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
   function otroHijo() {
     setStep('identify');
     setCurso('');
-    setIdentificador('');
-    setCandidates([]);
     setStudent(null);
     setCatalog([]);
     setSelected(new Set());
     setResult(null);
     setError(null);
+    // Con enlace mantenemos la lista de hermanos (no hay nada que volver a teclear);
+    // sin enlace se vacía el identificador para la siguiente búsqueda.
+    if (!token) {
+      setIdentificador('');
+      setCandidates([]);
+    }
+  }
+
+  function entrarConDocumento() {
+    setToken(null);
+    setTokenInvalido(false);
+    setCandidates([]);
+    setIdentificador('');
   }
 
   return (
@@ -275,29 +309,51 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
                 {deadlineLabel && <> Plazo: hasta el <strong>{deadlineLabel}</strong> (no se permitirán pedidos después)</>}
               </p>
 
-              <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                DNI/NIE de la madre, padre o tutor legal — o NIA del alumno/a
-              </label>
-              <input
-                value={identificador}
-                onChange={(e) => setIdentificador(e.target.value)}
-                placeholder="12345678A"
-                autoComplete="off"
-                inputMode="text"
-                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              />
-              <p className="mt-2 text-xs text-zinc-400">
-                El NIA es el número de identificación del alumnado (sale en el boletín de notas y en Educamos).
-                Por protección de datos ya no se busca por nombre.
-              </p>
+              {tokenInvalido && (
+                <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Tu enlace no ha podido identificar a ningún alumno (puede haber caducado). No pasa nada: entra
+                    con el DNI/NIE del tutor o el NIA del alumno/a.
+                  </span>
+                </div>
+              )}
+
+              {token ? (
+                <div className="mt-5 flex gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">
+                  <Link2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Has entrado con <strong>tu enlace personal</strong>, no hace falta teclear ningún dato.
+                    {candidates.length > 1 && ' Abajo tienes a tus hijos/as: elige por quién empiezas.'}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    DNI/NIE de la madre, padre o tutor legal — o NIA del alumno/a
+                  </label>
+                  <input
+                    value={identificador}
+                    onChange={(e) => setIdentificador(e.target.value)}
+                    placeholder="12345678A"
+                    autoComplete="off"
+                    inputMode="text"
+                    className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  />
+                  <p className="mt-2 text-xs text-zinc-400">
+                    El NIA es el número de identificación del alumnado (sale en el boletín de notas y en Educamos).
+                    Por protección de datos ya no se busca por nombre.
+                  </p>
+                </>
+              )}
 
               <div className="mt-3 min-h-[1.25rem]">
                 {searching && (
                   <p className="flex items-center gap-2 text-sm text-zinc-400">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Buscando…
+                    <Loader2 className="h-4 w-4 animate-spin" /> {token ? 'Entrando…' : 'Buscando…'}
                   </p>
                 )}
-                {!searching && identificador.trim().length >= 5 && candidates.length === 0 && (
+                {!searching && !token && identificador.trim().length >= 5 && candidates.length === 0 && (
                   <p className="text-sm text-zinc-500">
                     No encontramos ningún alumno con ese dato. Revisa el DNI/NIA o escríbenos abajo.
                   </p>
@@ -332,6 +388,16 @@ export function LicenciasForm({ deadline, processedBeforeStart }: Props) {
               )}
 
               {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+              {token && (
+                <button
+                  type="button"
+                  onClick={entrarConDocumento}
+                  className="mt-4 text-xs text-zinc-400 underline hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer"
+                >
+                  ¿Falta algún hijo/a? Entrar con DNI/NIE o NIA
+                </button>
+              )}
 
               <p className="mt-6 text-xs text-zinc-400">
                 ¿Dudas o algún error? Escríbenos a{' '}

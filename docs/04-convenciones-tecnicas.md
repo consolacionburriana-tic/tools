@@ -26,6 +26,7 @@ pnpm lint         # eslint
 pnpm db:push      # aplicar schema a Neon (drizzle-kit push)
 pnpm db:studio    # inspeccionar la BBDD
 pnpm db:seed:licencias   # seeds puntuales (tsx + dotenv .env.local)
+pnpm tokens:familias     # genera los magic links de las familias de la campaña de licencias
 ```
 
 ## Variables de entorno
@@ -38,6 +39,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `RESEND_API_KEY` · `RESEND_FROM` | Envío de email |
 | `LICENCIAS_GESTORES` | Lista de correos de aviso de Licencias |
 | `GOOGLE_SHEETS_CLIENT_EMAIL` · `GOOGLE_SHEETS_PRIVATE_KEY` · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio para escribir en el Sheet de Licencias |
+| `APP_BASE_URL` | URL pública para los enlaces que van por correo (magic links). Opcional: por defecto `https://tools.consolacionburriana.com`. En local, `http://localhost:3000` |
 
 | `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
 
@@ -119,6 +121,13 @@ src/components/<modulo>/          # componentes propios del módulo
   `identifyFamily`/`verifyFamilyStudent` de `src/lib/familias-server.ts` (DNI tutor / NIA /
   token) y muestra solo `maskAlumno` ("Fra. M. Luc."). En cada petición posterior del flujo se
   revalida el identificador contra el alumno (los flujos públicos no tienen sesión).
+- **Magic links de familias** (`fam_access_tokens`, `src/lib/fam-tokens-server.ts`): un token por
+  **correo de tutor** que cubre a todos sus hijos; el formulario público lo lee de `?t=tok_…` y
+  lo usa como identificador en el resto del flujo. Para estrenarlo en un módulo nuevo:
+  `getFamiliasDeAlumnos` → `ensureTokens({ proposito })` → `urlAccesoFamilia(appBaseUrl(), …)`.
+  Son **credenciales**: nunca se loguean, ni se listan en pantalla, ni se commitea el CSV.
+  En los correos a familias sí se puede poner el nombre de pila de sus propios hijos (va a la
+  dirección de sus tutores); el enmascarado es obligatorio en **pantalla**.
 - Parseo de excels: **SheetJS (`xlsx`)** para `.csv/.xls/.xlsx`, detección de columnas por
   cabecera normalizada (mayúsculas sin acentos), nunca por posición.
 
