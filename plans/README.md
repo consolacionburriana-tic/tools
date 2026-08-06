@@ -20,7 +20,7 @@ su fila al terminar.
 
 | Plan | Título | Priority | Effort | Depends on | Status |
 |------|--------|----------|--------|------------|--------|
-| [001](001-guard-api-reports-id.md) | Guard de auth en `/api/reports/[id]` (hoy público: PII de menores + delete anónimo) | P1 | S | — | TODO |
+| [001](001-guard-api-reports-id.md) | Guard de auth en `/api/reports/[id]` (hoy público: PII de menores + delete anónimo) | P1 | S | — | DONE |
 | [002](002-licencias-orders-revalidation.md) | IDOR en `/api/licencias/orders`: revalidar identificador familiar | P1 | M | — | TODO |
 | [003](003-dependency-security-hygiene.md) | Bumps de seguridad (next ≥16.2.11, next-auth beta.32) + shadcn a devDeps + borrar backups/ | P1 | S | — | TODO |
 | [009](009-docs-reconciliation.md) | Docs veraces + retirar credencial en claro de docs/11 + .env.local.example completo | P1 | S | — | TODO |
@@ -58,6 +58,22 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (con motivo) | REJECTED (con 
 - **Timing de comparación de tokens**: lookup por igualdad en Postgres sobre tokens de ~118 bits; ataque de timing impracticable. No es hallazgo.
 - **Entrada manual de justificantes sin identificación**: decisión de producto documentada (commit c13ff49, "entrada manual de respaldo", queda marcada para revisión en el panel).
 - **Logging estructurado con requestId (DX-04)** y **ESLint type-aware/prettier (DX-02 parcial)**: valiosos pero por debajo del corte de esta ronda. Backlog.
+
+## 🔴 Prioritario — pendiente de plan con Opus
+
+- **Feedback instantáneo en interacciones (percepción de lentitud)**: David reporta que
+  al pulsar (formularios públicos, y probablemente paneles de gestión) la app tarda
+  unos cientos de ms en responder visualmente, lo que genera doble-click/ansiedad del
+  usuario. No es necesariamente un problema de rendimiento real (ver PERF-01..05 en
+  `006-neon-batching.md`, que sí atacan latencia de servidor) sino de **feedback
+  percibido**: falta de estados `disabled`/spinner instantáneos al pulsar, botones que
+  no cambian de aspecto hasta que la respuesta vuelve, ausencia de optimistic UI en
+  acciones de un tap. Requiere auditoría dedicada de cada botón/acción crítica (public:
+  identify/submit de licencias y salidas; gestión: guardar registro ABC, marcar
+  bancolibros, aplicar sync) para decidir caso a caso: disabled+spinner inmediato vs.
+  optimistic update vs. transición ya cubierta por motion. **David ha pedido
+  explícitamente que este plan se investigue y ejecute con Opus**, no con el modelo por
+  defecto — anotado aquí el 2026-08-06, pendiente de convertir en plan 013 cuando toque.
 
 ## Pendientes de decisión de David (no planificables aún)
 

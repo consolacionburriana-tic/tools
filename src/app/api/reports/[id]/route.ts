@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { behaviorReports, students, teachers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { hasModule } from '@/lib/auth-guards';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await hasModule('abc'))) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   try {
     const { id } = await params;
     const [report] = await db
@@ -30,6 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await hasModule('abc'))) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   try {
     const { id } = await params;
     await db.delete(behaviorReports).where(eq(behaviorReports.id, id));
