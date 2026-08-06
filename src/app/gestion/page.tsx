@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import {
   BookMarked,
@@ -113,8 +114,7 @@ export default async function EscritorioPage() {
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logobur.png" alt="" width={36} height={36} className="h-9 w-auto rounded-lg bg-white" />
+            <Image src="/logobur.png" alt="" width={36} height={36} className="h-9 w-auto rounded-lg bg-white" />
             <div>
               <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Tools Consolación</h1>
               <p className="text-xs text-zinc-500">

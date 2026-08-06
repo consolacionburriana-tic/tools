@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'motion/react';
 import { ArrowRight, Lock, SearchCheck } from 'lucide-react';
 
@@ -29,12 +30,12 @@ export default function HomePage() {
           className="flex flex-col items-center text-center"
         >
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200/70">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/logobur.png"
               alt="Colegio Consolación · Burriana"
               width={260}
               height={130}
+              priority
               className="h-auto w-[220px] sm:w-[260px]"
             />
           </div>

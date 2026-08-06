@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Image from 'next/image';
 import { auth, signIn } from '@/auth';
 
 export const metadata = { title: 'Entrar · Tools Consolación' };
@@ -20,8 +21,7 @@ export default async function LoginPage({
       <div className="anim-stagger w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center">
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logobur.png" alt="Consolación Burriana" width={180} height={90} className="h-auto w-[170px]" />
+            <Image src="/logobur.png" alt="Consolación Burriana" width={180} height={90} priority className="h-auto w-[170px]" />
           </div>
           <h1 className="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Tools Consolación</h1>
           <p className="text-sm text-zinc-500">Entra con tu cuenta del colegio</p>

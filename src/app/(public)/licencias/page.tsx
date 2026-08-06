@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import Image from 'next/image';
 import { getCurrentCampaign } from '@/lib/licencias-server';
 import { LicenciasForm } from '@/components/licencias/licencias-form';
 
@@ -28,12 +29,12 @@ export default async function LicenciasPage({
       <main className="mx-auto w-full max-w-xl px-4 py-8">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-zinc-200/70">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/logobur.png"
               alt="Colegio Consolación · Burriana"
               width={250}
               height={125}
+              priority
               className="h-auto w-[210px] sm:w-[250px]"
             />
           </div>
