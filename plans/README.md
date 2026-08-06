@@ -30,7 +30,7 @@ su fila al terminar.
 | [007](007-frontend-asset-perf.md) | recharts con dynamic import + logo por next/image | P2 | S | — | DONE |
 | [008](008-public-ui-motion-consistency.md) | Coherencia UI/motion pública: tipografía, curso dinámico, stepAnim, reduced-motion, haptics | P2 | M | — | DONE |
 | [010](010-salidas-magic-link.md) | Estrenar magic link de familias en Salidas (`?t=` + `{enlace}` en recordatorio) | P2 | S | — | DONE* |
-| [012](012-pwa-fase-1.md) | PWA Fase 1: manifest de gestión + marca azul (priorizada por David) | P2 | S | — | TODO |
+| [012](012-pwa-fase-1.md) | PWA Fase 1: manifest de gestión + marca azul (priorizada por David) | P2 | S | — | DONE* |
 | [011](011-email-blast-consolidation.md) | Motor único de correo masivo (portar Salidas a sendChunks) | P3 | M | mejor tras 010 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (con motivo) | REJECTED (con motivo)
@@ -48,6 +48,13 @@ urlAccesoFamilia) verificada de punta a punta en rama Neon desechable con datos 
 panel a su propio correo para ver el `{enlace}` renderizado en Resend — no hay una
 salida con pendientes reales sobre la que probar un envío sin arriesgar mandar correo a
 familias reales.
+
+\* 012: `start_url`, `scope` y colores de marca verificados (manifest servido correcto,
+redirect a login sin bucle, `theme-color` azul en el DOM). El sub-ítem de iconos
+maskable queda `[~]` en `05-pwa.md`: los ficheros actuales son placeholders genéricos
+(no el logo del colegio) sin margen de seguridad — hace falta que David aporte un asset
+cuadrado del emblema para regenerarlos bien; `public/logobur.png` es un lockup
+horizontal, no sirve tal cual.
 
 ## Dependency notes
 

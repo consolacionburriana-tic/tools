@@ -2,10 +2,11 @@
   "name": "Tools Consolación",
   "short_name": "Tools",
   "description": "Herramientas internas del Colegio Consolación Burriana",
-  "start_url": "/",
+  "start_url": "/gestion",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#0d9488",
+  "theme_color": "#2563eb",
   "background_color": "#ffffff",
   "lang": "es",
   "icons": [

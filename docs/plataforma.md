@@ -73,7 +73,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Salidas y pagos | ✅ | ✅ | ✅ (Blob activo, correos de recordatorio activos; falta export CSV) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ✅ (participantes, lotes y valoración por libro; extras en Fase 3) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ⬜ | [`16-evaluaciones.md`](./16-evaluaciones.md) |
-| PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (manifest global; falta start_url/SW) | [`05-pwa.md`](./05-pwa.md) |
+| PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fase 1 hecha: start_url y marca azul; faltan iconos reales y SW/offline) | [`05-pwa.md`](./05-pwa.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.
 

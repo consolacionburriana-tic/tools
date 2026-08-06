@@ -6,20 +6,24 @@ que fue para quien se montó.
 
 ---
 
-## Estado: plan técnico listo ✅ · parcialmente implementado 🟡
+## Estado: plan técnico listo ✅ · Fase 1 hecha, Fase 2-3 pendientes 🟡
 
 Lo que ya hay (verificado en el repo): `public/manifest.json` global (name "Tools Consolación",
-`display: standalone`, `orientation: portrait`, iconos 192/512 maskable) enlazado desde
-`src/app/layout.tsx`. Los haptics ya funcionan en PWA de iOS ≥17.4.
+`display: standalone`, `orientation: portrait`, `start_url: '/gestion'`, `scope: '/'`,
+`theme_color: '#2563eb'` azul de marca, iconos 192/512 maskable) enlazado desde
+`src/app/layout.tsx` (mismo `themeColor` en el `viewport`). Los haptics ya funcionan en PWA de
+iOS ≥17.4.
 
 Problemas conocidos:
 
-- `start_url` es `/` — la portada **pública** de Licencias. El profesorado que instala la app
-  para trabajar aterriza en la página de familias, no en la gestión.
-- `theme_color` es teal (`#0d9488`) pero la marca del colegio usa **acento azul** (ver
-  Licencias) — incoherencia visual al abrir la app instalada.
+- **Iconos placeholder, no el logo real**: `public/icons/icon-192.png` (un badge con las
+  iniciales "TC") e `icon-512.png` (una forma abstracta) no son el logo del colegio, y además
+  llegan al borde sin margen de seguridad para el recorte maskable. Regenerarlos hace falta un
+  asset cuadrado del emblema — `public/logobur.png` es un lockup horizontal con texto, no sirve
+  tal cual sin quedar deformado o mal recortado. **Pendiente: que David pase un icono cuadrado
+  del emblema (o encargue uno)**; mientras tanto el manifest sigue apuntando a los placeholders.
 - No hay service worker: sin él, iOS muestra pantalla blanca de red si abres la app sin
-  conexión (no aspiramos a offline real, pero sí a un fallback digno).
+  conexión (no aspiramos a offline real, pero sí a un fallback digno). Fase 2, sin empezar.
 
 ## Decisiones cerradas
 
@@ -44,9 +48,10 @@ Problemas conocidos:
 ## Fases
 
 ### Fase 1 · Manifest y marca
-- [ ] `start_url: '/gestion'` + revisar `scope`
-- [ ] Colores de marca en manifest y `apple-touch-icon`
-- [ ] Iconos revisados (que el maskable no recorte el logo)
+- [x] `start_url: '/gestion'` + `scope: '/'` (verificado: redirige a login sin sesión, sin bucle)
+- [x] Colores de marca en manifest y viewport (`#2563eb` azul, antes teal `#0d9488`)
+- [~] Iconos revisados — son placeholders sin margen maskable, no el logo real; código listo
+      para apuntar a los ficheros correctos en cuanto exista un asset cuadrado del emblema
 
 ### Fase 2 · Service worker y fallback
 - [ ] SW mínimo con precache del shell + página `/offline`
