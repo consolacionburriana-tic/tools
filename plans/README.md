@@ -21,7 +21,7 @@ su fila al terminar.
 | Plan | Título | Priority | Effort | Depends on | Status |
 |------|--------|----------|--------|------------|--------|
 | [001](001-guard-api-reports-id.md) | Guard de auth en `/api/reports/[id]` (hoy público: PII de menores + delete anónimo) | P1 | S | — | DONE |
-| [002](002-licencias-orders-revalidation.md) | IDOR en `/api/licencias/orders`: revalidar identificador familiar | P1 | M | — | TODO |
+| [002](002-licencias-orders-revalidation.md) | IDOR en `/api/licencias/orders`: revalidar identificador familiar | P1 | M | — | DONE |
 | [003](003-dependency-security-hygiene.md) | Bumps de seguridad (next ≥16.2.11, next-auth beta.32) + shadcn a devDeps + borrar backups/ | P1 | S | — | TODO |
 | [009](009-docs-reconciliation.md) | Docs veraces + retirar credencial en claro de docs/11 + .env.local.example completo | P1 | S | — | TODO |
 | [004](004-test-baseline-vitest.md) | Baseline vitest + typecheck + tests de dinero/identificación/catálogo | P1 | M | — | TODO |

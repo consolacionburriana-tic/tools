@@ -219,7 +219,7 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
     try {
       const [catRes, ordRes] = await Promise.all([
         fetch(`/api/licencias/catalog?studentId=${c.id}&curso=${encodeURIComponent(c.cursoLabel)}`),
-        fetch(`/api/licencias/orders?studentId=${c.id}`),
+        fetch(`/api/licencias/orders?studentId=${c.id}&identificador=${encodeURIComponent(identificadorActivo)}`),
       ]);
       const cat = await catRes.json();
       if (!catRes.ok) throw new Error(cat.error ?? 'Error');
@@ -259,7 +259,13 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
       const res = await fetch('/api/licencias/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: student!.id, curso: effCurso || curso, email, cods: [...selected] }),
+        body: JSON.stringify({
+          identificador: identificadorActivo,
+          studentId: student!.id,
+          curso: effCurso || curso,
+          email,
+          cods: [...selected],
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error');
