@@ -2,6 +2,7 @@
 // justificante, minimalistas y con un footer distinto cada vez para hacer más
 // llevadera la burocracia. Usa el cliente único de src/lib/email.ts.
 import { getResend, FROM } from '@/lib/email';
+import { sendChunks, type BlastItem } from '@/lib/correos';
 import type { SalTrip } from '@/db/schema';
 import type { TripStats } from '@/lib/salidas-server';
 
@@ -118,42 +119,31 @@ export async function sendJustificanteConfirmacion(input: {
   });
 }
 
-/** Recordatorio de pago: un email por familia pendiente, con variables sustituidas. */
+/**
+ * Recordatorio de pago: un email por tutor (no uno por familia) con variables sustituidas,
+ * batch de 100 y enlaces auto-clicables — mismos primitivos que el envío masivo de Licencias
+ * (src/lib/correos.ts). `enlace` es el magic link personal de la familia (opcional — no todas
+ * tienen token). Antes era un único envío con `to` a todos los tutores de golpe (así cada
+ * tutor veía el correo del otro en el `to`); ahora cada tutor recibe su propia copia.
+ */
 export async function sendRecordatorioPago(input: {
   trip: SalTrip;
   subject: string;
   body: string;
-  /** `enlace`: magic link personal de la familia (opcional — no todas tienen token). */
   familias: { nombre: string; emails: string[]; enlace?: string }[];
 }): Promise<{ enviados: number; errores: number }> {
-  if (!process.env.RESEND_API_KEY) return { enviados: 0, errores: 0 };
-  const resend = getResend();
-  let enviados = 0;
-  let errores = 0;
-  const rellenar = (t: string, nombre: string, enlace: string) =>
-    t
-      .replace(/\{alumno\}/gi, nombre)
-      .replace(/\{salida\}/gi, input.trip.nombre)
-      .replace(/\{fecha\}/gi, fechaBonita(input.trip.fecha))
-      .replace(/\{importe\}/gi, input.trip.importe ? `${input.trip.importe} €` : '')
-      .replace(/\{enlace\}/gi, enlace);
-  for (const f of input.familias) {
-    try {
-      const enlaceHtml = f.enlace ? `<a href="${f.enlace}" style="color:#2563eb">${f.enlace}</a>` : '';
-      await resend.emails.send({
-        from: FROM,
-        to: f.emails,
-        subject: rellenar(input.subject, f.nombre, f.enlace ?? ''),
-        html: `<div style="font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px 16px;color:#18181b;white-space:pre-wrap;font-size:15px">${rellenar(
-          input.body,
-          f.nombre,
-          enlaceHtml,
-        )}</div>`,
-      });
-      enviados++;
-    } catch {
-      errores++;
-    }
-  }
-  return { enviados, errores };
+  const items: BlastItem[] = input.familias.flatMap((f) =>
+    f.emails.map((email) => ({
+      email,
+      vars: {
+        alumno: f.nombre,
+        salida: input.trip.nombre,
+        fecha: fechaBonita(input.trip.fecha),
+        importe: input.trip.importe ? `${input.trip.importe} €` : '',
+        enlace: f.enlace ?? '',
+      },
+    })),
+  );
+  const { sent, errors } = await sendChunks(items, input.subject, input.body);
+  return { enviados: sent, errores: errors };
 }

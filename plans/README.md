@@ -31,7 +31,7 @@ su fila al terminar.
 | [008](008-public-ui-motion-consistency.md) | Coherencia UI/motion pública: tipografía, curso dinámico, stepAnim, reduced-motion, haptics | P2 | M | — | DONE |
 | [010](010-salidas-magic-link.md) | Estrenar magic link de familias en Salidas (`?t=` + `{enlace}` en recordatorio) | P2 | S | — | DONE* |
 | [012](012-pwa-fase-1.md) | PWA Fase 1: manifest de gestión + marca azul (priorizada por David) | P2 | S | — | DONE* |
-| [011](011-email-blast-consolidation.md) | Motor único de correo masivo (portar Salidas a sendChunks) | P3 | M | mejor tras 010 | TODO |
+| [011](011-email-blast-consolidation.md) | Motor único de correo masivo (portar Salidas a sendChunks) | P3 | M | mejor tras 010 | DONE* |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (con motivo) | REJECTED (con motivo)
 
@@ -55,6 +55,16 @@ maskable queda `[~]` en `05-pwa.md`: los ficheros actuales son placeholders gen�
 (no el logo del colegio) sin margen de seguridad — hace falta que David aporte un asset
 cuadrado del emblema para regenerarlos bien; `public/logobur.png` es un lockup
 horizontal, no sirve tal cual.
+
+\* 011: primitivos extraídos a src/lib/correos.ts (licencias-email.ts ahora solo
+reexporta, cero duplicados) y sendRecordatorioPago portado a sendChunks — de paso pasa
+de un único envío con `to` a todos los tutores (se veían el correo entre ellos) a un
+envío por tutor, y el cuerpo ya no necesita `<a href>` manual: wrapHtml() auto-enlaza
+`{enlace}` igual que cualquier URL. 10 tests nuevos sobre applyVars/escapar/enlazarUrls/
+wrapHtml (83/83 en total). No comprobado: no había ninguna salida real con
+recordatorios en vuelo esta semana (solo dos salidas "Pruebecita" de prueba), así que no
+se disparó un envío real; falta que David haga un envío de PRUEBA real desde el panel
+para ver el resultado en un cliente de correo de verdad.
 
 ## Dependency notes
 
