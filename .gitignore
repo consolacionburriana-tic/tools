@@ -55,3 +55,6 @@ ejemploeducamos*
 
 # Exports con datos personales para desarrollo local — NUNCA commitear
 /refs/
+
+# Copias de seguridad sueltas — no versionar snapshots de componentes aquí
+/backups/
