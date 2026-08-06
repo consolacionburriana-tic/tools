@@ -81,9 +81,9 @@ existe; el formulario de Salidas todavía no lee el `?t=`).
 - Definir el **catálogo de preguntas predefinidas** (los 8-10 textos de la plantilla). Se puede
   arrancar con textos provisionales y afinarlos al usarlo.
 
-### Banco de libros
-- ¿El `academic_year` en vigor vive como constante en código o en una tabla mínima de
-  configuración? (decidir al implementar la Fase 0; apuntado también en la ficha).
+### ~~Banco de libros: dónde vive el `academic_year`~~ ✅ decidido e implementado
+Constante en código (`academicYearActual()` en `src/lib/constants.ts`), sin tabla de
+configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolibros.md).
 
 ---
 
@@ -94,7 +94,8 @@ Recopilados de las fichas, para verlos de un vistazo:
 - ~~**Educamos**: un export real de alumnado y de tutores~~ ✅ recibido (jul 2026) — mapeo de
   columnas fijado en `02-integracion-educamos.md`. El fichero NO se commitea (`.gitignore`).
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
-- **Vercel Blob**: activar el store para justificantes — pasitos en `15-salidasypagos.md`.
+- ~~**Vercel Blob**: activar el store para justificantes~~ ✅ hecho — store creado, token
+  disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
 

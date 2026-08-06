@@ -17,11 +17,14 @@ El **roadmap de hitos** (en qué orden se construye todo) está en `docs/platafo
 
 ## Stack
 
-- **Next.js 16** (App Router, TypeScript)
-- **Tailwind CSS v4** + **shadcn/ui**
+- **Next.js 16** (App Router, TypeScript estricto) — atención: Next 16 tiene cambios de
+  ruptura respecto a versiones anteriores, ver `node_modules/next/dist/docs/`
+- **Tailwind CSS v4** + **shadcn/ui** sobre **@base-ui/react** (no Radix)
+- **Auth.js v5** (`next-auth`) — login con Google, solo cuentas del dominio del colegio
 - **Motion** (`motion/react`) para animaciones
 - **Drizzle ORM** sobre **Neon Postgres** (serverless)
 - **Zod** + **react-hook-form**
+- **Resend** para email, **Vercel Blob** para adjuntos privados
 - **date-fns** locale `es`
 - **PWA básica** (instalable en iPad)
 - Deploy en **Vercel**
@@ -47,11 +50,11 @@ pnpm install
 cp .env.local.example .env.local
 ```
 
-5. Edita `.env.local` y pega tu connection string:
-
-```
-DATABASE_URL="postgresql://user:pass@host/db?sslmode=require"
-```
+5. Edita `.env.local` con tus valores. La lista completa de variables en uso (con qué
+   son y para qué sirve cada una) está en la tabla de
+   [`docs/04-convenciones-tecnicas.md`](./docs/04-convenciones-tecnicas.md#variables-de-entorno) —
+   para desarrollo local basta con `DATABASE_URL`, `AUTH_*` y `RESEND_API_KEY`; el resto
+   (Google Sheets, Blob) solo hace falta si vas a tocar esos módulos.
 
 ### 3. Crear las tablas
 
@@ -82,28 +85,39 @@ Abre [http://localhost:3000](http://localhost:3000)
 | Comando | Descripción |
 |---------|-------------|
 | `pnpm dev` | Servidor de desarrollo |
-| `pnpm build` | Build de producción |
-| `pnpm db:push` | Sincronizar schema con la BD |
+| `pnpm build` | Build de producción — **siempre antes de dar algo por hecho** |
+| `pnpm lint` | ESLint |
+| `pnpm db:push` | Sincronizar schema con la BD (siempre aditivo) |
 | `pnpm db:generate` | Generar migraciones |
 | `pnpm db:studio` | Abrir Drizzle Studio (BD visual) |
-| `pnpm db:seed` | Cargar datos de ejemplo |
+| `pnpm db:seed` | Cargar datos de ejemplo del módulo ABC |
+| `pnpm db:seed:licencias` | Seed puntual de Licencias |
+| `pnpm tokens:familias` | Genera los magic links de familias de la campaña activa |
 
 ## Herramientas disponibles
 
-### Registro ABC (`/registro-abc`)
+Seis módulos, cada uno con su formulario público (si recibe datos de familias) y su
+panel de gestión bajo `/gestion/<modulo>` (detrás de login con Google, solo cuentas
+`@consolacionburriana.com`). Estado y detalle completo de cada uno en
+[`docs/plataforma.md`](./docs/plataforma.md) — aquí solo el mapa rápido:
 
-Formulario para registrar conductas disruptivas de alumnos con NEE. Diseñado para rellenarse desde iPad en menos de 90 segundos.
+| Módulo | Formulario público | Panel de gestión |
+|---|---|---|
+| Registro ABC (conductas disruptivas) | `/registro-abc` (claustro, con sesión) | `/gestion/abc` |
+| Licencias digitales | `/licencias` | `/gestion/licencias` |
+| Salidas y pagos | `/salidas` | `/gestion/salidas` |
+| Banco de libros | — | `/gestion/bancolibros` |
+| BBDD central Educamos (alumnado + tutores + profes) | — | `/gestion/educamos` |
+| Usuarios y roles | — | `/gestion/usuarios` |
 
-**Características:**
-- Auto-guardado del borrador en localStorage (debounced 500ms)
-- Botón guardar sticky con safe-area-inset
-- Animaciones sutiles con motion/react
-- Haptics en iOS Safari ≥17.4 (PWA) y Android Chrome
-- Dark mode automático
+`/admin` es una ruta heredada de antes del login: hoy es solo un redirect a
+`/gestion/abc` para no romper marcadores antiguos.
 
-### Admin (`/admin`)
-
-Gestión de alumnos, profesores y visualización de registros con gráficos.
+Todos comparten Neon (una tabla por módulo, prefijo propio en `src/db/schema.ts`) y
+Resend para las notificaciones por correo. Convenciones de código, patrones y
+"definition of done" en
+[`docs/04-convenciones-tecnicas.md`](./docs/04-convenciones-tecnicas.md) — lectura
+obligada antes de tocar código.
 
 ## Deploy en Vercel
 
@@ -121,8 +135,11 @@ git push -u origin main
 
 1. Ve a [vercel.com/new](https://vercel.com/new)
 2. Importa el repositorio de GitHub
-3. En **Environment Variables**, añade:
-   - `DATABASE_URL` = tu connection string de Neon
+3. En **Environment Variables**, añade todas las variables de la tabla de
+   [`docs/04-convenciones-tecnicas.md`](./docs/04-convenciones-tecnicas.md#variables-de-entorno)
+   — no solo `DATABASE_URL`: sin `RESEND_API_KEY` los correos se saltan en silencio, sin
+   `GOOGLE_SHEETS_*` falla la sincronización de Licencias, y sin `BLOB_READ_WRITE_TOKEN`
+   fallan las subidas de justificantes de Salidas
 4. Despliega
 
 ### 3. Dominio custom (`tools.consolacionburriana.com`)
@@ -149,8 +166,8 @@ La app se abrirá en modo fullscreen y los haptics funcionarán al 100% (Taptic 
 
 ---
 
-## Próximas fases
+## Roadmap
 
-- **Fase 2**: Autenticación con Clerk
-- **Fase 3**: IA con Gemini para sugerencias de conducta
-- **Fase 4**: Notificaciones y emails con Resend
+El roadmap real (hitos, qué está hecho y qué falta módulo a módulo) vive en
+[`docs/plataforma.md`](./docs/plataforma.md) — es un documento vivo, así que no se
+duplica aquí.

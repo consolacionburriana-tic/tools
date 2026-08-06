@@ -43,7 +43,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 
 | `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
 
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) — **pendiente de crear el store** |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
 código que la usa.
@@ -96,8 +96,8 @@ src/components/<modulo>/          # componentes propios del módulo
   botón de guardar sticky con `safe-area-inset`, formularios completables en <90s.
 - **Dark mode automático** (next-themes): todo componente nuevo se revisa en claro y oscuro.
 - Animaciones con `motion/react` (transiciones de confirmación, checks "latentes" — ver
-  Licencias como referencia). Haptics con `ios-haptics`: `haptic()` tap, `haptic.confirm()`
-  éxito, `haptic.error()` error.
+  Licencias como referencia). Haptics con `ios-haptics` vía `src/lib/haptics.ts`:
+  `haptic.tap()` toque, `haptic.success()` éxito, `haptic.warning()` error/aviso.
 - Gráficos con **recharts** (referencia: panel del ABC). Toasts con **sonner**. Iconos
   **lucide-react**. Marca: logo `public/logobur.png` y acento azul (referencia: portada y
   formulario de Licencias).

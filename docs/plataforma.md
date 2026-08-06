@@ -45,7 +45,11 @@ Cuando David diga "sigue haciendo" (o equivalente) sin más contexto, este es el
    siguiente casilla desbloqueada.
 4. Implementa, verifica (build + prueba manual o por API), y **marca la casilla `[x]` en la
    ficha en el mismo commit** que el código. Una casilla sin marcar = no está hecho; una casilla
-   marcada = está hecho y verificado. No hay tercer estado.
+   marcada = está hecho y verificado.
+   Excepción: una casilla puede marcarse `[~]` = "código terminado, pendiente solo de
+   verificación o credenciales de David" — cuenta como bloqueada (ver punto 3), no como
+   pendiente de implementar. No abuses de este estado: solo cuando el código ya existe y
+   funciona, y lo único que falta es algo que solo David puede dar o probar.
 5. Si durante el trabajo surge una decisión nueva, no la tomes en silencio: apúntala en
    `00-desarrollos-futuros.md` (si bloquea, en "Decisiones pendientes"; si no, en "Ideas") y
    menciónala al reportar.
@@ -66,7 +70,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
-| Salidas y pagos | ✅ | ✅ | ✅ (Blob activo; falta solo correos masivos a pendientes) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
+| Salidas y pagos | ✅ | ✅ | ✅ (Blob activo, correos de recordatorio activos; falta export CSV) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ✅ (participantes, lotes y valoración por libro; extras en Fase 3) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ⬜ | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (manifest global; falta start_url/SW) | [`05-pwa.md`](./05-pwa.md) |

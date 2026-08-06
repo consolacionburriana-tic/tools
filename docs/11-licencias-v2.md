@@ -75,9 +75,11 @@ Pendiente **solo por credenciales/accesos externos** (no por código):
 - **Educamos:** importar la BBDD ahora, dejar capa "proveedor de alumnos" lista para enganchar
   su API después (el `ID Educamos` ya viaja en los datos). XLS Educamos = un fichero por curso,
   col E = `ID Educamos`, col F = importe (coma decimal). Para fase posterior.
-- **Login gestores:** simple — `licencias@consolacionburriana.com` / `Licencias2025`.
+- **Login gestores (histórico):** login propio por cookie, retirado en el hito 2 — ver
+  `01-auth-roles.md`. La credencial que figuraba aquí se considera quemada (queda en el
+  historial de git): no reutilizarla en ningún sistema.
 - **Resend remitente:** `licencias@consolacionburriana.com`.
-- **Dónde vive:** repo `tools`. Form público en `app/(public)/licencias`, panel en `app/admin/licencias`.
+- **Dónde vive:** repo `tools`. Form público en `app/(public)/licencias`, panel en `src/app/gestion/licencias/`.
 
 ### Datos reales (campaña 2026/27)
 - 534 alumnos (474 BdL / 60 no · 401 Castellano / 133 Valenciano · 3 sin ID Educamos).
@@ -135,7 +137,7 @@ Verificado visualmente en claro y oscuro.
 
 ## Fase 2 · Panel de gestión + export a Google Sheets
 
-- [x] Login simple (`licencias@consolacionburriana.com` / `Licencias2025`) — cookie + middleware
+- [x] Login simple por cookie (retirado en el hito 2 — ver `01-auth-roles.md`)
 - [x] Panel en `/gestion` (fuera del layout de `/admin` para no exponer las rutas del ABC)
 - [x] Dashboard: KPIs (alumnos, con pedido, % , faltan, ingresos, licencias) + desglose por curso
 - [x] Indicadores en el formulario: banco de libros destacado, idioma de clase (Cast/Val) y badge "Valencià" en libros
@@ -148,7 +150,9 @@ Verificado visualmente en claro y oscuro.
       catálogo por pack con su pista (display, no bloqueante). Casado por código base (CAS/VAL).
 - [x] Exportaciones CSV — `/gestion/exportar`: ENVIAR SI/NO (FormMule) + GRATIS BdL,
       pagos consolidado, Educamos (ID+importe), pagos por libro. Descargas protegidas por cookie.
-  - [ ] Escritura directa en el Google Sheet (pendiente: cuenta de servicio de Google)
+  - [~] Escritura directa en el Google Sheet — código listo (`src/lib/google-sheets.ts`,
+        `syncOrdersToSheet`); pendiente de verificar la escritura de punta a punta con la
+        cuenta de servicio real
 - [x] **Envío de correos desde el panel** — `/gestion/correos`: destinatarios "quienes faltan"
       o "quienes ya tienen", asunto + mensaje con variables `{nombre}/{apellidos}/{curso}`,
       vista previa, envío de prueba y envío masivo con confirmación (Resend batch de 100).
@@ -178,9 +182,9 @@ plazo, tenéis hasta el X") con un enlace propio que la identifica y le lista a 
       familia** antes del masivo
 - [x] Aviso en el panel de los **alumnos sin correo de tutor** (esos no reciben enlace)
 - [x] Script de terminal `pnpm tokens:familias` (`--listar`, `--dias N`) para generarlos en masa
-- [ ] **Generar los tokens de la campaña 2026/27 contra Neon** — pendiente de David: no se pudo
-      hacer desde la sesión de desarrollo (sin `DATABASE_URL`). Es `pnpm db:push` (columnas
-      nuevas) y luego el botón "Generar los enlaces que falten" o `pnpm tokens:familias`
+- [~] **Generar los tokens de la campaña 2026/27 contra Neon** — código listo
+      (`pnpm tokens:familias` / botón "Generar los enlaces que falten"); es una escritura real
+      sobre la campaña activa, pendiente de que David dé el visto bueno para ejecutarla
 - [ ] Envío real de estreno (probar con una familia y luego el masivo por cursos)
 
 > Ojo: los enlaces son **credenciales**. El CSV de `/gestion/licencias/accesos` da acceso a los
