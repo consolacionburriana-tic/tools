@@ -21,7 +21,7 @@ export function RecordatorioPanel({ tripId, nombre, fecha, importe, tipoPago }: 
   const [body, setBody] = useState(
     tipoPago === 'mano'
       ? `Hola,\n\nOs recordamos que queda pendiente el pago de {importe} de "{salida}" ({fecha}) de {alumno}. Se entrega en mano al profesorado responsable.\n\nSi ya lo habéis entregado estos días, ignorad este correo.\n\nGracias,\nColegio Consolación · Burriana`
-      : `Hola,\n\nOs recordamos que queda pendiente el justificante de pago de "{salida}" ({fecha}, {importe}) de {alumno}.\n\nPodéis subirlo en un minuto desde:\nhttps://tools.consolacionburriana.com/salidas\n\nSi ya lo habéis enviado estos días, ignorad este correo.\n\nGracias,\nColegio Consolación · Burriana`,
+      : `Hola,\n\nOs recordamos que queda pendiente el justificante de pago de "{salida}" ({fecha}, {importe}) de {alumno}.\n\nPodéis subirlo en un minuto desde vuestro enlace personal:\n{enlace}\n\nSi ya lo habéis enviado estos días, ignorad este correo.\n\nGracias,\nColegio Consolación · Burriana`,
   );
   const [testEmail, setTestEmail] = useState('');
   const [busy, setBusy] = useState(false);

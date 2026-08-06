@@ -8,7 +8,16 @@ export const metadata = {
   description: 'Justificantes de pago de salidas escolares',
 };
 
-export default function SalidasPage() {
+// Magic link de familias: `/salidas?t=tok_…` (se acepta `?tok=` como alias porque es lo
+// que la gente teclea al copiar el enlace a mano). El token se valida al identificar.
+export default async function SalidasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ t?: string; tok?: string }>;
+}) {
+  const { t, tok } = await searchParams;
+  const tokenAcceso = (t ?? tok ?? '').trim() || null;
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <main className="anim-stagger mx-auto w-full max-w-xl px-4 py-8">
@@ -26,7 +35,7 @@ export default function SalidasPage() {
           <h1 className="mt-5 text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Salidas y pagos</h1>
           <p className="mt-1 text-sm text-zinc-500">Colegio Consolación Burriana</p>
         </div>
-        <SalidasFamilia />
+        <SalidasFamilia tokenAcceso={tokenAcceso} />
       </main>
     </div>
   );

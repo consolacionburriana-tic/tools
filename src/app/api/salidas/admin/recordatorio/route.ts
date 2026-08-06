@@ -4,8 +4,37 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { salTrips } from '@/db/schema';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { getPendientesPago } from '@/lib/salidas-server';
+import { getPendientesPago, type PendientePago } from '@/lib/salidas-server';
 import { sendRecordatorioPago } from '@/lib/salidas-email';
+import { appBaseUrl } from '@/lib/constants';
+import { urlAccesoFamilia } from '@/lib/familias';
+import { ensureTokens, getFamiliasDeAlumnos, marcarTokensEnviados } from '@/lib/fam-tokens-server';
+
+const DIAS_VALIDEZ = 120;
+
+// Un enlace por familia (agrupada por correo de tutor), indexado por el eduStudentId de cada
+// pendiente para poder adjuntarlo a su envío. Si un alumno tiene dos tutores con distinto
+// correo, se usa el enlace del primero — el envío ya va a ambos correos en el mismo `to`.
+async function enlacesPorAlumno(
+  pendientes: PendientePago[],
+): Promise<{ porAlumno: Map<string, string>; tokensUsados: string[] }> {
+  const eduStudentIds = pendientes.map((p) => p.eduStudentId);
+  const { familias } = await getFamiliasDeAlumnos(eduStudentIds);
+  if (familias.length === 0) return { porAlumno: new Map(), tokensUsados: [] };
+  const expiresAt = new Date(Date.now() + DIAS_VALIDEZ * 24 * 60 * 60 * 1000);
+  const tokens = await ensureTokens(familias, { proposito: 'salidas', expiresAt });
+  const base = appBaseUrl();
+  const porAlumno = new Map<string, string>();
+  const tokensUsados: string[] = [];
+  for (const f of familias) {
+    const asignado = tokens.get(f.email);
+    if (!asignado) continue;
+    tokensUsados.push(asignado.token);
+    const enlace = urlAccesoFamilia(base, 'salidas', asignado.token);
+    for (const id of f.hijosObjetivo) if (!porAlumno.has(id)) porAlumno.set(id, enlace);
+  }
+  return { porAlumno, tokensUsados };
+}
 
 const bodySchema = z.object({
   tripId: z.string().uuid(),
@@ -29,17 +58,22 @@ export async function POST(request: Request) {
     if (!input.subject?.trim() || !input.body?.trim()) {
       return NextResponse.json({ error: 'Faltan asunto o mensaje' }, { status: 400 });
     }
+    const { porAlumno, tokensUsados } = await enlacesPorAlumno(familias);
+
     if (input.accion === 'test') {
       if (!input.testEmail) return NextResponse.json({ error: 'Falta el correo de prueba' }, { status: 400 });
+      const enlaceEjemplo = familias.length > 0 ? porAlumno.get(familias[0].eduStudentId) : undefined;
       const r = await sendRecordatorioPago({
         trip,
         subject: input.subject,
         body: input.body,
-        familias: [{ nombre: 'Alumno de Prueba', emails: [input.testEmail] }],
+        familias: [{ nombre: 'Alumno de Prueba', emails: [input.testEmail], enlace: enlaceEjemplo }],
       });
       return NextResponse.json({ ok: true, ...r });
     }
-    const r = await sendRecordatorioPago({ trip, subject: input.subject, body: input.body, familias });
+    const familiasConEnlace = familias.map((f) => ({ ...f, enlace: porAlumno.get(f.eduStudentId) }));
+    const r = await sendRecordatorioPago({ trip, subject: input.subject, body: input.body, familias: familiasConEnlace });
+    if (r.enviados > 0 && tokensUsados.length > 0) await marcarTokensEnviados(tokensUsados);
     return NextResponse.json({ ok: true, ...r, count: familias.length });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Error' }, { status: 400 });

@@ -123,27 +123,31 @@ export async function sendRecordatorioPago(input: {
   trip: SalTrip;
   subject: string;
   body: string;
-  familias: { nombre: string; emails: string[] }[];
+  /** `enlace`: magic link personal de la familia (opcional — no todas tienen token). */
+  familias: { nombre: string; emails: string[]; enlace?: string }[];
 }): Promise<{ enviados: number; errores: number }> {
   if (!process.env.RESEND_API_KEY) return { enviados: 0, errores: 0 };
   const resend = getResend();
   let enviados = 0;
   let errores = 0;
-  const rellenar = (t: string, nombre: string) =>
+  const rellenar = (t: string, nombre: string, enlace: string) =>
     t
       .replace(/\{alumno\}/gi, nombre)
       .replace(/\{salida\}/gi, input.trip.nombre)
       .replace(/\{fecha\}/gi, fechaBonita(input.trip.fecha))
-      .replace(/\{importe\}/gi, input.trip.importe ? `${input.trip.importe} €` : '');
+      .replace(/\{importe\}/gi, input.trip.importe ? `${input.trip.importe} €` : '')
+      .replace(/\{enlace\}/gi, enlace);
   for (const f of input.familias) {
     try {
+      const enlaceHtml = f.enlace ? `<a href="${f.enlace}" style="color:#2563eb">${f.enlace}</a>` : '';
       await resend.emails.send({
         from: FROM,
         to: f.emails,
-        subject: rellenar(input.subject, f.nombre),
+        subject: rellenar(input.subject, f.nombre, f.enlace ?? ''),
         html: `<div style="font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px 16px;color:#18181b;white-space:pre-wrap;font-size:15px">${rellenar(
           input.body,
           f.nombre,
+          enlaceHtml,
         )}</div>`,
       });
       enviados++;

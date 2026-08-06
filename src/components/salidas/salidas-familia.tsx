@@ -10,6 +10,7 @@ import {
   CircleSlash,
   Clock,
   FileUp,
+  Link2,
   Loader2,
   TriangleAlert,
 } from 'lucide-react';
@@ -65,8 +66,13 @@ function EstadoChip({ estado }: { estado: Trip['estado'] }) {
   );
 }
 
-export function SalidasFamilia() {
+export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | null }) {
   const [identificador, setIdentificador] = useState('');
+  // Acceso por enlace: el token hace de identificador en todas las llamadas. Si el enlace ya
+  // no identifica a nadie (revocado/caducado), lo soltamos y caemos al DNI/NIA de siempre.
+  const [token, setToken] = useState<string | null>(tokenAcceso);
+  const [tokenInvalido, setTokenInvalido] = useState(false);
+  const autoElegido = useRef(false);
   const [buscando, setBuscando] = useState(false);
   const [hijos, setHijos] = useState<Hijo[] | null>(null);
   const [hijo, setHijo] = useState<Hijo | null>(null);
@@ -129,9 +135,11 @@ export function SalidasFamilia() {
     }
   }
 
-  // Buscar hijos con debounce
+  const identificadorActivo = (token ?? identificador).trim();
+
+  // Buscar hijos con debounce (inmediato si viene de un enlace, sin esperar a que "deje de teclear")
   useEffect(() => {
-    const q = identificador.trim();
+    const q = identificadorActivo;
     const handle = setTimeout(async () => {
       if (q.length < 5) {
         setHijos(null);
@@ -146,15 +154,36 @@ export function SalidasFamilia() {
           body: JSON.stringify({ identificador: q }),
         });
         const data = await res.json();
-        setHijos(res.ok ? (data.hijos ?? []) : []);
+        const encontrados: Hijo[] = res.ok ? (data.hijos ?? []) : [];
+        setHijos(encontrados);
+        if (token && encontrados.length === 0) {
+          setTokenInvalido(true);
+          setToken(null); // enlace caducado: volvemos al DNI/NIA de siempre
+        }
       } catch {
         setHijos([]);
       } finally {
         setBuscando(false);
       }
-    }, q.length < 5 ? 0 : 350);
+    }, q.length < 5 || token ? 0 : 350);
     return () => clearTimeout(handle);
-  }, [identificador]);
+  }, [identificadorActivo, token]);
+
+  // Enlace con un solo hijo: entramos directos a sus salidas (un clic menos).
+  useEffect(() => {
+    if (!token || autoElegido.current) return;
+    if (hijo || hijos?.length !== 1) return;
+    autoElegido.current = true;
+    void elegirHijo(hijos[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, hijos, hijo]);
+
+  function entrarConDocumento() {
+    setToken(null);
+    setTokenInvalido(false);
+    setHijos(null);
+    setIdentificador('');
+  }
 
   async function elegirHijo(h: Hijo) {
     setHijo(h);
@@ -165,7 +194,7 @@ export function SalidasFamilia() {
       const res = await fetch('/api/salidas/estado', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identificador: identificador.trim(), eduStudentId: h.eduStudentId }),
+        body: JSON.stringify({ identificador: identificadorActivo, eduStudentId: h.eduStudentId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -184,7 +213,7 @@ export function SalidasFamilia() {
     setEnviando(true);
     try {
       const fd = new FormData();
-      fd.append('identificador', identificador.trim());
+      fd.append('identificador', identificadorActivo);
       if (hijo.manual) {
         fd.append('manualNombre', hijo.maskedName);
         fd.append('manualClase', `${hijo.curso ?? ''}${hijo.letra && hijo.letra !== 'PDC' ? ` ${hijo.letra}` : ''}`);
@@ -225,27 +254,59 @@ export function SalidasFamilia() {
               <p className="mt-2 text-sm text-zinc-500">
                 Identifícate para ver las salidas activas de tu hijo/a y enviar el justificante de pago.
               </p>
-              <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                DNI/NIE de la madre, padre o tutor legal — o NIA del alumno/a
-              </label>
-              <input
-                value={identificador}
-                onChange={(e) => setIdentificador(e.target.value)}
-                placeholder="12345678A"
-                autoComplete="off"
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 tracking-wide text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-              />
+
+              {tokenInvalido && (
+                <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Tu enlace no ha podido identificar a ningún alumno (puede haber caducado). No pasa nada: entra
+                    con el DNI/NIE del tutor o el NIA del alumno/a.
+                  </span>
+                </div>
+              )}
+
+              {token ? (
+                <div className="mt-5 flex gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">
+                  <Link2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Has entrado con <strong>tu enlace personal</strong>, no hace falta teclear ningún dato.
+                    {hijos && hijos.length > 1 && ' Abajo tienes a tus hijos/as: elige por quién empiezas.'}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    DNI/NIE de la madre, padre o tutor legal — o NIA del alumno/a
+                  </label>
+                  <input
+                    value={identificador}
+                    onChange={(e) => setIdentificador(e.target.value)}
+                    placeholder="12345678A"
+                    autoComplete="off"
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 tracking-wide text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                  />
+                </>
+              )}
               <div className="mt-3 min-h-[1.25rem]">
                 {buscando && (
                   <p className="flex items-center gap-2 text-sm text-zinc-400">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Buscando…
+                    <Loader2 className="h-4 w-4 animate-spin" /> {token ? 'Entrando…' : 'Buscando…'}
                   </p>
                 )}
-                {!buscando && hijos !== null && hijos.length === 0 && identificador.trim().length >= 5 && (
+                {!buscando && !token && hijos !== null && hijos.length === 0 && identificador.trim().length >= 5 && (
                   <p className="text-sm text-zinc-500">No encontramos ningún alumno con ese dato. Revisa el DNI o el NIA.</p>
                 )}
               </div>
-              {!modoManual && (
+              {token && (
+                <button
+                  type="button"
+                  onClick={entrarConDocumento}
+                  className="mb-1 text-xs text-zinc-400 underline-offset-2 hover:text-zinc-600 hover:underline dark:hover:text-zinc-300"
+                >
+                  ¿Falta algún hijo/a? Entrar con DNI/NIE o NIA
+                </button>
+              )}
+              {!modoManual && !token && (
                 <button
                   type="button"
                   onClick={() => void abrirManual()}
