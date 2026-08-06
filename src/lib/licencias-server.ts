@@ -23,6 +23,7 @@ import {
   normalize,
   resolveBilingual,
   toPdcCurso,
+  totalPedido,
 } from '@/lib/licencias';
 import { identifyFamily } from '@/lib/familias-server';
 import { getFamiliasDeAlumnos, getTokensVigentes, type FamiliaDestino } from '@/lib/fam-tokens-server';
@@ -473,9 +474,7 @@ export async function upsertOrder(
   // Validar códigos contra el catálogo real del alumno (precio de confianza desde la BD)
   const catalog = await getCatalog(student, cursoFinal);
   const byCod = new Map(catalog.map((b) => [b.cod, b]));
-  const valid = cods.filter((c) => byCod.has(c));
-  const total = valid.reduce((sum, c) => sum + parseFloat(byCod.get(c)!.precio || '0'), 0);
-  const totalStr = total.toFixed(2);
+  const { valid, total, totalStr } = totalPedido(cods, byCod);
 
   const existing = await getOrderForStudent(student.campaignId, student.id);
 
@@ -632,8 +631,7 @@ export async function updateOrderItemsAdmin(orderId: string, cods: string[], ema
   const curso = order.curso ?? student.curso;
   const catalog = await getCatalog(student, curso);
   const byCod = new Map(catalog.map((b) => [b.cod, b]));
-  const valid = cods.filter((c) => byCod.has(c));
-  const total = valid.reduce((sum, c) => sum + parseFloat(byCod.get(c)!.precio || '0'), 0);
+  const { valid, totalStr } = totalPedido(cods, byCod);
 
   await db.delete(licOrderItems).where(eq(licOrderItems.orderId, orderId));
   if (valid.length > 0) {
@@ -653,7 +651,7 @@ export async function updateOrderItemsAdmin(orderId: string, cods: string[], ema
   }
   await db
     .update(licOrders)
-    .set({ totalPrice: total.toFixed(2), updatedAt: new Date(), ...(email !== undefined ? { email: email.trim() || null } : {}) })
+    .set({ totalPrice: totalStr, updatedAt: new Date(), ...(email !== undefined ? { email: email.trim() || null } : {}) })
     .where(eq(licOrders.id, orderId));
 }
 

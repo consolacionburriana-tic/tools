@@ -85,6 +85,21 @@ export function euros(n: number): string {
   return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 }
 
+/**
+ * Total de un pedido: filtra los códigos que existen en el catálogo y suma sus
+ * precios de confianza (el catálogo, no lo que mande el cliente). Compartido por
+ * upsertOrder y updateOrderItemsAdmin en licencias-server.ts para que el total que
+ * ve la familia y el que recalcula el panel sean siempre el mismo cálculo.
+ */
+export function totalPedido(
+  cods: string[],
+  byCod: Map<string, { precio: string | null }>,
+): { valid: string[]; total: number; totalStr: string } {
+  const valid = cods.filter((c) => byCod.has(c));
+  const total = valid.reduce((sum, c) => sum + parseFloat(byCod.get(c)!.precio || '0'), 0);
+  return { valid, total, totalStr: total.toFixed(2) };
+}
+
 // ── Correos a familias (magic links) ──────────────────────────────────────────
 // Helpers puros compartidos por la vista previa del panel y por el envío real, para que
 // lo que David ve en pantalla sea EXACTAMENTE lo que recibe la familia.

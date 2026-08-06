@@ -24,7 +24,7 @@ su fila al terminar.
 | [002](002-licencias-orders-revalidation.md) | IDOR en `/api/licencias/orders`: revalidar identificador familiar | P1 | M | — | DONE |
 | [003](003-dependency-security-hygiene.md) | Bumps de seguridad (next ≥16.2.11, next-auth beta.32) + shadcn a devDeps + borrar backups/ | P1 | S | — | DONE* |
 | [009](009-docs-reconciliation.md) | Docs veraces + retirar credencial en claro de docs/11 + .env.local.example completo | P1 | S | — | DONE |
-| [004](004-test-baseline-vitest.md) | Baseline vitest + typecheck + tests de dinero/identificación/catálogo | P1 | M | — | TODO |
+| [004](004-test-baseline-vitest.md) | Baseline vitest + typecheck + tests de dinero/identificación/catálogo | P1 | M | — | DONE |
 | [005](005-educamos-characterization-tests.md) | Caracterización del motor Educamos (parse/match/plan) | P2 | M | 004 | TODO |
 | [006](006-neon-batching.md) | db.batch en syncs de licencias, bulk bancolibros, Promise.all en lecturas | P2 | M | 004 (recomendado) | TODO |
 | [007](007-frontend-asset-perf.md) | recharts con dynamic import + logo por next/image | P2 | S | — | TODO |

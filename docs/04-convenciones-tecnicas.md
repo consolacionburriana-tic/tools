@@ -23,6 +23,8 @@ Resend · date-fns (locale `es`) · recharts (gráficos) · sonner (toasts) · l
 pnpm dev          # desarrollo
 pnpm build        # SIEMPRE antes de dar algo por hecho
 pnpm lint         # eslint
+pnpm typecheck    # tsc --noEmit (más rápido que build para solo tipos)
+pnpm test         # vitest — helpers puros de src/lib/*.ts (sin IO)
 pnpm db:push      # aplicar schema a Neon (drizzle-kit push)
 pnpm db:studio    # inspeccionar la BBDD
 pnpm db:seed:licencias   # seeds puntuales (tsx + dotenv .env.local)
@@ -145,6 +147,7 @@ src/components/<modulo>/          # componentes propios del módulo
 
 ## Definition of done (cada casilla de checklist)
 
+0. `pnpm test` pasa (si tocaste algún helper puro de `src/lib/*.ts`).
 1. `pnpm lint` y `pnpm build` pasan.
 2. Verificado de verdad: prueba manual en dev o llamada a la API con datos reales de dev
    (no "debería funcionar").
