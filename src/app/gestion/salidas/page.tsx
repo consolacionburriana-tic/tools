@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { CalendarDays, ChevronRight, Users } from 'lucide-react';
 import { getSessionUser } from '@/lib/auth-guards';
 import { claseLabel, getTripsForUser } from '@/lib/salidas-server';
+import { NavPending } from '@/components/ui/nav-pending';
 
 export const metadata = { title: 'Salidas · Gestión' };
 
@@ -29,7 +30,7 @@ export default async function SalidasListPage() {
             <Link
               key={t.id}
               href={`/gestion/salidas/${t.id}`}
-              className="block rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+              className="block rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:active:border-blue-600 dark:active:bg-blue-500/5"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -60,6 +61,7 @@ export default async function SalidasListPage() {
                     {t.responsables.length > 0 && <span>Resp.: {t.responsables.map((r) => r.nombre).join(', ')}</span>}
                   </p>
                 </div>
+                <NavPending className="shrink-0" />
                 <ChevronRight className="h-5 w-5 shrink-0 text-zinc-400" />
               </div>
               <div className="mt-3">

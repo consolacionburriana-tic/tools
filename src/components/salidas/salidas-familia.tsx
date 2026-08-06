@@ -73,8 +73,9 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
   const [token, setToken] = useState<string | null>(tokenAcceso);
   const [tokenInvalido, setTokenInvalido] = useState(false);
   const autoElegido = useRef(false);
-  const [buscando, setBuscando] = useState(false);
-  const [hijos, setHijos] = useState<Hijo[] | null>(null);
+  const [hijosRecibidos, setHijos] = useState<Hijo[] | null>(null);
+  // Identificador cuyo resultado ya tenemos (ver licencias-form: estado derivado).
+  const [buscadoPara, setBuscadoPara] = useState('');
   const [hijo, setHijo] = useState<Hijo | null>(null);
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -137,16 +138,17 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
 
   const identificadorActivo = (token ?? identificador).trim();
 
+  // Estado derivado (ver licencias-form): la ruedecita aparece en el mismo golpe de
+  // tecla, sin esperar al debounce, y `hijos` sigue siendo null mientras no tengamos
+  // el resultado de lo que hay escrito ahora (así no se enseña "no encontrado" viejo).
+  const buscando = identificadorActivo.length >= 5 && buscadoPara !== identificadorActivo;
+  const hijos = buscadoPara === identificadorActivo ? hijosRecibidos : null;
+
   // Buscar hijos con debounce (inmediato si viene de un enlace, sin esperar a que "deje de teclear")
   useEffect(() => {
     const q = identificadorActivo;
+    if (q.length < 5) return;
     const handle = setTimeout(async () => {
-      if (q.length < 5) {
-        setHijos(null);
-        setBuscando(false);
-        return;
-      }
-      setBuscando(true);
       try {
         const res = await fetch('/api/salidas/identify', {
           method: 'POST',
@@ -163,9 +165,9 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
       } catch {
         setHijos([]);
       } finally {
-        setBuscando(false);
+        setBuscadoPara(q); // ya hay resultado para `q`: se apaga el "Buscando…"
       }
-    }, q.length < 5 || token ? 0 : 350);
+    }, token ? 0 : 350);
     return () => clearTimeout(handle);
   }, [identificadorActivo, token]);
 

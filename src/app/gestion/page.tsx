@@ -22,6 +22,7 @@ import { signOut } from '@/auth';
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess, ROLE_LABELS, type Module } from '@/lib/permissions';
 import { getCurrentCampaign } from '@/lib/licencias-server';
+import { NavPending } from '@/components/ui/nav-pending';
 
 export const metadata = { title: 'Escritorio · Tools Consolación' };
 
@@ -51,10 +52,10 @@ function ModuleCard({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-3 rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+      className="group flex items-start gap-3 rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:active:border-blue-600 dark:active:bg-blue-500/5"
     >
       <span className="mt-0.5 text-blue-600 dark:text-blue-400">{icon}</span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
           {title}
           {badge && (
@@ -65,6 +66,8 @@ function ModuleCard({
         </span>
         <span className="block text-xs text-zinc-500">{desc}</span>
       </span>
+      {/* Cuál de las tarjetas está cargando (los paneles son force-dynamic) */}
+      <NavPending className="mt-0.5" />
     </Link>
   );
 }

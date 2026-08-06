@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { BookMarked, ChevronLeft, Download, KeyRound, Layers, ListOrdered, Mail, PiggyBank, RefreshCw, Users } from 'lucide-react';
 import { getCurrentCampaign, getDashboardStats } from '@/lib/licencias-server';
+import { NavArrow } from '@/components/ui/nav-pending';
 
 export const metadata = { title: 'Panel · Licencias' };
 
@@ -75,75 +76,75 @@ export default async function GestionPage() {
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Link
                 href="/gestion/licencias/pedidos"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <ListOrdered className="h-4 w-4 text-blue-600" />
                 Pedidos
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
               <Link
                 href="/gestion/licencias/editoriales"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <BookMarked className="h-4 w-4 text-purple-600" />
                 Editoriales
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
               <Link
                 href="/gestion/licencias/packs"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <Layers className="h-4 w-4 text-purple-600" />
                 Packs / itinerarios
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
               <Link
                 href="/gestion/licencias/faltan"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <Users className="h-4 w-4 text-blue-600" />
                 Quién falta
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
               <Link
                 href="/gestion/licencias/exportar"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <Download className="h-4 w-4 text-blue-600" />
                 Exportar
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
               <Link
                 href="/gestion/licencias/economia"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <PiggyBank className="h-4 w-4 text-emerald-600" />
                 Económica
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
               <Link
                 href="/gestion/licencias/correos"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <Mail className="h-4 w-4 text-blue-600" />
                 Correos
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
               <Link
                 href="/gestion/licencias/accesos"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <KeyRound className="h-4 w-4 text-amber-600" />
                 Enlaces de familias
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
               <Link
                 href="/gestion/licencias/sincronizar"
-                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
               >
                 <RefreshCw className="h-4 w-4 text-emerald-600" />
                 Sincronizar
-                <span className="ml-auto text-zinc-400">→</span>
+                <NavArrow className="ml-auto" />
               </Link>
             </div>
 

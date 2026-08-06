@@ -90,21 +90,33 @@ para ver el resultado en un cliente de correo de verdad.
 - **Entrada manual de justificantes sin identificación**: decisión de producto documentada (commit c13ff49, "entrada manual de respaldo", queda marcada para revisión en el panel).
 - **Logging estructurado con requestId (DX-04)** y **ESLint type-aware/prettier (DX-02 parcial)**: valiosos pero por debajo del corte de esta ronda. Backlog.
 
-## 🔴 Prioritario — pendiente de plan con Opus
+## ✅ Feedback instantáneo (percepción de lentitud) — resuelto 2026-08-06
 
-- **Feedback instantáneo en interacciones (percepción de lentitud)**: David reporta que
-  al pulsar (formularios públicos, y probablemente paneles de gestión) la app tarda
-  unos cientos de ms en responder visualmente, lo que genera doble-click/ansiedad del
-  usuario. No es necesariamente un problema de rendimiento real (ver PERF-01..05 en
-  `006-neon-batching.md`, que sí atacan latencia de servidor) sino de **feedback
-  percibido**: falta de estados `disabled`/spinner instantáneos al pulsar, botones que
-  no cambian de aspecto hasta que la respuesta vuelve, ausencia de optimistic UI en
-  acciones de un tap. Requiere auditoría dedicada de cada botón/acción crítica (public:
-  identify/submit de licencias y salidas; gestión: guardar registro ABC, marcar
-  bancolibros, aplicar sync) para decidir caso a caso: disabled+spinner inmediato vs.
-  optimistic update vs. transición ya cubierta por motion. **David ha pedido
-  explícitamente que este plan se investigue y ejecute con Opus**, no con el modelo por
-  defecto — anotado aquí el 2026-08-06, pendiente de convertir en plan 013 cuando toque.
+David reportaba que al pulsar algo la app tardaba en responder y eso invitaba a
+repetir el clic. La auditoría descartó que fuera latencia de servidor (los paneles ya
+paralelizan sus queries, y el plan 006 se llevó las rondas HTTP de más): **la causa era
+que no había NINGÚN `loading.tsx` en toda la app**. Con todas las páginas de `/gestion`
+y las públicas en `force-dynamic`, al pulsar un enlace Next hacía el viaje al servidor y
+la pantalla se quedaba congelada en la página anterior, sin una sola señal de vida. En
+iPad, además, no hay `:hover`, así que tocar una tarjeta no producía ningún cambio
+visual.
+
+Resuelto en tres capas (ver commit "perf(ux): feedback instantáneo…"):
+1. **Esqueletos de carga** (`loading.tsx` en las 11 rutas dinámicas + primitivos en
+   `src/components/ui/skeleton.tsx`): al pulsar, la pantalla cambia YA.
+2. **Respuesta al toque** (`globals.css`): `active:scale(0.97)` sin transición
+   (instantáneo, como iOS) + `touch-action: manipulation`, que además quita el retardo
+   del doble-toque de Safari. Antes solo había 6 `active:` en todo el repo.
+3. **Qué se está cargando**: `useLinkStatus` (`src/components/ui/nav-pending.tsx`) en
+   las tarjetas del escritorio, el índice de licencias, el listado de salidas y la nav
+   del ABC, para saber *cuál* de los enlaces respondió al toque.
+
+Extra: en los formularios públicos el "Buscando…" no aparecía hasta vencer el debounce
+de 350ms; ahora es estado derivado y se enciende en el mismo golpe de tecla.
+
+Queda fuera y sigue pendiente si algún día molesta: no hay barra de progreso global de
+navegación (no existe API de eventos de router en App Router; los esqueletos cubren el
+caso), ni optimistic UI nuevo en paneles (bancolibros ya lo hacía bien y es el modelo).
 
 ## Pendientes de decisión de David (no planificables aún)
 

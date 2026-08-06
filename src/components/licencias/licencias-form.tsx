@@ -35,6 +35,11 @@ interface SubmitResult {
   emailStatus: string;
 }
 
+// Identidad estable para la lista vacía: `candidates` es un valor derivado y se usa
+// como dependencia de un efecto, así que devolver un `[]` nuevo en cada render haría
+// que ese efecto se re-ejecutase indefinidamente.
+const SIN_CANDIDATOS: Candidate[] = [];
+
 const isOptativa = (b: CatalogBook) => /optativa/i.test(b.asignatura);
 const isValenciano = (lengua: string | null) => /valenc/i.test(lengua ?? '');
 
@@ -113,7 +118,6 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
   const [step, setStep] = useState<Step>('identify');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [searching, setSearching] = useState(false);
 
   const [curso, setCurso] = useState<string>(''); // curso del candidato elegido (para el catálogo)
   const [identificador, setIdentificador] = useState('');
@@ -123,7 +127,10 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
   const [tokenInvalido, setTokenInvalido] = useState(false);
   const autoElegido = useRef(false);
 
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidatosRecibidos, setCandidates] = useState<Candidate[]>([]);
+  // Identificador cuyo resultado ya tenemos. Comparándolo con lo que hay escrito
+  // ahora mismo sale, sin estado extra, si estamos esperando respuesta.
+  const [buscadoPara, setBuscadoPara] = useState('');
   const [student, setStudent] = useState<Candidate | null>(null);
 
   const [catalog, setCatalog] = useState<CatalogBook[]>([]);
@@ -166,15 +173,18 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
 
   const identificadorActivo = (token ?? identificador).trim();
 
+  // Estado derivado, no duplicado: "estoy buscando" es simplemente "hay algo que
+  // buscar y todavía no tengo el resultado DE ESO". Así la ruedecita aparece en el
+  // mismo golpe de tecla (sin esperar al debounce de 350ms) y vuelve a aparecer si
+  // la familia sigue escribiendo después de recibir unos resultados.
+  const searching = identificadorActivo.length >= 5 && buscadoPara !== identificadorActivo;
+  // Solo se muestran candidatos que correspondan a lo que hay escrito ahora.
+  const candidates = buscadoPara === identificadorActivo ? candidatosRecibidos : SIN_CANDIDATOS;
+
   useEffect(() => {
     const q = identificadorActivo;
+    if (q.length < 5) return;
     const handle = setTimeout(async () => {
-      if (q.length < 5) {
-        setCandidates([]);
-        setSearching(false);
-        return;
-      }
-      setSearching(true);
       try {
         const res = await fetch('/api/licencias/identify', {
           method: 'POST',
@@ -191,9 +201,9 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
       } catch {
         setCandidates([]);
       } finally {
-        setSearching(false);
+        setBuscadoPara(q); // ya hay resultado para `q`: se apaga el "Buscando…"
       }
-    }, q.length < 5 || token ? 0 : 350); // por enlace no hay que esperar al "deja de teclear"
+    }, token ? 0 : 350); // por enlace no hay que esperar al "deja de teclear"
     return () => clearTimeout(handle);
   }, [identificadorActivo, token]);
 

@@ -153,3 +153,51 @@
 @media (prefers-reduced-motion: reduce) {
   .anim-up, .anim-stagger > * { animation: none; }
 }
+
+/* ── Respuesta al toque (iPad) ──────────────────────────────────────────────
+   Los usuarios reales son profesorado con iPad, donde NO existe :hover: sin un
+   estado :active visible, tocar algo no produce ninguna señal y la app parece
+   colgada. `touch-action: manipulation` además quita el retardo de ~300ms que
+   Safari reserva para el doble-toque de zoom, así que el toque responde antes. */
+button,
+a,
+[role='button'],
+label[for],
+summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hundido sutil al pulsar. Deliberadamente SIN transición: el feedback tiene que
+   ser instantáneo (es justo lo que se echa en falta), igual que los botones
+   nativos de iOS, que se hunden en el touchstart sin interpolar. Los enlaces de
+   texto dentro de un párrafo no se ven afectados: `transform` no se aplica a
+   elementos inline no reemplazados. `.no-press` lo desactiva donde estorbe. */
+button:not(:disabled):not(.no-press):active,
+a:not(.no-press):active,
+[role='button']:not(.no-press):active {
+  transform: scale(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  button:active, a:active, [role='button']:active { transform: none; }
+}
+
+/* ── Esqueletos de carga ────────────────────────────────────────────────────
+   Se usan en los `loading.tsx` de cada sección: al pulsar, la pantalla cambia
+   YA (Next los pinta al instante mientras el servidor responde) en vez de
+   quedarse congelada en la página anterior. */
+@keyframes skeleton-pulse-kf {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.skeleton {
+  animation: skeleton-pulse-kf 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background-color: var(--color-zinc-200, #e4e4e7);
+  border-radius: 0.5rem;
+}
+.dark .skeleton {
+  background-color: var(--color-zinc-800, #27272a);
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
