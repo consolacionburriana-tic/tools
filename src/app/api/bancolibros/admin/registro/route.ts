@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSessionUser, hasModule } from '@/lib/auth-guards';
-import { upsertRegistro } from '@/lib/bancolibros-server';
+import { upsertRegistros } from '@/lib/bancolibros-server';
 
 const ESTADOS = ['nuevo', 'mb', 'b', 'r', 'm', 'mojado'] as const;
 
@@ -22,9 +22,7 @@ export async function POST(request: Request) {
       })
       .parse(await request.json());
     const user = await getSessionUser();
-    for (const asignacionId of asignacionIds) {
-      await upsertRegistro({ asignacionId, bookCod, campos, revisorEmail: user?.email ?? '' });
-    }
+    await upsertRegistros({ asignacionIds, bookCod, campos, revisorEmail: user?.email ?? '' });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Error' }, { status: 400 });

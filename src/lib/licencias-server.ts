@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from '@/db';
 import { getBooksFromSheet, type SheetBookRow, type SheetStudentRow } from '@/lib/google-sheets';
 import { getStudents as getEduStudents } from '@/lib/educamos-server';
@@ -130,19 +131,21 @@ export interface DashboardStats {
 }
 
 export async function getDashboardStats(campaignId: string): Promise<DashboardStats> {
-  const students = await db
-    .select({ id: licStudents.id, curso: licStudents.curso, letra: licStudents.letra })
-    .from(licStudents)
-    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
-  const orders = await db
-    .select({ studentId: licOrders.studentId, total: licOrders.totalPrice, curso: licOrders.curso })
-    .from(licOrders)
-    .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false)));
-  const [{ n }] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(licOrderItems)
-    .innerJoin(licOrders, eq(licOrderItems.orderId, licOrders.id))
-    .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false)));
+  const [students, orders, [{ n }]] = await Promise.all([
+    db
+      .select({ id: licStudents.id, curso: licStudents.curso, letra: licStudents.letra })
+      .from(licStudents)
+      .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
+    db
+      .select({ studentId: licOrders.studentId, total: licOrders.totalPrice, curso: licOrders.curso })
+      .from(licOrders)
+      .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(licOrderItems)
+      .innerJoin(licOrders, eq(licOrderItems.orderId, licOrders.id))
+      .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
+  ]);
 
   const orderByStudent = new Map(orders.map((o) => [o.studentId, o]));
   const ingresos = orders.reduce((s, o) => s + parseFloat(o.total || '0'), 0);
@@ -235,21 +238,23 @@ export interface MissingStudent {
 }
 
 export async function getMissingStudents(campaignId: string): Promise<MissingStudent[]> {
-  const students = await db
-    .select({
-      id: licStudents.id,
-      apellidos: licStudents.apellidos,
-      nombre: licStudents.nombre,
-      curso: licStudents.curso,
-      letra: licStudents.letra,
-      email: licStudents.email,
-    })
-    .from(licStudents)
-    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
-  const orders = await db
-    .select({ studentId: licOrders.studentId })
-    .from(licOrders)
-    .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false)));
+  const [students, orders] = await Promise.all([
+    db
+      .select({
+        id: licStudents.id,
+        apellidos: licStudents.apellidos,
+        nombre: licStudents.nombre,
+        curso: licStudents.curso,
+        letra: licStudents.letra,
+        email: licStudents.email,
+      })
+      .from(licStudents)
+      .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
+    db
+      .select({ studentId: licOrders.studentId })
+      .from(licOrders)
+      .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
+  ]);
   const withOrder = new Set(orders.map((o) => o.studentId));
 
   return students
@@ -273,21 +278,23 @@ export interface Recipient {
 
 // Destinatarios para correos masivos: 'faltan' (sin pedido, correo del alumno) o 'tienen' (correo del pedido)
 export async function getRecipients(campaignId: string, grupo: 'faltan' | 'tienen'): Promise<Recipient[]> {
-  const students = await db
-    .select({
-      id: licStudents.id,
-      apellidos: licStudents.apellidos,
-      nombre: licStudents.nombre,
-      curso: licStudents.curso,
-      letra: licStudents.letra,
-      email: licStudents.email,
-    })
-    .from(licStudents)
-    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
-  const orders = await db
-    .select({ studentId: licOrders.studentId, email: licOrders.email })
-    .from(licOrders)
-    .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false)));
+  const [students, orders] = await Promise.all([
+    db
+      .select({
+        id: licStudents.id,
+        apellidos: licStudents.apellidos,
+        nombre: licStudents.nombre,
+        curso: licStudents.curso,
+        letra: licStudents.letra,
+        email: licStudents.email,
+      })
+      .from(licStudents)
+      .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
+    db
+      .select({ studentId: licOrders.studentId, email: licOrders.email })
+      .from(licOrders)
+      .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
+  ]);
   const orderByStudent = new Map(orders.map((o) => [o.studentId, o]));
   const eff = (s: { curso: string; letra: string | null }) => (isPdcLetra(s.letra) ? toPdcCurso(s.curso) : s.curso);
 
@@ -366,22 +373,24 @@ export async function getFamiliaRecipients(
   campaignId: string,
   opts: { clases?: ClaseLic[]; soloFaltan?: boolean } = {},
 ): Promise<FamiliasResumen> {
-  const alumnos = await db
-    .select({
-      id: licStudents.id,
-      eduStudentId: licStudents.eduStudentId,
-      nombre: licStudents.nombre,
-      apellidos: licStudents.apellidos,
-      apellido1: licStudents.apellido1,
-      curso: licStudents.curso,
-      letra: licStudents.letra,
-    })
-    .from(licStudents)
-    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
-  const orders = await db
-    .select({ studentId: licOrders.studentId })
-    .from(licOrders)
-    .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false)));
+  const [alumnos, orders] = await Promise.all([
+    db
+      .select({
+        id: licStudents.id,
+        eduStudentId: licStudents.eduStudentId,
+        nombre: licStudents.nombre,
+        apellidos: licStudents.apellidos,
+        apellido1: licStudents.apellido1,
+        curso: licStudents.curso,
+        letra: licStudents.letra,
+      })
+      .from(licStudents)
+      .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
+    db
+      .select({ studentId: licOrders.studentId })
+      .from(licOrders)
+      .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
+  ]);
   const conPedido = new Set(orders.map((o) => o.studentId));
 
   const conEdu = alumnos.filter((a) => a.eduStudentId);
@@ -868,8 +877,18 @@ export async function syncBooksFromSheet(campaignId: string): Promise<{ upserted
   const rows = await getBooksFromSheet();
   if (rows.length === 0) return { upserted: 0, deactivated: 0 };
 
-  for (const r of rows) {
-    await db
+  // "Existentes a desactivar" se calcula ANTES del batch: los upserts de abajo solo tocan
+  // filas cuya clave (curso::cod) está en `rows`, así que el resultado de esta consulta es
+  // idéntico si se hace antes o después — pero hacerlo antes permite un único db.batch().
+  const currentKeys = new Set(rows.map((r) => `${r.curso}::${r.cod}`));
+  const existing = await db
+    .select({ id: licBooks.id, curso: licBooks.curso, cod: licBooks.cod })
+    .from(licBooks)
+    .where(and(eq(licBooks.campaignId, campaignId), eq(licBooks.active, true)));
+  const toDeactivate = existing.filter((b) => !currentKeys.has(`${b.curso}::${b.cod}`)).map((b) => b.id);
+
+  const statements: BatchItem<'pg'>[] = rows.map((r) =>
+    db
       .insert(licBooks)
       .values({
         campaignId,
@@ -898,18 +917,12 @@ export async function syncBooksFromSheet(campaignId: string): Promise<{ upserted
           textoFormulario: r.textoFormulario || null,
           active: true,
         },
-      });
-  }
-
-  const currentKeys = new Set(rows.map((r) => `${r.curso}::${r.cod}`));
-  const existing = await db
-    .select({ id: licBooks.id, curso: licBooks.curso, cod: licBooks.cod })
-    .from(licBooks)
-    .where(and(eq(licBooks.campaignId, campaignId), eq(licBooks.active, true)));
-  const toDeactivate = existing.filter((b) => !currentKeys.has(`${b.curso}::${b.cod}`)).map((b) => b.id);
+      }),
+  );
   if (toDeactivate.length > 0) {
-    await db.update(licBooks).set({ active: false }).where(inArray(licBooks.id, toDeactivate));
+    statements.push(db.update(licBooks).set({ active: false }).where(inArray(licBooks.id, toDeactivate)));
   }
+  await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
 
   return { upserted: rows.length, deactivated: toDeactivate.length };
 }
@@ -1045,8 +1058,17 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
   const rows = allRows.filter((r) => IN_SCOPE_CURSOS.has(r.curso));
   if (rows.length === 0) return { upserted: 0, deactivated: 0, outOfScope: allRows.length };
 
-  for (const r of rows) {
-    await db
+  // Igual que en syncBooksFromSheet: se calcula antes del batch porque el resultado no
+  // cambia si se hace antes o después de los upserts (mismo razonamiento que arriba).
+  const currentCodes = new Set(rows.map((r) => r.studentCode));
+  const existing = await db
+    .select({ id: licStudents.id, studentCode: licStudents.studentCode })
+    .from(licStudents)
+    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
+  const toDeactivate = existing.filter((s) => !currentCodes.has(s.studentCode)).map((s) => s.id);
+
+  const statements: BatchItem<'pg'>[] = rows.map((r) =>
+    db
       .insert(licStudents)
       .values({
         campaignId,
@@ -1084,18 +1106,12 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
           lenguaBase: r.lenguaBase,
           active: true,
         },
-      });
-  }
-
-  const currentCodes = new Set(rows.map((r) => r.studentCode));
-  const existing = await db
-    .select({ id: licStudents.id, studentCode: licStudents.studentCode })
-    .from(licStudents)
-    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
-  const toDeactivate = existing.filter((s) => !currentCodes.has(s.studentCode)).map((s) => s.id);
+      }),
+  );
   if (toDeactivate.length > 0) {
-    await db.update(licStudents).set({ active: false }).where(inArray(licStudents.id, toDeactivate));
+    statements.push(db.update(licStudents).set({ active: false }).where(inArray(licStudents.id, toDeactivate)));
   }
+  await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
 
   return { upserted: rows.length, deactivated: toDeactivate.length, outOfScope: allRows.length - rows.length };
 }

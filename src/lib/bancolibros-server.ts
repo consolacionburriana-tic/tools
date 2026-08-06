@@ -259,3 +259,31 @@ export async function upsertRegistro(input: {
       set: { ...input.campos, revisadoPorEmail: input.revisorEmail, revisadoAt: new Date() },
     });
 }
+
+/**
+ * Igual que upsertRegistro pero para varias asignaciones a la vez (bulk "todos MB" de un
+ * curso): un único insert multi-fila en vez de N rondas secuenciales al driver HTTP de Neon.
+ */
+export async function upsertRegistros(input: {
+  asignacionIds: string[];
+  bookCod: string;
+  campos: Partial<{ estado: string | null; borrado: boolean; forrado: boolean; notas: string | null }>;
+  revisorEmail: string;
+}): Promise<void> {
+  const revisadoAt = new Date();
+  await db
+    .insert(blLibroRegistros)
+    .values(
+      input.asignacionIds.map((asignacionId) => ({
+        asignacionId,
+        bookCod: input.bookCod,
+        ...input.campos,
+        revisadoPorEmail: input.revisorEmail,
+        revisadoAt,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [blLibroRegistros.asignacionId, blLibroRegistros.bookCod],
+      set: { ...input.campos, revisadoPorEmail: input.revisorEmail, revisadoAt },
+    });
+}
