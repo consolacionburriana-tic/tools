@@ -10,6 +10,8 @@ import {
   cursoLabel,
   euros,
 } from '@/lib/licencias';
+import { stepAnim } from '@/lib/motion';
+import { haptic } from '@/lib/haptics';
 
 interface Pack {
   name: string;
@@ -106,13 +108,6 @@ function BookCard({ book, on, onToggle }: { book: CatalogBook; on: boolean; onTo
     </button>
   );
 }
-
-const stepAnim = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 },
-  transition: { duration: 0.22, ease: 'easeOut' as const },
-};
 
 export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = null }: Props) {
   const [step, setStep] = useState<Step>('identify');
@@ -212,6 +207,7 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
   }, [token, candidates, step]);
 
   async function elegirAlumno(c: Candidate) {
+    haptic.tap();
     setError(null);
     setLoading(true);
     setStudent(c);
@@ -233,6 +229,7 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
       if (ord.order?.email) setEmail(ord.order.email);
       setStep('licenses');
     } catch {
+      haptic.warning();
       setError('No se pudo cargar el catálogo. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
@@ -251,6 +248,7 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
   async function confirmar() {
     setError(null);
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      haptic.warning();
       setError('Introduce un correo electrónico válido.');
       return;
     }
@@ -270,8 +268,10 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error');
       setResult({ total: data.total, itemCount: data.itemCount, emailStatus: data.emailStatus });
+      haptic.success();
       setStep('done');
     } catch {
+      haptic.warning();
       setError('No se pudo registrar el pedido. Inténtalo de nuevo y si continua contacta con licencias@consolacionburriana.com');
     } finally {
       setLoading(false);

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
+import { MotionConfig } from 'motion/react';
 import { Toaster } from '@/components/ui/sonner';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
@@ -48,9 +49,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-zinc-950">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-          <Toaster richColors position="top-center" />
-          <Analytics />
+          <MotionConfig reducedMotion="user">
+            {children}
+            <Toaster richColors position="top-center" />
+            <Analytics />
+          </MotionConfig>
         </ThemeProvider>
       </body>
     </html>

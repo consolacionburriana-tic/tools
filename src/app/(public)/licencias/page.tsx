@@ -6,7 +6,7 @@ import { LicenciasForm } from '@/components/licencias/licencias-form';
 
 export const metadata = {
   title: 'Solicitud de licencias digitales · Consolación',
-  description: 'Solicitud de licencias digitales · curso 2026/2027',
+  description: 'Solicitud de licencias digitales · Colegio Consolación Burriana',
 };
 
 // Magic link de familias: `/licencias?t=tok_…` (se acepta `?tok=` como alias porque es lo
@@ -26,7 +26,7 @@ export default async function LicenciasPage({
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <main className="mx-auto w-full max-w-xl px-4 py-8">
+      <main className="anim-stagger mx-auto w-full max-w-xl px-4 py-8">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-zinc-200/70">
             <Image
@@ -38,7 +38,7 @@ export default async function LicenciasPage({
               className="h-auto w-[210px] sm:w-[250px]"
             />
           </div>
-          <h1 className="mt-5 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+          <h1 className="mt-5 text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
             Solicitud de licencias digitales 📲
           </h1>
           {campaign && <p className="mt-1 text-sm text-zinc-500">Curso {campaign.academicYear}</p>}

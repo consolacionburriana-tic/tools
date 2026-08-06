@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { stepAnim } from '@/lib/motion';
 
 interface Hijo {
   eduStudentId: string;
@@ -37,13 +38,6 @@ interface Trip {
   importe: string | null;
   estado: 'pendiente' | 'no_va' | 'subido' | 'validado' | 'rechazado';
 }
-
-const stepAnim = {
-  initial: { opacity: 0, x: 24 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -24 },
-  transition: { duration: 0.2 },
-};
 
 function claseDe(h: Hijo): string {
   if (!h.curso) return '';

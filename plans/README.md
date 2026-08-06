@@ -28,7 +28,7 @@ su fila al terminar.
 | [005](005-educamos-characterization-tests.md) | Caracterización del motor Educamos (parse/match/plan) | P2 | M | 004 | DONE |
 | [006](006-neon-batching.md) | db.batch en syncs de licencias, bulk bancolibros, Promise.all en lecturas | P2 | M | 004 (recomendado) | DONE |
 | [007](007-frontend-asset-perf.md) | recharts con dynamic import + logo por next/image | P2 | S | — | DONE |
-| [008](008-public-ui-motion-consistency.md) | Coherencia UI/motion pública: tipografía, curso dinámico, stepAnim, reduced-motion, haptics | P2 | M | — | TODO |
+| [008](008-public-ui-motion-consistency.md) | Coherencia UI/motion pública: tipografía, curso dinámico, stepAnim, reduced-motion, haptics | P2 | M | — | DONE |
 | [010](010-salidas-magic-link.md) | Estrenar magic link de familias en Salidas (`?t=` + `{enlace}` en recordatorio) | P2 | S | — | TODO |
 | [012](012-pwa-fase-1.md) | PWA Fase 1: manifest de gestión + marca azul (priorizada por David) | P2 | S | — | TODO |
 | [011](011-email-blast-consolidation.md) | Motor único de correo masivo (portar Salidas a sendChunks) | P3 | M | mejor tras 010 | TODO |
