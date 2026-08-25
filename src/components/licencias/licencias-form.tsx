@@ -180,6 +180,9 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
   const searching = identificadorActivo.length >= 5 && buscadoPara !== identificadorActivo;
   // Solo se muestran candidatos que correspondan a lo que hay escrito ahora.
   const candidates = buscadoPara === identificadorActivo ? candidatosRecibidos : SIN_CANDIDATOS;
+  // Si ya identificamos a la familia y TODOS sus hijos de esta campaña tienen ya un
+  // pedido, no es un pedido "nuevo": están volviendo a consultarlo/editarlo.
+  const yaTienenPedido = candidates.length > 0 && candidates.every((c) => c.conPedido);
 
   useEffect(() => {
     const q = identificadorActivo;
@@ -317,7 +320,9 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
         {step === 'identify' && (
           <motion.div key="identify" {...stepAnim}>
             <Card>
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Nuevo pedido de licencias</h2>
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                {yaTienenPedido ? 'Consultar estado pedido licencias' : 'Nuevo pedido de licencias'}
+              </h2>
               <p className="mt-2 text-sm text-zinc-500">
 
                 Las licencias digitales <strong>no son obligatorias</strong>. 
@@ -371,9 +376,10 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
                   </p>
                 )}
                 {!searching && !token && identificador.trim().length >= 5 && candidates.length === 0 && (
-                  <p className="text-sm text-zinc-500">
-                    No encontramos ningún alumno con ese dato. Revisa el DNI/NIA o escríbenos abajo.
-                  </p>
+                  <div className="flex items-start gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+                    <span>No encontramos ningún alumno con ese dato. Revisa el DNI/NIA o escríbenos abajo.</span>
+                  </div>
                 )}
               </div>
 

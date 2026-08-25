@@ -163,6 +163,7 @@ export interface Candidate {
   maskedName: string;
   apellidos: string;
   cursoLabel: string;
+  conPedido: boolean;
 }
 
 export interface CatalogBook {

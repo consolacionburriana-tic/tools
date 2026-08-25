@@ -10,6 +10,7 @@ import {
   CircleSlash,
   Clock,
   FileUp,
+  Info,
   Link2,
   Loader2,
   TriangleAlert,
@@ -296,7 +297,10 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
                   </p>
                 )}
                 {!buscando && !token && hijos !== null && hijos.length === 0 && identificador.trim().length >= 5 && (
-                  <p className="text-sm text-zinc-500">No encontramos ningún alumno con ese dato. Revisa el DNI o el NIA.</p>
+                  <div className="flex items-start gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+                    <span>No encontramos ningún alumno con ese dato. Revisa el DNI o el NIA.</span>
+                  </div>
                 )}
               </div>
               {token && (

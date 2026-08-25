@@ -64,6 +64,20 @@ export async function identifyStudentsByFamily(campaignId: string, identificador
         eq(licStudents.active, true),
       ),
     );
+  // Para distinguir "nuevo pedido" de "consultar/editar el que ya hizo" en el heading del form.
+  const orders = rows.length
+    ? await db
+        .select({ studentId: licOrders.studentId })
+        .from(licOrders)
+        .where(
+          and(
+            eq(licOrders.campaignId, campaignId),
+            inArray(licOrders.studentId, rows.map((s) => s.id)),
+            eq(licOrders.archived, false),
+          ),
+        )
+    : [];
+  const conPedidoIds = new Set(orders.map((o) => o.studentId));
   return rows.map((s) => {
     const hijo = identity.hijos.find((h) => h.eduStudentId === s.eduStudentId)!;
     return {
@@ -71,6 +85,7 @@ export async function identifyStudentsByFamily(campaignId: string, identificador
       maskedName: hijo.maskedName, // "Fra. M. Luc."
       apellidos: '',
       cursoLabel: s.curso,
+      conPedido: conPedidoIds.has(s.id),
     };
   });
 }
