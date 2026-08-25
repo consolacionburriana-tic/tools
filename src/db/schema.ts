@@ -488,3 +488,187 @@ export type LicOrder = typeof licOrders.$inferSelect;
 export type NewLicOrder = typeof licOrders.$inferInsert;
 export type LicOrderItem = typeof licOrderItems.$inferSelect;
 export type NewLicOrderItem = typeof licOrderItems.$inferInsert;
+
+// ─── Tool: Evaluaciones de actividades (prefijo eval_) ────────────────────────
+//
+// Modelo mental (ver docs/16-evaluaciones.md):
+//
+//   ACTIVIDAD (eval_activities) = lo que se evalúa. Vive fuera del formulario y está
+//   atada a un curso académico. Se puede copiar del año anterior; las copias comparten
+//   `serie_id`, que es lo que permite comparar "la Convivencia de Inicio" entre cursos.
+//
+//   FORMULARIO (eval_forms) = un envío concreto a UNA audiencia (alumnos, profesores o
+//   familias). La misma actividad puede tener formulario de alumnos y de profesores con
+//   preguntas distintas: son dos formularios que apuntan a la misma actividad.
+//
+//   BLOQUE (eval_blocks) = una actividad DENTRO de un formulario (un formulario puede
+//   evaluar varias). Las preguntas cuelgan del bloque, no de la actividad, porque son
+//   distintas según a quién se pregunte.
+//
+// Anonimato: los formularios son anónimos y así se les dice a quien responde. En los de
+// alumnado, si el enlace llegó personalizado (`?a=<token de invitación>`) se guarda
+// `edu_student_id` para poder investigar incidencias; en los de profesorado NO se guarda
+// jamás identidad ni se marca quién ha respondido (100 % anónimo, decisión cerrada).
+export const evalActivities = pgTable('eval_activities', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(), // '2025-26'
+  nombre: text('nombre').notNull(),
+  fecha: date('fecha'),
+  lugar: text('lugar'),
+  categoria: text('categoria').notNull().default('pastoral'), // pastoral | innovacion | general | otra
+  // Puerta abierta a evaluar cosas que no son actividades (una asignatura y su profe,
+  // una encuesta general a familias…). Hoy solo se crean 'actividad'.
+  tipo: text('tipo').notNull().default('actividad'), // actividad | asignatura | general
+  objetivo: text('objetivo'), // se muestra a PROFESORADO encima de las preguntas
+  resumen: text('resumen'), // versión para ALUMNADO (explica sin "explicar el objetivo")
+  notas: text('notas'), // recordatorio interno, no se muestra a quien responde
+  // Misma actividad a lo largo de los años: al copiar del curso anterior se hereda.
+  serieId: uuid('serie_id').notNull(),
+  archivada: boolean('archivada').notNull().default(false),
+  createdByEmail: text('created_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('eval_activities_year_idx').on(t.academicYear, t.categoria),
+  index('eval_activities_serie_idx').on(t.serieId),
+]);
+
+export const evalForms = pgTable('eval_forms', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  titulo: text('titulo').notNull(),
+  descripcion: text('descripcion'), // intro de la primera pantalla
+  audiencia: text('audiencia').notNull().default('alumnos'), // alumnos | profesores | familias
+  estado: text('estado').notNull().default('borrador'), // borrador | abierto | cerrado
+  token: text('token').notNull().unique(), // enlace público: /evaluaciones/<token>
+  anonimo: boolean('anonimo').notNull().default(true),
+  // Solo alumnado: si el enlace es personalizado, se guarda de qué alumno viene.
+  identificaAlumno: boolean('identifica_alumno').notNull().default(false),
+  pedirClase: boolean('pedir_clase').notNull().default(false), // alumnado
+  pedirEtapa: boolean('pedir_etapa').notNull().default(false), // profesorado
+  requiereLogin: boolean('requiere_login').notNull().default(false),
+  avisoAnonimato: text('aviso_anonimato'), // mini-indicador del pie del formulario
+  mensajeFinal: text('mensaje_final'),
+  clases: jsonb('clases').$type<{ curso: string; letra: string | null }[]>().notNull().default([]),
+  createdByEmail: text('created_by_email'),
+  abiertoAt: timestamp('abierto_at'),
+  cerradoAt: timestamp('cerrado_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const evalBlocks = pgTable('eval_blocks', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
+  activityId: uuid('activity_id').references(() => evalActivities.id), // null = bloque libre
+  titulo: text('titulo').notNull(),
+  intro: text('intro'), // texto sobre las preguntas (objetivo si profes, resumen si alumnos)
+  orden: integer('orden').notNull().default(0),
+});
+
+// Fila de una matriz de escala ("Duración", "Ambiente"…). `clave` es estable: es lo que
+// permite comparar la misma fila entre formularios y entre cursos.
+export interface EvalFila { clave: string; texto: string }
+export interface EvalOpcion { clave: string; texto: string; correcta?: boolean }
+
+export const evalQuestions = pgTable('eval_questions', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  blockId: uuid('block_id').notNull().references(() => evalBlocks.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(), // slug estable para comparar entre años/audiencias
+  texto: text('texto').notNull(),
+  ayuda: text('ayuda'),
+  tipo: text('tipo').notNull().default('escala'), // escala | texto | opcion | varias | quiz
+  escala: text('escala').notNull().default('nada_mucho'), // nada_mucho | 1_5 | si_no
+  filas: jsonb('filas').$type<EvalFila[]>().notNull().default([]),
+  opciones: jsonb('opciones').$type<EvalOpcion[]>().notNull().default([]),
+  permiteOtra: boolean('permite_otra').notNull().default(false),
+  obligatoria: boolean('obligatoria').notNull().default(true),
+  // Viene de un preset y hay que adaptar la frase: la ficha lo marca en ámbar hasta
+  // que se toca ("aquí tienes que cambiar unas frases").
+  revisar: boolean('revisar').notNull().default(false),
+  feedbackAcierto: text('feedback_acierto'), // solo quiz
+  feedbackFallo: text('feedback_fallo'),
+  orden: integer('orden').notNull().default(0),
+});
+
+// Catálogo de preguntas guardadas para reutilizar en un clic. Las de fábrica viven en
+// código (`src/lib/evaluaciones.ts`); aquí van las que el claustro guarda desde el editor.
+export const evalQuestionTemplates = pgTable('eval_question_templates', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(),
+  audiencia: text('audiencia').notNull().default('alumnos'),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+  activa: boolean('activa').notNull().default(true),
+  createdByEmail: text('created_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Invitación personalizada: un enlace por destinatario (`/evaluaciones/<token>?a=<inv>`).
+// En formularios de PROFESORADO existe solo para enviar el correo: nunca se marca
+// respondida ni se enlaza con la respuesta.
+export const evalInvites = pgTable('eval_invites', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id),
+  email: text('email'),
+  sentAt: timestamp('sent_at'),
+  respondedAt: timestamp('responded_at'), // solo alumnado/familias
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('eval_invites_form_idx').on(t.formId),
+]);
+
+export const evalResponses = pgTable('eval_responses', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
+  // Trazabilidad interna del alumnado (solo si el enlace era personalizado). NUNCA se
+  // rellena en formularios de profesorado.
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
+  curso: text('curso'),
+  letra: text('letra'),
+  etapa: text('etapa'),
+  email: text('email'), // solo formularios nominales
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('eval_responses_form_idx').on(t.formId),
+]);
+
+export const evalAnswers = pgTable('eval_answers', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  responseId: uuid('response_id').notNull().references(() => evalResponses.id, { onDelete: 'cascade' }),
+  questionId: uuid('question_id').notNull().references(() => evalQuestions.id, { onDelete: 'cascade' }),
+  filaClave: text('fila_clave'), // null si la pregunta no es matriz
+  valorNum: integer('valor_num'), // escalas (1..4 / 1..5) y sí/no (1/0)
+  opcionClave: text('opcion_clave'), // opcion | varias | quiz
+  valorTexto: text('valor_texto'), // texto libre y "Otra"
+}, (t) => [
+  index('eval_answers_question_idx').on(t.questionId),
+]);
+
+export const evalEmailTemplates = pgTable('eval_email_templates', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(),
+  audiencia: text('audiencia').notNull().default('alumnos'),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  createdByEmail: text('created_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── Types Evaluaciones ───────────────────────────────────────────────────────
+export type EvalActivity = typeof evalActivities.$inferSelect;
+export type NewEvalActivity = typeof evalActivities.$inferInsert;
+export type EvalForm = typeof evalForms.$inferSelect;
+export type NewEvalForm = typeof evalForms.$inferInsert;
+export type EvalBlock = typeof evalBlocks.$inferSelect;
+export type NewEvalBlock = typeof evalBlocks.$inferInsert;
+export type EvalQuestion = typeof evalQuestions.$inferSelect;
+export type NewEvalQuestion = typeof evalQuestions.$inferInsert;
+export type EvalInvite = typeof evalInvites.$inferSelect;
+export type EvalResponse = typeof evalResponses.$inferSelect;
+export type EvalAnswer = typeof evalAnswers.$inferSelect;
+export type EvalQuestionTemplate = typeof evalQuestionTemplates.$inferSelect;
+export type EvalEmailTemplate = typeof evalEmailTemplates.$inferSelect;

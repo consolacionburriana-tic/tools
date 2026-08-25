@@ -77,9 +77,24 @@ Salidas ya lo usa: `/salidas?t=tok_…` auto-identifica a la familia, y el recor
   [`01-auth-roles.md`](./01-auth-roles.md) — es un cambio de una línea en
   `src/lib/permissions.ts`, se puede ajustar sobre la marcha.
 
-### Evaluaciones
-- Definir el **catálogo de preguntas predefinidas** (los 8-10 textos de la plantilla). Se puede
-  arrancar con textos provisionales y afinarlos al usarlo.
+### ~~Evaluaciones: catálogo de preguntas predefinidas~~ ✅ hecho (2026-08-25)
+Vive en código (`CATALOGO` y `presetActividad` en `src/lib/evaluaciones.ts`), sacado de los
+formularios reales de Pastoral: preset distinto para alumnado y profesorado, con las frases a
+adaptar marcadas en ámbar. Las preguntas propias que guarde el claustro van a
+`eval_question_templates`. Detalle en [`16-evaluaciones.md`](./16-evaluaciones.md).
+
+### ~~Evaluaciones: redacción del aviso de anonimato al alumnado~~ ✅ decidido (2026-08-25)
+El pie del formulario de alumnado dice solo "🔒 Tus respuestas son anónimas."; la coletilla
+explicativa se quitó por decisión de David. Queda anotado, porque es lo único del módulo con
+aristas: en alumnado con enlace personalizado **sí** se guarda `edu_student_id` (decisión
+cerrada, para poder investigar un caso puntual), así que si alguna vez una familia pregunta,
+la respuesta honesta es "en pantalla nadie ve nombres, pero el envío es nominal". El profesorado
+no tiene ese matiz: ahí no se guarda absolutamente nada.
+
+### Evaluaciones: familias
+El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link
+de familias (`fam_access_tokens`, ya usado por Licencias y Salidas) con su propio propósito
+`evaluaciones`. Se hará cuando se estrene de verdad con familias.
 
 ### ~~Banco de libros: dónde vive el `academic_year`~~ ✅ decidido e implementado
 Constante en código (`academicYearActual()` en `src/lib/constants.ts`), sin tabla de

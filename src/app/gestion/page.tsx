@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import {
   BookMarked,
   Bus,
+  ClipboardCheck,
   ClipboardList,
   Database,
   GraduationCap,
@@ -13,7 +14,6 @@ import {
   Library,
   LogOut,
   MessageSquareText,
-  Users,
 } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -69,22 +69,6 @@ function ModuleCard({
       {/* Cuál de las tarjetas está cargando (los paneles son force-dynamic) */}
       <NavPending className="mt-0.5" />
     </Link>
-  );
-}
-
-function ComingSoon({ icon, title }: { icon: React.ReactNode; title: string }) {
-  return (
-    <div className="flex items-start gap-3 rounded-2xl border border-dashed border-zinc-200 bg-white/50 p-4 opacity-60 dark:border-zinc-800 dark:bg-zinc-900/50">
-      <span className="mt-0.5 text-zinc-400">{icon}</span>
-      <span>
-        <span className="flex items-center gap-2 font-medium text-zinc-500">
-          {title}
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800">
-            próximamente
-          </span>
-        </span>
-      </span>
-    </div>
   );
 }
 
@@ -205,6 +189,14 @@ export default async function EscritorioPage() {
               desc="Participantes, lotes por clase y valoración de cada libro"
             />
           )}
+          {puede('evaluaciones') && (
+            <ModuleCard
+              href="/gestion/evaluaciones"
+              icon={<ClipboardCheck className="h-6 w-6" />}
+              title="Evaluaciones"
+              desc="Evalúa actividades con el alumnado o el claustro y mira los resultados"
+            />
+          )}
           {puede('usuarios') && (
             <ModuleCard
               href="/gestion/usuarios"
@@ -223,9 +215,6 @@ export default async function EscritorioPage() {
           )}
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2">
-          <ComingSoon icon={<Users className="h-6 w-6" />} title="Evaluaciones" />
-        </section>
       </main>
     </div>
   );
