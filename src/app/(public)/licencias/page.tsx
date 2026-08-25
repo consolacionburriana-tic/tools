@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Image from 'next/image';
+import { campaignAbierta, fechaLimiteLabel } from '@/lib/licencias';
 import { getCurrentCampaign } from '@/lib/licencias-server';
 import { LicenciasForm } from '@/components/licencias/licencias-form';
 
@@ -19,6 +20,7 @@ export default async function LicenciasPage({
   const { t, tok } = await searchParams;
   const tokenAcceso = (t ?? tok ?? '').trim() || null;
   const campaign = await getCurrentCampaign();
+  const abierta = campaign ? campaignAbierta(campaign) : false;
 
   // ¿El pedido se procesa antes del inicio de curso? (7 de septiembre del año de inicio)
   const startYear = campaign ? parseInt(campaign.academicYear, 10) : new Date().getFullYear();
@@ -44,9 +46,13 @@ export default async function LicenciasPage({
           {campaign && <p className="mt-1 text-sm text-zinc-500">Curso {campaign.academicYear}</p>}
         </div>
 
-        {!campaign || campaign.status !== 'open' ? (
+        {!campaign || !abierta ? (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 text-center text-zinc-600 dark:text-zinc-300">
-            En este momento no hay ninguna solicitud de licencias abierta.
+            {campaign?.orderDeadline ? (
+              <>El plazo de petición de licencias se cerró el {fechaLimiteLabel(campaign.orderDeadline)}.</>
+            ) : (
+              'En este momento no hay ninguna solicitud de licencias abierta.'
+            )}
           </div>
         ) : (
           <LicenciasForm

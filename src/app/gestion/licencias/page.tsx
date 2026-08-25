@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { BookMarked, ChevronLeft, Download, KeyRound, Layers, ListOrdered, Mail, PiggyBank, RefreshCw, Users } from 'lucide-react';
+import { campaignAbierta, fechaLimiteLabel } from '@/lib/licencias';
 import { getCurrentCampaign, getDashboardStats } from '@/lib/licencias-server';
 import { NavArrow } from '@/components/ui/nav-pending';
 
@@ -22,42 +23,68 @@ export default async function GestionPage() {
   const campaign = await getCurrentCampaign();
   const stats = campaign ? await getDashboardStats(campaign.id) : null;
   const pct = stats && stats.totalStudents > 0 ? Math.round((stats.conPedido / stats.totalStudents) * 100) : 0;
+  const abierta = campaign ? campaignAbierta(campaign) : false;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Panel de licencias</h1>
-            <p className="text-xs text-zinc-500">{campaign?.name ?? 'Sin campaña'}</p>
+        <div className="mx-auto max-w-3xl px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Panel de licencias</h1>
+              <p className="text-xs text-zinc-500">{campaign?.name ?? 'Sin campaña'}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {campaign && (
+                <>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      abierta
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                        : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200'
+                    }`}
+                  >
+                    {abierta ? 'Abierta' : campaign.status === 'draft' ? 'Borrador' : 'Cerrada'}
+                  </span>
+                  <form action="/api/licencias/admin/campaign" method="post">
+                    <input type="hidden" name="status" value={campaign.status === 'open' ? 'closed' : 'open'} />
+                    <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer">
+                      {campaign.status === 'open' ? 'Cerrar' : 'Abrir'}
+                    </button>
+                  </form>
+                </>
+              )}
+              <Link
+                href="/gestion"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                <ChevronLeft className="h-4 w-4" /> Escritorio
+              </Link>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {campaign && (
-              <>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    campaign.status === 'open'
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                      : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200'
-                  }`}
-                >
-                  {campaign.status === 'open' ? 'Abierta' : campaign.status === 'closed' ? 'Cerrada' : 'Borrador'}
+
+          {campaign && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+              {!abierta && campaign.orderDeadline && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  El plazo de petición de licencias se cerró el {fechaLimiteLabel(campaign.orderDeadline)}.
                 </span>
-                <form action="/api/licencias/admin/campaign" method="post">
-                  <input type="hidden" name="status" value={campaign.status === 'open' ? 'closed' : 'open'} />
-                  <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer">
-                    {campaign.status === 'open' ? 'Cerrar' : 'Abrir'}
-                  </button>
-                </form>
-              </>
-            )}
-            <Link
-              href="/gestion"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              <ChevronLeft className="h-4 w-4" /> Escritorio
-            </Link>
-          </div>
+              )}
+              <form action="/api/licencias/admin/campaign" method="post" className="flex items-center gap-2">
+                <label htmlFor="orderDeadline">Cierre automático (23:59 de ese día):</label>
+                <input
+                  id="orderDeadline"
+                  type="date"
+                  name="orderDeadline"
+                  defaultValue={campaign.orderDeadline ?? ''}
+                  className="rounded-lg border border-zinc-200 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+                <button className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer">
+                  Guardar
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </header>
 

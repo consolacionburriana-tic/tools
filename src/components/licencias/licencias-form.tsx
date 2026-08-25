@@ -357,8 +357,9 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
                     className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   />
                   <p className="mt-2 text-xs text-zinc-400">
-                    El NIA es el número de identificación del alumnado (sale en el boletín de notas y en Educamos).
-                    Por protección de datos ya no se busca por nombre.
+                    El NIA es el número de identificación del alumno, sale en el boletín de notas y en Educamos.
+                    Con el DNI del familiar deberías poder identificar al alumno, si no es posible, contacta con
+                    nosotros.
                   </p>
                 </>
               )}
@@ -504,9 +505,8 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
                     <div className="mt-3 flex gap-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200">
                       <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>
-                        Es posible que aún no sepas la optativa del año que viene. Asegúrate de que el alumno ha solicitado esa
-                        optativa como <strong>primera opción</strong>. Si finalmente no la cursara, se devolverá la licencia
-                       y no se cobrará.  <strong>Márcala solo si estás seguro/a</strong> de que era la primera opción.
+                        <strong>Asegúrate bien de en qué optativa está el alumno</strong> antes de hacer el pedido.
+                        Si hubiera cambios de optativa, los gestionaríamos los primeros días de curso.
                       </span>
                     </div>
                   </motion.div>

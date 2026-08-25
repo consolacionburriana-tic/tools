@@ -104,6 +104,20 @@ export function totalPedido(
 // Helpers puros compartidos por la vista previa del panel y por el envío real, para que
 // lo que David ve en pantalla sea EXACTAMENTE lo que recibe la familia.
 
+/** El plazo cierra automáticamente a las 23:59:59 del día fijado en `orderDeadline`. */
+export function plazoVencido(deadline: string | null | undefined, now: Date = new Date()): boolean {
+  if (!deadline) return false;
+  return now > new Date(`${deadline}T23:59:59`);
+}
+
+/** Abierta de cara a la familia: el status lo permite Y el plazo (si hay fecha fijada) no ha vencido. */
+export function campaignAbierta(
+  campaign: { status: string; orderDeadline: string | null },
+  now?: Date,
+): boolean {
+  return campaign.status === 'open' && !plazoVencido(campaign.orderDeadline, now);
+}
+
 export function fechaLimiteLabel(deadline: string | null | undefined): string {
   if (!deadline) return 'la fecha que indique el colegio';
   // Sin la coma que mete toLocaleDateString ("sábado, 12 de septiembre"): el texto se lee

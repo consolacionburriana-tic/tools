@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { cursoLabel } from '@/lib/licencias';
+import { campaignAbierta, cursoLabel } from '@/lib/licencias';
 import { maskAlumno } from '@/lib/familias';
 import {
   getCatalog,
@@ -58,6 +58,9 @@ export async function POST(request: Request) {
 
     const campaign = await getCurrentCampaign();
     if (!campaign) return NextResponse.json({ error: 'No hay campaña abierta' }, { status: 404 });
+    if (!campaignAbierta(campaign)) {
+      return NextResponse.json({ error: 'El plazo de petición de licencias ya se ha cerrado' }, { status: 409 });
+    }
     const candidatos = await identifyStudentsByFamily(campaign.id, identificador);
     if (!candidatos.some((c) => c.id === studentId)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });

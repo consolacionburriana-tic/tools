@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { baseCod, cursoEfectivo, normalize, resolveBilingual } from '@/lib/licencias';
+import { baseCod, campaignAbierta, cursoEfectivo, normalize, plazoVencido, resolveBilingual } from '@/lib/licencias';
 
 describe('cursoEfectivo', () => {
   it('un alumno PDC usa siempre su curso PDC, ignore el seleccionado', () => {
@@ -48,6 +48,43 @@ describe('baseCod', () => {
 
   it('deja intacto un código sin sufijo', () => {
     expect(baseCod('MAT3')).toBe('MAT3');
+  });
+});
+
+describe('plazoVencido', () => {
+  it('sin fecha límite, nunca vence', () => {
+    expect(plazoVencido(null)).toBe(false);
+  });
+
+  it('antes de las 23:59:59 del día fijado, no ha vencido', () => {
+    expect(plazoVencido('2026-09-12', new Date('2026-09-12T23:59:00'))).toBe(false);
+  });
+
+  it('pasadas las 23:59:59 del día fijado, ha vencido', () => {
+    expect(plazoVencido('2026-09-12', new Date('2026-09-13T00:00:01'))).toBe(true);
+  });
+});
+
+describe('campaignAbierta', () => {
+  it('abierta si el status es open y no hay fecha límite', () => {
+    expect(campaignAbierta({ status: 'open', orderDeadline: null })).toBe(true);
+  });
+
+  it('cerrada si el status no es open, aunque el plazo no haya vencido', () => {
+    expect(campaignAbierta({ status: 'closed', orderDeadline: null })).toBe(false);
+    expect(campaignAbierta({ status: 'draft', orderDeadline: '2099-01-01' })).toBe(false);
+  });
+
+  it('cerrada automáticamente si el status es open pero el plazo ya venció', () => {
+    expect(
+      campaignAbierta({ status: 'open', orderDeadline: '2026-09-12' }, new Date('2026-09-13T00:00:01')),
+    ).toBe(false);
+  });
+
+  it('abierta si el status es open y el plazo todavía no ha vencido', () => {
+    expect(
+      campaignAbierta({ status: 'open', orderDeadline: '2026-09-12' }, new Date('2026-09-12T10:00:00')),
+    ).toBe(true);
   });
 });
 
