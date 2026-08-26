@@ -7,7 +7,7 @@ colectivos. Es el **hito 6 del roadmap** — el más independiente del resto.
 
 ---
 
-## Estado: plan técnico ✅ · implementación ✅ (Fases 0-4; falta `pnpm db:push` contra Neon)
+## Estado: plan técnico ✅ · implementación ✅ · en producción ✅ (Fases 0-4, 2026-08-26)
 
 Depende de: auth/roles (`01-auth-roles.md`) para el panel de gestión y de `edu_*` para el
 alumnado/profesorado. El formulario de respuesta es público por enlace (y opcionalmente puede
@@ -135,7 +135,12 @@ queda a medias entre dos peticiones.
 
 ### Fase 0 · Cimientos
 - [x] Schema `eval_*` (9 tablas)
-- [~] `pnpm db:push` contra Neon — falta ejecutarlo (necesita `DATABASE_URL` de David)
+- [x] Tablas creadas en Neon (2026-08-26). Contra la BBDD de producción NO se lanzó
+      `drizzle-kit push` a ciegas: se generó el DDL, se filtraron los 24 statements de
+      `eval_*` (9 CREATE TABLE + 10 FK + 5 índices) y se aplicaron en una transacción.
+      Verificado con una prueba de humo completa (alta con preset → respuesta → agregados
+      → filtro por clase) que se limpió después. Para cambios futuros de este módulo,
+      `pnpm db:push` normal.
 - [x] Catálogo de preguntas típicas — vive en código (`CATALOGO` + `presetActividad`), sacado de
       los formularios reales de Pastoral. `eval_question_templates` queda para las propias.
 
