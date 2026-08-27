@@ -8,7 +8,7 @@ import { academicYearActual } from '@/lib/constants';
 export default async function BancoLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login');
-  if (!canAccess(user.role, 'bancolibros')) redirect('/gestion/sin-acceso');
+  if (!canAccess(user, 'bancolibros')) redirect('/gestion/sin-acceso');
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">

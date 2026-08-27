@@ -7,7 +7,7 @@ import { canAccess } from '@/lib/permissions';
 export default async function SalidasLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login');
-  if (!canAccess(user.role, 'salidas')) redirect('/gestion/sin-acceso');
+  if (!canAccess(user, 'salidas')) redirect('/gestion/sin-acceso');
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">

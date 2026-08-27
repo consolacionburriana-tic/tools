@@ -6,9 +6,17 @@ import { ArrowDown, CheckCircle2, Loader2, Lock, PartyPopper, Send, Sparkles, XC
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { stepAnim } from '@/lib/motion';
-import { claseLabel, escalaDe, preguntasIncompletas, type PreguntaParaValidar, type RespuestaCruda } from '@/lib/evaluaciones';
+import {
+  claseLabel,
+  escalaDe,
+  esEscalaEstrellas,
+  preguntasIncompletas,
+  type PreguntaParaValidar,
+  type RespuestaCruda,
+} from '@/lib/evaluaciones';
 import { Celebracion, sortearCelebracion, type IdCelebracion } from '@/components/evaluaciones/celebraciones';
 import { ProgresoAnillo } from '@/components/evaluaciones/progreso-anillo';
+import { EstrellasInput } from '@/components/evaluaciones/estrellas-input';
 
 export interface PreguntaPublica {
   id: string;
@@ -20,6 +28,7 @@ export interface PreguntaPublica {
   opciones: { clave: string; texto: string }[];
   permiteOtra: boolean;
   obligatoria: boolean;
+  estilo: string | null;
 }
 
 export interface BloquePublico {
@@ -453,27 +462,37 @@ export function ResponderForm({
                                 {f.texto}
                               </p>
                             )}
-                            <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${puntos.length}, minmax(0, 1fr))` }}>
-                              {puntos.map((p) => {
-                                const activo = escalas[clave] === p.valor;
-                                return (
-                                  <button
-                                    key={p.valor}
-                                    type="button"
-                                    onClick={() => marcarEscala(clave, p.valor)}
-                                    className={`rounded-xl px-1 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
-                                      activo
-                                        ? 'bg-blue-600 text-white shadow-sm'
-                                        : sinContestar
-                                          ? 'bg-rose-50 text-rose-500 ring-1 ring-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30'
-                                          : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
-                                    }`}
-                                  >
-                                    {p.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            {esEscalaEstrellas(q.escala) ? (
+                              <EstrellasInput
+                                puntos={puntos}
+                                valor={escalas[clave]}
+                                estilo={q.estilo}
+                                destacarFalta={sinContestar}
+                                onElegir={(v) => marcarEscala(clave, v)}
+                              />
+                            ) : (
+                              <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${puntos.length}, minmax(0, 1fr))` }}>
+                                {puntos.map((p) => {
+                                  const activo = escalas[clave] === p.valor;
+                                  return (
+                                    <button
+                                      key={p.valor}
+                                      type="button"
+                                      onClick={() => marcarEscala(clave, p.valor)}
+                                      className={`rounded-xl px-1 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+                                        activo
+                                          ? 'bg-blue-600 text-white shadow-sm'
+                                          : sinContestar
+                                            ? 'bg-rose-50 text-rose-500 ring-1 ring-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30'
+                                            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                                      }`}
+                                    >
+                                      {p.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         );
                       })}

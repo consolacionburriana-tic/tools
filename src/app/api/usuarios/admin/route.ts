@@ -4,15 +4,19 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { authUsers, eduTeachers } from '@/db/schema';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { ROLES } from '@/lib/permissions';
+import { diffModulos, MODULES, ROLES, type Module, type Role } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
 const bodySchema = z.object({
   email: z.string().email().transform((e) => e.toLowerCase()),
-  // 'set' (defecto): asignar/quitar rol · 'block': dejar sin acceso · 'delete': eliminar definitivamente
-  action: z.enum(['set', 'block', 'delete']).optional().default('set'),
+  // 'set' (defecto): asignar/quitar rol · 'modulos': ajuste fino persona a persona
+  // 'block': dejar sin acceso · 'delete': eliminar definitivamente
+  action: z.enum(['set', 'modulos', 'block', 'delete']).optional().default('set'),
   role: z.enum(ROLES).nullable().optional(), // solo para action 'set'; null = quitar la fila
+  // Para 'modulos': la lista COMPLETA de módulos que debe tener esta persona. El
+  // servidor la traduce a la diferencia respecto a su rol.
+  modulos: z.array(z.enum(MODULES)).optional(),
   nombre: z.string().optional(),
 });
 
@@ -27,11 +31,35 @@ export async function POST(request: Request) {
   const guard = await requireModule('usuarios');
   if (isGuardResponse(guard)) return guard;
   try {
-    const { email, action, role, nombre } = bodySchema.parse(await request.json());
+    const { email, action, role, modulos, nombre } = bodySchema.parse(await request.json());
 
     // Autoprotección: no puedes bloquearte/eliminarte a ti mismo ni quitarte el SuperTIC.
     if (email === guard.email && (action !== 'set' || (role !== 'supertic' && guard.role === 'supertic'))) {
       return NextResponse.json({ error: 'No puedes retirarte a ti mismo el acceso' }, { status: 400 });
+    }
+
+    if (action === 'modulos') {
+      if (!modulos) return NextResponse.json({ error: 'Falta la lista de módulos' }, { status: 400 });
+      const [existente] = await db.select().from(authUsers).where(eq(authUsers.email, email)).limit(1);
+      // Un profe del claustro sin fila es 'profe' automático: para poder ajustarle
+      // módulos hay que materializar la fila, conservando ese mismo rol.
+      const rolActual = (existente?.role as Role | undefined) ?? 'profe';
+
+      // Autoprotección: nadie se quita a sí mismo la gestión de usuarios, o se queda
+      // fuera del sitio desde el que se arregla.
+      if (email === guard.email && !modulos.includes('usuarios')) {
+        return NextResponse.json({ error: 'No puedes quitarte a ti mismo Usuarios y roles' }, { status: 400 });
+      }
+
+      const { modulosExtra, modulosBloqueados } = diffModulos(rolActual, modulos as Module[]);
+      await db
+        .insert(authUsers)
+        .values({ email, role: rolActual, nombre, modulosExtra, modulosBloqueados })
+        .onConflictDoUpdate({
+          target: authUsers.email,
+          set: { modulosExtra, modulosBloqueados, active: true, updatedAt: new Date() },
+        });
+      return NextResponse.json({ ok: true, modulosExtra, modulosBloqueados });
     }
 
     if (action === 'block') {
@@ -53,10 +81,15 @@ export async function POST(request: Request) {
     if (role === null || role === undefined) {
       await db.delete(authUsers).where(eq(authUsers.email, email));
     } else {
+      // Al cambiar de rol se limpian los ajustes por persona: estaban pensados
+      // sobre el rol anterior y arrastrarlos daría permisos que nadie ha pedido.
       await db
         .insert(authUsers)
-        .values({ email, role, nombre })
-        .onConflictDoUpdate({ target: authUsers.email, set: { role, active: true, updatedAt: new Date() } });
+        .values({ email, role, nombre, modulosExtra: [], modulosBloqueados: [] })
+        .onConflictDoUpdate({
+          target: authUsers.email,
+          set: { role, active: true, modulosExtra: [], modulosBloqueados: [], updatedAt: new Date() },
+        });
     }
     return NextResponse.json({ ok: true });
   } catch (error) {

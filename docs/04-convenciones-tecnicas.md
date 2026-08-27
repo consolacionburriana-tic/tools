@@ -82,7 +82,8 @@ src/components/<modulo>/          # componentes propios del módulo
 
 - **Guard de auth**: `src/lib/auth-guards.ts` — `requireModule('<modulo>')` /
   `hasModule('<modulo>')` en route handlers de gestión, `requireSession()` para endpoints que
-  solo exigen claustro (formulario ABC), y `canAccess()` en el layout de cada sección de
+  solo exigen claustro (formulario ABC), y `canAccess(user, modulo)` —el usuario entero, NO
+  `user.role`: si no, se saltan los ajustes de módulos por persona— en el layout de cada sección de
   `/gestion/<modulo>`. `src/proxy.ts` (Next 16, sustituye a middleware) solo exige sesión.
 - **Server Actions vs route handlers**: los formularios públicos y las descargas usan route
   handlers (`route.ts`, como todo lo existente). Para mutaciones de paneles internos nuevos se

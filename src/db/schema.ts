@@ -337,6 +337,12 @@ export const authUsers = pgTable('auth_users', {
   email: text('email').unique().notNull(), // email Google del dominio
   nombre: text('nombre'),
   role: text('role').notNull(), // ver Role en src/lib/permissions.ts
+  // Ajuste fino sobre lo que da el rol: el rol es el punto de partida de un clic y
+  // estos dos arrays son la excepción persona a persona ("este tutor SÍ lleva las
+  // evaluaciones"). Se guardan como diferencia, no como lista final, para que al
+  // cambiar lo que da un rol el cambio llegue a todos menos a quien tenga excepción.
+  modulosExtra: jsonb('modulos_extra').$type<string[]>().notNull().default([]),
+  modulosBloqueados: jsonb('modulos_bloqueados').$type<string[]>().notNull().default([]),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -578,7 +584,9 @@ export const evalQuestions = pgTable('eval_questions', {
   texto: text('texto').notNull(),
   ayuda: text('ayuda'),
   tipo: text('tipo').notNull().default('escala'), // escala | texto | opcion | varias | quiz
-  escala: text('escala').notNull().default('nada_mucho'), // nada_mucho | 1_5 | si_no
+  escala: text('escala').notNull().default('nada_mucho'), // nada_mucho | 1_5 | si_no | estrellas_4 | estrellas_5
+  // Solo para escalas de estrellas: con qué se pinta (estrella, corazón, fuego…).
+  estilo: text('estilo'),
   filas: jsonb('filas').$type<EvalFila[]>().notNull().default([]),
   opciones: jsonb('opciones').$type<EvalOpcion[]>().notNull().default([]),
   permiteOtra: boolean('permite_otra').notNull().default(false),

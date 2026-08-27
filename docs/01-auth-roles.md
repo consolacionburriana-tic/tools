@@ -47,7 +47,17 @@ auth_users (
 )
 ```
 
-Sin tabla de permisos: **la matriz rol→módulos vive en código**, en `src/lib/permissions.ts`:
+**Dos capas de permisos** (la segunda se añadió el 2026-08-27):
+
+1. **La matriz rol→módulos vive en código**, en `src/lib/permissions.ts`. El rol es el punto de
+   partida de un clic y cambiarlo afecta a todo el mundo con ese rol.
+2. **El ajuste fino por persona vive en `auth_users`** (`modulos_extra` / `modulos_bloqueados`).
+   Es la excepción: "este tutor ADEMÁS lleva las evaluaciones", sin dejar de ser tutor ni perder
+   Salidas y Banco de libros.
+
+Se guarda como **diferencia**, nunca como lista cerrada: si mañana se le añade un módulo al rol
+tutor, les llega a todos los tutores menos a quien lo tuviera bloqueado a mano. Y **al cambiar de
+rol se limpian los ajustes**, porque estaban pensados sobre el rol anterior.
 
 ```ts
 export const MODULES = ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'educamos', 'usuarios'] as const;
@@ -63,10 +73,17 @@ export const ROLE_MODULES: Record<Role, Module[]> = {
 };
 ```
 
-> La asignación de arriba es la **propuesta por defecto** — ajustarla con David al implementar
-> es un cambio de una línea, por eso no bloquea. Matices *dentro* de un módulo (p. ej. "profe
-> solo ve sus salidas, dirección ve todas") se resuelven en el propio módulo consultando
-> `session.role`, no aquí.
+> La asignación de arriba es la **propuesta por defecto** — ajustarla es un cambio de una línea.
+> Matices *dentro* de un módulo (p. ej. "profe solo ve sus salidas, dirección ve todas") se
+> resuelven en el propio módulo consultando `session.role`, no aquí.
+
+Helpers de `permissions.ts`: `modulosDe(acceso)` (lista efectiva), `canAccess(acceso, modulo)`,
+`origenModulo(acceso, modulo)` (`rol` | `extra` | `bloqueado` | `no`, para pintar la interfaz) y
+`diffModulos(rol, seleccionados)` (traduce lo que se marca en pantalla a la diferencia guardada).
+
+> ⚠️ `canAccess` recibe el **usuario entero**, no su rol. Pasarle solo el rol se saltaría los
+> ajustes por persona sin que nadie se entere; por eso la firma es `Acceso`, para que el
+> compilador cante si alguien lo hace.
 
 ### Protección de rutas
 
@@ -81,8 +98,15 @@ export const ROLE_MODULES: Record<Role, Module[]> = {
 
 ### Pantalla de usuarios
 
-`/gestion/usuarios` (solo `supertic`/`tic`): listado, alta por email, selector de rol,
-activar/desactivar. Sin más — la matriz es por rol y vive en código.
+`/gestion/usuarios` (solo `supertic`/`tic`): listado, alta por email, chips de rol (un clic),
+activar/desactivar y — por persona — un **desplegable de módulos** con el ajuste fino. Los
+módulos se pintan según de dónde vengan: azul los del rol, verde los dados a mano, rojo tachado
+los quitados a mano. `usuarios` y `educamos` salen marcados como delicados (`MODULOS_SENSIBLES`).
+Autoprotección: nadie puede quitarse a sí mismo `usuarios`.
+
+El rol y los ajustes se refrescan contra la BBDD **cada 15 minutos sin re-login** (van en el JWT,
+ver `REFRESCO_ROL_MS` en `src/auth.ts`), así que un cambio de permisos tarda como mucho ese rato
+en surtir efecto.
 
 ### Migración de lo existente (hito 3 del roadmap)
 

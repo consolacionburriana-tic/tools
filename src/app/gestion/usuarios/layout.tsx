@@ -5,6 +5,6 @@ import { canAccess } from '@/lib/permissions';
 export default async function Layout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login');
-  if (!canAccess(user.role, 'usuarios')) redirect('/gestion/sin-acceso');
+  if (!canAccess(user, 'usuarios')) redirect('/gestion/sin-acceso');
   return children;
 }

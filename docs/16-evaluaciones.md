@@ -62,8 +62,15 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
   (`eval_activities.objetivo`); **al alumnado, el resumen** (`eval_activities.resumen`), que
   explica de qué va sin soltar el objetivo tal cual. El editor los rellena solos al añadir la
   actividad y se pueden retocar por formulario (`eval_blocks.intro`).
-- **Tipos de pregunta**: `escala` (matriz de frases con Nada/Poco/Bastante/Mucho, 1-5 o Sí/No),
-  `texto`, `opcion`, `varias` y `quiz`. Ninguno más: no es un form builder libre.
+- **Tipos de pregunta**: `escala`, `texto`, `opcion`, `varias` y `quiz`. Ninguno más: no es un
+  form builder libre.
+- **Escalas**: Nada/Poco/Bastante/Mucho, 1-5, Sí/No y **estrellitas de 4 o 5**. Las estrellas son
+  una *escala*, no un tipo de pregunta aparte: así medias, normalización a 0-100, CSV y
+  comparativas entre cursos siguen funcionando solas, y se puede pasar de Nada-Mucho a estrellas
+  sin perder lo ya respondido. Cinco estilos (`eval_questions.estilo`): estrellas, corazones,
+  fuego, pulgares y caritas. Los cuatro primeros se rellenan de forma acumulativa; las caritas
+  no, porque con una cara lo natural es elegir una. Debajo siempre va el valor en texto
+  ("4 de 5"): el icono solo no dice si un 3 es bueno o regular.
 - **Quiz**: 2-3 por formulario como mucho. Las respuestas correctas **no viajan al navegador**;
   se corrigen en el servidor al enviar y vuelven con su reacción, que se anima al terminar.
 - **Reordenar y duplicar**: flechas arriba/abajo (lo que funciona de verdad en iPad) y
@@ -95,12 +102,13 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
 - El anonimato se decide al crear y **no se cambia una vez hay respuestas**.
 
 ### Quién entra
-- **Módulo restringido** (2026-08-27): lo tienen `supertic`, `tic` y `direccion`, más un **rol
-  nuevo `evaluaciones`** que se da a dedo desde `/gestion/usuarios` a quien lleve el tema
-  (pastoral, innovación…). Se quitó de `jefe`, `orientacion`, `tutor` y `profe`, que lo tenían
-  por defecto — 44 cuentas reales.
-- Ojo al modelo: **cada usuario tiene UN rol**, así que dar `evaluaciones` a alguien que hoy es
-  `tutor` le quita Salidas y Banco de libros. Ver `00-desarrollos-futuros.md`.
+- **Módulo restringido** (2026-08-27): de serie lo tienen `supertic`, `tic` y `direccion`. Se
+  quitó de `jefe`, `orientacion`, `tutor` y `profe`, que lo tenían por defecto — 44 cuentas.
+- Para dárselo a alguien concreto hay **dos caminos**, y casi siempre gana el segundo:
+  - rol `evaluaciones`: para quien SOLO lleva esto (no ve pedidos, ni salidas, ni la BBDD).
+  - **módulo extra sobre su rol** desde `/gestion/usuarios`: "sigues siendo tutor/a y además
+    llevas las evaluaciones". Es lo natural para la coordinación de pastoral, que también es
+    tutora. Ver [`01-auth-roles.md`](./01-auth-roles.md).
 
 ### Correo
 - Reutiliza el motor de envío masivo común (`src/lib/correos.ts`): variables `{nombre}`,

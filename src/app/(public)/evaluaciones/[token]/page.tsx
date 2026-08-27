@@ -105,6 +105,7 @@ export default async function ResponderPage({
                 ayuda: q.ayuda,
                 tipo: q.tipo,
                 escala: q.escala,
+                estilo: q.estilo,
                 filas: q.filas,
                 // Las respuestas correctas de un quiz NO viajan al navegador: se corrigen
                 // en el servidor al enviar.

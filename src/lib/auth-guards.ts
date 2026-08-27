@@ -2,12 +2,14 @@
 // cuando cambie algo del sistema de auth, este es el único sitio que tocar.
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { canAccess, type Module, type Role } from '@/lib/permissions';
+import { canAccess, type Acceso, type Module, type Role } from '@/lib/permissions';
 
-export interface SessionUser {
+export interface SessionUser extends Acceso {
   email: string;
   nombre: string | null;
   role: Role | null;
+  modulosExtra: Module[];
+  modulosBloqueados: Module[];
 }
 
 /** Usuario de la sesión actual, o null si no hay login. */
@@ -18,6 +20,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     email: session.user.email.toLowerCase(),
     nombre: session.user.name ?? null,
     role: session.user.role ?? null,
+    modulosExtra: session.user.modulosExtra ?? [],
+    modulosBloqueados: session.user.modulosBloqueados ?? [],
   };
 }
 
@@ -28,7 +32,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 export async function requireModule(modulo: Module): Promise<SessionUser | NextResponse> {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (!canAccess(user.role, modulo)) return NextResponse.json({ error: 'Sin permiso para este módulo' }, { status: 403 });
+  if (!canAccess(user, modulo)) return NextResponse.json({ error: 'Sin permiso para este módulo' }, { status: 403 });
   return user;
 }
 
@@ -46,5 +50,5 @@ export function isGuardResponse(x: SessionUser | NextResponse): x is NextRespons
 /** Versión booleana para código existente estilo `if (!(await isAdmin())) ...`. */
 export async function hasModule(modulo: Module): Promise<boolean> {
   const user = await getSessionUser();
-  return user !== null && canAccess(user.role, modulo);
+  return user !== null && canAccess(user, modulo);
 }

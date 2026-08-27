@@ -71,7 +71,58 @@ export const ESCALAS: Escala[] = [
       { valor: 1, label: 'Sí' },
     ],
   },
+  // Las estrellas son una escala más, no un tipo de pregunta aparte: así las medias,
+  // la normalización a 0-100, el CSV y las comparativas entre cursos siguen
+  // funcionando sin tocar nada, y se puede pasar de "Nada-Mucho" a estrellas (o al
+  // revés) sin perder lo ya respondido.
+  {
+    value: 'estrellas_5',
+    label: '★ Estrellas (1-5)',
+    puntos: [1, 2, 3, 4, 5].map((n) => ({ valor: n, label: String(n) })),
+  },
+  {
+    value: 'estrellas_4',
+    label: '★ Estrellas (1-4)',
+    puntos: [1, 2, 3, 4].map((n) => ({ valor: n, label: String(n) })),
+  },
 ];
+
+/** ¿Esta escala se pinta con estrellitas (o corazones, o lo que toque)? */
+export function esEscalaEstrellas(value: string | null | undefined): boolean {
+  return (value ?? '').startsWith('estrellas_');
+}
+
+/**
+ * Estilos de la escala de estrellas. Los cuatro primeros se rellenan de forma
+ * acumulativa (tocas la cuarta y se encienden las cuatro); las caritas no, porque lo
+ * natural con una cara es elegir UNA, no acumular caras.
+ */
+export const ESTILOS_ESTRELLA = [
+  { value: 'estrella', label: 'Estrellas', icono: 'Star', muestra: '★', acumulativo: true },
+  { value: 'corazon', label: 'Corazones', icono: 'Heart', muestra: '♥', acumulativo: true },
+  { value: 'fuego', label: 'Fuego', icono: 'Flame', muestra: '🔥', acumulativo: true },
+  { value: 'pulgar', label: 'Pulgares', icono: 'ThumbsUp', muestra: '👍', acumulativo: true },
+  { value: 'carita', label: 'Caritas', icono: 'Smile', muestra: '🙂', acumulativo: false },
+] as const;
+export type EstiloEstrella = (typeof ESTILOS_ESTRELLA)[number]['value'];
+
+export const ESTILO_ESTRELLA_POR_DEFECTO: EstiloEstrella = 'estrella';
+
+export function estiloEstrellaDe(valor: string | null | undefined): (typeof ESTILOS_ESTRELLA)[number] {
+  return ESTILOS_ESTRELLA.find((e) => e.value === valor) ?? ESTILOS_ESTRELLA[0];
+}
+
+/**
+ * Caras de la escala de caritas, de peor a mejor. Se reparten sobre el número de
+ * puntos que tenga la escala (4 o 5), así que sirven para las dos.
+ */
+export const CARITAS = ['😖', '😕', '🙂', '😃', '🤩'] as const;
+
+export function caritaPara(indice: number, n: number): string {
+  if (n <= 1) return CARITAS[CARITAS.length - 1];
+  const pos = Math.round((indice / (n - 1)) * (CARITAS.length - 1));
+  return CARITAS[Math.min(CARITAS.length - 1, Math.max(0, pos))];
+}
 
 export function escalaDe(value: string | null | undefined): Escala {
   return ESCALAS.find((e) => e.value === value) ?? ESCALAS[0];
@@ -238,6 +289,7 @@ export interface PreguntaBorrador {
   ayuda?: string | null;
   tipo: TipoPregunta;
   escala?: string;
+  estilo?: string | null;
   filas?: { clave: string; texto: string }[];
   opciones?: { clave: string; texto: string; correcta?: boolean }[];
   permiteOtra?: boolean;

@@ -76,7 +76,7 @@ export default async function EscritorioPage() {
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login');
   if (!user.role) redirect('/gestion/sin-acceso');
-  const puede = (m: Module) => canAccess(user.role, m);
+  const puede = (m: Module) => canAccess(user, m);
 
   // Stats solo de los módulos que el rol puede ver
   const [alumnos, profes, ultimoSync, pedidos, registrosAbc] = await Promise.all([

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   academicYearAnterior,
   aPorcentaje,
+  caritaPara,
+  esEscalaEstrellas,
+  estiloEstrellaDe,
   fraseConHueco,
   huecosPendientes,
   claveUnica,
@@ -265,5 +268,51 @@ describe('huecos obligatorios', () => {
       }));
       expect(huecosPendientes(preguntas).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('escala de estrellitas', () => {
+  it('son una escala más, así que normalizan a 0-100 como cualquier otra', () => {
+    expect(aPorcentaje(1, 'estrellas_5')).toBe(0);
+    expect(aPorcentaje(5, 'estrellas_5')).toBe(100);
+    expect(aPorcentaje(1, 'estrellas_4')).toBe(0);
+    expect(aPorcentaje(4, 'estrellas_4')).toBe(100);
+  });
+
+  it('4 y 5 estrellas son comparables entre sí y con Nada-Mucho', () => {
+    // Media estrella de diferencia no debe falsear la comparativa entre cursos.
+    expect(aPorcentaje(4, 'estrellas_4')).toBe(aPorcentaje(5, 'estrellas_5'));
+    expect(aPorcentaje(4, 'estrellas_4')).toBe(aPorcentaje(4, 'nada_mucho'));
+  });
+
+  it('reconoce qué escalas se pintan con estrellas', () => {
+    expect(esEscalaEstrellas('estrellas_4')).toBe(true);
+    expect(esEscalaEstrellas('estrellas_5')).toBe(true);
+    expect(esEscalaEstrellas('nada_mucho')).toBe(false);
+    expect(esEscalaEstrellas(null)).toBe(false);
+  });
+
+  it('tiene 4 y 5 puntos según la variante', () => {
+    expect(escalaDe('estrellas_4').puntos).toHaveLength(4);
+    expect(escalaDe('estrellas_5').puntos).toHaveLength(5);
+  });
+
+  it('las caritas se reparten de peor a mejor sea cual sea el número de puntos', () => {
+    expect(caritaPara(0, 5)).toBe('😖');
+    expect(caritaPara(4, 5)).toBe('🤩');
+    // Con 4 puntos usa las mismas caras, repartidas
+    expect(caritaPara(0, 4)).toBe('😖');
+    expect(caritaPara(3, 4)).toBe('🤩');
+  });
+
+  it('el estilo cae a estrellas si viene vacío o es desconocido', () => {
+    expect(estiloEstrellaDe(null).value).toBe('estrella');
+    expect(estiloEstrellaDe('inventado').value).toBe('estrella');
+    expect(estiloEstrellaDe('corazon').value).toBe('corazon');
+  });
+
+  it('solo las caritas no son acumulativas', () => {
+    expect(estiloEstrellaDe('carita').acumulativo).toBe(false);
+    expect(estiloEstrellaDe('estrella').acumulativo).toBe(true);
   });
 });

@@ -91,13 +91,24 @@ cerrada, para poder investigar un caso puntual), así que si alguna vez una fami
 la respuesta honesta es "en pantalla nadie ve nombres, pero el envío es nominal". El profesorado
 no tiene ese matiz: ahí no se guarda absolutamente nada.
 
-### Un usuario = un rol: se queda corto con el rol nuevo de Evaluaciones
-`auth_users.role` es un único texto y `ROLE_MODULES` mapea rol → módulos. Con el rol
-`evaluaciones` (2026-08-27) aparece el primer caso incómodo: quien lleve las evaluaciones es
-probablemente **también tutor/a**, y al ponerle `evaluaciones` pierde Salidas y Banco de libros.
-Salidas hoy: darle `direccion` (ve casi todo) o tragar con la pérdida. Arreglo de verdad: o una
-tabla `auth_user_modules` de permisos extra por persona, o roles múltiples. No corre prisa hasta
-que haya alguien concreto en ese caso — pero cuando lo haya, es esto.
+### ~~Un usuario = un rol~~ ✅ resuelto (2026-08-27)
+Ya no hace falta elegir entre "tutor" y "el que lleva las evaluaciones": el rol da el punto de
+partida y `auth_users.modulos_extra` / `modulos_bloqueados` permiten afinar persona a persona
+desde `/gestion/usuarios`. Ver [`01-auth-roles.md`](./01-auth-roles.md).
+
+### Sustituir Resend por la API de Google Workspace (próxima iteración)
+David quiere mandar los correos con la API de Google Workspace en vez de con Resend; falta que
+cuente el motivo (entregabilidad, que salgan desde el dominio del cole, o poder mandarlos desde
+la cuenta de quien los envía). Lo que hay que mirar cuando toque:
+- El punto de entrada está **centralizado**: `src/lib/email.ts` (cliente) y `src/lib/correos.ts`
+  (motor de envío masivo, batch de 100). Cambiar de proveedor debería tocar solo esos dos, más
+  las plantillas por módulo si cambia el formato.
+- Ojo al **batch**: Resend acepta 100 mensajes en una llamada; la API de Gmail va de uno en uno y
+  tiene cuotas por usuario. Un envío a 300 familias deja de ser 3 llamadas y pasa a ser 300, con
+  su control de ritmo y de errores parciales.
+- Hace falta cuenta de servicio con **delegación de dominio** (ya hay una para Google Sheets,
+  `GOOGLE_SHEETS_CLIENT_EMAIL`, pero con otros scopes) y decidir desde qué buzón se envía.
+- Los correos ya enviados no se tocan; no hay histórico que migrar.
 
 ### Evaluaciones: familias
 El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link

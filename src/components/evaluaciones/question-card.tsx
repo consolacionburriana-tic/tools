@@ -2,7 +2,15 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, GripVertical, Plus, Settings2, Trash2, TriangleAlert, X } from 'lucide-react';
-import { ESCALAS, fraseConHueco, slugClave, type TipoPregunta } from '@/lib/evaluaciones';
+import {
+  ESCALAS,
+  ESTILOS_ESTRELLA,
+  ESTILO_ESTRELLA_POR_DEFECTO,
+  esEscalaEstrellas,
+  fraseConHueco,
+  slugClave,
+  type TipoPregunta,
+} from '@/lib/evaluaciones';
 import type { EvalQuestion } from '@/db/schema';
 
 const inputCls =
@@ -234,7 +242,13 @@ export function QuestionCard({
               <button
                 key={e.value}
                 type="button"
-                onClick={() => onPatch({ escala: e.value })}
+                onClick={() =>
+                  onPatch(
+                    esEscalaEstrellas(e.value) && !q.estilo
+                      ? { escala: e.value, estilo: ESTILO_ESTRELLA_POR_DEFECTO }
+                      : { escala: e.value },
+                  )
+                }
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
                   q.escala === e.value
                     ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
@@ -245,6 +259,26 @@ export function QuestionCard({
               </button>
             ))}
           </div>
+          {esEscalaEstrellas(q.escala) && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[11px] text-zinc-400">Con qué:</span>
+              {ESTILOS_ESTRELLA.map((e) => (
+                <button
+                  key={e.value}
+                  type="button"
+                  title={e.label}
+                  onClick={() => onPatch({ estilo: e.value })}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                    (q.estilo ?? ESTILO_ESTRELLA_POR_DEFECTO) === e.value
+                      ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                      : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                  }`}
+                >
+                  <span aria-hidden>{e.muestra}</span> {e.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

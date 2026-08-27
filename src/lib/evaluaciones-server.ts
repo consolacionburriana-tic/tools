@@ -416,6 +416,7 @@ export async function duplicarForm(
           ayuda: q.ayuda,
           tipo: q.tipo,
           escala: q.escala,
+          estilo: q.estilo,
           filas: q.filas,
           opciones: q.opciones,
           permiteOtra: q.permiteOtra,
@@ -507,6 +508,7 @@ export async function insertarPreguntas(blockId: string, borradores: PreguntaBor
       ayuda: b.ayuda ?? null,
       tipo: b.tipo,
       escala: b.escala ?? 'nada_mucho',
+      estilo: b.estilo ?? null,
       filas: b.filas ?? [],
       opciones: b.opciones ?? [],
       permiteOtra: b.permiteOtra ?? false,
@@ -532,7 +534,7 @@ export async function borrarBloque(id: string): Promise<void> {
 }
 
 export async function actualizarPregunta(id: string, patch: Partial<EvalQuestion>): Promise<void> {
-  const campos = ['texto', 'ayuda', 'tipo', 'escala', 'filas', 'opciones', 'permiteOtra', 'obligatoria', 'revisar', 'feedbackAcierto', 'feedbackFallo'] as const;
+  const campos = ['texto', 'ayuda', 'tipo', 'escala', 'estilo', 'filas', 'opciones', 'permiteOtra', 'obligatoria', 'revisar', 'feedbackAcierto', 'feedbackFallo'] as const;
   const set: Record<string, unknown> = {};
   for (const k of campos) if (patch[k] !== undefined) set[k] = patch[k];
   if (Object.keys(set).length) await db.update(evalQuestions).set(set).where(eq(evalQuestions.id, id));
@@ -552,6 +554,7 @@ export async function duplicarPregunta(id: string): Promise<EvalQuestion | null>
       ayuda: q.ayuda,
       tipo: q.tipo as PreguntaBorrador['tipo'],
       escala: q.escala,
+      estilo: q.estilo,
       filas: q.filas,
       opciones: q.opciones,
       permiteOtra: q.permiteOtra,

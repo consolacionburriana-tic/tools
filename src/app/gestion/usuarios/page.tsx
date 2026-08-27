@@ -6,7 +6,7 @@ import { db } from '@/db';
 import { authUsers } from '@/db/schema';
 import { getSessionUser } from '@/lib/auth-guards';
 import { getTeachers } from '@/lib/educamos-server';
-import type { Role } from '@/lib/permissions';
+import type { Module, Role } from '@/lib/permissions';
 import { RolesGrid, type FilaUsuario } from '@/components/usuarios/roles-grid';
 
 export const metadata = { title: 'Usuarios y roles · Tools Consolación' };
@@ -26,6 +26,8 @@ export default async function UsuariosPage() {
         rolExplicito: (u?.active ? (u.role as Role) : null) ?? null,
         esProfe: true,
         bloqueado: !!u && !u.active, // fila en auth con active=false → sin acceso
+        modulosExtra: ((u?.modulosExtra ?? []) as Module[]),
+        modulosBloqueados: ((u?.modulosBloqueados ?? []) as Module[]),
       };
     });
   // Usuarios con fila propia que no son profes del claustro (p. ej. tic@)
@@ -37,6 +39,8 @@ export default async function UsuariosPage() {
         rolExplicito: u.active ? (u.role as Role) : null,
         esProfe: false,
         bloqueado: !u.active,
+        modulosExtra: (u.modulosExtra ?? []) as Module[],
+        modulosBloqueados: (u.modulosBloqueados ?? []) as Module[],
       });
     }
   }
@@ -50,7 +54,7 @@ export default async function UsuariosPage() {
           <div>
             <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Usuarios y roles</h1>
             <p className="text-xs text-zinc-500">
-              {filas.length} personas · el claustro activo ya entra como Profe sin alta manual
+              {filas.length} personas · el rol da el punto de partida y luego se afina por módulos
             </p>
           </div>
           <Link

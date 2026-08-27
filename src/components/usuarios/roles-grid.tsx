@@ -1,10 +1,21 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Ban, Loader2, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
+import { Ban, ChevronDown, Loader2, Plus, RotateCcw, Search, ShieldAlert, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
-import { ROLES, ROLE_LABELS, type Role } from '@/lib/permissions';
+import {
+  modulosDe,
+  MODULES,
+  MODULE_LABELS,
+  MODULOS_SENSIBLES,
+  origenModulo,
+  ROLES,
+  ROLE_LABELS,
+  ROLE_MODULES,
+  type Module,
+  type Role,
+} from '@/lib/permissions';
 
 export interface FilaUsuario {
   email: string;
@@ -15,6 +26,9 @@ export interface FilaUsuario {
   esProfe: boolean;
   /** Fila en auth_users con active=false → sin acceso pese a estar en el claustro */
   bloqueado: boolean;
+  /** Ajustes por persona sobre lo que da el rol */
+  modulosExtra: Module[];
+  modulosBloqueados: Module[];
 }
 
 // Asignación de roles en UN click: cada fila tiene los chips de rol; tocar un chip asigna.
@@ -24,6 +38,7 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
   const [busqueda, setBusqueda] = useState('');
   const [guardando, setGuardando] = useState<string | null>(null);
   const [nuevoEmail, setNuevoEmail] = useState('');
+  const [abierto, setAbierto] = useState<string | null>(null);
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -60,7 +75,27 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
       ...f,
       rolExplicito: role,
       bloqueado: false,
+      // El servidor los limpia al cambiar de rol; la vista tiene que reflejarlo ya.
+      modulosExtra: [],
+      modulosBloqueados: [],
     }));
+  }
+
+  /** Marca/desmarca un módulo para una persona y guarda la lista completa resultante. */
+  function alternarModulo(fila: FilaUsuario, modulo: Module) {
+    const rol = rolEfectivo(fila);
+    const actuales = modulosDe({ role: rol, modulosExtra: fila.modulosExtra, modulosBloqueados: fila.modulosBloqueados });
+    const quiere = actuales.includes(modulo) ? actuales.filter((m) => m !== modulo) : [...actuales, modulo];
+
+    const base = rol ? ROLE_MODULES[rol] : [];
+    const modulosExtra = MODULES.filter((m) => quiere.includes(m) && !base.includes(m));
+    const modulosBloqueados = MODULES.filter((m) => !quiere.includes(m) && base.includes(m));
+
+    return enviar(
+      fila.email,
+      { action: 'modulos', modulos: quiere, nombre: fila.nombre ?? undefined },
+      (f) => ({ ...f, rolExplicito: f.rolExplicito ?? rol, modulosExtra, modulosBloqueados }),
+    );
   }
 
   function bloquear(fila: FilaUsuario) {
@@ -80,6 +115,15 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
   function rolEfectivo(f: FilaUsuario): Role | null {
     if (f.bloqueado) return null;
     return f.rolExplicito ?? (f.esProfe ? 'profe' : null);
+  }
+
+  /** ¿Tiene algún módulo tocado a mano respecto a lo que le daría su rol? */
+  function ajustada(f: FilaUsuario): boolean {
+    return f.modulosExtra.length > 0 || f.modulosBloqueados.length > 0;
+  }
+
+  function nModulos(f: FilaUsuario): number {
+    return modulosDe({ role: rolEfectivo(f), modulosExtra: f.modulosExtra, modulosBloqueados: f.modulosBloqueados }).length;
   }
 
   return (
@@ -160,6 +204,22 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                           </button>
                         );
                       })}
+                      <button
+                        type="button"
+                        onClick={() => setAbierto((v) => (v === f.email ? null : f.email))}
+                        title="Ajustar módulos de esta persona"
+                        className={`ml-0.5 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                          abierto === f.email
+                            ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                            : ajustada(f)
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                              : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                        }`}
+                      >
+                        <SlidersHorizontal className="h-3 w-3" />
+                        {nModulos(f)}
+                        <ChevronDown className={`h-3 w-3 transition-transform ${abierto === f.email ? 'rotate-180' : ''}`} />
+                      </button>
                       {f.email !== miEmail && (
                         <button
                           type="button"
@@ -175,6 +235,77 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                   )}
                 </div>
               </div>
+
+              {abierto === f.email && !f.bloqueado && (
+                <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
+                  <p className="mb-2 text-[11px] text-zinc-500">
+                    {efectivo ? (
+                      <>
+                        De serie, <strong>{ROLE_LABELS[efectivo]}</strong> lleva{' '}
+                        {ROLE_MODULES[efectivo].length === 0
+                          ? 'ningún módulo'
+                          : ROLE_MODULES[efectivo].map((m) => MODULE_LABELS[m]).join(', ')}
+                        . Aquí puedes añadir o quitar módulos solo a esta persona.
+                      </>
+                    ) : (
+                      'Sin rol no hay acceso a nada: asígnale uno antes de afinar módulos.'
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MODULES.map((m) => {
+                      const origen = origenModulo(
+                        { role: efectivo, modulosExtra: f.modulosExtra, modulosBloqueados: f.modulosBloqueados },
+                        m,
+                      );
+                      const activo = origen === 'rol' || origen === 'extra';
+                      const sensible = MODULOS_SENSIBLES.includes(m);
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          disabled={guardando === f.email || !efectivo}
+                          onClick={() => void alternarModulo(f, m)}
+                          title={
+                            origen === 'extra'
+                              ? 'Dado a mano a esta persona'
+                              : origen === 'bloqueado'
+                                ? 'Quitado a mano a esta persona'
+                                : origen === 'rol'
+                                  ? `Le viene del rol ${ROLE_LABELS[efectivo!]}`
+                                  : 'No lo tiene'
+                          }
+                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
+                            activo
+                              ? origen === 'extra'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-blue-600 text-white'
+                              : origen === 'bloqueado'
+                                ? 'bg-rose-50 text-rose-600 line-through dark:bg-rose-500/10 dark:text-rose-300'
+                                : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                          }`}
+                        >
+                          {sensible && <ShieldAlert className="h-3 w-3" />}
+                          {MODULE_LABELS[m]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-400">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-blue-600" /> del rol
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-emerald-600" /> dado a mano
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-rose-400" /> quitado a mano
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <ShieldAlert className="h-3 w-3" /> con cuidado
+                    </span>
+                  </p>
+                </div>
+              )}
             </li>
           );
         })}
@@ -190,7 +321,10 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
             toast.info('Ese correo ya está en la lista');
             return;
           }
-          setDatos((d) => [{ email, nombre: null, rolExplicito: null, esProfe: false, bloqueado: false }, ...d]);
+          setDatos((d) => [
+            { email, nombre: null, rolExplicito: null, esProfe: false, bloqueado: false, modulosExtra: [], modulosBloqueados: [] },
+            ...d,
+          ]);
           setNuevoEmail('');
         }}
       >
@@ -210,7 +344,9 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
       </form>
       <p className="text-xs text-zinc-400">
         Un click asigna el rol; repetir el click lo quita (los profes del claustro vuelven a su rol automático de
-        Profe, en azul claro). Añade un correo solo si no sale ya en la lista.
+        Profe, en azul claro). El botón de módulos abre el ajuste fino persona a persona: por ejemplo dejar a alguien
+        como Tutor/a y darle además Evaluaciones. <strong>Cambiar de rol borra esos ajustes</strong>, porque estaban
+        pensados sobre el rol anterior. Añade un correo solo si no sale ya en la lista.
       </p>
     </div>
   );
