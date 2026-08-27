@@ -2,10 +2,13 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CheckCircle2, Loader2, Lock, PartyPopper, Send, Sparkles, XCircle } from 'lucide-react';
+import { ArrowDown, CheckCircle2, Loader2, Lock, PartyPopper, Send, Sparkles, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { stepAnim } from '@/lib/motion';
 import { claseLabel, escalaDe, preguntasIncompletas, type PreguntaParaValidar, type RespuestaCruda } from '@/lib/evaluaciones';
+import { Celebracion, sortearCelebracion, type IdCelebracion } from '@/components/evaluaciones/celebraciones';
+import { ProgresoAnillo } from '@/components/evaluaciones/progreso-anillo';
 
 export interface PreguntaPublica {
   id: string;
@@ -29,6 +32,7 @@ export interface BloquePublico {
 interface Props {
   token: string;
   invite: string | null;
+  audiencia: string;
   descripcion: string | null;
   avisoAnonimato: string | null;
   bloques: BloquePublico[];
@@ -54,11 +58,17 @@ const ETAPAS = [
   { value: 'ESO', label: 'Secundaria' },
 ];
 
+// Los dos campos de cabecera se validan como una pregunta más y se marcan igual en
+// rojo: así no hace falta ningún alert() en todo el formulario.
+const CLAVE_CLASE = '__clase';
+const CLAVE_ETAPA = '__etapa';
+
 const claseKey = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
 
 export function ResponderForm({
   token,
   invite,
+  audiencia,
   descripcion,
   avisoAnonimato,
   bloques,
@@ -77,7 +87,7 @@ export function ResponderForm({
   const [otras, setOtras] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
   const [fallan, setFallan] = useState<string[]>([]);
-  const [hecho, setHecho] = useState<{ mensaje: string | null; quiz: ResultadoQuiz[] } | null>(null);
+  const [hecho, setHecho] = useState<{ mensaje: string | null; quiz: ResultadoQuiz[]; celebracion: IdCelebracion } | null>(null);
   const refs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const preguntas = useMemo(() => bloques.flatMap((b) => b.preguntas), [bloques]);
@@ -123,13 +133,63 @@ export function ResponderForm({
     [preguntas],
   );
 
-  // Progreso por CAMPOS (cada fila de una matriz cuenta), que es lo que se percibe al rellenar.
-  const totalCampos = preguntas.reduce((n, q) => n + (q.tipo === 'escala' && q.filas.length > 0 ? q.filas.length : 1), 0);
-  const progreso = Math.min(100, Math.round((respuestas.length / Math.max(1, totalCampos)) * 100));
+  // Progreso por CAMPOS (cada fila de una matriz cuenta): es lo que se percibe al
+  // rellenar, y lo que hace que el anillo avance de forma creíble.
+  const { total, hechos } = useMemo(() => {
+    let total = 0;
+    let hechos = 0;
+    if (pedirClase && !claseConocida) {
+      total++;
+      if (clase) hechos++;
+    }
+    if (pedirEtapa) {
+      total++;
+      if (etapa) hechos++;
+    }
+    for (const q of preguntas) {
+      if (q.tipo === 'escala' && q.filas.length > 0) {
+        total += q.filas.length;
+        hechos += q.filas.filter((f) => escalas[`${q.id}::${f.clave}`] !== undefined).length;
+        continue;
+      }
+      total++;
+      if (q.tipo === 'escala') {
+        if (escalas[q.id] !== undefined) hechos++;
+      } else if (q.tipo === 'texto') {
+        if ((textos[q.id] ?? '').trim()) hechos++;
+      } else if ((opciones[q.id] ?? []).length > 0 || (otras[q.id] ?? '').trim()) {
+        hechos++;
+      }
+    }
+    return { total, hechos };
+  }, [preguntas, escalas, textos, opciones, otras, pedirClase, claseConocida, clase, pedirEtapa, etapa]);
+
+  const progreso = total > 0 ? Math.min(100, Math.round((hechos / total) * 100)) : 0;
+
+  /** Qué falta ahora mismo, en el orden en que aparece en la página. */
+  function calcularFallos(): string[] {
+    const out: string[] = [];
+    if (pedirClase && !claseConocida && !clase) out.push(CLAVE_CLASE);
+    if (pedirEtapa && !etapa) out.push(CLAVE_ETAPA);
+    const incompletas = preguntasIncompletas(paraValidar, respuestas);
+    for (const q of preguntas) if (incompletas.includes(q.id)) out.push(q.id);
+    return out;
+  }
+
+  /**
+   * Revalida SOLO si ya se había intentado enviar. Nada de pintar de rojo algo que
+   * todavía no ha dado tiempo a contestar: el rojo aparece cuando lo pides, y a
+   * partir de ahí se va apagando solo conforme rellenas.
+   */
+  function revalidar() {
+    if (fallan.length === 0) return;
+    setTimeout(() => setFallan(calcularFallos()), 0);
+  }
 
   function marcarEscala(clave: string, valor: number) {
     setEscalas((prev) => ({ ...prev, [clave]: valor }));
     haptic.tap();
+    revalidar();
   }
 
   function marcarOpcion(q: PreguntaPublica, clave: string) {
@@ -141,23 +201,23 @@ export function ResponderForm({
       return { ...prev, [q.id]: actuales[0] === clave ? [] : [clave] };
     });
     haptic.tap();
+    revalidar();
+  }
+
+  function irA(clave: string) {
+    refs.current[clave]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   async function enviar() {
-    if (soloVistaPrevia) return void alert('Esto es una vista previa: la evaluación todavía no está abierta.');
-    if (pedirClase && !claseConocida && !clase) {
-      haptic.warning();
-      return void alert('Dinos primero de qué clase eres 🙂');
+    if (soloVistaPrevia) {
+      toast.info('Es una vista previa: todavía no está abierta, no se guarda nada.');
+      return;
     }
-    if (pedirEtapa && !etapa) {
+    const fallos = calcularFallos();
+    if (fallos.length > 0) {
+      setFallan(fallos);
       haptic.warning();
-      return void alert('Marca tu etapa antes de enviar');
-    }
-    const incompletas = preguntasIncompletas(paraValidar, respuestas);
-    if (incompletas.length > 0) {
-      setFallan(incompletas);
-      haptic.warning();
-      refs.current[incompletas[0]]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      irA(fallos[0]);
       return;
     }
     setFallan([]);
@@ -179,30 +239,32 @@ export function ResponderForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo enviar');
       haptic.success();
-      setHecho({ mensaje: data.mensajeFinal ?? null, quiz: data.quiz ?? [] });
+      setHecho({ mensaje: data.mensajeFinal ?? null, quiz: data.quiz ?? [], celebracion: sortearCelebracion(audiencia) });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       haptic.warning();
-      alert(e instanceof Error ? e.message : 'Error inesperado');
+      toast.error(e instanceof Error ? e.message : 'No se ha podido enviar. Inténtalo otra vez.');
     } finally {
       setEnviando(false);
     }
   }
 
+  // ── Pantalla final ─────────────────────────────────────────────────────────
   if (hecho) {
     return (
       <motion.div {...stepAnim} className="space-y-4">
-        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-8 text-center dark:border-emerald-500/30 dark:bg-emerald-500/10">
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-            className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white"
-          >
-            <CheckCircle2 className="h-9 w-9" />
-          </motion.div>
-          <p className="mt-4 text-lg font-semibold text-emerald-900 dark:text-emerald-200">¡Enviado!</p>
-          {hecho.mensaje && <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-300">{hecho.mensaje}</p>}
+        <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <Celebracion id={hecho.celebracion} />
+          {hecho.mensaje && (
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.1 }}
+              className="border-t border-zinc-100 px-6 py-4 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300"
+            >
+              {hecho.mensaje}
+            </motion.p>
+          )}
         </div>
 
         {hecho.quiz.length > 0 && (
@@ -215,7 +277,7 @@ export function ResponderForm({
                 key={q.questionId}
                 initial={{ opacity: 0, y: 14, rotate: -1 }}
                 animate={{ opacity: 1, y: 0, rotate: 0 }}
-                transition={{ delay: 0.35 + i * 0.45, type: 'spring', stiffness: 200, damping: 16 }}
+                transition={{ delay: 1.3 + i * 0.45, type: 'spring', stiffness: 200, damping: 16 }}
                 className={`rounded-2xl border p-4 ${
                   q.acertada
                     ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10'
@@ -226,7 +288,7 @@ export function ResponderForm({
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ delay: 0.55 + i * 0.45, type: 'spring', stiffness: 400, damping: 12 }}
+                    transition={{ delay: 1.5 + i * 0.45, type: 'spring', stiffness: 400, damping: 12 }}
                   >
                     {q.acertada ? (
                       <CheckCircle2 className="h-6 w-6 text-emerald-600" />
@@ -252,195 +314,273 @@ export function ResponderForm({
     );
   }
 
+  // ── Formulario ─────────────────────────────────────────────────────────────
+  const faltaClase = fallan.includes(CLAVE_CLASE);
+  const faltaEtapa = fallan.includes(CLAVE_ETAPA);
+
   return (
-    <div className="space-y-4 pb-32">
-      {soloVistaPrevia && (
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-center text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
-          <Sparkles className="mr-1 inline h-4 w-4" /> Vista previa: todavía no está abierta, no se guarda nada.
-        </div>
-      )}
+    <>
+      <ProgresoAnillo hechos={hechos} total={total} />
 
-      {descripcion && (
-        <p className="rounded-2xl bg-white p-4 text-sm leading-relaxed text-zinc-600 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800">
-          {descripcion}
-        </p>
-      )}
+      <div className="space-y-4 pb-40">
+        {soloVistaPrevia && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-center text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+            <Sparkles className="mr-1 inline h-4 w-4" /> Vista previa: todavía no está abierta, no se guarda nada.
+          </div>
+        )}
 
-      {pedirClase && !claseConocida && (
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <p className="mb-2.5 font-semibold text-zinc-900 dark:text-zinc-100">👩🏻‍🏫 ¿De qué clase eres?</p>
-          <div className="flex flex-wrap gap-1.5">
-            {clases.map((c) => {
-              const k = claseKey(c);
-              return (
+        {descripcion && (
+          <p className="rounded-2xl bg-white p-4 text-sm leading-relaxed text-zinc-600 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800">
+            {descripcion}
+          </p>
+        )}
+
+        {pedirClase && !claseConocida && (
+          <div
+            ref={(el) => {
+              refs.current[CLAVE_CLASE] = el;
+            }}
+            className={`rounded-2xl bg-white p-4 shadow-sm ring-1 transition-colors dark:bg-zinc-900 ${
+              faltaClase ? 'ring-2 ring-rose-400' : 'ring-zinc-200/70 dark:ring-zinc-800'
+            }`}
+          >
+            <p className="mb-2.5 font-semibold text-zinc-900 dark:text-zinc-100">
+              👩🏻‍🏫 ¿De qué clase eres?<span className="ml-1 text-rose-500">*</span>
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {clases.map((c) => {
+                const k = claseKey(c);
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => {
+                      setClase(k);
+                      haptic.tap();
+                      revalidar();
+                    }}
+                    className={`rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
+                      clase === k
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
+                    }`}
+                  >
+                    {claseLabel(c)}
+                  </button>
+                );
+              })}
+            </div>
+            {faltaClase && <p className="mt-2 text-xs font-medium text-rose-600">Dinos de qué clase eres 🙂</p>}
+          </div>
+        )}
+
+        {pedirEtapa && (
+          <div
+            ref={(el) => {
+              refs.current[CLAVE_ETAPA] = el;
+            }}
+            className={`rounded-2xl bg-white p-4 shadow-sm ring-1 transition-colors dark:bg-zinc-900 ${
+              faltaEtapa ? 'ring-2 ring-rose-400' : 'ring-zinc-200/70 dark:ring-zinc-800'
+            }`}
+          >
+            <p className="mb-2.5 font-semibold text-zinc-900 dark:text-zinc-100">
+              Etapa<span className="ml-1 text-rose-500">*</span>
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {ETAPAS.map((e) => (
                 <button
-                  key={k}
+                  key={e.value}
                   type="button"
                   onClick={() => {
-                    setClase(k);
+                    setEtapa(e.value);
                     haptic.tap();
+                    revalidar();
                   }}
-                  className={`rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
-                    clase === k
+                  className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                    etapa === e.value
                       ? 'bg-blue-600 text-white'
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
                   }`}
                 >
-                  {claseLabel(c)}
+                  {e.label}
                 </button>
+              ))}
+            </div>
+            {faltaEtapa && <p className="mt-2 text-xs font-medium text-rose-600">Marca tu etapa</p>}
+          </div>
+        )}
+
+        {bloques.map((b) => (
+          <div key={b.id} className="space-y-3">
+            <div className="px-1">
+              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{b.titulo}</h2>
+              {b.intro && <p className="mt-0.5 text-sm text-zinc-500">{b.intro}</p>}
+            </div>
+
+            {b.preguntas.map((q) => {
+              const falla = fallan.includes(q.id);
+              return (
+                <div
+                  key={q.id}
+                  ref={(el) => {
+                    refs.current[q.id] = el;
+                  }}
+                  className={`rounded-2xl bg-white p-4 shadow-sm ring-1 transition-colors dark:bg-zinc-900 ${
+                    falla ? 'ring-2 ring-rose-400' : 'ring-zinc-200/70 dark:ring-zinc-800'
+                  }`}
+                >
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {q.texto}
+                    {q.obligatoria && <span className="ml-1 text-rose-500">*</span>}
+                  </p>
+                  {q.ayuda && <p className="mt-1 text-sm text-zinc-500">{q.ayuda}</p>}
+
+                  {q.tipo === 'escala' && (
+                    <div className="mt-3 space-y-3">
+                      {(q.filas.length > 0 ? q.filas : [{ clave: '', texto: '' }]).map((f) => {
+                        const clave = q.filas.length > 0 ? `${q.id}::${f.clave}` : q.id;
+                        const puntos = escalaDe(q.escala).puntos;
+                        // Dentro de una matriz se señala LA fila que falta, no toda la pregunta.
+                        const sinContestar = falla && escalas[clave] === undefined;
+                        return (
+                          <div key={clave}>
+                            {f.texto && (
+                              <p
+                                className={`mb-1.5 text-sm ${
+                                  sinContestar ? 'font-medium text-rose-600' : 'text-zinc-700 dark:text-zinc-300'
+                                }`}
+                              >
+                                {f.texto}
+                              </p>
+                            )}
+                            <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${puntos.length}, minmax(0, 1fr))` }}>
+                              {puntos.map((p) => {
+                                const activo = escalas[clave] === p.valor;
+                                return (
+                                  <button
+                                    key={p.valor}
+                                    type="button"
+                                    onClick={() => marcarEscala(clave, p.valor)}
+                                    className={`rounded-xl px-1 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+                                      activo
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : sinContestar
+                                          ? 'bg-rose-50 text-rose-500 ring-1 ring-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30'
+                                          : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                                    }`}
+                                  >
+                                    {p.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {q.tipo === 'texto' && (
+                    <textarea
+                      value={textos[q.id] ?? ''}
+                      onChange={(e) => {
+                        setTextos((prev) => ({ ...prev, [q.id]: e.target.value }));
+                        revalidar();
+                      }}
+                      rows={3}
+                      placeholder="Escribe aquí…"
+                      className="mt-3 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                    />
+                  )}
+
+                  {(q.tipo === 'opcion' || q.tipo === 'varias' || q.tipo === 'quiz') && (
+                    <div className="mt-3 space-y-1.5">
+                      {q.opciones.map((o) => {
+                        const activo = (opciones[q.id] ?? []).includes(o.clave);
+                        return (
+                          <button
+                            key={o.clave}
+                            type="button"
+                            onClick={() => marcarOpcion(q, o.clave)}
+                            className={`flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-sm transition-colors ${
+                              activo
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
+                            }`}
+                          >
+                            <span
+                              className={`flex h-5 w-5 shrink-0 items-center justify-center border-2 ${
+                                q.tipo === 'varias' ? 'rounded-md' : 'rounded-full'
+                              } ${activo ? 'border-white' : 'border-zinc-300 dark:border-zinc-600'}`}
+                            >
+                              {activo && <span className="h-2 w-2 rounded-full bg-white" />}
+                            </span>
+                            {o.texto}
+                          </button>
+                        );
+                      })}
+                      {q.permiteOtra && (
+                        <input
+                          value={otras[q.id] ?? ''}
+                          onChange={(e) => {
+                            setOtras((prev) => ({ ...prev, [q.id]: e.target.value }));
+                            revalidar();
+                          }}
+                          placeholder="Otra…"
+                          className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {falla && <p className="mt-2 text-xs font-medium text-rose-600">Te falta contestar esto</p>}
+                </div>
               );
             })}
           </div>
-        </div>
-      )}
+        ))}
 
-      {pedirEtapa && (
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <p className="mb-2.5 font-semibold text-zinc-900 dark:text-zinc-100">Etapa</p>
-          <div className="grid grid-cols-3 gap-2">
-            {ETAPAS.map((e) => (
-              <button
-                key={e.value}
-                type="button"
-                onClick={() => {
-                  setEtapa(e.value);
-                  haptic.tap();
-                }}
-                className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                  etapa === e.value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-                }`}
-              >
-                {e.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+        {avisoAnonimato && (
+          <p className="flex items-start gap-2 rounded-2xl bg-zinc-100 px-4 py-3 text-xs leading-relaxed text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {avisoAnonimato}
+          </p>
+        )}
+      </div>
 
-      {bloques.map((b) => (
-        <div key={b.id} className="space-y-3">
-          <div className="px-1">
-            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{b.titulo}</h2>
-            {b.intro && <p className="mt-0.5 text-sm text-zinc-500">{b.intro}</p>}
-          </div>
-
-          {b.preguntas.map((q) => {
-            const falla = fallan.includes(q.id);
-            return (
-              <div
-                key={q.id}
-                ref={(el) => {
-                  refs.current[q.id] = el;
-                }}
-                className={`rounded-2xl bg-white p-4 shadow-sm ring-1 transition-colors dark:bg-zinc-900 ${
-                  falla ? 'ring-2 ring-rose-400' : 'ring-zinc-200/70 dark:ring-zinc-800'
-                }`}
-              >
-                <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  {q.texto}
-                  {q.obligatoria && <span className="ml-1 text-rose-500">*</span>}
-                </p>
-                {q.ayuda && <p className="mt-1 text-sm text-zinc-500">{q.ayuda}</p>}
-
-                {q.tipo === 'escala' && (
-                  <div className="mt-3 space-y-3">
-                    {(q.filas.length > 0 ? q.filas : [{ clave: '', texto: '' }]).map((f) => {
-                      const clave = q.filas.length > 0 ? `${q.id}::${f.clave}` : q.id;
-                      const puntos = escalaDe(q.escala).puntos;
-                      return (
-                        <div key={clave}>
-                          {f.texto && <p className="mb-1.5 text-sm text-zinc-700 dark:text-zinc-300">{f.texto}</p>}
-                          <div className={`grid gap-1.5`} style={{ gridTemplateColumns: `repeat(${puntos.length}, minmax(0, 1fr))` }}>
-                            {puntos.map((p) => {
-                              const activo = escalas[clave] === p.valor;
-                              return (
-                                <button
-                                  key={p.valor}
-                                  type="button"
-                                  onClick={() => marcarEscala(clave, p.valor)}
-                                  className={`rounded-xl px-1 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
-                                    activo
-                                      ? 'bg-blue-600 text-white shadow-sm'
-                                      : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
-                                  }`}
-                                >
-                                  {p.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {q.tipo === 'texto' && (
-                  <textarea
-                    value={textos[q.id] ?? ''}
-                    onChange={(e) => setTextos((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                    rows={3}
-                    placeholder="Escribe aquí…"
-                    className="mt-3 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-                  />
-                )}
-
-                {(q.tipo === 'opcion' || q.tipo === 'varias' || q.tipo === 'quiz') && (
-                  <div className="mt-3 space-y-1.5">
-                    {q.opciones.map((o) => {
-                      const activo = (opciones[q.id] ?? []).includes(o.clave);
-                      return (
-                        <button
-                          key={o.clave}
-                          type="button"
-                          onClick={() => marcarOpcion(q, o.clave)}
-                          className={`flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-sm transition-colors ${
-                            activo
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-                          }`}
-                        >
-                          <span
-                            className={`flex h-5 w-5 shrink-0 items-center justify-center border-2 ${
-                              q.tipo === 'varias' ? 'rounded-md' : 'rounded-full'
-                            } ${activo ? 'border-white' : 'border-zinc-300 dark:border-zinc-600'}`}
-                          >
-                            {activo && <span className="h-2 w-2 rounded-full bg-white" />}
-                          </span>
-                          {o.texto}
-                        </button>
-                      );
-                    })}
-                    {q.permiteOtra && (
-                      <input
-                        value={otras[q.id] ?? ''}
-                        onChange={(e) => setOtras((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                        placeholder="Otra…"
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-
-      {avisoAnonimato && (
-        <p className="flex items-start gap-2 rounded-2xl bg-zinc-100 px-4 py-3 text-xs leading-relaxed text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
-          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          {avisoAnonimato}
-        </p>
-      )}
-
+      {/* Barra inferior: progreso siempre a la vista y, si falta algo, atajo para ir. */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="mx-auto max-w-xl">
-          <div className="mb-2 h-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <motion.div className="h-1 rounded-full bg-blue-600" animate={{ width: `${progreso}%` }} transition={{ duration: 0.25 }} />
+          <AnimatePresence>
+            {fallan.length > 0 && (
+              <motion.button
+                type="button"
+                onClick={() => irA(fallan[0])}
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginBottom: 8 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                className="flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+                {fallan.length === 1 ? 'Te falta 1 pregunta' : `Te faltan ${fallan.length} preguntas`} · ir a la primera
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          <div className="mb-2 flex items-center gap-2.5">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <motion.div
+                className={`h-1.5 rounded-full ${hechos >= total ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                initial={false}
+                animate={{ width: `${progreso}%` }}
+                transition={{ type: 'spring', stiffness: 120, damping: 22 }}
+              />
+            </div>
+            <span className="w-14 shrink-0 text-right text-[11px] font-medium tabular-nums text-zinc-400 md:hidden">
+              {hechos}/{total}
+            </span>
           </div>
+
           <button
             type="button"
             onClick={() => void enviar()}
@@ -450,18 +590,8 @@ export function ResponderForm({
             {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             Enviar mis respuestas
           </button>
-          <AnimatePresence>
-            {fallan.length > 0 && (
-              <motion.p {...stepAnim} className="mt-1.5 text-center text-xs text-rose-600">
-                Faltan {fallan.length} pregunta(s) por contestar
-              </motion.p>
-            )}
-          </AnimatePresence>
-          {fallan.length === 0 && respuestas.length > 0 && (
-            <p className="mt-1.5 text-center text-xs text-zinc-400">{progreso} % completado</p>
-          )}
         </div>
       </div>
-    </div>
+    </>
   );
 }

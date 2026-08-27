@@ -10,7 +10,7 @@ import {
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { etapaDeCurso } from '@/lib/cursos';
-import { AUDIENCIAS, CATALOGO, claseLabel, opcionesAcademicYear, type Audiencia } from '@/lib/evaluaciones';
+import { AUDIENCIAS, CATALOGO, claseLabel, huecosPendientes, opcionesAcademicYear, type Audiencia } from '@/lib/evaluaciones';
 import type { EvalQuestion } from '@/db/schema';
 import type { FormCompleto } from '@/lib/evaluaciones-server';
 import { QuestionCard } from '@/components/evaluaciones/question-card';
@@ -44,6 +44,15 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
   const enlace = `${baseUrl}/evaluaciones/${form.token}`;
   const pendientesRevision = useMemo(
     () => form.bloques.reduce((n, b) => n + b.preguntas.filter((q) => q.revisar).length, 0),
+    [form],
+  );
+  // Frases del preset que se han quedado a medias ("¿Te ha servido para…"). Mientras
+  // haya una, la evaluación no se puede abrir: el servidor también lo rechaza.
+  const huecos = useMemo(
+    () =>
+      huecosPendientes(
+        form.bloques.flatMap((b) => b.preguntas.map((q) => ({ id: q.id, texto: q.texto, filas: q.filas }))),
+      ),
     [form],
   );
 
@@ -125,10 +134,12 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
   }
 
   const clasesPorEtapa = useMemo(() => {
+    // Secundaria primero: es quien responde de verdad las evaluaciones. Infantil,
+    // que casi nunca aplica, queda abajo en vez de comerse la primera pantalla.
     const grupos: { etapa: string; label: string; clases: typeof clases }[] = [
-      { etapa: 'EI', label: 'Infantil', clases: [] },
-      { etapa: 'EP', label: 'Primaria', clases: [] },
       { etapa: 'ESO', label: 'Secundaria', clases: [] },
+      { etapa: 'EP', label: 'Primaria', clases: [] },
+      { etapa: 'EI', label: 'Infantil', clases: [] },
     ];
     for (const c of clases) {
       const g = grupos.find((x) => x.etapa === etapaDeCurso(c.curso));
@@ -173,11 +184,13 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
             <button
               key={e}
               type="button"
+              disabled={e === 'abierto' && huecos.length > 0}
+              title={e === 'abierto' && huecos.length > 0 ? 'Termina primero las frases que quedan a medias' : undefined}
               onClick={() => {
                 haptic.tap();
                 void patchForm({ estado: e }, e === 'abierto' ? 'Evaluación abierta: ya se puede responder' : undefined);
               }}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+              className={`rounded-full px-3 py-1.5 text-sm font-medium capitalize transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                 form.estado === e
                   ? e === 'abierto'
                     ? 'bg-emerald-600 text-white'
@@ -222,11 +235,32 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
           </div>
         </div>
 
-        {pendientesRevision > 0 && (
-          <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-            <TriangleAlert className="h-4 w-4 shrink-0" />
-            Quedan {pendientesRevision} pregunta(s) del preset por adaptar: son las marcadas en ámbar. Edítalas y el aviso desaparece.
-          </p>
+        {huecos.length > 0 ? (
+          <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+            <p className="flex items-center gap-2 font-semibold">
+              <TriangleAlert className="h-4 w-4 shrink-0" />
+              {huecos.length === 1 ? 'Falta terminar una frase' : `Faltan ${huecos.length} frases por terminar`} para poder abrirla
+            </p>
+            <p className="mt-1 text-amber-800/90 dark:text-amber-300/90">
+              El preset las deja a medias a propósito: una evaluación con la pregunta genérica no la contesta nadie con
+              cabeza. Termínalas y el botón de &quot;abierto&quot; se activa solo.
+            </p>
+            <ul className="mt-1.5 space-y-0.5">
+              {huecos.slice(0, 6).map((h, i) => (
+                <li key={`${h.questionId}-${i}`} className="font-medium">
+                  · {h.texto}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          pendientesRevision > 0 && (
+            <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+              <TriangleAlert className="h-4 w-4 shrink-0" />
+              Quedan {pendientesRevision} pregunta(s) del preset por adaptar: son las marcadas en ámbar. Edítalas y el aviso
+              desaparece.
+            </p>
+          )
         )}
         {bloqueada && (
           <p className="mt-2 flex items-center gap-2 text-xs text-zinc-500">

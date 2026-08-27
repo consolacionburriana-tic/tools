@@ -50,8 +50,14 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
     lugar?) · "🤔 Observaciones y sugerencias" con el textito de siempre.
   - *Familias*: valoración general + observaciones.
 - **Las frases que hay que adaptar salen marcadas en ámbar** (`eval_questions.revisar`) y el
-  aviso desaparece al editarlas. Es la traducción literal de "que me marque aquí tienes que
-  cambiar unas frases".
+  aviso desaparece al editarlas.
+- **Los presets nacen con una frase A MEDIAS y la evaluación NO se puede abrir hasta
+  terminarla** (2026-08-27). El preset de alumnado trae "¿Te ha servido para…", el de
+  profesorado "¿Ha servido para…" y el de familias "¿Os ha servido para…". Una frase que
+  termina en "…" es un hueco (`fraseConHueco`); mientras quede uno, el botón de "abierto" está
+  deshabilitado **y el servidor rechaza el PATCH con 409**. El motivo es de fondo: si se puede
+  mandar la genérica, se manda la genérica, y una pregunta genérica no la contesta nadie con
+  cabeza. El "…" en medio de una frase no cuenta, solo el del final.
 - **Al profesorado se le muestra el objetivo de la actividad** encima de las preguntas
   (`eval_activities.objetivo`); **al alumnado, el resumen** (`eval_activities.resumen`), que
   explica de qué va sin soltar el objetivo tal cual. El editor los rellena solos al añadir la
@@ -62,6 +68,10 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
   se corrigen en el servidor al enviar y vuelven con su reacción, que se anima al terminar.
 - **Reordenar y duplicar**: flechas arriba/abajo (lo que funciona de verdad en iPad) y
   arrastrar y soltar en escritorio. Duplicar una pregunta la deja justo debajo del original.
+- **Las clases se ordenan de mayores a pequeños** (`compararClasesMayoresPrimero`): en
+  secundaria es donde se responde de verdad, y en infantil casi no aplica.
+- **El selector de curso académico arranca en `PRIMER_CURSO` (2025-26)**: antes no existía el
+  módulo, así que ofrecer 2022-23 era ruido.
 - **Catálogo de preguntas sueltas** en código (`CATALOGO` en `src/lib/evaluaciones.ts`), sacado
   de los formularios reales. `eval_question_templates` queda para las que guarde el claustro.
 
@@ -83,6 +93,14 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
   personalizado: quien lo abre está analizando resultados, no investigando a nadie. La
   trazabilidad se queda en la BBDD.
 - El anonimato se decide al crear y **no se cambia una vez hay respuestas**.
+
+### Quién entra
+- **Módulo restringido** (2026-08-27): lo tienen `supertic`, `tic` y `direccion`, más un **rol
+  nuevo `evaluaciones`** que se da a dedo desde `/gestion/usuarios` a quien lleve el tema
+  (pastoral, innovación…). Se quitó de `jefe`, `orientacion`, `tutor` y `profe`, que lo tenían
+  por defecto — 44 cuentas reales.
+- Ojo al modelo: **cada usuario tiene UN rol**, así que dar `evaluaciones` a alguien que hoy es
+  `tutor` le quita Salidas y Banco de libros. Ver `00-desarrollos-futuros.md`.
 
 ### Correo
 - Reutiliza el motor de envío masivo común (`src/lib/correos.ts`): variables `{nombre}`,
@@ -154,6 +172,24 @@ queda a medias entre dos peticiones.
 - [x] Duplicar formulario: tal cual, a otro curso (copia las actividades manteniendo serie) o a
       otro colectivo (cambia el preset)
 - [x] Importar actividad del curso anterior conservando la serie
+
+### Diseño del formulario y de los datos
+- **Progreso a la vista mientras se rellena**: anillo flotante en el lateral (solo en pantallas
+  anchas; aparece al contestar lo primero, no con un 0 % desmoralizante) y barra + `hechos/total`
+  en la barra inferior, que es donde se ve en móvil. Cuenta CAMPOS, no preguntas: cada fila de
+  una matriz suma.
+- **Cero `alert()`**: lo que falta se marca en rojo (incluidas la clase y la etapa, y dentro de
+  una matriz la fila concreta), con un atajo "ir a la primera" en la barra inferior. El rojo
+  aparece al intentar enviar, nunca antes, y se va apagando solo según se rellena.
+- **Quince finales distintos** (`celebraciones.tsx`), sorteados al enviar: confeti, fuegos,
+  cohete, globos, estrellas, sello, ola, trazo, corazones, trofeo, serpentinas, onda, máquina de
+  escribir, pompas y arcoíris. Familias mantiene el check sobrio de siempre. Todas degradan a
+  una versión quieta con `prefers-reduced-motion`.
+- **Paleta de datos validada** con el script de la skill `dataviz`, en claro y oscuro por
+  separado (variables CSS en `globals.css`). El trío original azul/verde/violeta se descartó
+  porque alumnado y familias eran indistinguibles con deuteranopía (ΔE 0.4). La distribución de
+  la escala pasó de cuatro barritas sueltas a una barra apilada con rampa de un solo tono y su
+  leyenda: "Poco" y "Mucho" no son categorías distintas, son más y menos de lo mismo.
 
 ### Fase 2 · Formulario de respuesta
 - [x] Página pública por token, respetando estado (borrador = vista previa, cerrado = aviso)

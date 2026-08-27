@@ -186,10 +186,12 @@ export function NuevaEvaluacion({
   }
 
   const clasesPorEtapa = useMemo(() => {
+    // Secundaria primero: es quien responde de verdad las evaluaciones. Infantil,
+    // que casi nunca aplica, queda abajo en vez de comerse la primera pantalla.
     const grupos: { etapa: string; label: string; clases: typeof clases }[] = [
-      { etapa: 'EI', label: 'Infantil', clases: [] },
-      { etapa: 'EP', label: 'Primaria', clases: [] },
       { etapa: 'ESO', label: 'Secundaria', clases: [] },
+      { etapa: 'EP', label: 'Primaria', clases: [] },
+      { etapa: 'EI', label: 'Infantil', clases: [] },
     ];
     for (const c of clases) {
       const g = grupos.find((x) => x.etapa === etapaDeCurso(c.curso));

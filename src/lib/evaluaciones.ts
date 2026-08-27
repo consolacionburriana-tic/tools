@@ -191,6 +191,45 @@ export const INTRO_FORM: Record<Audiencia, string> = {
   familias: 'Nos gustaría conocer vuestra opinión. Se responde en un par de minutos.',
 };
 
+// ─── Huecos obligatorios ──────────────────────────────────────────────────────
+
+/**
+ * Una frase del preset que TERMINA en "…" es un hueco sin rellenar. No es cosmético:
+ * el formulario no se puede abrir hasta que no quede ninguno.
+ *
+ * Por qué: la tentación de mandar la evaluación con el "¿Te ha servido para descubrir
+ * algo nuevo?" genérico es enorme, y una pregunta genérica no la contesta nadie con
+ * cabeza. Obligando a terminar la frase, la evaluación se personaliza sí o sí.
+ *
+ * El "…" en medio de una frase no cuenta ("¿Qué cambiarías? o… ¿Qué nos propones?"),
+ * solo el del final.
+ */
+export const MARCA_HUECO = '…';
+
+export function fraseConHueco(texto: string | null | undefined): boolean {
+  return (texto ?? '').trim().endsWith(MARCA_HUECO);
+}
+
+export interface PreguntaConHuecos {
+  id: string;
+  texto: string;
+  filas: { clave: string; texto: string }[];
+}
+
+/** Preguntas (y filas) que todavía tienen huecos sin rellenar, para bloquear la apertura. */
+export function huecosPendientes(
+  preguntas: PreguntaConHuecos[],
+): { questionId: string; texto: string }[] {
+  const out: { questionId: string; texto: string }[] = [];
+  for (const q of preguntas) {
+    if (fraseConHueco(q.texto)) out.push({ questionId: q.id, texto: q.texto });
+    for (const f of q.filas) {
+      if (fraseConHueco(f.texto)) out.push({ questionId: q.id, texto: f.texto });
+    }
+  }
+  return out;
+}
+
 // ─── Presets de preguntas ─────────────────────────────────────────────────────
 
 export interface PreguntaBorrador {
@@ -248,7 +287,8 @@ export function presetActividad(nombreActividad: string, audiencia: Audiencia): 
         revisar: true,
         filas: [
           fila('¿Ha sido interesante poder tener este momento?'),
-          fila(`¿Se han conseguido los objetivos de ${nombre}?`),
+          // Hueco a propósito, igual que en alumnado: el objetivo se concreta cada vez.
+          fila('¿Ha servido para…'),
           fila('¿La propuesta era adecuada para la edad del alumnado?'),
         ],
       },
@@ -273,8 +313,8 @@ export function presetActividad(nombreActividad: string, audiencia: Audiencia): 
         revisar: true,
         filas: [
           fila('¿Os ha parecido interesante la propuesta?'),
+          fila('¿Os ha servido para…'),
           fila('¿La información que recibisteis fue clara y a tiempo?'),
-          fila('¿Vuestro hijo/a os ha contado algo positivo de la actividad?'),
         ],
       },
       preguntaObservaciones(nombre, 'familias'),
@@ -289,7 +329,8 @@ export function presetActividad(nombreActividad: string, audiencia: Audiencia): 
       escala: 'nada_mucho',
       revisar: true,
       filas: [
-        fila(`¿Te ha servido ${nombre} para descubrir algo nuevo?`),
+        // Hueco a propósito: hay que terminar la frase para poder abrir el formulario.
+        fila('¿Te ha servido para…'),
         fila('¿Te han gustado las actividades que has realizado?'),
         fila('¿Te ha parecido adecuado el tiempo que has tenido?'),
         fila('¿Te ha gustado el lugar donde la has realizado?'),
@@ -547,13 +588,30 @@ export function academicYearAnterior(year: string): string {
   return `${inicio}-${String((inicio + 1) % 100).padStart(2, '0')}`;
 }
 
-/** Lista de cursos académicos para el selector: el actual, los 3 anteriores y el siguiente. */
+/**
+ * Primer curso del que hay (o puede haber) evaluaciones. Antes de esto no existe el
+ * módulo, así que ofrecer 2022-23 en un selector es ruido puro.
+ */
+export const PRIMER_CURSO = '2025-26';
+
+function anioInicio(year: string): number | null {
+  const m = year.match(/^(\d{4})-(\d{2})$/);
+  return m ? Number(m[1]) : null;
+}
+
+function formatearCurso(inicio: number): string {
+  return `${inicio}-${String((inicio + 1) % 100).padStart(2, '0')}`;
+}
+
+/**
+ * Cursos del selector, del más nuevo al más viejo: desde el siguiente al actual hasta
+ * `PRIMER_CURSO`. Nunca ofrece cursos anteriores a que existiera el módulo.
+ */
 export function opcionesAcademicYear(actual: string): string[] {
-  const m = actual.match(/^(\d{4})-(\d{2})$/);
-  if (!m) return [actual];
-  const inicio = Number(m[1]);
-  return [1, 0, -1, -2, -3].map((d) => {
-    const y = inicio + d;
-    return `${y}-${String((y + 1) % 100).padStart(2, '0')}`;
-  });
+  const desde = anioInicio(PRIMER_CURSO)!;
+  const hasta = anioInicio(actual);
+  if (hasta === null || hasta < desde) return [PRIMER_CURSO];
+  const anios: string[] = [];
+  for (let y = hasta + 1; y >= desde; y--) anios.push(formatearCurso(y));
+  return anios;
 }

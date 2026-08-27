@@ -201,3 +201,30 @@ a:not(.no-press):active,
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+
+/* ── Paleta de datos de Evaluaciones ────────────────────────────────────────
+   Validada con el script de la skill dataviz (checks de banda de luminosidad,
+   croma, separación CVD y contraste), en claro y en oscuro por separado — el
+   modo oscuro NO es un volteo automático, son sus propios pasos.
+
+   · Categórica (quién responde): orden FIJO, nunca ciclado. El trío anterior
+     (azul/verde/violeta) se descartó porque alumnado y familias eran
+     indistinguibles con deuteranopía (ΔE 0.4) y quedaban por debajo del suelo
+     incluso con visión normal (12.4 < 15).
+   · Ordinal (Nada → Mucho): un solo tono. Solo se declaran los dos extremos;
+     los pasos intermedios salen por `color-mix(in oklab, …)`, que mantiene la
+     rampa monótona en luminosidad sea cual sea el número de puntos de la escala. */
+:root {
+  --eval-alumnos: #2a78d6;
+  --eval-profesores: #eb6834;
+  --eval-familias: #1baf7a;
+  --eval-ord-lo: #86b6ef; /* extremo "Nada" — despega del fondo claro (>= 2:1) */
+  --eval-ord-hi: #104281; /* extremo "Mucho" */
+}
+.dark {
+  --eval-alumnos: #3987e5;
+  --eval-profesores: #d95926;
+  --eval-familias: #199e70;
+  --eval-ord-lo: #1c5cab; /* sobre fondo oscuro, "Nada" es el que recede */
+  --eval-ord-hi: #9ec5f4;
+}

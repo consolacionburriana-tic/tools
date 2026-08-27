@@ -51,6 +51,20 @@ export function compararClases(
 }
 
 /**
+ * Comparador inverso: secundaria primero, infantil al final. Lo usa Evaluaciones
+ * porque quien responde de verdad son los mayores (en infantil casi no aplica), y
+ * lo que se toca a diario tiene que salir arriba sin hacer scroll.
+ */
+export function compararClasesMayoresPrimero(
+  a: { curso: string | null; letra: string | null },
+  b: { curso: string | null; letra: string | null },
+): number {
+  const d = ordenCurso(b.curso) - ordenCurso(a.curso);
+  if (d !== 0) return d;
+  return (a.letra ?? '').localeCompare(b.letra ?? '', 'es');
+}
+
+/**
  * ¿Este curso entra en el banco de libros? El banco arranca en 3º de primaria;
  * infantil, 1º y 2º de primaria quedan fuera. Secundaria y PDC entran siempre.
  */

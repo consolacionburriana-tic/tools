@@ -42,6 +42,66 @@ function Barra({ pct }: { pct: number | null }) {
   );
 }
 
+/**
+ * Color de un punto de la escala dentro de la rampa ordinal. Un solo tono de claro
+ * a oscuro (nunca colores distintos por opción: "Poco" y "Mucho" no son categorías
+ * independientes, son más y menos de lo mismo). Los pasos intermedios se interpolan
+ * en oklab, así que la rampa funciona igual con 2, 4 o 5 puntos.
+ */
+function tonoOrdinal(indice: number, n: number): string {
+  const t = n <= 1 ? 100 : (indice / (n - 1)) * 100;
+  return `color-mix(in oklab, var(--eval-ord-hi) ${t}%, var(--eval-ord-lo))`;
+}
+
+/**
+ * Distribución de una fila como una sola barra apilada. Antes eran cuatro barritas
+ * sueltas, que se leían como cuatro medidas independientes en vez de como el reparto
+ * de un total. Los 2px de hueco entre segmentos son del fondo, no un borde: así se
+ * distinguen los tramos sin meter una línea de color que compita con los datos.
+ */
+function Distribucion({
+  distribucion,
+  n,
+}: {
+  distribucion: { valor: number; label: string; n: number }[];
+  n: number;
+}) {
+  if (n === 0) return <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800" />;
+  return (
+    <div className="flex h-1.5 gap-[2px]" role="img" aria-label={distribucion.map((d) => `${d.label}: ${d.n}`).join(', ')}>
+      {distribucion.map((d, i) => {
+        if (d.n === 0) return null;
+        return (
+          <div
+            key={d.valor}
+            title={`${d.label}: ${d.n} de ${n}`}
+            style={{ width: `${(d.n / n) * 100}%`, background: tonoOrdinal(i, distribucion.length) }}
+            className="h-1.5 rounded-full first:rounded-l-full last:rounded-r-full"
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** Leyenda de la escala. Con 2+ tramos siempre va: el color solo nunca basta. */
+function LeyendaEscala({ escala }: { escala: string }) {
+  const puntos = escalaDe(escala).puntos;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {puntos.map((p, i) => (
+        <span key={p.valor} className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ background: tonoOrdinal(i, puntos.length) }}
+          />
+          {p.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function ResultadosPanel({
   resultados,
   formId,
@@ -177,7 +237,8 @@ export function ResultadosPanel({
                   <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{q.texto}</p>
 
                   {q.tipo === 'escala' && (
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-2 space-y-3">
+                      <LeyendaEscala escala={q.escala} />
                       {q.filas.map((f) => (
                         <div key={f.clave || q.id}>
                           <div className="flex items-center gap-3">
@@ -188,19 +249,8 @@ export function ResultadosPanel({
                             <Barra pct={f.mediaPct} />
                             <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-zinc-400">{f.n}</span>
                           </div>
-                          <div className="mt-1 flex gap-0.5">
-                            {f.distribucion.map((d) => (
-                              <div
-                                key={d.valor}
-                                title={`${d.label}: ${d.n}`}
-                                className="h-1 flex-1 rounded-full bg-zinc-100 dark:bg-zinc-800"
-                              >
-                                <div
-                                  className="h-1 rounded-full bg-blue-500/70"
-                                  style={{ width: `${f.n > 0 ? (d.n / f.n) * 100 : 0}%` }}
-                                />
-                              </div>
-                            ))}
+                          <div className="mt-1">
+                            <Distribucion distribucion={f.distribucion} n={f.n} />
                           </div>
                         </div>
                       ))}

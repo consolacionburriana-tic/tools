@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, GripVertical, Plus, Settings2, Trash2, TriangleAlert, X } from 'lucide-react';
-import { ESCALAS, slugClave, type TipoPregunta } from '@/lib/evaluaciones';
+import { ESCALAS, fraseConHueco, slugClave, type TipoPregunta } from '@/lib/evaluaciones';
 import type { EvalQuestion } from '@/db/schema';
 
 const inputCls =
@@ -90,6 +90,8 @@ export function QuestionCard({
   onDrop,
 }: QuestionCardProps) {
   const [ajustes, setAjustes] = useState(false);
+  // Una frase que acaba en "…" está a medias: se marca aunque ya no esté en `revisar`.
+  const conHueco = fraseConHueco(q.texto) || q.filas.some((f) => fraseConHueco(f.texto));
   const esEscala = q.tipo === 'escala';
   const conOpciones = q.tipo === 'opcion' || q.tipo === 'varias' || q.tipo === 'quiz';
 
@@ -123,7 +125,7 @@ export function QuestionCard({
         onDrop();
       }}
       className={`rounded-xl border bg-white p-3 transition-colors dark:bg-zinc-900 ${
-        q.revisar
+        q.revisar || conHueco
           ? 'border-amber-300 bg-amber-50/40 dark:border-amber-500/40 dark:bg-amber-500/5'
           : 'border-zinc-200 dark:border-zinc-700'
       } ${ocupado ? 'opacity-60' : ''}`}
@@ -134,9 +136,9 @@ export function QuestionCard({
         <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
           {TIPOS.find((t) => t.value === q.tipo)?.label}
         </span>
-        {q.revisar && (
+        {(q.revisar || conHueco) && (
           <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-            <TriangleAlert className="h-3 w-3" /> Cambia esta frase
+            <TriangleAlert className="h-3 w-3" /> {conHueco ? 'Termina la frase' : 'Cambia esta frase'}
           </span>
         )}
         <div className="ml-auto flex items-center gap-0.5">
@@ -204,6 +206,11 @@ export function QuestionCard({
               <CampoAutoguardado
                 valor={f.texto}
                 placeholder="Frase a valorar"
+                className={
+                  fraseConHueco(f.texto)
+                    ? `${inputCls} border-amber-400 bg-amber-50/60 dark:border-amber-500/50 dark:bg-amber-500/5`
+                    : inputCls
+                }
                 onGuardar={(v) => patchFilas(q.filas.map((x) => (x.clave === f.clave ? { ...x, texto: v } : x)))}
               />
               <button

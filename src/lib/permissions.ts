@@ -21,6 +21,7 @@ export const ROLES = [
   'tic',
   'orientacion',
   'secretaria',
+  'evaluaciones',
   'supertic',
 ] as const;
 export type Role = (typeof ROLES)[number];
@@ -33,6 +34,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   tic: 'TIC',
   orientacion: 'Orientación',
   secretaria: 'Secretaría',
+  evaluaciones: 'Evaluaciones',
   supertic: 'SuperTIC',
 };
 
@@ -40,11 +42,14 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   supertic: [...MODULES],
   tic: [...MODULES],
   direccion: ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'educamos', 'profes'],
-  jefe: ['salidas', 'bancolibros', 'evaluaciones', 'profes'],
-  orientacion: ['abc', 'evaluaciones'],
+  jefe: ['salidas', 'bancolibros', 'profes'],
+  orientacion: ['abc'],
   secretaria: ['licencias', 'salidas', 'bancolibros'],
-  tutor: ['salidas', 'bancolibros', 'evaluaciones'],
-  profe: ['salidas', 'bancolibros', 'evaluaciones'],
+  tutor: ['salidas', 'bancolibros'],
+  profe: ['salidas', 'bancolibros'],
+  // Rol "de una sola cosa": quien lleva las evaluaciones (pastoral, innovación…) sin
+  // tener por qué ver pedidos, salidas ni la BBDD central. Se da a dedo desde /gestion/usuarios.
+  evaluaciones: ['evaluaciones'],
 };
 // Nota: el FORMULARIO del ABC lo puede enviar cualquier persona autenticada del claustro
 // (basta sesión); el módulo 'abc' de esta matriz es su panel de gestión.

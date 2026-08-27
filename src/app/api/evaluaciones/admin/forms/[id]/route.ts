@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { actualizarForm, borrarForm } from '@/lib/evaluaciones-server';
+import { actualizarForm, borrarForm, getHuecosPendientes } from '@/lib/evaluaciones-server';
 
 const patchSchema = z.object({
   titulo: z.string().min(3).optional(),
@@ -23,7 +23,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (isGuardResponse(guard)) return guard;
   try {
     const { id } = await params;
-    await actualizarForm(id, patchSchema.parse(await request.json()));
+    const cambios = patchSchema.parse(await request.json());
+
+    // Abrir una evaluación con las frases del preset a medias equivale a mandar una
+    // encuesta genérica: se bloquea aquí, no solo en la interfaz.
+    if (cambios.estado === 'abierto') {
+      const huecos = await getHuecosPendientes(id);
+      if (huecos.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              huecos.length === 1
+                ? 'Falta terminar una frase antes de abrir la evaluación'
+                : `Faltan ${huecos.length} frases por terminar antes de abrir la evaluación`,
+            huecos,
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    await actualizarForm(id, cambios);
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error desconocido';

@@ -87,6 +87,7 @@ export default async function ResponderPage({
           <ResponderForm
             token={form.token}
             invite={invite}
+            audiencia={form.audiencia}
             descripcion={form.descripcion}
             avisoAnonimato={form.avisoAnonimato}
             pedirClase={form.pedirClase}

@@ -91,6 +91,14 @@ cerrada, para poder investigar un caso puntual), así que si alguna vez una fami
 la respuesta honesta es "en pantalla nadie ve nombres, pero el envío es nominal". El profesorado
 no tiene ese matiz: ahí no se guarda absolutamente nada.
 
+### Un usuario = un rol: se queda corto con el rol nuevo de Evaluaciones
+`auth_users.role` es un único texto y `ROLE_MODULES` mapea rol → módulos. Con el rol
+`evaluaciones` (2026-08-27) aparece el primer caso incómodo: quien lleve las evaluaciones es
+probablemente **también tutor/a**, y al ponerle `evaluaciones` pierde Salidas y Banco de libros.
+Salidas hoy: darle `direccion` (ve casi todo) o tragar con la pérdida. Arreglo de verdad: o una
+tabla `auth_user_modules` de permisos extra por persona, o roles múltiples. No corre prisa hasta
+que haya alguien concreto en ese caso — pero cuando lo haya, es esto.
+
 ### Evaluaciones: familias
 El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link
 de familias (`fam_access_tokens`, ya usado por Licencias y Salidas) con su propio propósito

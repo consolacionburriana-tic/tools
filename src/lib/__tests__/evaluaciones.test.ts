@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   academicYearAnterior,
   aPorcentaje,
+  fraseConHueco,
+  huecosPendientes,
   claveUnica,
   desdeCatalogo,
   escalaDe,
@@ -199,7 +201,69 @@ describe('cursos académicos', () => {
     expect(academicYearAnterior('2000-01')).toBe('1999-00');
   });
 
-  it('ofrece el siguiente, el actual y tres anteriores', () => {
-    expect(opcionesAcademicYear('2025-26')).toEqual(['2026-27', '2025-26', '2024-25', '2023-24', '2022-23']);
+  it('no ofrece cursos anteriores a que existiera el módulo', () => {
+    // El módulo nace en 2025-26: 2024-25 y anteriores serían ruido en el selector.
+    expect(opcionesAcademicYear('2025-26')).toEqual(['2026-27', '2025-26']);
+  });
+
+  it('va creciendo con los cursos, del más nuevo al más viejo', () => {
+    expect(opcionesAcademicYear('2027-28')).toEqual(['2028-29', '2027-28', '2026-27', '2025-26']);
+  });
+
+  it('nunca devuelve lista vacía aunque el curso actual sea anterior al primero', () => {
+    expect(opcionesAcademicYear('2019-20')).toEqual(['2025-26']);
+  });
+});
+
+describe('huecos obligatorios', () => {
+  it('detecta como hueco solo la frase que TERMINA en puntos suspensivos', () => {
+    expect(fraseConHueco('¿Te ha servido para…')).toBe(true);
+    expect(fraseConHueco('  ¿Te ha servido para…  ')).toBe(true);
+    expect(fraseConHueco('¿Te ha servido para conocer el lema?')).toBe(false);
+  });
+
+  it('no confunde los puntos suspensivos de en medio de una frase', () => {
+    // Este texto es el de "Observaciones" de siempre: NO es un hueco.
+    expect(fraseConHueco('🤔 Observaciones y sugerencias · ¿Qué cambiarías? o… ¿Qué nos propones?')).toBe(false);
+  });
+
+  it('encuentra los huecos tanto en la pregunta como en sus filas', () => {
+    const pendientes = huecosPendientes([
+      {
+        id: 'q1',
+        texto: '✅ Actividad · Convivencia',
+        filas: [
+          { clave: 'a', texto: '¿Te ha servido para…' },
+          { clave: 'b', texto: '¿Te ha gustado el lugar?' },
+        ],
+      },
+      { id: 'q2', texto: 'Cuéntanos sobre…', filas: [] },
+    ]);
+    expect(pendientes).toEqual([
+      { questionId: 'q1', texto: '¿Te ha servido para…' },
+      { questionId: 'q2', texto: 'Cuéntanos sobre…' },
+    ]);
+  });
+
+  it('un formulario ya adaptado no tiene huecos', () => {
+    expect(huecosPendientes([{ id: 'q1', texto: 'Actividad', filas: [{ clave: 'a', texto: '¿Te gustó?' }] }])).toEqual([]);
+  });
+
+  it('el preset de alumnado SIEMPRE nace con un hueco: obliga a personalizarlo', () => {
+    const matriz = presetActividad('Convivencia', 'alumnos')[0];
+    const conHueco = matriz.filas!.filter((f) => fraseConHueco(f.texto));
+    expect(conHueco).toHaveLength(1);
+    expect(conHueco[0].texto).toBe('¿Te ha servido para…');
+  });
+
+  it('los tres presets nacen con hueco, para que nadie mande la genérica', () => {
+    for (const audiencia of ['alumnos', 'profesores', 'familias'] as const) {
+      const preguntas = presetActividad('X', audiencia).map((q, i) => ({
+        id: String(i),
+        texto: q.texto,
+        filas: q.filas ?? [],
+      }));
+      expect(huecosPendientes(preguntas).length).toBeGreaterThan(0);
+    }
   });
 });

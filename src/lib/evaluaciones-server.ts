@@ -21,7 +21,7 @@ import {
   type NewEvalQuestion,
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
-import { compararClases, etapaDeCurso } from '@/lib/cursos';
+import { compararClasesMayoresPrimero, etapaDeCurso } from '@/lib/cursos';
 import {
   AVISO_ANONIMATO,
   INTRO_FORM,
@@ -31,6 +31,7 @@ import {
   mediaBruta,
   mediaPorcentaje,
   nuevoTokenFormulario,
+  huecosPendientes,
   nuevoTokenInvitacion,
   presetActividad,
   slugClave,
@@ -318,6 +319,18 @@ export async function crearForm(input: NuevoFormInput): Promise<FormCompleto> {
   }
 
   return (await getFormCompleto(form.id))!;
+}
+
+/**
+ * Huecos "…" sin rellenar de un formulario. Es el guardián de que nadie mande la
+ * evaluación con las frases genéricas del preset.
+ */
+export async function getHuecosPendientes(formId: string): Promise<{ questionId: string; texto: string }[]> {
+  const form = await getFormCompleto(formId);
+  if (!form) return [];
+  return huecosPendientes(
+    form.bloques.flatMap((b) => b.preguntas.map((q) => ({ id: q.id, texto: q.texto, filas: q.filas }))),
+  );
 }
 
 export async function actualizarForm(id: string, patch: Partial<EvalForm>): Promise<void> {
@@ -961,7 +974,7 @@ export async function getResultados(formId: string, filtro?: Clase | null): Prom
         mediaPct: pcts.length ? pcts.reduce((s, p) => s + p, 0) / pcts.length : null,
       };
     })
-    .sort(compararClases);
+    .sort(compararClasesMayoresPrimero);
 
   const etapasSet = [...new Set(respuestas.map((r) => r.etapa).filter((e): e is string => !!e))];
   const etapas = etapasSet.map((etapa) => {
@@ -1139,5 +1152,5 @@ export async function getClasesDisponibles(): Promise<Clase[]> {
     .selectDistinct({ curso: eduStudents.curso, letra: eduStudents.letra })
     .from(eduStudents)
     .where(eq(eduStudents.active, true));
-  return rows.filter((r): r is Clase => r.curso !== null).sort(compararClases);
+  return rows.filter((r): r is Clase => r.curso !== null).sort(compararClasesMayoresPrimero);
 }
