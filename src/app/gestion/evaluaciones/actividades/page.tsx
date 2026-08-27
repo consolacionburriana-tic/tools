@@ -35,6 +35,7 @@ export default async function ActividadesPage({ searchParams }: { searchParams: 
           objetivo: a.objetivo,
           resumen: a.resumen,
           notas: a.notas,
+          color: a.color,
           academicYear: a.academicYear,
           formularios: a.formularios,
         }))}

@@ -13,6 +13,7 @@ const patchSchema = z.object({
   objetivo: z.string().nullable().optional(),
   resumen: z.string().nullable().optional(),
   notas: z.string().nullable().optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   // Nunca se borran: se archivan (dejan de salir en los selectores, los datos siguen).
   archivada: z.boolean().optional(),
 });

@@ -35,6 +35,8 @@ export interface BloquePublico {
   id: string;
   titulo: string;
   intro: string | null;
+  /** Acento de la actividad en este bloque; sin color, se usa el azul de siempre. */
+  color: string | null;
   preguntas: PreguntaPublica[];
 }
 
@@ -156,6 +158,10 @@ export function ResponderForm({
       if (etapa) hechos++;
     }
     for (const q of preguntas) {
+      // Las preguntas opcionales (p. ej. "Observaciones y sugerencias") no entran en
+      // el cálculo: si contaran, rellenar solo lo obligatorio nunca llegaría al 100 %,
+      // que es justo lo contrario de lo que promete marcarlas como opcionales.
+      if (!q.obligatoria) continue;
       if (q.tipo === 'escala' && q.filas.length > 0) {
         total += q.filas.length;
         hechos += q.filas.filter((f) => escalas[`${q.id}::${f.clave}`] !== undefined).length;
@@ -173,7 +179,8 @@ export function ResponderForm({
     return { total, hechos };
   }, [preguntas, escalas, textos, opciones, otras, pedirClase, claseConocida, clase, pedirEtapa, etapa]);
 
-  const progreso = total > 0 ? Math.min(100, Math.round((hechos / total) * 100)) : 0;
+  // Si no queda nada obligatorio (caso raro), no hay "progreso" que medir: 100 % ya.
+  const progreso = total === 0 ? 100 : Math.min(100, Math.round((hechos / total) * 100));
 
   /** Qué falta ahora mismo, en el orden en que aparece en la página. */
   function calcularFallos(): string[] {
@@ -419,10 +426,15 @@ export function ResponderForm({
           </div>
         )}
 
-        {bloques.map((b) => (
+        {bloques.map((b) => {
+          const acento = b.color ?? '#2563eb';
+          return (
           <div key={b.id} className="space-y-3">
             <div className="px-1">
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{b.titulo}</h2>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: acento }} />
+                <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{b.titulo}</h2>
+              </div>
               {b.intro && <p className="mt-0.5 text-sm text-zinc-500">{b.intro}</p>}
             </div>
 
@@ -479,9 +491,10 @@ export function ResponderForm({
                                       key={p.valor}
                                       type="button"
                                       onClick={() => marcarEscala(clave, p.valor)}
+                                      style={activo ? { backgroundColor: acento } : undefined}
                                       className={`rounded-xl px-1 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
                                         activo
-                                          ? 'bg-blue-600 text-white shadow-sm'
+                                          ? 'text-white shadow-sm'
                                           : sinContestar
                                             ? 'bg-rose-50 text-rose-500 ring-1 ring-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30'
                                             : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
@@ -521,9 +534,10 @@ export function ResponderForm({
                             key={o.clave}
                             type="button"
                             onClick={() => marcarOpcion(q, o.clave)}
+                            style={activo ? { backgroundColor: acento } : undefined}
                             className={`flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-sm transition-colors ${
                               activo
-                                ? 'bg-blue-600 text-white'
+                                ? 'text-white'
                                 : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
                             }`}
                           >
@@ -557,7 +571,8 @@ export function ResponderForm({
               );
             })}
           </div>
-        ))}
+          );
+        })}
 
         {avisoAnonimato && (
           <p className="flex items-start gap-2 rounded-2xl bg-zinc-100 px-4 py-3 text-xs leading-relaxed text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">

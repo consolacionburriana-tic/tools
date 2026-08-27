@@ -7,7 +7,7 @@ colectivos. Es el **hito 6 del roadmap** — el más independiente del resto.
 
 ---
 
-## Estado: plan técnico ✅ · implementación ✅ · en producción ✅ (Fases 0-4, 2026-08-26)
+## Estado: plan técnico ✅ · implementación ✅ · en producción ✅ (Fases 0-4, 2026-08-26 · pulido 2026-08-27)
 
 Depende de: auth/roles (`01-auth-roles.md`) para el panel de gestión y de `edu_*` para el
 alumnado/profesorado. El formulario de respuesta es público por enlace (y opcionalmente puede
@@ -82,6 +82,23 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
 - **Catálogo de preguntas sueltas** en código (`CATALOGO` en `src/lib/evaluaciones.ts`), sacado
   de los formularios reales. `eval_question_templates` queda para las que guarde el claustro.
 
+### Color e identidad visual (2026-08-27)
+- **Cada actividad tiene un color de acento** (`eval_activities.color`, hex). Se asigna al azar
+  de un catálogo curado de 20 tonos (`COLORES_ACTIVIDAD` en `src/lib/evaluaciones.ts`, paso 600
+  tipo Tailwind, con contraste suficiente para texto blanco encima) al crearla, y se cambia en
+  un clic desde una insignia con letra — sin explicación de más, "Color de la actividad" y los
+  círculos ya dicen lo que hacen. **Copiar la actividad a otro curso conserva el color**, para
+  que se la siga reconociendo de un año a otro.
+- **Insignia con letra** (A, B, C… `LetraBadge`/`ActividadColorButton` en
+  `src/components/evaluaciones/color-picker.tsx`): sustituye al icono genérico de "bloque" en el
+  editor y en el dashboard de resultados. La letra es la posición del bloque **visible** dentro
+  del formulario (A = primero que se ve), no un id ni el orden de creación.
+- **El acento llega al formulario público**: un punto de color junto al título de cada bloque, y
+  el mismo color en el estado "activo" de los botones de escala y de opciones de esa actividad
+  (las estrellitas mantienen su propio color por estilo — estrella/corazón/fuego/pulgar/carita —,
+  con más carga semántica que un acento decorativo). Sin color asignado (actividades de antes de
+  esta fecha), se usa el azul de siempre.
+
 ### Anonimato (lo delicado)
 - **Profesorado: 100 % anónimo, sin matices.** No se guarda identidad ni se marca quién ha
   respondido. Por eso su enlace es **común para todo el claustro** (no personalizado) y los
@@ -110,6 +127,23 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
     llevas las evaluaciones". Es lo natural para la coordinación de pastoral, que también es
     tutora. Ver [`01-auth-roles.md`](./01-auth-roles.md).
 
+### Editor: borrar con deshacer (2026-08-27)
+- **Borrar un bloque o una pregunta no llama al servidor al momento.** Se oculta ya mismo en
+  pantalla y sale un toast de sonner con acción "Deshacer" (`GRACIA_BORRADO_MS` = 4,5 s, el
+  mismo plazo que dura el toast). Si no se deshace, el borrado real se manda al servidor cuando
+  expira el plazo — al estilo Gmail archivando un correo. Sustituye a los `window.confirm()` de
+  antes, que además no seguían el mismo patrón que "Archivar" en el listado de actividades
+  (también migrado al mismo mecanismo).
+- **Por qué no es "borrar y poder restaurar desde el servidor"**: así no hace falta un endpoint
+  de "deshacer" ni preocuparse de que el id cambie o el orden se descuadre — mientras dura el
+  plazo, el elemento sigue tal cual en el estado local, solo oculto del render. Deshacer es
+  gratis (no ha pasado nada en la BBDD todavía).
+- Si se navega fuera de la página durante el plazo, el borrado **sigue su curso** en segundo
+  plano (es lo esperable: "eliminar y salir" no debería deshacer el eliminar).
+- Reordenar (subir/bajar y arrastrar) sigue funcionando con elementos ocultos de por medio: las
+  flechas calculan el vecino por id dentro de la lista **visible**, no por posición cruda del
+  array, así que un borrado pendiente en mitad de la lista no descuadra nada.
+
 ### Correo
 - Reutiliza el motor de envío masivo común (`src/lib/correos.ts`): variables `{nombre}`,
   `{curso}`, `{titulo}`, `{enlace}`, `{curso_escolar}`, escapado, enlaces clicables y batch
@@ -125,10 +159,10 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
 
 | Tabla | Para qué |
 |---|---|
-| `eval_activities` | Lo que se evalúa: nombre, fecha, lugar, `categoria` (pastoral/innovación/general/otra), `tipo`, `objetivo` (profes), `resumen` (alumnos), `academic_year`, `serie_id`, `archivada` |
+| `eval_activities` | Lo que se evalúa: nombre, fecha, lugar, `categoria` (pastoral/innovación/general/otra), `tipo`, `objetivo` (profes), `resumen` (alumnos), `academic_year`, `serie_id`, `color` (acento visual), `archivada` |
 | `eval_forms` | Un envío a un colectivo: `audiencia` (quién responde), `estado` (borrador/abierto/cerrado), `token`, `anonimo`, `identifica_alumno`, `pedir_clase`, `pedir_etapa`, `requiere_login`, `aviso_anonimato`, `mensaje_final`, `clases` |
 | `eval_blocks` | Una actividad dentro de un formulario: `activity_id` (nullable), `titulo`, `intro`, `orden` |
-| `eval_questions` | `clave`, `texto`, `ayuda`, `tipo`, `escala`, `filas[]`, `opciones[]`, `permite_otra`, `obligatoria`, `revisar`, feedback del quiz, `orden` |
+| `eval_questions` | `clave`, `texto`, `ayuda`, `tipo`, `escala`, `estilo` (solo estrellas), `filas[]`, `opciones[]`, `permite_otra`, `obligatoria`, `revisar`, feedback del quiz, `orden` |
 | `eval_question_templates` | Preguntas que guarda el claustro para reutilizar |
 | `eval_invites` | Enlace personalizado por destinatario (`?a=…`), `sent_at`, `responded_at` |
 | `eval_responses` | `edu_student_id` (solo alumnado con enlace personalizado), `curso`, `letra`, `etapa`, `email` (solo nominales) |
@@ -180,12 +214,18 @@ queda a medias entre dos peticiones.
 - [x] Duplicar formulario: tal cual, a otro curso (copia las actividades manteniendo serie) o a
       otro colectivo (cambia el preset)
 - [x] Importar actividad del curso anterior conservando la serie
+- [x] Borrar bloque/pregunta con papelera de deshacer (toast + plazo, sin `confirm()`)
+- [x] Color de acento por actividad (20 tonos, al azar al crear, cambiable en un clic) e
+      insignia con letra (A, B, C…) en el editor y en resultados
 
 ### Diseño del formulario y de los datos
 - **Progreso a la vista mientras se rellena**: anillo flotante en el lateral (solo en pantallas
   anchas; aparece al contestar lo primero, no con un 0 % desmoralizante) y barra + `hechos/total`
   en la barra inferior, que es donde se ve en móvil. Cuenta CAMPOS, no preguntas: cada fila de
-  una matriz suma.
+  una matriz suma. **Solo cuenta lo obligatorio** (2026-08-27): las preguntas opcionales, como
+  "Observaciones y sugerencias", no entran en el denominador — si contaran, responder solo lo
+  obligatorio nunca llegaría al 100 %, que es justo lo contrario de la promesa de marcarlas
+  como opcionales. Rellenar el campo opcional no penaliza ni suma: simplemente no se mide.
 - **Cero `alert()`**: lo que falta se marca en rojo (incluidas la clase y la etapa, y dentro de
   una matriz la fila concreta), con un atajo "ir a la primera" en la barra inferior. El rojo
   aparece al intentar enviar, nunca antes, y se va apagando solo según se rellena.

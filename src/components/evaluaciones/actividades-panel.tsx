@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Archive, CalendarDays, Check, ChevronDown, ChevronUp, Copy, Loader2, MapPin, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, CATEGORIAS, type Categoria } from '@/lib/evaluaciones';
+import { ColorDotButton } from '@/components/evaluaciones/color-picker';
+
+const GRACIA_BORRADO_MS = 4500;
 
 export interface ActividadFila {
   id: string;
@@ -17,6 +20,7 @@ export interface ActividadFila {
   objetivo: string | null;
   resumen: string | null;
   notas: string | null;
+  color: string | null;
   academicYear: string;
   formularios: { id: string; titulo: string; audiencia: string; estado: string; respuestas: number }[];
 }
@@ -49,6 +53,17 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
   const [busy, setBusy] = useState(false);
   const [filtro, setFiltro] = useState<string | null>(null);
   const [nueva, setNueva] = useState('');
+  // Archivar con papelera de deshacer: se oculta ya mismo y solo se confirma en el
+  // servidor si pasa el plazo sin que se pulse "Deshacer" (igual que en el editor).
+  const [archivadasOcultas, setArchivadasOcultas] = useState<Set<string>>(new Set());
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const montado = useRef(true);
+  useEffect(
+    () => () => {
+      montado.current = false;
+    },
+    [],
+  );
 
   async function patch(id: string, cambios: Record<string, unknown>) {
     setBusy(true);
@@ -107,7 +122,41 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
     }
   }
 
-  const visibles = filtro ? actividades.filter((a) => a.categoria === filtro) : actividades;
+  function archivarConDeshacer(actividad: ActividadFila) {
+    haptic.warning();
+    setArchivadasOcultas((s) => new Set(s).add(actividad.id));
+    timers.current[actividad.id] = setTimeout(() => {
+      delete timers.current[actividad.id];
+      void patch(actividad.id, { archivada: true });
+      if (montado.current) {
+        setArchivadasOcultas((s) => {
+          const n = new Set(s);
+          n.delete(actividad.id);
+          return n;
+        });
+      }
+    }, GRACIA_BORRADO_MS);
+    toast(`"${actividad.nombre}" archivada`, {
+      duration: GRACIA_BORRADO_MS,
+      description: 'Deja de salir en los selectores; sus datos se conservan.',
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          clearTimeout(timers.current[actividad.id]);
+          delete timers.current[actividad.id];
+          setArchivadasOcultas((s) => {
+            const n = new Set(s);
+            n.delete(actividad.id);
+            return n;
+          });
+          haptic.tap();
+        },
+      },
+    });
+  }
+
+  const sinArchivar = actividades.filter((a) => !archivadasOcultas.has(a.id));
+  const visibles = filtro ? sinArchivar.filter((a) => a.categoria === filtro) : sinArchivar;
   const yaTraidas = new Set(actividades.map((a) => a.nombre.toLowerCase()));
 
   return (
@@ -120,7 +169,7 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
             filtro === null ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
           }`}
         >
-          Todas ({actividades.length})
+          Todas ({sinArchivar.length})
         </button>
         {CATEGORIAS.map((c) => (
           <button
@@ -131,7 +180,7 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
               filtro === c.value ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
             }`}
           >
-            {c.emoji} {c.label} ({actividades.filter((a) => a.categoria === c.value).length})
+            {c.emoji} {c.label} ({sinArchivar.filter((a) => a.categoria === c.value).length})
           </button>
         ))}
       </div>
@@ -161,13 +210,26 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
       ) : (
         visibles.map((a) => (
           <div key={a.id} className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-            <button
-              type="button"
+            {/* div, no button: el punto de color de dentro ya es un botón, y anidar
+               botones rompe el HTML. Mismo comportamiento con role+tabIndex+teclado. */}
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setAbierta((v) => (v === a.id ? null : a.id))}
-              className="flex w-full items-start gap-3 p-4 text-left"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setAbierta((v) => (v === a.id ? null : a.id));
+                }
+              }}
+              className="flex w-full cursor-pointer items-start gap-3 p-4 text-left"
             >
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
+                  {/* Detiene la propagación: si no, tocar el punto también abriría/cerraría la fila. */}
+                  <span onClick={(e) => e.stopPropagation()} className="inline-flex">
+                    <ColorDotButton color={a.color} onChange={(c) => void patch(a.id, { color: c })} />
+                  </span>
                   {a.nombre}
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${COLOR_CATEGORIA[a.categoria] ?? ''}`}>
                     {CATEGORIAS.find((c) => c.value === a.categoria)?.label ?? a.categoria}
@@ -198,7 +260,7 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
                 </p>
               </div>
               {abierta === a.id ? <ChevronUp className="h-5 w-5 text-zinc-400" /> : <ChevronDown className="h-5 w-5 text-zinc-400" />}
-            </button>
+            </div>
 
             {abierta === a.id && (
               <div className="space-y-3 border-t border-zinc-100 p-4 dark:border-zinc-800">
@@ -280,10 +342,7 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!confirm(`¿Archivar "${a.nombre}"? Deja de salir en los selectores; sus datos se conservan.`)) return;
-                    void patch(a.id, { archivada: true });
-                  }}
+                  onClick={() => archivarConDeshacer(a)}
                   className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-rose-600"
                 >
                   <Archive className="h-3.5 w-3.5" /> Archivar

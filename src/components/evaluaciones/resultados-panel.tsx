@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, Lightbulb, MessageSquareQuote, Users } from 'lucide-react';
+import { LetraBadge } from '@/components/evaluaciones/color-picker';
 import { claseLabel, escalaDe, tonoDe } from '@/lib/evaluaciones';
 import type { Resultados } from '@/lib/evaluaciones-server';
 
@@ -221,11 +222,14 @@ export function ResultadosPanel({
           Todavía no hay respuestas{claseActiva ? ' de esta clase' : ''}.
         </div>
       ) : (
-        resultados.bloques.map((b) => (
+        resultados.bloques.map((b, bi) => (
           <div key={b.id} className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="font-bold text-zinc-900 dark:text-zinc-100">{b.titulo}</h2>
-              <span className={`text-sm font-bold tabular-nums ${TONO_TEXTO[tonoDe(b.mediaPct)]}`}>
+              <div className="flex min-w-0 items-center gap-2">
+                <LetraBadge letra={String.fromCharCode(65 + bi)} color={b.color} />
+                <h2 className="truncate font-bold text-zinc-900 dark:text-zinc-100">{b.titulo}</h2>
+              </div>
+              <span className={`shrink-0 text-sm font-bold tabular-nums ${TONO_TEXTO[tonoDe(b.mediaPct)]}`}>
                 {b.mediaPct === null ? '—' : Math.round(b.mediaPct)}
                 <span className="text-[10px] font-normal text-zinc-400"> / 100</span>
               </span>

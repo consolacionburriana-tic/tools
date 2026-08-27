@@ -27,6 +27,7 @@ import {
   INTRO_FORM,
   MENSAJE_FINAL,
   claveUnica,
+  colorAleatorio,
   escalaDe,
   mediaBruta,
   mediaPorcentaje,
@@ -108,6 +109,8 @@ export interface NuevaActividadInput {
   resumen?: string | null;
   notas?: string | null;
   serieId?: string;
+  /** Acento en el formulario público. Sin especificar, se asigna uno al azar. */
+  color?: string | null;
   createdByEmail?: string | null;
 }
 
@@ -126,6 +129,7 @@ export async function crearActividad(input: NuevaActividadInput): Promise<EvalAc
       notas: input.notas ?? null,
       // Actividad nueva = serie nueva. Las copias de otro curso heredan la serie.
       serieId: input.serieId ?? crypto.randomUUID(),
+      color: input.color ?? colorAleatorio(),
       createdByEmail: input.createdByEmail ?? null,
     })
     .returning();
@@ -134,7 +138,7 @@ export async function crearActividad(input: NuevaActividadInput): Promise<EvalAc
 
 export async function actualizarActividad(id: string, patch: Partial<NuevaActividadInput> & { archivada?: boolean }): Promise<void> {
   const set: Record<string, unknown> = { updatedAt: new Date() };
-  for (const k of ['nombre', 'academicYear', 'fecha', 'lugar', 'categoria', 'tipo', 'objetivo', 'resumen', 'notas', 'archivada'] as const) {
+  for (const k of ['nombre', 'academicYear', 'fecha', 'lugar', 'categoria', 'tipo', 'objetivo', 'resumen', 'notas', 'color', 'archivada'] as const) {
     if (patch[k as keyof typeof patch] !== undefined) set[k] = patch[k as keyof typeof patch];
   }
   await db.update(evalActivities).set(set).where(eq(evalActivities.id, id));
@@ -155,6 +159,7 @@ export async function copiarActividad(id: string, academicYear: string, createdB
     resumen: orig.resumen,
     notas: orig.notas,
     serieId: orig.serieId,
+    color: orig.color,
     createdByEmail,
   });
 }
@@ -804,6 +809,7 @@ export interface ResultadoBloque {
   titulo: string;
   actividadId: string | null;
   serieId: string | null;
+  color: string | null;
   mediaPct: number | null;
   preguntas: ResultadoPregunta[];
 }
@@ -933,6 +939,7 @@ export async function getResultados(formId: string, filtro?: Clase | null): Prom
       titulo: b.titulo,
       actividadId: b.activityId,
       serieId: b.actividad?.serieId ?? null,
+      color: b.actividad?.color ?? null,
       mediaPct: pcts.length ? pcts.reduce((s, p) => s + p, 0) / pcts.length : null,
       preguntas,
     };

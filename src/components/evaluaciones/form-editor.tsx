@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  BarChart3, Check, ChevronDown, ChevronUp, Copy, ExternalLink, Eye, Layers, Link2, ListPlus,
+  BarChart3, Check, ChevronDown, ChevronUp, Copy, ExternalLink, Eye, Link2, ListPlus,
   Loader2, Lock, Plus, Send, Settings2, Sparkles, Trash2, TriangleAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,6 +14,23 @@ import { AUDIENCIAS, CATALOGO, claseLabel, huecosPendientes, opcionesAcademicYea
 import type { EvalQuestion } from '@/db/schema';
 import type { FormCompleto } from '@/lib/evaluaciones-server';
 import { QuestionCard } from '@/components/evaluaciones/question-card';
+import { ActividadColorButton } from '@/components/evaluaciones/color-picker';
+
+/** Letra de posición dentro del formulario: A, B, C… Z, AA, AB… (por si acaso). */
+function letraDeIndice(i: number): string {
+  let n = i;
+  let letra = '';
+  do {
+    letra = String.fromCharCode(65 + (n % 26)) + letra;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return letra;
+}
+
+// Tiempo que se espera antes de confirmar un borrado en el servidor: mientras tanto
+// el toast ofrece "Deshacer" y el elemento solo se OCULTA (sigue en el estado local,
+// no se ha tocado el servidor), así que deshacer es gratis y no hay nada que revertir.
+const GRACIA_BORRADO_MS = 4500;
 
 interface Props {
   inicial: FormCompleto;
@@ -38,6 +55,22 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
   const [nuevaActividad, setNuevaActividad] = useState('');
   const arrastrando = useRef<{ blockId: string; id: string } | null>(null);
   const sobre = useRef<string | null>(null);
+  // Bloques/preguntas "eliminados" que en realidad siguen en `form` tal cual: solo se
+  // ocultan del render mientras corre el plazo de deshacer. El servidor no se entera
+  // hasta que el plazo expira sin que se pulse "Deshacer".
+  const [bloquesOcultos, setBloquesOcultos] = useState<Set<string>>(new Set());
+  const [preguntasOcultas, setPreguntasOcultas] = useState<Set<string>>(new Set());
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // El borrado diferido sigue su curso aunque se navegue fuera de la página (es lo
+  // esperable: "eliminar y salir" no debería deshacer el eliminar), pero el estado de
+  // React ya no está para recibirlo — este flag evita el warning de setState fantasma.
+  const montado = useRef(true);
+  useEffect(
+    () => () => {
+      montado.current = false;
+    },
+    [],
+  );
 
   const audiencia = form.audiencia as Audiencia;
   const bloqueada = respuestas > 0;
@@ -112,26 +145,142 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
     }
   }
 
-  function moverPregunta(blockId: string, ids: string[], indice: number, delta: number) {
-    const destino = indice + delta;
-    if (destino < 0 || destino >= ids.length) return;
-    const copia = [...ids];
-    [copia[indice], copia[destino]] = [copia[destino], copia[indice]];
-    haptic.tap();
-    void estructura({ accion: 'pregunta.reorder', blockId, ids: copia });
+  /** Borra ya mismo en la BBDD, sin pasar por la papelera de deshacer (uso interno). */
+  async function estructuraSilenciosa(payload: Record<string, unknown>) {
+    try {
+      const res = await fetch(`/api/evaluaciones/admin/forms/${form.id}/estructura`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && montado.current) setForm(data.form);
+    } catch {
+      // Si falla el borrado silencioso el elemento reaparece solo (sigue en `form`);
+      // no hace falta un toast de error para algo que el usuario ya no está mirando.
+    }
   }
 
-  function soltar(blockId: string, ids: string[]) {
+  function borrarBloqueConDeshacer(bloque: FormCompleto['bloques'][number]) {
+    haptic.warning();
+    setBloquesOcultos((s) => new Set(s).add(bloque.id));
+    timers.current[bloque.id] = setTimeout(() => {
+      delete timers.current[bloque.id];
+      void estructuraSilenciosa({ accion: 'bloque.remove', blockId: bloque.id });
+      if (montado.current) {
+        setBloquesOcultos((s) => {
+          const n = new Set(s);
+          n.delete(bloque.id);
+          return n;
+        });
+      }
+    }, GRACIA_BORRADO_MS);
+    toast(`"${bloque.titulo}" eliminada del formulario`, {
+      duration: GRACIA_BORRADO_MS,
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          clearTimeout(timers.current[bloque.id]);
+          delete timers.current[bloque.id];
+          setBloquesOcultos((s) => {
+            const n = new Set(s);
+            n.delete(bloque.id);
+            return n;
+          });
+          haptic.tap();
+        },
+      },
+    });
+  }
+
+  function borrarPreguntaConDeshacer(pregunta: EvalQuestion) {
+    haptic.warning();
+    setPreguntasOcultas((s) => new Set(s).add(pregunta.id));
+    timers.current[pregunta.id] = setTimeout(() => {
+      delete timers.current[pregunta.id];
+      void estructuraSilenciosa({ accion: 'pregunta.remove', questionId: pregunta.id });
+      if (montado.current) {
+        setPreguntasOcultas((s) => {
+          const n = new Set(s);
+          n.delete(pregunta.id);
+          return n;
+        });
+      }
+    }, GRACIA_BORRADO_MS);
+    toast('Pregunta eliminada', {
+      duration: GRACIA_BORRADO_MS,
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          clearTimeout(timers.current[pregunta.id]);
+          delete timers.current[pregunta.id];
+          setPreguntasOcultas((s) => {
+            const n = new Set(s);
+            n.delete(pregunta.id);
+            return n;
+          });
+          haptic.tap();
+        },
+      },
+    });
+  }
+
+  /** Cambia el color de la actividad: optimista en el badge, PATCH en segundo plano. */
+  function cambiarColorActividad(bloque: FormCompleto['bloques'][number], color: string) {
+    if (!bloque.activityId || !bloque.actividad) return;
+    haptic.tap();
+    setForm((f) => ({
+      ...f,
+      bloques: f.bloques.map((b) => (b.id === bloque.id && b.actividad ? { ...b, actividad: { ...b.actividad, color } } : b)),
+    }));
+    void fetch(`/api/evaluaciones/admin/actividades/${bloque.activityId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ color }),
+    }).then((res) => {
+      if (!res.ok) toast.error('No se pudo guardar el color');
+    });
+  }
+
+  /** Intercambia dos preguntas por id dentro de un bloque (a prueba de huecos ocultos). */
+  function moverPregunta(blockId: string, preguntaId: string, vecinoId: string | undefined) {
+    if (!vecinoId) return;
+    const bloque = form.bloques.find((x) => x.id === blockId);
+    if (!bloque) return;
+    const ids = bloque.preguntas.map((q) => q.id);
+    const i = ids.indexOf(preguntaId);
+    const j = ids.indexOf(vecinoId);
+    if (i === -1 || j === -1) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    haptic.tap();
+    void estructura({ accion: 'pregunta.reorder', blockId, ids });
+  }
+
+  /** Igual que arriba pero para el orden de los bloques dentro del formulario. */
+  function moverBloque(bloqueId: string, vecinoId: string | undefined) {
+    if (!vecinoId) return;
+    const ids = form.bloques.map((x) => x.id);
+    const i = ids.indexOf(bloqueId);
+    const j = ids.indexOf(vecinoId);
+    if (i === -1 || j === -1) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    haptic.tap();
+    void estructura({ accion: 'bloque.reorder', ids });
+  }
+
+  function soltar(blockId: string, idsVisibles: string[]) {
     const origen = arrastrando.current;
     const destinoId = sobre.current;
     arrastrando.current = null;
     sobre.current = null;
     if (!origen || !destinoId || origen.blockId !== blockId || origen.id === destinoId) return;
-    const copia = ids.filter((x) => x !== origen.id);
+    const copia = idsVisibles.filter((x) => x !== origen.id);
     const idx = copia.indexOf(destinoId);
     copia.splice(idx < 0 ? copia.length : idx, 0, origen.id);
     void estructura({ accion: 'pregunta.reorder', blockId, ids: copia });
   }
+
+  const bloquesVisibles = useMemo(() => form.bloques.filter((b) => !bloquesOcultos.has(b.id)), [form.bloques, bloquesOcultos]);
 
   const clasesPorEtapa = useMemo(() => {
     // Secundaria primero: es quien responde de verdad las evaluaciones. Infantil,
@@ -437,12 +586,18 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
       </div>
 
       {/* ── Bloques ────────────────────────────────────────────────────────── */}
-      {form.bloques.map((b, bi) => {
-        const ids = b.preguntas.map((q) => q.id);
+      {bloquesVisibles.map((b, bi) => {
+        const preguntasVisibles = b.preguntas.filter((q) => !preguntasOcultas.has(q.id));
+        const idsVisibles = preguntasVisibles.map((q) => q.id);
         return (
           <div key={b.id} className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
             <div className="mb-3 flex items-start gap-2">
-              <Layers className="mt-2.5 h-4 w-4 shrink-0 text-blue-500" />
+              <ActividadColorButton
+                letra={letraDeIndice(bi)}
+                color={b.actividad?.color ?? null}
+                disabled={!b.activityId}
+                onChange={(color) => cambiarColorActividad(b, color)}
+              />
               <div className="min-w-0 flex-1">
                 <input
                   defaultValue={b.titulo}
@@ -465,23 +620,15 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                 <button
                   type="button"
                   disabled={bi === 0 || ocupado}
-                  onClick={() => {
-                    const orden = form.bloques.map((x) => x.id);
-                    [orden[bi], orden[bi - 1]] = [orden[bi - 1], orden[bi]];
-                    void estructura({ accion: 'bloque.reorder', ids: orden });
-                  }}
+                  onClick={() => moverBloque(b.id, bloquesVisibles[bi - 1]?.id)}
                   className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200 disabled:opacity-30 dark:hover:bg-zinc-800"
                 >
                   <ChevronUp className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
-                  disabled={bi === form.bloques.length - 1 || ocupado}
-                  onClick={() => {
-                    const orden = form.bloques.map((x) => x.id);
-                    [orden[bi], orden[bi + 1]] = [orden[bi + 1], orden[bi]];
-                    void estructura({ accion: 'bloque.reorder', ids: orden });
-                  }}
+                  disabled={bi === bloquesVisibles.length - 1 || ocupado}
+                  onClick={() => moverBloque(b.id, bloquesVisibles[bi + 1]?.id)}
                   className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200 disabled:opacity-30 dark:hover:bg-zinc-800"
                 >
                   <ChevronDown className="h-4 w-4" />
@@ -490,10 +637,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                   <button
                     type="button"
                     disabled={ocupado}
-                    onClick={() => {
-                      if (!confirm(`¿Quitar "${b.titulo}" del formulario? La actividad se conserva.`)) return;
-                      void estructura({ accion: 'bloque.remove', blockId: b.id });
-                    }}
+                    onClick={() => borrarBloqueConDeshacer(b)}
                     className="rounded-md p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-500/10"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -503,27 +647,31 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
             </div>
 
             <div className="space-y-2">
-              {b.preguntas.map((q, qi) => (
+              {preguntasVisibles.map((q, qi) => (
                 <QuestionCard
                   key={q.id}
                   pregunta={q}
                   indice={qi}
-                  total={b.preguntas.length}
+                  total={preguntasVisibles.length}
                   ocupado={ocupado}
                   bloqueada={bloqueada}
                   onPatch={(cambios: Partial<EvalQuestion>) => void estructura({ accion: 'pregunta.update', questionId: q.id, ...cambios })}
                   onDuplicar={() => void estructura({ accion: 'pregunta.duplicate', questionId: q.id })}
-                  onBorrar={() => void estructura({ accion: 'pregunta.remove', questionId: q.id })}
-                  onMover={(delta) => moverPregunta(b.id, ids, qi, delta)}
+                  onBorrar={() => borrarPreguntaConDeshacer(q)}
+                  onMover={(delta) => {
+                    const destino = qi + delta;
+                    if (destino < 0 || destino >= preguntasVisibles.length) return;
+                    moverPregunta(b.id, q.id, preguntasVisibles[destino].id);
+                  }}
                   onDragStart={() => (arrastrando.current = { blockId: b.id, id: q.id })}
                   onDragOver={() => (sobre.current = q.id)}
-                  onDrop={() => soltar(b.id, ids)}
+                  onDrop={() => soltar(b.id, idsVisibles)}
                 />
               ))}
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {b.preguntas.length === 0 && (
+              {preguntasVisibles.length === 0 && (
                 <button
                   type="button"
                   disabled={ocupado}
@@ -549,7 +697,11 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                 <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
                   <ListPlus className="h-3.5 w-3.5" /> Del catálogo
                 </summary>
-                <div className="absolute z-10 mt-1 w-72 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                {/* Se abre hacia ARRIBA y con z-index alto a propósito: cada bloque anima su
+                   entrada (anim-stagger) y eso crea su propio contexto de apilamiento, así que
+                   un desplegable normal hacia abajo queda tapado por el bloque siguiente. Abrir
+                   hacia arriba lo mantiene dentro del mismo bloque, donde sí gana. */}
+                <div className="absolute bottom-full z-40 mb-1 w-72 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
                   {catalogoAudiencia.map((c) => (
                     <button
                       key={c.id}

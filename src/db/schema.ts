@@ -530,6 +530,10 @@ export const evalActivities = pgTable('eval_activities', {
   notas: text('notas'), // recordatorio interno, no se muestra a quien responde
   // Misma actividad a lo largo de los años: al copiar del curso anterior se hereda.
   serieId: uuid('serie_id').notNull(),
+  // Acento visual de la actividad en el formulario público (hex). Se asigna al azar de
+  // un catálogo curado al crearla; se puede cambiar desde el editor en un clic. Copiar
+  // la actividad a otro curso conserva el color, para que se siga reconociendo.
+  color: text('color'),
   archivada: boolean('archivada').notNull().default(false),
   createdByEmail: text('created_by_email'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

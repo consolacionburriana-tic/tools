@@ -3,6 +3,7 @@ import {
   academicYearAnterior,
   aPorcentaje,
   caritaPara,
+  colorAleatorio,
   esEscalaEstrellas,
   estiloEstrellaDe,
   fraseConHueco,
@@ -19,6 +20,7 @@ import {
   slugClave,
   tonoDe,
   CATALOGO,
+  COLORES_ACTIVIDAD,
   type PreguntaParaValidar,
 } from '@/lib/evaluaciones';
 
@@ -314,5 +316,24 @@ describe('escala de estrellitas', () => {
   it('solo las caritas no son acumulativas', () => {
     expect(estiloEstrellaDe('carita').acumulativo).toBe(false);
     expect(estiloEstrellaDe('estrella').acumulativo).toBe(true);
+  });
+});
+
+describe('color de la actividad', () => {
+  it('el catálogo tiene 20 tonos distintos, todos hex válidos', () => {
+    expect(COLORES_ACTIVIDAD).toHaveLength(20);
+    expect(new Set(COLORES_ACTIVIDAD).size).toBe(20);
+    for (const c of COLORES_ACTIVIDAD) expect(c).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+
+  it('colorAleatorio siempre devuelve uno del catálogo', () => {
+    for (let i = 0; i < 50; i++) {
+      expect(COLORES_ACTIVIDAD).toContain(colorAleatorio());
+    }
+  });
+
+  it('con suficientes tiradas toca más de un color (no está clavado en el primero)', () => {
+    const vistos = new Set(Array.from({ length: 200 }, () => colorAleatorio()));
+    expect(vistos.size).toBeGreaterThan(1);
   });
 });

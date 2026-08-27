@@ -99,6 +99,7 @@ export default async function ResponderPage({
               id: b.id,
               titulo: b.titulo,
               intro: b.intro,
+              color: b.actividad?.color ?? null,
               preguntas: b.preguntas.map((q) => ({
                 id: q.id,
                 texto: q.texto,

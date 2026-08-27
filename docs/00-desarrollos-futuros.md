@@ -153,6 +153,12 @@ Recopilados de las fichas, para verlos de un vistazo:
   Educamos es manual).
 - Auditoría/historial de cambios transversal (quién tocó qué registro y cuándo), útil sobre
   todo para Registro ABC y Banco de libros. (`edu_sync_runs` ya nace con esta filosofía.)
+- **Pasada de rediseño de interfaz con Opus cuando sobren tokens** (anotado 2026-08-27, a
+  petición de David): una revisión dedicada de diseño visual — no funcional — de los paneles de
+  gestión y formularios públicos existentes, con más presupuesto de razonamiento del habitual.
+  Candidatos naturales: el editor de Evaluaciones (mucha densidad de controles) y el resto de
+  paneles que se han ido construyendo más rápido que bonito. No es una tarea con alcance cerrado
+  todavía — se abre cuando David lo pida explícitamente.
 
 ---
 

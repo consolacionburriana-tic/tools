@@ -667,3 +667,39 @@ export function opcionesAcademicYear(actual: string): string[] {
   for (let y = hasta + 1; y >= desde; y--) anios.push(formatearCurso(y));
   return anios;
 }
+
+// ─── Color de la actividad ──────────────────────────────────────────────────
+
+/**
+ * Acento de cada actividad en el formulario público: 20 tonos curados (paso 600 de
+ * una paleta tipo Tailwind, saturados pero con suficiente contraste para texto blanco
+ * encima). Se asigna uno al azar al crear la actividad y se puede cambiar en un clic;
+ * no hace falta más explicación en la interfaz que "Color de la actividad".
+ */
+export const COLORES_ACTIVIDAD = [
+  '#e11d48', // rose
+  '#db2777', // pink
+  '#c026d3', // fuchsia
+  '#9333ea', // purple
+  '#7c3aed', // violet
+  '#4f46e5', // indigo
+  '#4338ca', // indigo oscuro
+  '#2563eb', // blue
+  '#0284c7', // sky
+  '#0891b2', // cyan
+  '#0d9488', // teal
+  '#0f766e', // teal oscuro
+  '#059669', // emerald
+  '#16a34a', // green
+  '#65a30d', // lime
+  '#d97706', // amber
+  '#ea580c', // orange
+  '#dc2626', // red
+  '#be123c', // rose oscuro
+  '#57534e', // stone
+] as const;
+
+/** Un color al azar del catálogo. Cada llamada puede tocar uno distinto. */
+export function colorAleatorio(): string {
+  return COLORES_ACTIVIDAD[Math.floor(Math.random() * COLORES_ACTIVIDAD.length)];
+}
