@@ -44,6 +44,8 @@ interface Props {
   token: string;
   invite: string | null;
   audiencia: string;
+  /** Color dominante del formulario: botón de enviar y barra/anillo de progreso. */
+  colorForm: string;
   descripcion: string | null;
   avisoAnonimato: string | null;
   bloques: BloquePublico[];
@@ -80,6 +82,7 @@ export function ResponderForm({
   token,
   invite,
   audiencia,
+  colorForm,
   descripcion,
   avisoAnonimato,
   bloques,
@@ -336,7 +339,7 @@ export function ResponderForm({
 
   return (
     <>
-      <ProgresoAnillo hechos={hechos} total={total} />
+      <ProgresoAnillo hechos={hechos} total={total} color={colorForm} />
 
       <div className="space-y-4 pb-40">
         {soloVistaPrevia && (
@@ -604,7 +607,8 @@ export function ResponderForm({
           <div className="mb-2 flex items-center gap-2.5">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
               <motion.div
-                className={`h-1.5 rounded-full ${hechos >= total ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                className={`h-1.5 rounded-full ${hechos >= total ? 'bg-emerald-500' : ''}`}
+                style={hechos >= total ? undefined : { backgroundColor: colorForm }}
                 initial={false}
                 animate={{ width: `${progreso}%` }}
                 transition={{ type: 'spring', stiffness: 120, damping: 22 }}
@@ -619,7 +623,8 @@ export function ResponderForm({
             type="button"
             onClick={() => void enviar()}
             disabled={enviando}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            style={{ backgroundColor: colorForm }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 font-semibold text-white brightness-100 transition-[filter] hover:brightness-90 disabled:opacity-50"
           >
             {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             Enviar mis respuestas

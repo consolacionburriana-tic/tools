@@ -82,22 +82,37 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
 - **Catálogo de preguntas sueltas** en código (`CATALOGO` en `src/lib/evaluaciones.ts`), sacado
   de los formularios reales. `eval_question_templates` queda para las que guarde el claustro.
 
-### Color e identidad visual (2026-08-27)
-- **Cada actividad tiene un color de acento** (`eval_activities.color`, hex). Se asigna al azar
-  de un catálogo curado de 20 tonos (`COLORES_ACTIVIDAD` en `src/lib/evaluaciones.ts`, paso 600
-  tipo Tailwind, con contraste suficiente para texto blanco encima) al crearla, y se cambia en
-  un clic desde una insignia con letra — sin explicación de más, "Color de la actividad" y los
-  círculos ya dicen lo que hacen. **Copiar la actividad a otro curso conserva el color**, para
-  que se la siga reconociendo de un año a otro.
+### Color e identidad visual (2026-08-27, ampliado 2026-08-28)
+Dos niveles de color, deliberadamente independientes:
+
+- **Color del FORMULARIO** (`eval_forms.color`) — el dominante. "Viste" la experiencia entera de
+  quien responde: el botón de enviar, la barra y el anillo de progreso, un tinte muy suave del
+  fondo de la página (`color-mix(in oklab, <color> 6%, white)` en claro, más marcado en oscuro) y
+  las manchas decorativas de fondo (`FondoDecorativo`, tres círculos desenfocados que derivan muy
+  despacio — `motion-safe:` respeta quien pide menos movimiento). Se asigna al azar al crear el
+  formulario y se cambia en un clic desde un punto junto al título en el editor
+  (`ColorDotButton`). **Duplicar el formulario siempre le da un color nuevo** (es una evaluación
+  distinta, aunque sea "tal cual"): si dos copias quedan abiertas a la vez, se distinguen de un
+  vistazo.
+- **Color de la ACTIVIDAD** (`eval_activities.color`) — el secundario, por bloque. Es el punto
+  junto al título de cada bloque dentro del formulario y el color del estado "activo" de los
+  botones de escala/opciones **de ese bloque en concreto** (las estrellitas mantienen su propio
+  color por estilo — estrella/corazón/fuego/pulgar/carita —, con más carga semántica que un
+  acento decorativo). Sirve para diferenciar actividades cuando un mismo formulario evalúa
+  varias. **Copiar la actividad a otro curso conserva el color**, para reconocerla de un año a
+  otro.
+- **Los dos comparten el mismo catálogo curado de 20 tonos** (`COLORES_ACTIVIDAD` en
+  `src/lib/evaluaciones.ts`, paso 600 tipo Tailwind, contraste suficiente para texto blanco
+  encima) pero se asignan **por separado**: no hay lógica para que no coincidan ni para que
+  combinen a propósito — sería sobreingeniería para un acento decorativo, y el catálogo entero
+  ya está pensado para que cualquier combinación quede razonablemente bien.
 - **Insignia con letra** (A, B, C… `LetraBadge`/`ActividadColorButton` en
   `src/components/evaluaciones/color-picker.tsx`): sustituye al icono genérico de "bloque" en el
-  editor y en el dashboard de resultados. La letra es la posición del bloque **visible** dentro
-  del formulario (A = primero que se ve), no un id ni el orden de creación.
-- **El acento llega al formulario público**: un punto de color junto al título de cada bloque, y
-  el mismo color en el estado "activo" de los botones de escala y de opciones de esa actividad
-  (las estrellitas mantienen su propio color por estilo — estrella/corazón/fuego/pulgar/carita —,
-  con más carga semántica que un acento decorativo). Sin color asignado (actividades de antes de
-  esta fecha), se usa el azul de siempre.
+  editor y en el dashboard de resultados, y es el botón para cambiar el color de esa actividad.
+  La letra es la posición del bloque **visible** dentro del formulario (A = primero que se ve),
+  no un id ni el orden de creación.
+- Sin color asignado (formularios/actividades de antes de estas fechas), se usa el azul de
+  siempre en ambos niveles — nada se rompe retroactivamente.
 
 ### Anonimato (lo delicado)
 - **Profesorado: 100 % anónimo, sin matices.** No se guarda identidad ni se marca quién ha
@@ -160,7 +175,7 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
 | Tabla | Para qué |
 |---|---|
 | `eval_activities` | Lo que se evalúa: nombre, fecha, lugar, `categoria` (pastoral/innovación/general/otra), `tipo`, `objetivo` (profes), `resumen` (alumnos), `academic_year`, `serie_id`, `color` (acento visual), `archivada` |
-| `eval_forms` | Un envío a un colectivo: `audiencia` (quién responde), `estado` (borrador/abierto/cerrado), `token`, `anonimo`, `identifica_alumno`, `pedir_clase`, `pedir_etapa`, `requiere_login`, `aviso_anonimato`, `mensaje_final`, `clases` |
+| `eval_forms` | Un envío a un colectivo: `audiencia` (quién responde), `estado` (borrador/abierto/cerrado), `token`, `anonimo`, `identifica_alumno`, `pedir_clase`, `pedir_etapa`, `requiere_login`, `aviso_anonimato`, `mensaje_final`, `color` (acento dominante), `clases` |
 | `eval_blocks` | Una actividad dentro de un formulario: `activity_id` (nullable), `titulo`, `intro`, `orden` |
 | `eval_questions` | `clave`, `texto`, `ayuda`, `tipo`, `escala`, `estilo` (solo estrellas), `filas[]`, `opciones[]`, `permite_otra`, `obligatoria`, `revisar`, feedback del quiz, `orden` |
 | `eval_question_templates` | Preguntas que guarda el claustro para reutilizar |
@@ -217,6 +232,9 @@ queda a medias entre dos peticiones.
 - [x] Borrar bloque/pregunta con papelera de deshacer (toast + plazo, sin `confirm()`)
 - [x] Color de acento por actividad (20 tonos, al azar al crear, cambiable en un clic) e
       insignia con letra (A, B, C…) en el editor y en resultados
+- [x] Color DOMINANTE por formulario (mismo catálogo, independiente del de cada actividad):
+      viste botón de enviar, progreso y fondo del formulario público — ver "Color e identidad
+      visual" más arriba
 
 ### Diseño del formulario y de los datos
 - **Progreso a la vista mientras se rellena**: anillo flotante en el lateral (solo en pantallas
@@ -237,7 +255,10 @@ queda a medias entre dos peticiones.
   separado (variables CSS en `globals.css`). El trío original azul/verde/violeta se descartó
   porque alumnado y familias eran indistinguibles con deuteranopía (ΔE 0.4). La distribución de
   la escala pasó de cuatro barritas sueltas a una barra apilada con rampa de un solo tono y su
-  leyenda: "Poco" y "Mucho" no son categorías distintas, son más y menos de lo mismo.
+  leyenda: "Poco" y "Mucho" no son categorías distintas, son más y menos de lo mismo. **Esta
+  paleta es del dashboard de resultados** (comparar audiencias/escalas: exige separación
+  perceptible) y es un sistema distinto del catálogo decorativo de `COLORES_ACTIVIDAD` (marca
+  del formulario/actividad: no codifica ningún dato, solo tiene que ser bonito).
 
 ### Fase 2 · Formulario de respuesta
 - [x] Página pública por token, respetando estado (borrador = vista previa, cerrado = aviso)

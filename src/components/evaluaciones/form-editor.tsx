@@ -14,7 +14,7 @@ import { AUDIENCIAS, CATALOGO, claseLabel, huecosPendientes, opcionesAcademicYea
 import type { EvalQuestion } from '@/db/schema';
 import type { FormCompleto } from '@/lib/evaluaciones-server';
 import { QuestionCard } from '@/components/evaluaciones/question-card';
-import { ActividadColorButton } from '@/components/evaluaciones/color-picker';
+import { ActividadColorButton, ColorDotButton } from '@/components/evaluaciones/color-picker';
 
 /** Letra de posición dentro del formulario: A, B, C… Z, AA, AB… (por si acaso). */
 function letraDeIndice(i: number): string {
@@ -315,11 +315,16 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
           <span>{respuestas} respuestas</span>
         </div>
 
-        <input
-          defaultValue={form.titulo}
-          onBlur={(e) => e.target.value !== form.titulo && void patchForm({ titulo: e.target.value })}
-          className={`${inputCls} mt-2 text-lg font-semibold`}
-        />
+        <div className="mt-2 flex items-center gap-2">
+          {/* Color del FORMULARIO, no de una actividad: viste el botón de enviar, la
+             barra de progreso y el fondo de la página pública entera. */}
+          <ColorDotButton color={form.color} etiqueta="Color del formulario" onChange={(color) => void patchForm({ color })} />
+          <input
+            defaultValue={form.titulo}
+            onBlur={(e) => e.target.value !== form.titulo && void patchForm({ titulo: e.target.value })}
+            className={`${inputCls} text-lg font-semibold`}
+          />
+        </div>
         <textarea
           defaultValue={form.descripcion ?? ''}
           rows={2}

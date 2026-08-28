@@ -20,6 +20,27 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Correo: opción B (Google Workspace) además de Resend, elegible desde el panel (para el 2026-08-29)
+David lo replanteó el 2026-08-27 por la noche: no es "sustituir Resend", es **añadir una opción
+B** (API de Google Workspace) manteniendo la **opción A** (Resend), con un interruptor sencillo
+en `/gestion/usuarios` o donde viva la configuración del admin — sin tocar código para cambiar de
+proveedor. Quedó en "mañana lo comentamos y lo ejecutas": falta la conversación para cerrar el
+diseño exacto, así que no se ha tocado código todavía. Lo que hay que decidir en esa charla:
+- **Dónde vive el interruptor** y si es global (todo el sitio manda por A o por B) o por módulo
+  (Licencias por Resend, Evaluaciones por Workspace, etc. — más flexible, más superficie).
+- **Motivo de fondo** de Workspace (entregabilidad, salir del dominio del cole, mandar desde la
+  cuenta de quien envía) — condiciona si hace falta UI para elegir remitente por envío.
+- Lo que ya se sabe y no cambia venga como venga la decisión:
+  - El punto de entrada ya está **centralizado** (`src/lib/email.ts` cliente, `src/lib/correos.ts`
+    motor de envío masivo): la opción B implica un cliente/adaptador nuevo detrás de la misma
+    interfaz, no reescribir cada módulo.
+  - **Batch distinto**: Resend acepta 100 mensajes por llamada; la API de Gmail va de uno en uno
+    con cuotas por usuario — un envío a 300 familias pasa de 3 llamadas a 300, con su propio
+    control de ritmo y errores parciales.
+  - Hace falta cuenta de servicio con **delegación de dominio** (ya hay una para Sheets,
+    `GOOGLE_SHEETS_CLIENT_EMAIL`, pero con otros scopes).
+  - Los correos ya enviados no se tocan; no hay histórico que migrar al cambiar de proveedor.
+
 ### Tutorías: botón "promocionar todos +1 curso" — sin implementar, falta confirmar reglas de ciclo
 La pantalla `/gestion/profes` (nueva, 2026-07-16) ya permite asignar/quitar tutores por clase
 a mano (tabla `edu_tutorias`, muchos-a-muchos: sin límite de tutores por clase ni de clases por
@@ -96,20 +117,6 @@ Ya no hace falta elegir entre "tutor" y "el que lleva las evaluaciones": el rol 
 partida y `auth_users.modulos_extra` / `modulos_bloqueados` permiten afinar persona a persona
 desde `/gestion/usuarios`. Ver [`01-auth-roles.md`](./01-auth-roles.md).
 
-### Sustituir Resend por la API de Google Workspace (próxima iteración)
-David quiere mandar los correos con la API de Google Workspace en vez de con Resend; falta que
-cuente el motivo (entregabilidad, que salgan desde el dominio del cole, o poder mandarlos desde
-la cuenta de quien los envía). Lo que hay que mirar cuando toque:
-- El punto de entrada está **centralizado**: `src/lib/email.ts` (cliente) y `src/lib/correos.ts`
-  (motor de envío masivo, batch de 100). Cambiar de proveedor debería tocar solo esos dos, más
-  las plantillas por módulo si cambia el formato.
-- Ojo al **batch**: Resend acepta 100 mensajes en una llamada; la API de Gmail va de uno en uno y
-  tiene cuotas por usuario. Un envío a 300 familias deja de ser 3 llamadas y pasa a ser 300, con
-  su control de ritmo y de errores parciales.
-- Hace falta cuenta de servicio con **delegación de dominio** (ya hay una para Google Sheets,
-  `GOOGLE_SHEETS_CLIENT_EMAIL`, pero con otros scopes) y decidir desde qué buzón se envía.
-- Los correos ya enviados no se tocan; no hay histórico que migrar.
-
 ### Evaluaciones: familias
 El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link
 de familias (`fam_access_tokens`, ya usado por Licencias y Salidas) con su propio propósito
@@ -153,12 +160,19 @@ Recopilados de las fichas, para verlos de un vistazo:
   Educamos es manual).
 - Auditoría/historial de cambios transversal (quién tocó qué registro y cuándo), útil sobre
   todo para Registro ABC y Banco de libros. (`edu_sync_runs` ya nace con esta filosofía.)
-- **Pasada de rediseño de interfaz con Opus cuando sobren tokens** (anotado 2026-08-27, a
-  petición de David): una revisión dedicada de diseño visual — no funcional — de los paneles de
-  gestión y formularios públicos existentes, con más presupuesto de razonamiento del habitual.
-  Candidatos naturales: el editor de Evaluaciones (mucha densidad de controles) y el resto de
-  paneles que se han ido construyendo más rápido que bonito. No es una tarea con alcance cerrado
-  todavía — se abre cuando David lo pida explícitamente.
+- **Pasada de rediseño con Opus cuando sobren tokens, PERFECTITO PERFECTITO** (anotado
+  2026-08-27, ampliado 2026-08-28 a petición de David): revisión dedicada de diseño visual — no
+  funcional — con más presupuesto de razonamiento del habitual. Queja concreta de David sobre
+  Evaluaciones tal como está hoy: **"se me acumula todo y queda un poco junto y no diferencio
+  bien las cosas"**. Foco principal: el **editor de formularios** (`form-editor.tsx`), que a
+  fuerza de ir sumando funciones (chips de estado, insignia de color+letra, ajustes
+  desplegables, bloques con sus preguntas, catálogo…) se ha quedado denso y sin jerarquía visual
+  clara entre secciones. Candidatos a revisar de paso: el resto de paneles de Evaluaciones
+  (resultados, actividades, enviar) y cualquier otro panel construido más rápido que bonito. No
+  tiene alcance cerrado todavía — se abre cuando David lo pida explícitamente, pero YA hay una
+  queja concreta que atender, no es solo "estaría bien mejorarlo".
+  **Nota para quien retome esto**: recuérdale a David en la próxima conversación que esta pasada
+  de diseño sigue pendiente.
 
 ---
 

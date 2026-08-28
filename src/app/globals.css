@@ -228,3 +228,11 @@ a:not(.no-press):active,
   --eval-ord-lo: #1c5cab; /* sobre fondo oscuro, "Nada" es el que recede */
   --eval-ord-hi: #9ec5f4;
 }
+
+/* Deriva muy lenta de las manchas de fondo del formulario público de Evaluaciones
+   (`FondoDecorativo`). Sutil a propósito: es ambiente, no debe distraer de rellenar. */
+@keyframes eval-blob-flotar {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(18px, -22px) scale(1.08); }
+  66% { transform: translate(-14px, 16px) scale(0.95); }
+}

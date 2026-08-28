@@ -16,6 +16,7 @@ const patchSchema = z.object({
   avisoAnonimato: z.string().nullable().optional(),
   mensajeFinal: z.string().nullable().optional(),
   clases: z.array(z.object({ curso: z.string(), letra: z.string().nullable() })).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
 });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -269,6 +269,8 @@ export interface NuevoFormInput {
   actividadesNuevas?: { nombre: string; fecha?: string | null; lugar?: string | null; categoria?: Categoria; objetivo?: string | null; resumen?: string | null }[];
   /** Añadir el preset de preguntas de la audiencia a cada bloque (por defecto sí). */
   conPreset?: boolean;
+  /** Color dominante del formulario. Sin especificar, se asigna uno al azar. */
+  color?: string | null;
   createdByEmail?: string | null;
 }
 
@@ -297,6 +299,7 @@ export async function crearForm(input: NuevoFormInput): Promise<FormCompleto> {
       pedirEtapa: audiencia === 'profesores',
       avisoAnonimato: AVISO_ANONIMATO[audiencia],
       mensajeFinal: MENSAJE_FINAL[audiencia],
+      color: input.color ?? colorAleatorio(),
       clases: input.clases ?? [],
       createdByEmail: input.createdByEmail ?? null,
     })
@@ -341,7 +344,7 @@ export async function getHuecosPendientes(formId: string): Promise<{ questionId:
 export async function actualizarForm(id: string, patch: Partial<EvalForm>): Promise<void> {
   const campos = [
     'titulo', 'descripcion', 'audiencia', 'estado', 'academicYear', 'anonimo', 'identificaAlumno',
-    'pedirClase', 'pedirEtapa', 'requiereLogin', 'avisoAnonimato', 'mensajeFinal', 'clases',
+    'pedirClase', 'pedirEtapa', 'requiereLogin', 'avisoAnonimato', 'mensajeFinal', 'clases', 'color',
   ] as const;
   const set: Record<string, unknown> = { updatedAt: new Date() };
   for (const k of campos) if (patch[k] !== undefined) set[k] = patch[k];
@@ -382,6 +385,9 @@ export async function duplicarForm(
       requiereLogin: orig.requiereLogin,
       avisoAnonimato: cambiaAudiencia ? AVISO_ANONIMATO[audiencia] : orig.avisoAnonimato,
       mensajeFinal: cambiaAudiencia ? MENSAJE_FINAL[audiencia] : orig.mensajeFinal,
+      // Color nuevo siempre: es una evaluación distinta (aunque sea "tal cual"), y así
+      // se distingue de un vistazo del original si los dos acaban abiertos a la vez.
+      color: colorAleatorio(),
       clases: audiencia === 'alumnos' ? orig.clases : [],
       createdByEmail: opts.createdByEmail ?? null,
     })

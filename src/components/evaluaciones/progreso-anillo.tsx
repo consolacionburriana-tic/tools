@@ -12,12 +12,14 @@ import { Check } from 'lucide-react';
 interface Props {
   hechos: number;
   total: number;
+  /** Color del formulario mientras se rellena; al completar, siempre vira a verde. */
+  color: string;
 }
 
 const RADIO = 26;
 const PERIMETRO = 2 * Math.PI * RADIO;
 
-export function ProgresoAnillo({ hechos, total }: Props) {
+export function ProgresoAnillo({ hechos, total, color }: Props) {
   const quieto = useReducedMotion();
   const pct = total > 0 ? Math.min(100, Math.round((hechos / total) * 100)) : 0;
   const completo = hechos >= total && total > 0;
@@ -44,7 +46,8 @@ export function ProgresoAnillo({ hechos, total }: Props) {
                 strokeWidth="4"
                 strokeLinecap="round"
                 strokeDasharray={PERIMETRO}
-                className={completo ? 'stroke-emerald-500' : 'stroke-blue-600 dark:stroke-blue-400'}
+                className={completo ? 'stroke-emerald-500' : ''}
+                style={completo ? undefined : { stroke: color }}
                 initial={false}
                 animate={{ strokeDashoffset: PERIMETRO * (1 - pct / 100) }}
                 transition={quieto ? { duration: 0 } : { type: 'spring', stiffness: 120, damping: 22 }}

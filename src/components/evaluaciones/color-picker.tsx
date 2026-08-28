@@ -10,10 +10,18 @@ import { COLORES_ACTIVIDAD } from '@/lib/evaluaciones';
 
 const AZUL_POR_DEFECTO = '#2563eb';
 
-function TiraDeColores({ color, onChange }: { color: string | null; onChange: (color: string) => void }) {
+function TiraDeColores({
+  color,
+  onChange,
+  etiqueta,
+}: {
+  color: string | null;
+  onChange: (color: string) => void;
+  etiqueta: string;
+}) {
   return (
     <>
-      <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Color de la actividad</p>
+      <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{etiqueta}</p>
       <div className="flex flex-wrap gap-1.5">
         {COLORES_ACTIVIDAD.map((c) => {
           const activo = (color ?? AZUL_POR_DEFECTO).toLowerCase() === c.toLowerCase();
@@ -41,11 +49,13 @@ function Desplegable({
   setAbierto,
   color,
   onChange,
+  etiqueta,
 }: {
   abierto: boolean;
   setAbierto: (v: boolean) => void;
   color: string | null;
   onChange: (color: string) => void;
+  etiqueta: string;
 }) {
   const quieto = useReducedMotion();
   if (!abierto) return null;
@@ -59,6 +69,7 @@ function Desplegable({
       >
         <TiraDeColores
           color={color}
+          etiqueta={etiqueta}
           onChange={(c) => {
             onChange(c);
             setAbierto(false);
@@ -92,11 +103,13 @@ export function ActividadColorButton({
   color,
   onChange,
   disabled,
+  etiqueta = 'Color de la actividad',
 }: {
   letra: string;
   color: string | null;
   onChange: (color: string) => void;
   disabled?: boolean;
+  etiqueta?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
   return (
@@ -104,30 +117,39 @@ export function ActividadColorButton({
       <button
         type="button"
         disabled={disabled}
-        title={disabled ? undefined : 'Color de la actividad'}
+        title={disabled ? undefined : etiqueta}
         onClick={() => setAbierto((v) => !v)}
         className="mt-0.5 rounded-lg transition-transform enabled:hover:scale-110 enabled:active:scale-95 disabled:opacity-60"
       >
         <LetraBadge letra={letra} color={color} />
       </button>
-      {!disabled && <Desplegable abierto={abierto} setAbierto={setAbierto} color={color} onChange={onChange} />}
+      {!disabled && <Desplegable abierto={abierto} setAbierto={setAbierto} color={color} onChange={onChange} etiqueta={etiqueta} />}
     </div>
   );
 }
 
-/** Punto de color suelto (sin letra): para listados planos como el de actividades. */
-export function ColorDotButton({ color, onChange }: { color: string | null; onChange: (color: string) => void }) {
+/** Punto de color suelto (sin letra): para listados planos como el de actividades, o
+ *  para el color dominante de un formulario entero (ver `etiqueta`). */
+export function ColorDotButton({
+  color,
+  onChange,
+  etiqueta = 'Color de la actividad',
+}: {
+  color: string | null;
+  onChange: (color: string) => void;
+  etiqueta?: string;
+}) {
   const [abierto, setAbierto] = useState(false);
   return (
     <div className="relative inline-block">
       <button
         type="button"
-        title="Color de la actividad"
+        title={etiqueta}
         onClick={() => setAbierto((v) => !v)}
         style={{ background: color ?? AZUL_POR_DEFECTO }}
         className="h-5 w-5 shrink-0 rounded-full ring-1 ring-black/5 transition-transform hover:scale-110 active:scale-95 dark:ring-white/10"
       />
-      <Desplegable abierto={abierto} setAbierto={setAbierto} color={color} onChange={onChange} />
+      <Desplegable abierto={abierto} setAbierto={setAbierto} color={color} onChange={onChange} etiqueta={etiqueta} />
     </div>
   );
 }

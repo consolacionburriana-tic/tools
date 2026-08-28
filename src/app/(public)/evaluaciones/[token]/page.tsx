@@ -14,6 +14,35 @@ export const metadata = {
   description: 'Formulario de evaluación de actividades',
 };
 
+const ACENTO_POR_DEFECTO = '#2563eb';
+
+/**
+ * Manchas de color de fondo, muy suaves: es el "elemento decorativo por el fondito"
+ * para que la pantalla no sea un formulario a secas. `fixed` para que acompañen al
+ * hacer scroll; hermanas de `<main>` (no dentro de `.anim-stagger`) para no arrastrar
+ * el problema de contexto de apilamiento de las tarjetas animadas — ver
+ * `docs/16-evaluaciones.md`. Se mueven muy despacio y solo si no se ha pedido
+ * reducir el movimiento (`motion-safe:`).
+ */
+function FondoDecorativo({ color }: { color: string }) {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div
+        style={{ background: color }}
+        className="absolute -left-24 -top-28 h-72 w-72 rounded-full opacity-[0.14] blur-3xl motion-safe:animate-[eval-blob-flotar_22s_ease-in-out_infinite] dark:opacity-[0.22]"
+      />
+      <div
+        style={{ background: color }}
+        className="absolute -right-24 top-1/3 h-80 w-80 rounded-full opacity-[0.10] blur-3xl motion-safe:animate-[eval-blob-flotar_27s_ease-in-out_infinite_reverse] dark:opacity-[0.18]"
+      />
+      <div
+        style={{ background: color }}
+        className="absolute -bottom-24 left-1/4 h-64 w-64 rounded-full opacity-[0.09] blur-3xl motion-safe:animate-[eval-blob-flotar_19s_ease-in-out_infinite] dark:opacity-[0.16]"
+      />
+    </div>
+  );
+}
+
 /**
  * Formulario público de evaluación. Dos llaves posibles en la URL:
  *   /evaluaciones/<token>          → enlace común (profesorado, o alumnado sin envío)
@@ -59,10 +88,23 @@ export default async function ResponderPage({
 
   const clases = form.pedirClase && !claseConocida ? await getClasesDisponibles() : [];
   const disponibles = (form.clases ?? []).length > 0 ? (form.clases ?? []) : clases;
+  const acento = form.color ?? ACENTO_POR_DEFECTO;
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <main className="anim-stagger mx-auto w-full max-w-xl px-4 py-8">
+    <div
+      className="min-h-screen bg-[var(--eval-fondo-claro)] dark:bg-[var(--eval-fondo-oscuro)]"
+      style={
+        {
+          // Fondo "muy clarito de ese color" (claro) y un tinte discreto en oscuro:
+          // color-mix nativo del navegador, mismo patrón que ya usa el dashboard de
+          // resultados para la rampa de escalas (ver resultados-panel.tsx).
+          '--eval-fondo-claro': `color-mix(in oklab, ${acento} 6%, white)`,
+          '--eval-fondo-oscuro': `color-mix(in oklab, ${acento} 16%, #09090b)`,
+        } as React.CSSProperties
+      }
+    >
+      <FondoDecorativo color={acento} />
+      <main className="anim-stagger relative mx-auto w-full max-w-xl px-4 py-8">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-zinc-200/70">
             <Image
@@ -88,6 +130,7 @@ export default async function ResponderPage({
             token={form.token}
             invite={invite}
             audiencia={form.audiencia}
+            colorForm={acento}
             descripcion={form.descripcion}
             avisoAnonimato={form.avisoAnonimato}
             pedirClase={form.pedirClase}

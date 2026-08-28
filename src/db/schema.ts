@@ -559,6 +559,11 @@ export const evalForms = pgTable('eval_forms', {
   requiereLogin: boolean('requiere_login').notNull().default(false),
   avisoAnonimato: text('aviso_anonimato'), // mini-indicador del pie del formulario
   mensajeFinal: text('mensaje_final'),
+  // Color dominante del formulario público (hex): botón de enviar, barra/anillo de
+  // progreso, tinte muy suave del fondo y las manchas decorativas. Distinto del color
+  // de cada actividad (eval_activities.color, que solo acenta su propio bloque): este
+  // es el que "viste" la experiencia entera de quien responde.
+  color: text('color'),
   clases: jsonb('clases').$type<{ curso: string; letra: string | null }[]>().notNull().default([]),
   createdByEmail: text('created_by_email'),
   abiertoAt: timestamp('abierto_at'),
