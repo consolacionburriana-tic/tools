@@ -82,6 +82,38 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
 - **Catálogo de preguntas sueltas** en código (`CATALOGO` en `src/lib/evaluaciones.ts`), sacado
   de los formularios reales. `eval_question_templates` queda para las que guarde el claustro.
 
+### Jerarquía visual del módulo (2026-08-29)
+Queja que lo motivó, textual: *"se me acumula todo y queda un poco junto y no diferencio bien
+las cosas"*. El diagnóstico no era falta de espacio, era **falta de jerarquía**: el editor tenía
+tres niveles anidados (formulario → actividad → pregunta) pintados los tres igual — caja gris
+dentro de caja blanca dentro de página, todas con borde de 1px y radios parecidos — y catorce
+campos con borde permanente compitiendo a la vez. Nada destacaba porque todo pesaba lo mismo.
+
+El vocabulario vive en `src/components/evaluaciones/ui.tsx` y lo comparten todas las pantallas:
+
+- **Cuatro niveles, distinguidos por superficie y no por más bordes**: página (gris muy claro) →
+  panel (`PANEL`: blanco con un anillo finísimo y sombra de 1px, no borde) → actividad (**no es
+  una caja**: encabezado + `GuiaActividad`) → pregunta (`TARJETA`, más callada que un panel).
+- **`GuiaActividad`** es la pieza clave: una línea vertical de 3px del color de la actividad que
+  enhebra todas sus preguntas. Resuelve el "no diferencio las cosas" sin meter otra caja gris,
+  y de paso le da un uso funcional al color que antes era solo decorativo.
+- **Edición en sitio**: los campos no llevan borde permanente. El título es un título (se revela
+  al pasar por encima o enfocarlo) y el resto llevan un fondo tenue —permanente, porque en iPad
+  no hay hover que revele nada— que se enciende con un anillo al enfocar. Un editor no debe
+  parecer un formulario de alta. Bordes permanentes visibles a la vez: **de 14 a 0**.
+- **Aire donde separa, no en todas partes**: 40px entre actividades (`space-y-10`), 8px entre
+  preguntas. Lo que agrupa se junta; lo que separa, respira.
+- **Los iconos de acción son andamiaje, no contenido**: con cuatro preguntas en pantalla eran
+  veinte iconos gritando por encima del texto. Ahora salen al 60 % de opacidad y ganan contraste
+  al acercarse o al enfocar (`focus-within`), así que siguen siendo accesibles por teclado y
+  tocables en iPad, pero dejan de competir.
+- **`Segmentado`** para borrador/abierto/cerrado: tres botones sueltos no decían que fueran
+  alternativas de lo mismo; dentro de un carril con fondo, sí.
+- **Los avisos van pegados al panel** (borde superior y fondo a todo el ancho) en vez de flotar
+  como otra tarjeta más: así se leen como un estado del formulario y no como contenido nuevo.
+- Los formularios de **alta** (nueva evaluación, envío de correo) mantienen campos con borde a
+  propósito: ahí sí estás rellenando datos, no editando contenido existente.
+
 ### Color e identidad visual (2026-08-27, ampliado 2026-08-28)
 Dos niveles de color, deliberadamente independientes:
 

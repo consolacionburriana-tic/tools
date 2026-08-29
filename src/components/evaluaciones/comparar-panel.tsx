@@ -24,7 +24,7 @@ export function ComparativaSerie({ nombre, puntos }: { nombre: string; puntos: P
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
         <h2 className="mb-1 font-bold text-zinc-900 dark:text-zinc-100">{nombre}</h2>
         <p className="mb-3 text-xs text-zinc-500">
           {puntos.length} evaluación(es) de esta actividad · responden {porAudiencia.map(audienciaLabel).join(' y ')}
@@ -41,7 +41,7 @@ export function ComparativaSerie({ nombre, puntos }: { nombre: string; puntos: P
           <Link
             key={p.formId}
             href={`/gestion/evaluaciones/${p.formId}/resultados`}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+            className="flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:bg-zinc-900 dark:ring-zinc-800"
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{p.titulo}</p>

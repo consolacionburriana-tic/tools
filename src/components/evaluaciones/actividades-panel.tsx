@@ -209,7 +209,7 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
         </p>
       ) : (
         visibles.map((a) => (
-          <div key={a.id} className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <div key={a.id} className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
             {/* div, no button: el punto de color de dentro ya es un botón, y anidar
                botones rompe el HTML. Mismo comportamiento con role+tabIndex+teclado. */}
             <div

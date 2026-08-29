@@ -75,7 +75,7 @@ export default async function CompararPage({
               <Link
                 key={serieId}
                 href={`/gestion/evaluaciones/comparar?serie=${serieId}`}
-                className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+                className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:bg-zinc-900 dark:ring-zinc-800"
               >
                 <GitCompare className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
                 <span className="min-w-0 flex-1">
@@ -110,7 +110,7 @@ export default async function CompararPage({
             Sin respuestas todavía en {year}.
           </p>
         ) : (
-          <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="space-y-2 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
             {ranking.map((r, i) => (
               <Link key={`${r.formId}-${r.activityId}`} href={`/gestion/evaluaciones/${r.formId}/resultados`} className="block">
                 <div className="flex items-center gap-3">

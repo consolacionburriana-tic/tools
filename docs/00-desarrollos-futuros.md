@@ -160,19 +160,13 @@ Recopilados de las fichas, para verlos de un vistazo:
   Educamos es manual).
 - Auditoría/historial de cambios transversal (quién tocó qué registro y cuándo), útil sobre
   todo para Registro ABC y Banco de libros. (`edu_sync_runs` ya nace con esta filosofía.)
-- **Pasada de rediseño con Opus cuando sobren tokens, PERFECTITO PERFECTITO** (anotado
-  2026-08-27, ampliado 2026-08-28 a petición de David): revisión dedicada de diseño visual — no
-  funcional — con más presupuesto de razonamiento del habitual. Queja concreta de David sobre
-  Evaluaciones tal como está hoy: **"se me acumula todo y queda un poco junto y no diferencio
-  bien las cosas"**. Foco principal: el **editor de formularios** (`form-editor.tsx`), que a
-  fuerza de ir sumando funciones (chips de estado, insignia de color+letra, ajustes
-  desplegables, bloques con sus preguntas, catálogo…) se ha quedado denso y sin jerarquía visual
-  clara entre secciones. Candidatos a revisar de paso: el resto de paneles de Evaluaciones
-  (resultados, actividades, enviar) y cualquier otro panel construido más rápido que bonito. No
-  tiene alcance cerrado todavía — se abre cuando David lo pida explícitamente, pero YA hay una
-  queja concreta que atender, no es solo "estaría bien mejorarlo".
-  **Nota para quien retome esto**: recuérdale a David en la próxima conversación que esta pasada
-  de diseño sigue pendiente.
+- ~~**Pasada de rediseño, PERFECTITO PERFECTITO**~~ ✅ hecho (2026-08-29) para **Evaluaciones**:
+  jerarquía de cuatro niveles, guía de color por actividad, edición en sitio y acciones
+  atenuadas. Ver "Jerarquía visual del módulo" en [`16-evaluaciones.md`](./16-evaluaciones.md).
+  El vocabulario (`src/components/evaluaciones/ui.tsx`) está pensado para poder extenderse a
+  otros módulos: **Salidas, Banco de libros y Licencias siguen con el lenguaje viejo** (borde
+  gris de 1px, campos con borde permanente). Cuando alguno se quede igual de denso, el camino ya
+  está trazado — pero no se ha tocado, que cada módulo tiene sus propios usuarios y sus manías.
 
 ---
 

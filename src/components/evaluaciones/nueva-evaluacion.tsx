@@ -203,7 +203,7 @@ export function NuevaEvaluacion({
   return (
     <div className="anim-stagger space-y-4">
       {formsAnterior.length > 0 && (
-        <details className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <details className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
           <summary className="cursor-pointer text-sm font-medium text-zinc-800 dark:text-zinc-200">
             ¿Repetir una evaluación de {academicYearAnterior}? <span className="text-xs font-normal text-zinc-500">({formsAnterior.length})</span>
           </summary>
@@ -233,7 +233,7 @@ export function NuevaEvaluacion({
         </details>
       )}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-5 dark:bg-zinc-900 dark:ring-zinc-800">
         <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">1 · ¿Quién responde?</label>
         <div className="grid grid-cols-3 gap-2">
           {AUDIENCIAS.map((a) => (
@@ -273,7 +273,7 @@ export function NuevaEvaluacion({
       </div>
 
       {audiencia && (
-        <div className="anim-up rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="anim-up rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-5 dark:bg-zinc-900 dark:ring-zinc-800">
           <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">2 · ¿Qué actividades se evalúan?</label>
           <p className="mb-2.5 text-xs text-zinc-500">Escribe el nombre y pulsa Enter. Puedes poner varias en el mismo formulario.</p>
 
@@ -396,7 +396,7 @@ export function NuevaEvaluacion({
       )}
 
       {audiencia === 'alumnos' && (
-        <div className="anim-up rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="anim-up rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-5 dark:bg-zinc-900 dark:ring-zinc-800">
           <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">3 · ¿Qué clases la responden?</label>
           <p className="mb-2.5 text-xs text-zinc-500">
             Sirve para saber cuánta gente falta por contestar y para segmentar los resultados por clase.
@@ -438,7 +438,7 @@ export function NuevaEvaluacion({
       )}
 
       {audiencia && (
-        <div className="anim-up sticky bottom-0 space-y-3 rounded-2xl border border-zinc-200 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="anim-up sticky bottom-0 space-y-3 rounded-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Título</label>
             <input

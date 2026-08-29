@@ -15,6 +15,19 @@ import type { EvalQuestion } from '@/db/schema';
 import type { FormCompleto } from '@/lib/evaluaciones-server';
 import { QuestionCard } from '@/components/evaluaciones/question-card';
 import { ActividadColorButton, ColorDotButton } from '@/components/evaluaciones/color-picker';
+import {
+  BTN_ICONO,
+  BTN_PRIMARIO,
+  BTN_SUAVE,
+  CAMPO,
+  CAMPO_TITULO,
+  Dato,
+  GuiaActividad,
+  PANEL,
+  Plegable,
+  Rotulo,
+  Segmentado,
+} from '@/components/evaluaciones/ui';
 
 /** Letra de posición dentro del formulario: A, B, C… Z, AA, AB… (por si acaso). */
 function letraDeIndice(i: number): string {
@@ -40,9 +53,6 @@ interface Props {
   baseUrl: string;
   academicYearActual: string;
 }
-
-const inputCls =
-  'w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100';
 
 const claseKey = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
 
@@ -301,61 +311,67 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
 
   return (
     <div className="anim-stagger space-y-4">
-      {/* ── Cabecera: título, estado y accesos rápidos ────────────────────── */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-          <span
-            title="Quién responde"
-            className="rounded-full bg-zinc-100 px-2 py-0.5 font-semibold dark:bg-zinc-800"
-          >
-            Responde: {AUDIENCIAS.find((a) => a.value === audiencia)?.emoji}{' '}
-            {AUDIENCIAS.find((a) => a.value === audiencia)?.label}
-          </span>
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-800">{form.academicYear}</span>
-          <span>{respuestas} respuestas</span>
-        </div>
+      {/* ── Cabecera ──────────────────────────────────────────────────────────
+         Antes: chips + título + descripción + 3 botones de estado + 4 acciones,
+         todo apilado con el mismo peso. Ahora hay tres franjas con jerarquía
+         distinta: identidad (color + título), contexto (datos en gris) y acciones
+         (estado a la izquierda, lo que se hace con el formulario a la derecha). */}
+      <div className={`${PANEL} overflow-hidden`}>
+        <div className="p-4 sm:p-5">
+          <div className="flex items-start gap-2.5">
+            {/* Color del FORMULARIO, no de una actividad: viste el botón de enviar, la
+               barra de progreso y el fondo de la página pública entera. */}
+            <span className="mt-2 shrink-0">
+              <ColorDotButton color={form.color} etiqueta="Color del formulario" onChange={(color) => void patchForm({ color })} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <input
+                defaultValue={form.titulo}
+                onBlur={(e) => e.target.value !== form.titulo && void patchForm({ titulo: e.target.value })}
+                className={CAMPO_TITULO}
+              />
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 px-2">
+                <Dato etiqueta="Responde">
+                  {AUDIENCIAS.find((a) => a.value === audiencia)?.emoji} {AUDIENCIAS.find((a) => a.value === audiencia)?.label}
+                </Dato>
+                <Dato etiqueta="Curso">{form.academicYear}</Dato>
+                <Dato etiqueta="Respuestas">{respuestas}</Dato>
+              </div>
+            </div>
+          </div>
 
-        <div className="mt-2 flex items-center gap-2">
-          {/* Color del FORMULARIO, no de una actividad: viste el botón de enviar, la
-             barra de progreso y el fondo de la página pública entera. */}
-          <ColorDotButton color={form.color} etiqueta="Color del formulario" onChange={(color) => void patchForm({ color })} />
-          <input
-            defaultValue={form.titulo}
-            onBlur={(e) => e.target.value !== form.titulo && void patchForm({ titulo: e.target.value })}
-            className={`${inputCls} text-lg font-semibold`}
+          <textarea
+            defaultValue={form.descripcion ?? ''}
+            rows={2}
+            placeholder="Texto de presentación que ve quien responde"
+            onBlur={(e) => e.target.value !== (form.descripcion ?? '') && void patchForm({ descripcion: e.target.value || null })}
+            className={`${CAMPO} mt-3`}
           />
         </div>
-        <textarea
-          defaultValue={form.descripcion ?? ''}
-          rows={2}
-          placeholder="Texto de presentación que ve quien responde"
-          onBlur={(e) => e.target.value !== (form.descripcion ?? '') && void patchForm({ descripcion: e.target.value || null })}
-          className={`${inputCls} mt-2 text-sm`}
-        />
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {(['borrador', 'abierto', 'cerrado'] as const).map((e) => (
-            <button
-              key={e}
-              type="button"
-              disabled={e === 'abierto' && huecos.length > 0}
-              title={e === 'abierto' && huecos.length > 0 ? 'Termina primero las frases que quedan a medias' : undefined}
-              onClick={() => {
-                haptic.tap();
-                void patchForm({ estado: e }, e === 'abierto' ? 'Evaluación abierta: ya se puede responder' : undefined);
-              }}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium capitalize transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                form.estado === e
-                  ? e === 'abierto'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
-              }`}
-            >
-              {e}
-            </button>
-          ))}
-          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        {/* Barra de acciones: separada del contenido por una línea, no por aire, para
+           que se lea como "la botonera de este formulario" y no como una fila más. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-zinc-100 bg-zinc-50/60 px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-800/20 sm:px-5">
+          <Segmentado
+            valor={form.estado as 'borrador' | 'abierto' | 'cerrado'}
+            onChange={(e) => {
+              haptic.tap();
+              void patchForm({ estado: e }, e === 'abierto' ? 'Evaluación abierta: ya se puede responder' : undefined);
+            }}
+            opciones={[
+              { valor: 'borrador', label: 'borrador' },
+              {
+                valor: 'abierto',
+                label: 'abierto',
+                tono: 'verde',
+                deshabilitada: huecos.length > 0,
+                pista: huecos.length > 0 ? 'Termina primero las frases que quedan a medias' : undefined,
+              },
+              { valor: 'cerrado', label: 'cerrado' },
+            ]}
+          />
+
+          <div className="ml-auto flex flex-wrap items-center gap-1">
             <button
               type="button"
               onClick={() => {
@@ -363,34 +379,27 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                 haptic.success();
                 toast.success('Enlace copiado');
               }}
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className={BTN_SUAVE}
             >
-              <Link2 className="h-3.5 w-3.5" /> Copiar enlace
+              <Link2 className="h-3.5 w-3.5" /> Enlace
             </button>
-            <Link
-              href={`/evaluaciones/${form.token}`}
-              target="_blank"
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              <Eye className="h-3.5 w-3.5" /> Previsualizar <ExternalLink className="h-3 w-3" />
+            <Link href={`/evaluaciones/${form.token}`} target="_blank" className={BTN_SUAVE}>
+              <Eye className="h-3.5 w-3.5" /> Previsualizar
+              <ExternalLink className="h-3 w-3 opacity-60" />
             </Link>
-            <Link
-              href={`/gestion/evaluaciones/${form.id}/enviar`}
-              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-            >
-              <Send className="h-3.5 w-3.5" /> Enviar
-            </Link>
-            <Link
-              href={`/gestion/evaluaciones/${form.id}/resultados`}
-              className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300"
-            >
+            <Link href={`/gestion/evaluaciones/${form.id}/resultados`} className={BTN_SUAVE}>
               <BarChart3 className="h-3.5 w-3.5" /> Resultados
+            </Link>
+            <Link href={`/gestion/evaluaciones/${form.id}/enviar`} className={`${BTN_PRIMARIO} ml-1`}>
+              <Send className="h-3.5 w-3.5" /> Enviar
             </Link>
           </div>
         </div>
 
+        {/* Avisos: pegados abajo del panel y a todo el ancho, para que se lean como
+           un estado del formulario y no como otra tarjeta suelta más. */}
         {huecos.length > 0 ? (
-          <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+          <div className="border-t border-amber-200/70 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200 sm:px-5">
             <p className="flex items-center gap-2 font-semibold">
               <TriangleAlert className="h-4 w-4 shrink-0" />
               {huecos.length === 1 ? 'Falta terminar una frase' : `Faltan ${huecos.length} frases por terminar`} para poder abrirla
@@ -399,7 +408,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
               El preset las deja a medias a propósito: una evaluación con la pregunta genérica no la contesta nadie con
               cabeza. Termínalas y el botón de &quot;abierto&quot; se activa solo.
             </p>
-            <ul className="mt-1.5 space-y-0.5">
+            <ul className="mt-2 space-y-0.5">
               {huecos.slice(0, 6).map((h, i) => (
                 <li key={`${h.questionId}-${i}`} className="font-medium">
                   · {h.texto}
@@ -409,40 +418,31 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
           </div>
         ) : (
           pendientesRevision > 0 && (
-            <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+            <p className="flex items-center gap-2 border-t border-amber-200/70 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300 sm:px-5">
               <TriangleAlert className="h-4 w-4 shrink-0" />
-              Quedan {pendientesRevision} pregunta(s) del preset por adaptar: son las marcadas en ámbar. Edítalas y el aviso
-              desaparece.
+              Quedan {pendientesRevision} pregunta(s) del preset por adaptar: son las marcadas en ámbar.
             </p>
           )
         )}
         {bloqueada && (
-          <p className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-            <Lock className="h-3.5 w-3.5" /> Ya hay respuestas: puedes retocar textos, pero no borrar preguntas ni cambiar su tipo.
+          <p className="flex items-center gap-2 border-t border-zinc-100 px-4 py-2.5 text-xs text-zinc-500 dark:border-zinc-800 sm:px-5">
+            <Lock className="h-3.5 w-3.5 shrink-0" /> Ya hay respuestas: puedes retocar textos, pero no borrar preguntas ni
+            cambiar su tipo.
           </p>
         )}
       </div>
 
       {/* ── Ajustes del formulario ─────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <button
-          type="button"
-          onClick={() => setAjustes((v) => !v)}
-          className="flex w-full items-center gap-2 p-4 text-sm font-medium text-zinc-800 dark:text-zinc-200"
-        >
-          <Settings2 className="h-4 w-4 text-zinc-400" /> Ajustes
-          {ajustes ? <ChevronUp className="ml-auto h-4 w-4 text-zinc-400" /> : <ChevronDown className="ml-auto h-4 w-4 text-zinc-400" />}
-        </button>
-        {ajustes && (
-          <div className="space-y-4 border-t border-zinc-100 p-4 dark:border-zinc-800">
+      <Plegable titulo="Ajustes" icono={<Settings2 className="h-4 w-4 text-zinc-400" />} abierto={ajustes} onToggle={() => setAjustes((v) => !v)}>
+          <div className="space-y-5">
             {audiencia === 'alumnos' && (
               <div>
-                <p className="mb-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">Clases que la responden</p>
-                <p className="mb-2 text-xs text-zinc-500">Marca el objetivo para saber quién falta y segmentar resultados.</p>
+                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Clases que la responden</p>
+                <p className="mb-2.5 text-xs text-zinc-500">Marca el objetivo para saber quién falta y segmentar resultados.</p>
                 <div className="space-y-2.5">
                   {clasesPorEtapa.map((g) => (
                     <div key={g.etapa}>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">{g.label}</p>
+                      <Rotulo className="mb-1.5">{g.label}</Rotulo>
                       <div className="flex flex-wrap gap-1.5">
                         {g.clases.map((c) => {
                           const activa = (form.clases ?? []).some((x) => claseKey(x) === claseKey(c));
@@ -474,7 +474,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
             )}
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-zinc-50 p-3 transition-colors duration-150 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70">
                 <input
                   type="checkbox"
                   className="mt-0.5"
@@ -488,7 +488,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                   </span>
                 </span>
               </label>
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-zinc-50 p-3 transition-colors duration-150 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70">
                 <input
                   type="checkbox"
                   className="mt-0.5"
@@ -500,7 +500,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                   <span className="block text-xs text-zinc-500">Infantil / Primaria / Secundaria. Lo típico en profesorado.</span>
                 </span>
               </label>
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-zinc-50 p-3 transition-colors duration-150 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70">
                 <input
                   type="checkbox"
                   className="mt-0.5"
@@ -513,7 +513,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                 </span>
               </label>
               {audiencia !== 'profesores' && (
-                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-zinc-50 p-3 transition-colors duration-150 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70">
                   <input
                     type="checkbox"
                     className="mt-0.5"
@@ -532,31 +532,31 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Aviso de anonimato (pie del formulario)</label>
+              <Rotulo className="mb-1.5">Aviso de anonimato (pie del formulario)</Rotulo>
               <textarea
                 defaultValue={form.avisoAnonimato ?? ''}
                 rows={2}
                 onBlur={(e) => e.target.value !== (form.avisoAnonimato ?? '') && void patchForm({ avisoAnonimato: e.target.value || null })}
-                className={`${inputCls} text-sm`}
+                className={CAMPO}
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Mensaje al terminar</label>
+              <Rotulo className="mb-1.5">Mensaje al terminar</Rotulo>
               <textarea
                 defaultValue={form.mensajeFinal ?? ''}
                 rows={2}
                 onBlur={(e) => e.target.value !== (form.mensajeFinal ?? '') && void patchForm({ mensajeFinal: e.target.value || null })}
-                className={`${inputCls} text-sm`}
+                className={CAMPO}
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Duplicar</span>
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+              <Rotulo className="mr-1">Duplicar</Rotulo>
               <button
                 type="button"
                 disabled={ocupado}
                 onClick={() => void duplicar({})}
-                className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className={BTN_SUAVE}
               >
                 <Copy className="h-3.5 w-3.5" /> Tal cual
               </button>
@@ -566,7 +566,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                   type="button"
                   disabled={ocupado}
                   onClick={() => void duplicar({ audiencia: a.value })}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  className={BTN_SUAVE}
                 >
                   <Sparkles className="h-3.5 w-3.5" /> Versión {a.label.toLowerCase()}
                 </button>
@@ -580,156 +580,175 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                     type="button"
                     disabled={ocupado}
                     onClick={() => void duplicar({ academicYear: y })}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className={BTN_SUAVE}
                   >
                     <Copy className="h-3.5 w-3.5" /> A {y}
                   </button>
                 ))}
             </div>
           </div>
-        )}
-      </div>
+      </Plegable>
 
-      {/* ── Bloques ────────────────────────────────────────────────────────── */}
-      {bloquesVisibles.map((b, bi) => {
-        const preguntasVisibles = b.preguntas.filter((q) => !preguntasOcultas.has(q.id));
-        const idsVisibles = preguntasVisibles.map((q) => q.id);
-        return (
-          <div key={b.id} className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-            <div className="mb-3 flex items-start gap-2">
-              <ActividadColorButton
-                letra={letraDeIndice(bi)}
-                color={b.actividad?.color ?? null}
-                disabled={!b.activityId}
-                onChange={(color) => cambiarColorActividad(b, color)}
-              />
-              <div className="min-w-0 flex-1">
-                <input
-                  defaultValue={b.titulo}
-                  onBlur={(e) => e.target.value !== b.titulo && void estructura({ accion: 'bloque.update', blockId: b.id, titulo: e.target.value })}
-                  className={`${inputCls} font-semibold`}
+      {/* ── Bloques ──────────────────────────────────────────────────────────
+         Cada actividad ya NO es una caja gris dentro del blanco (tres cajas
+         anidadas con el mismo peso era justo lo que hacía que no se distinguiera
+         nada). Ahora es: encabezado propio + una guía de color vertical que
+         enhebra sus preguntas, y mucho aire entre actividades. */}
+      <div className="space-y-10 pt-4">
+        {bloquesVisibles.map((b, bi) => {
+          const preguntasVisibles = b.preguntas.filter((q) => !preguntasOcultas.has(q.id));
+          const idsVisibles = preguntasVisibles.map((q) => q.id);
+          const colorBloque = b.actividad?.color ?? '#2563eb';
+          return (
+            <section key={b.id}>
+              {/* Encabezado de la actividad */}
+              <div className="flex items-start gap-2.5">
+                <ActividadColorButton
+                  letra={letraDeIndice(bi)}
+                  color={b.actividad?.color ?? null}
+                  disabled={!b.activityId}
+                  onChange={(color) => cambiarColorActividad(b, color)}
                 />
-                <textarea
-                  defaultValue={b.intro ?? ''}
-                  rows={2}
-                  placeholder={
-                    audiencia === 'profesores'
-                      ? 'Objetivo de la actividad (se muestra encima de las preguntas)'
-                      : 'Frase que explique de qué va, sin soltar el objetivo tal cual'
-                  }
-                  onBlur={(e) => e.target.value !== (b.intro ?? '') && void estructura({ accion: 'bloque.update', blockId: b.id, intro: e.target.value || null })}
-                  className={`${inputCls} mt-1.5 text-sm`}
-                />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <button
-                  type="button"
-                  disabled={bi === 0 || ocupado}
-                  onClick={() => moverBloque(b.id, bloquesVisibles[bi - 1]?.id)}
-                  className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200 disabled:opacity-30 dark:hover:bg-zinc-800"
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  disabled={bi === bloquesVisibles.length - 1 || ocupado}
-                  onClick={() => moverBloque(b.id, bloquesVisibles[bi + 1]?.id)}
-                  className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200 disabled:opacity-30 dark:hover:bg-zinc-800"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                {!bloqueada && (
+                <div className="min-w-0 flex-1">
+                  <input
+                    defaultValue={b.titulo}
+                    onBlur={(e) => e.target.value !== b.titulo && void estructura({ accion: 'bloque.update', blockId: b.id, titulo: e.target.value })}
+                    className={`${CAMPO_TITULO} !text-base`}
+                  />
+                  <textarea
+                    defaultValue={b.intro ?? ''}
+                    rows={2}
+                    placeholder={
+                      audiencia === 'profesores'
+                        ? 'Objetivo de la actividad (se muestra encima de las preguntas)'
+                        : 'Frase que explique de qué va, sin soltar el objetivo tal cual'
+                    }
+                    onBlur={(e) => e.target.value !== (b.intro ?? '') && void estructura({ accion: 'bloque.update', blockId: b.id, intro: e.target.value || null })}
+                    className={`${CAMPO} mt-1`}
+                  />
+                </div>
+                <div className="flex shrink-0 items-center">
                   <button
                     type="button"
-                    disabled={ocupado}
-                    onClick={() => borrarBloqueConDeshacer(b)}
-                    className="rounded-md p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-500/10"
+                    disabled={bi === 0 || ocupado}
+                    title="Subir actividad"
+                    onClick={() => moverBloque(b.id, bloquesVisibles[bi - 1]?.id)}
+                    className={BTN_ICONO}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <ChevronUp className="h-4 w-4" />
                   </button>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {preguntasVisibles.map((q, qi) => (
-                <QuestionCard
-                  key={q.id}
-                  pregunta={q}
-                  indice={qi}
-                  total={preguntasVisibles.length}
-                  ocupado={ocupado}
-                  bloqueada={bloqueada}
-                  onPatch={(cambios: Partial<EvalQuestion>) => void estructura({ accion: 'pregunta.update', questionId: q.id, ...cambios })}
-                  onDuplicar={() => void estructura({ accion: 'pregunta.duplicate', questionId: q.id })}
-                  onBorrar={() => borrarPreguntaConDeshacer(q)}
-                  onMover={(delta) => {
-                    const destino = qi + delta;
-                    if (destino < 0 || destino >= preguntasVisibles.length) return;
-                    moverPregunta(b.id, q.id, preguntasVisibles[destino].id);
-                  }}
-                  onDragStart={() => (arrastrando.current = { blockId: b.id, id: q.id })}
-                  onDragOver={() => (sobre.current = q.id)}
-                  onDrop={() => soltar(b.id, idsVisibles)}
-                />
-              ))}
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {preguntasVisibles.length === 0 && (
-                <button
-                  type="button"
-                  disabled={ocupado}
-                  onClick={() => void estructura({ accion: 'pregunta.preset', blockId: b.id })}
-                  className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  <Sparkles className="h-3.5 w-3.5" /> Poner las preguntas de siempre
-                </button>
-              )}
-              {(['escala', 'texto', 'opcion', 'quiz'] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  disabled={ocupado}
-                  onClick={() => void estructura({ accion: 'pregunta.add', blockId: b.id, tipo: t })}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {t === 'escala' ? 'Escala' : t === 'texto' ? 'Texto' : t === 'opcion' ? 'Opciones' : 'Quiz'}
-                </button>
-              ))}
-              <details className="relative">
-                <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                  <ListPlus className="h-3.5 w-3.5" /> Del catálogo
-                </summary>
-                {/* Se abre hacia ARRIBA y con z-index alto a propósito: cada bloque anima su
-                   entrada (anim-stagger) y eso crea su propio contexto de apilamiento, así que
-                   un desplegable normal hacia abajo queda tapado por el bloque siguiente. Abrir
-                   hacia arriba lo mantiene dentro del mismo bloque, donde sí gana. */}
-                <div className="absolute bottom-full z-40 mb-1 w-72 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-                  {catalogoAudiencia.map((c) => (
+                  <button
+                    type="button"
+                    disabled={bi === bloquesVisibles.length - 1 || ocupado}
+                    title="Bajar actividad"
+                    onClick={() => moverBloque(b.id, bloquesVisibles[bi + 1]?.id)}
+                    className={BTN_ICONO}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  {!bloqueada && (
                     <button
-                      key={c.id}
                       type="button"
                       disabled={ocupado}
-                      onClick={() => void estructura({ accion: 'pregunta.add', blockId: b.id, catalogoId: c.id })}
-                      className="block w-full rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      title="Quitar del formulario"
+                      onClick={() => borrarBloqueConDeshacer(b)}
+                      className={`${BTN_ICONO} hover:!bg-rose-50 hover:!text-rose-600 dark:hover:!bg-rose-500/10`}
                     >
-                      {c.nombre}
+                      <Trash2 className="h-4 w-4" />
                     </button>
-                  ))}
+                  )}
                 </div>
-              </details>
-              {ocupado && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
-            </div>
-          </div>
-        );
-      })}
+              </div>
+
+              {/* Preguntas, enhebradas por la guía del color de la actividad */}
+              <div className="mt-3">
+                <GuiaActividad color={colorBloque}>
+                  <div className="space-y-2">
+                    {preguntasVisibles.map((q, qi) => (
+                      <QuestionCard
+                        key={q.id}
+                        pregunta={q}
+                        indice={qi}
+                        total={preguntasVisibles.length}
+                        ocupado={ocupado}
+                        bloqueada={bloqueada}
+                        color={colorBloque}
+                        onPatch={(cambios: Partial<EvalQuestion>) => void estructura({ accion: 'pregunta.update', questionId: q.id, ...cambios })}
+                        onDuplicar={() => void estructura({ accion: 'pregunta.duplicate', questionId: q.id })}
+                        onBorrar={() => borrarPreguntaConDeshacer(q)}
+                        onMover={(delta) => {
+                          const destino = qi + delta;
+                          if (destino < 0 || destino >= preguntasVisibles.length) return;
+                          moverPregunta(b.id, q.id, preguntasVisibles[destino].id);
+                        }}
+                        onDragStart={() => (arrastrando.current = { blockId: b.id, id: q.id })}
+                        onDragOver={() => (sobre.current = q.id)}
+                        onDrop={() => soltar(b.id, idsVisibles)}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Añadir preguntas: en gris, porque es andamiaje, no contenido */}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1">
+                    {preguntasVisibles.length === 0 && (
+                      <button
+                        type="button"
+                        disabled={ocupado}
+                        onClick={() => void estructura({ accion: 'pregunta.preset', blockId: b.id })}
+                        className={`${BTN_PRIMARIO} mr-1`}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Poner las preguntas de siempre
+                      </button>
+                    )}
+                    <Rotulo className="mr-1">Añadir</Rotulo>
+                    {(['escala', 'texto', 'opcion', 'quiz'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={ocupado}
+                        onClick={() => void estructura({ accion: 'pregunta.add', blockId: b.id, tipo: t })}
+                        className={BTN_SUAVE}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        {t === 'escala' ? 'Escala' : t === 'texto' ? 'Texto' : t === 'opcion' ? 'Opciones' : 'Quiz'}
+                      </button>
+                    ))}
+                    <details className="relative">
+                      <summary className={`${BTN_SUAVE} cursor-pointer list-none`}>
+                        <ListPlus className="h-3.5 w-3.5" /> Del catálogo
+                      </summary>
+                      {/* Se abre hacia ARRIBA y con z-index alto a propósito: cada bloque anima su
+                         entrada (anim-stagger) y eso crea su propio contexto de apilamiento, así que
+                         un desplegable normal hacia abajo queda tapado por el bloque siguiente. Abrir
+                         hacia arriba lo mantiene dentro del mismo bloque, donde sí gana. */}
+                      <div className="absolute bottom-full z-40 mb-1 w-72 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700">
+                        {catalogoAudiencia.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            disabled={ocupado}
+                            onClick={() => void estructura({ accion: 'pregunta.add', blockId: b.id, catalogoId: c.id })}
+                            className="block w-full rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 transition-colors duration-150 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          >
+                            {c.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    </details>
+                    {ocupado && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
+                  </div>
+                </GuiaActividad>
+              </div>
+            </section>
+          );
+        })}
+      </div>
 
       {/* ── Añadir actividad al formulario ─────────────────────────────────── */}
       {anadiendo ? (
-        <div className="rounded-2xl border border-blue-300 bg-white p-4 dark:border-blue-700 dark:bg-zinc-900">
-          <p className="mb-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">Añadir otra actividad a este formulario</p>
+        <div className={`${PANEL} p-4`}>
+          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Añadir otra actividad</p>
+          <p className="mb-2.5 text-xs text-zinc-500">Escribe el nombre y pulsa Enter.</p>
           <div className="flex gap-2">
             <input
               value={nuevaActividad}
@@ -744,7 +763,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                 }
               }}
               placeholder="Nombre de la actividad"
-              className={inputCls}
+              className={CAMPO}
             />
             <button
               type="button"
@@ -755,14 +774,14 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                   setAnadiendo(false);
                 })
               }
-              className="shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className={`${BTN_PRIMARIO} shrink-0 px-4`}
             >
               <Check className="h-4 w-4" />
             </button>
           </div>
           {actividades.filter((a) => !form.bloques.some((b) => b.activityId === a.id)).length > 0 && (
             <>
-              <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">O una que ya existe</p>
+              <Rotulo className="mb-1.5 mt-4">O una que ya existe</Rotulo>
               <div className="flex flex-wrap gap-1.5">
                 {actividades
                   .filter((a) => !form.bloques.some((b) => b.activityId === a.id))
@@ -772,7 +791,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                       type="button"
                       disabled={ocupado}
                       onClick={() => void estructura({ accion: 'bloque.add', activityId: a.id }).then(() => setAnadiendo(false))}
-                      className="rounded-full bg-zinc-100 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300"
+                      className="rounded-full bg-zinc-100 px-3 py-1.5 text-sm text-zinc-600 transition-colors duration-150 hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                     >
                       {a.nombre}
                     </button>
@@ -785,9 +804,9 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
         <button
           type="button"
           onClick={() => setAnadiendo(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-300 bg-white/60 py-4 text-sm font-medium text-zinc-500 transition-colors hover:border-blue-400 hover:text-blue-600 dark:border-zinc-700 dark:bg-zinc-900/40"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-medium text-zinc-400 ring-1 ring-dashed ring-zinc-300 transition-colors duration-150 hover:text-blue-600 hover:ring-blue-400 dark:ring-zinc-700 dark:hover:text-blue-400"
         >
-          <Plus className="h-4 w-4" /> Añadir otra actividad al mismo formulario
+          <Plus className="h-4 w-4" /> Añadir otra actividad
         </button>
       )}
     </div>

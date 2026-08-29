@@ -120,12 +120,12 @@ export function ResultadosPanel({
   return (
     <div className="anim-stagger space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
           <p className="text-xs text-zinc-500">Respuestas</p>
           <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{resultados.totalRespuestas}</p>
           {cobertura !== null && <p className="text-xs text-zinc-400">de {resultados.objetivo} ({cobertura} %)</p>}
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
           <p className="text-xs text-zinc-500">Valoración media</p>
           <p className={`mt-1 text-2xl font-bold tabular-nums ${TONO_TEXTO[tonoDe(resultados.mediaPct)]}`}>
             {resultados.mediaPct === null ? '—' : Math.round(resultados.mediaPct)}
@@ -133,11 +133,11 @@ export function ResultadosPanel({
           </p>
           <p className="text-xs text-zinc-400">comparable entre escalas</p>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
           <p className="text-xs text-zinc-500">Actividades</p>
           <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{resultados.bloques.length}</p>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
           <p className="text-xs text-zinc-500">{form.audiencia === 'alumnos' ? 'Clases' : 'Etapas'}</p>
           <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
             {form.audiencia === 'alumnos' ? resultados.clases.filter((c) => c.respuestas > 0).length : resultados.etapas.length}
@@ -159,7 +159,7 @@ export function ResultadosPanel({
       )}
 
       {resultados.clases.length > 0 && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
           <p className="mb-2.5 flex items-center gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
             <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Por clase
           </p>
@@ -199,7 +199,7 @@ export function ResultadosPanel({
       )}
 
       {resultados.etapas.length > 0 && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
           <p className="mb-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">Por etapa</p>
           <div className="space-y-2">
             {resultados.etapas.map((e) => (
@@ -223,7 +223,7 @@ export function ResultadosPanel({
         </div>
       ) : (
         resultados.bloques.map((b, bi) => (
-          <div key={b.id} className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div key={b.id} className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <LetraBadge letra={String.fromCharCode(65 + bi)} color={b.color} />

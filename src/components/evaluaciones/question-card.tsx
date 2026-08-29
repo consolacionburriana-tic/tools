@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, GripVertical, Plus, Settings2, Trash2, TriangleAlert, X } from 'lucide-react';
+import { BTN_ICONO, CAMPO_MINI, Rotulo, TARJETA } from '@/components/evaluaciones/ui';
 import {
   ESCALAS,
   ESTILOS_ESTRELLA,
@@ -12,9 +13,6 @@ import {
   type TipoPregunta,
 } from '@/lib/evaluaciones';
 import type { EvalQuestion } from '@/db/schema';
-
-const inputCls =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100';
 
 const TIPOS: { value: TipoPregunta; label: string; pista: string }[] = [
   { value: 'escala', label: 'Escala', pista: 'Varias frases con Nada · Poco · Bastante · Mucho' },
@@ -28,6 +26,8 @@ export interface QuestionCardProps {
   pregunta: EvalQuestion;
   indice: number;
   total: number;
+  /** Color de la actividad a la que pertenece: tiñe el número de orden. */
+  color: string;
   ocupado: boolean;
   bloqueada: boolean; // el formulario ya tiene respuestas: no se borra ni se cambia el tipo
   onPatch: (cambios: Partial<EvalQuestion>) => void;
@@ -69,7 +69,7 @@ function CampoAutoguardado({
     placeholder,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setLocal(e.target.value),
     onBlur: guardar,
-    className: className ?? inputCls,
+    className: className ?? CAMPO_MINI,
   };
   return multiline ? (
     <textarea {...props} rows={2} />
@@ -87,6 +87,7 @@ export function QuestionCard({
   pregunta: q,
   indice,
   total,
+  color,
   ocupado,
   bloqueada,
   onPatch,
@@ -132,16 +133,23 @@ export function QuestionCard({
         e.preventDefault();
         onDrop();
       }}
-      className={`rounded-xl border bg-white p-3 transition-colors dark:bg-zinc-900 ${
-        q.revisar || conHueco
-          ? 'border-amber-300 bg-amber-50/40 dark:border-amber-500/40 dark:bg-amber-500/5'
-          : 'border-zinc-200 dark:border-zinc-700'
+      className={`group/pregunta p-3 transition-[box-shadow,background-color] duration-150 ${TARJETA} ${
+        q.revisar || conHueco ? '!bg-amber-50/50 !ring-amber-300/70 dark:!bg-amber-500/5 dark:!ring-amber-500/30' : ''
       } ${ocupado ? 'opacity-60' : ''}`}
     >
+      {/* Cabecera de la pregunta: a la izquierda QUÉ es (número + tipo), a la derecha
+         qué se puede hacer con ella. Los iconos van deliberadamente apagados: son
+         andamiaje, y con cuatro preguntas en pantalla eran veinte iconos gritando
+         por encima del contenido. Ganan contraste al acercarse a la tarjeta. */}
       <div className="mb-2 flex items-center gap-1.5">
-        <GripVertical className="hidden h-4 w-4 cursor-grab text-zinc-300 sm:block" />
-        <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold text-zinc-500 dark:bg-zinc-800">{indice + 1}</span>
-        <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+        <GripVertical className="hidden h-4 w-4 cursor-grab text-zinc-300 opacity-0 transition-opacity duration-150 group-hover/pregunta:opacity-100 dark:text-zinc-600 sm:block" />
+        <span
+          style={{ background: color }}
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+        >
+          {indice + 1}
+        </span>
+        <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
           {TIPOS.find((t) => t.value === q.tipo)?.label}
         </span>
         {(q.revisar || conHueco) && (
@@ -149,13 +157,13 @@ export function QuestionCard({
             <TriangleAlert className="h-3 w-3" /> {conHueco ? 'Termina la frase' : 'Cambia esta frase'}
           </span>
         )}
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="ml-auto flex items-center gap-0.5 opacity-60 transition-opacity duration-150 focus-within:opacity-100 group-hover/pregunta:opacity-100">
           <button
             type="button"
             onClick={() => onMover(-1)}
             disabled={indice === 0 || ocupado}
             title="Subir"
-            className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30 dark:hover:bg-zinc-800"
+            className={BTN_ICONO}
           >
             <ChevronUp className="h-4 w-4" />
           </button>
@@ -164,24 +172,18 @@ export function QuestionCard({
             onClick={() => onMover(1)}
             disabled={indice === total - 1 || ocupado}
             title="Bajar"
-            className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30 dark:hover:bg-zinc-800"
+            className={BTN_ICONO}
           >
             <ChevronDown className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={onDuplicar}
-            disabled={ocupado}
-            title="Duplicar"
-            className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30 dark:hover:bg-zinc-800"
-          >
+          <button type="button" onClick={onDuplicar} disabled={ocupado} title="Duplicar" className={BTN_ICONO}>
             <Copy className="h-4 w-4" />
           </button>
           <button
             type="button"
             onClick={() => setAjustes((v) => !v)}
             title="Ajustes"
-            className={`rounded-md p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${ajustes ? 'text-blue-600' : 'text-zinc-400 hover:text-zinc-700'}`}
+            className={`${BTN_ICONO} ${ajustes ? '!text-blue-600 dark:!text-blue-400' : ''}`}
           >
             <Settings2 className="h-4 w-4" />
           </button>
@@ -191,7 +193,7 @@ export function QuestionCard({
               onClick={onBorrar}
               disabled={ocupado}
               title="Borrar"
-              className="rounded-md p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-500/10"
+              className={`${BTN_ICONO} hover:!bg-rose-50 hover:!text-rose-600 dark:hover:!bg-rose-500/10`}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -203,7 +205,7 @@ export function QuestionCard({
         valor={q.texto}
         onGuardar={(v) => onPatch({ texto: v, revisar: false })}
         placeholder="Texto de la pregunta"
-        className={`${inputCls} font-medium`}
+        className={`${CAMPO_MINI} !text-[15px] font-semibold`}
       />
 
       {esEscala && (
@@ -216,8 +218,8 @@ export function QuestionCard({
                 placeholder="Frase a valorar"
                 className={
                   fraseConHueco(f.texto)
-                    ? `${inputCls} border-amber-400 bg-amber-50/60 dark:border-amber-500/50 dark:bg-amber-500/5`
-                    : inputCls
+                    ? `${CAMPO_MINI} !bg-amber-100/60 dark:!bg-amber-500/10`
+                    : CAMPO_MINI
                 }
                 onGuardar={(v) => patchFilas(q.filas.map((x) => (x.clave === f.clave ? { ...x, texto: v } : x)))}
               />
@@ -332,21 +334,21 @@ export function QuestionCard({
             valor={q.feedbackAcierto ?? ''}
             placeholder="Si acierta: ¡Bien! 🎉"
             onGuardar={(v) => onPatch({ feedbackAcierto: v || null })}
-            className={`${inputCls} border-emerald-200 dark:border-emerald-500/30`}
+            className={`${CAMPO_MINI} !bg-emerald-50 dark:!bg-emerald-500/10`}
           />
           <CampoAutoguardado
             valor={q.feedbackFallo ?? ''}
             placeholder="Si falla: Casi 😅"
             onGuardar={(v) => onPatch({ feedbackFallo: v || null })}
-            className={`${inputCls} border-amber-200 dark:border-amber-500/30`}
+            className={`${CAMPO_MINI} !bg-amber-50 dark:!bg-amber-500/10`}
           />
         </div>
       )}
 
       {ajustes && (
-        <div className="mt-3 space-y-2.5 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/50">
+        <div className="mt-3 space-y-2.5 border-t border-zinc-100 pt-3 dark:border-zinc-800">
           <div>
-            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Texto de ayuda</label>
+            <Rotulo className="mb-1">Texto de ayuda</Rotulo>
             <CampoAutoguardado
               valor={q.ayuda ?? ''}
               placeholder="¡Es importante! Cualquier propuesta es válida…"
@@ -355,7 +357,7 @@ export function QuestionCard({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Tipo de pregunta</label>
+            <Rotulo className="mb-1">Tipo de pregunta</Rotulo>
             <div className="flex flex-wrap gap-1.5">
               {TIPOS.map((t) => (
                 <button

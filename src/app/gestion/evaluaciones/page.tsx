@@ -6,6 +6,7 @@ import { academicYearActual } from '@/lib/constants';
 import { AUDIENCIAS, opcionesAcademicYear } from '@/lib/evaluaciones';
 import { getActividades, getForms } from '@/lib/evaluaciones-server';
 import { NavPending } from '@/components/ui/nav-pending';
+import { BTN_SUAVE } from '@/components/evaluaciones/ui';
 
 export const metadata = { title: 'Evaluaciones · Gestión' };
 
@@ -63,8 +64,13 @@ export default async function EvaluacionesPage({ searchParams }: { searchParams:
             return (
               <div
                 key={f.id}
-                className="rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+                className="relative overflow-hidden rounded-2xl bg-white p-4 pl-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:bg-zinc-900 dark:ring-zinc-800"
               >
+                <span
+                  aria-hidden
+                  style={{ background: f.color ?? '#2563eb' }}
+                  className="absolute inset-y-0 left-0 w-1"
+                />
                 <div className="flex items-start justify-between gap-3">
                   <Link href={`/gestion/evaluaciones/${f.id}`} className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
@@ -98,14 +104,14 @@ export default async function EvaluacionesPage({ searchParams }: { searchParams:
                       <Link
                         href={`/evaluaciones/${f.token}`}
                         target="_blank"
-                        className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className={BTN_SUAVE}
                       >
                         <Link2 className="h-3.5 w-3.5" /> Ver enlace
                       </Link>
                     )}
                     <Link
                       href={`/gestion/evaluaciones/${f.id}/enviar`}
-                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className={BTN_SUAVE}
                     >
                       <Send className="h-3.5 w-3.5" /> Enviar
                     </Link>
@@ -119,7 +125,10 @@ export default async function EvaluacionesPage({ searchParams }: { searchParams:
                 </div>
                 {pct !== null && (
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <div className="h-1.5 rounded-full bg-blue-600" style={{ width: `${Math.min(100, pct)}%` }} />
+                    <div
+                      className="h-1.5 rounded-full"
+                      style={{ width: `${Math.min(100, pct)}%`, background: f.color ?? '#2563eb' }}
+                    />
                   </div>
                 )}
               </div>
@@ -130,7 +139,7 @@ export default async function EvaluacionesPage({ searchParams }: { searchParams:
 
       <Link
         href="/gestion/evaluaciones/comparar"
-        className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 text-sm transition-colors hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:bg-zinc-900 dark:ring-zinc-800"
       >
         <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
         <span className="flex-1">

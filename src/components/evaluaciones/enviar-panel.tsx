@@ -150,7 +150,7 @@ export function EnviarPanel({
 
   return (
     <div className="anim-stagger space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</p>
         <p className="mt-0.5 text-xs text-zinc-500">
           Responde: {AUDIENCIAS.find((a) => a.value === audiencia)?.label} · {academicYear} · estado {estado}
@@ -178,7 +178,7 @@ export function EnviarPanel({
         </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
@@ -235,7 +235,7 @@ export function EnviarPanel({
         )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Plantillas</span>
           {deFabrica.map((p) => (
@@ -310,7 +310,7 @@ export function EnviarPanel({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[200px] flex-1">
             <label className="mb-1 block text-xs font-medium text-zinc-500">Enviar una prueba a</label>
