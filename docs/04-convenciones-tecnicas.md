@@ -29,6 +29,7 @@ pnpm db:push      # aplicar schema a Neon (drizzle-kit push)
 pnpm db:studio    # inspeccionar la BBDD
 pnpm db:seed:licencias   # seeds puntuales (tsx + dotenv .env.local)
 pnpm tokens:familias     # genera los magic links de las familias de la campaña de licencias
+pnpm db:migrate:abc-nia  # migración puntual: enlaza abc_students con edu_students por NIA
 ```
 
 ## Variables de entorno

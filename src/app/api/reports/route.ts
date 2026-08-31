@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
-import { behaviorReports, abcStudents, teachers, eduTeachers } from '@/db/schema';
-import { eq, desc, and, gte, lte, inArray } from 'drizzle-orm';
+import { behaviorReports } from '@/db/schema';
+import { desc, and, eq, gte, lte, inArray } from 'drizzle-orm';
 import { getResend, FROM } from '@/lib/email';
 import { buildReportEmail } from '@/lib/email-template';
 import { hasModule, isGuardResponse, requireSession } from '@/lib/auth-guards';
-import { getTeacherFromSession, resolveAbcStudent } from '@/lib/abc-server';
+import { getAbcStudentParaEmail, getTeacherFromSession, resolveAbcStudent } from '@/lib/abc-server';
 
 const reportSchema = z.object({
   // Alumno: fila de config del ABC o alumno de la BBDD central (se autocrea la config)
@@ -134,13 +134,15 @@ export async function POST(request: Request) {
 async function sendNotificationEmail(abcStudentId: string, teacherName: string, data: z.infer<typeof reportSchema>) {
   if (!process.env.RESEND_API_KEY) return;
 
-  const [student] = await db.select().from(abcStudents).where(eq(abcStudents.id, abcStudentId));
-  if (!student || !student.emailRecipients || student.emailRecipients.length === 0) return;
+  const alumno = await getAbcStudentParaEmail(abcStudentId);
+  if (!alumno || alumno.emailRecipients.length === 0) return;
 
+  // Asunto con siglas (se ve en la notificación del móvil); dentro, el nombre completo
+  // para las personas configuradas, que son las que llevan el caso.
   const { subject, html } = buildReportEmail({
-    studentDisplayName: student.displayName,
-    studentFullName: student.fullName,
-    studentClassName: student.className,
+    studentDisplayName: alumno.siglas,
+    studentFullName: alumno.nombreCompleto,
+    studentClassName: alumno.clase,
     teacherName,
     reportDate: data.reportDate,
     context: data.context,
@@ -161,7 +163,7 @@ async function sendNotificationEmail(abcStudentId: string, teacherName: string, 
   const resend = getResend();
   await resend.emails.send({
     from: FROM,
-    to: student.emailRecipients as string[],
+    to: alumno.emailRecipients,
     subject,
     html,
   });

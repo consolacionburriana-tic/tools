@@ -12,21 +12,28 @@ export const teachers = pgTable('teachers', {
 });
 
 // ─── Tool: Registro ABC (prefijo abc_) ────────────────────────────────────────
-// Config del alumnado en el ABC: enlaza con la BBDD central y guarda los avisos.
+// Config del alumnado en el ABC: enlaza con la BBDD central por NIA y guarda los avisos.
 // `destacado` = sale arriba en el formulario (lo configura el admin del módulo);
 // al registrar sobre un alumno buscado en la BBDD central se autocrea su fila (destacado=false).
+// Aquí NO se guarda el nombre: solo el NIA (vínculo) y las siglas (lo único que se pinta).
 export const abcStudents = pgTable('abc_students', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
-  fullName: text('full_name').notNull(),
-  displayName: text('display_name').notNull(),
-  className: text('class_name').notNull(),
+  nia: text('nia'), // clave humana del vínculo con edu_students (sobrevive a resyncs)
+  siglas: text('siglas'), // 'R.H.M.' — sacado de edu_students al crear la fila
+  // Legado pre-vínculo (2026-08-31): ya no se escriben; el nombre vive en edu_students.
+  fullName: text('full_name'),
+  displayName: text('display_name'),
+  className: text('class_name'),
   destacado: boolean('destacado').default(true).notNull(),
   active: boolean('active').default(true).notNull(),
   // Hasta 20 emails que reciben notificación cuando se guarda un registro de este alumno
   emailRecipients: jsonb('email_recipients').$type<string[]>().notNull().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex('abc_students_nia_uq').on(t.nia),
+  uniqueIndex('abc_students_edu_student_uq').on(t.eduStudentId),
+]);
 
 export const abcBehaviorReports = pgTable('abc_behavior_reports', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),

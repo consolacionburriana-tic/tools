@@ -1,8 +1,9 @@
 export const dynamic = 'force-dynamic';
 
 import { db } from '@/db';
-import { students, teachers, behaviorReports } from '@/db/schema';
-import { eq, count, desc, gte, sql } from 'drizzle-orm';
+import { students, eduStudents, eduTeachers, behaviorReports } from '@/db/schema';
+import { eq, count, desc, gte } from 'drizzle-orm';
+import { siglasDeAlumno } from '@/lib/abc';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Users, GraduationCap, FileText, TrendingUp } from 'lucide-react';
@@ -23,7 +24,7 @@ export default async function AdminPage() {
     recentReports,
   ] = await Promise.all([
     db.select({ totalStudents: count() }).from(students).where(eq(students.active, true)),
-    db.select({ totalTeachers: count() }).from(teachers).where(eq(teachers.active, true)),
+    db.select({ totalTeachers: count() }).from(eduTeachers).where(eq(eduTeachers.etapa, 'ESO')),
     db.select({ totalReports: count() }).from(behaviorReports),
     db.select({ weeklyReports: count() }).from(behaviorReports).where(gte(behaviorReports.reportDate, weekAgo)),
     db
@@ -31,21 +32,24 @@ export default async function AdminPage() {
         id: behaviorReports.id,
         reportDate: behaviorReports.reportDate,
         behaviors: behaviorReports.behaviors,
-        studentFullName: students.fullName,
-        studentDisplayName: students.displayName,
-        teacherFirstName: teachers.firstName,
-        teacherLastName: teachers.lastName,
+        studentSiglas: students.siglas,
+        eduNombre: eduStudents.nombre,
+        eduApellido1: eduStudents.apellido1,
+        eduApellido2: eduStudents.apellido2,
+        teacherFirstName: eduTeachers.nombre,
+        teacherLastName: eduTeachers.apellido1,
       })
       .from(behaviorReports)
       .leftJoin(students, eq(behaviorReports.studentId, students.id))
-      .leftJoin(teachers, eq(behaviorReports.teacherId, teachers.id))
+      .leftJoin(eduStudents, eq(students.eduStudentId, eduStudents.id))
+      .leftJoin(eduTeachers, eq(behaviorReports.eduTeacherId, eduTeachers.id))
       .orderBy(desc(behaviorReports.createdAt))
       .limit(10),
   ]);
 
   const cards = [
     { label: 'Alumnos activos', value: totalStudents, icon: GraduationCap, href: '/gestion/abc/alumnos' },
-    { label: 'Profesores activos', value: totalTeachers, icon: Users, href: '/gestion/abc/profesores' },
+    { label: 'Profes de secundaria', value: totalTeachers, icon: Users, href: '/gestion/profes' },
     { label: 'Total registros', value: totalReports, icon: FileText, href: '/gestion/abc/registros' },
     { label: 'Registros esta semana', value: weeklyReports, icon: TrendingUp, href: '/gestion/abc/registros' },
   ];
@@ -90,7 +94,7 @@ export default async function AdminPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100 text-sm">
-                      {r.studentDisplayName ?? '—'}
+                      {r.studentSiglas ?? siglasDeAlumno(r.eduNombre, r.eduApellido1, r.eduApellido2)}
                     </span>
                     {behaviors.slice(0, 2).map((b) => (
                       <span

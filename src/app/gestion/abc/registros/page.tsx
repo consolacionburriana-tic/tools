@@ -7,7 +7,8 @@ import { format, parseISO, subDays, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronRight, Filter, X, ArrowRight } from 'lucide-react';
 import { BEHAVIORS, CONTEXTS, TIME_SLOTS } from '@/lib/constants';
-import type { AbcStudent, Teacher } from '@/db/schema';
+import type { Teacher } from '@/db/schema';
+import type { AbcStudentPanel } from '@/lib/abc-server';
 
 // El informe agregado (recharts, el chunk de cliente más pesado del repo) solo se pinta en
 // mode === 'informe'; el listado (modo por defecto) nunca debe descargarlo.
@@ -63,7 +64,7 @@ export function label<T extends { value: string; label: string }>(arr: readonly 
 // ─────────────────────────────────────────────────────────────────────────
 export default function RegistrosPage() {
   const [reports, setReports] = useState<ReportRow[]>([]);
-  const [students, setStudents] = useState<AbcStudent[]>([]);
+  const [students, setStudents] = useState<AbcStudentPanel[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<'list' | 'informe'>('list');
   const [timePreset, setTimePreset] = useState<string>('30');
@@ -100,7 +101,7 @@ export default function RegistrosPage() {
   }, [mode, timePreset, selectedStudentIds, page]);
 
   const studentMap = useMemo(() => {
-    const m = new Map<string, AbcStudent>();
+    const m = new Map<string, AbcStudentPanel>();
     students.forEach((s) => m.set(s.id, s));
     return m;
   }, [students]);
@@ -149,7 +150,7 @@ function FiltersBar({
 }: {
   timePreset: string;
   onTimePresetChange: (v: string) => void;
-  students: AbcStudent[];
+  students: AbcStudentPanel[];
   selectedStudentIds: string[];
   onStudentsChange: (ids: string[]) => void;
 }) {
@@ -217,8 +218,8 @@ function FiltersBar({
                     <span className={`w-4 h-4 rounded border ${checked ? 'bg-teal-500 border-teal-500' : 'border-zinc-300 dark:border-zinc-600'} flex items-center justify-center shrink-0`}>
                       {checked && <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd"/></svg>}
                     </span>
-                    <span className="flex-1 truncate">{s.displayName}</span>
-                    <span className="text-zinc-400 text-[10px]">{s.className}</span>
+                    <span className="flex-1 truncate">{s.siglas}</span>
+                    <span className="text-zinc-400 text-[10px]">{s.clase}</span>
                   </button>
                 );
               })}
@@ -245,7 +246,7 @@ function ListView({
   reports, studentMap, loading, page, onPageChange,
 }: {
   reports: ReportRow[];
-  studentMap: Map<string, AbcStudent>;
+  studentMap: Map<string, AbcStudentPanel>;
   loading: boolean;
   page: number;
   onPageChange: (p: number) => void;
@@ -265,16 +266,16 @@ function ListView({
               return (
                 <li key={r.id}>
                   <Link
-                    href={`/admin/registros/${r.id}`}
+                    href={`/gestion/abc/registros/${r.id}`}
                     className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
                   >
                     <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 flex items-center justify-center font-bold text-sm shrink-0">
-                      {student?.displayName?.charAt(0) ?? '?'}
+                      {student?.siglas?.charAt(0) ?? '?'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-zinc-900 dark:text-zinc-100 text-sm">
-                          {student?.displayName ?? '—'}
+                          {student?.siglas ?? '—'}
                         </span>
                         <span className="text-xs text-zinc-400 dark:text-zinc-500">
                           {label(CONTEXTS, r.context)} · {label(TIME_SLOTS, r.timeSlot)}

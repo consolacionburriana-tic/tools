@@ -6,8 +6,9 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Clock, MapPin, Users as UsersIcon, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
 import { db } from '@/db';
-import { behaviorReports, eduTeachers, students, teachers } from '@/db/schema';
+import { behaviorReports, eduStudents, eduTeachers, students, teachers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { claseDeAlumno, siglasDeAlumno } from '@/lib/abc';
 import {
   BEHAVIORS, CONTEXTS, TIME_SLOTS, PRESENT_PEOPLE, REASONS,
   STAGE_LABELS, type StageValue,
@@ -25,11 +26,13 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
     .select({
       report: behaviorReports,
       student: students,
+      eduStudent: eduStudents,
       teacher: teachers,
       eduTeacher: eduTeachers,
     })
     .from(behaviorReports)
     .leftJoin(students, eq(behaviorReports.studentId, students.id))
+    .leftJoin(eduStudents, eq(students.eduStudentId, eduStudents.id))
     .leftJoin(teachers, eq(behaviorReports.teacherId, teachers.id))
     .leftJoin(eduTeachers, eq(behaviorReports.eduTeacherId, eduTeachers.id))
     .where(eq(behaviorReports.id, id))
@@ -37,7 +40,10 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
 
   if (!row) notFound();
 
-  const { report, student, teacher, eduTeacher } = row;
+  const { report, student, eduStudent, teacher, eduTeacher } = row;
+  // En pantalla, solo siglas + clase: el nombre del alumno vive en la BBDD central.
+  const siglas = student?.siglas ?? siglasDeAlumno(eduStudent?.nombre, eduStudent?.apellido1, eduStudent?.apellido2);
+  const clase = eduStudent ? claseDeAlumno(eduStudent.curso, eduStudent.letra) : (student?.className ?? '');
   const behaviors = (report.behaviors as string[]) ?? [];
   const presentPeople = (report.presentPeople as string[]) ?? [];
   const reasons = (report.reasons as string[]) ?? [];
@@ -74,16 +80,16 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
         <div className="flex items-center gap-4 flex-wrap">
           {/* Avatar */}
           <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-xl font-bold shrink-0">
-            {student?.displayName?.charAt(0).toUpperCase() ?? '?'}
+            {siglas.charAt(0).toUpperCase()}
           </div>
 
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium uppercase tracking-widest text-teal-100/80">Registro ABC</p>
             <h1 className="text-2xl sm:text-3xl font-bold leading-tight">
-              {student?.displayName ?? 'Alumno eliminado'}
+              {siglas}
             </h1>
             <p className="text-sm text-teal-50/90 mt-0.5">
-              {student?.fullName} {student?.className && `· ${student.className}`}
+              {clase}
             </p>
           </div>
 

@@ -26,9 +26,27 @@ posteriori lo ya construido y deja abierto lo que falta.
 - **Profesor por sesión (2026-07-10):** fuera el selector de profe; el registro guarda
   `edu_teacher_id` resuelto del login. La tabla `teachers` vieja queda SOLO como lectura
   histórica de registros antiguos (no se gestiona; los profes viven en `edu_teachers`).
-- **Alumnado (2026-07-10):** `abc_students` es la tabla de config del módulo, enlazada a
-  `edu_students` (`edu_student_id`) y con flag `destacado` (salen arriba en el formulario);
-  cualquier alumno del cole se encuentra con el buscador y su config se autocrea al registrar.
+- **Alumnado (2026-07-10, revisado 2026-08-31):** `abc_students` es la tabla de config del
+  módulo, enlazada a `edu_students` por **NIA** (`nia` + `edu_student_id`, ambos únicos) y con
+  flag `destacado` (salen arriba en el formulario); cualquier alumno del cole se encuentra con
+  el buscador y su config se autocrea al registrar.
+- **Anonimato por siglas (2026-08-31):** en `abc_students` **no se guardan nombres**: solo NIA
+  y `siglas` ("R.H.M."), sacadas de `edu_students` al crear la fila. Todo lo que se pinta en
+  pantalla (formulario, panel, gráficos, detalle) son siglas + clase. El nombre completo solo
+  aparece en dos sitios, **decidido así a propósito** (confirmado por David 2026-08-31): en la
+  lista de resultados del buscador del formulario —a partir de 3 letras tecleadas, para no
+  listar a 700 alumnos en el iPad— porque equivocarse de alumno en un registro de conducta es
+  peor que el riesgo de que alguien lea la pantalla; y en el **cuerpo** del correo de aviso
+  (el asunto lleva siglas), porque va solo a las personas configuradas para ese alumno. Las
+  columnas `full_name`/`display_name`/`class_name` quedan como legado sin escribir.
+- **Quién puede registrar (2026-08-31):** cualquier persona del claustro con sesión — se probó
+  a limitarlo a secundaria y David lo descartó: el ABC lo puede necesitar cualquier profe. El
+  panel de gestión sigue siendo del módulo `abc` (orientación, dirección, TIC).
+- **Destinatarios de los avisos (2026-08-31):** se eligen **personas**, no se teclean correos:
+  sugerencias de un toque para orientación y para el tutor/a de la clase del alumno (de
+  `edu_tutorias` del curso académico actual), buscador del resto del claustro, y un correo
+  suelto solo como último recurso (familias, externos). Lo guardado sigue siendo la lista de
+  correos de `email_recipients`; las etiquetas se resuelven al vuelo.
 - **Sin exponer desde la portada pública junto a Licencias** (ver retoques en `licencias-v2.md`):
   la portada de `/` solo enlaza a Licencias + administración, no expone directamente el ABC.
 
@@ -52,4 +70,12 @@ posteriori lo ya construido y deja abierto lo que falta.
 - [x] Login obligatorio en formulario y panel; permisos por módulo `abc`
 - [x] Profesor resuelto por sesión (edu_teacher_id); backfill de registros antiguos por email
 - [x] Alumnado destacado configurable + buscador sobre `edu_students` (config autocreada)
+
+## Fase 4 · Vínculo por NIA, siglas y acceso de secundaria — ✅ (2026-08-31)
+- [x] `abc_students.nia` + `siglas` (índices únicos por NIA y por `edu_student_id`)
+- [x] Migración de los registros existentes: enlazados por NIA y nombre borrado del módulo
+      (`pnpm db:migrate:abc-nia`, idempotente)
+- [x] Alta de alumnos en el panel **solo por NIA** (nunca tecleando nombres)
+- [x] Siglas en todas las pantallas del módulo (formulario, panel, informe, detalle)
+- [x] Destinatarios de aviso por persona (orientación + tutor/a sugeridos, buscador del claustro)
 - [ ] (Idea, sin decidir) sugerencias de redirección con IA — ver `docs/00-desarrollos-futuros.md`

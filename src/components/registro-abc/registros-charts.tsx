@@ -10,7 +10,8 @@ import {
 } from 'recharts';
 import { Calendar as CalendarIcon, AlertTriangle, TrendingUp, FileText, ExternalLink } from 'lucide-react';
 import { BEHAVIORS, REASONS, TIME_SLOTS, CONTEXTS, PRESENT_PEOPLE, STAGE_LABELS, type StageValue } from '@/lib/constants';
-import type { AbcStudent, Teacher } from '@/db/schema';
+import type { Teacher } from '@/db/schema';
+import type { AbcStudentPanel } from '@/lib/abc-server';
 import { getDateRange, label, TIME_PRESETS, type ReportRow } from '@/app/gestion/abc/registros/page';
 
 const TEAL = '#0d9488';
@@ -27,7 +28,7 @@ export default function RegistrosCharts({
   reports: ReportRow[];
   loading: boolean;
   timePreset: string;
-  studentMap: Map<string, AbcStudent>;
+  studentMap: Map<string, AbcStudentPanel>;
   teacherMap: Map<string, Teacher>;
   selectedStudentIds: string[];
 }) {
@@ -160,12 +161,12 @@ export default function RegistrosCharts({
         <div className="rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 dark:from-teal-600 dark:to-cyan-700 text-white p-5 shadow-sm">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-xl font-bold shrink-0">
-              {focusedStudent.displayName.charAt(0).toUpperCase()}
+              {focusedStudent.siglas.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium uppercase tracking-widest text-teal-100/80">Informe individual</p>
-              <h2 className="text-2xl font-bold leading-tight">{focusedStudent.displayName}</h2>
-              <p className="text-sm text-teal-50/90 mt-0.5">{focusedStudent.fullName} · {focusedStudent.className}</p>
+              <h2 className="text-2xl font-bold leading-tight">{focusedStudent.siglas}</h2>
+              <p className="text-sm text-teal-50/90 mt-0.5">{focusedStudent.clase}</p>
             </div>
             <div className="text-right text-xs">
               <p className="text-teal-100/80 uppercase tracking-widest">Período</p>
@@ -392,7 +393,7 @@ function RecordDetail({
   report, student, teacher, hideStudent,
 }: {
   report: ReportRow;
-  student: AbcStudent | null;
+  student: AbcStudentPanel | null;
   teacher: Teacher | null;
   hideStudent: boolean;
 }) {
@@ -426,7 +427,7 @@ function RecordDetail({
             {format(dateObj, "EEE d 'de' MMM yyyy", { locale: es })}
           </span>
           <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
-            {!hideStudent && student && <>{student.displayName} · </>}
+            {!hideStudent && student && <>{student.siglas} · </>}
             {teacherName}
             {teacher && <span className="text-zinc-300 dark:text-zinc-600 ml-1">({STAGE_LABELS[teacher.stage as StageValue] ?? teacher.stage})</span>}
           </span>

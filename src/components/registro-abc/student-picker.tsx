@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, Star } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -20,6 +20,12 @@ interface StudentPickerProps {
 // cualquier otro alumno del cole se encuentra por el buscador.
 export function StudentPicker({ destacados, roster, value, onChange }: StudentPickerProps) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  // El roster entero son 700 nombres: no se pintan hasta que hay búsqueda. Así la
+  // pantalla del iPad no enseña el listado del cole entero a quien pase por al lado.
+  const buscando = query.trim().length >= 3;
+  const resultados = useMemo(() => (buscando ? roster : []), [buscando, roster]);
 
   return (
     <div className="space-y-2">
@@ -31,7 +37,7 @@ export function StudentPicker({ destacados, roster, value, onChange }: StudentPi
               <button
                 key={d.abcStudentId}
                 type="button"
-                onClick={() => onChange({ abcStudentId: d.abcStudentId, label: d.nombre })}
+                onClick={() => onChange({ abcStudentId: d.abcStudentId, label: d.siglas })}
                 className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-colors ${
                   activo
                     ? 'border-teal-600 bg-teal-600 text-white'
@@ -40,7 +46,7 @@ export function StudentPicker({ destacados, roster, value, onChange }: StudentPi
               >
                 <Star className={`h-3.5 w-3.5 ${activo ? 'text-white' : 'text-amber-400'}`} />
                 <span>
-                  {d.nombre}
+                  {d.siglas}
                   <span className={`ml-1.5 text-xs font-normal ${activo ? 'text-teal-100' : 'text-zinc-400'}`}>{d.detalle}</span>
                 </span>
               </button>
@@ -65,16 +71,24 @@ export function StudentPicker({ destacados, roster, value, onChange }: StudentPi
         </PopoverTrigger>
         <PopoverContent className="w-full p-0 rounded-xl" align="start">
           <Command>
-            <CommandInput placeholder="Nombre, apellidos o clase…" autoFocus />
+            <CommandInput
+              placeholder="Nombre, apellidos o clase…"
+              value={query}
+              onValueChange={setQuery}
+              autoFocus
+            />
             <CommandList>
-              <CommandEmpty>Sin resultados.</CommandEmpty>
+              <CommandEmpty>
+                {buscando ? 'Sin resultados.' : 'Escribe al menos 3 letras del nombre o la clase.'}
+              </CommandEmpty>
               <CommandGroup>
-                {roster.map((s) => (
+                {resultados.map((s) => (
                   <CommandItem
                     key={s.eduStudentId}
                     value={`${s.nombre} ${s.clase}`}
                     onSelect={() => {
-                      onChange({ eduStudentId: s.eduStudentId, label: s.nombre });
+                      onChange({ eduStudentId: s.eduStudentId, label: `${s.siglas} · ${s.clase}` });
+                      setQuery('');
                       setOpen(false);
                     }}
                     className="py-2.5 cursor-pointer"

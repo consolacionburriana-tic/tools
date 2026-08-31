@@ -65,7 +65,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 
 | Módulo / pieza | Plan funcional | Plan técnico | Implementado | Ficha |
 |---|---|---|---|---|
-| Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (migrado a login + BBDD central; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
+| Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (login del claustro; alumnado enlazado por NIA y en siglas; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
 | Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2b; magic links de familias listos, falta generarlos en Neon; quedan códigos de activación) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
@@ -156,8 +156,10 @@ dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
 ### Registro ABC — conductas disruptivas
 Formulario rápido (<90s, pensado para iPad) donde el profesorado registra incidencias de
 conducta de alumnado con NEE: contexto, comportamientos, antecedentes, consecuencias y qué
-redirección se aplicó. Panel de administración con listado y gráficos. **Sin login todavía**
-(se resuelve en el hito 3). Detalle completo en [`10-registro-abc.md`](./10-registro-abc.md).
+redirección se aplicó. Panel de administración con listado y gráficos. Detrás del login del
+claustro (el panel, además, con el módulo `abc`); el alumnado se enlaza a `edu_students`
+**por NIA** y en pantalla solo se ven **siglas** ("R.H.M.").
+Detalle completo en [`10-registro-abc.md`](./10-registro-abc.md).
 
 ### Licencias digitales
 Formulario público donde las familias se identifican (DNI del tutor o NIA del alumno,

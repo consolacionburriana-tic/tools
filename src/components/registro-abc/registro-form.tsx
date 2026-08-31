@@ -71,7 +71,7 @@ export function RegistroForm({ destacados, roster, registradoPor, onSuccess }: R
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      student: destacados.length === 1 ? { abcStudentId: destacados[0].abcStudentId, label: destacados[0].nombre } : null,
+      student: destacados.length === 1 ? { abcStudentId: destacados[0].abcStudentId, label: destacados[0].siglas } : null,
       reportDate: new Date(),
       context: 'aula',
       contextNote: '',

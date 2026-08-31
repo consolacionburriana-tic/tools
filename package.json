@@ -15,7 +15,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "npx dotenv-cli -e .env.local tsx src/db/seed.ts",
     "db:seed:licencias": "npx dotenv-cli -e .env.local tsx src/db/seed-licencias.ts",
-    "tokens:familias": "npx dotenv-cli -e .env.local tsx src/db/generate-fam-tokens.ts"
+    "tokens:familias": "npx dotenv-cli -e .env.local tsx src/db/generate-fam-tokens.ts",
+    "db:migrate:abc-nia": "npx dotenv-cli -e .env.local tsx src/db/migrate-abc-nia.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
