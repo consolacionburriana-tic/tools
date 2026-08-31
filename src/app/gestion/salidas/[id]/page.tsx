@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CalendarDays, LinkIcon, Pencil, Users } from 'lucide-react';
 import { claseLabel, getTripSeguimiento } from '@/lib/salidas-server';
+import { appBaseUrl } from '@/lib/constants';
 import { TripSeguimiento } from '@/components/salidas/trip-seguimiento';
 import { TripEstadoToggle } from '@/components/salidas/trip-estado-toggle';
 import { RecordatorioPanel } from '@/components/salidas/recordatorio-panel';
@@ -64,7 +65,7 @@ export default async function SalidaDetallePage({ params }: { params: Promise<{ 
         </div>
         <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-800/60">
           <LinkIcon className="h-3.5 w-3.5" />
-          Enlace para las familias: <code className="rounded bg-white px-1.5 py-0.5 dark:bg-zinc-900">tools.consolacionburriana.com/salidas</code>
+          Enlace para las familias: <code className="rounded bg-white px-1.5 py-0.5 dark:bg-zinc-900">{appBaseUrl().replace(/^https?:\/\//, '')}/salidas</code>
           — se identifican con su DNI (o el NIA) y suben el justificante.{' '}
           {trip.tipoPago === 'mano' && 'Esta salida es de pago EN MANO: no les aparece a las familias.'}
         </p>

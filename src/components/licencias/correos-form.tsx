@@ -38,7 +38,10 @@ interface Plantilla {
 }
 
 // Plantillas de fábrica: editables tras cargarlas; los cambios se pueden guardar como propias.
-const PREDEFINIDAS: (Omit<Plantilla, 'id'> & { modo: Modo })[] = [
+// El enlace de 'alumnos' es genérico (sin token, a diferencia de 'familias') así que se
+// interpola con el `baseUrl` real en vez de llevarlo escrito a fuego en el código.
+function plantillasDeFabrica(baseUrl: string): (Omit<Plantilla, 'id'> & { modo: Modo })[] {
+  return [
   {
     modo: 'familias',
     nombre: '📣 Se abre el plazo (con enlace)',
@@ -77,16 +80,17 @@ const PREDEFINIDAS: (Omit<Plantilla, 'id'> & { modo: Modo })[] = [
     nombre: 'Recordatorio: falta tu pedido',
     subject: 'Licencias digitales de {nombre} — falta vuestro pedido',
     body:
-      'Hola,\n\nOs recordamos que todavía no hemos recibido el pedido de licencias digitales de {nombre} ({curso}) para el próximo curso.\n\nPodéis hacerlo en un par de minutos desde:\nhttps://tools.consolacionburriana.com/licencias\n\nSi ya lo habéis hecho estos días, ignorad este correo.\n\nGracias,\nColegio Consolación · Burriana',
+      `Hola,\n\nOs recordamos que todavía no hemos recibido el pedido de licencias digitales de {nombre} ({curso}) para el próximo curso.\n\nPodéis hacerlo en un par de minutos desde:\n${baseUrl}/licencias\n\nSi ya lo habéis hecho estos días, ignorad este correo.\n\nGracias,\nColegio Consolación · Burriana`,
   },
   {
     modo: 'alumnos',
     nombre: 'Últimos días de plazo',
     subject: '⏰ Últimos días: licencias digitales de {nombre}',
     body:
-      'Hola,\n\nEl plazo para pedir las licencias digitales de {nombre} ({curso}) está a punto de terminar. Después del cierre no podremos garantizar el pedido.\n\nSe hace en 2 minutos:\nhttps://tools.consolacionburriana.com/licencias\n\nGracias,\nColegio Consolación · Burriana',
+      `Hola,\n\nEl plazo para pedir las licencias digitales de {nombre} ({curso}) está a punto de terminar. Después del cierre no podremos garantizar el pedido.\n\nSe hace en 2 minutos:\n${baseUrl}/licencias\n\nGracias,\nColegio Consolación · Burriana`,
   },
-];
+  ];
+}
 
 const claseKey = (c: ClaseOpt) => `${c.curso}|${c.letra ?? ''}`;
 
@@ -115,6 +119,8 @@ export function CorreosForm({ clases, deadline, academicYear, baseUrl }: Props) 
   const [confirming, setConfirming] = useState(false);
   const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
+
+  const predefinidas = useMemo(() => plantillasDeFabrica(baseUrl), [baseUrl]);
 
   const clasesElegidas = useMemo(
     () => clases.filter((c) => seleccion.has(claseKey(c))).map(({ curso, letra }) => ({ curso, letra })),
@@ -467,7 +473,7 @@ export function CorreosForm({ clases, deadline, academicYear, baseUrl }: Props) 
       <div>
         <p className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Plantillas</p>
         <div className="flex flex-wrap gap-1.5">
-          {PREDEFINIDAS.filter((p) => p.modo === modo).map((p) => (
+          {predefinidas.filter((p) => p.modo === modo).map((p) => (
             <button
               key={p.nombre}
               type="button"

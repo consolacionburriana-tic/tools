@@ -3,6 +3,7 @@
 // llevadera la burocracia. Sale del perfil 'salidas' de src/lib/email.ts (buzón genérico, con
 // el Reply-To apuntando a quien envía cuando lo hay: el tutor del recordatorio).
 import { emailConfigurado, enviar } from '@/lib/email';
+import { appBaseUrl } from '@/lib/constants';
 import { sendChunks, type BlastItem } from '@/lib/correos';
 import type { SalTrip } from '@/db/schema';
 import type { TripStats } from '@/lib/salidas-server';
@@ -75,7 +76,7 @@ export async function sendJustificanteAlert(input: {
       </p>
     </div>
     <p style="margin:16px 4px 0;font-size:13px;color:#71717a">
-      Revísalo y valídalo en el panel: <a href="https://tools.consolacionburriana.com/gestion/salidas/${trip.id}" style="color:#2563eb">gestión de la salida</a>.
+      Revísalo y valídalo en el panel: <a href="${appBaseUrl()}/gestion/salidas/${trip.id}" style="color:#2563eb">gestión de la salida</a>.
     </p>
     <p style="margin:24px 4px 0;padding-top:12px;border-top:1px solid #f4f4f5;font-size:12px;color:#a1a1aa">
       ${footerAleatorio()}

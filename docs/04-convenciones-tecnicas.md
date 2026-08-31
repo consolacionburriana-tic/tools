@@ -45,7 +45,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `RESEND_API_KEY` · `RESEND_FROM` | Transporte Resend (alternativa/respaldo) |
 | `LICENCIAS_GESTORES` | Lista de correos de aviso de Licencias |
 | `GOOGLE_SA_CLIENT_EMAIL` · `GOOGLE_SA_PRIVATE_KEY` (antes `GOOGLE_SHEETS_*`, siguen valiendo) · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio: Sheet de Licencias **y** envío por la API de Gmail |
-| `APP_BASE_URL` | URL pública para los enlaces que van por correo (magic links). Opcional: por defecto `https://tools.consolacionburriana.com`. En local, `http://localhost:3000` |
+| `APP_BASE_URL` | URL pública que usa **todo** el código para construir enlaces (`appBaseUrl()` en `src/lib/constants.ts`) — magic links, avisos por correo, botones de plantillas. **El único sitio donde cambiar de dominio es Vercel → Settings → Environment Variables, nunca el código.** Mientras `tools.consolacionburriana.com` no esté enganchado, va aquí la URL real de Vercel (p. ej. `https://consolacionburriana-tools1.vercel.app`); el día que el dominio esté listo, se cambia este valor y se redeploya. Sin fijar, cae a `https://tools.consolacionburriana.com`. En local, `http://localhost:3000` |
 
 | `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
 
