@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { BookMarked, ChevronLeft, Download, KeyRound, Layers, ListOrdered, Mail, PiggyBank, RefreshCw, Users } from 'lucide-react';
-import { campaignAbierta, fechaLimiteLabel } from '@/lib/licencias';
+import { BookMarked, CalendarClock, ChevronDown, ChevronLeft, Download, KeyRound, Layers, ListOrdered, Mail, PiggyBank, RefreshCw, Users } from 'lucide-react';
+import { campaignAbierta, cierreAutomaticoResumen, diasHastaCierre, fechaLimiteLabel } from '@/lib/licencias';
 import { getCurrentCampaign, getDashboardStats } from '@/lib/licencias-server';
 import { NavArrow } from '@/components/ui/nav-pending';
 
@@ -24,6 +24,9 @@ export default async function GestionPage() {
   const stats = campaign ? await getDashboardStats(campaign.id) : null;
   const pct = stats && stats.totalStudents > 0 ? Math.round((stats.conPedido / stats.totalStudents) * 100) : 0;
   const abierta = campaign ? campaignAbierta(campaign) : false;
+  const cierreResumen = campaign ? cierreAutomaticoResumen(campaign.orderDeadline) : null;
+  const diasCierre = campaign ? diasHastaCierre(campaign.orderDeadline) : null;
+  const cierreUrgente = diasCierre !== null && diasCierre <= 3;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
