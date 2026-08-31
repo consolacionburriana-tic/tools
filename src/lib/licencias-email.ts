@@ -1,5 +1,5 @@
 import { emailConfigurado, enviar } from '@/lib/email';
-import { euros, fechaLimiteLabel } from '@/lib/licencias';
+import { euros, fechaLimiteLabel, procesadoAntesDeCurso } from '@/lib/licencias';
 import type { Recipient } from '@/lib/licencias-server';
 import { applyVars, sendChunks, wrapHtml } from '@/lib/correos';
 
@@ -11,6 +11,7 @@ export interface OrderEmailData {
   total: number;
   editUrl: string;
   deadline?: string | null;
+  academicYear: string;
 }
 
 function gestores(): string[] {
@@ -64,6 +65,10 @@ export async function sendFamilyConfirmation(d: OrderEmailData) {
       </div>`
     : '';
 
+  const llegadaTexto = procesadoAntesDeCurso(d.academicYear)
+    ? 'Los pedidos de licencias se procesan con antelación al inicio de curso y llegarán por correo electrónico, directamente al iPad del alumno durante los primeros días de clase.'
+    : 'Los pedidos de licencias que llegan una vez se ha iniciado el curso se procesan en un máximo de 15-20 días y llegarán por correo electrónico, directamente al iPad del alumno en cuanto estén disponibles.';
+
   return safeSend(() =>
     enviar('licencias', {
       to: d.email,
@@ -74,8 +79,8 @@ export async function sendFamilyConfirmation(d: OrderEmailData) {
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:480px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
 
-    <div style="background:linear-gradient(135deg,#0d9488,#0891b2);padding:28px 32px;text-align:center;">
-      <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#99f6e4;opacity:.9;">Colegio Consolación · Burriana</p>
+    <div style="background:linear-gradient(135deg,#0d9488,#0c8f83);padding:28px 32px;text-align:center;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#99f6e4;opacity:.9;">Consolación Burriana</p>
       <h1 style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Pedido de licencias digitales</h1>
     </div>
 
@@ -95,18 +100,37 @@ export async function sendFamilyConfirmation(d: OrderEmailData) {
 
     <div style="margin:0 32px 20px;background:#f0fdfa;border-radius:10px;padding:12px 16px;">
       <p style="margin:0;font-size:12.5px;color:#134e4a;line-height:1.5;">
-        💳 El cobro de este importe se realizará más adelante mediante <strong>recibo bancario</strong>, como es habitual desde el colegio. No es necesario hacer ningún pago ahora.
+        💳 El cobro de este importe se realizará mediante <strong>recibo bancario</strong> al final del primer trimestre, como es habitual desde el colegio. No es necesario hacer ningún pago ahora.
       </p>
     </div>
 
     ${deadlineBox}
+
+    <div style="margin:0 32px 22px;">
+      <div style="display:flex;gap:10px;margin-bottom:14px;">
+        <span style="font-size:15px;line-height:1.5;">📦</span>
+        <div>
+          <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Cuándo llegarán?</p>
+          <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">${llegadaTexto}</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <span style="font-size:15px;line-height:1.5;">✅</span>
+        <div>
+          <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Tengo que hacer algo más?</p>
+          <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">
+            Nada más: hemos recibido tu pedido y lo hemos anotado. Las licencias llegarán directamente al iPad del alumno en los plazos previstos.
+          </p>
+        </div>
+      </div>
+    </div>
 
     <div style="margin:0 32px 28px;text-align:center;">
       <a href="${d.editUrl}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:999px;">Ver o modificar el pedido</a>
     </div>
 
     <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:18px 32px;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#9ca3af;">Un saludo,<br><strong>Colegio Consolación · Burriana</strong></p>
+      <p style="margin:0;font-size:12px;color:#9ca3af;"><strong>Consolación Burriana</strong></p>
     </div>
 
   </div>

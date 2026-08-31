@@ -118,6 +118,12 @@ export function campaignAbierta(
   return campaign.status === 'open' && !plazoVencido(campaign.orderDeadline, now);
 }
 
+/** ¿El pedido se procesa antes del inicio de curso? (7 de septiembre del año de inicio). */
+export function procesadoAntesDeCurso(academicYear: string, now: Date = new Date()): boolean {
+  const startYear = parseInt(academicYear, 10);
+  return now < new Date(startYear, 8, 7);
+}
+
 export function fechaLimiteLabel(deadline: string | null | undefined): string {
   if (!deadline) return 'la fecha que indique el colegio';
   // Sin la coma que mete toLocaleDateString ("sábado, 12 de septiembre"): el texto se lee

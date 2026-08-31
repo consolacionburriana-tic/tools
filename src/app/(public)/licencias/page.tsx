@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Image from 'next/image';
-import { campaignAbierta, fechaLimiteLabel } from '@/lib/licencias';
+import { campaignAbierta, fechaLimiteLabel, procesadoAntesDeCurso } from '@/lib/licencias';
 import { getCurrentCampaign } from '@/lib/licencias-server';
 import { LicenciasForm } from '@/components/licencias/licencias-form';
 
@@ -22,9 +22,7 @@ export default async function LicenciasPage({
   const campaign = await getCurrentCampaign();
   const abierta = campaign ? campaignAbierta(campaign) : false;
 
-  // ¿El pedido se procesa antes del inicio de curso? (7 de septiembre del año de inicio)
-  const startYear = campaign ? parseInt(campaign.academicYear, 10) : new Date().getFullYear();
-  const processedBeforeStart = new Date() < new Date(startYear, 8, 7);
+  const processedBeforeStart = procesadoAntesDeCurso(campaign?.academicYear ?? String(new Date().getFullYear()));
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
