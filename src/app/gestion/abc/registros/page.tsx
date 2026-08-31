@@ -61,15 +61,58 @@ export function label<T extends { value: string; label: string }>(arr: readonly 
   return arr.find((x) => x.value === val)?.label ?? val;
 }
 
+// Recuerda el filtro temporal y de alumnos entre visitas (por navegador, no por usuario):
+// David entra a mirar siempre el mismo caso, no tiene sentido reconfigurar cada vez.
+const FILTROS_KEY = 'abc-registros-filtros';
+type FiltrosGuardados = { timePreset: string; selectedStudentIds: string[] };
+
+function cargarFiltros(): FiltrosGuardados {
+  const porDefecto: FiltrosGuardados = { timePreset: 'curso', selectedStudentIds: [] };
+  if (typeof window === 'undefined') return porDefecto;
+  try {
+    const raw = localStorage.getItem(FILTROS_KEY);
+    if (!raw) return porDefecto;
+    const guardado = JSON.parse(raw) as Partial<FiltrosGuardados>;
+    return {
+      timePreset: guardado.timePreset ?? porDefecto.timePreset,
+      selectedStudentIds: Array.isArray(guardado.selectedStudentIds) ? guardado.selectedStudentIds : [],
+    };
+  } catch {
+    return porDefecto;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 export default function RegistrosPage() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [students, setStudents] = useState<AbcStudentPanel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<'list' | 'informe'>('list');
-  const [timePreset, setTimePreset] = useState<string>('30');
+  const [mode, setMode] = useState<'list' | 'informe'>('informe');
+  const [timePreset, setTimePreset] = useState<string>('curso');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const [filtrosListos, setFiltrosListos] = useState(false);
+
+  // Los filtros guardados solo se leen en el cliente (evita el desajuste con el HTML
+  // del servidor); hasta que carguen no se persiste nada, para no pisarlos con el default.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const guardados = cargarFiltros();
+      setTimePreset(guardados.timePreset);
+      setSelectedStudentIds(guardados.selectedStudentIds);
+      setFiltrosListos(true);
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!filtrosListos) return;
+    try {
+      localStorage.setItem(FILTROS_KEY, JSON.stringify({ timePreset, selectedStudentIds }));
+    } catch {
+      // localStorage no disponible: sin persistencia, sin más
+    }
+  }, [filtrosListos, timePreset, selectedStudentIds]);
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
 

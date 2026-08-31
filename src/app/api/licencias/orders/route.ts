@@ -88,6 +88,7 @@ export async function POST(request: Request) {
       items,
       total: result.total,
       editUrl: `${origin}/licencias`,
+      deadline: campaign.orderDeadline,
     };
     const [familyStatus] = await Promise.all([
       cleanEmail ? sendFamilyConfirmation(emailData) : Promise.resolve('skipped' as const),
