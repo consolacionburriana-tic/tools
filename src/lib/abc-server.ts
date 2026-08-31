@@ -12,18 +12,12 @@ import { claseDeAlumno, normalizaNia, siglasDeAlumno } from '@/lib/abc';
 import { academicYearActual } from '@/lib/constants';
 import { getTeacherByEmail } from '@/lib/educamos-server';
 
-export interface DestacadoItem {
+/** Alumno tal y como sale en el formulario: dos iniciales y su clase, nada más. */
+export interface AlumnoSeguimiento {
   abcStudentId: string;
-  eduStudentId: string | null;
   siglas: string;
-  detalle: string; // clase
-}
-
-export interface RosterItem {
-  eduStudentId: string;
-  nombre: string; // "Nombre Apellido1 Apellido2" — solo para poder buscar
-  siglas: string;
-  clase: string; // "2ESO B"
+  clase: string;
+  porDefecto: boolean;
 }
 
 /** Fila de config tal y como la pinta el panel: siglas + clase, nunca el nombre. */
@@ -33,30 +27,36 @@ export interface AbcStudentPanel {
   nia: string | null;
   siglas: string;
   clase: string;
-  destacado: boolean;
+  porDefecto: boolean;
   active: boolean;
   emailRecipients: string[];
 }
 
 function siglasDe(abc: Pick<AbcStudent, 'siglas' | 'displayName'>, edu: EduStudent | null): string {
   if (abc.siglas) return abc.siglas;
-  if (edu) return siglasDeAlumno(edu.nombre, edu.apellido1, edu.apellido2);
+  if (edu) return siglasDeAlumno(edu.nombre, edu.apellido1);
   return abc.displayName ?? '—';
 }
 
-/** Alumnado destacado del formulario (configurado por el admin del módulo). */
-export async function getDestacados(): Promise<DestacadoItem[]> {
+/**
+ * Alumnado del formulario: los que están de alta en el módulo y activos. No hay buscador
+ * —esto es para unos pocos alumnos con muchas necesidades—, así que esta lista ES el
+ * selector: se pintan todos, con dos iniciales y su clase.
+ */
+export async function getAlumnosSeguimiento(): Promise<AlumnoSeguimiento[]> {
   const rows = await db
     .select({ abc: abcStudents, edu: eduStudents })
     .from(abcStudents)
     .leftJoin(eduStudents, eq(abcStudents.eduStudentId, eduStudents.id))
-    .where(and(eq(abcStudents.active, true), eq(abcStudents.destacado, true)));
-  return rows.map(({ abc, edu }) => ({
-    abcStudentId: abc.id,
-    eduStudentId: abc.eduStudentId,
-    siglas: siglasDe(abc, edu),
-    detalle: edu ? claseDeAlumno(edu.curso, edu.letra) : (abc.className ?? ''),
-  }));
+    .where(eq(abcStudents.active, true));
+  return rows
+    .map(({ abc, edu }) => ({
+      abcStudentId: abc.id,
+      siglas: siglasDe(abc, edu),
+      clase: edu ? claseDeAlumno(edu.curso, edu.letra) : (abc.className ?? ''),
+      porDefecto: abc.porDefecto,
+    }))
+    .sort((a, b) => Number(b.porDefecto) - Number(a.porDefecto) || a.clase.localeCompare(b.clase) || a.siglas.localeCompare(b.siglas));
 }
 
 /** Config del módulo para el panel: siglas + clase resueltas de la BBDD central. */
@@ -72,34 +72,11 @@ export async function getAbcStudentsPanel(): Promise<AbcStudentPanel[]> {
       nia: abc.nia,
       siglas: siglasDe(abc, edu),
       clase: edu ? claseDeAlumno(edu.curso, edu.letra) : (abc.className ?? ''),
-      destacado: abc.destacado,
+      porDefecto: abc.porDefecto,
       active: abc.active,
       emailRecipients: (abc.emailRecipients as string[]) ?? [],
     }))
-    .sort((a, b) => Number(b.destacado) - Number(a.destacado) || a.siglas.localeCompare(b.siglas));
-}
-
-/** Roster ligero de toda la BBDD central para el buscador del formulario. */
-export async function getRosterLigero(): Promise<RosterItem[]> {
-  const rows = await db
-    .select({
-      id: eduStudents.id,
-      nombre: eduStudents.nombre,
-      apellido1: eduStudents.apellido1,
-      apellido2: eduStudents.apellido2,
-      curso: eduStudents.curso,
-      letra: eduStudents.letra,
-    })
-    .from(eduStudents)
-    .where(eq(eduStudents.active, true));
-  return rows
-    .map((r) => ({
-      eduStudentId: r.id,
-      nombre: [r.nombre, r.apellido1, r.apellido2].filter(Boolean).join(' '),
-      siglas: siglasDeAlumno(r.nombre, r.apellido1, r.apellido2),
-      clase: claseDeAlumno(r.curso, r.letra),
-    }))
-    .sort((a, b) => a.clase.localeCompare(b.clase) || a.nombre.localeCompare(b.nombre));
+    .sort((a, b) => Number(b.porDefecto) - Number(a.porDefecto) || a.clase.localeCompare(b.clase) || a.siglas.localeCompare(b.siglas));
 }
 
 /** Crea (o recupera) la config ABC de un alumno de la BBDD central. Sin nombres. */
@@ -111,7 +88,7 @@ export async function ensureAbcStudent(edu: EduStudent): Promise<AbcStudent> {
     .values({
       eduStudentId: edu.id,
       nia: normalizaNia(edu.nia),
-      siglas: siglasDeAlumno(edu.nombre, edu.apellido1, edu.apellido2),
+      siglas: siglasDeAlumno(edu.nombre, edu.apellido1),
       destacado: false,
       emailRecipients: [],
     })
@@ -140,6 +117,12 @@ export async function resolveAbcStudent(sel: { abcStudentId?: string; eduStudent
   const [edu] = await db.select().from(eduStudents).where(eq(eduStudents.id, sel.eduStudentId)).limit(1);
   if (!edu) return null;
   return ensureAbcStudent(edu);
+}
+
+/** Marca a un alumno como el que viene elegido por defecto (y desmarca a los demás). */
+export async function setPorDefecto(abcStudentId: string, valor: boolean): Promise<void> {
+  if (valor) await db.update(abcStudents).set({ porDefecto: false }).where(eq(abcStudents.porDefecto, true));
+  await db.update(abcStudents).set({ porDefecto: valor }).where(eq(abcStudents.id, abcStudentId));
 }
 
 /** Datos del alumno para el correo de aviso (destinatarios autorizados del alumno). */

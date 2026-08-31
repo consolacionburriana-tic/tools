@@ -1,109 +1,49 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Search, Star } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import type { DestacadoItem, RosterItem } from '@/lib/abc-server';
+import type { AlumnoSeguimiento } from '@/lib/abc-server';
 
-/** Selección: fila de config del ABC (destacado) o alumno de la BBDD central (buscador). */
-export type StudentSelection = { abcStudentId?: string; eduStudentId?: string; label: string } | null;
+/** Selección del formulario: siempre una fila de config del ABC. */
+export type StudentSelection = { abcStudentId: string; label: string } | null;
 
 interface StudentPickerProps {
-  destacados: DestacadoItem[];
-  roster: RosterItem[];
+  alumnos: AlumnoSeguimiento[];
   value: StudentSelection;
   onChange: (sel: StudentSelection) => void;
 }
 
-// Los alumnos configurados por el admin salen destacados arriba (1 toque);
-// cualquier otro alumno del cole se encuentra por el buscador.
-export function StudentPicker({ destacados, roster, value, onChange }: StudentPickerProps) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-
-  // El roster entero son 700 nombres: no se pintan hasta que hay búsqueda. Así la
-  // pantalla del iPad no enseña el listado del cole entero a quien pase por al lado.
-  const buscando = query.trim().length >= 3;
-  const resultados = useMemo(() => (buscando ? roster : []), [buscando, roster]);
+// Sin buscador a propósito: el alumnado del ABC se da de alta a mano en el panel (son unos
+// pocos, con muchas necesidades), así que aquí salen todos de un vistazo — dos iniciales y
+// su clase — y se elige de un toque.
+export function StudentPicker({ alumnos, value, onChange }: StudentPickerProps) {
+  if (alumnos.length === 0) {
+    return (
+      <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-3 text-sm text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
+        No hay alumnos dados de alta en el módulo. Se añaden desde el panel de gestión.
+      </p>
+    );
+  }
 
   return (
-    <div className="space-y-2">
-      {destacados.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {destacados.map((d) => {
-            const activo = value?.abcStudentId === d.abcStudentId;
-            return (
-              <button
-                key={d.abcStudentId}
-                type="button"
-                onClick={() => onChange({ abcStudentId: d.abcStudentId, label: d.siglas })}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-colors ${
-                  activo
-                    ? 'border-teal-600 bg-teal-600 text-white'
-                    : 'border-zinc-200 bg-white text-zinc-700 hover:border-teal-300 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-200 dark:hover:border-teal-600'
-                }`}
-              >
-                <Star className={`h-3.5 w-3.5 ${activo ? 'text-white' : 'text-amber-400'}`} />
-                <span>
-                  {d.siglas}
-                  <span className={`ml-1.5 text-xs font-normal ${activo ? 'text-teal-100' : 'text-zinc-400'}`}>{d.detalle}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          aria-expanded={open}
-          className="inline-flex w-full items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800 py-3 px-4 text-left transition-colors cursor-pointer focus-visible:outline-none"
-        >
-          {value && !value.abcStudentId ? (
-            <span className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{value.label}</span>
-          ) : (
-            <span className="text-zinc-400 dark:text-zinc-500">
-              {destacados.length > 0 ? 'O busca a cualquier otro alumno…' : 'Buscar alumno…'}
-            </span>
-          )}
-          <Search className="ml-2 h-4 w-4 shrink-0 text-zinc-400" />
-        </PopoverTrigger>
-        <PopoverContent className="w-full p-0 rounded-xl" align="start">
-          <Command>
-            <CommandInput
-              placeholder="Nombre, apellidos o clase…"
-              value={query}
-              onValueChange={setQuery}
-              autoFocus
-            />
-            <CommandList>
-              <CommandEmpty>
-                {buscando ? 'Sin resultados.' : 'Escribe al menos 3 letras del nombre o la clase.'}
-              </CommandEmpty>
-              <CommandGroup>
-                {resultados.map((s) => (
-                  <CommandItem
-                    key={s.eduStudentId}
-                    value={`${s.nombre} ${s.clase}`}
-                    onSelect={() => {
-                      onChange({ eduStudentId: s.eduStudentId, label: `${s.siglas} · ${s.clase}` });
-                      setQuery('');
-                      setOpen(false);
-                    }}
-                    className="py-2.5 cursor-pointer"
-                  >
-                    <div className="flex w-full items-baseline justify-between gap-2">
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">{s.nombre}</span>
-                      <span className="shrink-0 text-xs text-zinc-400">{s.clase}</span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+    <div className="flex flex-wrap gap-2">
+      {alumnos.map((a) => {
+        const activo = value?.abcStudentId === a.abcStudentId;
+        return (
+          <button
+            key={a.abcStudentId}
+            type="button"
+            onClick={() => onChange({ abcStudentId: a.abcStudentId, label: a.siglas })}
+            aria-pressed={activo}
+            className={`inline-flex items-baseline gap-1.5 rounded-xl border px-4 py-3 text-base font-semibold tracking-wide transition-colors ${
+              activo
+                ? 'border-teal-600 bg-teal-600 text-white'
+                : 'border-zinc-200 bg-white text-zinc-700 hover:border-teal-300 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-200 dark:hover:border-teal-600'
+            }`}
+          >
+            {a.siglas}
+            <span className={`text-xs font-normal ${activo ? 'text-teal-100' : 'text-zinc-400'}`}>{a.clase}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

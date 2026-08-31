@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth-guards';
-import { getDestacados, getRosterLigero, getTeacherFromSession } from '@/lib/abc-server';
+import { getAlumnosSeguimiento, getTeacherFromSession } from '@/lib/abc-server';
 import { RegistroForm } from '@/components/registro-abc/registro-form';
 
 export const metadata = {
@@ -15,9 +15,8 @@ export default async function RegistroAbcPage() {
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login?volver=/registro-abc');
 
-  const [destacados, roster, profe] = await Promise.all([
-    getDestacados(),
-    getRosterLigero(),
+  const [alumnos, profe] = await Promise.all([
+    getAlumnosSeguimiento(),
     getTeacherFromSession(user.email),
   ]);
   const registradoPor = profe
@@ -35,7 +34,7 @@ export default async function RegistroAbcPage() {
       </header>
 
       <main className="container max-w-2xl mx-auto px-4 py-6">
-        <RegistroForm destacados={destacados} roster={roster} registradoPor={registradoPor} />
+        <RegistroForm alumnos={alumnos} registradoPor={registradoPor} />
       </main>
     </div>
   );

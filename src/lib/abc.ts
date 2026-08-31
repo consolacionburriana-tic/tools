@@ -9,13 +9,16 @@ function inicial(texto: string | null | undefined): string {
   return limpio ? `${limpio[0].toUpperCase()}.` : '';
 }
 
-/** "ROBERTO HERRERO MENDOZA" → "R.H.M." */
+/**
+ * "ROBERTO HERRERO MENDOZA" → "R.H." — DOS iniciales, nombre y primer apellido.
+ * Decisión de David (2026-08-31): el módulo es para un puñado de alumnos con muchas
+ * necesidades, así que dos letras bastan para distinguirlos y enseñan lo mínimo.
+ */
 export function siglasDeAlumno(
   nombre: string | null | undefined,
   apellido1: string | null | undefined,
-  apellido2: string | null | undefined,
 ): string {
-  const siglas = [nombre, apellido1, apellido2].map(inicial).join('');
+  const siglas = [nombre, apellido1].map(inicial).join('');
   return siglas || '—';
 }
 

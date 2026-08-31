@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Link2, Mail, Plus, PlusCircle, Search, Star, UserPlus, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Mail, Plus, PlusCircle, Search, Star, UserPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -293,9 +293,17 @@ export default function AlumnosPage() {
     setStudents((prev) => (prev.some((x) => x.id === s.id) ? prev.map((x) => (x.id === s.id ? s : x)) : [s, ...prev]));
   }, []);
 
-  const toggle = async (s: AbcStudentPanel, campo: 'destacado' | 'active') => {
-    const actualizado = await patchStudent(s.id, { [campo]: !s[campo] });
+  const toggleActivo = async (s: AbcStudentPanel) => {
+    const actualizado = await patchStudent(s.id, { active: !s.active });
     if (actualizado) actualizar(actualizado);
+  };
+
+  // Por defecto solo puede haber uno: el servidor desmarca al anterior, aquí se refleja.
+  const marcarPorDefecto = async (s: AbcStudentPanel) => {
+    const valor = !s.porDefecto;
+    const actualizado = await patchStudent(s.id, { porDefecto: valor });
+    if (!actualizado) return;
+    setStudents((prev) => prev.map((x) => (x.id === s.id ? actualizado : { ...x, porDefecto: valor ? false : x.porDefecto })));
   };
 
   return (
@@ -304,7 +312,8 @@ export default function AlumnosPage() {
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Alumnado</h1>
           <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
-            Siglas y clase salen de la BBDD central (enlace por NIA) · la estrella los destaca en el formulario
+            Estos son los alumnos que salen en el formulario (no hay buscador) · la estrella
+            marca al que viene ya elegido al abrirlo
           </p>
         </div>
         <AltaPorNia onCreado={actualizar} />
@@ -320,21 +329,18 @@ export default function AlumnosPage() {
             <div key={s.id} className="px-5 py-4">
               <div className="flex items-center gap-4">
                 <button
-                  onClick={() => toggle(s, 'destacado')}
+                  onClick={() => marcarPorDefecto(s)}
                   className="shrink-0 cursor-pointer"
-                  title={s.destacado ? 'Destacado en el formulario' : 'Destacar en el formulario'}
-                  aria-label={s.destacado ? 'Quitar de destacados' : 'Destacar en el formulario'}
+                  title={s.porDefecto ? 'Viene elegido al abrir el formulario' : 'Que venga elegido al abrir el formulario'}
+                  aria-label={s.porDefecto ? 'Quitar como alumno por defecto' : 'Marcar como alumno por defecto'}
+                  aria-pressed={s.porDefecto}
                 >
-                  <Star className={`h-5 w-5 ${s.destacado ? 'fill-amber-400 text-amber-400' : 'text-zinc-300 dark:text-zinc-600'}`} />
+                  <Star className={`h-5 w-5 ${s.porDefecto ? 'fill-amber-400 text-amber-400' : 'text-zinc-300 dark:text-zinc-600'}`} />
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium tracking-wide text-zinc-900 dark:text-zinc-100">
                     {s.siglas}
-                    {s.eduStudentId ? (
-                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
-                        <Link2 className="h-3 w-3" /> NIA {s.nia ?? '—'}
-                      </span>
-                    ) : (
+                    {!s.eduStudentId && (
                       <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
                         sin enlazar
                       </span>
@@ -343,7 +349,7 @@ export default function AlumnosPage() {
                   <p className="text-xs text-zinc-400 dark:text-zinc-500">{s.clase || 'Sin clase'}</p>
                 </div>
                 <button
-                  onClick={() => toggle(s, 'active')}
+                  onClick={() => toggleActivo(s)}
                   className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${s.active ? 'bg-teal-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}
                   aria-label={s.active ? 'Desactivar' : 'Activar'}
                 >

@@ -31,9 +31,9 @@ export async function POST(request: Request) {
     if (!edu) return NextResponse.json({ error: 'No hay ningún alumno con ese NIA en la BBDD central' }, { status: 404 });
 
     const student = await ensureAbcStudent(edu);
-    // Alta manual desde el panel = alumno de seguimiento: destacado en el formulario.
-    if (!student.destacado || !student.active) {
-      await db.update(abcStudents).set({ destacado: true, active: true }).where(eq(abcStudents.id, student.id));
+    // Alta manual desde el panel = alumno de seguimiento: sale en el formulario.
+    if (!student.active) {
+      await db.update(abcStudents).set({ active: true }).where(eq(abcStudents.id, student.id));
     }
     const panel = (await getAbcStudentsPanel()).find((s) => s.id === student.id);
     return NextResponse.json(panel, { status: 201 });

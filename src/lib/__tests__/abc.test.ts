@@ -2,14 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { claseDeAlumno, normalizaNia, siglasDeAlumno } from '@/lib/abc';
 
 describe('siglasDeAlumno', () => {
-  it('compone las iniciales de nombre y apellidos', () => {
-    expect(siglasDeAlumno('ROBERTO', 'HERRERO', 'MENDOZA')).toBe('R.H.M.');
+  it('son dos iniciales: nombre y primer apellido', () => {
+    expect(siglasDeAlumno('ROBERTO', 'HERRERO')).toBe('R.H.');
   });
-  it('aguanta apellidos sueltos', () => {
-    expect(siglasDeAlumno('celia', 'herrero', null)).toBe('C.H.');
+  it('no cuela el segundo apellido aunque venga en el nombre', () => {
+    expect(siglasDeAlumno('celia', 'herrero')).toBe('C.H.');
+  });
+  it('aguanta un alumno sin apellido cargado', () => {
+    expect(siglasDeAlumno('Ana', null)).toBe('A.');
   });
   it('devuelve un guion si no hay nada', () => {
-    expect(siglasDeAlumno(null, '', undefined)).toBe('—');
+    expect(siglasDeAlumno(null, '')).toBe('—');
   });
 });
 

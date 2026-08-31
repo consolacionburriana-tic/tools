@@ -157,8 +157,9 @@ dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
 Formulario rápido (<90s, pensado para iPad) donde el profesorado registra incidencias de
 conducta de alumnado con NEE: contexto, comportamientos, antecedentes, consecuencias y qué
 redirección se aplicó. Panel de administración con listado y gráficos. Detrás del login del
-claustro (el panel, además, con el módulo `abc`); el alumnado se enlaza a `edu_students`
-**por NIA** y en pantalla solo se ven **siglas** ("R.H.M.").
+claustro (el panel, además, con el módulo `abc`); el alumnado se da de alta a mano por **NIA**
+contra `edu_students` (son pocos, de mucha necesidad) y en pantalla solo se ven **dos
+iniciales** ("R.H.") y la clase.
 Detalle completo en [`10-registro-abc.md`](./10-registro-abc.md).
 
 ### Licencias digitales

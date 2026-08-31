@@ -21,11 +21,10 @@ import { Button } from '@/components/ui/button';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/draft-storage';
 import { haptic } from '@/lib/haptics';
 import { CONTEXTS, TIME_SLOTS, PRESENT_PEOPLE, BEHAVIORS, REASONS } from '@/lib/constants';
-import type { DestacadoItem, RosterItem } from '@/lib/abc-server';
+import type { AlumnoSeguimiento } from '@/lib/abc-server';
 
 const seleccionAlumno = z.object({
-  abcStudentId: z.string().uuid().optional(),
-  eduStudentId: z.string().uuid().optional(),
+  abcStudentId: z.string().uuid(),
   label: z.string(),
 });
 
@@ -51,14 +50,14 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 interface RegistroFormProps {
-  destacados: DestacadoItem[];
-  roster: RosterItem[];
+  alumnos: AlumnoSeguimiento[];
   /** Quién registra (de la sesión) — solo informativo, el servidor lo resuelve por su cuenta */
   registradoPor: string;
   onSuccess?: () => void;
 }
 
-export function RegistroForm({ destacados, roster, registradoPor, onSuccess }: RegistroFormProps) {
+export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroFormProps) {
+  const alumnoInicial = alumnos.find((a) => a.porDefecto) ?? (alumnos.length === 1 ? alumnos[0] : null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -71,7 +70,8 @@ export function RegistroForm({ destacados, roster, registradoPor, onSuccess }: R
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      student: destacados.length === 1 ? { abcStudentId: destacados[0].abcStudentId, label: destacados[0].siglas } : null,
+      // Viene elegido el alumno marcado por defecto en el panel (o el único que haya)
+      student: alumnoInicial ? { abcStudentId: alumnoInicial.abcStudentId, label: alumnoInicial.siglas } : null,
       reportDate: new Date(),
       context: 'aula',
       contextNote: '',
@@ -132,7 +132,6 @@ export function RegistroForm({ destacados, roster, registradoPor, onSuccess }: R
       const payload = {
         ...resto,
         abcStudentId: student?.abcStudentId,
-        eduStudentId: student?.eduStudentId,
         reportDate: format(data.reportDate, 'yyyy-MM-dd'),
       };
 
@@ -221,8 +220,7 @@ export function RegistroForm({ destacados, roster, registradoPor, onSuccess }: R
           control={control}
           render={({ field }) => (
             <StudentPicker
-              destacados={destacados}
-              roster={roster}
+              alumnos={alumnos}
               value={(field.value as StudentSelection) ?? null}
               onChange={field.onChange}
             />

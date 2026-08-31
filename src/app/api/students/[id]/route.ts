@@ -4,12 +4,12 @@ import { hasModule } from '@/lib/auth-guards';
 import { db } from '@/db';
 import { abcStudents } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { getAbcStudentsPanel } from '@/lib/abc-server';
+import { getAbcStudentsPanel, setPorDefecto } from '@/lib/abc-server';
 
 // Solo config del módulo: los datos del alumno (nombre, clase) viven en edu_students y
 // se cambian en /gestion/educamos, nunca aquí.
 const patchSchema = z.object({
-  destacado: z.boolean().optional(),
+  porDefecto: z.boolean().optional(), // como mucho uno: marcar a uno desmarca al anterior
   active: z.boolean().optional(),
   emailRecipients: z.array(z.string().email().toLowerCase()).max(20).optional(),
 });
@@ -22,11 +22,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!parsed.success) {
       return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.issues }, { status: 400 });
     }
-    const cambios = parsed.data;
-    if (Object.keys(cambios).length === 0) return NextResponse.json({ error: 'Nada que cambiar' }, { status: 400 });
+    const { porDefecto, ...cambios } = parsed.data;
+    if (porDefecto === undefined && Object.keys(cambios).length === 0) {
+      return NextResponse.json({ error: 'Nada que cambiar' }, { status: 400 });
+    }
 
     if (cambios.emailRecipients) cambios.emailRecipients = [...new Set(cambios.emailRecipients)];
-    await db.update(abcStudents).set(cambios).where(eq(abcStudents.id, id));
+    if (Object.keys(cambios).length > 0) await db.update(abcStudents).set(cambios).where(eq(abcStudents.id, id));
+    if (porDefecto !== undefined) await setPorDefecto(id, porDefecto);
 
     const panel = (await getAbcStudentsPanel()).find((s) => s.id === id);
     if (!panel) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });

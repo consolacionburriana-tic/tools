@@ -27,18 +27,23 @@ posteriori lo ya construido y deja abierto lo que falta.
   `edu_teacher_id` resuelto del login. La tabla `teachers` vieja queda SOLO como lectura
   histórica de registros antiguos (no se gestiona; los profes viven en `edu_teachers`).
 - **Alumnado (2026-07-10, revisado 2026-08-31):** `abc_students` es la tabla de config del
-  módulo, enlazada a `edu_students` por **NIA** (`nia` + `edu_student_id`, ambos únicos) y con
-  flag `destacado` (salen arriba en el formulario); cualquier alumno del cole se encuentra con
-  el buscador y su config se autocrea al registrar.
+  módulo, enlazada a `edu_students` por **NIA** (`nia` + `edu_student_id`, ambos únicos). Se dan
+  de alta **a mano en el panel, por NIA**: el módulo es para el puñado de alumnos con muchas
+  necesidades, no para todo el cole.
+- **Sin buscador en el formulario (2026-08-31):** el selector de alumno son las filas activas
+  de `abc_students`, todas a la vista, de un toque. Se probó un buscador sobre los 700 alumnos
+  de la BBDD central y David lo descartó: los genera él en el panel, así que la lista corta ES
+  el selector. `active` decide quién sale; `destacado` queda como columna legada sin uso.
+- **Alumno por defecto (2026-08-31):** `por_defecto` (como mucho uno; marcar a uno desmarca al
+  anterior, en `setPorDefecto()`) viene ya elegido al abrir el formulario. Si no hay ninguno
+  marcado y solo hay un alumno activo, se elige ese.
 - **Anonimato por siglas (2026-08-31):** en `abc_students` **no se guardan nombres**: solo NIA
-  y `siglas` ("R.H.M."), sacadas de `edu_students` al crear la fila. Todo lo que se pinta en
-  pantalla (formulario, panel, gráficos, detalle) son siglas + clase. El nombre completo solo
-  aparece en dos sitios, **decidido así a propósito** (confirmado por David 2026-08-31): en la
-  lista de resultados del buscador del formulario —a partir de 3 letras tecleadas, para no
-  listar a 700 alumnos en el iPad— porque equivocarse de alumno en un registro de conducta es
-  peor que el riesgo de que alguien lea la pantalla; y en el **cuerpo** del correo de aviso
-  (el asunto lleva siglas), porque va solo a las personas configuradas para ese alumno. Las
-  columnas `full_name`/`display_name`/`class_name` quedan como legado sin escribir.
+  y `siglas` de **dos iniciales** ("R.H." — nombre y primer apellido), sacadas de `edu_students`
+  al crear la fila. Todo lo que se pinta en pantalla (formulario, panel, gráficos, detalle) son
+  siglas + clase, y ya. El nombre completo solo aparece en el **cuerpo** del correo de aviso
+  (el asunto lleva siglas), porque va solo a las personas configuradas para ese alumno —
+  decidido así a propósito con David. Las columnas `full_name`/`display_name`/`class_name`
+  quedan como legado sin escribir.
 - **Quién puede registrar (2026-08-31):** cualquier persona del claustro con sesión — se probó
   a limitarlo a secundaria y David lo descartó: el ABC lo puede necesitar cualquier profe. El
   panel de gestión sigue siendo del módulo `abc` (orientación, dirección, TIC).
@@ -76,6 +81,7 @@ posteriori lo ya construido y deja abierto lo que falta.
 - [x] Migración de los registros existentes: enlazados por NIA y nombre borrado del módulo
       (`pnpm db:migrate:abc-nia`, idempotente)
 - [x] Alta de alumnos en el panel **solo por NIA** (nunca tecleando nombres)
-- [x] Siglas en todas las pantallas del módulo (formulario, panel, informe, detalle)
+- [x] Siglas de dos iniciales en todas las pantallas del módulo (formulario, panel, informe, detalle)
+- [x] Formulario sin buscador: solo el alumnado activo del módulo, con alumno por defecto
 - [x] Destinatarios de aviso por persona (orientación + tutor/a sugeridos, buscador del claustro)
 - [ ] (Idea, sin decidir) sugerencias de redirección con IA — ver `docs/00-desarrollos-futuros.md`

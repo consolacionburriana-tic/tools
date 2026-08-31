@@ -35,7 +35,6 @@ export default async function AdminPage() {
         studentSiglas: students.siglas,
         eduNombre: eduStudents.nombre,
         eduApellido1: eduStudents.apellido1,
-        eduApellido2: eduStudents.apellido2,
         teacherFirstName: eduTeachers.nombre,
         teacherLastName: eduTeachers.apellido1,
       })
@@ -94,7 +93,7 @@ export default async function AdminPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100 text-sm">
-                      {r.studentSiglas ?? siglasDeAlumno(r.eduNombre, r.eduApellido1, r.eduApellido2)}
+                      {r.studentSiglas ?? siglasDeAlumno(r.eduNombre, r.eduApellido1)}
                     </span>
                     {behaviors.slice(0, 2).map((b) => (
                       <span

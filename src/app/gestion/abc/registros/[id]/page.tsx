@@ -42,7 +42,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
 
   const { report, student, eduStudent, teacher, eduTeacher } = row;
   // En pantalla, solo siglas + clase: el nombre del alumno vive en la BBDD central.
-  const siglas = student?.siglas ?? siglasDeAlumno(eduStudent?.nombre, eduStudent?.apellido1, eduStudent?.apellido2);
+  const siglas = student?.siglas ?? siglasDeAlumno(eduStudent?.nombre, eduStudent?.apellido1);
   const clase = eduStudent ? claseDeAlumno(eduStudent.curso, eduStudent.letra) : (student?.className ?? '');
   const behaviors = (report.behaviors as string[]) ?? [];
   const presentPeople = (report.presentPeople as string[]) ?? [];
