@@ -21,13 +21,6 @@ function gestores(): string[] {
     .filter(Boolean);
 }
 
-function itemsHtml(items: { asignatura: string; precio: string }[]): string {
-  if (items.length === 0) return '<li>(sin licencias de pago)</li>';
-  return items
-    .map((i) => `<li>${i.asignatura} — ${euros(parseFloat(i.precio || '0'))}</li>`)
-    .join('');
-}
-
 // Devuelve 'sent' | 'skipped' | 'error' sin romper el flujo del pedido
 async function safeSend(fn: () => Promise<unknown>): Promise<'sent' | 'skipped' | 'error'> {
   if (!emailConfigurado()) return 'skipped';
@@ -145,12 +138,37 @@ export async function notifyGestores(d: OrderEmailData) {
     enviar('licencias', {
       to: gestores(),
       subject: `Nuevo pedido de licencias · ${d.alumno} (${d.curso})`,
-      html: `
-        <p>Nuevo pedido registrado.</p>
-        <p><strong>${d.alumno}</strong> · ${d.curso} · ${d.email}</p>
-        <ul>${itemsHtml(d.items)}</ul>
-        <p><strong>Total: ${euros(d.total)}</strong></p>
-      `,
+      html: `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:480px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+
+    <div style="background:linear-gradient(135deg,#0d9488,#0c8f83);padding:20px 32px;text-align:center;">
+      <p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#99f6e4;opacity:.9;">Consolación Burriana · Licencias</p>
+      <h1 style="margin:6px 0 0;font-size:18px;font-weight:700;color:#ffffff;">🧾 Nuevo pedido</h1>
+    </div>
+
+    <div style="padding:24px 32px 0;">
+      <p style="margin:0;font-size:17px;font-weight:700;color:#111827;">${d.alumno}</p>
+      <p style="margin:2px 0 0;font-size:13px;color:#0d9488;font-weight:600;">${d.curso} · ${d.email || 'sin correo'}</p>
+    </div>
+
+    <div style="margin:18px 32px 28px;border:1px dashed #d4d4d8;border-radius:12px;padding:16px 18px;">
+      ${receiptRows(d.items)}
+      <div style="border-top:1px solid #e4e4e7;margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
+        <span style="font-size:14px;font-weight:700;color:#111827;">Total</span>
+        <span style="font-size:16px;font-weight:700;color:#0d9488;">${euros(d.total)}</span>
+      </div>
+    </div>
+
+    <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:14px 32px;text-align:center;">
+      <p style="margin:0;font-size:11px;color:#9ca3af;">Aviso automático</p>
+    </div>
+
+  </div>
+</body>
+</html>`,
     }),
   );
 }
@@ -170,7 +188,7 @@ export async function sendBlastTest(email: string, subject: string, body: string
     enviar('licencias', {
       to: email,
       subject: '[PRUEBA] ' + applyVars(subject, vars),
-      html: wrapHtml(applyVars(body, vars)),
+      html: wrapHtml(applyVars(body, vars), undefined, 'licencias'),
     }),
   );
 }
@@ -209,7 +227,7 @@ export async function sendFamilyBlastTest(email: string, subject: string, body: 
     enviar('licencias', {
       to: email,
       subject: '[PRUEBA] ' + applyVars(subject, sample.vars),
-      html: wrapHtml(applyVars(body, sample.vars), { url: sample.enlace, label: CTA_LICENCIAS }),
+      html: wrapHtml(applyVars(body, sample.vars), { url: sample.enlace, label: CTA_LICENCIAS }, 'licencias'),
     }),
   );
 }

@@ -6,6 +6,22 @@
 // `src/lib/email.ts` según el perfil del módulo.
 import { emailConfigurado, enviarLote, type PerfilCorreo } from '@/lib/email';
 
+// Identidad visual por módulo: mismo esqueleto de tarjeta en todos los correos masivos,
+// con el degradado del color de cada módulo (tan sutil que apenas se nota, a propósito).
+interface CorreoTheme {
+  label: string;
+  accent: string;
+  accentSoft: string;
+}
+
+const TEMAS: Record<PerfilCorreo, CorreoTheme> = {
+  licencias: { label: 'Consolación Burriana · Licencias', accent: '#0d9488', accentSoft: '#0c8f83' },
+  salidas: { label: 'Consolación Burriana · Salidas y pagos', accent: '#2563eb', accentSoft: '#2460df' },
+  abc: { label: 'Consolación Burriana · Registro ABC', accent: '#0d9488', accentSoft: '#0c8f83' },
+  evaluaciones: { label: 'Consolación Burriana · Evaluaciones', accent: '#7c3aed', accentSoft: '#7530dd' },
+  general: { label: 'Consolación Burriana', accent: '#52525b', accentSoft: '#48484f' },
+};
+
 /**
  * Sustituye las variables `{clave}` del texto (insensible a mayúsculas). Las claves que no
  * existan se dejan tal cual, para que un `{typo}` se vea en la vista previa y no desaparezca.
@@ -28,15 +44,41 @@ export function enlazarUrls(htmlEscapado: string): string {
   );
 }
 
-export function boton(url: string, label: string): string {
-  return `<div style="margin:22px 0"><a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:13px 22px;border-radius:12px">${label}</a></div>`;
+export function boton(url: string, label: string, color = '#52525b'): string {
+  return `<div style="margin:24px 0;text-align:center;"><a href="${url}" style="display:inline-block;background:${color};color:#ffffff;text-decoration:none;font-weight:600;font-size:13px;padding:12px 24px;border-radius:999px;">${label}</a></div>`;
 }
 
-export function wrapHtml(bodyText: string, cta?: { url: string; label: string }): string {
+/** Tarjeta compartida por todo correo masivo de texto libre (Licencias, Salidas…). El cuerpo
+ * lo escribe el gestor en el panel; aquí solo se le pone la vitrina. `perfil` decide el color. */
+export function wrapHtml(
+  bodyText: string,
+  cta?: { url: string; label: string },
+  perfil: PerfilCorreo = 'general',
+): string {
+  const t = TEMAS[perfil] ?? TEMAS.general;
   const html = enlazarUrls(escapar(bodyText)).replace(/\n/g, '<br>');
-  return `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222;line-height:1.6">${html}${
-    cta ? boton(cta.url, cta.label) : '<br><br>'
-  }—<br>Colegio Consolación · Burriana</div>`;
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:480px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+
+    <div style="background:linear-gradient(135deg,${t.accent},${t.accentSoft});padding:20px 32px;text-align:center;">
+      <p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#ffffff;opacity:.9;">${t.label}</p>
+    </div>
+
+    <div style="padding:28px 32px;font-size:14.5px;color:#27272a;line-height:1.65;">
+      ${html}
+      ${cta ? boton(cta.url, cta.label, t.accent) : ''}
+    </div>
+
+    <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:16px 32px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#9ca3af;"><strong>Consolación Burriana</strong></p>
+    </div>
+
+  </div>
+</body>
+</html>`;
 }
 
 export interface BlastItem {
@@ -62,7 +104,7 @@ export async function sendChunks(
     items.map((r) => ({
       to: r.email,
       subject: applyVars(subject, r.vars),
-      html: wrapHtml(applyVars(body, r.vars), r.cta),
+      html: wrapHtml(applyVars(body, r.vars), r.cta, opciones.perfil),
       replyTo: opciones.replyTo,
     })),
   );

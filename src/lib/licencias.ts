@@ -124,6 +124,24 @@ export function procesadoAntesDeCurso(academicYear: string, now: Date = new Date
   return now < new Date(startYear, 8, 7);
 }
 
+/** Días naturales hasta las 23:59 del `deadline` (negativo si ya pasó). `null` si no hay fecha fijada. */
+export function diasHastaCierre(deadline: string | null | undefined, now: Date = new Date()): number | null {
+  if (!deadline) return null;
+  const fin = new Date(`${deadline}T23:59:59`);
+  return Math.ceil((fin.getTime() - now.getTime()) / 86_400_000);
+}
+
+/** Resumen corto para mostrar de un vistazo sin abrir el formulario de cierre automático. */
+export function cierreAutomaticoResumen(deadline: string | null | undefined, now: Date = new Date()): string {
+  if (!deadline) return 'Sin fecha de cierre automático';
+  const dias = diasHastaCierre(deadline, now)!;
+  const fecha = new Date(deadline + 'T00:00:00').toLocaleDateString('es-ES');
+  if (dias > 1) return `Cierra en ${dias} días · ${fecha}`;
+  if (dias === 1) return `Cierra mañana · ${fecha}`;
+  if (dias === 0) return `Cierra hoy a las 23:59`;
+  return `Cerró automáticamente el ${fecha}`;
+}
+
 export function fechaLimiteLabel(deadline: string | null | undefined): string {
   if (!deadline) return 'la fecha que indique el colegio';
   // Sin la coma que mete toLocaleDateString ("sábado, 12 de septiembre"): el texto se lee
