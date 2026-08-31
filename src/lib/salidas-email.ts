@@ -57,31 +57,44 @@ export async function sendJustificanteAlert(input: {
   const entregables = Math.max(0, stats.objetivo - stats.noVan);
   const pct = entregables > 0 ? Math.round((stats.entregados / entregables) * 100) : 0;
 
-  const html = `
-  <div style="font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px 16px;color:#18181b">
-    <p style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#a1a1aa;margin:0 0 4px">Salidas y pagos · Tools Consolación</p>
-    <h2 style="margin:0 0 16px;font-size:20px">📎 Justificante nuevo</h2>
-    <div style="border:1px solid #e4e4e7;border-radius:16px;padding:16px 18px">
-      <p style="margin:0 0 2px;font-size:15px"><strong>${input.alumnoLabel}</strong> acaba de entregar su justificante.</p>
-      <p style="margin:0;color:#71717a;font-size:14px">${trip.nombre} · ${fechaBonita(trip.fecha)}${trip.importe ? ` · ${trip.importe} €` : ''}</p>
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:520px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+
+    <div style="background:linear-gradient(135deg,#2563eb,#2460df);padding:24px 32px;text-align:center;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#dbeafe;opacity:.9;">Consolación Burriana · Salidas y pagos</p>
+      <h1 style="margin:0;font-size:19px;font-weight:700;color:#ffffff;">📎 Justificante nuevo</h1>
     </div>
-    <div style="border:1px solid #e4e4e7;border-radius:16px;padding:16px 18px;margin-top:12px">
-      <p style="margin:0 0 6px;font-size:13px;color:#71717a">Cómo va la cosa</p>
-      ${barra(pct)}
-      <p style="margin:6px 0 0;font-size:14px">
-        <strong>${stats.entregados}</strong> de <strong>${entregables}</strong> justificantes entregados (${pct} %)
-      </p>
-      <p style="margin:4px 0 0;font-size:13px;color:#71717a">
-        ${stats.pendientes} pendientes · ${stats.validados} ya validados · ${stats.noVan} no van${stats.manuales > 0 ? ` · <strong style="color:#b45309">⚠️ ${stats.manuales} entrada(s) manual(es) por enlazar</strong>` : ''}
+
+    <div style="padding:24px 32px;">
+      <div style="border:1px solid #e4e4e7;border-radius:12px;padding:16px 18px;">
+        <p style="margin:0 0 2px;font-size:15px;color:#18181b;"><strong>${input.alumnoLabel}</strong> acaba de entregar su justificante.</p>
+        <p style="margin:0;color:#71717a;font-size:14px;">${trip.nombre} · ${fechaBonita(trip.fecha)}${trip.importe ? ` · ${trip.importe} €` : ''}</p>
+      </div>
+      <div style="border:1px solid #e4e4e7;border-radius:12px;padding:16px 18px;margin-top:12px;">
+        <p style="margin:0 0 6px;font-size:13px;color:#71717a;">Cómo va la cosa</p>
+        ${barra(pct)}
+        <p style="margin:6px 0 0;font-size:14px;color:#18181b;">
+          <strong>${stats.entregados}</strong> de <strong>${entregables}</strong> justificantes entregados (${pct} %)
+        </p>
+        <p style="margin:4px 0 0;font-size:13px;color:#71717a;">
+          ${stats.pendientes} pendientes · ${stats.validados} ya validados · ${stats.noVan} no van${stats.manuales > 0 ? ` · <strong style="color:#b45309">⚠️ ${stats.manuales} entrada(s) manual(es) por enlazar</strong>` : ''}
+        </p>
+      </div>
+      <p style="margin:16px 0 0;font-size:13px;color:#71717a;">
+        Revísalo y valídalo en el panel: <a href="${appBaseUrl()}/gestion/salidas/${trip.id}" style="color:#2563eb;">gestión de la salida</a>.
       </p>
     </div>
-    <p style="margin:16px 4px 0;font-size:13px;color:#71717a">
-      Revísalo y valídalo en el panel: <a href="${appBaseUrl()}/gestion/salidas/${trip.id}" style="color:#2563eb">gestión de la salida</a>.
-    </p>
-    <p style="margin:24px 4px 0;padding-top:12px;border-top:1px solid #f4f4f5;font-size:12px;color:#a1a1aa">
-      ${footerAleatorio()}
-    </p>
-  </div>`;
+
+    <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:16px 32px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#9ca3af;">${footerAleatorio()}</p>
+    </div>
+
+  </div>
+</body>
+</html>`;
 
   await enviar('salidas', {
     to: input.destinatarios,
@@ -97,19 +110,57 @@ export async function sendJustificanteConfirmacion(input: {
   email: string;
 }): Promise<void> {
   if (!emailConfigurado() || !input.email) return;
-  const html = `
-  <div style="font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px 16px;color:#18181b">
-    <p style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#a1a1aa;margin:0 0 4px">Colegio Consolación Burriana</p>
-    <h2 style="margin:0 0 12px;font-size:20px">✅ Justificante recibido</h2>
-    <p style="font-size:15px;margin:0 0 8px">
-      Hemos recibido el justificante de pago de <strong>${input.maskedName}</strong> para
-      <strong>${input.trip.nombre}</strong> (${fechaBonita(input.trip.fecha)}).
-    </p>
-    <p style="font-size:14px;color:#71717a;margin:0">
-      El equipo responsable lo revisará. Si hubiera cualquier problema, nos pondremos en contacto contigo.
-      No hace falta que hagas nada más. ¡Gracias!
-    </p>
-  </div>`;
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:480px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+
+    <div style="background:linear-gradient(135deg,#2563eb,#2460df);padding:28px 32px;text-align:center;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#dbeafe;opacity:.9;">Consolación Burriana</p>
+      <h1 style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">✅ Justificante recibido</h1>
+    </div>
+
+    <div style="padding:24px 32px 0;">
+      <p style="margin:0;font-size:13px;color:#6b7280;">Hemos recibido el justificante de pago de</p>
+      <p style="margin:2px 0 0;font-size:18px;font-weight:700;color:#111827;">${input.maskedName}</p>
+      <p style="margin:2px 0 0;font-size:13px;color:#2563eb;font-weight:600;">${input.trip.nombre}</p>
+    </div>
+
+    <div style="margin:20px 32px;border:1px dashed #d4d4d8;border-radius:12px;padding:16px 18px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:13.5px;color:#374151;">
+        <span>Fecha</span>
+        <span style="font-weight:600;color:#111827;white-space:nowrap;">${fechaBonita(input.trip.fecha)}</span>
+      </div>
+      ${
+        input.trip.importe
+          ? `<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:13.5px;color:#374151;">
+        <span>Importe</span>
+        <span style="font-weight:600;color:#111827;white-space:nowrap;">${input.trip.importe} €</span>
+      </div>`
+          : ''
+      }
+    </div>
+
+    <div style="margin:0 32px 28px;">
+      <div style="display:flex;gap:10px;">
+        <span style="font-size:15px;line-height:1.5;">✅</span>
+        <div>
+          <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Tengo que hacer algo más?</p>
+          <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">
+            Nada más: el equipo responsable lo revisará. Si hubiera cualquier problema, nos pondremos en contacto contigo.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:18px 32px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#9ca3af;"><strong>Consolación Burriana</strong></p>
+    </div>
+
+  </div>
+</body>
+</html>`;
   await enviar('salidas', {
     to: [input.email],
     subject: `✅ Justificante recibido · ${input.trip.nombre}`,
