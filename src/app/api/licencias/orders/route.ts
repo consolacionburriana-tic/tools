@@ -33,6 +33,7 @@ export async function GET(request: Request) {
         curso: existing.order.curso,
         email: existing.order.email,
         total: Number(existing.order.totalPrice),
+        confirmedAt: existing.order.confirmedAt,
       },
       cods: existing.cods,
     });

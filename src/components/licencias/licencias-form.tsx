@@ -143,6 +143,7 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
 
   const [email, setEmail] = useState('');
   const [result, setResult] = useState<SubmitResult | null>(null);
+  const [existingOrderDate, setExistingOrderDate] = useState<string | null>(null);
 
   const selectedBooks = useMemo(() => catalog.filter((b) => selected.has(b.cod)), [catalog, selected]);
   const total = useMemo(
@@ -243,6 +244,7 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
       const ord = await ordRes.json();
       setSelected(new Set<string>(ord.order ? (ord.cods ?? []) : []));
       if (ord.order?.email) setEmail(ord.order.email);
+      setExistingOrderDate(ord.order?.confirmedAt ?? null);
       setStep('licenses');
     } catch {
       haptic.warning();
@@ -302,6 +304,7 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
     setSelected(new Set());
     setResult(null);
     setError(null);
+    setExistingOrderDate(null);
     // Mantenemos el identificador y la lista de hermanos: es probable que la familia
     // tenga más hijos/as y así no hace falta volver a teclear el DNI/NIE/NIA.
   }
@@ -445,6 +448,19 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
               <h2 className="mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                 Licencias para {student.maskedName} {student.apellidos}
               </h2>
+
+              {existingOrderDate && (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-blue-50 p-3 text-xs text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Pedido realizado el{' '}
+                    <strong className="font-semibold">
+                      {new Date(existingOrderDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </strong>
+                    . Ya tienes tus selecciones marcadas abajo: puedes modificarlas y volver a confirmar.
+                  </span>
+                </div>
+              )}
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">

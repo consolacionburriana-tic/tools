@@ -5,7 +5,7 @@
 // Regla del módulo: en abc_students NO hay nombres. Se guardan NIA + siglas; el nombre
 // completo se resuelve contra edu_students solo donde hace falta (buscador del formulario
 // y correo de aviso a las personas configuradas).
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, ilike, isNull, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { abcStudents, authUsers, eduStudents, eduTeachers, eduTutorias, type AbcStudent, type EduStudent } from '@/db/schema';
 import { claseDeAlumno, normalizaNia, siglasDeAlumno } from '@/lib/abc';
@@ -102,6 +102,42 @@ export async function getEduStudentByNia(nia: string): Promise<EduStudent | null
   if (!limpio) return null;
   const [row] = await db.select().from(eduStudents).where(eq(eduStudents.nia, limpio)).limit(1);
   return row ?? null;
+}
+
+export interface ResultadoBusquedaAlumno {
+  eduStudentId: string;
+  nombre: string; // completo, solo para que David reconozca al alumno al darlo de alta
+  clase: string;
+  nia: string | null;
+  yaEnSeguimiento: boolean;
+}
+
+/** Buscador de alta del panel: por nombre/apellidos o NIA, mínimo 3 caracteres. */
+export async function buscarAlumnosParaAlta(query: string): Promise<ResultadoBusquedaAlumno[]> {
+  const q = query.trim();
+  if (q.length < 3) return [];
+
+  const [alumnos, yaSeguidos] = await Promise.all([
+    db.select().from(eduStudents).where(and(eq(eduStudents.active, true), or(
+      ilike(eduStudents.nombre, `%${q}%`),
+      ilike(eduStudents.apellido1, `%${q}%`),
+      ilike(eduStudents.apellido2, `%${q}%`),
+      ilike(eduStudents.nia, `%${q}%`),
+    ))),
+    db.select({ eduStudentId: abcStudents.eduStudentId }).from(abcStudents),
+  ]);
+  const seguidos = new Set(yaSeguidos.map((s) => s.eduStudentId).filter(Boolean));
+
+  return alumnos
+    .slice(0, 15)
+    .map((edu) => ({
+      eduStudentId: edu.id,
+      nombre: [edu.nombre, edu.apellido1, edu.apellido2].filter(Boolean).join(' '),
+      clase: claseDeAlumno(edu.curso, edu.letra),
+      nia: edu.nia,
+      yaEnSeguimiento: seguidos.has(edu.id),
+    }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
 /**

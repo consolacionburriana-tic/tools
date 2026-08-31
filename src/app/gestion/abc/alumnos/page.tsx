@@ -1,15 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Mail, Plus, PlusCircle, Search, Star, UserPlus, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Mail, Plus, PlusCircle, Search, Star, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import type { AbcStudentPanel, DirectorioDestinatarios, PersonaDestinataria } from '@/lib/abc-server';
+import type { AbcStudentPanel, DirectorioDestinatarios, PersonaDestinataria, ResultadoBusquedaAlumno } from '@/lib/abc-server';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -218,24 +217,42 @@ function AvisosManager({ student, onUpdated }: { student: AbcStudentPanel; onUpd
 }
 
 // ─── Alta por NIA ─────────────────────────────────────────────────────────────
-function AltaPorNia({ onCreado }: { onCreado: (s: AbcStudentPanel) => void }) {
+function AltaAlumno({ onCreado }: { onCreado: (s: AbcStudentPanel) => void }) {
   const [open, setOpen] = useState(false);
-  const [nia, setNia] = useState('');
-  const [guardando, setGuardando] = useState(false);
+  const [query, setQuery] = useState('');
+  const [resultados, setResultados] = useState<ResultadoBusquedaAlumno[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [dandoDeAlta, setDandoDeAlta] = useState<string | null>(null);
 
-  const alta = async () => {
-    setGuardando(true);
+  // Buscador simple: nombre, apellidos o NIA a partir de 3 caracteres, con debounce.
+  const buscable = query.trim().length >= 3;
+  useEffect(() => {
+    if (!buscable) return;
+    const t = setTimeout(() => {
+      setBuscando(true);
+      fetch(`/api/students/buscar?q=${encodeURIComponent(query.trim())}`)
+        .then((r) => r.json())
+        .then((data: ResultadoBusquedaAlumno[]) => setResultados(data))
+        .finally(() => setBuscando(false));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query, buscable]);
+
+  const alta = async (r: ResultadoBusquedaAlumno) => {
+    if (r.yaEnSeguimiento) return;
+    setDandoDeAlta(r.eduStudentId);
     const res = await fetch('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nia }),
+      body: JSON.stringify({ eduStudentId: r.eduStudentId }),
     });
-    setGuardando(false);
+    setDandoDeAlta(null);
     const data = await res.json();
     if (!res.ok) { toast.error(data.error ?? 'Error dando de alta'); return; }
     toast.success(`${data.siglas} añadido al seguimiento`);
     onCreado(data);
-    setNia('');
+    setQuery('');
+    setResultados([]);
     setOpen(false);
   };
 
@@ -249,29 +266,45 @@ function AltaPorNia({ onCreado }: { onCreado: (s: AbcStudentPanel) => void }) {
         <DialogHeader>
           <DialogTitle>Seguir a un alumno</DialogTitle>
         </DialogHeader>
-        <div className="mt-2 space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="nia">NIA del alumno</Label>
+        <div className="mt-2 space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <Input
-              id="nia"
-              value={nia}
-              inputMode="numeric"
-              onChange={(e) => setNia(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), alta())}
-              placeholder="11358569"
-              className="rounded-xl font-mono"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); if (e.target.value.trim().length < 3) setResultados([]); }}
+              placeholder="Nombre, apellidos o NIA…"
+              autoFocus
+              className="rounded-xl pl-9"
             />
-            <p className="text-xs text-zinc-400">
-              Se enlaza con la BBDD central por NIA: aquí solo se guardan sus siglas, nunca su nombre.
-            </p>
           </div>
-          <Button
-            onClick={alta}
-            disabled={guardando || nia.trim().length < 6}
-            className="w-full rounded-xl bg-teal-600 text-white hover:bg-teal-700"
-          >
-            <UserPlus className="mr-1 h-4 w-4" /> {guardando ? 'Buscando…' : 'Añadir al seguimiento'}
-          </Button>
+          <p className="text-xs text-zinc-400">
+            Se enlaza con la BBDD central: aquí solo se guardan sus siglas y su NIA, nunca su nombre.
+          </p>
+
+          <div className="max-h-72 space-y-1 overflow-y-auto">
+            {!buscable ? (
+              <p className="px-1 py-3 text-center text-xs text-zinc-400">Escribe al menos 3 letras.</p>
+            ) : buscando ? (
+              <p className="px-1 py-3 text-center text-xs text-zinc-400">Buscando…</p>
+            ) : resultados.length === 0 ? (
+              <p className="px-1 py-3 text-center text-xs text-zinc-400">Sin resultados.</p>
+            ) : (
+              resultados.map((r) => (
+                <button
+                  key={r.eduStudentId}
+                  type="button"
+                  disabled={r.yaEnSeguimiento || dandoDeAlta === r.eduStudentId}
+                  onClick={() => alta(r)}
+                  className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
+                >
+                  <span className="min-w-0 truncate text-zinc-900 dark:text-zinc-100">{r.nombre}</span>
+                  <span className="shrink-0 text-xs text-zinc-400">
+                    {r.yaEnSeguimiento ? 'ya en seguimiento' : r.clase || 'sin clase'}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -316,7 +349,7 @@ export default function AlumnosPage() {
             marca al que viene ya elegido al abrirlo
           </p>
         </div>
-        <AltaPorNia onCreado={actualizar} />
+        <AltaAlumno onCreado={actualizar} />
       </div>
 
       <div className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">

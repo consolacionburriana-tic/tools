@@ -28,8 +28,10 @@ posteriori lo ya construido y deja abierto lo que falta.
   histórica de registros antiguos (no se gestiona; los profes viven en `edu_teachers`).
 - **Alumnado (2026-07-10, revisado 2026-08-31):** `abc_students` es la tabla de config del
   módulo, enlazada a `edu_students` por **NIA** (`nia` + `edu_student_id`, ambos únicos). Se dan
-  de alta **a mano en el panel, por NIA**: el módulo es para el puñado de alumnos con muchas
-  necesidades, no para todo el cole.
+  de alta **a mano en el panel**, con un buscador simple (nombre/apellidos/NIA, mínimo 3
+  caracteres) que enseña nombre completo + clase para que David reconozca al alumno antes de
+  confirmarlo — el nombre solo aparece aquí, en la alta; el resto del módulo nunca lo escribe.
+  El módulo es para el puñado de alumnos con muchas necesidades, no para todo el cole.
 - **Sin buscador en el formulario (2026-08-31):** el selector de alumno son las filas activas
   de `abc_students`, todas a la vista, de un toque. Se probó un buscador sobre los 700 alumnos
   de la BBDD central y David lo descartó: los genera él en el panel, así que la lista corta ES
