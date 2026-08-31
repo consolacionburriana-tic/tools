@@ -81,8 +81,9 @@ export async function POST(request: Request) {
         body: input.body,
         titulo: form.titulo,
         academicYear: form.academicYear,
+        replyTo: guard.email,
       });
-      if (res.skipped) return NextResponse.json({ error: 'RESEND_API_KEY no configurada' }, { status: 500 });
+      if (res.skipped) return NextResponse.json({ error: 'No hay transporte de correo configurado (Gmail/Workspace o Resend)' }, { status: 500 });
       return NextResponse.json({ ok: true, enviados: res.sent, destino });
     }
 
@@ -99,8 +100,9 @@ export async function POST(request: Request) {
       body: input.body,
       titulo: form.titulo,
       academicYear: form.academicYear,
+      replyTo: guard.email, // quien manda la evaluación recibe las respuestas
     });
-    if (res.skipped) return NextResponse.json({ error: 'RESEND_API_KEY no configurada' }, { status: 500 });
+    if (res.skipped) return NextResponse.json({ error: 'No hay transporte de correo configurado (Gmail/Workspace o Resend)' }, { status: 500 });
     if (calculo.tokensInvitacion.length > 0) await marcarInvitacionesEnviadas(calculo.tokensInvitacion);
 
     return NextResponse.json({ ok: true, enviados: res.sent, errores: res.errors, sinCorreo: calculo.sinCorreo.length });

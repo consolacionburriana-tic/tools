@@ -68,11 +68,18 @@ export async function POST(request: Request) {
         subject: input.subject,
         body: input.body,
         familias: [{ nombre: 'Alumno de Prueba', emails: [input.testEmail], enlace: enlaceEjemplo }],
+        replyTo: guard.email,
       });
       return NextResponse.json({ ok: true, ...r });
     }
     const familiasConEnlace = familias.map((f) => ({ ...f, enlace: porAlumno.get(f.eduStudentId) }));
-    const r = await sendRecordatorioPago({ trip, subject: input.subject, body: input.body, familias: familiasConEnlace });
+    const r = await sendRecordatorioPago({
+      trip,
+      subject: input.subject,
+      body: input.body,
+      familias: familiasConEnlace,
+      replyTo: guard.email, // las familias responden al tutor que manda el recordatorio
+    });
     if (r.enviados > 0 && tokensUsados.length > 0) await marcarTokensEnviados(tokensUsados);
     return NextResponse.json({ ok: true, ...r, count: familias.length });
   } catch (error) {

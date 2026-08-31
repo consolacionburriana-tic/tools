@@ -1,7 +1,8 @@
 // Emails del módulo de Salidas: alertas a los responsables cuando entra un
 // justificante, minimalistas y con un footer distinto cada vez para hacer más
-// llevadera la burocracia. Usa el cliente único de src/lib/email.ts.
-import { getResend, FROM } from '@/lib/email';
+// llevadera la burocracia. Sale del perfil 'salidas' de src/lib/email.ts (buzón genérico, con
+// el Reply-To apuntando a quien envía cuando lo hay: el tutor del recordatorio).
+import { emailConfigurado, enviar } from '@/lib/email';
 import { sendChunks, type BlastItem } from '@/lib/correos';
 import type { SalTrip } from '@/db/schema';
 import type { TripStats } from '@/lib/salidas-server';
@@ -50,7 +51,7 @@ export async function sendJustificanteAlert(input: {
   stats: TripStats;
   destinatarios: string[];
 }): Promise<void> {
-  if (!process.env.RESEND_API_KEY || input.destinatarios.length === 0) return;
+  if (!emailConfigurado() || input.destinatarios.length === 0) return;
   const { trip, stats } = input;
   const entregables = Math.max(0, stats.objetivo - stats.noVan);
   const pct = entregables > 0 ? Math.round((stats.entregados / entregables) * 100) : 0;
@@ -81,9 +82,7 @@ export async function sendJustificanteAlert(input: {
     </p>
   </div>`;
 
-  const resend = getResend();
-  await resend.emails.send({
-    from: FROM,
+  await enviar('salidas', {
     to: input.destinatarios,
     subject: `📎 ${input.alumnoLabel.split(' (')[0]} ha entregado · ${trip.nombre}`,
     html,
@@ -96,7 +95,7 @@ export async function sendJustificanteConfirmacion(input: {
   maskedName: string;
   email: string;
 }): Promise<void> {
-  if (!process.env.RESEND_API_KEY || !input.email) return;
+  if (!emailConfigurado() || !input.email) return;
   const html = `
   <div style="font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px 16px;color:#18181b">
     <p style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#a1a1aa;margin:0 0 4px">Colegio Consolación Burriana</p>
@@ -110,9 +109,7 @@ export async function sendJustificanteConfirmacion(input: {
       No hace falta que hagas nada más. ¡Gracias!
     </p>
   </div>`;
-  const resend = getResend();
-  await resend.emails.send({
-    from: FROM,
+  await enviar('salidas', {
     to: [input.email],
     subject: `✅ Justificante recibido · ${input.trip.nombre}`,
     html,
@@ -131,6 +128,8 @@ export async function sendRecordatorioPago(input: {
   subject: string;
   body: string;
   familias: { nombre: string; emails: string[]; enlace?: string }[];
+  /** Correo de quien lo manda: las familias contestan al tutor, no a un buzón que nadie lee. */
+  replyTo?: string;
 }): Promise<{ enviados: number; errores: number }> {
   const items: BlastItem[] = input.familias.flatMap((f) =>
     f.emails.map((email) => ({
@@ -144,6 +143,9 @@ export async function sendRecordatorioPago(input: {
       },
     })),
   );
-  const { sent, errors } = await sendChunks(items, input.subject, input.body);
+  const { sent, errors } = await sendChunks(items, input.subject, input.body, {
+    perfil: 'salidas',
+    replyTo: input.replyTo,
+  });
   return { enviados: sent, errores: errors };
 }

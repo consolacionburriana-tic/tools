@@ -1,9 +1,10 @@
 // Primitivos compartidos de envío masivo (patrón de /gestion/correos, ver
 // docs/04-convenciones-tecnicas.md): sustitución de variables, escapado, enlaces
-// clicables y batch de 100 vía Resend. Cualquier módulo con correo masivo nuevo
-// (Evaluaciones, o los "correos masivos a pendientes" de otro módulo) parte de aquí
-// en vez de reimplementar su propia versión.
-import { FROM, getResend } from '@/lib/email';
+// clicables y envío por lotes. Cualquier módulo con correo masivo nuevo (Evaluaciones, o los
+// "correos masivos a pendientes" de otro módulo) parte de aquí en vez de reimplementar su
+// propia versión. El transporte (API de Gmail o Resend) y el remitente los decide
+// `src/lib/email.ts` según el perfil del módulo.
+import { emailConfigurado, enviarLote, type PerfilCorreo } from '@/lib/email';
 
 /**
  * Sustituye las variables `{clave}` del texto (insensible a mayúsculas). Las claves que no
@@ -44,31 +45,26 @@ export interface BlastItem {
   cta?: { url: string; label: string };
 }
 
-/** Envío masivo genérico: batch de 100 vía Resend, con variables, escapado y enlaces clicables. */
+/**
+ * Envío masivo genérico: un correo por destinatario, con variables, escapado y enlaces
+ * clicables. `perfil` decide desde qué identidad sale (por defecto, la genérica) y `replyTo`
+ * permite que las respuestas vayan a quien manda (el tutor de la salida, el gestor…).
+ */
 export async function sendChunks(
   items: BlastItem[],
   subject: string,
   body: string,
+  opciones: { perfil?: PerfilCorreo; replyTo?: string } = {},
 ): Promise<{ sent: number; errors: number; skipped: boolean }> {
-  if (!process.env.RESEND_API_KEY) return { sent: 0, errors: 0, skipped: true };
-  const resend = getResend();
-  let sent = 0;
-  let errors = 0;
-  for (let i = 0; i < items.length; i += 100) {
-    const chunk = items.slice(i, i + 100);
-    const payload = chunk.map((r) => ({
-      from: FROM,
+  if (!emailConfigurado()) return { sent: 0, errors: 0, skipped: true };
+  const { sent, errors } = await enviarLote(
+    opciones.perfil ?? 'general',
+    items.map((r) => ({
       to: r.email,
       subject: applyVars(subject, r.vars),
       html: wrapHtml(applyVars(body, r.vars), r.cta),
-    }));
-    try {
-      await resend.batch.send(payload);
-      sent += chunk.length;
-    } catch (e) {
-      console.error('sendBlast chunk error:', e);
-      errors += chunk.length;
-    }
-  }
+      replyTo: opciones.replyTo,
+    })),
+  );
   return { sent, errors, skipped: false };
 }

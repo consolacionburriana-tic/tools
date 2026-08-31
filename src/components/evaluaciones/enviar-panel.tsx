@@ -6,7 +6,7 @@ import { BookmarkPlus, Link2, Loader2, Send, Trash2, TriangleAlert, Users } from
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones';
-import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-email';
+import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-plantillas';
 
 interface Plantilla {
   id: string;

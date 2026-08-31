@@ -20,26 +20,23 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
-### Correo: opción B (Google Workspace) además de Resend, elegible desde el panel (para el 2026-08-29)
-David lo replanteó el 2026-08-27 por la noche: no es "sustituir Resend", es **añadir una opción
-B** (API de Google Workspace) manteniendo la **opción A** (Resend), con un interruptor sencillo
-en `/gestion/usuarios` o donde viva la configuración del admin — sin tocar código para cambiar de
-proveedor. Quedó en "mañana lo comentamos y lo ejecutas": falta la conversación para cerrar el
-diseño exacto, así que no se ha tocado código todavía. Lo que hay que decidir en esa charla:
-- **Dónde vive el interruptor** y si es global (todo el sitio manda por A o por B) o por módulo
-  (Licencias por Resend, Evaluaciones por Workspace, etc. — más flexible, más superficie).
-- **Motivo de fondo** de Workspace (entregabilidad, salir del dominio del cole, mandar desde la
-  cuenta de quien envía) — condiciona si hace falta UI para elegir remitente por envío.
-- Lo que ya se sabe y no cambia venga como venga la decisión:
-  - El punto de entrada ya está **centralizado** (`src/lib/email.ts` cliente, `src/lib/correos.ts`
-    motor de envío masivo): la opción B implica un cliente/adaptador nuevo detrás de la misma
-    interfaz, no reescribir cada módulo.
-  - **Batch distinto**: Resend acepta 100 mensajes por llamada; la API de Gmail va de uno en uno
-    con cuotas por usuario — un envío a 300 familias pasa de 3 llamadas a 300, con su propio
-    control de ritmo y errores parciales.
-  - Hace falta cuenta de servicio con **delegación de dominio** (ya hay una para Sheets,
-    `GOOGLE_SHEETS_CLIENT_EMAIL`, pero con otros scopes).
-  - Los correos ya enviados no se tocan; no hay histórico que migrar al cambiar de proveedor.
+### ~~Correo: opción B (Google Workspace) además de Resend~~ ✅ hecho (2026-08-31)
+Implementado como se había planteado: `src/lib/email.ts` es el único punto de entrada, con dos
+transportes detrás de la misma interfaz (`src/lib/email-gmail.ts` con la API de Gmail sobre la
+cuenta de servicio que ya existía, y Resend) y **perfiles de remitente por módulo**. Lo que se
+decidió al ejecutarlo, por si hay que revisarlo:
+- **El interruptor es por env, no en el panel**: `EMAIL_TRANSPORTE` global y
+  `EMAIL_TRANSPORTE_<PERFIL>` por módulo. Cambiarlo no toca código; una UI en `/gestion` se
+  puede añadir después si de verdad se cambia a menudo (hoy es una variable que se toca una vez).
+- **Remitente por módulo**: Licencias sale y contesta a `licencias@consolacionburriana.com`
+  (centralizado). El resto sale del buzón genérico y el `Reply-To` es el correo de quien manda
+  (tutor de la salida, gestor de la evaluación), que es a quien hay que contestar.
+- **Sigue pendiente en la consola de admin de Workspace** (no es código): añadir el scope
+  `gmail.send` a la delegación de dominio de la cuenta de servicio y confirmar que
+  `licencias@` es un buzón real (o poner `EMAIL_BUZON_LICENCIAS` si es un alias/grupo).
+- Coste del cambio: Gmail manda de uno en uno (≈ 2,5 correos/s, ~2.000/día por buzón) frente
+  a los 100 por llamada de Resend. Para los masivos grandes, ese perfil puede quedarse en
+  Resend con una sola variable.
 
 ### Tutorías: botón "promocionar todos +1 curso" — sin implementar, falta confirmar reglas de ciclo
 La pantalla `/gestion/profes` (nueva, 2026-07-16) ya permite asignar/quitar tutores por clase

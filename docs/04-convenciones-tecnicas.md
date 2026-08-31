@@ -39,9 +39,12 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | Var | Para qué |
 |---|---|
 | `DATABASE_URL` | Neon (pooled connection string) |
-| `RESEND_API_KEY` · `RESEND_FROM` | Envío de email |
+| `EMAIL_TRANSPORTE` (`gmail`\|`resend`) · `EMAIL_TRANSPORTE_<PERFIL>` | Transporte de correo, global o por módulo. Sin valor: `gmail` si hay cuenta de servicio, si no `resend` |
+| `EMAIL_FROM_<PERFIL>` · `EMAIL_REPLYTO_<PERFIL>` · `EMAIL_BUZON_<PERFIL>` | Remitente, Reply-To y buzón suplantado por módulo (perfiles: `LICENCIAS`, `SALIDAS`, `ABC`, `EVALUACIONES`, `GENERAL`) |
+| `GMAIL_CONCURRENCIA` | Correos en paralelo en los masivos por Gmail (por defecto 3; la cuota real es ≈ 2,5/s por buzón) |
+| `RESEND_API_KEY` · `RESEND_FROM` | Transporte Resend (alternativa/respaldo) |
 | `LICENCIAS_GESTORES` | Lista de correos de aviso de Licencias |
-| `GOOGLE_SHEETS_CLIENT_EMAIL` · `GOOGLE_SHEETS_PRIVATE_KEY` · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio para escribir en el Sheet de Licencias |
+| `GOOGLE_SA_CLIENT_EMAIL` · `GOOGLE_SA_PRIVATE_KEY` (antes `GOOGLE_SHEETS_*`, siguen valiendo) · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio: Sheet de Licencias **y** envío por la API de Gmail |
 | `APP_BASE_URL` | URL pública para los enlaces que van por correo (magic links). Opcional: por defecto `https://tools.consolacionburriana.com`. En local, `http://localhost:3000` |
 
 | `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
@@ -107,12 +110,30 @@ src/components/<modulo>/          # componentes propios del módulo
   formulario de Licencias).
 - Textos de interfaz **en castellano**, tono cercano (como "¿algo más?").
 
-## Email (Resend)
+## Email (API de Gmail / Resend)
 
-- Cliente único en `src/lib/email.ts`; plantillas por módulo en `src/lib/<modulo>-email.ts`.
-  No instanciar Resend en ningún otro sitio.
-- Envíos masivos: batch de 100 (patrón de `/gestion/correos`), con variables `{nombre}`,
-  `{apellidos}`, `{curso}`, vista previa y envío de prueba antes del masivo.
+- **Punto de entrada único**: `src/lib/email.ts` → `enviar(perfil, mensaje)` y
+  `enviarLote(perfil, mensajes)`. Plantillas por módulo en `src/lib/<modulo>-email.ts`.
+  **Nunca** instanciar Resend ni `googleapis` para mandar correo fuera de ahí: los adaptadores
+  son `src/lib/email-gmail.ts` (API de Gmail, cuenta de servicio con delegación de dominio) y
+  el bloque Resend de `email.ts`. Se elige por env (`EMAIL_TRANSPORTE[_<PERFIL>]`), sin deploy.
+- **Perfiles de remitente** (`PerfilCorreo`: `licencias`, `salidas`, `abc`, `evaluaciones`,
+  `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
+  `licencias@consolacionburriana.com` (centralizado, buzón real); el resto sale del buzón
+  genérico y **el `Reply-To` lo pone quien envía** (`guard.email` del tutor/gestor en los
+  routes de recordatorio y de evaluaciones), para que las familias no contesten al vacío.
+  Un módulo nuevo con correo añade su perfil a `DEFECTOS` en `email.ts`, no un `from` suelto.
+- Envíos masivos: `sendChunks` de `src/lib/correos.ts` con `{ perfil, replyTo }` — variables
+  `{nombre}`, `{apellidos}`, `{curso}`, vista previa y envío de prueba antes del masivo.
+  Ojo al transporte: Resend manda 100 por llamada; **Gmail va de uno en uno** (≈ 2,5/s y
+  ~2.000/día por buzón), así que un masivo de 300 familias tarda ~2 min — si algún envío
+  crece mucho, ahí es donde toca volver a Resend con ese perfil o partir el envío.
+- **Alta en Workspace** (una vez, consola de admin): en Seguridad → Control de API →
+  Delegación de todo el dominio, añadir al Client ID de la cuenta de servicio el scope
+  `https://www.googleapis.com/auth/gmail.send`. El `From` tiene que ser el buzón suplantado o
+  un alias verificado suyo (`Enviar como`); los grupos no se pueden suplantar — si
+  `licencias@` fuera un grupo, se pone `EMAIL_BUZON_LICENCIAS` con un buzón real que lo tenga
+  como alias.
 
 ## Exportaciones y ficheros
 

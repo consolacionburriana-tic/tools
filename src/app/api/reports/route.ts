@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { behaviorReports } from '@/db/schema';
 import { desc, and, eq, gte, lte, inArray } from 'drizzle-orm';
-import { getResend, FROM } from '@/lib/email';
+import { emailConfigurado, enviar } from '@/lib/email';
 import { buildReportEmail } from '@/lib/email-template';
 import { hasModule, isGuardResponse, requireSession } from '@/lib/auth-guards';
 import { getAbcStudentParaEmail, getTeacherFromSession, resolveAbcStudent } from '@/lib/abc-server';
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
 }
 
 async function sendNotificationEmail(abcStudentId: string, teacherName: string, data: z.infer<typeof reportSchema>) {
-  if (!process.env.RESEND_API_KEY) return;
+  if (!emailConfigurado()) return;
 
   const alumno = await getAbcStudentParaEmail(abcStudentId);
   if (!alumno || alumno.emailRecipients.length === 0) return;
@@ -160,11 +160,5 @@ async function sendNotificationEmail(abcStudentId: string, teacherName: string, 
     comments: data.comments,
   });
 
-  const resend = getResend();
-  await resend.emails.send({
-    from: FROM,
-    to: alumno.emailRecipients,
-    subject,
-    html,
-  });
+  await enviar('abc', { to: alumno.emailRecipients, subject, html });
 }

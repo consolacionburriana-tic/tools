@@ -1,70 +1,10 @@
-// Correos de Evaluaciones. Reutiliza los primitivos de envío masivo de `correos.ts`
-// (variables, escapado, enlaces clicables y batch de 100) — aquí solo viven las
-// plantillas de fábrica y el armado de destinatarios.
+// Correos de Evaluaciones (servidor). Reutiliza los primitivos de envío masivo de `correos.ts`
+// (variables, escapado, enlaces clicables y lotes) — aquí solo vive el armado de destinatarios;
+// las plantillas de fábrica están en `evaluaciones-plantillas.ts` porque las usa el panel.
 import { sendChunks, type BlastItem } from '@/lib/correos';
-import { varsDeDestinatario, type Audiencia } from '@/lib/evaluaciones';
+import { varsDeDestinatario } from '@/lib/evaluaciones';
 
-export interface PlantillaFabrica {
-  nombre: string;
-  audiencia: Audiencia;
-  subject: string;
-  body: string;
-}
-
-/**
- * Plantillas de fábrica: se cargan de un clic, se editan y se pueden guardar como
- * propias (quedan disponibles para el resto del claustro, igual que en Licencias).
- */
-export const PLANTILLAS_FABRICA: PlantillaFabrica[] = [
-  {
-    audiencia: 'alumnos',
-    nombre: '🤙🏼 Evaluación de la actividad (alumnado)',
-    subject: '{titulo} — cuéntanos qué te ha parecido',
-    body:
-      'Hola {nombre}:\n\n' +
-      'Para seguir mejorando queremos saber tu opinión sobre {titulo}. Son un par de minutos y tus respuestas son anónimas: nadie ve quién ha contestado qué.\n\n' +
-      'Entra con el botón de aquí abajo (el enlace es tuyo, no hace falta contraseña).\n\n' +
-      '¡Gracias!',
-  },
-  {
-    audiencia: 'alumnos',
-    nombre: '🔔 Recordatorio (alumnado)',
-    subject: 'Todavía puedes contarnos qué te pareció {titulo}',
-    body:
-      'Hola {nombre}:\n\n' +
-      'Aún estás a tiempo de evaluar {titulo}. Se hace en dos minutos y nos ayuda mucho a preparar lo siguiente.\n\n' +
-      'Si ya lo has hecho estos días, ignora este correo.\n\n' +
-      '¡Gracias!',
-  },
-  {
-    audiencia: 'profesores',
-    nombre: '📋 Evaluación (profesorado)',
-    subject: 'Evaluación · {titulo}',
-    body:
-      'Hola:\n\n' +
-      'Os pasamos la evaluación de {titulo}. Es 100 % anónima: no se guarda quién responde.\n\n' +
-      'Se contesta en un par de minutos desde el botón de abajo.\n\n' +
-      'Gracias por vuestro tiempo,',
-  },
-  {
-    audiencia: 'profesores',
-    nombre: '🔔 Recordatorio (profesorado)',
-    subject: '⏰ Últimos días · evaluación de {titulo}',
-    body:
-      'Hola:\n\n' +
-      'Seguimos recogiendo valoraciones de {titulo}. Como es anónima no sabemos quién falta, así que va a todo el claustro: si ya la has rellenado, ignora este correo.\n\n' +
-      'Gracias,',
-  },
-  {
-    audiencia: 'familias',
-    nombre: '👨‍👩‍👧 Evaluación (familias)',
-    subject: '{titulo} — nos gustaría conocer vuestra opinión',
-    body:
-      'Hola:\n\n' +
-      'Nos gustaría conocer vuestra opinión sobre {titulo}. Son dos minutos y las respuestas son anónimas.\n\n' +
-      'Gracias,',
-  },
-];
+export { PLANTILLAS_FABRICA, type PlantillaFabrica } from '@/lib/evaluaciones-plantillas';
 
 export interface DestinatarioCorreo {
   email: string;
@@ -80,6 +20,8 @@ export interface EnvioInput {
   body: string;
   titulo: string;
   academicYear: string;
+  /** Correo de quien lo manda: las respuestas van a esa persona, no a un buzón sin dueño. */
+  replyTo?: string;
 }
 
 const CTA_LABEL = 'Rellenar la evaluación';
@@ -96,5 +38,5 @@ export async function enviarEvaluacion(input: EnvioInput): Promise<{ sent: numbe
     }),
     cta: { url: d.enlace, label: CTA_LABEL },
   }));
-  return sendChunks(items, input.subject, input.body);
+  return sendChunks(items, input.subject, input.body, { perfil: 'evaluaciones', replyTo: input.replyTo });
 }
