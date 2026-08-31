@@ -64,22 +64,37 @@ export default async function GestionPage() {
           </div>
 
           {campaign && (
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+            <div className="mt-2 text-xs text-zinc-500">
               {!abierta && campaign.orderDeadline && (
-                <span className="text-amber-600 dark:text-amber-400">
+                <p className="mb-2 text-amber-600 dark:text-amber-400">
                   El plazo de petición de licencias se cerró el {fechaLimiteLabel(campaign.orderDeadline)}.
-                </span>
+                </p>
               )}
-              <form action="/api/licencias/admin/campaign" method="post" className="flex items-center gap-2">
-                <label htmlFor="orderDeadline">Cierre automático (23:59 de ese día):</label>
-                <input
-                  id="orderDeadline"
-                  type="date"
-                  name="orderDeadline"
-                  defaultValue={campaign.orderDeadline ?? ''}
-                  className="rounded-lg border border-zinc-200 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-                <button className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer">
+              <form action="/api/licencias/admin/campaign" method="post" className="flex flex-col gap-2 sm:max-w-md">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="orderDeadline" className="shrink-0">
+                    Cierre automático (23:59 de ese día):
+                  </label>
+                  <input
+                    id="orderDeadline"
+                    type="date"
+                    name="orderDeadline"
+                    defaultValue={campaign.orderDeadline ?? ''}
+                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="noteText">Texto informativo (bajo el título del formulario de familias):</label>
+                  <textarea
+                    id="noteText"
+                    name="noteText"
+                    rows={2}
+                    defaultValue={campaign.noteText ?? ''}
+                    placeholder="Las licencias digitales no son obligatorias. Marca solo las que quieras solicitar."
+                    className="w-full resize-y rounded-lg border border-zinc-200 px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+                <button className="self-start rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer">
                   Guardar
                 </button>
               </form>

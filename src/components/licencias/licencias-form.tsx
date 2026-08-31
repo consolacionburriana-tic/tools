@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BookOpen, Check, ChevronLeft, Info, Languages, Link2, Loader2, TriangleAlert } from 'lucide-react';
+import { BookOpen, CalendarClock, Check, ChevronLeft, Info, Languages, Link2, Loader2, TriangleAlert } from 'lucide-react';
 import {
   type Candidate,
   type CatalogBook,
@@ -24,6 +24,7 @@ type Step = 'identify' | 'licenses' | 'review' | 'done';
 interface Props {
   campaignName: string;
   deadline: string | null;
+  noteText: string | null;
   processedBeforeStart: boolean;
   /** Token del magic link (`/licencias?t=tok_…`): identifica a la familia sin teclear nada. */
   tokenAcceso?: string | null;
@@ -114,7 +115,7 @@ function BookCard({ book, on, onToggle }: { book: CatalogBook; on: boolean; onTo
   );
 }
 
-export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = null }: Props) {
+export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenAcceso = null }: Props) {
   const [step, setStep] = useState<Step>('identify');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -165,7 +166,9 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
       .filter((g) => g.books.length > 0);
     const resto = catalog.filter((b) => !used.has(b.cod));
     if (resto.length) gs.push({ name: 'Otras licencias' as string | null, hint: null, books: resto });
-    return gs;
+    // Las optativas siempre al final, para no despistar sobre las asignaturas troncales.
+    const isOptativaGroup = (g: { books: CatalogBook[] }) => g.books.length > 0 && g.books.every(isOptativa);
+    return [...gs.filter((g) => !isOptativaGroup(g)), ...gs.filter(isOptativaGroup)];
   }, [packs, catalog]);
   const deadlineLabel = deadline
     ? new Date(deadline + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
@@ -299,12 +302,8 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
     setSelected(new Set());
     setResult(null);
     setError(null);
-    // Con enlace mantenemos la lista de hermanos (no hay nada que volver a teclear);
-    // sin enlace se vacía el identificador para la siguiente búsqueda.
-    if (!token) {
-      setIdentificador('');
-      setCandidates([]);
-    }
+    // Mantenemos el identificador y la lista de hermanos: es probable que la familia
+    // tenga más hijos/as y así no hace falta volver a teclear el DNI/NIE/NIA.
   }
 
   function entrarConDocumento() {
@@ -324,11 +323,18 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
                 {yaTienenPedido ? 'Consultar estado pedido licencias' : 'Nuevo pedido de licencias'}
               </h2>
               <p className="mt-2 text-sm text-zinc-500">
-
-                Las licencias digitales <strong>no son obligatorias</strong>. 
-                Marca solo las que quieras solicitar.
-                {deadlineLabel && <> Plazo: hasta el <strong>{deadlineLabel}</strong> (no se permitirán pedidos después)</>}
+                {noteText?.trim() || 'Las licencias digitales no son obligatorias. Marca solo las que quieras solicitar.'}
               </p>
+
+              {deadlineLabel && (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20">
+                  <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p className="text-xs leading-snug">
+                    Plazo hasta el <strong className="font-semibold">{deadlineLabel}</strong>. No se permitirán
+                    pedidos después de esta fecha.
+                  </p>
+                </div>
+              )}
 
               {tokenInvalido && (
                 <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200">
@@ -441,6 +447,9 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
               </h2>
 
               <div className="mt-3 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                  {cursoLabel(effCurso || curso)}
+                </span>
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${
                     bancoLibros
@@ -572,8 +581,11 @@ export function LicenciasForm({ deadline, processedBeforeStart, tokenAcceso = nu
                 className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               />
               <p className="mt-1.5 text-xs text-zinc-400">
-                Si no lo indicas, no recibirás un correo de confirmación pero el pedido quedará registrado igualmente.
-                Las licencias LLEGARÁN A LOS ALUMNOS A FINALES DE SEPTIEMBRE - INICIO DE OCTUBRE
+                Si no lo indicas, no recibirás un correo de confirmación, pero el pedido quedará registrado
+                igualmente.
+              </p>
+              <p className="mt-1 text-xs text-zinc-400">
+                Las licencias llegarán a los alumnos a <strong className="font-medium">finales de septiembre / inicio de octubre</strong>.
               </p>
 
               {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}

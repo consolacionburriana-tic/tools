@@ -163,7 +163,7 @@ export function PedidosList() {
               {filtered.map((o) => (
                 <tr key={o.id} className={o.archived ? 'bg-zinc-50/60 text-zinc-400 dark:bg-zinc-800/20' : 'bg-white dark:bg-zinc-900'}>
                   <td className="px-3 py-2.5">
-                    <Link href={`/gestion/pedidos/${o.id}`} className="font-medium text-zinc-900 hover:underline dark:text-zinc-100">
+                    <Link href={`/gestion/licencias/pedidos/${o.id}`} className="font-medium text-zinc-900 hover:underline dark:text-zinc-100">
                       {o.nombre} {o.apellidos}
                     </Link>
                     {o.archived && <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">(archivado)</span>}

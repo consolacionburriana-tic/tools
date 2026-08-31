@@ -58,6 +58,7 @@ export default async function LicenciasPage({
           <LicenciasForm
             campaignName={campaign.name}
             deadline={campaign.orderDeadline}
+            noteText={campaign.noteText}
             processedBeforeStart={processedBeforeStart}
             tokenAcceso={tokenAcceso}
           />

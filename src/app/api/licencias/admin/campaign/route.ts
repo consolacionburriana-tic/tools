@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { hasModule } from '@/lib/auth-guards';
 
 const isAdmin = () => hasModule('licencias');
-import { getCurrentCampaign, setCampaignDeadline, setCampaignStatus } from '@/lib/licencias-server';
+import { getCurrentCampaign, setCampaignDeadline, setCampaignNoteText, setCampaignStatus } from '@/lib/licencias-server';
 
 export async function POST(request: Request) {
   if (!(await isAdmin())) {
@@ -23,6 +23,11 @@ export async function POST(request: Request) {
   if (form.has('orderDeadline')) {
     const orderDeadline = String(form.get('orderDeadline') ?? '').trim();
     await setCampaignDeadline(campaign.id, orderDeadline || null);
+  }
+
+  if (form.has('noteText')) {
+    const noteText = String(form.get('noteText') ?? '').trim();
+    await setCampaignNoteText(campaign.id, noteText || null);
   }
 
   const origin = new URL(request.url).origin;

@@ -46,6 +46,10 @@ export async function setCampaignDeadline(campaignId: string, orderDeadline: str
   await db.update(licCampaigns).set({ orderDeadline }).where(eq(licCampaigns.id, campaignId));
 }
 
+export async function setCampaignNoteText(campaignId: string, noteText: string | null) {
+  await db.update(licCampaigns).set({ noteText }).where(eq(licCampaigns.id, campaignId));
+}
+
 // Identificación por privacidad (2026-07-11): la familia teclea el DNI/NIE del tutor,
 // el NIA del alumno o un token de acceso; NUNCA se busca por nombre/apellidos ni se
 // devuelven datos sin enmascarar (decisión de protección de datos).

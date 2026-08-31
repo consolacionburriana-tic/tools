@@ -85,6 +85,7 @@ export const licCampaigns = pgTable('lic_campaigns', {
   academicYear: text('academic_year').notNull(),
   status: text('status').notNull().default('draft'), // draft | open | closed
   orderDeadline: date('order_deadline'),
+  noteText: text('note_text'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
