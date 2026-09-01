@@ -298,18 +298,27 @@ export type NewEduTutoria = typeof eduTutorias.$inferInsert;
 
 export const eduSyncRuns = pgTable('edu_sync_runs', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  // Qué se sincronizó. Las filas antiguas (anteriores a esta columna) son todas de
+  // alumnado salvo las que llevan `opciones.tipo = 'profesores'`, de ahí el default.
+  tipo: text('tipo').notNull().default('alumnado'), // 'alumnado' | 'profesorado'
   filename: text('filename'),
   formato: text('formato'), // 'csv' | 'xls' | 'xlsx'
+  quienEmail: text('quien_email'), // quién lo lanzó (email de la sesión)
   resumen: jsonb('resumen').$type<{
     altas: number;
     cambios: number;
     desactivados: number;
     conflictosResueltos: number;
     errores: string[];
+    sinCambios?: number;
+    tutores?: number;
+    vinculos?: number;
   }>(),
   opciones: jsonb('opciones').$type<Record<string, unknown>>(), // { respetarCursoDe: 'bbdd'|'excel', ... }
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('edu_sync_runs_created_idx').on(t.createdAt),
+]);
 
 // ─── Acceso de familias (prefijo fam_) ────────────────────────────────────────
 // Tokens de acceso para familias (magic links por email): un token = un correo de

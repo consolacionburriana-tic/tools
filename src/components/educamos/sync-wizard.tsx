@@ -1,21 +1,20 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   Check,
   ChevronDown,
   CircleAlert,
-  FileSpreadsheet,
   Loader2,
   RefreshCw,
   TriangleAlert,
-  Upload,
   UserMinus,
   UserPlus,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { FileDropzone } from '@/components/educamos/file-dropzone';
 
 // Tipos espejo (subset) del SyncPlan que devuelve /api/educamos/admin/sync/preview
 interface DiffCampo {
@@ -143,7 +142,6 @@ function Cubo({
 }
 
 export function SyncWizard() {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [respetarCursoDe, setRespetarCursoDe] = useState<'bbdd' | 'excel'>('bbdd');
   const [cargando, setCargando] = useState<'preview' | 'aplicar' | null>(null);
@@ -184,11 +182,11 @@ export function SyncWizard() {
     }
   }
 
-  function onFile(f: File | null) {
+  function onFile(f: File) {
     setFile(f);
     setPreview(null);
     setResultado(null);
-    if (f) void pedirPreview(f, respetarCursoDe);
+    void pedirPreview(f, respetarCursoDe);
   }
 
   async function aplicar() {
@@ -209,7 +207,6 @@ export function SyncWizard() {
       setResultado(data.resumen);
       setPreview(null);
       setFile(null);
-      if (fileRef.current) fileRef.current.value = '';
       toast.success('Sincronización aplicada');
       haptic.success();
     } catch (e) {
@@ -226,32 +223,7 @@ export function SyncWizard() {
     <div className="space-y-4">
       {/* Paso 1: fichero + opciones */}
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <label
-          htmlFor="fichero-educamos"
-          className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 px-4 py-8 text-center hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:hover:border-blue-500 dark:hover:bg-blue-500/5"
-        >
-          {file ? (
-            <>
-              <FileSpreadsheet className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">{file.name}</span>
-              <span className="text-xs text-zinc-500">Toca para elegir otro fichero</span>
-            </>
-          ) : (
-            <>
-              <Upload className="h-8 w-8 text-zinc-400" />
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">Sube el export de Educamos</span>
-              <span className="text-xs text-zinc-500">.csv, .xls o .xlsx — se procesa en memoria, no se guarda</span>
-            </>
-          )}
-        </label>
-        <input
-          ref={fileRef}
-          id="fichero-educamos"
-          type="file"
-          accept=".csv,.xls,.xlsx"
-          className="hidden"
-          onChange={(e) => onFile(e.target.files?.[0] ?? null)}
-        />
+        <FileDropzone id="fichero-educamos" file={file} titulo="Sube el export de alumnado" onFile={onFile} />
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-zinc-600 dark:text-zinc-300">Si el curso difiere, respetar el de:</span>

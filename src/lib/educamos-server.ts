@@ -14,7 +14,7 @@ import {
   type EduTeacher,
   type NewEduStudent,
 } from '@/db/schema';
-import { hasModule } from '@/lib/auth-guards';
+import { getSessionUser, hasModule } from '@/lib/auth-guards';
 import { etapaDeCurso } from '@/lib/cursos';
 import {
   CODIGO_INTERNO_RE,
@@ -345,9 +345,19 @@ export async function aplicarSync(input: {
   statements.push(
     db.insert(eduSyncRuns).values({
       id: syncRunId,
+      tipo: 'alumnado',
       filename,
       formato,
-      resumen: { altas: resumen.altas, cambios: resumen.cambios, desactivados: resumen.desactivados, conflictosResueltos, errores },
+      quienEmail: (await getSessionUser())?.email ?? null,
+      resumen: {
+        altas: resumen.altas,
+        cambios: resumen.cambios,
+        desactivados: resumen.desactivados,
+        conflictosResueltos,
+        tutores: resumen.tutores,
+        vinculos: resumen.vinculos,
+        errores,
+      },
       opciones: { ...opciones, desactivar: idsDesactivar },
     }),
   );
@@ -477,10 +487,11 @@ export async function aplicarSyncProfesores(input: {
   if (!dryRun) {
     statements.push(
       db.insert(eduSyncRuns).values({
+        tipo: 'profesorado',
         filename,
         formato,
-        resumen: { altas, cambios, desactivados: bajas, conflictosResueltos: 0, errores },
-        opciones: { tipo: 'profesores' },
+        quienEmail: (await getSessionUser())?.email ?? null,
+        resumen: { altas, cambios, desactivados: bajas, conflictosResueltos: 0, sinCambios, errores },
       }),
     );
     await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);

@@ -1,11 +1,10 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Database, GraduationCap, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Database, GraduationCap, History } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { eduStudents, eduSyncRuns, eduTeachers } from '@/db/schema';
-import { ProfesImport } from '@/components/educamos/profes-import';
 
 export const metadata = { title: 'BBDD central · Educamos' };
 
@@ -59,23 +58,28 @@ export default async function EducamosPage() {
           <span className="flex items-center gap-3">
             <GraduationCap className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             <span>
-              <span className="block font-medium text-zinc-900 dark:text-zinc-100">Sincronizar alumnado</span>
-              <span className="block text-xs text-zinc-500">Export de alumnos: vista previa con diff y conflictos antes de aplicar</span>
+              <span className="block font-medium text-zinc-900 dark:text-zinc-100">Sincronizar</span>
+              <span className="block text-xs text-zinc-500">
+                Alumnado y profesorado, en la misma pantalla: subes el export, revisas y aplicas
+              </span>
             </span>
           </span>
           <ChevronRight className="h-5 w-5 text-zinc-400" />
         </Link>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="mb-3 flex items-center gap-3">
-            <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+        <Link
+          href="/gestion/educamos/historial"
+          className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-4 hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+        >
+          <span className="flex items-center gap-3">
+            <History className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             <span>
-              <span className="block font-medium text-zinc-900 dark:text-zinc-100">Importar profesorado</span>
-              <span className="block text-xs text-zinc-500">Export de profesores: el ALIAS es el código; el correo del cole casa con el login</span>
+              <span className="block font-medium text-zinc-900 dark:text-zinc-100">Historial de sincronizaciones</span>
+              <span className="block text-xs text-zinc-500">Qué se subió, cuándo, quién y con qué resultado</span>
             </span>
-          </p>
-          <ProfesImport />
-        </div>
+          </span>
+          <ChevronRight className="h-5 w-5 text-zinc-400" />
+        </Link>
 
         <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
           <Database className="h-4 w-4" />
