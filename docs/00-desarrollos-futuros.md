@@ -20,14 +20,11 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
-### Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?
-David (2026-09-01): "por ahora" solo dirección y TIC marcan quién está en el banco y quién en el
-AMPA (`puedeGestionarParticipantesBanco()` en `src/lib/permissions.ts`); tutores y profes siguen
-con el resto del módulo (lotes, checks, pasar lista) igual que hasta ahora, solo ven esos dos
-toggles en modo lectura. Si más adelante jefatura/secretaría también necesita poder marcarlo,
-es cambiar esa función. También pendiente aplicar `pnpm db:push` en Neon (columna
-`edu_students.ampa` y tabla `bl_libros_curso`): esta sesión no tenía `DATABASE_URL` para
-ejecutarlo. Detalle completo en [`12-bancolibros.md`](./12-bancolibros.md).
+### ~~Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?~~ ✅ decidido (2026-09-01)
+No: se queda **solo dirección y TIC** (`puedeGestionarParticipantesBanco()` en
+`src/lib/permissions.ts`). Tutores y profes conservan el resto del módulo (lotes, checks, pasar
+lista) y ven esos dos toggles en modo lectura. Cerrado en
+[`12-bancolibros.md`](./12-bancolibros.md).
 
 ### ~~Correo: opción B (Google Workspace) además de Resend~~ ✅ hecho (2026-08-31)
 Implementado como se había planteado: `src/lib/email.ts` es el único punto de entrada, con dos
@@ -145,6 +142,9 @@ Recopilados de las fichas, para verlos de un vistazo:
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
+- **Banco de libros** (ficha `12`): ejecutar `pnpm db:push` en Neon para la columna
+  `edu_students.ampa` y la tabla `bl_libros_curso` (cambios aditivos). El código está desplegable,
+  pero hasta que no se aplique el schema la pestaña AMPA y los libros manuales darán error.
 
 ---
 

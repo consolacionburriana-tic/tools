@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CalendarDays, LinkIcon, Pencil, Users } from 'lucide-react';
+import { CalendarDays, Download, LinkIcon, Pencil, Users } from 'lucide-react';
 import { claseLabel, getTripSeguimiento } from '@/lib/salidas-server';
 import { appBaseUrl } from '@/lib/constants';
 import { TripSeguimiento } from '@/components/salidas/trip-seguimiento';
@@ -55,6 +55,13 @@ export default async function SalidaDetallePage({ params }: { params: Promise<{ 
           </div>
           <div className="flex items-center gap-2">
             <TripEstadoToggle tripId={trip.id} estado={trip.estado as 'abierta' | 'cerrada'} />
+            <a
+              href={`/api/salidas/admin/export?trip=${trip.id}`}
+              title="Descargar el seguimiento en CSV (Excel)"
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
+            >
+              <Download className="h-4 w-4" /> CSV
+            </a>
             <Link
               href={`/gestion/salidas/${trip.id}/editar`}
               className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"

@@ -39,8 +39,9 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   `banco_libros` pero sin lote ni valoración, solo pertenencia. Pestaña propia "AMPA" en el panel
   (toggle sí/no + bulk "todos sí/no"), separada de "Alumnado" porque se reconcilia contra un PDF
   distinto del banco de libros.
-- **Marcar participantes (banco y AMPA) es de dirección/TIC, no de tutores** (2026-09-01, David:
-  "por ahora"). El resto del módulo (lotes, checks de entrega/doc, pasar lista de valoración)
+- **Marcar participantes (banco y AMPA) es de dirección/TIC, no de tutores** (2026-09-01, David;
+  confirmado el mismo día como definitivo: no hace falta abrirlo a jefatura ni a tutores). El
+  resto del módulo (lotes, checks de entrega/doc, pasar lista de valoración)
   sigue abierto a cualquier rol con acceso a `bancolibros` — sin cambios ahí. Implementado en
   `puedeGestionarParticipantesBanco()` (`src/lib/permissions.ts`), con guard en las rutas
   `admin/banco` y `admin/ampa` y UI de solo lectura (switch deshabilitado, pestaña AMPA oculta)
@@ -159,5 +160,5 @@ bl_libro_registros (                  // valoración de UN libro de UNA asignaci
 - [x] Tabla `bl_libros_curso` + CRUD (`admin/libros-manual`) para configurar a mano el catálogo de
       libros del banco por curso, combinado con `lic_books` en la pestaña Libros — [~] pendiente
       el mismo `pnpm db:push`
-- [ ] Revisar con David si, pasado el arranque, algún rol de tutor/jefatura necesita marcar
-      participantes él mismo (apuntado también en `00-desarrollos-futuros.md`)
+- [x] ~~Revisar si algún rol más necesita marcar participantes~~ (David, 2026-09-01: no, se queda
+      solo dirección/TIC)

@@ -134,4 +134,7 @@ sal_signups (
 - [x] Detalle de salida: pendientes / entregados / validados / no van, con estado de justificante
 - [x] Validar/rechazar justificante (visor del archivo servido por API con permisos)
 - [x] Correos de recordatorio de pago a pendientes (personalizables, con prueba)
-- [ ] Export CSV (pendiente, no bloquea)
+- [x] Export CSV del seguimiento (`/api/salidas/admin/export?trip=…`, botón "CSV" en la cabecera
+      del detalle): una fila por alumno con clase, estado, justificante, fecha, correo de contacto
+      y si es entrada manual. Helpers puros en `src/lib/salidas-exports.ts` (con tests); `cuboDe`
+      se movió ahí para que la pantalla y el CSV usen el mismo criterio de estado.
