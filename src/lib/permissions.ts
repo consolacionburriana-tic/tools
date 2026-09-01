@@ -137,4 +137,14 @@ export function diffModulos(
   };
 }
 
+/**
+ * Dentro del módulo `bancolibros`, dos cosas quedan reservadas a dirección/TIC (no a
+ * tutores, de momento): marcar quién participa en el banco/AMPA, y configurar a mano el
+ * catálogo de libros por curso. El resto del módulo (lotes, checks, pasar lista) lo sigue
+ * llevando cualquier rol con acceso al módulo, sin cambios.
+ */
+export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
+  return role === 'direccion' || role === 'tic' || role === 'supertic';
+}
+
 export const DOMINIO_LOGIN = 'consolacionburriana.com';

@@ -207,6 +207,7 @@ export const eduStudents = pgTable('edu_students', {
   telEmergencia: text('tel_emergencia'),
   familiaId: text('familia_id'), // GUID ID FAMILIA
   bancoLibros: boolean('banco_libros').notNull().default(true),
+  ampa: boolean('ampa').notNull().default(false),
   active: boolean('active').notNull().default(true),
   extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN bloque pagadores)
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -470,9 +471,26 @@ export const blLibroRegistros = pgTable('bl_libro_registros', {
   uniqueIndex('bl_libro_registros_uq').on(t.asignacionId, t.bookCod),
 ]);
 
+// Libros del banco configurados a mano por curso (mientras el catálogo de Licencias no esté
+// listo o no encaje: una asignatura puede tener varios libros). El `book_cod` de
+// bl_libro_registros para estos es `manual:<id>`, nunca choca con los COD de lic_books.
+export const blLibrosCurso = pgTable('bl_libros_curso', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  curso: text('curso').notNull(),
+  asignatura: text('asignatura'),
+  nombre: text('nombre').notNull(),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('bl_libros_curso_curso_idx').on(t.curso),
+]);
+
 export type BlLote = typeof blLotes.$inferSelect;
 export type BlAsignacion = typeof blAsignaciones.$inferSelect;
 export type BlLibroRegistro = typeof blLibroRegistros.$inferSelect;
+export type BlLibroCurso = typeof blLibrosCurso.$inferSelect;
 
 // ─── Types Salidas ────────────────────────────────────────────────────────────
 export type SalTrip = typeof salTrips.$inferSelect;

@@ -20,6 +20,15 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?
+David (2026-09-01): "por ahora" solo dirección y TIC marcan quién está en el banco y quién en el
+AMPA (`puedeGestionarParticipantesBanco()` en `src/lib/permissions.ts`); tutores y profes siguen
+con el resto del módulo (lotes, checks, pasar lista) igual que hasta ahora, solo ven esos dos
+toggles en modo lectura. Si más adelante jefatura/secretaría también necesita poder marcarlo,
+es cambiar esa función. También pendiente aplicar `pnpm db:push` en Neon (columna
+`edu_students.ampa` y tabla `bl_libros_curso`): esta sesión no tenía `DATABASE_URL` para
+ejecutarlo. Detalle completo en [`12-bancolibros.md`](./12-bancolibros.md).
+
 ### ~~Correo: opción B (Google Workspace) además de Resend~~ ✅ hecho (2026-08-31)
 Implementado como se había planteado: `src/lib/email.ts` es el único punto de entrada, con dos
 transportes detrás de la misma interfaz (`src/lib/email-gmail.ts` con la API de Gmail sobre la
