@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Archive, ArchiveRestore, Check, Loader2, PiggyBank, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronUp, Loader2, PiggyBank, Trash2 } from 'lucide-react';
 import { CURSOS_FORM, cursoLabel, euros, normalize } from '@/lib/licencias';
+import { ordenCurso } from '@/lib/cursos';
 
 interface OrderRow {
   id: string;
@@ -11,6 +12,7 @@ interface OrderRow {
   nombre: string;
   apellidos: string;
   curso: string;
+  letra: string | null;
   bancoLibros: boolean;
   email: string | null;
   total: string;
@@ -25,6 +27,25 @@ interface OrderRow {
 
 function fmt(d: string | null) {
   return d ? new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+}
+
+type Campo = 'alumno' | 'curso' | 'letra' | 'fecha' | 'total';
+type Orden = { campo: Campo; asc: boolean };
+
+/** Comparador por columna. El orden de cursos es el escolar (infantil → ESO), no el alfabético. */
+function comparar(a: OrderRow, b: OrderRow, campo: Campo): number {
+  switch (campo) {
+    case 'alumno':
+      return `${a.apellidos} ${a.nombre}`.localeCompare(`${b.apellidos} ${b.nombre}`, 'es', { sensitivity: 'base' });
+    case 'curso':
+      return ordenCurso(a.curso) - ordenCurso(b.curso) || (a.letra ?? '').localeCompare(b.letra ?? '', 'es');
+    case 'letra':
+      return (a.letra ?? '').localeCompare(b.letra ?? '', 'es') || ordenCurso(a.curso) - ordenCurso(b.curso);
+    case 'fecha':
+      return (a.confirmedAt ? Date.parse(a.confirmedAt) : 0) - (b.confirmedAt ? Date.parse(b.confirmedAt) : 0);
+    case 'total':
+      return parseFloat(a.total) - parseFloat(b.total);
+  }
 }
 
 function Badge({ on, label, title }: { on: boolean; label: string; title: string }) {
@@ -49,6 +70,13 @@ export function PedidosList() {
   const [q, setQ] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Por defecto, lo último pedido arriba (es como venía ordenado del servidor).
+  const [orden, setOrden] = useState<Orden>({ campo: 'fecha', asc: false });
+
+  /** Un clic ordena por esa columna; otro clic le da la vuelta. */
+  function ordenarPor(campo: Campo) {
+    setOrden((prev) => ({ campo, asc: prev.campo === campo ? !prev.asc : campo !== 'fecha' }));
+  }
 
   async function load() {
     setLoading(true);
@@ -68,12 +96,13 @@ export function PedidosList() {
 
   const filtered = useMemo(() => {
     const nq = normalize(q);
-    return orders.filter((o) => {
+    const lista = orders.filter((o) => {
       if (curso !== 'todos' && o.curso !== curso) return false;
       if (nq && !normalize(`${o.apellidos} ${o.nombre}`).includes(nq)) return false;
       return true;
     });
-  }, [orders, curso, q]);
+    return lista.sort((a, b) => (orden.asc ? 1 : -1) * comparar(a, b, orden.campo));
+  }, [orders, curso, q, orden]);
 
   async function togglePagado(o: OrderRow) {
     setBusyId(o.id);
@@ -149,10 +178,30 @@ export function PedidosList() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-zinc-500 dark:bg-zinc-800/50">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">Alumno</th>
-                <th className="px-3 py-2 text-left font-medium">Curso</th>
-                <th className="px-3 py-2 text-left font-medium">Fecha</th>
-                <th className="px-3 py-2 text-right font-medium">Total</th>
+                {(
+                  [
+                    { campo: 'alumno', label: 'Alumno', align: 'text-left' },
+                    { campo: 'curso', label: 'Curso', align: 'text-left' },
+                    { campo: 'letra', label: 'Clase', align: 'text-left' },
+                    { campo: 'fecha', label: 'Fecha', align: 'text-left' },
+                    { campo: 'total', label: 'Total', align: 'text-right' },
+                  ] as const
+                ).map((c) => (
+                  <th key={c.campo} className={`px-3 py-2 font-medium ${c.align}`}>
+                    <button
+                      type="button"
+                      onClick={() => ordenarPor(c.campo)}
+                      title={`Ordenar por ${c.label.toLowerCase()}`}
+                      className={`inline-flex cursor-pointer items-center gap-1 hover:text-zinc-800 dark:hover:text-zinc-200 ${
+                        orden.campo === c.campo ? 'text-zinc-800 dark:text-zinc-100' : ''
+                      }`}
+                    >
+                      {c.label}
+                      {orden.campo === c.campo &&
+                        (orden.asc ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />)}
+                    </button>
+                  </th>
+                ))}
                 <th className="px-3 py-2 text-center font-medium">🧾</th>
                 <th className="px-3 py-2 text-center font-medium">📤</th>
                 <th className="px-3 py-2 text-center font-medium">💰</th>
@@ -169,6 +218,15 @@ export function PedidosList() {
                     {o.archived && <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">(archivado)</span>}
                   </td>
                   <td className="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">{cursoLabel(o.curso)}</td>
+                  <td className="px-3 py-2.5">
+                    {o.letra ? (
+                      <span className="inline-flex min-w-6 items-center justify-center rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                        {o.letra}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2.5 text-zinc-500">{fmt(o.confirmedAt)}</td>
                   <td className="px-3 py-2.5 text-right font-medium text-zinc-800 dark:text-zinc-100">{euros(parseFloat(o.total))}</td>
                   <td className="px-3 py-2.5 text-center"><Badge on={!!o.editorialProcessedAt} label="🧾" title="Pedido a la editorial" /></td>
@@ -209,7 +267,7 @@ export function PedidosList() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-center text-zinc-400">Sin pedidos que coincidan.</td>
+                  <td colSpan={9} className="px-3 py-6 text-center text-zinc-400">Sin pedidos que coincidan.</td>
                 </tr>
               )}
             </tbody>
@@ -218,7 +276,8 @@ export function PedidosList() {
       )}
       <p className="mt-3 text-xs text-zinc-400">
         <Check className="mr-1 inline h-3 w-3" />
-        🧾 pedido a la editorial · 📤 pasado a plantillas de envío · 💰 pagado. Click en el nombre para ver/editar el detalle.
+        🧾 pedido a la editorial · 📤 pasado a plantillas de envío · 💰 pagado. Click en el nombre para ver/editar el
+        detalle, y en cualquier cabecera (Alumno, Curso, Clase, Fecha, Total) para ordenar por ella.
       </p>
     </div>
   );

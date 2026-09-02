@@ -9,6 +9,15 @@
 
 ## Hecho ✅
 
+### Licencias · lista de pedidos (2026-09-02)
+- ~~Añadir la letra de la clase como columna, que se vea bien~~ → columna **Clase** con la letra
+  en una insignia azul (`A`, `B`, `PDC`…), fácil de barrer con la vista. Sale de
+  `lic_students.letra`, que ya existía y no se estaba propagando a la lista.
+- ~~Que se puedan ordenar~~ → **Alumno, Curso, Clase, Fecha y Total** son clicables: un clic
+  ordena, otro le da la vuelta, con la flecha marcando por dónde va. Los cursos se ordenan en
+  orden escolar (infantil → ESO, con `ordenCurso`), no alfabético, así que 2ºESO no sale antes
+  que 10º de nada. Por defecto sigue saliendo lo último pedido arriba.
+
 ### Correos: importes pegados a la etiqueta (2026-09-02)
 - ~~En el correo de confirmación de licencias los precios salían pegados: "Total51 €"~~ → la
   culpa era `display:flex` + `justify-content:space-between`, que **los clientes de correo

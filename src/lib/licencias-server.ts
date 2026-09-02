@@ -582,6 +582,7 @@ export interface OrderListItem {
   nombre: string;
   apellidos: string;
   curso: string;
+  letra: string | null; // clase del alumno ('A', 'B', 'PDC'…), para poder ordenar y filtrar
   bancoLibros: boolean;
   email: string | null;
   total: string;
@@ -619,6 +620,7 @@ export async function listOrders(campaignId: string, opts: { includeArchived?: b
         nombre: s?.nombre ?? '',
         apellidos: s?.apellidos ?? '',
         curso: o.curso ?? s?.curso ?? '',
+        letra: s?.letra ?? null,
         bancoLibros: o.bancoLibros,
         email: o.email,
         total: o.totalPrice,
