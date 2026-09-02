@@ -139,6 +139,19 @@ src/components/<modulo>/          # componentes propios del módulo
   `licencias@` fuera un grupo, se pone `EMAIL_BUZON_LICENCIAS` con un buzón real que lo tenga
   como alias.
 
+## PWA y service worker
+
+- La app es **una única PWA** para toda la plataforma (`public/manifest.json`, ficha
+  [`05-pwa.md`](./05-pwa.md)). Los iconos se generan con `python3 scripts/iconos-pwa.py`
+  (herramienta manual, necesita Pillow); no se editan a mano.
+- **El service worker (`public/sw.js`) no cachea HTML de páginas ni `/api`, nunca.** Los
+  iPads del claustro son compartidos: una pantalla con datos de alumnado en caché es
+  información servida a quien no le toca. Solo se cachean estáticos con hash, iconos y la
+  página `/offline.html`.
+- Cualquier página de fallback que tenga que verse **sin red** va en HTML plano con estilos
+  en línea (como `public/offline.html`): el CSS de Next lleva hash de build y puede no estar
+  en caché justo el día que hace falta.
+
 ## Exportaciones y ficheros
 
 - CSV de descarga: route handler protegido + generación en `src/lib/<modulo>-exports.ts`

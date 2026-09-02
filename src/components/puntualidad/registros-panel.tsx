@@ -24,6 +24,25 @@ const fechaCorta = (iso: string) => {
   }
 };
 
+const fechaLarga = (iso: string) => {
+  try {
+    return format(parseISO(iso), "EEEE d 'de' MMMM", { locale: es });
+  } catch {
+    return iso;
+  }
+};
+
+/** Agrupa por día: leer "martes 3, cuatro retrasos" es mucho más rápido que una lista plana. */
+function porDias(filas: RetrasoListado[]) {
+  const mapa = new Map<string, RetrasoListado[]>();
+  for (const f of filas) {
+    const lista = mapa.get(f.fecha) ?? [];
+    lista.push(f);
+    mapa.set(f.fecha, lista);
+  }
+  return [...mapa.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+}
+
 export function RegistrosPanel({
   filas,
   rangoActivo,
@@ -135,14 +154,24 @@ export function RegistrosPanel({
           Ni un retraso en este periodo. 🎉
         </p>
       ) : (
-        <ul className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-          {filas.map((f) => (
+        <div className="space-y-4">
+        {porDias(filas).map(([dia, delDia]) => (
+        <section key={dia} className="space-y-1.5">
+          <div className="flex items-baseline gap-2 px-1">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              {fechaLarga(dia)}
+            </h2>
+            <span className="text-xs text-zinc-400">
+              {delDia.length} {delDia.length === 1 ? 'retraso' : 'retrasos'}
+              {delDia.filter((f) => !f.justificado).length !== delDia.length &&
+                ` · ${delDia.filter((f) => !f.justificado).length} sin justificar`}
+            </span>
+          </div>
+          <ul className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          {delDia.map((f) => (
             <li key={f.id}>
               <div className="flex items-center gap-3 px-4 py-3">
-                <div className="w-24 shrink-0 text-xs text-zinc-500">
-                  <span className="block capitalize">{fechaCorta(f.fecha)}</span>
-                  <span className="tabular-nums text-zinc-400">{f.hora}</span>
-                </div>
+                <div className="w-14 shrink-0 text-xs tabular-nums text-zinc-500">{f.hora}</div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <Link
@@ -229,7 +258,10 @@ export function RegistrosPanel({
               )}
             </li>
           ))}
-        </ul>
+          </ul>
+        </section>
+        ))}
+        </div>
       )}
     </div>
   );

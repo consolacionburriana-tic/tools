@@ -74,7 +74,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro y resumen agregado; pendiente `db:push` de David para `ampa`/`bl_libros_curso`) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3; pendiente `pnpm db:push` de David para las tablas `pun_*`/`con_*`) | [`17-puntualidad.md`](./17-puntualidad.md) |
-| PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fase 1 hecha: start_url y marca azul; faltan iconos reales y SW/offline) | [`05-pwa.md`](./05-pwa.md) |
+| PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.
 
@@ -100,7 +100,7 @@ empieza un hito hasta que el anterior está funcional (no hace falta que esté p
 | 6 | **Evaluaciones** (`eval_*`) | [`16`](./16-evaluaciones.md) | Motorcito de formularios propio; el más independiente, puede ir en paralelo si conviene. |
 
 Transversales sin hito propio: la **PWA** ([`05-pwa.md`](./05-pwa.md), priorizada por David —
-su Fase 1 encaja natural justo después del escritorio del hito 2); auditoría de cambios y
+Fases 1-2 hechas: iconos, atajos, service worker y página de sin conexión); auditoría de cambios y
 dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
 
 ---

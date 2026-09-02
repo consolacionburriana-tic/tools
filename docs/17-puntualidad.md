@@ -154,6 +154,30 @@ público a propósito.
 - [x] Export CSV y resumen semanal a tutores (solo si hay retrasos)
 - [x] Alcance por tutoría para los tutores
 
+## Fase 3b · Pasada de UI/UX — ✅ (2026-09-02)
+
+Repaso de detalle sobre lo ya construido, con la vara de medir del módulo (que a las 8:05,
+de pie y con prisa, no haya que pensar):
+
+- [x] **Buscador con teclado**: ↑ ↓ mueven el resaltado y Enter añade (antes Enter cogía
+      siempre el primero). Con roles `combobox`/`listbox`/`option` para lectores de pantalla.
+- [x] **Aviso de duplicado ANTES de guardar**: al elegir a alguien que ya tiene un retraso
+      ese mismo día, la tarjeta lo dice con la hora del que ya hay. Antes solo se avisaba
+      después de guardar, cuando ya no servía de nada.
+- [x] **La tarjeta entera avisa del tercero**: borde rosa cuando ese registro va a cerrar el
+      ciclo de tres, que es la información que cambia la conversación con el alumno.
+- [x] **Hora a toques**: botones −5 / +5 minutos junto a la hora, porque el selector nativo
+      de iPad para poner "08:17" es un suplicio.
+- [x] **Lo guardado se queda a la vista**: los toast se van; ahora, al terminar, queda una
+      lista verde con quién se ha registrado, cuántos lleva y si le toca sin patio.
+- [x] Pasos numerados (1 quién · 2 asignatura · 3 cuándo), esqueleto de carga en vez de
+      "Cargando historial…" y `aria-live` en el resumen del alumno.
+- [x] **Panel**: listado agrupado por día con su cabecera y su cuenta ("martes 3 · 4
+      retrasos · 3 sin justificar") en vez de una lista plana; estado vacío de verdad en el
+      dashboard (con enlace a registrar) en vez de seis paneles diciendo "sin datos"; y
+      tooltips de los gráficos con el tema de la app (el de recharts es blanco fijo y en
+      modo oscuro deslumbra).
+
 ## Fase 4 · Cuando estén los horarios — ⬜
 - [ ] Deducir asignatura (y profe) del día + hora contra el horario de la clase
 - [ ] Encender el aviso al profe de la asignatura (`htmlAvisoProfeAsignatura` ya está escrito)

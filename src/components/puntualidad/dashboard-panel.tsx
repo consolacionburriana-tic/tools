@@ -32,14 +32,20 @@ function Kpi({
   etiqueta,
   valor,
   sub,
+  href,
 }: {
   icono: React.ReactNode;
   etiqueta: string;
   valor: string | number;
   sub?: string;
+  href?: string;
 }) {
-  return (
-    <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+  const cuerpo = (
+    <div
+      className={`h-full space-y-2 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 ${
+        href ? 'transition-colors hover:border-orange-300 hover:bg-orange-50/40 dark:hover:border-orange-800 dark:hover:bg-orange-500/5' : ''
+      }`}
+    >
       <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500">
         {icono}
         <span className="text-xs font-medium">{etiqueta}</span>
@@ -48,6 +54,7 @@ function Kpi({
       {sub && <p className="text-xs text-zinc-400">{sub}</p>}
     </div>
   );
+  return href ? <Link href={href}>{cuerpo}</Link> : cuerpo;
 }
 
 function Panel({ titulo, children, vacio }: { titulo: string; children: React.ReactNode; vacio?: boolean }) {
@@ -80,14 +87,33 @@ function Ranking({ filas, total }: { filas: { nombre: string; valor: number }[];
   );
 }
 
-const tooltipStyle = {
-  contentStyle: {
-    borderRadius: 12,
-    border: '1px solid #e4e4e7',
-    fontSize: 12,
-    padding: '6px 10px',
-  },
-} as const;
+/**
+ * Tooltip propio: el de recharts trae fondo blanco fijo y en modo oscuro deslumbra.
+ * Con esto hereda el tema como cualquier otra tarjeta del panel.
+ */
+function TooltipCard({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { value?: number | string; name?: string }[];
+  label?: string | number;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white/95 px-2.5 py-1.5 text-xs shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+      {label !== undefined && <p className="font-medium text-zinc-500 dark:text-zinc-400">{label}</p>}
+      {payload.map((p, i) => (
+        <p key={i} className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+          {p.value} {p.name?.toLowerCase()}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+const EJE = { fontSize: 11, fill: '#a1a1aa' } as const;
 
 export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntualidad; rangoActivo: string }) {
   const rangos = [
@@ -124,6 +150,24 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
         </div>
       </div>
 
+      {datos.total === 0 ? (
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
+          <p className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+            Ni un retraso en este periodo 🎉
+          </p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500 dark:text-zinc-400">
+            En cuanto se registre el primero, aquí saldrán la tendencia, los días de la semana con más retrasos, las
+            asignaturas y quién acumula. Prueba a ampliar el periodo si buscas algo más antiguo.
+          </p>
+          <Link
+            href="/puntualidad"
+            className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+          >
+            Registrar un retraso
+          </Link>
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi
           icono={<Clock className="h-4 w-4" />}
@@ -143,14 +187,13 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
           valor={`${datos.minutosMedios} min`}
           sub="sobre la hora límite (08:05)"
         />
-        <Link href="/gestion/puntualidad/consecuencias" className="block">
-          <Kpi
-            icono={<AlertTriangle className="h-4 w-4" />}
-            etiqueta="Consecuencias sin fecha"
-            valor={datos.consecuenciasPendientes}
-            sub="esperando que el tutor ponga el día"
-          />
-        </Link>
+        <Kpi
+          icono={<AlertTriangle className="h-4 w-4" />}
+          etiqueta="Consecuencias sin fecha"
+          valor={datos.consecuenciasPendientes}
+          sub="esperando que el tutor ponga el día"
+          href="/gestion/puntualidad/consecuencias"
+        />
       </div>
 
       <Panel titulo={`Tendencia · ${datos.rango.dias} días`} vacio={tendencia.length === 0}>
@@ -163,10 +206,10 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
                   <stop offset="100%" stopColor={NARANJA} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-              <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: '#a1a1aa' }} tickLine={false} axisLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} tickLine={false} axisLine={false} />
-              <Tooltip {...tooltipStyle} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#a1a1aa" strokeOpacity={0.25} vertical={false} />
+              <XAxis dataKey="fecha" tick={EJE} tickLine={false} axisLine={false} />
+              <YAxis allowDecimals={false} tick={EJE} tickLine={false} axisLine={false} />
+              <Tooltip content={<TooltipCard />} cursor={{ fill: '#a1a1aa', fillOpacity: 0.08 }} />
               <Area type="monotone" dataKey="total" name="Retrasos" stroke={NARANJA} strokeWidth={2} fill="url(#gradPuntualidad)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -178,10 +221,10 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={datos.porDiaSemana} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-                <XAxis dataKey="dia" tick={{ fontSize: 11, fill: '#a1a1aa' }} tickLine={false} axisLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} tickLine={false} axisLine={false} />
-                <Tooltip {...tooltipStyle} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#a1a1aa" strokeOpacity={0.25} vertical={false} />
+                <XAxis dataKey="dia" tick={EJE} tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tick={EJE} tickLine={false} axisLine={false} />
+                <Tooltip content={<TooltipCard />} cursor={{ fill: '#a1a1aa', fillOpacity: 0.08 }} />
                 <Bar dataKey="total" name="Retrasos" radius={[6, 6, 0, 0]}>
                   {datos.porDiaSemana.map((d) => (
                     <Cell key={d.dia} fill={d.total === maxDia ? NARANJA : NARANJA_CLARO} />
@@ -196,10 +239,10 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={datos.porHora} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-                <XAxis dataKey="hora" tick={{ fontSize: 10, fill: '#a1a1aa' }} tickLine={false} axisLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} tickLine={false} axisLine={false} />
-                <Tooltip {...tooltipStyle} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#a1a1aa" strokeOpacity={0.25} vertical={false} />
+                <XAxis dataKey="hora" tick={{ ...EJE, fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tick={EJE} tickLine={false} axisLine={false} />
+                <Tooltip content={<TooltipCard />} cursor={{ fill: '#a1a1aa', fillOpacity: 0.08 }} />
                 <Bar dataKey="total" name="Retrasos" fill={NARANJA} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -249,6 +292,8 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
           </ul>
         </Panel>
       </div>
+      </>
+      )}
     </div>
   );
 }

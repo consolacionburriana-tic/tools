@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Search, UserPlus, X, ChevronDown, Clock, CalendarDays } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Clock, Loader2, Minus, Plus, Search, TriangleAlert, UserPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Chip, ClaseChip, HistorialPill, Interruptor, Seccion } from './ui';
@@ -26,6 +26,8 @@ import {
   fraseHistorial,
   formatoRetraso,
   horaAhora,
+  horaDeMinutos,
+  minutosDeHora,
   minutosRetraso,
   registroPayloadSchema,
   type JustificacionTipo,
@@ -53,6 +55,16 @@ interface Elegido {
   alumno: AlumnoBusqueda;
   detalle: Detalle;
   resumen: ResumenHistorial | null;
+  /** Si ya tiene un retraso registrado en esta misma fecha: hora del que ya hay. */
+  yaHoy: string | null;
+}
+
+/** Lo que se acaba de guardar, para que quede a la vista al terminar. */
+interface Guardado {
+  alumno: string;
+  clase: string;
+  total: number;
+  conConsecuencia: boolean;
 }
 
 const detalleVacio = (): Detalle => ({
@@ -91,6 +103,8 @@ export function PuntualidadForm({
   const [resultados, setResultados] = useState<AlumnoBusqueda[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [resaltado, setResaltado] = useState(0);
+  const [guardados, setGuardados] = useState<Guardado[]>([]);
   const buscadorRef = useRef<HTMLInputElement>(null);
 
   const retraso = minutosRetraso(hora);
@@ -109,7 +123,10 @@ export function PuntualidadForm({
       try {
         const res = await fetch(`/api/puntualidad/alumnos?q=${encodeURIComponent(q)}`);
         const data = await res.json();
-        if (vivo) setResultados(res.ok ? (data.alumnos ?? []) : []);
+        if (vivo) {
+          setResultados(res.ok ? (data.alumnos ?? []) : []);
+          setResaltado(0);
+        }
       } catch {
         if (vivo) setResultados([]);
       } finally {
@@ -128,8 +145,13 @@ export function PuntualidadForm({
         const res = await fetch(`/api/puntualidad/historial/${eduStudentId}?fecha=${enFecha}`);
         if (!res.ok) return;
         const data = await res.json();
+        const mismoDia = (data.retrasos ?? []).find((r: { fecha: string }) => r.fecha === enFecha);
         setElegidos((prev) =>
-          prev.map((e) => (e.alumno.eduStudentId === eduStudentId ? { ...e, resumen: data.resumen } : e)),
+          prev.map((e) =>
+            e.alumno.eduStudentId === eduStudentId
+              ? { ...e, resumen: data.resumen, yaHoy: mismoDia?.hora ?? null }
+              : e,
+          ),
         );
       } catch {
         /* el historial es un extra: si falla, el registro se puede guardar igual */
@@ -144,7 +166,7 @@ export function PuntualidadForm({
       return;
     }
     haptic.tap();
-    setElegidos((prev) => [...prev, { alumno, detalle: detalleVacio(), resumen: null }]);
+    setElegidos((prev) => [...prev, { alumno, detalle: detalleVacio(), resumen: null, yaHoy: null }]);
     setQuery('');
     setResultados([]);
     buscadorRef.current?.focus();
@@ -170,6 +192,12 @@ export function PuntualidadForm({
   const cambiarFecha = (nueva: string) => {
     setFecha(nueva);
     for (const e of elegidos) void cargarHistorial(e.alumno.eduStudentId, nueva);
+  };
+
+  const ajustarHora = (delta: number) => {
+    haptic.tap();
+    const actual = minutosDeHora(hora) ?? minutosDeHora(horaAhora()) ?? 0;
+    setHora(horaDeMinutos(actual + delta));
   };
 
   const varios = elegidos.length > 1;
@@ -243,6 +271,14 @@ export function PuntualidadForm({
         }
       }
 
+      setGuardados(
+        resultados.map((r) => ({
+          alumno: r.alumno,
+          clase: r.clase,
+          total: r.total,
+          conConsecuencia: Boolean(r.consecuencia),
+        })),
+      );
       // Listo para el siguiente: se mantienen fecha, hora y asignatura (llegan en fila).
       setElegidos([]);
       setQuery('');
@@ -259,7 +295,7 @@ export function PuntualidadForm({
   return (
     <div className="space-y-7 pb-40">
       {/* ── Quién ─────────────────────────────────────────────────────────── */}
-      <Seccion titulo="Quién ha llegado tarde">
+      <Seccion paso={1} titulo="Quién ha llegado tarde">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
@@ -268,12 +304,29 @@ export function PuntualidadForm({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && resultados.length > 0) {
-                e.preventDefault();
-                añadir(resultados[0]);
+              if (resultados.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setResaltado((i) => (i + 1) % resultados.length);
+                  return;
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setResaltado((i) => (i - 1 + resultados.length) % resultados.length);
+                  return;
+                }
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  añadir(resultados[resaltado] ?? resultados[0]);
+                  return;
+                }
               }
               if (e.key === 'Escape') setQuery('');
             }}
+            role="combobox"
+            aria-expanded={resultados.length > 0}
+            aria-controls="pun-resultados"
+            aria-autocomplete="list"
             placeholder="Nombre o apellido…"
             enterKeyHint="done"
             autoComplete="off"
@@ -298,23 +351,31 @@ export function PuntualidadForm({
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900"
+              id="pun-resultados"
+              role="listbox"
+              className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900"
             >
-              {resultados.map((a) => (
-                <li key={a.eduStudentId}>
-                  <button
-                    type="button"
-                    onClick={() => añadir(a)}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-orange-50/60 active:bg-orange-100/60 dark:hover:bg-orange-500/5"
-                  >
-                    <UserPlus className="h-4 w-4 shrink-0 text-orange-500" />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                      {a.nombre}
-                    </span>
-                    <ClaseChip clase={a.clase} />
-                  </button>
-                </li>
-              ))}
+              {resultados.map((a, i) => {
+                const activo = i === resaltado;
+                return (
+                  <li key={a.eduStudentId} role="option" aria-selected={activo}>
+                    <button
+                      type="button"
+                      onClick={() => añadir(a)}
+                      onMouseEnter={() => setResaltado(i)}
+                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
+                        activo ? 'bg-orange-50 dark:bg-orange-500/10' : 'hover:bg-orange-50/60 dark:hover:bg-orange-500/5'
+                      }`}
+                    >
+                      <UserPlus className="h-4 w-4 shrink-0 text-orange-500" />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                        {a.nombre}
+                      </span>
+                      <ClaseChip clase={a.clase} />
+                    </button>
+                  </li>
+                );
+              })}
             </motion.ul>
           )}
           {!buscando && query.trim().length >= 2 && resultados.length === 0 && (
@@ -327,18 +388,31 @@ export function PuntualidadForm({
             </motion.p>
           )}
         </AnimatePresence>
+        {resultados.length > 1 && (
+          <p className="hidden text-[11px] text-zinc-400 sm:block">
+            ↑ ↓ para moverte · Enter para añadir · se pueden añadir varios
+          </p>
+        )}
 
         {/* Alumnado elegido */}
         <div className="space-y-2.5">
           <AnimatePresence initial={false}>
-            {elegidos.map((e) => (
+            {elegidos.map((e) => {
+              // Cuando el registro va a cerrar el ciclo de tres, la tarjeta entera lo
+              // avisa (borde rosa): es la información que cambia la conversación.
+              const cierra = e.resumen?.faltanParaConsecuencia === 0 && !e.detalle.justificado;
+              return (
               <motion.div
                 key={e.alumno.eduStudentId}
                 layout
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+                className={`overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 ${
+                  cierra
+                    ? 'border-rose-300 ring-1 ring-rose-200 dark:border-rose-800 dark:ring-rose-900/50'
+                    : 'border-zinc-200 dark:border-zinc-700'
+                }`}
               >
                 <div className="flex items-start gap-3 p-3.5">
                   <div className="min-w-0 flex-1 space-y-2">
@@ -346,23 +420,31 @@ export function PuntualidadForm({
                       <span className="truncate font-semibold text-zinc-900 dark:text-zinc-100">{e.alumno.nombre}</span>
                       <ClaseChip clase={e.alumno.clase} />
                     </div>
-                    {e.resumen ? (
-                      <HistorialPill tono={e.resumen.tono}>
-                        {fraseHistorial(e.resumen, fechaCorta)}
-                        {e.resumen.faltanParaConsecuencia === 0 && !e.detalle.justificado && (
-                          <strong className="block">
-                            Con este cierra el ciclo de tres: se avisará al tutor/a y le toca quedarse sin patio.
-                          </strong>
-                        )}
-                        {e.resumen.justificados > 0 && (
-                          <span className="block text-[11px] opacity-70">
-                            {e.resumen.justificados}{' '}
-                            {e.resumen.justificados === 1 ? 'justificado' : 'justificados'} (no cuentan para el ciclo)
-                          </span>
-                        )}
-                      </HistorialPill>
-                    ) : (
-                      <p className="text-xs text-zinc-400">Cargando historial…</p>
+                    <div aria-live="polite">
+                      {e.resumen ? (
+                        <HistorialPill tono={e.resumen.tono}>
+                          {fraseHistorial(e.resumen, fechaCorta)}
+                          {cierra && (
+                            <strong className="block">
+                              Con este cierra el ciclo de tres: se avisará al tutor/a y le toca quedarse sin patio.
+                            </strong>
+                          )}
+                          {e.resumen.justificados > 0 && (
+                            <span className="block text-[11px] opacity-70">
+                              {e.resumen.justificados}{' '}
+                              {e.resumen.justificados === 1 ? 'justificado' : 'justificados'} (no cuentan para el ciclo)
+                            </span>
+                          )}
+                        </HistorialPill>
+                      ) : (
+                        <div className="h-7 w-3/4 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+                      )}
+                    </div>
+                    {e.yaHoy && (
+                      <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                        <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" />
+                        Ya tiene un retraso guardado este día (a las {e.yaHoy}). Si es el mismo, quítalo de la lista.
+                      </p>
                     )}
                   </div>
                   <button
@@ -483,13 +565,37 @@ export function PuntualidadForm({
                   )}
                 </AnimatePresence>
               </motion.div>
-            ))}
+              );
+            })}
           </AnimatePresence>
         </div>
+
+        {/* Lo que se acaba de guardar: los toast se van, esto se queda. */}
+        {guardados.length > 0 && elegidos.length === 0 && (
+          <div className="space-y-1.5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900/50 dark:bg-emerald-900/10">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <Check className="h-3.5 w-3.5" /> Guardado
+            </p>
+            <ul className="space-y-1">
+              {guardados.map((g, i) => (
+                <li key={`${g.alumno}-${i}`} className="flex items-baseline gap-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">{g.alumno}</span>
+                  <ClaseChip clase={g.clase} />
+                  <span className="shrink-0 text-xs text-zinc-500">{g.total}º del curso</span>
+                  {g.conConsecuencia && (
+                    <span className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                      sin patio
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Seccion>
 
       {/* ── Asignatura ────────────────────────────────────────────────────── */}
-      <Seccion titulo="En qué asignatura" aviso={varios ? 'obligatoria al registrar varios' : undefined}>
+      <Seccion paso={2} titulo="En qué asignatura" aviso={varios ? 'obligatoria al registrar varios' : undefined}>
         {asignaturas.length === 0 ? (
           <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-3 text-sm text-zinc-400 dark:border-zinc-700">
             No hay asignaturas configuradas. Se añaden en el panel de gestión.
@@ -509,7 +615,7 @@ export function PuntualidadForm({
       </Seccion>
 
       {/* ── Cuándo ────────────────────────────────────────────────────────── */}
-      <Seccion titulo="Cuándo">
+      <Seccion paso={3} titulo="Cuándo">
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex h-12 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-900">
             <CalendarDays className="h-4 w-4 text-zinc-400" />
@@ -521,15 +627,34 @@ export function PuntualidadForm({
               className="bg-transparent text-sm text-zinc-800 outline-none dark:text-zinc-100"
             />
           </label>
-          <label className="flex h-12 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-900">
-            <Clock className="h-4 w-4 text-zinc-400" />
-            <input
-              type="time"
-              value={hora}
-              onChange={(e) => setHora(e.target.value || horaAhora())}
-              className="bg-transparent text-sm tabular-nums text-zinc-800 outline-none dark:text-zinc-100"
-            />
-          </label>
+          {/* La hora se ajusta a toques: el selector nativo en iPad es un suplicio. */}
+          <div className="flex h-12 items-center rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <button
+              type="button"
+              onClick={() => ajustarHora(-5)}
+              className="flex h-full w-10 items-center justify-center rounded-l-xl text-zinc-500 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              aria-label="Cinco minutos antes"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <label className="flex h-full items-center gap-2 border-x border-zinc-200 px-3 dark:border-zinc-700">
+              <Clock className="h-4 w-4 text-zinc-400" />
+              <input
+                type="time"
+                value={hora}
+                onChange={(e) => setHora(e.target.value || horaAhora())}
+                className="w-[5.5rem] bg-transparent text-sm tabular-nums text-zinc-800 outline-none dark:text-zinc-100"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => ajustarHora(5)}
+              className="flex h-full w-10 items-center justify-center rounded-r-xl text-zinc-500 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              aria-label="Cinco minutos después"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => {

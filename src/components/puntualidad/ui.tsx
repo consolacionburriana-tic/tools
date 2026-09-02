@@ -7,10 +7,13 @@ import { motion } from 'motion/react';
 import { haptic } from '@/lib/haptics';
 
 export function Seccion({
+  paso,
   titulo,
   aviso,
   children,
 }: {
+  /** Número de paso: orienta a quien entra por primera vez sin añadir ruido. */
+  paso?: number;
   titulo: string;
   aviso?: string;
   children: React.ReactNode;
@@ -18,6 +21,11 @@ export function Seccion({
   return (
     <section className="space-y-2.5">
       <div className="flex items-baseline gap-2">
+        {paso !== undefined && (
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+            {paso}
+          </span>
+        )}
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">{titulo}</h2>
         {aviso && <span className="text-xs text-orange-600 dark:text-orange-400">{aviso}</span>}
       </div>
