@@ -147,11 +147,30 @@ Recopilados de las fichas, para verlos de un vistazo:
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
+- **Puntualidad** (ficha `17`): ejecutar `pnpm db:push` en Neon para las tablas nuevas
+  (`pun_subjects`, `pun_records`, `pun_digest_runs`, `con_consequences`,
+  `con_consequence_types`, `con_consequence_records`) — todo aditivo, no toca nada existente.
+  Hasta que se aplique, las pantallas del módulo darán error de tabla inexistente. Opcional:
+  poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del aviso del 3er
+  retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su `CRON_SECRET`.
 - **Banco de libros** (ficha `12`): ejecutar `pnpm db:push` en Neon para la columna
   `edu_students.ampa` y la tabla `bl_libros_curso` (cambios aditivos). El código está desplegable,
   pero hasta que no se aplique el schema la pestaña AMPA y los libros manuales darán error.
 
 ---
+
+### Puntualidad: lo que quedó anotado al construirlo (2026-09-02)
+- **Consecuencias como módulo propio**: nacen dentro de Puntualidad pero con prefijo `con_*`
+  y `origen` ('puntualidad' | 'manual') justo para poder separarlas. Cuando haga falta
+  registrar consecuencias de convivencia, se mudan esas tres tablas y sus pantallas.
+- **Aviso a familias en cada retraso**: descartado por ahora (sería el correo con más ruido
+  del colegio). Si algún día se quiere, el sitio natural es el mismo route de alta.
+- **Franjas además de la entrada**: hoy solo se registra la entrada de las 8:00 con límite
+  08:05. Si se quisiera apuntar retrasos tras el patio, habría que añadir franja + límite por
+  franja. Se decidió esperar a tener los horarios.
+- **Borrar un retraso** lo puede hacer cualquiera con el módulo (y un tutor solo en sus
+  clases). No hay auditoría de borrados: si algún día importa, es el caso de uso del
+  historial transversal que ya está apuntado como idea abajo.
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
 

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import {
+  AlarmClock,
   BookMarked,
   Bus,
   ClipboardCheck,
@@ -14,6 +15,7 @@ import {
   Library,
   LogOut,
   MessageSquareText,
+  Timer,
 } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -149,6 +151,20 @@ export default async function EscritorioPage() {
             title="Registrar conducta (ABC)"
             desc="Formulario rápido de incidencias — para todo el claustro"
           />
+          <ModuleCard
+            href="/puntualidad"
+            icon={<AlarmClock className="h-6 w-6" />}
+            title="Registrar retraso (puntualidad)"
+            desc="Quién llega tarde a las 8:05 — para todo el claustro"
+          />
+          {puede('puntualidad') && (
+            <ModuleCard
+              href="/gestion/puntualidad"
+              icon={<Timer className="h-6 w-6" />}
+              title="Panel de Puntualidad"
+              desc="Retrasos, consecuencias y quién acumula"
+            />
+          )}
           {puede('abc') && (
             <ModuleCard
               href="/gestion/abc"

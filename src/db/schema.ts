@@ -726,3 +726,134 @@ export type EvalResponse = typeof evalResponses.$inferSelect;
 export type EvalAnswer = typeof evalAnswers.$inferSelect;
 export type EvalQuestionTemplate = typeof evalQuestionTemplates.$inferSelect;
 export type EvalEmailTemplate = typeof evalEmailTemplates.$inferSelect;
+
+// ─── Tool: Puntualidad (prefijo pun_) ─────────────────────────────────────────
+//
+// Modelo mental (ver docs/17-puntualidad.md):
+//
+//   REGISTRO (pun_records) = un alumno llegó tarde un día a una hora. Es la unidad del
+//   módulo y se crea en segundos: alumno + asignatura + hora. El retraso en minutos se
+//   calcula contra la hora límite del centro (08:05) y se GUARDA junto con el límite
+//   vigente, para que cambiar la constante mañana no reescriba la historia.
+//
+//   ASIGNATURA (pun_subjects) = catálogo editable desde el panel. Hoy se elige a mano;
+//   cuando estén los horarios del claustro en la app, la asignatura (y su profe) se
+//   deducirán del día + hora y este campo se rellenará solo. `edu_teacher_id` ya está
+//   aquí para eso: es el profe al que se avisará cuando ese aviso se encienda.
+//
+//   CONSECUENCIA (con_consequences) = "este día se queda sin patio". Lleva prefijo PROPIO
+//   (`con_`) a propósito: cada 3 retrasos no justificados se genera una, pero una
+//   consecuencia NO está siempre atada a la puntualidad (mañana puede venir de convivencia
+//   o crearse a mano). El vínculo con los retrasos que la motivaron vive en la tabla
+//   puente `con_consequence_records`, así que el día que las consecuencias sean módulo
+//   aparte se mueven estas tres tablas y no hay que renombrar nada.
+export const punSubjects = pgTable('pun_subjects', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(),
+  abreviatura: text('abreviatura'), // lo que se pinta en el chip del formulario ('GEH')
+  // Profe que la imparte, cuando se sepa. Hoy opcional y sin uso: es el destinatario del
+  // aviso "tu alumno llegó tarde a tu clase" que queda escrito pero apagado.
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id),
+  orden: integer('orden').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const punRecords = pgTable('pun_records', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id),
+  // Clase congelada en el momento del registro: el alumno promociona, el histórico no.
+  curso: text('curso'),
+  letra: text('letra'),
+  fecha: date('fecha').notNull(),
+  hora: text('hora').notNull(), // 'HH:mm' hora de llegada (sin zona horaria, es hora de centro)
+  horaLimite: text('hora_limite').notNull(), // 'HH:mm' vigente al registrar
+  minutosRetraso: integer('minutos_retraso').notNull(),
+  subjectId: uuid('subject_id').references(() => punSubjects.id),
+  justificado: boolean('justificado').notNull().default(false),
+  justificacionTipo: text('justificacion_tipo'), // 'familiar' | 'medico' | 'transporte' | 'otro'
+  justificacionNota: text('justificacion_nota'),
+  subeAClase: boolean('sube_a_clase').notNull().default(false),
+  observaciones: text('observaciones'),
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id), // quién lo registró
+  registradoPorEmail: text('registrado_por_email'),
+  academicYear: text('academic_year').notNull(),
+  // Aviso al profe de la asignatura: escrito pero apagado hasta que estén los horarios.
+  avisoProfeEnviadoAt: timestamp('aviso_profe_enviado_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('pun_records_alumno_fecha_idx').on(t.eduStudentId, t.fecha),
+  index('pun_records_fecha_idx').on(t.fecha),
+  index('pun_records_year_idx').on(t.academicYear),
+]);
+
+// Catálogo abierto de tipos de consecuencia. Hoy solo 'sin_patio'; se pueden añadir más
+// desde el panel sin tocar código (aula de convivencia, tarde, tarea…).
+export const conConsequenceTypes = pgTable('con_consequence_types', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  clave: text('clave').notNull().unique(), // 'sin_patio'
+  nombre: text('nombre').notNull(), // 'Se queda sin patio'
+  orden: integer('orden').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const conConsequences = pgTable('con_consequences', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id),
+  tipoClave: text('tipo_clave').notNull().default('sin_patio'),
+  // De dónde nace: 'puntualidad' (las 3 acumuladas) o 'manual'. Deja sitio a otros
+  // orígenes el día que las consecuencias sean su propio módulo.
+  origen: text('origen').notNull().default('puntualidad'),
+  fecha: date('fecha'), // el día que la cumple; null mientras el tutor no la fija
+  motivo: text('motivo'), // frase del aviso ('3er retraso del curso: 12/09, 18/09 y 24/09')
+  notas: text('notas'),
+  cumplida: boolean('cumplida').notNull().default(false),
+  cumplidaAt: timestamp('cumplida_at'),
+  avisadaEducamos: boolean('avisada_educamos').notNull().default(false),
+  avisadaEducamosAt: timestamp('avisada_educamos_at'),
+  // Enlace de un clic del correo al tutor (token propio del módulo, no de familias).
+  token: text('token').unique(),
+  tokenExpiraAt: timestamp('token_expira_at'),
+  avisoEnviadoAt: timestamp('aviso_enviado_at'),
+  avisoDestinatarios: jsonb('aviso_destinatarios').$type<string[]>(),
+  creadaPorEmail: text('creada_por_email'), // null si la generó el sistema
+  fijadaPorEmail: text('fijada_por_email'), // quién puso la fecha (tutor)
+  academicYear: text('academic_year').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('con_consequences_alumno_idx').on(t.eduStudentId),
+  index('con_consequences_fecha_idx').on(t.fecha),
+]);
+
+// Qué retrasos motivaron una consecuencia. Un retraso ya vinculado NO vuelve a contar para
+// el siguiente ciclo de tres: es así como "se reinicia el contador" sin guardar contadores.
+export const conConsequenceRecords = pgTable('con_consequence_records', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  consequenceId: uuid('consequence_id').notNull().references(() => conConsequences.id, { onDelete: 'cascade' }),
+  punRecordId: uuid('pun_record_id').notNull().references(() => punRecords.id, { onDelete: 'cascade' }),
+}, (t) => [
+  uniqueIndex('con_consequence_records_uq').on(t.consequenceId, t.punRecordId),
+  index('con_consequence_records_record_idx').on(t.punRecordId),
+]);
+
+// Bitácora del resumen semanal a tutores (para no mandarlo dos veces si el cron repite).
+export const punDigestRuns = pgTable('pun_digest_runs', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  semana: text('semana').notNull().unique(), // '2026-W36' (lunes de la semana resumida)
+  enviados: integer('enviados').notNull().default(0),
+  destinatarios: jsonb('destinatarios').$type<string[]>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─── Types Puntualidad ────────────────────────────────────────────────────────
+export type PunSubject = typeof punSubjects.$inferSelect;
+export type NewPunSubject = typeof punSubjects.$inferInsert;
+export type PunRecord = typeof punRecords.$inferSelect;
+export type NewPunRecord = typeof punRecords.$inferInsert;
+export type ConConsequence = typeof conConsequences.$inferSelect;
+export type NewConConsequence = typeof conConsequences.$inferInsert;
+export type ConConsequenceType = typeof conConsequenceTypes.$inferSelect;

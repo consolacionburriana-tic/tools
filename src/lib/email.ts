@@ -19,7 +19,7 @@ import { Resend } from 'resend';
 import { enviarGmail, enviarLoteGmail, direccion, gmailConfigurado, type MensajeGmail } from '@/lib/email-gmail';
 
 export type Transporte = 'gmail' | 'resend';
-export type PerfilCorreo = 'licencias' | 'salidas' | 'abc' | 'evaluaciones' | 'general';
+export type PerfilCorreo = 'licencias' | 'salidas' | 'abc' | 'evaluaciones' | 'puntualidad' | 'general';
 
 export interface Remitente {
   nombre: string;
@@ -50,6 +50,7 @@ const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: 
   salidas: { nombre: 'Salidas · Colegio Consolación', email: `no-responder@${DOMINIO}` },
   abc: { nombre: 'Registro ABC · Colegio Consolación', email: `no-responder@${DOMINIO}` },
   evaluaciones: { nombre: 'Evaluaciones · Colegio Consolación', email: `no-responder@${DOMINIO}` },
+  puntualidad: { nombre: 'Puntualidad · Colegio Consolación', email: `no-responder@${DOMINIO}` },
   general: { nombre: 'Colegio Consolación', email: `no-responder@${DOMINIO}` },
 };
 
