@@ -68,6 +68,34 @@ export function compararClasesMayoresPrimero(
  * ¿Este curso entra en el banco de libros? El banco arranca en 3º de primaria;
  * infantil, 1º y 2º de primaria quedan fuera. Secundaria y PDC entran siempre.
  */
+/**
+ * Curso al que se pasa al promocionar de año, o `null` si no hay destino (egresa).
+ * Reglas fijadas por David (2026-09-01):
+ * - **Infantil** rota el ciclo 3-4-5: `3INF→4INF→5INF→3INF`.
+ * - **Primaria** rota dentro del ciclo de dos años: `1↔2`, `3↔4`, `5↔6` (misma letra).
+ * - **ESO** sube de verdad (`1→2→3→4`) y **4º egresa**. Los PDC siguen la misma regla
+ *   por su nivel (`3ºPPDC→4ºPPDC`, `4ºPPDC` egresa).
+ * El código de curso se reconstruye cambiando solo el número inicial, así que respeta
+ * los formatos raros (`3ºPPDC`) tal cual vienen de Educamos.
+ */
+export function cursoSiguiente(curso: string | null | undefined): string | null {
+  const etapa = etapaDeCurso(curso);
+  if (!curso || !etapa) return null;
+  const nivel = nivelDeCurso(curso);
+  let destino: number | null;
+  if (etapa === 'EI') {
+    if (nivel < 3 || nivel > 5) return null;
+    destino = nivel === 5 ? 3 : nivel + 1;
+  } else if (etapa === 'EP') {
+    if (nivel < 1 || nivel > 6) return null;
+    destino = nivel % 2 === 1 ? nivel + 1 : nivel - 1;
+  } else {
+    if (nivel < 1 || nivel > 4) return null;
+    destino = nivel === 4 ? null : nivel + 1;
+  }
+  return destino === null ? null : curso.replace(/^\d+/, String(destino));
+}
+
 export function cursoEnBanco(curso: string | null | undefined): boolean {
   const etapa = etapaDeCurso(curso);
   if (etapa === 'EI') return false;

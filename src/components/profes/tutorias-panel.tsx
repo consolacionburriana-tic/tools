@@ -1,11 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Loader2, Plus, Search, X } from 'lucide-react';
+import { ArrowRight,Eraser, Loader2, Plus, Search, TriangleAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
-import { etapaDeCurso } from '@/lib/cursos';
+import { etapaDeCurso, type Etapa } from '@/lib/cursos';
 import type { ProfeItem } from '@/lib/profes';
+import { type CambioPromocion, planPromocion, resumenPlan } from '@/lib/tutorias';
 
 export interface ClaseConTutoresProp {
   curso: string;
@@ -26,6 +27,9 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
   const [abriendo, setAbriendo] = useState<string | null>(null); // curso|letra de la clase con el buscador abierto
   const [busqueda, setBusqueda] = useState('');
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [previa, setPrevia] = useState<CambioPromocion[] | null>(null); // plan de promoción a la vista
+  const [limpiando, setLimpiando] = useState<Etapa | 'todas' | null>(null); // confirmación pendiente
+  const [enMarcha, setEnMarcha] = useState(false);
 
   const porEtapa = useMemo(() => {
     const grupos: Record<string, ClaseConTutoresProp[]> = { EI: [], EP: [], ESO: [], General: [] };
@@ -87,8 +91,163 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
     }
   }
 
+  // Acciones en bloque. El servidor recalcula el plan por su cuenta: esta previa es solo
+  // para que se vea qué va a pasar antes de tocar las tutorías reales del centro.
+  async function accion(body: Record<string, unknown>, exito: (r: Record<string, number>) => string) {
+    setEnMarcha(true);
+    try {
+      const res = await fetch('/api/profes/admin/tutorias/acciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setClases(data.clases);
+      setPrevia(null);
+      setLimpiando(null);
+      toast.success(exito(data.resultado));
+      haptic.success();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo aplicar');
+      haptic.warning();
+    } finally {
+      setEnMarcha(false);
+    }
+  }
+
+  const totalTutorias = clases.reduce((n, c) => n + c.tutores.length, 0);
+  const aLimpiar =
+    limpiando === null
+      ? 0
+      : clases
+          .filter((c) => limpiando === 'todas' || etapaDeCurso(c.curso) === limpiando)
+          .reduce((n, c) => n + c.tutores.length, 0);
+
   return (
     <div className="space-y-6">
+      {/* Acciones en bloque, para ahorrar clics a principio de curso */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="mr-1 text-zinc-400">{totalTutorias} tutorías asignadas:</span>
+          <button
+            type="button"
+            disabled={enMarcha || totalTutorias === 0}
+            onClick={() => {
+              setLimpiando(null);
+              setPrevia(planPromocion(clases));
+            }}
+            className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-40 dark:bg-blue-500/10 dark:text-blue-300"
+          >
+            <ArrowRight className="h-3.5 w-3.5" /> Promocionar +1 curso
+          </button>
+          <span className="mx-1 text-zinc-300 dark:text-zinc-600">|</span>
+          <span className="text-zinc-400">Limpiar:</span>
+          {(['todas', 'EI', 'EP', 'ESO'] as const).map((q) => (
+            <button
+              key={q}
+              type="button"
+              disabled={enMarcha || totalTutorias === 0}
+              onClick={() => {
+                setPrevia(null);
+                setLimpiando(limpiando === q ? null : q);
+              }}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium disabled:opacity-40 ${
+                limpiando === q
+                  ? 'bg-red-600 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
+              }`}
+            >
+              <Eraser className="h-3.5 w-3.5" /> {q === 'todas' ? 'Todas' : ETAPA_LABEL[q]}
+            </button>
+          ))}
+        </div>
+
+        {/* Confirmación de limpiar */}
+        {limpiando && (
+          <div className="anim-up mt-2.5 rounded-xl bg-red-50 p-3 text-sm dark:bg-red-500/10">
+            <p className="flex items-start gap-1.5 text-red-800 dark:text-red-200">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Se van a borrar <strong>{aLimpiar} tutorías</strong>{' '}
+                {limpiando === 'todas' ? 'de todo el centro' : `de ${ETAPA_LABEL[limpiando].toLowerCase()}`} en el curso
+                académico en vigor. El formulario del ABC usa las tutorías para sugerir a quién avisar, así que se
+                quedará sin sugerencias hasta que se reasignen.
+              </span>
+            </p>
+            <div className="mt-2 flex gap-1.5">
+              <button
+                type="button"
+                disabled={enMarcha}
+                onClick={() =>
+                  void accion({ accion: 'limpiar', etapa: limpiando === 'todas' ? null : limpiando }, (r) => `${r.borradas} tutorías borradas`)
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {enMarcha ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eraser className="h-3.5 w-3.5" />}
+                Sí, borrar {aLimpiar}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLimpiando(null)}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Vista previa de la promoción */}
+        {previa && (
+          <div className="anim-up mt-2.5 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/60">
+            <p className="text-sm text-zinc-700 dark:text-zinc-200">
+              <strong>{resumenPlan(previa).movidas}</strong> tutorías cambian de clase y{' '}
+              <strong>{resumenPlan(previa).liberadas}</strong> se quedan libres. Infantil y Primaria rotan dentro de su
+              ciclo; en la ESO se sube de curso y 4º egresa.
+            </p>
+            <ul className="mt-2 max-h-64 space-y-0.5 overflow-y-auto text-xs">
+              {previa.map((c) => (
+                <li key={c.tutoriaId} className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-medium text-zinc-800 dark:text-zinc-100">{c.nombre}</span>
+                  <span className="text-zinc-400">{claseLabel(c.desde.curso, c.desde.letra)}</span>
+                  <ArrowRight className="h-3 w-3 text-zinc-400" />
+                  {c.hasta ? (
+                    <span className="font-medium text-emerald-700 dark:text-emerald-300">
+                      {claseLabel(c.hasta.curso, c.hasta.letra)}
+                    </span>
+                  ) : (
+                    <span className="text-amber-700 dark:text-amber-300">
+                      sin tutoría {c.motivo === 'egresa' ? '(egresa)' : '(no existe la clase destino)'}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex gap-1.5">
+              <button
+                type="button"
+                disabled={enMarcha}
+                onClick={() =>
+                  void accion({ accion: 'promocionar' }, (r) => `${r.movidas} tutorías movidas, ${r.liberadas} liberadas`)
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {enMarcha ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                Aplicar promoción
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrevia(null)}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {ETAPA_ORDEN.filter((et) => porEtapa[et]?.length).map((et) => (
         <section key={et}>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{ETAPA_LABEL[et]}</h2>

@@ -44,7 +44,12 @@ decidió al ejecutarlo, por si hay que revisarlo:
   a los 100 por llamada de Resend. Para los masivos grandes, ese perfil puede quedarse en
   Resend con una sola variable.
 
-### Tutorías: botón "promocionar todos +1 curso" — sin implementar, falta confirmar reglas de ciclo
+### ~~Tutorías: botón "promocionar todos +1 curso"~~ ✅ hecho (2026-09-02)
+David cerró las reglas de ciclo: **Infantil rota** (3→4→5→3), **Primaria rota dentro del ciclo**
+(1↔2, 3↔4, 5↔6, misma letra) y **ESO sube** (1→2→3→4) con **4º egresando**. Implementado en
+`/gestion/profes` con vista previa + confirmación, junto con "limpiar tutorías" (todas o por
+etapa). Lógica pura en `src/lib/tutorias.ts` y `cursoSiguiente()` en `src/lib/cursos.ts`, con
+tests. Queda como referencia el planteamiento original:
 La pantalla `/gestion/profes` (nueva, 2026-07-16) ya permite asignar/quitar tutores por clase
 a mano (tabla `edu_tutorias`, muchos-a-muchos: sin límite de tutores por clase ni de clases por
 profe, decisión explícita de David). Lo que falta es el botón de promoción automática que pidió

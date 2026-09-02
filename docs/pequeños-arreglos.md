@@ -3,12 +3,16 @@
 
 
 ### Pendiente de decisión tuya
-- **Transversales dejados en "General"** (el campo `etapa` es único y no representa varias): BORT (orientación EP+ESO), COMPAÑ (EP+ESO+orient.), VIDAL (orient. EI+EP), PEÑA Salomé y SEBASTIA Emilia (dirección). En "General" aparecen en salidas de cualquier etapa. Si prefieres clavarles UNA etapa, dímelo.
-- **Botón "promocionar tutores +1 curso"**: la pantalla de asignar tutores ya está (ver Hecho ✅ abajo), pero el botón de promoción automática que pediste no está claro en los bordes de ciclo (qué pasa con los tutores de 2º/4º/6º EP y de 5º INF). Detalle y pregunta concreta en `docs/00-desarrollos-futuros.md` → "Tutorías: botón promocionar".
+- *(nada ahora mismo)*
 
 ---
 
 ## Hecho ✅
+
+### Tutorías: acciones en bloque (2026-09-02)
+- ~~**Botón "promocionar tutores +1 curso"**~~ → hecho, con **vista previa antes de aplicar** (lista "Profe: 2ESO B → 3ESO B" / "sin tutoría (egresa)") y confirmación. Reglas que decidiste: **Infantil rota el ciclo** 3→4→5→3 · **Primaria rota dentro del ciclo** 1↔2, 3↔4, 5↔6 · **ESO sube** 1→2→3→4 y **4º egresa**. Si la clase destino no existe (p. ej. no hay `2PRI B`), esa tutoría se libera en vez de inventarse la clase. El plan se recalcula en servidor, no se fía del que ve el navegador.
+- ~~Limpiar tutorías para ahorrar clics~~ → botones **Todas / Infantil / Primaria / Secundaria** con confirmación que dice cuántas se van a borrar y avisa de que el formulario del ABC se queda sin sugerencias de destinatarios. Solo borra el curso académico en vigor: el histórico de otros años no se toca.
+- ~~**Transversales dejados en "General"**~~ → decidido: **se quedan en "General"** (BORT, COMPAÑ, VIDAL, PEÑA Salomé, SEBASTIA Emilia). Así siguen apareciendo en salidas de cualquier etapa, que es lo que interesa.
 
 ### Pantalla de tutorías (nuevo, 2026-07-16)
 - ~~Una pantalla sencilla donde ver todos los profes por etapa... poder marcarles de qué tutoría son, de qué clase son; una clase puede tener varios tutores... incluso ilimitado, muchos-a-muchos~~ → **`/gestion/profes`**: rejilla de clases agrupadas por etapa (infantil → primaria → secundaria), cada clase muestra sus tutores actuales (chips quitables) y un buscador para añadir más. Sin límite: una clase puede tener N tutores, un profe puede tutorizar N clases (confirmado explícitamente por David, "hazlo muchos a muchos por ser flexibles").
