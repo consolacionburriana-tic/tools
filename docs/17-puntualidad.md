@@ -126,7 +126,10 @@ público a propósito.
 - [x] Tablas `pun_*` y `con_*` en `src/db/schema.ts` (aditivas)
 - [x] Módulo `puntualidad` en la matriz de permisos + `vePuntualidadCompleta()` con tests
 - [x] Helpers puros con tests (`pnpm test`: retraso, resumen de historial, ciclo, semana ISO)
-- [ ] `pnpm db:push` aplicado en Neon (**solo David**: no hay `DATABASE_URL` en la sesión)
+- [ ] `pnpm db:push` aplicado en Neon (**solo David**: no hay `DATABASE_URL` en la sesión).
+      Alternativa sin CLI: pegar `src/db/sql/puntualidad.sql` en la consola SQL de Neon —
+      mismo resultado, idempotente, con los mismos nombres de constraint e índice que
+      genera Drizzle (para que un `db:push` posterior no vea diferencias)
 
 ## Fase 1 · Formulario de registro — ✅
 - [x] Buscador de alumnado de secundaria por nombre/apellido (nombre completo + clase)
