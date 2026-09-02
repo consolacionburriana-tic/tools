@@ -142,6 +142,10 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [email, setEmail] = useState('');
+  // Correo que ya tenemos de la familia, SIEMPRE enmascarado ("da•••@gmail.com"): se
+  // enseña para que no lo teclee. Si toca "usar otro correo", aparece el campo de siempre.
+  const [correoMascara, setCorreoMascara] = useState<string | null>(null);
+  const [editandoCorreo, setEditandoCorreo] = useState(false);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [existingOrderDate, setExistingOrderDate] = useState<string | null>(null);
 
@@ -201,6 +205,7 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
         const data = await res.json();
         const encontrados: Candidate[] = res.ok ? (data.candidates ?? []) : [];
         setCandidates(encontrados);
+        setCorreoMascara(res.ok ? (data.correoMascara ?? null) : null);
         if (token && encontrados.length === 0) {
           setTokenInvalido(true);
           setToken(null); // enlace caducado: volvemos al DNI/NIA de siempre
@@ -243,7 +248,13 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
       setPacks(cat.packs ?? []);
       const ord = await ordRes.json();
       setSelected(new Set<string>(ord.order ? (ord.cods ?? []) : []));
-      if (ord.order?.email) setEmail(ord.order.email);
+      // El correo que ya tenemos (de su pedido anterior o de la BBDD) llega enmascarado:
+      // se lo enseñamos para que no lo teclee, y el servidor pone el real al guardar.
+      if (ord.correoMascara) {
+        setCorreoMascara(ord.correoMascara);
+        setEditandoCorreo(false);
+        setEmail('');
+      }
       setExistingOrderDate(ord.order?.confirmedAt ?? null);
       setStep('licenses');
     } catch {
@@ -265,7 +276,7 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
 
   async function confirmar() {
     setError(null);
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (editandoCorreo && email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       haptic.warning();
       setError('Introduce un correo electrónico válido.');
       return;
@@ -279,7 +290,10 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
           identificador: identificadorActivo,
           studentId: student!.id,
           curso: effCurso || curso,
-          email,
+          email: editandoCorreo ? email.trim() : '',
+          // Sin tocar nada: que el servidor use el correo que ya tenemos (solo hemos
+          // visto la máscara, la dirección real no ha pasado nunca por el navegador).
+          mantenerCorreo: !editandoCorreo && !!correoMascara,
           cods: [...selected],
         }),
       });
@@ -305,6 +319,10 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
     setResult(null);
     setError(null);
     setExistingOrderDate(null);
+    // El correo se vuelve a resolver al elegir al siguiente hijo (la máscara de la familia
+    // vale igual, pero si habían tecleado otro correo para un hermano no lo arrastramos).
+    setEditandoCorreo(false);
+    setEmail('');
     // Mantenemos el identificador y la lista de hermanos: es probable que la familia
     // tenga más hijos/as y así no hace falta volver a teclear el DNI/NIE/NIA.
   }
@@ -588,18 +606,57 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
               <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Correo electrónico para la confirmación <span className="font-normal text-zinc-400">(opcional)</span>
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@correo.com"
-                autoComplete="email"
-                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              />
-              <p className="mt-1.5 text-xs text-zinc-400">
-                Si no lo indicas, no recibirás un correo de confirmación, pero el pedido quedará registrado
-                igualmente.
-              </p>
+
+              {correoMascara && !editandoCorreo ? (
+                <>
+                  {/* Ya tenemos su correo: se lo enseñamos enmascarado para que no lo
+                      teclee. La dirección completa no viaja al navegador. */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+                    <span className="text-zinc-900 dark:text-zinc-100">{correoMascara}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditandoCorreo(true);
+                        setEmail('');
+                      }}
+                      className="ml-auto text-sm font-medium text-blue-600 underline hover:text-blue-700 dark:text-blue-400"
+                    >
+                      Usar otro correo
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-zinc-400">
+                    Es el correo que tenemos de la familia: te enviaremos ahí la confirmación, sin que tengas que
+                    escribirlo. Lo mostramos a medias por protección de datos.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    autoComplete="email"
+                    className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 px-4 py-3 text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  />
+                  {correoMascara && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditandoCorreo(false);
+                        setEmail('');
+                      }}
+                      className="mt-1.5 text-sm font-medium text-blue-600 underline hover:text-blue-700 dark:text-blue-400"
+                    >
+                      Usar el que ya tenéis ({correoMascara})
+                    </button>
+                  )}
+                  <p className="mt-1.5 text-xs text-zinc-400">
+                    Si no lo indicas, no recibirás un correo de confirmación, pero el pedido quedará registrado
+                    igualmente.
+                  </p>
+                </>
+              )}
               <p className="mt-1 text-xs text-zinc-400">
                 Las licencias llegarán a los alumnos a <strong className="font-medium">finales de septiembre / inicio de octubre</strong>.
               </p>

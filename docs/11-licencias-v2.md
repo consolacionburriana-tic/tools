@@ -62,6 +62,23 @@ Pendiente **solo por credenciales/accesos externos** (no por código):
   - Se generan en **tres sitios, el mismo código** (`src/lib/fam-tokens-server.ts`): al enviar
     los correos (automático, lo que falte), desde `/gestion/licencias/accesos` (botón) y por
     terminal (`pnpm tokens:familias`).
+- **Correo pre-rellenado en el formulario público (2026-09-02):** la familia ya no teclea su
+  correo. Al identificarse le sale el que tenemos, **enmascarado** (`da•••@gmail.com`), con un
+  "Usar otro correo" si quiere cambiarlo. De dónde sale, por orden: el del **pedido anterior**
+  si ya hizo uno · el del **token** (magic link), que es la dirección a la que se envió ese
+  enlace · el del **tutor cuyo documento se ha tecleado** (`email`, con `email_google` de
+  respaldo) · si no, el del **tutor 1** de sus hijos.
+  - **La dirección completa NUNCA viaja al navegador** en el flujo público: la respuesta de
+    `/api/licencias/identify` y del GET de `orders` solo lleva la máscara (`maskEmail`), y al
+    guardar el pedido el cliente manda `mantenerCorreo: true` para que **el servidor** resuelva
+    el valor real. Motivo: quien teclea un DNI no ha probado ser de esa familia, así que la
+    pantalla no puede servir de oráculo para sacar correos ajenos. Esto además cierra una fuga
+    que ya existía: el GET de `orders` devolvía en claro el correo del pedido anterior.
+  - En el panel de gestión (detrás del login) los correos se siguen viendo completos, que es
+    para lo que está.
+  - Pendiente de valorar si conviene filtrar por `edu_student_guardians.recibe_informacion` /
+    `guarda_custodia` al elegir el correo del tutor 1; hoy no se filtra porque la calidad de
+    esos dos campos en el export de Educamos está sin comprobar.
 - **Correos a familias (2026-07-30):** el envío masivo tiene dos modos — *familias* (al correo
   del tutor de la BBDD central, con su enlace: uno por familia) y el clásico *alumnos* (al
   correo del alumno). En modo familias se filtra por **cursos y clases**, con casilla "solo

@@ -53,11 +53,17 @@ export async function setCampaignNoteText(campaignId: string, noteText: string |
 // Identificación por privacidad (2026-07-11): la familia teclea el DNI/NIE del tutor,
 // el NIA del alumno o un token de acceso; NUNCA se busca por nombre/apellidos ni se
 // devuelven datos sin enmascarar (decisión de protección de datos).
+/**
+ * Hijos de esta familia que están en la campaña, más el correo que tenemos de ella.
+ * El correo va aquí (y no en cada hijo) porque es de la familia; **es el valor real, así
+ * que solo se usa en servidor**: a la pantalla pública va enmascarado (ver `maskEmail`).
+ */
 export async function identifyStudentsByFamily(campaignId: string, identificador: string) {
   const identity = await identifyFamily(identificador);
-  if (!identity) return [];
+  if (!identity) return { candidatos: [], correoFamilia: null };
+  const correoFamilia = identity.email;
   const ids = identity.hijos.map((h) => h.eduStudentId);
-  if (ids.length === 0) return [];
+  if (ids.length === 0) return { candidatos: [], correoFamilia };
   const rows = await db
     .select()
     .from(licStudents)
@@ -82,7 +88,7 @@ export async function identifyStudentsByFamily(campaignId: string, identificador
         )
     : [];
   const conPedidoIds = new Set(orders.map((o) => o.studentId));
-  return rows.map((s) => {
+  const candidatos = rows.map((s) => {
     const hijo = identity.hijos.find((h) => h.eduStudentId === s.eduStudentId)!;
     return {
       id: s.id,
@@ -92,6 +98,7 @@ export async function identifyStudentsByFamily(campaignId: string, identificador
       conPedido: conPedidoIds.has(s.id),
     };
   });
+  return { candidatos, correoFamilia };
 }
 
 export async function getStudentById(id: string): Promise<LicStudent | null> {

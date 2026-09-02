@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { campaignAbierta, cursoLabel } from '@/lib/licencias';
-import { maskAlumno } from '@/lib/familias';
+import { maskAlumno, maskEmail, normalizarCorreo } from '@/lib/familias';
 import {
   getCatalog,
   getCurrentCampaign,
@@ -22,19 +22,22 @@ export async function GET(request: Request) {
     if (!studentId || !identificador?.trim()) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
     const campaign = await getCurrentCampaign();
     if (!campaign) return NextResponse.json({ order: null });
-    const candidatos = await identifyStudentsByFamily(campaign.id, identificador);
+    const { candidatos, correoFamilia } = await identifyStudentsByFamily(campaign.id, identificador);
     if (!candidatos.some((c) => c.id === studentId)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
     const existing = await getOrderForStudent(campaign.id, studentId);
-    if (!existing) return NextResponse.json({ order: null });
+    // El correo que ya tenemos (del pedido anterior o de la BBDD) se devuelve SIEMPRE
+    // enmascarado: en pantalla nunca sale una dirección completa.
+    const correoMascara = maskEmail(existing?.order.email) ?? maskEmail(correoFamilia);
+    if (!existing) return NextResponse.json({ order: null, correoMascara });
     return NextResponse.json({
       order: {
         curso: existing.order.curso,
-        email: existing.order.email,
         total: Number(existing.order.totalPrice),
         confirmedAt: existing.order.confirmedAt,
       },
+      correoMascara,
       cods: existing.cods,
     });
   } catch (error) {
@@ -48,6 +51,9 @@ const orderSchema = z.object({
   studentId: z.string().uuid(),
   curso: z.string().min(1),
   email: z.string().email().or(z.literal('')).optional(),
+  // "usa el correo que ya tenéis": la familia no lo teclea (solo ve la máscara), así que
+  // el servidor resuelve el valor real. Si además viene `email`, manda el tecleado.
+  mantenerCorreo: z.boolean().optional(),
   cods: z.array(z.string()).default([]),
 });
 
@@ -55,14 +61,14 @@ export async function POST(request: Request) {
   try {
     const parsed = orderSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
-    const { identificador, studentId, curso, email, cods } = parsed.data;
+    const { identificador, studentId, curso, email, mantenerCorreo, cods } = parsed.data;
 
     const campaign = await getCurrentCampaign();
     if (!campaign) return NextResponse.json({ error: 'No hay campaña abierta' }, { status: 404 });
     if (!campaignAbierta(campaign)) {
       return NextResponse.json({ error: 'El plazo de petición de licencias ya se ha cerrado' }, { status: 409 });
     }
-    const candidatos = await identifyStudentsByFamily(campaign.id, identificador);
+    const { candidatos, correoFamilia } = await identifyStudentsByFamily(campaign.id, identificador);
     if (!candidatos.some((c) => c.id === studentId)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
@@ -70,7 +76,13 @@ export async function POST(request: Request) {
     const student = await getStudentById(studentId);
     if (!student) return NextResponse.json({ error: 'Alumno no encontrado' }, { status: 404 });
 
-    const cleanEmail = email?.trim() ?? '';
+    // Si la familia no ha tecleado correo pero ha dejado el que ya teníamos, lo resolvemos
+    // aquí: el cliente solo ha visto la máscara, nunca la dirección.
+    let cleanEmail = email?.trim() ?? '';
+    if (!cleanEmail && mantenerCorreo) {
+      const existing = await getOrderForStudent(campaign.id, studentId);
+      cleanEmail = normalizarCorreo(existing?.order.email) ?? correoFamilia ?? '';
+    }
     const result = await upsertOrder(student, curso, cleanEmail, cods);
 
     // Datos para los correos (precios de confianza desde el catálogo)

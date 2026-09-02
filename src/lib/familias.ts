@@ -71,3 +71,26 @@ function fragmento(texto: string | null, letras: number): string | null {
 export function maskAlumno(nombre: string | null, apellido1: string | null, apellido2: string | null): string {
   return [fragmento(nombre, 3), fragmento(apellido1, 1), fragmento(apellido2, 3)].filter(Boolean).join(' ') || '(alumno)';
 }
+
+const CORREO_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Correo en minúsculas y sin espacios, o null si no tiene pinta de correo. */
+export function normalizarCorreo(valor: string | null | undefined): string | null {
+  const e = (valor ?? '').trim().toLowerCase();
+  return CORREO_RE.test(e) ? e : null;
+}
+
+/**
+ * Máscara de protección de datos para un correo: "david.perez@gmail.com" →
+ * "da•••@gmail.com". Deja ver lo justo para que la familia reconozca si es el suyo, sin
+ * que una pantalla pública sirva para sacar el correo de nadie: el valor real no sale
+ * nunca del servidor (ver `FamilyIdentity.email` en `familias-server.ts`).
+ */
+export function maskEmail(valor: string | null | undefined): string | null {
+  const correo = normalizarCorreo(valor);
+  if (!correo) return null;
+  const arroba = correo.lastIndexOf('@');
+  const local = correo.slice(0, arroba);
+  const dominio = correo.slice(arroba + 1);
+  return `${local.slice(0, local.length <= 2 ? 1 : 2)}•••@${dominio}`;
+}

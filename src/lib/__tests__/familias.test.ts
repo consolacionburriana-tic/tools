@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { detectarIdentificador, maskAlumno, normalizarDni, nuevoTokenFamilia } from '@/lib/familias';
+import {
+  detectarIdentificador,
+  maskAlumno,
+  maskEmail,
+  normalizarCorreo,
+  normalizarDni,
+  nuevoTokenFamilia,
+} from '@/lib/familias';
 
 describe('normalizarDni', () => {
   it('pasa a mayúsculas y quita espacios, guiones y puntos', () => {
@@ -65,5 +72,41 @@ describe('nuevoTokenFamilia', () => {
 
   it('dos tokens generados no coinciden', () => {
     expect(nuevoTokenFamilia()).not.toBe(nuevoTokenFamilia());
+  });
+});
+
+describe('normalizarCorreo', () => {
+  it('limpia espacios y pasa a minúsculas', () => {
+    expect(normalizarCorreo('  David.Perez@Gmail.COM ')).toBe('david.perez@gmail.com');
+  });
+
+  it('rechaza lo que no es un correo', () => {
+    expect(normalizarCorreo('david.perez')).toBeNull();
+    expect(normalizarCorreo('david@localhost')).toBeNull();
+    expect(normalizarCorreo('  ')).toBeNull();
+    expect(normalizarCorreo(null)).toBeNull();
+  });
+});
+
+describe('maskEmail', () => {
+  it('deja ver dos letras y el dominio, para que la familia lo reconozca', () => {
+    expect(maskEmail('david.perez@gmail.com')).toBe('da•••@gmail.com');
+  });
+
+  it('con una parte local muy corta enseña solo una letra', () => {
+    expect(maskEmail('ab@gmail.com')).toBe('a•••@gmail.com');
+    expect(maskEmail('a@gmail.com')).toBe('a•••@gmail.com');
+  });
+
+  it('nunca deja ver la dirección completa', () => {
+    const mascara = maskEmail('david.perez@gmail.com')!;
+    expect(mascara).not.toContain('david.perez');
+    expect(mascara).not.toContain('perez');
+  });
+
+  it('devuelve null si no hay correo válido que enmascarar', () => {
+    expect(maskEmail(null)).toBeNull();
+    expect(maskEmail('')).toBeNull();
+    expect(maskEmail('no-es-un-correo')).toBeNull();
   });
 });
