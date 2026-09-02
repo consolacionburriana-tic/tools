@@ -204,11 +204,22 @@ consultan `edu_*` a pelo desde sus rutas.
       "desactivar" desmarcado por defecto si el fichero parece parcial)
 
 ### Fase 2 · Pantallas de gestión
-- [ ] Listado de alumnado con filtros + toggle/bulk de `banco_libros`
+- [x] ~~Listado de alumnado con filtros + toggle/bulk de `banco_libros`~~ — lo cubre el módulo de
+      Banco de libros (`/gestion/bancolibros`, pestaña Alumnado: listado por clase con toggle
+      sí/no y resumen agregado). Aquí no hace falta duplicarlo.
 - [ ] Ficha de alumno (datos + tutores + extra)
-- [ ] Historial de syncs
-- [ ] Protegido con `requireModule('educamos')` cuando auth esté (mientras, tras el login
-      simple de `/gestion`)
+- [x] **Historial de syncs** (`/gestion/educamos/historial`): las últimas 50 con tipo
+      (alumnado/profesorado), fichero, quién lo lanzó, contadores y avisos desplegables. Se
+      apoya en `getSyncRuns()`, que ya existía sin usarse. Para que el historial sea legible se
+      añadieron a `edu_sync_runs` las columnas `tipo` y `quien_email` (antes el profesorado solo
+      se distinguía por `opciones.tipo`, y se perdían `sinCambios`, `tutores` y `vinculos`).
+- [x] **Importación unificada** (`/gestion/educamos/sincronizar` con pestañas Alumnado /
+      Profesorado): antes alumnado tenía página propia y profesorado era un widget suelto en el
+      panel. Los dos comparten ahora `FileDropzone`, que además **arregla el drag & drop** — el
+      borde punteado era solo decoración de la `<label>` y soltar un fichero encima hacía que el
+      navegador lo abriera en la pestaña (faltaba `preventDefault()` en `onDragOver`/`onDrop`).
+- [x] Protegido con `requireModule('educamos')` (guard en el layout con `canAccess` y
+      `isEducamosAdmin()` en las rutas de API)
 
 ### Fase 3 · Adopción (= hito 3 del roadmap, checklist en cada ficha)
 - [x] Licencias pobla su campaña desde `edu_students` (enlace `lic_students.edu_student_id`;

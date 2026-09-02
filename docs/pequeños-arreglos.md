@@ -3,12 +3,36 @@
 
 
 ### Pendiente de decisión tuya
-- **Transversales dejados en "General"** (el campo `etapa` es único y no representa varias): BORT (orientación EP+ESO), COMPAÑ (EP+ESO+orient.), VIDAL (orient. EI+EP), PEÑA Salomé y SEBASTIA Emilia (dirección). En "General" aparecen en salidas de cualquier etapa. Si prefieres clavarles UNA etapa, dímelo.
-- **Botón "promocionar tutores +1 curso"**: la pantalla de asignar tutores ya está (ver Hecho ✅ abajo), pero el botón de promoción automática que pediste no está claro en los bordes de ciclo (qué pasa con los tutores de 2º/4º/6º EP y de 5º INF). Detalle y pregunta concreta en `docs/00-desarrollos-futuros.md` → "Tutorías: botón promocionar".
+- *(nada ahora mismo)*
 
 ---
 
 ## Hecho ✅
+
+### Licencias · lista de pedidos (2026-09-02)
+- ~~Añadir la letra de la clase como columna, que se vea bien~~ → columna **Clase** con la letra
+  en una insignia azul (`A`, `B`, `PDC`…), fácil de barrer con la vista. Sale de
+  `lic_students.letra`, que ya existía y no se estaba propagando a la lista.
+- ~~Que se puedan ordenar~~ → **Alumno, Curso, Clase, Fecha y Total** son clicables: un clic
+  ordena, otro le da la vuelta, con la flecha marcando por dónde va. Los cursos se ordenan en
+  orden escolar (infantil → ESO, con `ordenCurso`), no alfabético, así que 2ºESO no sale antes
+  que 10º de nada. Por defecto sigue saliendo lo último pedido arriba.
+
+### Correos: importes pegados a la etiqueta (2026-09-02)
+- ~~En el correo de confirmación de licencias los precios salían pegados: "Total51 €"~~ → la
+  culpa era `display:flex` + `justify-content:space-between`, que **los clientes de correo
+  ignoran** (Gmail entre ellos), así que los dos `<span>` caían uno junto a otro. Ahora
+  concepto/importe van en **tabla de dos celdas** con la derecha en `align="right"`, que es lo
+  único que respetan todos. Arreglado en los tres sitios que lo tenían: recibo y bloques de
+  icono de `licencias-email.ts`, el mismo recibo de `salidas-email.ts` ("Fecha…", "Importe…")
+  y la inicial del círculo del alumno en `email-template.ts` (ABC), que no se centraba.
+- Con test de regresión (`receiptTable` en `src/lib/__tests__/licencias-email.test.ts`): si
+  alguien vuelve a meter flexbox en el recibo, salta.
+
+### Tutorías: acciones en bloque (2026-09-02)
+- ~~**Botón "promocionar tutores +1 curso"**~~ → hecho, con **vista previa antes de aplicar** (lista "Profe: 2ESO B → 3ESO B" / "sin tutoría (egresa)") y confirmación. Reglas que decidiste: **Infantil rota el ciclo** 3→4→5→3 · **Primaria rota dentro del ciclo** 1↔2, 3↔4, 5↔6 · **ESO sube** 1→2→3→4 y **4º egresa**. Si la clase destino no existe (p. ej. no hay `2PRI B`), esa tutoría se libera en vez de inventarse la clase. El plan se recalcula en servidor, no se fía del que ve el navegador.
+- ~~Limpiar tutorías para ahorrar clics~~ → botones **Todas / Infantil / Primaria / Secundaria** con confirmación que dice cuántas se van a borrar y avisa de que el formulario del ABC se queda sin sugerencias de destinatarios. Solo borra el curso académico en vigor: el histórico de otros años no se toca.
+- ~~**Transversales dejados en "General"**~~ → decidido: **se quedan en "General"** (BORT, COMPAÑ, VIDAL, PEÑA Salomé, SEBASTIA Emilia). Así siguen apareciendo en salidas de cualquier etapa, que es lo que interesa.
 
 ### Pantalla de tutorías (nuevo, 2026-07-16)
 - ~~Una pantalla sencilla donde ver todos los profes por etapa... poder marcarles de qué tutoría son, de qué clase son; una clase puede tener varios tutores... incluso ilimitado, muchos-a-muchos~~ → **`/gestion/profes`**: rejilla de clases agrupadas por etapa (infantil → primaria → secundaria), cada clase muestra sus tutores actuales (chips quitables) y un buscador para añadir más. Sin límite: una clase puede tener N tutores, un profe puede tutorizar N clases (confirmado explícitamente por David, "hazlo muchos a muchos por ser flexibles").

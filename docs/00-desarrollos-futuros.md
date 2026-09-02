@@ -20,6 +20,12 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### ~~Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?~~ ✅ decidido (2026-09-01)
+No: se queda **solo dirección y TIC** (`puedeGestionarParticipantesBanco()` en
+`src/lib/permissions.ts`). Tutores y profes conservan el resto del módulo (lotes, checks, pasar
+lista) y ven esos dos toggles en modo lectura. Cerrado en
+[`12-bancolibros.md`](./12-bancolibros.md).
+
 ### ~~Correo: opción B (Google Workspace) además de Resend~~ ✅ hecho (2026-08-31)
 Implementado como se había planteado: `src/lib/email.ts` es el único punto de entrada, con dos
 transportes detrás de la misma interfaz (`src/lib/email-gmail.ts` con la API de Gmail sobre la
@@ -38,7 +44,12 @@ decidió al ejecutarlo, por si hay que revisarlo:
   a los 100 por llamada de Resend. Para los masivos grandes, ese perfil puede quedarse en
   Resend con una sola variable.
 
-### Tutorías: botón "promocionar todos +1 curso" — sin implementar, falta confirmar reglas de ciclo
+### ~~Tutorías: botón "promocionar todos +1 curso"~~ ✅ hecho (2026-09-02)
+David cerró las reglas de ciclo: **Infantil rota** (3→4→5→3), **Primaria rota dentro del ciclo**
+(1↔2, 3↔4, 5↔6, misma letra) y **ESO sube** (1→2→3→4) con **4º egresando**. Implementado en
+`/gestion/profes` con vista previa + confirmación, junto con "limpiar tutorías" (todas o por
+etapa). Lógica pura en `src/lib/tutorias.ts` y `cursoSiguiente()` en `src/lib/cursos.ts`, con
+tests. Queda como referencia el planteamiento original:
 La pantalla `/gestion/profes` (nueva, 2026-07-16) ya permite asignar/quitar tutores por clase
 a mano (tabla `edu_tutorias`, muchos-a-muchos: sin límite de tutores por clase ni de clases por
 profe, decisión explícita de David). Lo que falta es el botón de promoción automática que pidió
@@ -136,6 +147,9 @@ Recopilados de las fichas, para verlos de un vistazo:
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
+- **Banco de libros** (ficha `12`): ejecutar `pnpm db:push` en Neon para la columna
+  `edu_students.ampa` y la tabla `bl_libros_curso` (cambios aditivos). El código está desplegable,
+  pero hasta que no se aplique el schema la pestaña AMPA y los libros manuales darán error.
 
 ---
 

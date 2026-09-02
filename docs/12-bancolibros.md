@@ -10,7 +10,7 @@ roadmap**.
 
 ---
 
-## Estado: implementado ✅ (2026-07-11) — quedan extras de Fase 3 (histórico, CSV, resumen)
+## Estado: implementado ✅ (2026-09-01) — AMPA, resumen agregado y libros manuales añadidos
 
 Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Licencias (✅,
 `lic_books.banco_libros` marca qué libros son del banco).
@@ -35,6 +35,30 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   alumno con bulk por clase. Sigue siendo papel; la app solo marca recibido.
 - **Curso académico en vigor**: calculado (sep-ago) en `src/lib/constants.ts`
   (`academicYearActual()` → '2025-26'), sin config en BBDD.
+- **AMPA** (2026-09-01, David): `edu_students.ampa` (boolean, default `false`) — igual patrón que
+  `banco_libros` pero sin lote ni valoración, solo pertenencia. Pestaña propia "AMPA" en el panel
+  (toggle sí/no + bulk "todos sí/no"), separada de "Alumnado" porque se reconcilia contra un PDF
+  distinto del banco de libros.
+- **Marcar participantes (banco y AMPA) es de dirección/TIC, no de tutores** (2026-09-01, David;
+  confirmado el mismo día como definitivo: no hace falta abrirlo a jefatura ni a tutores). El
+  resto del módulo (lotes, checks de entrega/doc, pasar lista de valoración)
+  sigue abierto a cualquier rol con acceso a `bancolibros` — sin cambios ahí. Implementado en
+  `puedeGestionarParticipantesBanco()` (`src/lib/permissions.ts`), con guard en las rutas
+  `admin/banco` y `admin/ampa` y UI de solo lectura (switch deshabilitado, pestaña AMPA oculta)
+  para quien no cumple.
+- **Resumen agregado** (por clase, sumado por curso, estilo "Por curso" de Licencias): `<details>`
+  plegable encima de los chips de clase — cerrado enseña los totales de un vistazo (X/Y en
+  banco, Z AMPA), abierto despliega la tabla por clase con subtotal por curso. Los chips de clase
+  también llevan la insignia banco/total para verlo sin entrar. Se recalcula en local al marcar
+  (sin refetch) y viene precargado desde el servidor en la carga de página.
+- **Libros configurables a mano por curso** (2026-09-01, David: "en principio a mano, porque una
+  asignatura puede ser varios libros"): tabla propia `bl_libros_curso`, independiente de
+  `lic_books`/Licencias a propósito — evita tocar el catálogo real de la campaña de Licencias
+  (público, con precios) desde este módulo. Los libros manuales aparecen mezclados con los del
+  catálogo de Licencias en la pestaña Libros, con `bookCod` sintético `manual:<id>` (no choca
+  nunca con un COD real), así que la valoración/pasar-lista/ficha funcionan igual para ambos.
+  Gestión (añadir / activar / desactivar) reservada a dirección/TIC, dentro de un `<details>` en
+  la propia pestaña Libros.
 
 ## Flujos (mínimos clicks, iPad-first)
 
@@ -125,4 +149,16 @@ bl_libro_registros (                  // valoración de UN libro de UNA asignaci
       banco. Se descarga con Imprimir → Guardar PDF. Con **nº de lista** oficial (orden
       alfabético apellido1 → apellido2 → nombre; PDC es clase aparte).
 - [x] ~~Ficha de lote con histórico~~ (David, 2026-07-11: no hace falta)
-- [ ] Resumen agregado por curso (estados, pendientes de doc)
+- [x] Resumen agregado por clase y curso (nº de participantes banco/AMPA, estilo "Por curso" de
+      Licencias): `<details>` plegable + insignia en los chips de clase
+
+### Fase 4 · AMPA, permisos y libros manuales (2026-09-01)
+- [x] `edu_students.ampa` + pestaña AMPA (toggle sí/no + bulk) en el panel — [~] pendiente
+      `pnpm db:push` de David (sin `DATABASE_URL` en esta sesión para aplicarlo)
+- [x] Marcar banco/AMPA restringido a dirección/TIC (`puedeGestionarParticipantesBanco`), guard en
+      `admin/banco` y `admin/ampa`, UI de solo lectura para el resto de roles
+- [x] Tabla `bl_libros_curso` + CRUD (`admin/libros-manual`) para configurar a mano el catálogo de
+      libros del banco por curso, combinado con `lic_books` en la pestaña Libros — [~] pendiente
+      el mismo `pnpm db:push`
+- [x] ~~Revisar si algún rol más necesita marcar participantes~~ (David, 2026-09-01: no, se queda
+      solo dirección/TIC)

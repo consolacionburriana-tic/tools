@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Check, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { FileDropzone } from '@/components/educamos/file-dropzone';
 
 interface Resumen {
   altas: number;
@@ -15,7 +16,6 @@ interface Resumen {
 
 // Import de profesorado: vista previa (dry-run) → confirmar → aplicado.
 export function ProfesImport() {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [cargando, setCargando] = useState(false);
   const [previa, setPrevia] = useState<Resumen | null>(null);
@@ -37,7 +37,6 @@ export function ProfesImport() {
         setAplicado(data.resumen);
         setPrevia(null);
         setFile(null);
-        if (fileRef.current) fileRef.current.value = '';
         toast.success('Profesorado actualizado');
         haptic.success();
       }
@@ -51,35 +50,16 @@ export function ProfesImport() {
 
   return (
     <div className="space-y-3">
-      <label
-        htmlFor="fichero-profes"
-        className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 px-4 py-6 text-center hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:hover:border-blue-500 dark:hover:bg-blue-500/5"
-      >
-        {file ? (
-          <>
-            <FileSpreadsheet className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</span>
-          </>
-        ) : (
-          <>
-            <Upload className="h-6 w-6 text-zinc-400" />
-            <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Export de profesorado</span>
-            <span className="text-xs text-zinc-500">.csv, .xls o .xlsx — se procesa en memoria</span>
-          </>
-        )}
-      </label>
-      <input
-        ref={fileRef}
+      <FileDropzone
         id="fichero-profes"
-        type="file"
-        accept=".csv,.xls,.xlsx"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0] ?? null;
+        file={file}
+        titulo="Export de profesorado"
+        compacto
+        onFile={(f) => {
           setFile(f);
           setPrevia(null);
           setAplicado(null);
-          if (f) void enviar(f, true);
+          void enviar(f, true);
         }}
       />
 

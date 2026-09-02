@@ -23,7 +23,7 @@ import {
   type FamAccessToken,
   type NewFamAccessToken,
 } from '@/db/schema';
-import { nuevoTokenFamilia, type PropositoToken } from '@/lib/familias';
+import { normalizarCorreo, nuevoTokenFamilia, type PropositoToken } from '@/lib/familias';
 
 /** Familia destinataria: un correo, sus tutores y sus hijos. */
 export interface FamiliaDestino {
@@ -34,12 +34,9 @@ export interface FamiliaDestino {
   hijosTodos: string[]; // ids de TODOS sus hijos activos: lo que cubrirá el token
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function normalizarEmail(valor: string | null | undefined): string | null {
-  const e = (valor ?? '').trim().toLowerCase();
-  return EMAIL_RE.test(e) ? e : null;
-}
+/** Alias histórico: la implementación vive en `familias.ts`, compartida con el prefill
+ *  del correo en los formularios públicos, para que el criterio sea siempre el mismo. */
+export const normalizarEmail = normalizarCorreo;
 
 /** Fila cruda tutor↔alumno, tal como sale de la BBDD central. */
 export interface FilaTutor {

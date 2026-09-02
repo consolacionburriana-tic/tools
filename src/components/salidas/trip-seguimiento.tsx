@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, CircleSlash, ExternalLink, Link2, Loader2, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { type Cubo, cuboDe } from '@/lib/salidas-exports';
 
 export interface AlumnoRow {
   eduStudentId: string | null; // null = entrada manual
@@ -17,15 +18,6 @@ export interface AlumnoRow {
   emailContacto: string | null;
   manual: boolean;
   manualIdentificador: string | null;
-}
-
-type Cubo = 'pendientes' | 'entregados' | 'validados' | 'no_van';
-
-function cuboDe(a: AlumnoRow): Cubo {
-  if (a.estado === 'no_va') return 'no_van';
-  if (a.justificanteEstado === 'validado') return 'validados';
-  if (a.justificanteEstado === 'subido' || a.justificanteEstado === 'rechazado') return 'entregados';
-  return 'pendientes';
 }
 
 // Seguimiento del detalle de salida: filtros por estado + acciones de validación.

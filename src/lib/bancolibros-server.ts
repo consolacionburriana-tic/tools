@@ -1,11 +1,12 @@
 // Capa de servidor del Banco de libros: participantes (edu_students.banco_libros),
 // lotes numerados por clase asignados por curso académico, y valoración POR LIBRO
 // (digitaliza el Word "Registro de valoración de los libros").
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   blAsignaciones,
   blLibroRegistros,
+  blLibrosCurso,
   blLotes,
   eduStudents,
   licBooks,
@@ -18,6 +19,7 @@ export interface AlumnoBanco {
   nombre: string;
   numeroLista: number; // orden alfabético apellido1 → apellido2 → nombre (PDC = clase aparte)
   banco: boolean;
+  ampa: boolean;
   asignacionId: string | null;
   lote: number | null;
   entregado: boolean;
@@ -47,6 +49,7 @@ export async function getAlumnadoClase(curso: string, letra: string | null): Pro
       nombre: [s.apellido1, s.apellido2].filter(Boolean).join(' ') + (s.nombre ? `, ${s.nombre}` : ''),
       numeroLista: i + 1,
       banco: s.bancoLibros,
+      ampa: s.ampa,
       asignacionId: asig?.a.id ?? null,
       lote: asig?.numero ?? null,
       entregado: asig?.a.entregado ?? false,
@@ -66,6 +69,35 @@ function ordenLista<T extends { apellido1: string | null; apellido2: string | nu
 
 export async function setBanco(eduStudentId: string, banco: boolean): Promise<void> {
   await db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(eq(eduStudents.id, eduStudentId));
+}
+
+export async function setAmpa(eduStudentIds: string[], ampa: boolean): Promise<void> {
+  if (eduStudentIds.length === 0) return;
+  await db.update(eduStudents).set({ ampa, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds));
+}
+
+export interface ResumenClase {
+  curso: string;
+  letra: string | null;
+  total: number;
+  banco: number;
+  ampa: number;
+}
+
+/** Nº de alumnos, en banco y en AMPA por clase — vista agregada (sumable por curso en el cliente). */
+export async function getResumenClases(): Promise<ResumenClase[]> {
+  const rows = await db
+    .select({
+      curso: eduStudents.curso,
+      letra: eduStudents.letra,
+      total: sql<number>`count(*)::int`,
+      banco: sql<number>`count(*) filter (where ${eduStudents.bancoLibros})::int`,
+      ampa: sql<number>`count(*) filter (where ${eduStudents.ampa})::int`,
+    })
+    .from(eduStudents)
+    .where(eq(eduStudents.active, true))
+    .groupBy(eduStudents.curso, eduStudents.letra);
+  return rows.filter((r): r is ResumenClase => r.curso !== null);
 }
 
 /**
@@ -159,17 +191,32 @@ export interface LibroBanco {
   total: number;
 }
 
-/** Libros del banco para un curso (catálogo de Licencias, campaña más reciente). */
+/** Prefijo del `bookCod` sintético de un libro manual, para no chocar nunca con un COD de lic_books. */
+const PREFIJO_MANUAL = 'manual:';
+
+/**
+ * Libros del banco para un curso: el catálogo de Licencias (campaña más reciente,
+ * `banco_libros=true`) más los que se hayan configurado a mano en este módulo (mientras el
+ * catálogo no esté listo, o para asignaturas con varios libros). Los manuales usan un
+ * `bookCod` sintético `manual:<id>`, así que la valoración/pasar-lista funciona igual para
+ * ambos sin tocar `lic_books`.
+ */
 export async function getLibrosBanco(curso: string, letra: string | null): Promise<LibroBanco[]> {
   const year = academicYearActual();
   const [campaign] = await db.select().from(licCampaigns).orderBy(desc(licCampaigns.createdAt)).limit(1);
-  if (!campaign) return [];
-  const [libros, asignaciones] = await Promise.all([
+  const [librosCatalogo, librosManuales, asignaciones] = await Promise.all([
+    campaign
+      ? db
+          .select()
+          .from(licBooks)
+          .where(and(eq(licBooks.campaignId, campaign.id), eq(licBooks.curso, curso), eq(licBooks.bancoLibros, true), eq(licBooks.active, true)))
+          .orderBy(asc(licBooks.asignatura), asc(licBooks.cod))
+      : Promise.resolve([]),
     db
       .select()
-      .from(licBooks)
-      .where(and(eq(licBooks.campaignId, campaign.id), eq(licBooks.curso, curso), eq(licBooks.bancoLibros, true), eq(licBooks.active, true)))
-      .orderBy(asc(licBooks.asignatura), asc(licBooks.cod)),
+      .from(blLibrosCurso)
+      .where(and(eq(blLibrosCurso.curso, curso), eq(blLibrosCurso.activo, true)))
+      .orderBy(asc(blLibrosCurso.orden), asc(blLibrosCurso.asignatura)),
     db
       .select({ id: blAsignaciones.id })
       .from(blAsignaciones)
@@ -180,13 +227,49 @@ export async function getLibrosBanco(curso: string, letra: string | null): Promi
   const registros = asigIds.length
     ? await db.select().from(blLibroRegistros).where(inArray(blLibroRegistros.asignacionId, asigIds))
     : [];
-  return libros.map((b) => ({
-    cod: b.cod,
-    nombre: b.nombreLibro ?? b.cod,
-    asignatura: b.asignatura,
-    valorados: registros.filter((r) => r.bookCod === b.cod && r.estado !== null).length,
-    total: asigIds.length,
-  }));
+  const valorados = (cod: string) => registros.filter((r) => r.bookCod === cod && r.estado !== null).length;
+  return [
+    ...librosCatalogo.map((b) => ({
+      cod: b.cod,
+      nombre: b.nombreLibro ?? b.cod,
+      asignatura: b.asignatura,
+      valorados: valorados(b.cod),
+      total: asigIds.length,
+    })),
+    ...librosManuales.map((b) => ({
+      cod: `${PREFIJO_MANUAL}${b.id}`,
+      nombre: b.nombre,
+      asignatura: b.asignatura,
+      valorados: valorados(`${PREFIJO_MANUAL}${b.id}`),
+      total: asigIds.length,
+    })),
+  ];
+}
+
+/** Libros manuales de un curso, incluidos los desactivados (para poder reactivarlos). */
+export async function getLibrosManualesCurso(curso: string): Promise<
+  { id: string; curso: string; asignatura: string | null; nombre: string; orden: number; activo: boolean }[]
+> {
+  return db
+    .select()
+    .from(blLibrosCurso)
+    .where(eq(blLibrosCurso.curso, curso))
+    .orderBy(asc(blLibrosCurso.orden), asc(blLibrosCurso.asignatura));
+}
+
+export async function crearLibroManual(input: { curso: string; asignatura: string | null; nombre: string }): Promise<void> {
+  const [{ maxOrden }] = await db
+    .select({ maxOrden: sql<number>`coalesce(max(${blLibrosCurso.orden}), 0)::int` })
+    .from(blLibrosCurso)
+    .where(eq(blLibrosCurso.curso, input.curso));
+  await db.insert(blLibrosCurso).values({ ...input, orden: maxOrden + 1 });
+}
+
+export async function actualizarLibroManual(
+  id: string,
+  campos: Partial<{ asignatura: string | null; nombre: string; activo: boolean }>,
+): Promise<void> {
+  await db.update(blLibrosCurso).set({ ...campos, updatedAt: new Date() }).where(eq(blLibrosCurso.id, id));
 }
 
 export interface FilaPasarLista {

@@ -71,7 +71,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
 | Salidas y pagos | ✅ | ✅ | ✅ (Blob activo, correos de recordatorio activos; falta export CSV) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
-| Banco de libros | ✅ | ✅ | ✅ (participantes, lotes y valoración por libro; extras en Fase 3) | [`12-bancolibros.md`](./12-bancolibros.md) |
+| Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro y resumen agregado; pendiente `db:push` de David para `ampa`/`bl_libros_curso`) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fase 1 hecha: start_url y marca azul; faltan iconos reales y SW/offline) | [`05-pwa.md`](./05-pwa.md) |
 
