@@ -33,19 +33,39 @@ async function safeSend(fn: () => Promise<unknown>): Promise<'sent' | 'skipped' 
   }
 }
 
+// OJO: en correo NO se puede usar flexbox (Gmail y otros lo ignoran y los importes salían
+// pegados al texto: "Total51 €"). El concepto/importe va SIEMPRE en tabla de dos celdas,
+// con la de la derecha alineada a la derecha, que es lo único que respetan todos.
 function receiptRows(items: { asignatura: string; precio: string }[]): string {
   if (items.length === 0) {
-    return `<p style="margin:0;font-size:13.5px;color:#9ca3af;font-style:italic;">(sin licencias de pago)</p>`;
+    return `
+      <tr><td colspan="2" style="font-size:13.5px;color:#9ca3af;font-style:italic;">(sin licencias de pago)</td></tr>`;
   }
   return items
     .map(
       (i) => `
-      <div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:13.5px;color:#374151;">
-        <span>${i.asignatura}</span>
-        <span style="font-weight:600;color:#111827;white-space:nowrap;">${euros(parseFloat(i.precio || '0'))}</span>
-      </div>`,
+      <tr>
+        <td style="padding:5px 12px 5px 0;font-size:13.5px;color:#374151;">${i.asignatura}</td>
+        <td align="right" style="padding:5px 0;font-size:13.5px;font-weight:600;color:#111827;white-space:nowrap;">${euros(parseFloat(i.precio || '0'))}</td>
+      </tr>`,
     )
     .join('');
+}
+
+/**
+ * Bloque "recibo": una fila por licencia y el total, en tabla (ver nota de arriba).
+ * Exportado solo para poder testear que no vuelve a colarse un layout que los clientes
+ * de correo ignoren (el bug de "Total51 €").
+ */
+export function receiptTable(items: { asignatura: string; precio: string }[], total: number): string {
+  return `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
+        ${receiptRows(items)}
+        <tr>
+          <td style="border-top:1px solid #e4e4e7;padding:10px 12px 0 0;font-size:14px;font-weight:700;color:#111827;">Total</td>
+          <td align="right" style="border-top:1px solid #e4e4e7;padding:10px 0 0;font-size:16px;font-weight:700;color:#0d9488;white-space:nowrap;">${euros(total)}</td>
+        </tr>
+      </table>`;
 }
 
 export async function sendFamilyConfirmation(d: OrderEmailData) {
@@ -84,11 +104,7 @@ export async function sendFamilyConfirmation(d: OrderEmailData) {
     </div>
 
     <div style="margin:20px 32px;border:1px dashed #d4d4d8;border-radius:12px;padding:16px 18px;">
-      ${receiptRows(d.items)}
-      <div style="border-top:1px solid #e4e4e7;margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:700;color:#111827;">Total</span>
-        <span style="font-size:16px;font-weight:700;color:#0d9488;">${euros(d.total)}</span>
-      </div>
+      ${receiptTable(d.items, d.total)}
     </div>
 
     <div style="margin:0 32px 20px;background:#f0fdfa;border-radius:10px;padding:12px 16px;">
@@ -100,22 +116,24 @@ export async function sendFamilyConfirmation(d: OrderEmailData) {
     ${deadlineBox}
 
     <div style="margin:0 32px 22px;">
-      <div style="display:flex;gap:10px;margin-bottom:14px;">
-        <span style="font-size:15px;line-height:1.5;">📦</span>
-        <div>
-          <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Cuándo llegarán?</p>
-          <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">${llegadaTexto}</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <span style="font-size:15px;line-height:1.5;">✅</span>
-        <div>
-          <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Tengo que hacer algo más?</p>
-          <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">
-            Nada más: hemos recibido tu pedido y lo hemos anotado. Las licencias llegarán directamente al iPad del alumno en los plazos previstos.
-          </p>
-        </div>
-      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td width="26" valign="top" style="padding:0 0 14px;font-size:15px;line-height:1.5;">📦</td>
+          <td valign="top" style="padding:0 0 14px;">
+            <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Cuándo llegarán?</p>
+            <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">${llegadaTexto}</p>
+          </td>
+        </tr>
+        <tr>
+          <td width="26" valign="top" style="font-size:15px;line-height:1.5;">✅</td>
+          <td valign="top">
+            <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Tengo que hacer algo más?</p>
+            <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">
+              Nada más: hemos recibido tu pedido y lo hemos anotado. Las licencias llegarán directamente al iPad del alumno en los plazos previstos.
+            </p>
+          </td>
+        </tr>
+      </table>
     </div>
 
     <div style="margin:0 32px 28px;text-align:center;">
@@ -155,11 +173,7 @@ export async function notifyGestores(d: OrderEmailData) {
     </div>
 
     <div style="margin:18px 32px 28px;border:1px dashed #d4d4d8;border-radius:12px;padding:16px 18px;">
-      ${receiptRows(d.items)}
-      <div style="border-top:1px solid #e4e4e7;margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
-        <span style="font-size:14px;font-weight:700;color:#111827;">Total</span>
-        <span style="font-size:16px;font-weight:700;color:#0d9488;">${euros(d.total)}</span>
-      </div>
+      ${receiptTable(d.items, d.total)}
     </div>
 
     <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:14px 32px;text-align:center;">

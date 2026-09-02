@@ -82,14 +82,20 @@ export function buildReportEmail(data: ReportEmailData): { subject: string; html
     </div>
 
     <!-- Alumno highlight -->
-    <div style="background:#f0fdfa;border-bottom:1px solid #ccfbf1;padding:16px 32px;display:flex;align-items:center;gap:12px;">
-      <div style="width:42px;height:42px;border-radius:50%;background:#0d9488;color:#fff;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        ${data.studentDisplayName.charAt(0).toUpperCase()}
-      </div>
-      <div>
-        <p style="margin:0;font-size:16px;font-weight:700;color:#134e4a;">${data.studentDisplayName}</p>
-        <p style="margin:2px 0 0;font-size:12px;color:#0d9488;">${data.studentClassName} · ${data.studentFullName}</p>
-      </div>
+    <!-- Sin flexbox: los clientes de correo lo ignoran (la inicial no se centraba en el
+         círculo). Tabla de dos celdas y centrado con text-align + line-height. -->
+    <div style="background:#f0fdfa;border-bottom:1px solid #ccfbf1;padding:16px 32px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+        <tr>
+          <td width="42" valign="middle" align="center" style="width:42px;height:42px;border-radius:21px;background:#0d9488;color:#ffffff;font-size:18px;font-weight:700;line-height:42px;text-align:center;">
+            ${data.studentDisplayName.charAt(0).toUpperCase()}
+          </td>
+          <td valign="middle" style="padding-left:12px;">
+            <p style="margin:0;font-size:16px;font-weight:700;color:#134e4a;">${data.studentDisplayName}</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#0d9488;">${data.studentClassName} · ${data.studentFullName}</p>
+          </td>
+        </tr>
+      </table>
     </div>
 
     <!-- Cuerpo -->

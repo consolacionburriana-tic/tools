@@ -128,30 +128,36 @@ export async function sendJustificanteConfirmacion(input: {
     </div>
 
     <div style="margin:20px 32px;border:1px dashed #d4d4d8;border-radius:12px;padding:16px 18px;">
-      <div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:13.5px;color:#374151;">
-        <span>Fecha</span>
-        <span style="font-weight:600;color:#111827;white-space:nowrap;">${fechaBonita(input.trip.fecha)}</span>
-      </div>
-      ${
-        input.trip.importe
-          ? `<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:13.5px;color:#374151;">
-        <span>Importe</span>
-        <span style="font-weight:600;color:#111827;white-space:nowrap;">${input.trip.importe} €</span>
-      </div>`
-          : ''
-      }
+      <!-- En correo no vale flexbox (Gmail lo ignora y el dato sale pegado a la etiqueta):
+           concepto/valor siempre en tabla de dos celdas, la derecha con align="right". -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:5px 12px 5px 0;font-size:13.5px;color:#374151;">Fecha</td>
+          <td align="right" style="padding:5px 0;font-size:13.5px;font-weight:600;color:#111827;white-space:nowrap;">${fechaBonita(input.trip.fecha)}</td>
+        </tr>
+        ${
+          input.trip.importe
+            ? `<tr>
+          <td style="padding:5px 12px 5px 0;font-size:13.5px;color:#374151;">Importe</td>
+          <td align="right" style="padding:5px 0;font-size:13.5px;font-weight:600;color:#111827;white-space:nowrap;">${input.trip.importe} €</td>
+        </tr>`
+            : ''
+        }
+      </table>
     </div>
 
     <div style="margin:0 32px 28px;">
-      <div style="display:flex;gap:10px;">
-        <span style="font-size:15px;line-height:1.5;">✅</span>
-        <div>
-          <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Tengo que hacer algo más?</p>
-          <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">
-            Nada más: el equipo responsable lo revisará. Si hubiera cualquier problema, nos pondremos en contacto contigo.
-          </p>
-        </div>
-      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td width="26" valign="top" style="font-size:15px;line-height:1.5;">✅</td>
+          <td valign="top">
+            <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">¿Tengo que hacer algo más?</p>
+            <p style="margin:3px 0 0;font-size:12.5px;color:#6b7280;line-height:1.5;">
+              Nada más: el equipo responsable lo revisará. Si hubiera cualquier problema, nos pondremos en contacto contigo.
+            </p>
+          </td>
+        </tr>
+      </table>
     </div>
 
     <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:18px 32px;text-align:center;">

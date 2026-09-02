@@ -9,6 +9,17 @@
 
 ## Hecho ✅
 
+### Correos: importes pegados a la etiqueta (2026-09-02)
+- ~~En el correo de confirmación de licencias los precios salían pegados: "Total51 €"~~ → la
+  culpa era `display:flex` + `justify-content:space-between`, que **los clientes de correo
+  ignoran** (Gmail entre ellos), así que los dos `<span>` caían uno junto a otro. Ahora
+  concepto/importe van en **tabla de dos celdas** con la derecha en `align="right"`, que es lo
+  único que respetan todos. Arreglado en los tres sitios que lo tenían: recibo y bloques de
+  icono de `licencias-email.ts`, el mismo recibo de `salidas-email.ts` ("Fecha…", "Importe…")
+  y la inicial del círculo del alumno en `email-template.ts` (ABC), que no se centraba.
+- Con test de regresión (`receiptTable` en `src/lib/__tests__/licencias-email.test.ts`): si
+  alguien vuelve a meter flexbox en el recibo, salta.
+
 ### Tutorías: acciones en bloque (2026-09-02)
 - ~~**Botón "promocionar tutores +1 curso"**~~ → hecho, con **vista previa antes de aplicar** (lista "Profe: 2ESO B → 3ESO B" / "sin tutoría (egresa)") y confirmación. Reglas que decidiste: **Infantil rota el ciclo** 3→4→5→3 · **Primaria rota dentro del ciclo** 1↔2, 3↔4, 5↔6 · **ESO sube** 1→2→3→4 y **4º egresa**. Si la clase destino no existe (p. ej. no hay `2PRI B`), esa tutoría se libera en vez de inventarse la clase. El plan se recalcula en servidor, no se fía del que ve el navegador.
 - ~~Limpiar tutorías para ahorrar clics~~ → botones **Todas / Infantil / Primaria / Secundaria** con confirmación que dice cuántas se van a borrar y avisa de que el formulario del ABC se queda sin sugerencias de destinatarios. Solo borra el curso académico en vigor: el histórico de otros años no se toca.
