@@ -262,8 +262,11 @@ Decisiones cerradas con David:
 - **Hasta tres tutores**, no más.
 - Un tutor personal que **deja de tutorizar la clase** no cuenta: se muestra como hueco y hay
   que reasignarlo (no se borra la fila hasta que se guarda el reparto).
-- **Quién recibe los correos no cambia todavía**: hoy los avisos de Puntualidad siguen yendo a
-  todos los tutores de la clase. Decisión pendiente en `00-desarrollos-futuros.md`.
+- **El aviso del tercer retraso de Puntualidad va al tutor personal** del alumno cuando lo
+  tiene; si no lo tiene (o su tutor personal ya no tutoriza la clase, o no tiene correo), a
+  todos los tutores de la clase. El **resumen semanal** y el alcance del panel siguen siendo
+  por clase completa; ver `00-desarrollos-futuros.md` para lo que queda por decidir (ABC y
+  resumen semanal).
 
 Plan técnico: `edu_tutor_personal` (una fila por alumno y curso académico, sin fila = sin
 asignar) y `edu_reparto_confirmado` (una fila por clase y curso, con quién y cuándo). Lógica de
@@ -285,5 +288,11 @@ el mapa entero de la clase, así que el último toque gana).
 - [x] API `/api/profes/admin/tutorias/reparto` (GET/PUT/POST) con guard de módulo `profes`
 - [x] Reparto en la tarjeta de clase: cortes, chips por alumno, mitades, invertir, completar,
       limpiar y confirmar; aviso ámbar por clase ("N sin tutor personal" / "falta confirmar")
+- [x] Pensada también para ordenador (es donde se hará casi siempre): al pasar el ratón por una
+      línea de corte se **previsualiza** cómo quedaría la lista antes de hacer clic,
+      Mayús+clic en un tutor asigna el tramo entero desde el último alumno tocado, cada fila
+      lleva barra de color, y con el reparto abierto la tarjeta ocupa el ancho completo
+- [x] El aviso del tercer retraso de Puntualidad va al tutor personal del alumno
+      (`destinatariosDelAviso()` en `src/lib/puntualidad.ts`, con tests)
 - [ ] `pnpm db:push` para crear las dos tablas en Neon (**David**) y repasar el reparto real de
       las clases con dos tutores de 2026-27

@@ -1,8 +1,10 @@
 // Plantillas de correo del módulo Puntualidad. Dos, y muy distintas:
 //
-//   1. **Aviso del tercer retraso** al tutor/a de la clase (con copia a jefatura si está
+//   1. **Aviso del tercer retraso** al tutor/a del alumno (con copia a jefatura si está
 //      configurada): el detalle de los tres retrasos que lo motivan y UN botón que abre la
 //      pantalla donde se fija el día que el alumno se queda sin patio. Un clic, sin login.
+//      Si la clase tiene dos o tres tutores, va solo a su **tutor personal** cuando lo
+//      tiene asignado (`tutoresDeAlumno` en `puntualidad-server.ts`); si no, a todos.
 //   2. **Resumen semanal** al tutor/a: los retrasos de su clase esa semana. Si no hubo
 //      ninguno, no se manda (decisión de David: correo cero cuando no hay nada que contar).
 //

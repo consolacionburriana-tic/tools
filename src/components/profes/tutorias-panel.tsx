@@ -264,7 +264,7 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
       {ETAPA_ORDEN.filter((et) => porEtapa[et]?.length).map((et) => (
         <section key={et}>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{ETAPA_LABEL[et]}</h2>
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {porEtapa[et].map((c) => {
               const key = claseKey(c);
               const etapaClase = etapaDeCurso(c.curso);
@@ -276,7 +276,14 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
                 .sort((a, b) => Number(b.etapa === etapaClase) - Number(a.etapa === etapaClase) || a.nombre.localeCompare(b.nombre, 'es'));
 
               return (
-                <div key={key} className="rounded-2xl border border-zinc-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
+                // Con el reparto abierto la tarjeta ocupa el ancho entero: en un ordenador
+                // la lista de 30 alumnos no cabe cómoda en media columna.
+                <div
+                  key={key}
+                  className={`rounded-2xl border border-zinc-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900 ${
+                    reparto === key ? 'sm:col-span-2 lg:col-span-3' : ''
+                  }`}
+                >
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <p className="font-semibold text-zinc-900 dark:text-zinc-100">{claseLabel(c.curso, c.letra)}</p>
                     <div className="flex items-center gap-1.5">

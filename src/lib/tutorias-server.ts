@@ -229,6 +229,22 @@ export async function guardarReparto(curso: string, letra: string | null, repart
   return asignaciones.length;
 }
 
+/**
+ * Tutor personal de un alumno (o null si no tiene). Quien pregunta debe comprobar que ese
+ * profe sigue tutorizando su clase: aquí solo se lee la asignación tal cual está guardada.
+ */
+export async function tutorPersonalDeAlumno(
+  eduStudentId: string,
+  academicYear = academicYearActual(),
+): Promise<string | null> {
+  const [row] = await db
+    .select({ eduTeacherId: eduTutorPersonal.eduTeacherId })
+    .from(eduTutorPersonal)
+    .where(and(eq(eduTutorPersonal.eduStudentId, eduStudentId), eq(eduTutorPersonal.academicYear, academicYear)))
+    .limit(1);
+  return row?.eduTeacherId ?? null;
+}
+
 /** Marca (o desmarca) el reparto de una clase como revisado para el curso en vigor. */
 export async function confirmarReparto(
   curso: string,

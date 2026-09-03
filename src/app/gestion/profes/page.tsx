@@ -13,7 +13,7 @@ export default async function ProfesPage() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div>
             <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Tutorías</h1>
             <p className="text-xs text-zinc-500">
@@ -28,7 +28,7 @@ export default async function ProfesPage() {
           </Link>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-6">
+      <main className="mx-auto max-w-5xl px-4 py-6">
         <TutoriasPanel
           clases={clases}
           profes={profes

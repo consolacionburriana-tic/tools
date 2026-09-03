@@ -89,7 +89,9 @@ export function RepartoAlumnos({
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  const [enElAire, setEnElAire] = useState<number | null>(null); // corte bajo el ratón (vista previa)
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ultimaFila = useRef<number | null>(null); // para el clic con Mayúsculas (tramos)
 
   const tutorIds = useMemo(() => tutores.map((t) => t.teacherId), [tutores]);
 
@@ -199,6 +201,25 @@ export function RepartoAlumnos({
   const indiceDe = (teacherId: string | null | undefined) =>
     teacherId ? tutorIds.indexOf(teacherId) : -1;
 
+  // Con el ratón por encima de una línea de corte se ve cómo quedaría ANTES de tocar: se
+  // calcula con la misma función que se aplicaría, así que la vista previa no miente.
+  const previa = enElAire === null ? null : aplicarCorte(ids, tutorIds, reparto, enElAire);
+  const efectivo = previa ?? reparto;
+
+  /** Un clic asigna a ese alumno; con Mayúsculas, a todo el tramo desde el último tocado. */
+  function tocarChip(indice: number, teacherId: string, conMayusculas: boolean) {
+    if (conMayusculas && ultimaFila.current !== null && ultimaFila.current !== indice) {
+      const [desde, hasta] = [ultimaFila.current, indice].sort((a, b) => a - b);
+      const nuevo = { ...reparto };
+      for (let i = desde; i <= hasta; i++) nuevo[ids[i]] = teacherId;
+      ultimaFila.current = indice;
+      aplicar(nuevo);
+      return;
+    }
+    ultimaFila.current = indice;
+    aplicar({ ...reparto, [ids[indice]]: reparto[ids[indice]] === teacherId ? null : teacherId });
+  }
+
   return (
     <div className="anim-up mt-2.5 space-y-2 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
       {/* Quién lleva a cuántos */}
@@ -271,15 +292,18 @@ export function RepartoAlumnos({
       )}
 
       <p className="text-[11px] leading-snug text-zinc-400">
-        Toca la línea entre dos alumnos para cortar ahí: de ese punto hacia arriba son de un tutor y hacia abajo del
-        otro. Y toca un nombre de tutor en cualquier fila para cambiar solo a ese alumno.
+        Haz clic en la línea entre dos alumnos para cortar ahí: de ese punto hacia arriba son de un tutor y hacia
+        abajo del otro (al pasar por encima se ve cómo quedaría). Y haz clic en un tutor de cualquier fila para
+        cambiar solo a ese alumno, o con <kbd className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Mayús</kbd> para
+        asignar de golpe todo el tramo desde el último que tocaste.
       </p>
 
       {/* La lista, en orden alfabético (el mismo que se usa para repartir) */}
       <ul className="rounded-xl bg-zinc-50 p-1.5 dark:bg-zinc-800/50">
         {datos.alumnos.map((a, i) => {
-          const idx = indiceDe(reparto[a.id]);
+          const idx = indiceDe(efectivo[a.id]);
           const color = idx >= 0 ? COLORES[idx % COLORES.length] : null;
+          const cambiaEnLaPrevia = previa !== null && previa[a.id] !== reparto[a.id];
           return (
             <li key={a.id}>
               {i > 0 && (
@@ -287,17 +311,28 @@ export function RepartoAlumnos({
                   numero={i}
                   total={ids.length}
                   esCorte={cortes.has(i)}
-                  arriba={tutores[indiceDe(reparto[datos.alumnos[i - 1].id])]?.nombre}
+                  arriba={tutores[indiceDe(efectivo[datos.alumnos[i - 1].id])]?.nombre}
                   abajo={tutores[idx]?.nombre}
                   colorAbajo={color?.linea}
+                  enElAire={enElAire === i}
                   onCortar={() => aplicar(aplicarCorte(ids, tutorIds, reparto, i))}
+                  onEntrar={() => setEnElAire(i)}
+                  onSalir={() => setEnElAire((n) => (n === i ? null : n))}
                 />
               )}
               <div className="flex items-center gap-2 py-0.5">
+                {/* Barra de color: quién lleva a este alumno de un vistazo, sin leer chips */}
+                <span
+                  className={`h-5 w-1 shrink-0 rounded-full transition-colors ${color?.linea ?? 'bg-zinc-200 dark:bg-zinc-700'} ${
+                    cambiaEnLaPrevia ? 'opacity-60' : ''
+                  }`}
+                />
                 <span className="w-5 shrink-0 text-right text-[11px] tabular-nums text-zinc-400">{i + 1}</span>
                 <span
                   className={`min-w-0 flex-1 truncate text-xs ${
-                    idx >= 0 ? 'text-zinc-800 dark:text-zinc-100' : 'text-zinc-500 italic dark:text-zinc-400'
+                    indiceDe(reparto[a.id]) >= 0
+                      ? 'text-zinc-800 dark:text-zinc-100'
+                      : 'text-zinc-500 italic dark:text-zinc-400'
                   }`}
                 >
                   {a.nombre}
@@ -311,11 +346,9 @@ export function RepartoAlumnos({
                         key={t.teacherId}
                         type="button"
                         aria-pressed={activo}
-                        title={`Tutor personal: ${t.nombre}`}
-                        onClick={() =>
-                          aplicar({ ...reparto, [a.id]: activo ? null : t.teacherId })
-                        }
-                        className={`rounded-full px-2 py-1 text-[11px] font-medium ring-1 transition-colors ${
+                        title={`${t.nombre} · clic para asignarle este alumno, Mayús+clic para el tramo entero`}
+                        onClick={(e) => tocarChip(i, t.teacherId, e.shiftKey)}
+                        className={`cursor-pointer rounded-full px-2 py-1 text-[11px] font-medium ring-1 transition-colors ${
                           activo ? c.activo : `bg-white ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700 ${c.suave}`
                         }`}
                       >
@@ -364,7 +397,13 @@ export function RepartoAlumnos({
   );
 }
 
-/** Franja tocable entre dos alumnos: "de aquí hacia arriba, uno; hacia abajo, el otro". */
+/**
+ * Franja entre dos alumnos: "de aquí hacia arriba, uno; hacia abajo, el otro".
+ *
+ * Con ratón se comporta como una regla que se recorre: al pasar por encima se ilumina y la
+ * lista entera enseña cómo quedaría (la vista previa la calcula el padre). En táctil no hay
+ * hover, así que la tijera y la línea se ven siempre y basta con tocar.
+ */
 function Corte({
   numero,
   total,
@@ -372,7 +411,10 @@ function Corte({
   arriba,
   abajo,
   colorAbajo,
+  enElAire,
   onCortar,
+  onEntrar,
+  onSalir,
 }: {
   numero: number;
   total: number;
@@ -380,30 +422,38 @@ function Corte({
   arriba?: string;
   abajo?: string;
   colorAbajo?: string;
+  enElAire: boolean;
   onCortar: () => void;
+  onEntrar: () => void;
+  onSalir: () => void;
 }) {
+  const etiqueta = enElAire || esCorte;
   return (
     <button
       type="button"
       onClick={onCortar}
+      onMouseEnter={onEntrar}
+      onMouseLeave={onSalir}
+      onFocus={onEntrar}
+      onBlur={onSalir}
       aria-label={`Cortar aquí: los ${numero} de arriba para un tutor y los ${total - numero} de abajo para otro`}
-      className="group relative flex h-5 w-full items-center px-1"
+      className="group relative flex h-5 w-full cursor-pointer items-center px-1 focus:outline-none"
     >
       <span
         className={
-          esCorte
-            ? `h-0.5 w-full rounded-full ${colorAbajo ?? 'bg-zinc-400'}`
-            : 'h-px w-full bg-zinc-200 transition-colors group-hover:bg-zinc-400 dark:bg-zinc-700 dark:group-hover:bg-zinc-500'
+          esCorte || enElAire
+            ? `h-0.5 w-full rounded-full ${colorAbajo ?? 'bg-zinc-400'} ${enElAire && !esCorte ? 'opacity-70' : ''}`
+            : 'h-px w-full bg-zinc-200 transition-colors dark:bg-zinc-700'
         }
       />
-      {esCorte && arriba && abajo && (
-        <span className="absolute left-6 rounded-full bg-white px-1.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
-          ↑ {etiquetaCorta(arriba)} · ↓ {etiquetaCorta(abajo)}
+      {etiqueta && arriba && abajo && (
+        <span className="absolute left-7 whitespace-nowrap rounded-full bg-white px-1.5 text-[10px] font-medium text-zinc-500 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+          {numero} ↑ {etiquetaCorta(arriba)} · {total - numero} ↓ {etiquetaCorta(abajo)}
         </span>
       )}
       <Scissors
         className={`absolute right-1.5 h-3 w-3 transition-colors ${
-          esCorte ? 'text-zinc-400' : 'text-zinc-300 group-hover:text-zinc-500 dark:text-zinc-600'
+          esCorte || enElAire ? 'text-zinc-500 dark:text-zinc-300' : 'text-zinc-300 dark:text-zinc-600'
         }`}
       />
     </button>
