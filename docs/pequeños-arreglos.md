@@ -19,25 +19,21 @@
   explícito en el resumen del asistente ("en este fichero no he encontrado columna NIA").
 
 ### Pendiente de que lo hagas tú en la app
-- [ ] **NO sincronices el alumnado de Licencias todavía** (2026-09-03). Antes hay que hacer,
-      en este orden: (1) la limpieza de datos de abajo, (2) `pnpm db:push` para crear la única
-      `lic_students_campaign_edu_uq`. La vista previa que viste (50 bajas / 32 altas) era el bug:
-      emparejaba por `student_code`, que cambia solo. Detalle en `docs/11-licencias-v2.md`.
-- [ ] **Limpieza previa en Neon** (7 pares bloquean la única nueva; ninguna fila a borrar):
-      - 6 filas duplicadas obsoletas de julio (ya inactivas y **sin pedidos**): `11BERSHE`,
-        `15FELYAI`, `05MASJOR`, `11PASAIT`, `11RODVÍC`, `13RUICLA`. Se les pone
-        `edu_student_id = NULL` y se quedan como histórico inerte.
-      - **Marina Santos Miró**: su fila de Licencias (`11SANMAR`) apunta al alumno equivocado
-        de la central (**Marta Sánchez Clofent**, que sí tiene pedido) porque los códigos
-        generados de las dos colisionaban. Hay que reapuntarla a su `edu_student_id` real
-        (`f6ef3923-…`, NIA 11263664). Marta se queda como está: su pedido no se toca.
-- [ ] **`pnpm db:push`** después de la limpieza.
-- [ ] **Y entonces sí, sincronizar el alumnado de Licencias** (`/gestion/licencias/sincronizar` → Alumnado,
-      tiene vista previa antes de escribir). Arregla de una pasada los **6 alumnos descuadrados**
-      de banco de libros (entre ellos Isabel y Elena Porcar) y da de alta los **13 alumnos
-      activos de cursos con Licencias** que están en la BBDD central pero no en la campaña —
-      entre ellos JUAN SEBASTIAN PEDRAZA (NIA 13620087), que era el que no localizabas. Detalle
-      completo en `docs/12-bancolibros.md`, "Fase 5".
+- [x] ~~Limpieza de datos y migración de la única de `lic_students`~~ → aplicadas el 2026-09-03
+      directamente contra Neon. **No hace falta `pnpm db:push` para esto.** Detalle en
+      `docs/11-licencias-v2.md`, "Aplicado en Neon".
+- [ ] **Sincronizar el alumnado de Licencias** (`/gestion/licencias/sincronizar` → Alumnado, con
+      vista previa antes de escribir). Ya se puede: simulada contra la BBDD, la previa sale con
+      **10 altas y 4 bajas, ninguna con pedido** (antes del arreglo: 50 bajas, 13 con pedido).
+      Las 4 bajas son correctas: Manuel Izquierdo y Andrea Gimeno (filas heredadas basura, sin
+      enlace ni pedidos) y Guillem Bravo y Martin Osorio (ya no activos en la central).
+      Arregla de paso los **6 alumnos descuadrados** de banco de libros (Isabel y Elena Porcar
+      entre ellos) y da de alta a JUAN SEBASTIAN PEDRAZA (NIA 13620087), el que no localizabas.
+      Detalle en `docs/12-bancolibros.md`, "Fase 5".
+- [ ] **Dos DNI de alumno repetidos en Educamos** (los localiza el buscador nuevo, pero se los
+      salta por seguridad): `54281484N` lo comparten **Maximiliano Restrepo** y **Martina
+      Safont** (2ESO B, familias distintas — este es el feo), y `Y9320975D` los hermanos
+      **Cezar Andreas** y **Maria Francesca Bordas** (1PRI A).
 
 ---
 

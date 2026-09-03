@@ -1023,10 +1023,15 @@ const MODELO_TO_LENGUA: Record<string, string> = { PIP: 'CAS', PEV: 'VAL' };
 export async function getStudentsFromCentral(): Promise<CentralStudentRow[]> {
   const rows = await getEduStudents();
   return rows
-    .filter((r) => r.codigo && r.curso)
+    // Solo hace falta el curso. Antes se exigía también `codigo`, porque el código ERA la clave;
+    // ahora la identidad es `edu_student_id` y exigirlo solo servía para dejar fuera —en
+    // silencio— a quien no lo tuviera, que además se desactivaba en la campaña. Pasaba con
+    // Aitana Pastor y Víctor Samuel Rodríguez (4º y 3º PDC), activos y con el código a NULL.
+    .filter((r) => r.curso)
     .map((r) => ({
       eduStudentId: r.id,
-      studentCode: r.codigo!,
+      // Etiqueta, no identidad: si no hay código se usa el NIA, que es la clave humana real.
+      studentCode: r.codigo ?? r.nia ?? r.id,
       educamosId: r.educamosPersonaId,
       // Educamos llama al PDC por su programa ('3ºPPDC'); para Licencias un alumno de 3º PDC es
       // de 3ESO con letra PDC (ver CURSOS_FORM). Sin traducir se caían de IN_SCOPE_CURSOS y el

@@ -284,8 +284,26 @@ Educamos llama al PDC por su programa (`3ºPPDC`, `4ºPPDC`), pero `IN_SCOPE_CUR
 `getStudentsFromCentral()` traduce ahora con `cursoBaseEso()` (`src/lib/cursos.ts`, con tests):
 `3ºPPDC` → `3ESO` con letra `PDC`, que es como lo tiene Licencias.
 
-### Pendiente antes de poder sincronizar
+### Un tercer filtro silencioso: alumnos sin `codigo`
 
-- [ ] Limpieza de datos en Neon (7 pares que impiden crear la única nueva) — ver
-      `docs/pequeños-arreglos.md`.
-- [ ] `pnpm db:push` de David para crear `lic_students_campaign_edu_uq`.
+`getStudentsFromCentral()` exigía `r.codigo && r.curso`. Tenía sentido cuando el código era la
+clave; con la identidad en `edu_student_id` solo servía para dejar fuera —sin avisar— a quien lo
+tuviera a NULL, y además desactivarlo en la campaña. Le pasaba a **Aitana Pastor** (4º PDC) y
+**Víctor Samuel Rodríguez** (3º PDC), ambos activos y sin código. Ahora solo se exige `curso`, y
+si no hay código se usa el **NIA** como etiqueta (`studentCode: r.codigo ?? r.nia ?? r.id`).
+
+### Aplicado en Neon (2026-09-03)
+
+Migración y limpieza hechas ya contra la BBDD (con el visto bueno de David), así que **no hace
+falta `pnpm db:push` para esto**:
+
+- `lic_students_campaign_edu_uq` (única, `campaign_id + edu_student_id`) creada.
+- `lic_students_campaign_code_uq` sustituida por `lic_students_campaign_code_idx` (índice normal).
+- 6 filas duplicadas obsoletas de julio (inactivas, **0 pedidos**) con `edu_student_id = NULL`:
+  `11BERSHE`, `15FELYAI`, `05MASJOR`, `11PASAIT`, `11RODVÍC`, `13RUICLA`.
+- **Marina Santos Miró** reapuntada a su `edu_student_id` real (NIA 11263664). Marta Sánchez
+  Clofent y su pedido, intactos.
+
+Vista previa del sync **antes** del arreglo: 50 bajas (13 con pedido) + 32 altas.
+**Después**: 10 altas reales y 4 bajas reales (2 filas heredadas basura sin enlace y 2 alumnos
+que ya no están activos en la central), **0 bajas con pedido**.
