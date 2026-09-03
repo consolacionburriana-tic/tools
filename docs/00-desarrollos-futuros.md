@@ -152,10 +152,13 @@ Recopilados de las fichas, para verlos de un vistazo:
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
 - **Tutorías del curso 2026-27**: `edu_tutorias` solo tiene filas de **2025-26**, y el curso
-  en vigor ya es 2026-27. Mientras no se asignen (`/gestion/profes`, con el botón de
-  promoción +1), Puntualidad no tiene a quién mandar el aviso del tercer retraso ni el
-  resumen semanal, y los tutores ven su panel vacío. Afecta también a los destinatarios
-  sugeridos del ABC. Es lo primero que conviene hacer del arranque de curso.
+  en vigor ya es 2026-27. Mientras no se asignen, Puntualidad no tiene a quién mandar el
+  aviso del tercer retraso ni el resumen semanal, y los tutores ven su panel vacío. Afecta
+  también a los destinatarios sugeridos del ABC. Es lo primero del arranque de curso.
+  David decidió (2026-09-03) **clonarlas tal cual** —cada tutor se queda en su misma
+  clase—, no promocionar con el botón de `/gestion/profes` (que sube al tutor con su grupo):
+  el SQL está listo e idempotente en `src/db/sql/tutorias-2026-27.sql`. Pendiente de
+  ejecutar (el conector de Neon se desconectó a media faena).
 - **Puntualidad** (ficha `17`): ~~ejecutar el SQL de las tablas~~ ✅ hecho (2026-09-03).
   Queda opcional: poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del
   aviso del 3er retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su
