@@ -27,7 +27,9 @@ export default async function PuntualidadLayout({ children }: { children: React.
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="container mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Puntualidad</span>
+            <Link href="/gestion" className="text-sm font-semibold text-zinc-900 hover:text-orange-600 dark:text-zinc-100 dark:hover:text-orange-400">
+              Puntualidad
+            </Link>
             <nav className="flex items-center gap-1">
               {visibles.map((item) => (
                 <Link
