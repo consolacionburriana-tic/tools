@@ -511,7 +511,19 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
                 )}
               </div>
 
-              {bancoLibros ? (
+              {effCurso.endsWith('PDC') && (
+                <p className="mt-1.5 text-xs text-zinc-400">La licencia de inglés no es necesaria en el programa PDC.</p>
+              )}
+
+              {bancoLibros && catalog.length === 0 ? (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
+                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={3} />
+                  <p>
+                    <strong>¡Todo incluido!</strong> Al estar en el banco de libros, ya tenéis todo lo necesario para
+                    este curso: <strong>no hay que pedir ninguna licencia digital más</strong>.
+                  </p>
+                </div>
+              ) : bancoLibros ? (
                 <div className="mt-3 space-y-1.5 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
                   <p>▶️ Al estar en el banco de libros, tenéis incluidos los libros <strong>en papel</strong> y <strong>algunas licencias digitales</strong> de esos libros.</p>
                   <p>📙 Otros libros (inglés, optativas…) <strong>no</strong> están incluidos en el banco de libros, y por eso podéis solicitar aquí sus licencias digitales, junto a algunos que no incluyen licencia digital.</p>
@@ -524,24 +536,26 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
                 </div>
               )}
 
-              <div className="mt-4 space-y-4">
-                {catalog.length === 0 && (
-                  <p className="text-sm text-zinc-500">No hay licencias disponibles para este curso, es posible que sea un error. Contacta con licencias@consolacionburriana.com</p>
-                )}
-                {grupos.map((g, gi) => (
-                  <div key={gi} className="space-y-2">
-                    {g.name && (
-                      <div className="flex items-center justify-between px-1 pt-1">
-                        <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{g.name}</p>
-                        {g.hint && <span className="text-xs text-zinc-400">{g.hint}</span>}
-                      </div>
-                    )}
-                    {g.books.map((b) => (
-                      <BookCard key={b.cod} book={b} on={selected.has(b.cod)} onToggle={() => toggle(b.cod)} />
-                    ))}
-                  </div>
-                ))}
-              </div>
+              {!(bancoLibros && catalog.length === 0) && (
+                <div className="mt-4 space-y-4">
+                  {catalog.length === 0 && (
+                    <p className="text-sm text-zinc-500">No hay licencias disponibles para este curso, es posible que sea un error. Contacta con licencias@consolacionburriana.com</p>
+                  )}
+                  {grupos.map((g, gi) => (
+                    <div key={gi} className="space-y-2">
+                      {g.name && (
+                        <div className="flex items-center justify-between px-1 pt-1">
+                          <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{g.name}</p>
+                          {g.hint && <span className="text-xs text-zinc-400">{g.hint}</span>}
+                        </div>
+                      )}
+                      {g.books.map((b) => (
+                        <BookCard key={b.cod} book={b} on={selected.has(b.cod)} onToggle={() => toggle(b.cod)} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <AnimatePresence>
                 {anyOptativaSelected && (
@@ -679,27 +693,51 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
           <motion.div key="done" {...stepAnim}>
             <Card>
               <div className="flex flex-col items-center text-center">
-                <div className="relative flex h-16 w-16 items-center justify-center">
+                <div className="relative flex h-24 w-24 items-center justify-center">
+                  {[0, 0.3].map((delay) => (
+                    <motion.span
+                      key={delay}
+                      className="absolute inset-0 rounded-full bg-emerald-500/25"
+                      animate={{ scale: [1, 1.9, 1.9], opacity: [0.6, 0, 0] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: 'easeOut', delay }}
+                    />
+                  ))}
+                  {[-1, 1].flatMap((dx) =>
+                    [-1, 1].map((dy) => (
+                      <motion.span
+                        key={`${dx}-${dy}`}
+                        className="absolute h-2 w-2 rounded-full bg-emerald-400"
+                        initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
+                        animate={{ x: dx * 34, y: dy * 34, opacity: [0, 1, 0], scale: [0, 1, 0.5] }}
+                        transition={{ duration: 0.9, delay: 0.3, ease: 'easeOut' }}
+                      />
+                    )),
+                  )}
                   <motion.span
-                    className="absolute inset-0 rounded-full bg-blue-500/20"
-                    animate={{ scale: [1, 1.6, 1], opacity: [0.5, 0, 0.5] }}
-                    transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-                  />
-                  <motion.span
-                    className="relative flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white"
+                    className="relative flex h-20 w-20 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/30"
                     initial={{ scale: 0, rotate: -20 }}
-                    animate={{ scale: [0, 1.15, 1], rotate: 0 }}
-                    transition={{ duration: 0.5, ease: 'backOut' }}
+                    animate={{ scale: [0, 1.2, 1], rotate: 0 }}
+                    transition={{ duration: 0.55, ease: 'backOut' }}
                   >
                     <motion.span
-                      animate={{ scale: [1, 1.08, 1] }}
+                      animate={{ scale: [1, 1.1, 1] }}
                       transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                     >
-                      <Check className="h-7 w-7" />
+                      <Check className="h-11 w-11" strokeWidth={3} />
                     </motion.span>
                   </motion.span>
                 </div>
-                <h2 className="mt-4 text-xl font-semibold text-zinc-900 dark:text-zinc-100">¡Solicitud registrada!</h2>
+                <motion.h2
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15, duration: 0.4 }}
+                  className="mt-5 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400"
+                >
+                  ¡Pedido realizado con éxito!
+                </motion.h2>
+                <p className="mt-2 text-base font-medium text-zinc-700 dark:text-zinc-200">
+                  Todo correcto: hemos registrado tu pedido perfectamente ✅
+                </p>
                 <p className="mt-1 text-sm text-zinc-500">
                   {result.emailStatus === 'sent'
                     ? 'Te hemos enviado un correo de confirmación.'
