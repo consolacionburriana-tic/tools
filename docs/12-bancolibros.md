@@ -200,8 +200,8 @@ se reaprovecha el mismo patrón vista previa → confirmar y aplicar.
   que en Licencias — nunca se borra, porque puede tener valoraciones (`bl_libro_registros`)
   enganchadas por ese `cod`.
 
-- [x] Columna `bl_libros_curso.cod` + índice único `(curso, cod)` en el schema — [~] pendiente
-      `pnpm db:push` de David (sin `DATABASE_URL` en esta sesión para aplicarlo)
+- [x] Columna `bl_libros_curso.cod` + índice único `(curso, cod)` en el schema — aplicado en
+      Neon (producción) el 2026-09-03 vía MCP, probado antes en rama temporal
 - [x] `getLibrosCursoSyncPlan()` / `syncLibrosCursoFromSheet()` en `bancolibros-server.ts`
 - [x] Ruta `api/bancolibros/admin/sync/libros` (GET vista previa · POST aplica), guardada
       igual que `libros-manual`
@@ -209,7 +209,11 @@ se reaprovecha el mismo patrón vista previa → confirmar y aplicar.
 - [x] `PlanView`/`SyncCard`/`usePreviewApply` extraídos a `components/sync/plan-view.tsx` y
       reutilizados por Licencias y Banco de libros
 - [~] **Probar la sincronización real contra el Excel**: pendiente de que David la ejecute una
-      vez esté aplicado el `db:push` de la columna `cod`
+      vez despliegue esta rama — el schema ya está listo en Neon
+
+> De paso, comprobado en Neon (2026-09-03): `edu_students.ampa` y la tabla `bl_libros_curso`
+> en sí **ya estaban aplicadas** en producción — la nota de "pendiente `db:push`" de la Fase 4
+> estaba desactualizada, solo faltaba de verdad la columna `cod` de esta fase.
 
 ### Fase 5 · Descuadre con Licencias (2026-09-03) — el bug de "no se actualiza el front"
 
