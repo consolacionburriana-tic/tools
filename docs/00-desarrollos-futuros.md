@@ -199,9 +199,8 @@ Recopilados de las fichas, para verlos de un vistazo:
   Queda opcional: poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del
   aviso del 3er retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su
   `CRON_SECRET`.
-- **Horarios** (ficha `07`): (1) **ejecutar `src/db/sql/horarios.sql` en Neon** — 13 tablas
-  aditivas y la semilla de actividades; no se pudo aplicar en la sesión porque el conector de
-  Neon pide autorización. (2) un **export real de horarios de al menos una etapa** en CSV/XLSX
+- **Horarios** (ficha `07`): ~~ejecutar el SQL de las tablas~~ ✅ hecho (2026-09-03, 13 tablas
+  y semilla, con prueba de humo). Queda un **export real de horarios de al menos una etapa** en CSV/XLSX
   (del generador de horarios o de Educamos) y, si se puede, la **definición de las rejillas**.
   Sin ver la forma real del fichero el importador no se puede escribir; el modelo de destino ya
   está diseñado. Ideal: que el generador pueda sacar **lista larga** (una fila por sesión: día,

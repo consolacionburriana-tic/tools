@@ -28,9 +28,17 @@ futura que necesite saber qué pasa en un aula un martes a las 10:15.
   vigente por fecha y prioridad, rejilla por ámbito con precedencia, tramo que contiene una
   hora, tramo siguiente, lectiva con override, detección de conflictos y generador de
   rejillas regulares. `pnpm lint` y `pnpm build` pasan.
-- **Falta**: aplicar el SQL en Neon (pendiente de David: el conector de Neon de la sesión
-  pide autorización), las pantallas (Fases 1-2), el importador (Fase 3, necesita un fichero
-  real) y la demolición de `pun_subjects` (ver decisión 1).
+- **Base de datos aplicada** (2026-09-03): las 13 tablas `hor_*` están en Neon con sus 17
+  claves ajenas, 33 índices y la semilla de 12 actividades. Verificado con una prueba de
+  humo: periodo + rejilla de ESO + tramos del lunes + una asignación de Matemáticas de
+  2ESO B con dos profes reales (titular y PT) colocada en la 3ª; se preguntó lo que
+  preguntará Puntualidad —"un alumno llega el lunes 05-10-2026 a las 10:15, ¿a qué llega
+  tarde?"— y devolvió la 3ª (09:50-10:45), Matemáticas, aula 14, lectiva, con los dos
+  profes y su rol. También se comprobó que junio pisa al ordinario en sus fechas y que
+  fuera de curso no hay periodo. Todo borrado después: la base quedó a 0 filas salvo la
+  semilla.
+- **Falta**: las pantallas (Fases 1-2), el importador (Fase 3, necesita un fichero real) y
+  la demolición de `pun_subjects` (ver decisión 1).
 
 ## El vocabulario (importa, porque todo el modelo cuelga de aquí)
 
@@ -339,14 +347,18 @@ necesitar tres joins.
 
 ## Fases
 
-### Fase 0 · Decisiones y cimientos — 🟡
+### Fase 0 · Decisiones y cimientos — ✅
 - [x] Confirmar con David las decisiones de arriba (ver "Decisiones cerradas")
 - [x] Tablas `hor_*` en `src/db/schema.ts` (aditivas) + SQL idempotente en `src/db/sql/horarios.sql`
 - [x] Módulos `horarios` y `horarios-profes` en la matriz de permisos + `puedeEditarHorarios()`, con tests
 - [x] Helpers puros con tests: periodo vigente por fecha y prioridad, rejilla por ámbito con
       precedencia, tramo que contiene una hora y el siguiente, lectiva con override,
       conflictos (profe / grupo con desdobles / aula) y generador de rejillas regulares
-- [ ] Aplicar `src/db/sql/horarios.sql` en Neon (**David**: el conector de Neon pide autorización)
+- [x] Tablas aplicadas en Neon (2026-09-03, vía el conector de Neon). Verificado: 13 tablas,
+      17 claves ajenas, 33 índices y 12 actividades, más la prueba de humo de extremo a
+      extremo descrita en "Estado". **Ojo**: `psql` no sirve desde una sesión de agente —
+      el sandbox solo deja salir por HTTPS y Postgres va por el 5432; hay que usar el
+      conector de Neon
 - [ ] Ver un export real de horarios de una etapa (CSV/XLSX) y anotar aquí su forma real (**David**)
 
 ### Fase 1 · Rejillas y materias — ⬜
