@@ -238,3 +238,54 @@ plazo, tenéis hasta el X") con un enlace propio que la identifica y le lista a 
 - ~~Credenciales de cuenta de servicio de Google~~ ✅ hecha (jul 2026).
 - Confirmar dominio/remitente verificado en Resend para `licencias@consolacionburriana.com` —
   pendiente, faltan cosas del dominio.
+
+
+## Identidad del alumnado: `edu_student_id`, no `student_code` (2026-09-03)
+
+**Decisión cerrada (David):** "hay que olvidarse de esos códigos, ahora la clave tiene que ser
+el NIA. Simplificación." Implementado con la clave más fuerte que ya existía: **`edu_student_id`**,
+la FK a `edu_students` — cuya clave humana ES el NIA, pero que a diferencia del NIA es un uuid
+que no se teclea, no se importa y no puede venir mal de un Excel.
+
+### Por qué se rompió
+
+`student_code` (`11SOLJOA`) venía del Excel que David importó a mano y **se genera a partir del
+nombre**: 2 dígitos + 3 letras del apellido + 3 del nombre. Dos problemas de fondo:
+
+1. **Cambia solo.** Al empezar a quitar acentos en el generador, 22 alumnos pasaron de
+   `13COMVÍC` a `13COMVIC`; "DE LA TORRE" pasó de `13DE MAR` a `13DELMAR`. Como el sync
+   emparejaba por código, veía a esos 22 como **baja + alta de personas distintas**: desactivaba
+   la fila vieja — la que referencia `lic_orders.student_id` — y creaba otra. 13 de esos 22
+   tenían pedido confirmado. Ya había pasado una vez en julio (6 pares duplicados en Neon,
+   creados el 1-jul con la fila del 25-jun desactivada al lado).
+2. **Colisiona.** Dos personas distintas pueden generar el mismo código. Pasó de verdad:
+   la fila de Licencias de **Marina Santos Miró** (`11SANMAR`) quedó enlazada al alumno
+   **Marta Sánchez Clofent** de la central, porque el código generado de una casaba con el de
+   la otra. Marta tiene pedido confirmado.
+
+### Qué cambia
+
+- `lic_students`: la única pasa a ser **`(campaign_id, edu_student_id)`**
+  (`lic_students_campaign_edu_uq`). `student_code` se queda como **etiqueta** (índice normal, no
+  único) porque sale en exportaciones y en el Excel del colegio, pero ya no identifica a nadie.
+- `getStudentsSyncPlan()` y `syncStudentsFromSheet()` emparejan con `emparejador()`: por
+  `edu_student_id`, y por código **solo** para adoptar filas heredadas que aún no tienen enlace
+  (a esas se les rellena el `edu_student_id` antes de los upserts, en el mismo batch, para no
+  duplicarlas).
+- `onConflictDoUpdate` apunta a la identidad: un alumno cuyo código cambie **actualiza** su fila
+  (y su código) en vez de entrar como alta nueva.
+- La vista previa enseña "Código" como un cambio más, para que se vea de dónde venía el lío.
+
+### PDC: estaban fuera del alcance sin querer
+
+Educamos llama al PDC por su programa (`3ºPPDC`, `4ºPPDC`), pero `IN_SCOPE_CURSOS` son los
+`base` de `CURSOS_FORM` (`6PRI`, `1ESO`…`4ESO`). Resultado: los PDC se caían del sync, se
+**desactivaban en bloque y no se volvían a dar de alta** (23 alumnos, 2 con pedido confirmado).
+`getStudentsFromCentral()` traduce ahora con `cursoBaseEso()` (`src/lib/cursos.ts`, con tests):
+`3ºPPDC` → `3ESO` con letra `PDC`, que es como lo tiene Licencias.
+
+### Pendiente antes de poder sincronizar
+
+- [ ] Limpieza de datos en Neon (7 pares que impiden crear la única nueva) — ver
+      `docs/pequeños-arreglos.md`.
+- [ ] `pnpm db:push` de David para crear `lic_students_campaign_edu_uq`.

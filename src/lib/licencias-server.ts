@@ -26,6 +26,7 @@ import {
   toPdcCurso,
   totalPedido,
 } from '@/lib/licencias';
+import { cursoBaseEso } from '@/lib/cursos';
 import { identifyFamily } from '@/lib/familias-server';
 import { getFamiliasDeAlumnos, getTokensVigentes, type FamiliaDestino } from '@/lib/fam-tokens-server';
 
@@ -997,6 +998,8 @@ function diffStudent(r: SheetStudentRow, dbRow: LicStudent): FieldChange[] {
     ['Email', dbRow.email ?? '', r.email ?? ''],
     ['Banco Libros', dbRow.bancoLibros ? 'Sí' : 'No', r.bancoLibros ? 'Sí' : 'No'],
     ['Lengua base', dbRow.lenguaBase ?? '', r.lenguaBase ?? ''],
+    // Ya no es clave, pero se enseña: es la pista de por qué antes salía como baja + alta.
+    ['Código', dbRow.studentCode, r.studentCode],
   ]);
   // "ID Educamos" no está poblado en el Sheet (comprobado: 0/599 filas lo traen). Si viene
   // vacío no lo tocamos ni lo mostramos como cambio — evita borrar un dato que solo existe en Neon.
@@ -1025,7 +1028,10 @@ export async function getStudentsFromCentral(): Promise<CentralStudentRow[]> {
       eduStudentId: r.id,
       studentCode: r.codigo!,
       educamosId: r.educamosPersonaId,
-      curso: r.curso!,
+      // Educamos llama al PDC por su programa ('3ºPPDC'); para Licencias un alumno de 3º PDC es
+      // de 3ESO con letra PDC (ver CURSOS_FORM). Sin traducir se caían de IN_SCOPE_CURSOS y el
+      // sync los daba de baja en bloque sin volver a darlos de alta (23 alumnos, 2 con pedido).
+      curso: cursoBaseEso(r.curso)!,
       letra: r.letra,
       birthYear: r.fechaNacimiento ? Number(r.fechaNacimiento.slice(0, 4)) : null,
       apellidos: [r.apellido1, r.apellido2].filter(Boolean).join(' '),
@@ -1036,6 +1042,27 @@ export async function getStudentsFromCentral(): Promise<CentralStudentRow[]> {
       bancoLibros: r.bancoLibros,
       lenguaBase: r.modeloLinguistico ? (MODELO_TO_LENGUA[r.modeloLinguistico.toUpperCase()] ?? null) : null,
     }));
+}
+
+/**
+ * Empareja una fila de la central con la fila que ya existe en la campaña.
+ *
+ * **La identidad es `edu_student_id`**, la FK a la BBDD central (cuya clave humana es el NIA),
+ * no el `student_code`. El código viene del Excel que David importó a mano y se recalcula a
+ * partir del nombre, así que cambia solo: al empezar a quitar acentos, 22 alumnos pasaron de
+ * `13COMVÍC` a `13COMVIC` (y "DE LA TORRE" de `13DE MAR` a `13DELMAR`). Emparejando por código,
+ * el sync veía a esos 22 como bajas + altas de gente distinta y desactivaba la fila vieja —
+ * la misma que referencian sus pedidos (13 tenían pedido confirmado). Reportado por David el
+ * 2026-09-03 al ver la vista previa: "Marta de la Torre y Víctor Compañ se dan de baja y de
+ * alta si son el mismo".
+ *
+ * El código solo se usa como respaldo para adoptar filas heredadas que aún no tienen enlace.
+ */
+function emparejador<T extends { id: string; studentCode: string; eduStudentId: string | null }>(existing: T[]) {
+  const porEdu = new Map(existing.filter((e) => e.eduStudentId).map((e) => [e.eduStudentId!, e]));
+  const porCode = new Map(existing.filter((e) => !e.eduStudentId).map((e) => [e.studentCode, e]));
+  return (r: { eduStudentId: string; studentCode: string }): T | undefined =>
+    porEdu.get(r.eduStudentId) ?? porCode.get(r.studentCode);
 }
 
 export async function getStudentsSyncPlan(campaignId: string): Promise<StudentSyncPlan> {
@@ -1051,19 +1078,20 @@ export async function getStudentsSyncPlan(campaignId: string): Promise<StudentSy
   const outOfScope = allRows.length - rows.length;
 
   const studentsWithOrder = new Set(orders.map((o) => o.studentId));
-  const existingByCode = new Map(existing.map((s) => [s.studentCode, s]));
-  const sheetCodes = new Set(rows.map((r) => r.studentCode));
+  const emparejar = emparejador(existing);
+  const emparejados = new Set<string>();
 
   const toInsert: StudentPlanItem[] = [];
   const toUpdate: StudentPlanItem[] = [];
   let unchanged = 0;
   for (const r of rows) {
-    const dbRow = existingByCode.get(r.studentCode);
+    const dbRow = emparejar(r);
     const label = studentLabel(r);
     if (!dbRow) {
       toInsert.push({ key: r.studentCode, studentCode: r.studentCode, label, changes: [] });
       continue;
     }
+    emparejados.add(dbRow.id);
     const changes = diffStudent(r, dbRow);
     if (changes.length === 0) {
       unchanged++;
@@ -1076,7 +1104,7 @@ export async function getStudentsSyncPlan(campaignId: string): Promise<StudentSy
     toUpdate.push({ key: r.studentCode, studentCode: r.studentCode, label, changes, warning });
   }
   const toDeactivate = existing
-    .filter((s) => !sheetCodes.has(s.studentCode))
+    .filter((s) => !emparejados.has(s.id))
     .map((s) => ({ key: s.studentCode, label: studentLabel(s), hasOrder: studentsWithOrder.has(s.id) }));
 
   return { toInsert, toUpdate, toDeactivate, outOfScope, unchanged };
@@ -1092,12 +1120,22 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
 
   // Igual que en syncBooksFromSheet: se calcula antes del batch porque el resultado no
   // cambia si se hace antes o después de los upserts (mismo razonamiento que arriba).
-  const currentCodes = new Set(rows.map((r) => r.studentCode));
   const existing = await db
-    .select({ id: licStudents.id, studentCode: licStudents.studentCode })
+    .select({ id: licStudents.id, studentCode: licStudents.studentCode, eduStudentId: licStudents.eduStudentId })
     .from(licStudents)
     .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
-  const toDeactivate = existing.filter((s) => !currentCodes.has(s.studentCode)).map((s) => s.id);
+  const emparejar = emparejador(existing);
+  const emparejados = new Set(rows.map((r) => emparejar(r)?.id).filter((id): id is string => !!id));
+  const toDeactivate = existing.filter((s) => !emparejados.has(s.id)).map((s) => s.id);
+
+  // Filas heredadas del Excel que aún no tienen enlace y casan por código: se les pone el
+  // `edu_student_id` ANTES de los upserts, para que el upsert por identidad las encuentre y las
+  // actualice en vez de crear una segunda fila del mismo alumno. Va primero en el batch porque
+  // `db.batch` respeta el orden.
+  const adopciones: BatchItem<'pg'>[] = rows
+    .map((r) => ({ r, previa: emparejar(r) }))
+    .filter((x) => x.previa && !x.previa.eduStudentId)
+    .map((x) => db.update(licStudents).set({ eduStudentId: x.r.eduStudentId }).where(eq(licStudents.id, x.previa!.id)));
 
   const statements: BatchItem<'pg'>[] = rows.map((r) =>
     db
@@ -1120,12 +1158,15 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
         active: true,
       })
       .onConflictDoUpdate({
-        target: [licStudents.campaignId, licStudents.studentCode],
+        // Por identidad, no por código: así un alumno cuyo `student_code` haya cambiado
+        // ACTUALIZA su fila (y su código) en vez de entrar como alta nueva dejando huérfano el
+        // pedido que apuntaba a la vieja.
+        target: [licStudents.campaignId, licStudents.eduStudentId],
         set: {
           // "ID Educamos" no viene poblado en el Sheet: si llega vacío, no lo incluimos en el
           // update para no borrar un valor que solo existe en Neon (ver diffStudent).
           ...(r.educamosId ? { educamosId: r.educamosId } : {}),
-          eduStudentId: r.eduStudentId,
+          studentCode: r.studentCode,
           apellidos: r.apellidos,
           apellido1: r.apellido1,
           apellido2: r.apellido2,
@@ -1143,7 +1184,8 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
   if (toDeactivate.length > 0) {
     statements.push(db.update(licStudents).set({ active: false }).where(inArray(licStudents.id, toDeactivate)));
   }
-  await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
+  const todo = [...adopciones, ...statements];
+  await db.batch(todo as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
 
   return { upserted: rows.length, deactivated: toDeactivate.length, outOfScope: allRows.length - rows.length };
 }

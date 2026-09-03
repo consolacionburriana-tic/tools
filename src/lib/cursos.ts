@@ -21,6 +21,21 @@ export function etapaDeCurso(curso: string | null | undefined): Etapa | null {
   return null;
 }
 
+/**
+ * Curso "de verdad" de un alumno de PDC: `'3ºPPDC'` → `'3ESO'`, `'4ºPPDC'` → `'4ESO'`.
+ * El resto se devuelve tal cual.
+ *
+ * Educamos llama al PDC por su programa (`3ºPPDC`), pero para todo lo demás un alumno de
+ * 3º PDC **es de 3º de ESO** con letra `PDC` (así lo tiene Licencias, ver `CURSOS_FORM`).
+ * Sin esta traducción los PDC se caen de cualquier filtro por curso de ESO — que es
+ * justo lo que hacía que el sync de alumnado de Licencias los diera de baja en bloque.
+ */
+export function cursoBaseEso(curso: string | null | undefined): string | null {
+  if (!curso) return curso ?? null;
+  const m = curso.toUpperCase().match(/^(\d+)[^\d]*PDC$/);
+  return m ? `${m[1]}ESO` : curso;
+}
+
 /** Nivel numérico dentro de la etapa: '3INF' → 3, '4ºPPDC' → 4, '1ESO' → 1. */
 export function nivelDeCurso(curso: string | null | undefined): number {
   if (!curso) return 99;
