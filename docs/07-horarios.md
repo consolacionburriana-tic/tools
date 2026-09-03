@@ -17,19 +17,20 @@ futura que necesite saber qué pasa en un aula un martes a las 10:15.
 
 ---
 
-## Estado: ⬜ solo diseño
+## Estado: 🟡 Fase 0 hecha (schema + permisos + helpers), sin pantallas
 
-Modelo de datos propuesto y razonado (este documento). **Nada implementado**: ni tablas en
-`src/db/schema.ts`, ni código, ni pantallas. Está a la espera de dos cosas:
-
-1. **Confirmación de David** de las decisiones marcadas 🟡 más abajo (son las que cambian el
-   schema, no se pueden tomar en silencio: ver `04-convenciones-tecnicas.md`).
-2. **El material real**: un export de horarios de al menos una etapa, en CSV/XLSX, del
-   generador de horarios o de Educamos — y, si se puede, la definición de las rejillas.
-   Hasta ver la forma real de esos ficheros, el importador es humo: se diseña el destino
-   (este documento), no el parser.
-
----
+- **Modelo de datos diseñado y razonado** (este documento) y **13 tablas `hor_*` en
+  `src/db/schema.ts`**, aditivas. SQL idempotente equivalente en `src/db/sql/horarios.sql`,
+  con la semilla del catálogo de actividades (12 tipos de hora).
+- **Permisos**: dos módulos, `horarios` y `horarios-profes` (ver decisión 5), más
+  `puedeEditarHorarios()`. Con tests.
+- **Helpers puros** en `src/lib/horarios.ts` con 264 tests en verde (`pnpm test`): periodo
+  vigente por fecha y prioridad, rejilla por ámbito con precedencia, tramo que contiene una
+  hora, tramo siguiente, lectiva con override, detección de conflictos y generador de
+  rejillas regulares. `pnpm lint` y `pnpm build` pasan.
+- **Falta**: aplicar el SQL en Neon (pendiente de David: el conector de Neon de la sesión
+  pide autorización), las pantallas (Fases 1-2), el importador (Fase 3, necesita un fichero
+  real) y la demolición de `pun_subjects` (ver decisión 1).
 
 ## El vocabulario (importa, porque todo el modelo cuelga de aquí)
 
@@ -174,22 +175,31 @@ horarios.
 
 ### Capa 4 · Apoyos individuales — `hor_apoyos`
 
-PT y AL no encajan en las capas 2-3 y **no hay que forzarlos**: no son "una clase de un
-grupo", son "a este alumno, esta persona, a esta hora". Van en su tabla, por alumno, a mano:
+Al confirmar David que **PT y AL vienen en el fichero como profesores normales**, esta capa
+se encogió a la mitad, que es justo lo que se quiere. Su horario **son asignaciones
+corrientes** de las capas 2-3 (con actividad `apoyo_pt` / `apoyo_al`): entran por el
+importador como cualquier otro profe y se ven en la cuadrícula sin nada especial.
+
+Lo que el fichero **no** trae, y por eso es lo único que queda aquí, es **a qué alumnos
+concretos** afecta cada una de esas horas. Eso se mete a mano desde orientación:
 
 ```
-hor_apoyos            edu_student_id, edu_teacher_id, actividad_id ('apoyo_pt'|'apoyo_al'),
-                      tramo_id,
+hor_apoyos            asignacion_id, edu_student_id,
                       modalidad ('dentro' = entra al aula | 'fuera' = lo saca del aula),
-                      asignacion_id?   ← de qué clase sale (así se sabe qué se pierde)
+                      sale_de_asignacion_id?  ← de qué clase se lo llevan
                       fecha_inicio?, fecha_fin?, notas, active
 ```
 
-Dos detalles que valen mucho después: `modalidad` distingue al PT que entra a apoyar dentro
-del aula del AL que se lleva al alumno fuera, y `asignacion_id` dice **de qué clase** se lo
-llevan — que es la pregunta que hará orientación en junio ("¿a Marc siempre le estamos
-quitando Lengua?"). Las fechas están porque estos apoyos cambian a mitad de curso, y con
-ellas el histórico no se pierde al reorganizarlos.
+El profe y la hora salen de la asignación, así que no se duplican en ninguna parte. Y tres
+detalles que valen mucho después: `modalidad` distingue al PT que entra a apoyar dentro del
+aula del AL que se lleva al alumno fuera; `sale_de_asignacion_id` dice **qué clase se
+pierde** ese alumno, que es la pregunta que hará orientación en junio ("¿a Marc siempre le
+estamos quitando Lengua?"); y las fechas están porque estos apoyos se reorganizan a mitad de
+curso, con lo que el histórico no se borra al cambiarlos.
+
+Si algún día hay un apoyo que no viene en ningún fichero, no hace falta nada nuevo: se crea
+la asignación a mano (`origen='manual'`, que el modelo ya soporta) y se le cuelgan sus
+alumnos igual.
 
 ---
 
@@ -249,35 +259,41 @@ El parser se escribe cuando llegue el primer fichero real. Lo que sí se puede f
 
 ---
 
-## Decisiones que necesito de David 🟡
+## Decisiones cerradas (2026-09-03, con David)
 
-Ninguna bloquea seguir diseñando, pero las tres primeras cambian el schema, así que no las
-tomo en silencio (van también a `00-desarrollos-futuros.md`).
+1. **`hor_materias` es el catálogo bueno; `pun_subjects` se muere.** No hay históricos de
+   Puntualidad todavía, así que David autoriza cargarse la tabla en vez de arrastrarla.
+   **Pero no se hace hasta la Fase 1**, y a propósito: `pun_subjects` alimenta hoy los chips
+   del formulario, el panel de asignaturas, el dashboard por asignatura y el CSV (≈90
+   referencias en 14 ficheros del módulo). Demolerla antes de que exista la pantalla de
+   materias de horarios dejaría a Puntualidad sin catálogo editable unos días, sin ganar
+   nada. Orden: primero la pantalla de `hor_materias` (Fase 1), después la migración de
+   Puntualidad en su propio commit.
+2. **Etapas: EI, EP y ESO activas; BACH, CFGM y CFGS previstas y desactivadas.** Están en
+   `ETAPAS_HORARIO` con su `active`. La resolución de etapa para horarios vive en
+   `etapaDeCursoHorario()` y **no** en `cursos.ts`: ampliar el tipo `Etapa` compartido
+   obligaría a inventar reglas de promoción (`cursoSiguiente`) y de banco de libros
+   (`cursoEnBanco`) para etapas que aún no existen, tocando dos módulos en producción por
+   nada. Cuando esas etapas lleguen de verdad, se sube con sus reglas.
+3. **PT y AL vienen en el fichero como profesores normales.** Esto simplificó el modelo:
+   su horario son asignaciones corrientes (con `hor_actividades` 'apoyo_pt' / 'apoyo_al'),
+   y `hor_apoyos` se queda solo con lo que el fichero NO trae — **qué alumnos concretos**
+   toca cada una, a mano desde orientación. La tabla cuelga de la asignación, así que el
+   profe y la hora salen de ahí y no se duplican.
+4. **Permisos: dos módulos separados, no uno.** Petición literal de David, y tiene razón:
+   - `horarios` → ver el horario de las **clases**. Lo tienen todos los roles del claustro.
+   - `horarios-profes` → ver el horario de un **profesor**. Va aparte para poder quitárselo
+     a alguien sin quitarle lo anterior ("a mí me has puesto…"). Hoy lo traen dirección,
+     jefatura y orientación.
+   - **Editar** (rejillas, importar, asignaciones) es cuestión de rol, no de módulo:
+     `puedeEditarHorarios()` — dirección, jefatura y TIC. Tener el módulo da vista, no lápiz.
 
-1. 🟡 **`hor_materias` vs `pun_subjects`.** Puntualidad ya tiene un catálogo de asignaturas
-   (13 filas de ejemplo, con `edu_teacher_id`) y `pun_records.subject_id` apunta a él con
-   clave ajena. Mi recomendación: **`hor_materias` pasa a ser el catálogo bueno** (es un
-   recurso compartido, como el alumnado) y a `pun_subjects` se le añade un
-   `hor_materia_id` nullable para casarlos. Es aditivo, no rompe el histórico de retrasos ni
-   renombra nada, y deja `pun_subjects` como lo que de verdad es: los chips del formulario.
-   La alternativa (promover `pun_subjects` a `hor_materias` renombrando) toca datos de
-   producción y las convenciones piden decisión explícita para eso.
-2. 🟡 **¿Cuántas etapas y cuántas rejillas de verdad?** El modelo aguanta N, pero para
-   sembrar quiero los números reales: infantil / primaria / ESO (+ PDC) hoy, ¿y bachillerato
-   o FP a la vista? ("mínimo tres etapas, pero se pueden tener que añadir más").
-3. 🟡 **¿Los apoyos de PT/AL son solo a mano, o también vienen en algún fichero?** Si son
-   siempre a mano (es lo que entendí), `hor_apoyos` no necesita importador y la Fase 5 se
-   simplifica mucho.
-4. 🟡 **Días especiales** (un día suelto con rejilla propia: día del colegio, media jornada,
-   festivos): ¿hace falta? Se resuelve con una tabla chica (`hor_dias_especiales`: fecha,
-   tipo, rejilla_id?) y prefiero no añadirla si nadie la va a rellenar.
-5. 🟡 **Quién ve y quién edita.** Mi propuesta: módulo de permisos **`horarios`**, edición
-   para dirección/jefatura/TIC, y **lectura para todo el claustro** (un profe tiene que poder
-   ver el horario de una clase). Los horarios no son dato personal sensible de alumnado, pero
-   sí dicen dónde está cada profesor a cada hora, así que el navegador va detrás del login,
-   nunca público.
+### Sigue pendiente
 
----
+- 🟡 **Días especiales** (un día suelto con rejilla propia: media jornada, día del colegio,
+  festivos). Sin respuesta y **no bloquea**: es una tabla chica y aditiva (`hor_dias_especiales`:
+  fecha, tipo, rejilla_id?) que se añade el día que se quiera. No la creo por si acaso.
+- 📥 **El export real de horarios** de al menos una etapa. Sin él no se escribe la Fase 3.
 
 ## Plan técnico
 
@@ -295,7 +311,7 @@ tomo en silencio (van también a `00-desarrollos-futuros.md`).
 | `hor_asignacion_grupos` | A qué grupo(s)/subgrupo(s) va |
 | `hor_asignacion_profes` | Qué profe(s), con rol y `principal` |
 | `hor_sesiones` | La celda: asignación colocada en un tramo |
-| `hor_apoyos` | PT/AL con un alumno concreto en un tramo concreto |
+| `hor_apoyos` | Qué alumnos concretos toca una asignación de PT/AL (lo único que no viene en el fichero) |
 | `hor_alias` | Traducción de códigos del fichero externo a nuestros IDs |
 | `hor_import_runs` | Bitácora de importaciones (como `edu_sync_runs`) |
 
@@ -323,15 +339,18 @@ necesitar tres joins.
 
 ## Fases
 
-### Fase 0 · Decisiones y cimientos — ⬜
-- [ ] Confirmar con David las decisiones 🟡 de arriba (1-5)
-- [ ] Ver un export real de horarios de una etapa (CSV/XLSX) y anotar aquí su forma real
-- [ ] Tablas `hor_*` en `src/db/schema.ts` (aditivas) + SQL idempotente en `src/db/sql/horarios.sql`
-- [ ] Módulo `horarios` en la matriz de permisos, con tests
-- [ ] Helpers puros con tests: periodo vigente por fecha y prioridad, rejilla por ámbito con
-      precedencia, tramo que contiene una hora, conflictos
+### Fase 0 · Decisiones y cimientos — 🟡
+- [x] Confirmar con David las decisiones de arriba (ver "Decisiones cerradas")
+- [x] Tablas `hor_*` en `src/db/schema.ts` (aditivas) + SQL idempotente en `src/db/sql/horarios.sql`
+- [x] Módulos `horarios` y `horarios-profes` en la matriz de permisos + `puedeEditarHorarios()`, con tests
+- [x] Helpers puros con tests: periodo vigente por fecha y prioridad, rejilla por ámbito con
+      precedencia, tramo que contiene una hora y el siguiente, lectiva con override,
+      conflictos (profe / grupo con desdobles / aula) y generador de rejillas regulares
+- [ ] Aplicar `src/db/sql/horarios.sql` en Neon (**David**: el conector de Neon pide autorización)
+- [ ] Ver un export real de horarios de una etapa (CSV/XLSX) y anotar aquí su forma real (**David**)
 
-### Fase 1 · Rejillas — ⬜
+### Fase 1 · Rejillas y materias — ⬜
+- [ ] Pantalla de materias (`hor_materias`) y **migración de `pun_subjects`** (decisión 1)
 - [ ] Pantalla de periodos de vigencia (fechas + prioridad + duplicar del año anterior)
 - [ ] Editor de rejilla: sesiones, horas, tipo, con "copiar el lunes al resto de días"
 - [ ] Ámbitos (a qué etapa/curso aplica cada rejilla) y aviso si un grupo se queda sin rejilla
@@ -355,5 +374,6 @@ necesitar tres joins.
 - [ ] Encender `htmlAvisoProfeAsignatura` (ya escrito) — cierra la Fase 4 de [`17`](./17-puntualidad.md)
 
 ### Fase 5 · Apoyos PT/AL — ⬜
-- [ ] Alta a mano de apoyos por alumno, con modalidad (dentro/fuera) y de qué clase sale
+- [ ] Alta a mano de alumnos sobre las asignaciones de PT/AL ya importadas, con modalidad
+      (dentro/fuera) y de qué clase sale
 - [ ] Verlos en la cuadrícula del grupo y en la ficha del alumno

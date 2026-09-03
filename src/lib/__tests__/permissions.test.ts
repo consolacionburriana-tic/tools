@@ -98,8 +98,9 @@ describe('guardar la selección como diferencia respecto al rol', () => {
   it('marcar uno de más lo guarda como extra; desmarcar uno del rol, como bloqueado', () => {
     const r = diffModulos('tutor', ['salidas', 'evaluaciones'] as Module[]);
     expect(r.modulosExtra).toEqual(['evaluaciones']);
-    // El rol tutor trae salidas, bancolibros y puntualidad: lo que no se marca, bloqueado.
-    expect(r.modulosBloqueados).toEqual(['bancolibros', 'puntualidad']);
+    // El rol tutor trae salidas, bancolibros, puntualidad y horarios: lo que no se marca,
+    // bloqueado.
+    expect(r.modulosBloqueados).toEqual(['bancolibros', 'puntualidad', 'horarios']);
   });
 
   it('ida y vuelta: guardar la diferencia y volver a resolverla da lo mismo que se marcó', () => {

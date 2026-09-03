@@ -75,7 +75,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; falta asignar las tutorías de 2026-27 para que salgan los avisos) | [`17-puntualidad.md`](./17-puntualidad.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
-| Horarios (transversal: rejillas, horarios de clase y de profe) | 🟡 | ✅ | ⬜ (solo diseño: modelo de datos propuesto; a la espera de decisiones de David y de un export real) | [`07-horarios.md`](./07-horarios.md) |
+| Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (Fase 0: 13 tablas `hor_*`, permisos en dos módulos y helpers puros con tests; falta aplicar el SQL en Neon, las pantallas y el importador) | [`07-horarios.md`](./07-horarios.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.
@@ -105,8 +105,8 @@ empieza un hito hasta que el anterior está funcional (no hace falta que esté p
 | 5 | **Banco de libros** (`bl_*`) | [`12`](./12-bancolibros.md) | Necesita el modelo anual lote↔alumno bien pensado; se apoya en `edu_students`. |
 | 6 | **Evaluaciones** (`eval_*`) | [`16`](./16-evaluaciones.md) | Motorcito de formularios propio; el más independiente, puede ir en paralelo si conviene. |
 
-Transversales sin hito propio: los **horarios** ([`07-horarios.md`](./07-horarios.md), en
-diseño — los estrena Puntualidad y enseguida los piden sustituciones y documentación de clase);
+Transversales sin hito propio: los **horarios** ([`07-horarios.md`](./07-horarios.md), Fase 0
+hecha — los estrena Puntualidad y enseguida los piden sustituciones y documentación de clase);
 la **PWA** ([`05-pwa.md`](./05-pwa.md), priorizada por David —
 Fases 1-2 hechas: iconos, atajos, service worker y página de sin conexión); auditoría de cambios y
 dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
