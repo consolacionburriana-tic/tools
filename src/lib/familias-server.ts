@@ -113,10 +113,19 @@ export async function identifyFamily(input: string): Promise<FamilyIdentity | nu
   }
 
   if (ident.tipo === 'nia') {
+    // Comparación normalizada en SQL (solo dígitos, sin ceros a la izquierda), igual que con el
+    // documento del tutor: el importador guarda el NIA tal cual viene del Excel, y una celda
+    // numérica o un cero de relleno bastaban para que la familia no se encontrara nunca.
+    const sinCeros = ident.valor.replace(/^0+/, '');
     const [s] = await db
       .select()
       .from(eduStudents)
-      .where(and(eq(eduStudents.nia, ident.valor), eq(eduStudents.active, true)))
+      .where(
+        and(
+          sql`ltrim(regexp_replace(coalesce(${eduStudents.nia}, ''), '[^0-9]', '', 'g'), '0') = ${sinCeros}`,
+          eq(eduStudents.active, true),
+        ),
+      )
       .limit(1);
     if (s) return { tipo: 'nia', hijos: [toChild(s)], email: await emailDeAlumnos([s.id]) };
     // Fallback: hay tutores con documento solo-dígitos; probamos como documento
