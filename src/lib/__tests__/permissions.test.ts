@@ -6,6 +6,7 @@ import {
   origenModulo,
   MODULES,
   ROLE_MODULES,
+  vePuntualidadCompleta,
   type Module,
 } from '@/lib/permissions';
 
@@ -97,7 +98,8 @@ describe('guardar la selección como diferencia respecto al rol', () => {
   it('marcar uno de más lo guarda como extra; desmarcar uno del rol, como bloqueado', () => {
     const r = diffModulos('tutor', ['salidas', 'evaluaciones'] as Module[]);
     expect(r.modulosExtra).toEqual(['evaluaciones']);
-    expect(r.modulosBloqueados).toEqual(['bancolibros']);
+    // El rol tutor trae salidas, bancolibros y puntualidad: lo que no se marca, bloqueado.
+    expect(r.modulosBloqueados).toEqual(['bancolibros', 'puntualidad']);
   });
 
   it('ida y vuelta: guardar la diferencia y volver a resolverla da lo mismo que se marcó', () => {
@@ -113,5 +115,23 @@ describe('guardar la selección como diferencia respecto al rol', () => {
 
   it('sin rol, cualquier selección se guarda como extra', () => {
     expect(diffModulos(null, ['salidas'] as Module[]).modulosExtra).toEqual(['salidas']);
+  });
+});
+
+describe('alcance dentro de Puntualidad', () => {
+  it('dirección, jefatura, orientación y TIC ven todo el centro', () => {
+    for (const role of ['direccion', 'jefe', 'orientacion', 'tic', 'supertic'] as const) {
+      expect(vePuntualidadCompleta(role)).toBe(true);
+    }
+  });
+
+  it('un tutor tiene el módulo pero solo ve sus clases', () => {
+    expect(canAccess({ role: 'tutor' }, 'puntualidad')).toBe(true);
+    expect(vePuntualidadCompleta('tutor')).toBe(false);
+  });
+
+  it('un profe sin el módulo no entra al panel (pero sí puede registrar: eso solo pide sesión)', () => {
+    expect(canAccess({ role: 'profe' }, 'puntualidad')).toBe(false);
+    expect(vePuntualidadCompleta('profe')).toBe(false);
   });
 });

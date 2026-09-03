@@ -103,3 +103,13 @@ export function cursoEnBanco(curso: string | null | undefined): boolean {
   if (etapa === 'ESO') return true;
   return false;
 }
+
+/**
+ * Etiqueta de clase para pantalla: `'2ESO' + 'B'` → `'2ESO B'`, y `'3ºPPDC' + 'PDC'` →
+ * `'3ºPPDC'` (en PDC la letra ES el curso, repetirla sobra). Igual que la de Registro ABC,
+ * pero aquí porque no es de ningún módulo: la usa todo el que pinte una clase.
+ */
+export function nombreClase(curso: string | null | undefined, letra: string | null | undefined): string {
+  if (!curso) return '';
+  return letra && letra !== 'PDC' ? `${curso} ${letra}` : curso;
+}

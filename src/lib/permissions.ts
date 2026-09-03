@@ -14,6 +14,7 @@ export const MODULES = [
   'salidas',
   'bancolibros',
   'evaluaciones',
+  'puntualidad',
   'educamos',
   'usuarios',
   'profes',
@@ -26,6 +27,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   salidas: 'Salidas y pagos',
   bancolibros: 'Banco de libros',
   evaluaciones: 'Evaluaciones',
+  puntualidad: 'Puntualidad',
   educamos: 'BBDD central',
   usuarios: 'Usuarios y roles',
   profes: 'Tutorías',
@@ -66,11 +68,11 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   supertic: [...MODULES],
   tic: [...MODULES],
-  direccion: ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'educamos', 'profes'],
-  jefe: ['salidas', 'bancolibros', 'profes'],
-  orientacion: ['abc'],
+  direccion: ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'puntualidad', 'educamos', 'profes'],
+  jefe: ['salidas', 'bancolibros', 'puntualidad', 'profes'],
+  orientacion: ['abc', 'puntualidad'],
   secretaria: ['licencias', 'salidas', 'bancolibros'],
-  tutor: ['salidas', 'bancolibros'],
+  tutor: ['salidas', 'bancolibros', 'puntualidad'],
   profe: ['salidas', 'bancolibros'],
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
@@ -145,6 +147,17 @@ export function diffModulos(
  */
 export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
   return role === 'direccion' || role === 'tic' || role === 'supertic';
+}
+
+/**
+ * Dentro del módulo `puntualidad`, quién ve TODO el centro y quién solo lo suyo.
+ * Dirección, jefatura, orientación y TIC ven todos los retrasos; un tutor con el módulo
+ * ve únicamente el alumnado de las clases que tutoriza (se filtra contra `edu_tutorias`
+ * del curso académico en vigor). Registrar, en cambio, lo puede hacer cualquier persona
+ * del claustro con sesión: basta `requireSession()`, como el formulario del ABC.
+ */
+export function vePuntualidadCompleta(role: Role | null): boolean {
+  return role === 'direccion' || role === 'jefe' || role === 'orientacion' || role === 'tic' || role === 'supertic';
 }
 
 export const DOMINIO_LOGIN = 'consolacionburriana.com';

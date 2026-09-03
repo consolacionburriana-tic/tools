@@ -18,5 +18,16 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ['/gestion', '/gestion/:path*', '/admin', '/admin/:path*', '/registro-abc', '/registro-abc/:path*'],
+  // Ojo con Puntualidad: se protege el formulario (`/puntualidad`) pero NO
+  // `/puntualidad/consecuencia/<token>`, que es el enlace de un clic del correo al tutor y
+  // vive sin login a propósito (el token es la credencial y solo abre esa consecuencia).
+  matcher: [
+    '/gestion',
+    '/gestion/:path*',
+    '/admin',
+    '/admin/:path*',
+    '/registro-abc',
+    '/registro-abc/:path*',
+    '/puntualidad',
+  ],
 };

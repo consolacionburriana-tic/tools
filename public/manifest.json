@@ -1,26 +1,62 @@
 {
+  "id": "/gestion",
   "name": "Tools Consolación",
   "short_name": "Tools",
   "description": "Herramientas internas del Colegio Consolación Burriana",
   "start_url": "/gestion",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "theme_color": "#2563eb",
   "background_color": "#ffffff",
   "lang": "es",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Registrar retraso",
+      "short_name": "Puntualidad",
+      "description": "Apuntar a quien llega tarde a primera hora",
+      "url": "/puntualidad"
+    },
+    {
+      "name": "Registrar conducta (ABC)",
+      "short_name": "Registro ABC",
+      "description": "Formulario de incidencias de conducta",
+      "url": "/registro-abc"
+    },
+    {
+      "name": "Escritorio",
+      "short_name": "Escritorio",
+      "description": "Todas las herramientas",
+      "url": "/gestion"
     }
   ]
 }

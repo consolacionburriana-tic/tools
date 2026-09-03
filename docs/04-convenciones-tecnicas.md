@@ -51,6 +51,9 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
+| `PUNTUALIDAD_AVISOS_COPIA` | Correos (separados por comas) que reciben copia del aviso del tercer retraso, además del tutor/a. Vacío = solo el tutor |
+| `CRON_SECRET` | Secreto del cron de Vercel del resumen semanal de Puntualidad (`vercel.json`) |
+
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
 código que la usa.
 Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2).
@@ -58,7 +61,8 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
 ## Base de datos (Drizzle + Neon)
 
 - **Todas las tablas en `src/db/schema.ts`**, agrupadas por módulo con su prefijo (`abc_`,
-  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`) y un comentario separador por bloque.
+  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`) y un comentario separador
+  por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
 - **Cambios de schema siempre aditivos** vía `pnpm db:push`: añadir tablas/columnas sí; renombrar
   o borrar, solo con decisión explícita de David (hay datos reales de producción).
@@ -118,7 +122,7 @@ src/components/<modulo>/          # componentes propios del módulo
   son `src/lib/email-gmail.ts` (API de Gmail, cuenta de servicio con delegación de dominio) y
   el bloque Resend de `email.ts`. Se elige por env (`EMAIL_TRANSPORTE[_<PERFIL>]`), sin deploy.
 - **Perfiles de remitente** (`PerfilCorreo`: `licencias`, `salidas`, `abc`, `evaluaciones`,
-  `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
+  `puntualidad`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
   `licencias@consolacionburriana.com` (centralizado, buzón real); el resto sale del buzón
   genérico y **el `Reply-To` lo pone quien envía** (`guard.email` del tutor/gestor en los
   routes de recordatorio y de evaluaciones), para que las familias no contesten al vacío.
@@ -134,6 +138,19 @@ src/components/<modulo>/          # componentes propios del módulo
   un alias verificado suyo (`Enviar como`); los grupos no se pueden suplantar — si
   `licencias@` fuera un grupo, se pone `EMAIL_BUZON_LICENCIAS` con un buzón real que lo tenga
   como alias.
+
+## PWA y service worker
+
+- La app es **una única PWA** para toda la plataforma (`public/manifest.json`, ficha
+  [`05-pwa.md`](./05-pwa.md)). Los iconos se generan con `python3 scripts/iconos-pwa.py`
+  (herramienta manual, necesita Pillow); no se editan a mano.
+- **El service worker (`public/sw.js`) no cachea HTML de páginas ni `/api`, nunca.** Los
+  iPads del claustro son compartidos: una pantalla con datos de alumnado en caché es
+  información servida a quien no le toca. Solo se cachean estáticos con hash, iconos y la
+  página `/offline.html`.
+- Cualquier página de fallback que tenga que verse **sin red** va en HTML plano con estilos
+  en línea (como `public/offline.html`): el CSS de Next lleva hash de build y puede no estar
+  en caché justo el día que hace falta.
 
 ## Exportaciones y ficheros
 

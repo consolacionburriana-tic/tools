@@ -142,16 +142,42 @@ Recopilados de las fichas, para verlos de un vistazo:
 
 - ~~**Educamos**: un export real de alumnado y de tutores~~ ✅ recibido (jul 2026) — mapeo de
   columnas fijado en `02-integracion-educamos.md`. El fichero NO se commitea (`.gitignore`).
+- **Logo vectorial del colegio (SVG o AI)**: los iconos de la PWA ya llevan el emblema real,
+  extraído del PNG del lockup, así que el de 192 sale nítido y el de 512 algo suave. Con el
+  vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`).
+  No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
 - ~~**Vercel Blob**: activar el store para justificantes~~ ✅ hecho — store creado, token
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
+- **Tutorías del curso 2026-27**: `edu_tutorias` solo tiene filas de **2025-26**, y el curso
+  en vigor ya es 2026-27. Mientras no se asignen (`/gestion/profes`, con el botón de
+  promoción +1), Puntualidad no tiene a quién mandar el aviso del tercer retraso ni el
+  resumen semanal, y los tutores ven su panel vacío. Afecta también a los destinatarios
+  sugeridos del ABC. Es lo primero que conviene hacer del arranque de curso.
+- **Puntualidad** (ficha `17`): ~~ejecutar el SQL de las tablas~~ ✅ hecho (2026-09-03).
+  Queda opcional: poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del
+  aviso del 3er retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su
+  `CRON_SECRET`.
 - **Banco de libros** (ficha `12`): ejecutar `pnpm db:push` en Neon para la columna
   `edu_students.ampa` y la tabla `bl_libros_curso` (cambios aditivos). El código está desplegable,
   pero hasta que no se aplique el schema la pestaña AMPA y los libros manuales darán error.
 
 ---
+
+### Puntualidad: lo que quedó anotado al construirlo (2026-09-02)
+- **Consecuencias como módulo propio**: nacen dentro de Puntualidad pero con prefijo `con_*`
+  y `origen` ('puntualidad' | 'manual') justo para poder separarlas. Cuando haga falta
+  registrar consecuencias de convivencia, se mudan esas tres tablas y sus pantallas.
+- **Aviso a familias en cada retraso**: descartado por ahora (sería el correo con más ruido
+  del colegio). Si algún día se quiere, el sitio natural es el mismo route de alta.
+- **Franjas además de la entrada**: hoy solo se registra la entrada de las 8:00 con límite
+  08:05. Si se quisiera apuntar retrasos tras el patio, habría que añadir franja + límite por
+  franja. Se decidió esperar a tener los horarios.
+- **Borrar un retraso** lo puede hacer cualquiera con el módulo (y un tutor solo en sus
+  clases). No hay auditoría de borrados: si algún día importa, es el caso de uso del
+  historial transversal que ya está apuntado como idea abajo.
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
 

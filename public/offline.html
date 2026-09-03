@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sin conexión · Tools Consolación</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
+    <!--
+      Página de cortesía del service worker (`public/sw.js`) cuando la app se abre sin red.
+      Va en HTML plano con los estilos EN LÍNEA a propósito: si dependiera del CSS de Next
+      (que lleva hash de build y puede no estar en caché) saldría sin estilos justo el día
+      que hace falta. Sin JS, sin fuentes externas, sin nada que pueda faltar.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fondo: #fafafa;
+        --tarjeta: #ffffff;
+        --borde: #e4e4e7;
+        --texto: #18181b;
+        --suave: #71717a;
+        --azul: #084174;
+        --ambar-fondo: #fef3c7;
+        --ambar-texto: #92400e;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fondo: #09090b;
+          --tarjeta: #18181b;
+          --borde: #27272a;
+          --texto: #fafafa;
+          --suave: #a1a1aa;
+          --azul: #3b82f6;
+          --ambar-fondo: rgba(120, 53, 15, 0.35);
+          --ambar-texto: #fcd34d;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: var(--fondo);
+        color: var(--texto);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .tarjeta {
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+        background: var(--tarjeta);
+        border: 1px solid var(--borde);
+        border-radius: 24px;
+        padding: 32px 24px;
+      }
+      img { display: block; width: 180px; max-width: 70%; height: auto; margin: 0 auto; }
+      /* El logo es azul sobre transparente: en modo oscuro necesita su plaquita blanca. */
+      @media (prefers-color-scheme: dark) {
+        img { background: #fff; padding: 12px 16px; border-radius: 16px; box-sizing: content-box; }
+      }
+      .aviso {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 20px 0 16px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: var(--ambar-fondo);
+        color: var(--ambar-texto);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      h1 { margin: 0 0 8px; font-size: 19px; }
+      p { margin: 0; color: var(--suave); font-size: 14px; line-height: 1.6; }
+      a.boton {
+        display: inline-block;
+        margin-top: 24px;
+        padding: 13px 24px;
+        border-radius: 14px;
+        background: var(--azul);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .pie { margin-top: 18px; font-size: 12px; color: var(--suave); }
+    </style>
+  </head>
+  <body>
+    <main class="tarjeta">
+      <img src="/logobur.png" alt="Colegio Consolación Burriana" />
+      <div class="aviso">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+          <path d="M2 8a15 15 0 0 1 20 0" opacity=".45" />
+          <path d="M5 12a10 10 0 0 1 14 0" opacity=".7" />
+          <path d="M8.5 15.5a5 5 0 0 1 7 0" />
+          <path d="M12 20h.01" />
+          <path d="M2 2l20 20" />
+        </svg>
+        Sin conexión
+      </div>
+      <h1>No hay red ahora mismo</h1>
+      <p>
+        Las herramientas necesitan conexión para leer y guardar datos. Comprueba el wifi del
+        centro y vuelve a intentarlo.
+      </p>
+      <a class="boton" href="/gestion">Volver a intentarlo</a>
+      <p class="pie">Lo que tuvieras a medio rellenar sigue guardado en este iPad.</p>
+    </main>
+  </body>
+</html>
