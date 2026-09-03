@@ -3,7 +3,37 @@
 
 
 ### Pendiente de decisión tuya
-- *(nada ahora mismo)*
+- **¿El formulario público debe encontrar a la familia con el DNI/NIE del propio alumno?**
+  Hoy `identifyFamily()` (`src/lib/familias-server.ts`) acepta el documento del **tutor** o el
+  **NIA** del alumno, pero nunca `edu_students.dni`, que sí se importa. Si David teclea el DNI de
+  un alumno no encuentra nada — y en ESO hay alumnos con DNI propio. Es un cambio de una línea,
+  pero amplía quién puede identificarse en una pantalla pública, así que lo decides tú. Apuntado
+  también en `docs/00-desarrollos-futuros.md`.
+- **Cabeceras del Excel de Educamos por lista blanca exacta.** `CAMPOS_ALUMNO`
+  (`src/lib/educamos.ts`) casa `nia: ['NIA']` y `dni: ['DNI ALUMNO','DNI']` de forma literal:
+  cualquier variante real del fichero ("N.I.A.", "DNI/NIE", "NIF", "DOCUMENTO") cae en
+  `extra-alumno` y deja `nia`/`dni` en NULL sin dar error. Efecto secundario feo: `matchStudent()`
+  no puede casar por NIA/DNI en el import siguiente → duplicados. Hoy los datos están bien (0
+  NIA duplicados, 3 alumnos sin NIA y 4 sin código de 640 activos), así que no urge; hace falta
+  ver un fichero real tuyo para decidir si se pasa a alias por regex o basta con un aviso
+  explícito en el resumen del asistente ("en este fichero no he encontrado columna NIA").
+
+### Pendiente de que lo hagas tú en la app
+- [x] ~~Limpieza de datos y migración de la única de `lic_students`~~ → aplicadas el 2026-09-03
+      directamente contra Neon. **No hace falta `pnpm db:push` para esto.** Detalle en
+      `docs/11-licencias-v2.md`, "Aplicado en Neon".
+- [ ] **Sincronizar el alumnado de Licencias** (`/gestion/licencias/sincronizar` → Alumnado, con
+      vista previa antes de escribir). Ya se puede: simulada contra la BBDD, la previa sale con
+      **10 altas y 4 bajas, ninguna con pedido** (antes del arreglo: 50 bajas, 13 con pedido).
+      Las 4 bajas son correctas: Manuel Izquierdo y Andrea Gimeno (filas heredadas basura, sin
+      enlace ni pedidos) y Guillem Bravo y Martin Osorio (ya no activos en la central).
+      Arregla de paso los **6 alumnos descuadrados** de banco de libros (Isabel y Elena Porcar
+      entre ellos) y da de alta a JUAN SEBASTIAN PEDRAZA (NIA 13620087), el que no localizabas.
+      Detalle en `docs/12-bancolibros.md`, "Fase 5".
+- [ ] **Dos DNI de alumno repetidos en Educamos** (los localiza el buscador nuevo, pero se los
+      salta por seguridad): `54281484N` lo comparten **Maximiliano Restrepo** y **Martina
+      Safont** (2ESO B, familias distintas — este es el feo), y `Y9320975D` los hermanos
+      **Cezar Andreas** y **Maria Francesca Bordas** (1PRI A).
 
 ---
 

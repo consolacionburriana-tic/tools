@@ -20,6 +20,29 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### ~~¿Dos tablas de alumnado (`edu_students` + `lic_students`)?~~ ✅ decidido (2026-09-03)
+**No.** Una sola fuente de verdad (`edu_students`) y `lic_students` adelgazada a "quién participa
+en esta campaña". La foto histórica del pedido ya vive en `lic_orders`, que guarda su propio
+`curso` y `banco_libros`. Plan cerrado y listo para ejecutar en
+[`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md), **con prioridad máxima a partir
+del 1 de noviembre de 2026**.
+
+
+### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
+`identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
+(`edu_guardians.dni`, comparado normalizado) o el **NIA del alumno**. `edu_students.dni` se
+importa desde Educamos pero **no se usa en ningún buscador**, ni público ni interno (ABC y
+Puntualidad buscan por nombre/apellidos/NIA). Salió al revisar el 2026-09-03 por qué un NIE y un
+NIA "no localizaban nada".
+
+- A favor: en ESO hay alumnado con DNI propio, y es lo primero que uno teclea.
+- En contra: amplía quién se puede identificar en una pantalla pública sin haber probado ser de
+  esa familia (el formulario ya devuelve solo nombres enmascarados, pero aun así).
+
+Decisión de David pendiente. Si es sí, es una rama más en `identifyFamily` con la misma
+normalización SQL que el documento del tutor.
+
+
 ### ~~Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?~~ ✅ decidido (2026-09-01)
 No: se queda **solo dirección y TIC** (`puedeGestionarParticipantesBanco()` en
 `src/lib/permissions.ts`). Tutores y profes conservan el resto del módulo (lotes, checks, pasar

@@ -92,9 +92,14 @@ export const licCampaigns = pgTable('lic_campaigns', {
 export const licStudents = pgTable('lic_students', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id),
-  studentCode: text('student_code').notNull(), // código interno, p.ej. 11SOLJOA
+  // Etiqueta heredada del Excel original (p.ej. 11SOLJOA). YA NO ES CLAVE DE NADA: se genera a
+  // partir del nombre, así que cambia sola en cuanto cambia la regla (acentos, apellidos con
+  // espacios) y eso daba bajas+altas fantasma de la misma persona. Se conserva porque sale en
+  // exportaciones y en el Excel del colegio.
+  studentCode: text('student_code').notNull(),
   educamosId: text('educamos_id'),
-  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id), // enlace a la BBDD central
+  /** La identidad del alumno: FK a la BBDD central. Es la clave con la que se empareja. */
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
   apellidos: text('apellidos').notNull(),
   apellido1: text('apellido1'),
   apellido2: text('apellido2'),
@@ -108,7 +113,11 @@ export const licStudents = pgTable('lic_students', {
   active: boolean('active').notNull().default(true), // en rango del formulario
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
-  uniqueIndex('lic_students_campaign_code_uq').on(t.campaignId, t.studentCode),
+  // Un alumno, una fila por campaña. Antes la única era (campaign_id, student_code), y como el
+  // código se recalcula del nombre, un alumno que cambiaba de código entraba como alta nueva y
+  // el viejo se desactivaba — llevándose por delante el pedido que lo referenciaba.
+  uniqueIndex('lic_students_campaign_edu_uq').on(t.campaignId, t.eduStudentId),
+  index('lic_students_campaign_code_idx').on(t.campaignId, t.studentCode),
   index('lic_students_search_idx').on(t.curso, t.birthYear, t.apellidos),
 ]);
 

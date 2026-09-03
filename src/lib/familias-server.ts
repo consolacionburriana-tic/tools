@@ -66,6 +66,31 @@ async function hijosPorDocumento(valorNormalizado: string): Promise<{ hijos: Fam
 }
 
 /**
+ * Alumnos activos cuyo PROPIO documento casa con el tecleado (`edu_students.dni`, que en ESO
+ * suele estar puesto). Misma normalización que el del tutor. David, 2026-09-03: que valga
+ * "pero no avises, solo si lo ponen pues" — así que no se anuncia en ninguna pantalla, es
+ * simplemente una vía más que funciona si la familia la usa.
+ */
+async function alumnosPorDocumentoPropio(valorNormalizado: string): Promise<FamilyChild[]> {
+  const sinCeros = valorNormalizado.replace(/^0+/, '');
+  if (sinCeros.length < 5) return [];
+  const rows = await db
+    .select()
+    .from(eduStudents)
+    .where(
+      and(
+        sql`ltrim(regexp_replace(upper(coalesce(${eduStudents.dni}, '')), '[^A-Z0-9]', '', 'g'), '0') = ${sinCeros}`,
+        eq(eduStudents.active, true),
+      ),
+    );
+  // Dos personas NO comparten documento: si casa más de un alumno es un error de datos (a
+  // 2026-09-03 hay dos casos reales en Neon, uno entre alumnos de familias distintas), y
+  // devolverlos sería enseñarle a quien teclea el nombre enmascarado de un hijo ajeno. Ante la
+  // duda, no hay match — el tutor siempre puede entrar con su propio documento o con el NIA.
+  return rows.length === 1 ? rows.map(toChild) : [];
+}
+
+/**
  * Correo de contacto de la familia de unos alumnos: el del tutor 1, con `email_google`
  * como respaldo. Mismo criterio que el de los magic links (`fam-tokens-server.ts`).
  */
@@ -108,21 +133,39 @@ export async function identifyFamily(input: string): Promise<FamilyIdentity | nu
 
   if (ident.tipo === 'dni') {
     const { hijos, email } = await hijosPorDocumento(ident.valor);
-    if (!hijos.length) return null;
-    return { tipo: 'dni', hijos, email: email ?? (await emailDeAlumnos(hijos.map((h) => h.eduStudentId))) };
+    if (hijos.length) {
+      return { tipo: 'dni', hijos, email: email ?? (await emailDeAlumnos(hijos.map((h) => h.eduStudentId))) };
+    }
+    // Respaldo: el documento del propio alumno (no es de ningún tutor, pero puede ser suyo).
+    const propios = await alumnosPorDocumentoPropio(ident.valor);
+    if (!propios.length) return null;
+    return { tipo: 'dni', hijos: propios, email: await emailDeAlumnos(propios.map((h) => h.eduStudentId)) };
   }
 
   if (ident.tipo === 'nia') {
+    // Comparación normalizada en SQL (solo dígitos, sin ceros a la izquierda), igual que con el
+    // documento del tutor: el importador guarda el NIA tal cual viene del Excel, y una celda
+    // numérica o un cero de relleno bastaban para que la familia no se encontrara nunca.
+    const sinCeros = ident.valor.replace(/^0+/, '');
     const [s] = await db
       .select()
       .from(eduStudents)
-      .where(and(eq(eduStudents.nia, ident.valor), eq(eduStudents.active, true)))
+      .where(
+        and(
+          sql`ltrim(regexp_replace(coalesce(${eduStudents.nia}, ''), '[^0-9]', '', 'g'), '0') = ${sinCeros}`,
+          eq(eduStudents.active, true),
+        ),
+      )
       .limit(1);
     if (s) return { tipo: 'nia', hijos: [toChild(s)], email: await emailDeAlumnos([s.id]) };
-    // Fallback: hay tutores con documento solo-dígitos; probamos como documento
+    // Fallback: hay tutores (y alumnos) con documento solo-dígitos; probamos como documento
     const { hijos, email } = await hijosPorDocumento(ident.valor);
-    if (!hijos.length) return null;
-    return { tipo: 'dni', hijos, email: email ?? (await emailDeAlumnos(hijos.map((h) => h.eduStudentId))) };
+    if (hijos.length) {
+      return { tipo: 'dni', hijos, email: email ?? (await emailDeAlumnos(hijos.map((h) => h.eduStudentId))) };
+    }
+    const propios = await alumnosPorDocumentoPropio(ident.valor);
+    if (!propios.length) return null;
+    return { tipo: 'dni', hijos: propios, email: await emailDeAlumnos(propios.map((h) => h.eduStudentId)) };
   }
 
   // Token (magic link). Un token vale para cualquier módulo público: `proposito` dice para

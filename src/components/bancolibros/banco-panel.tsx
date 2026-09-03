@@ -1,7 +1,8 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, BookOpen, Check, ChevronLeft, HeartHandshake, Loader2, NotebookPen, Users, Wand2 } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, BarChart3, BookOpen, Check, ChevronLeft, HeartHandshake, Loader2, NotebookPen, Users, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 
@@ -93,10 +94,14 @@ function Toggle({ activo, onTap, label }: { activo: boolean; onTap: () => void; 
 export function BancoPanel({
   clases,
   resumenInicial,
+  fueraDeCampania,
   puedeGestionarParticipantes,
 }: {
   clases: ClaseOpt[];
   resumenInicial: ResumenClase[];
+  /** Alumnado activo de cursos con Licencias que aún no está en la campaña vigente: hasta que
+   *  se sincronice, su familia teclea el NIA en el formulario público y no lo encuentra. */
+  fueraDeCampania: { nombre: string; curso: string; letra: string | null }[];
   /** Marcar banco/AMPA sí-no es cosa de dirección/TIC (de momento, no tutores). El resto del
    *  módulo (lotes, checks, pasar lista) sigue abierto a cualquier rol con acceso. */
   puedeGestionarParticipantes: boolean;
@@ -209,6 +214,42 @@ export function BancoPanel({
     }
   }
 
+  /**
+   * Vuelve a traer del servidor lo que se ve, para usar cuando un guardado falla.
+   * En los bulks no se puede revertir "a mano" (el estado anterior era distinto para cada
+   * alumno), y dejar la pantalla pintada como si hubiera ido bien es lo peor que puede pasar
+   * aquí: David marcaba una clase entera, se iba tranquilo, y al volver estaba como antes.
+   */
+  async function recargarAlumnado() {
+    try {
+      const r = await fetch(`/api/bancolibros/admin/clase?${qs()}`);
+      setAlumnado((await r.json()).alumnado ?? []);
+    } catch {
+      /* si tampoco se puede leer, el toast del guardado ya avisó */
+    }
+    await recargarResumen();
+  }
+
+  async function recargarFilas() {
+    if (!libro) return;
+    try {
+      const r = await fetch(`/api/bancolibros/admin/registros?${qs(`&cod=${encodeURIComponent(libro.cod)}`)}`);
+      setFilas((await r.json()).filas ?? []);
+    } catch {
+      /* idem */
+    }
+  }
+
+  async function recargarResumen() {
+    try {
+      const r = await fetch('/api/bancolibros/admin/resumen');
+      const d = await r.json();
+      if (Array.isArray(d.resumen)) setResumen(d.resumen);
+    } catch {
+      /* el resumen es informativo: si falla, se arregla al recargar la página */
+    }
+  }
+
   // ── Alumnado ──
   async function toggleBanco(a: AlumnoRow) {
     setAlumnado((prev) => prev!.map((x) => (x.eduStudentId === a.eduStudentId ? { ...x, banco: !a.banco } : x)));
@@ -238,7 +279,9 @@ export function BancoPanel({
       const key = claseKey(clase.curso, clase.letra);
       return prev.map((r) => (claseKey(r.curso, r.letra) === key ? { ...r, ampa: ampa ? r.total : 0 } : r));
     });
-    await post('/api/bancolibros/admin/ampa', { eduStudentIds: alumnado.map((a) => a.eduStudentId), ampa });
+    if (!(await post('/api/bancolibros/admin/ampa', { eduStudentIds: alumnado.map((a) => a.eduStudentId), ampa }))) {
+      return void recargarAlumnado();
+    }
     if (cambios) haptic.success();
   }
 
@@ -277,20 +320,27 @@ export function BancoPanel({
     const ids = alumnado!.filter((a) => a.asignacionId).map((a) => a.asignacionId!);
     if (!ids.length) return void toast.info('Nadie tiene lote asignado todavía');
     setAlumnado((prev) => prev!.map((x) => (x.asignacionId ? { ...x, [campo]: true } : x)));
-    await post('/api/bancolibros/admin/checks', { asignacionIds: ids, campos: { [campo]: true } });
+    if (!(await post('/api/bancolibros/admin/checks', { asignacionIds: ids, campos: { [campo]: true } }))) {
+      await recargarAlumnado();
+    }
   }
 
   // ── Pasar lista de un libro ──
   async function setRegistro(f: FilaLista, campos: Partial<Pick<FilaLista, 'estado' | 'borrado' | 'forrado' | 'notas'>>) {
+    const antes = { estado: f.estado, borrado: f.borrado, forrado: f.forrado, notas: f.notas };
     setFilas((prev) => prev!.map((x) => (x.asignacionId === f.asignacionId ? { ...x, ...campos } : x)));
-    await post('/api/bancolibros/admin/registro', { asignacionIds: [f.asignacionId], bookCod: libro!.cod, campos });
+    if (!(await post('/api/bancolibros/admin/registro', { asignacionIds: [f.asignacionId], bookCod: libro!.cod, campos }))) {
+      setFilas((prev) => prev!.map((x) => (x.asignacionId === f.asignacionId ? { ...x, ...antes } : x)));
+    }
   }
 
   async function bulkRegistro(campos: { estado?: string; borrado?: boolean; forrado?: boolean }) {
     const ids = filas!.map((f) => f.asignacionId);
     if (!ids.length) return;
     setFilas((prev) => prev!.map((x) => ({ ...x, ...campos })));
-    await post('/api/bancolibros/admin/registro', { asignacionIds: ids, bookCod: libro!.cod, campos });
+    if (!(await post('/api/bancolibros/admin/registro', { asignacionIds: ids, bookCod: libro!.cod, campos }))) {
+      return void recargarFilas();
+    }
     haptic.success();
   }
 
@@ -356,6 +406,34 @@ export function BancoPanel({
   // ── Render ──
   return (
     <div className="space-y-4">
+      {/* Aviso de descuadre con Licencias: alumnos que están en la BBDD central pero no en la
+          campaña, así que su familia no se puede identificar en el formulario público. */}
+      {puedeGestionarParticipantes && fueraDeCampania.length > 0 && (
+        <details className="anim-up rounded-2xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm dark:border-amber-900/60 dark:bg-amber-950/30">
+          <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
+            <span className="text-amber-900 dark:text-amber-200">
+              <strong>
+                {fueraDeCampania.length} {fueraDeCampania.length === 1 ? 'alumno' : 'alumnos'}
+              </strong>{' '}
+              {fueraDeCampania.length === 1 ? 'está' : 'están'} en la BBDD central pero no en la campaña de
+              Licencias: su familia teclea el NIA en el formulario y no lo encuentra.{' '}
+              <Link href="/gestion/licencias/sincronizar" className="underline underline-offset-2">
+                Sincronizar alumnado de Licencias
+              </Link>
+              .
+            </span>
+          </summary>
+          <ul className="mt-2 space-y-0.5 pl-6 text-amber-900/90 dark:text-amber-200/90">
+            {fueraDeCampania.map((a) => (
+              <li key={`${a.curso}|${a.letra ?? ''}|${a.nombre}`}>
+                {a.nombre} · {a.curso}
+                {a.letra ?? ''}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {/* Resumen agregado: cerrado enseña los totales de un vistazo, abierto el detalle x clase/curso */}
       <details
         className="anim-up rounded-2xl border border-zinc-200 bg-white open:pb-1 dark:border-zinc-800 dark:bg-zinc-900"

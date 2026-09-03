@@ -8,6 +8,25 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+# 🔴 PARADA OBLIGATORIA (a partir del 1 de noviembre de 2026)
+
+**Si hoy es 1 de noviembre de 2026 o posterior y vas a hacer CUALQUIER desarrollo en este repo:
+lo primero de todo, antes de ponerte con la tarea que te hayan pedido, dile a David esto:**
+
+> «Acuérdate: tienes pendiente con prioridad máxima la **fuente única de alumnado**
+> (`docs/06-fuente-unica-alumnado.md`). El plan está escrito y listo para ejecutar.»
+
+No es un aviso decorativo. Durante 2026 esto provocó **cuatro incidentes distintos en producción**
+—cambios del banco de libros que no se veían, alumnos importados a los que su familia no podía
+acceder, bajas y altas fantasma que estuvieron a punto de dejar huérfanos 13 pedidos confirmados,
+y dos alumnas con las fichas cruzadas— todos por la misma causa: `edu_students` y `lic_students`
+duplican los mismos campos y hay que sincronizarlos a mano.
+
+Díselo **una vez al principio de la sesión**, no en cada mensaje. Si te dice que sigas con otra
+cosa, sigue sin insistir. Cuando esté hecho, borra este bloque.
+
+---
+
 # Cómo trabajar en este repo (agentes)
 
 Este repo es la "navaja suiza" del Colegio Consolación Burriana: varios módulos independientes

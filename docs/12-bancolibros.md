@@ -162,3 +162,55 @@ bl_libro_registros (                  // valoración de UN libro de UNA asignaci
       el mismo `pnpm db:push`
 - [x] ~~Revisar si algún rol más necesita marcar participantes~~ (David, 2026-09-01: no, se queda
       solo dirección/TIC)
+
+### Fase 5 · Descuadre con Licencias (2026-09-03) — el bug de "no se actualiza el front"
+
+David reportó dos síntomas que resultaron ser **el mismo problema**: el flag del banco vive en
+dos tablas y solo se escribía en una.
+
+- La verdad es `edu_students.banco_libros` (BBDD central), que es lo que escribe este módulo.
+- Pero el **formulario público de Licencias** y su panel leen el snapshot de campaña
+  `lic_students.banco_libros` (`getCatalog()` en `licencias-server.ts` decide con ese flag qué
+  libros ve la familia). El puente entre las dos era el **sync manual de alumnado** de
+  `/gestion/licencias/sincronizar`, que nadie ejecutaba después de tocar el banco.
+
+Comprobado en Neon el 2026-09-03: los cambios de David del día 2 **sí estaban guardados** en
+`edu_students` (Isabel Porcar `true`, Elena Porcar `false`), y en `lic_students` seguían justo al
+revés. 6 alumnos descuadrados en total. Y 13 alumnos activos de cursos con Licencias importados
+desde Educamos (entre ellos el NIA 13620087) no tenían fila en `lic_students`, así que su familia
+tecleaba el NIA o el NIE del tutor en el formulario y le salía "no encontrado" — el tutor y el
+alumno estaban perfectamente en la central.
+
+- [x] `setBanco()` propaga el flag a `lic_students` de la campaña vigente en el mismo acto
+      (`propagarBancoACampania()` en `src/lib/bancolibros-server.ts`): el cambio se ve en
+      Licencias al instante, sin sync manual.
+- [x] Aviso en el panel del banco (solo dirección/TIC) cuando hay alumnado activo de cursos con
+      Licencias que no está en la campaña: `getAlumnosFueraDeCampania()` + `<details>` ámbar
+      plegable con la lista y enlace directo a `/gestion/licencias/sincronizar`. Así el descuadre
+      del alta se ve solo, en vez de descubrirlo porque una familia llama por teléfono.
+- [~] **Reparar los datos ya descuadrados**: pendiente de que David ejecute el sync de alumnado
+      de Licencias (`/gestion/licencias/sincronizar` → "Alumnado"). Ese sync coge `banco_libros`
+      de `edu_students`, así que arregla los 6 descuadres y da de alta los 13 que faltan de una
+      pasada. Tiene vista previa antes de escribir.
+
+Y un segundo fallo independiente que agravaba la sensación de "no se guarda": **los guardados
+optimistas de los bulks no se revertían si el POST fallaba**. `toggleBanco`/`toggleAmpa` sí
+revertían, pero `bulkAmpa`, `bulkCheck`, `setRegistro` y `bulkRegistro` hacían `await post(...)`
+sin mirar el resultado: un 403 (rol sin permiso) o un 500 dejaba la pantalla pintada como si
+hubiera ido bien, y al recargar volvía todo atrás.
+
+- [x] Los cuatro caminos comprueban el retorno de `post()`: los individuales revierten al valor
+      anterior, los bulks **recargan del servidor** (`recargarAlumnado()` / `recargarFilas()` /
+      `recargarResumen()`) porque en un bulk el estado previo era distinto para cada alumno.
+- [x] Identificación de familias por NIA normalizada en SQL (solo dígitos, sin ceros a la
+      izquierda) en `familias-server.ts`, igual que ya se hacía con el documento del tutor. El
+      NIA se guarda tal cual viene del Excel, así que una celda numérica o un cero de relleno
+      bastaban para que la familia no se encontrara nunca. Hoy los 640 alumnos activos lo tienen
+      limpio (comprobado), así que es blindaje, no la causa de este caso.
+
+> **Descartado como causa** (comprobado, para no volver a buscar por ahí): no es caché de Next
+> (páginas y rutas GET del módulo ya son `force-dynamic`), no es el service worker (`public/sw.js`
+> no cachea HTML ni `/api` a propósito, ver `docs/05-pwa.md`), el UPDATE apunta bien al alumno
+> (por `id` uuid validado con Zod) y los índices únicos de `bl_*` **sí están aplicados** en Neon
+> (`bl_lotes_clase_numero_uq`, `bl_asignaciones_lote_year_uq`, `bl_libro_registros_uq`), así que
+> los `ON CONFLICT` de lotes y valoración funcionan.

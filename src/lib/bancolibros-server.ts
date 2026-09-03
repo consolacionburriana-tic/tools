@@ -11,8 +11,10 @@ import {
   eduStudents,
   licBooks,
   licCampaigns,
+  licStudents,
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
+import { CURSOS_FORM } from '@/lib/licencias';
 
 export interface AlumnoBanco {
   eduStudentId: string;
@@ -67,13 +69,79 @@ function ordenLista<T extends { apellido1: string | null; apellido2: string | nu
   );
 }
 
+/**
+ * Marca o desmarca a un alumno como participante del banco de libros.
+ *
+ * OJO, el dato vive en DOS sitios: la verdad es `edu_students.banco_libros` (BBDD
+ * central), pero el formulario público de Licencias y su panel leen el **snapshot de
+ * campaña** `lic_students.banco_libros` (ver `getCatalog` en `licencias-server.ts`, que
+ * decide con ese flag qué libros ve la familia). Escribir solo en la central deja el
+ * cambio invisible en Licencias hasta que alguien ejecute a mano el sync de alumnado —
+ * que es exactamente el fallo que reportó David el 2026-09-02 (marcó a Isabel Porcar
+ * como del banco y a Elena no, y en Licencias seguía al revés). Así que se propaga en
+ * el mismo acto a la campaña vigente.
+ */
 export async function setBanco(eduStudentId: string, banco: boolean): Promise<void> {
   await db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(eq(eduStudents.id, eduStudentId));
+  await propagarBancoACampania([eduStudentId], banco);
+}
+
+/**
+ * Refleja el flag del banco en el snapshot de la campaña de Licencias vigente (la más
+ * reciente, mismo criterio que `getLibrosBanco` y `getCurrentCampaign`). No hace nada si
+ * no hay campaña o si el alumno no está en su alumnado: en ese caso el que falta es el
+ * alumno en Licencias, y eso se arregla con el sync de alumnado, no desde aquí.
+ */
+async function propagarBancoACampania(eduStudentIds: string[], banco: boolean): Promise<void> {
+  if (eduStudentIds.length === 0) return;
+  const [campaign] = await db
+    .select({ id: licCampaigns.id })
+    .from(licCampaigns)
+    .orderBy(desc(licCampaigns.createdAt))
+    .limit(1);
+  if (!campaign) return;
+  await db
+    .update(licStudents)
+    .set({ bancoLibros: banco })
+    .where(and(eq(licStudents.campaignId, campaign.id), inArray(licStudents.eduStudentId, eduStudentIds)));
 }
 
 export async function setAmpa(eduStudentIds: string[], ampa: boolean): Promise<void> {
   if (eduStudentIds.length === 0) return;
   await db.update(eduStudents).set({ ampa, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds));
+}
+
+/**
+ * Alumnos activos de un curso con Licencias que **no están en el alumnado de la campaña
+ * vigente**. Pasa cada vez que se importa gente nueva desde Educamos: el alta entra en
+ * `edu_students` pero el snapshot `lic_students` no se puebla hasta que alguien ejecuta el
+ * sync de alumnado de Licencias, y hasta entonces la familia teclea su NIA en el
+ * formulario público y le sale "no encontrado" (reportado el 2026-09-02: 13 alumnos así,
+ * entre ellos el NIA 13620087). Solo es un aviso: el arreglo es darle al sync.
+ */
+export async function getAlumnosFueraDeCampania(): Promise<{ nombre: string; curso: string; letra: string | null }[]> {
+  const cursosLicencias = CURSOS_FORM.map((c) => c.base);
+  const [campaign] = await db
+    .select({ id: licCampaigns.id })
+    .from(licCampaigns)
+    .orderBy(desc(licCampaigns.createdAt))
+    .limit(1);
+  if (!campaign) return [];
+  const rows = await db
+    .select({ nombre: eduStudents.nombre, apellido1: eduStudents.apellido1, apellido2: eduStudents.apellido2, curso: eduStudents.curso, letra: eduStudents.letra })
+    .from(eduStudents)
+    .where(
+      and(
+        eq(eduStudents.active, true),
+        inArray(eduStudents.curso, cursosLicencias),
+        sql`not exists (select 1 from ${licStudents} where ${licStudents.eduStudentId} = ${eduStudents.id} and ${licStudents.campaignId} = ${campaign.id})`,
+      ),
+    );
+  return ordenLista(rows).map((r) => ({
+    nombre: [r.apellido1, r.apellido2].filter(Boolean).join(' ') + (r.nombre ? `, ${r.nombre}` : ''),
+    curso: r.curso!,
+    letra: r.letra,
+  }));
 }
 
 export interface ResumenClase {
