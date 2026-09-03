@@ -2,7 +2,7 @@
 // tiene bastante con resolver permisos y stats, y porque así se pueden mirar de un vistazo
 // (y capturar) sin necesitar sesión ni base de datos.
 import Link from 'next/link';
-import { BookMarked } from 'lucide-react';
+import { BarChart3, BookMarked, Plus } from 'lucide-react';
 import { NavPending } from '@/components/ui/nav-pending';
 
 export function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
@@ -88,10 +88,13 @@ export function ToolDoble({
         </span>
       </div>
       <div className="mt-auto flex gap-2">
+        {/* Un icono en cada botón: el `+` dice "vas a crear algo" y el gráfico, "vas a
+            mirar datos". Con dos botones pegados, el icono se lee antes que el texto. */}
         <Link
           href={registrar}
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition-colors ${acento.boton}`}
         >
+          <Plus className="h-4 w-4 shrink-0" />
           {registrarLabel}
           <NavPending />
         </Link>
@@ -100,6 +103,7 @@ export function ToolDoble({
             href={panel}
             className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
+            <BarChart3 className="h-4 w-4 shrink-0" />
             Panel
             <NavPending />
           </Link>
