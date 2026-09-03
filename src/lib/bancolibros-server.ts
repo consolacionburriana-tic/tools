@@ -1,7 +1,8 @@
 // Capa de servidor del Banco de libros: participantes (edu_students.banco_libros),
 // lotes numerados por clase asignados por curso académico, y valoración POR LIBRO
 // (digitaliza el Word "Registro de valoración de los libros").
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from '@/db';
 import {
   blAsignaciones,
@@ -15,6 +16,7 @@ import {
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
 import { CURSOS_FORM } from '@/lib/licencias';
+import { getBooksFromSheet } from '@/lib/google-sheets';
 
 export interface AlumnoBanco {
   eduStudentId: string;
@@ -338,6 +340,150 @@ export async function actualizarLibroManual(
   campos: Partial<{ asignatura: string | null; nombre: string; activo: boolean }>,
 ): Promise<void> {
   await db.update(blLibrosCurso).set({ ...campos, updatedAt: new Date() }).where(eq(blLibrosCurso.id, id));
+}
+
+// ── Conector: Excel "BBDD Libros" → catálogo del banco (bl_libros_curso) ───────────────
+// Mismo Excel/Sheet que ya alimenta lic_books (ver getBooksSyncPlan/syncBooksFromSheet en
+// licencias-server.ts), y mismo patrón vista previa → aplicar. La diferencia es el destino
+// y el alcance: aquí no hay campaña ni límite de cursos (BBDD Libros trae el colegio entero
+// según se vaya rellenando, no solo 6ºEP-4ºESO como Licencias), y solo interesan las filas
+// con Banco de Libros=Sí (lo demás no pinta nada en este módulo).
+//
+// OJO doble fuente: `getLibrosBanco()` (más abajo) ya enseña automáticamente, sin sincronizar
+// nada, los libros que estén en `lic_books` de la campaña vigente (los trae el propio sync de
+// Licencias, sin filtro de curso). Si este conector metiera esos mismos libros también en
+// `bl_libros_curso`, cada uno saldría DOS veces en la pestaña Libros (una vez por catálogo,
+// otra por "manual"), con dos códigos de valoración distintos para el mismo libro físico. Por
+// eso se excluye del Excel cualquier (curso, cod) que ya esté activo en `lic_books` — este
+// conector solo rellena los huecos que Licencias no cubre (hoy: cursos por debajo de 6ºEP; a
+// futuro, cualquier curso nuevo que aparezca en el Excel antes de que Licencias lo sincronice).
+//
+// Cada fila importada queda enlazada por su `cod` (columna A del Excel); los libros
+// tecleados a mano en el panel (sin `cod`) no los toca nunca esta sincronización, así que
+// conviven sin pisarse. Se emparejan por (curso, cod) — igual que lic_books.
+export interface FieldChange {
+  field: string;
+  before: string;
+  after: string;
+}
+function diffFields(pairs: [string, string, string][]): FieldChange[] {
+  const changes: FieldChange[] = [];
+  for (const [field, before, after] of pairs) {
+    if ((before ?? '') !== (after ?? '')) changes.push({ field, before: before || '—', after: after || '—' });
+  }
+  return changes;
+}
+
+export interface LibroCursoPlanItem {
+  key: string;
+  cod: string;
+  curso: string;
+  label: string;
+  changes: FieldChange[];
+}
+export interface LibroCursoSyncPlan {
+  toInsert: LibroCursoPlanItem[];
+  toUpdate: LibroCursoPlanItem[];
+  toDeactivate: { key: string; cod: string; curso: string; label: string }[];
+  unchanged: number;
+  /** Filas del Excel ignoradas porque `lic_books` (Licencias) ya las cubre automáticamente. */
+  outOfScope: number;
+}
+
+function libroCursoLabel(r: { asignatura: string | null; nombre: string; curso: string }): string {
+  return `${r.asignatura ? `${r.asignatura} · ` : ''}${r.nombre} (${r.curso})`;
+}
+
+/** Claves `curso::cod` que ya enseña `getLibrosBanco()` vía el catálogo vigente de Licencias. */
+async function getClavesCubiertasPorLicencias(): Promise<Set<string>> {
+  const [campaign] = await db.select({ id: licCampaigns.id }).from(licCampaigns).orderBy(desc(licCampaigns.createdAt)).limit(1);
+  if (!campaign) return new Set();
+  const rows = await db
+    .select({ curso: licBooks.curso, cod: licBooks.cod })
+    .from(licBooks)
+    .where(and(eq(licBooks.campaignId, campaign.id), eq(licBooks.bancoLibros, true), eq(licBooks.active, true)));
+  return new Set(rows.map((r) => `${r.curso}::${r.cod}`));
+}
+
+/** Filas del Excel que le tocan a este conector: Banco de Libros=Sí y no cubiertas ya por Licencias. */
+async function getLibrosBancoFromSheet(): Promise<{ rows: Awaited<ReturnType<typeof getBooksFromSheet>>; outOfScope: number }> {
+  const [sheetRows, cubiertas] = await Promise.all([getBooksFromSheet(), getClavesCubiertasPorLicencias()]);
+  const deBanco = sheetRows.filter((r) => r.bancoLibros);
+  const rows = deBanco.filter((r) => !cubiertas.has(`${r.curso}::${r.cod}`));
+  return { rows, outOfScope: deBanco.length - rows.length };
+}
+
+/** Vista previa: qué cambiaría en bl_libros_curso si se sincroniza ahora. No escribe nada. */
+export async function getLibrosCursoSyncPlan(): Promise<LibroCursoSyncPlan> {
+  const [{ rows, outOfScope }, existing] = await Promise.all([
+    getLibrosBancoFromSheet(),
+    db.select().from(blLibrosCurso).where(isNotNull(blLibrosCurso.cod)),
+  ]);
+  const existingByKey = new Map(existing.map((b) => [`${b.curso}::${b.cod}`, b]));
+  const sheetKeys = new Set(rows.map((r) => `${r.curso}::${r.cod}`));
+
+  const toInsert: LibroCursoPlanItem[] = [];
+  const toUpdate: LibroCursoPlanItem[] = [];
+  let unchanged = 0;
+  for (const r of rows) {
+    const key = `${r.curso}::${r.cod}`;
+    const dbRow = existingByKey.get(key);
+    const nombre = r.nombreLibro || r.cod;
+    const label = libroCursoLabel({ asignatura: r.asignatura || null, nombre, curso: r.curso });
+    if (!dbRow) {
+      toInsert.push({ key, cod: r.cod, curso: r.curso, label, changes: [] });
+    } else {
+      const changes = diffFields([
+        ['Asignatura', dbRow.asignatura ?? '', r.asignatura],
+        ['Nombre', dbRow.nombre, nombre],
+        ['Activo', dbRow.activo ? 'Sí' : 'No', 'Sí'],
+      ]);
+      if (changes.length > 0) toUpdate.push({ key, cod: r.cod, curso: r.curso, label, changes });
+      else unchanged++;
+    }
+  }
+  // También se desactiva lo que ya estuviera importado aquí y ahora lo cubra Licencias
+  // (deja de aparecer en `rows` en cuanto entra en `lic_books`): evita el duplicado.
+  const toDeactivate = existing
+    .filter((b) => b.activo && !sheetKeys.has(`${b.curso}::${b.cod}`))
+    .map((b) => ({ key: `${b.curso}::${b.cod}`, cod: b.cod!, curso: b.curso, label: libroCursoLabel(b) }));
+
+  return { toInsert, toUpdate, toDeactivate, unchanged, outOfScope };
+}
+
+/**
+ * Importa/actualiza bl_libros_curso desde el Excel. Upsert por (curso, cod); lo que ya no
+ * esté en el Excel, o haya pasado a estar cubierto por Licencias, se desactiva (nunca se
+ * borra: puede tener valoraciones — `bl_libro_registros` — enganchadas por ese mismo cod).
+ */
+export async function syncLibrosCursoFromSheet(): Promise<{ upserted: number; deactivated: number; outOfScope: number }> {
+  const { rows, outOfScope } = await getLibrosBancoFromSheet();
+
+  const currentKeys = new Set(rows.map((r) => `${r.curso}::${r.cod}`));
+  const existing = await db
+    .select({ id: blLibrosCurso.id, curso: blLibrosCurso.curso, cod: blLibrosCurso.cod, activo: blLibrosCurso.activo })
+    .from(blLibrosCurso)
+    .where(isNotNull(blLibrosCurso.cod));
+  const toDeactivate = existing.filter((b) => b.activo && !currentKeys.has(`${b.curso}::${b.cod}`)).map((b) => b.id);
+
+  if (rows.length === 0 && toDeactivate.length === 0) return { upserted: 0, deactivated: 0, outOfScope };
+
+  const statements: BatchItem<'pg'>[] = rows.map((r) => {
+    const nombre = r.nombreLibro || r.cod;
+    return db
+      .insert(blLibrosCurso)
+      .values({ curso: r.curso, cod: r.cod, asignatura: r.asignatura || null, nombre, activo: true })
+      .onConflictDoUpdate({
+        target: [blLibrosCurso.curso, blLibrosCurso.cod],
+        set: { asignatura: r.asignatura || null, nombre, activo: true, updatedAt: new Date() },
+      });
+  });
+  if (toDeactivate.length > 0) {
+    statements.push(db.update(blLibrosCurso).set({ activo: false, updatedAt: new Date() }).where(inArray(blLibrosCurso.id, toDeactivate)));
+  }
+  await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
+
+  return { upserted: rows.length, deactivated: toDeactivate.length, outOfScope };
 }
 
 export interface FilaPasarLista {

@@ -534,10 +534,15 @@ export const blLibrosCurso = pgTable('bl_libros_curso', {
   nombre: text('nombre').notNull(),
   orden: integer('orden').notNull().default(0),
   activo: boolean('activo').notNull().default(true),
+  // COD del Excel "BBDD Libros" (mismo origen que lic_books) cuando la fila viene del
+  // conector de sincronización; NULL en los libros tecleados a mano. Identidad de upsert:
+  // Postgres no choca varios NULL en un índice único, así que los manuales conviven sin más.
+  cod: text('cod'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   index('bl_libros_curso_curso_idx').on(t.curso),
+  uniqueIndex('bl_libros_curso_curso_cod_uq').on(t.curso, t.cod),
 ]);
 
 export type BlLote = typeof blLotes.$inferSelect;
