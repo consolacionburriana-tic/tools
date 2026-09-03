@@ -713,7 +713,11 @@ export function BancoPanel({
                   <div className="mt-2.5 space-y-2">
                     <p className="text-xs text-zinc-400">
                       Para cuando el catálogo de Licencias no esté listo, o una asignatura tenga varios libros. Se
-                      guardan solo en este módulo.
+                      guardan solo en este módulo.{' '}
+                      <Link href="/gestion/bancolibros/sincronizar" className="text-blue-600 underline underline-offset-2 dark:text-blue-400">
+                        Importar desde el Excel de libros
+                      </Link>{' '}
+                      en vez de teclearlos uno a uno.
                     </p>
                     {librosManuales === null ? (
                       <p className="flex items-center gap-1.5 text-xs text-zinc-400">
