@@ -294,5 +294,13 @@ el mapa entero de la clase, así que el último toque gana).
       lleva barra de color, y con el reparto abierto la tarjeta ocupa el ancho completo
 - [x] El aviso del tercer retraso de Puntualidad va al tutor personal del alumno
       (`destinatariosDelAviso()` en `src/lib/puntualidad.ts`, con tests)
-- [ ] `pnpm db:push` para crear las dos tablas en Neon (**David**) y repasar el reparto real de
-      las clases con dos tutores de 2026-27
+- [x] Tablas aplicadas en Neon (2026-09-03, por MCP en vez de `db:push` porque la sesión no
+      tenía `DATABASE_URL`): `edu_tutor_personal` y `edu_reparto_confirmado` creadas con sus
+      claves ajenas (la del alumno en cascada) y sus índices únicos, y verificadas con una
+      prueba de humo sobre alumnado real de 4PRI A (insertar, comprobar que el índice único
+      deduplica —incluida la `letra=''` de las confirmaciones, que es justo para lo que está—,
+      leer el join que usa la pantalla, y borrar: las dos tablas quedaron a 0 filas)
+- [ ] Repasar en `/gestion/profes` el reparto real de las **8 clases con tutoría compartida**
+      de 2026-27 (**David**): 1ESO A, 1ESO B, 2ESO A, 2ESO B, 3ESO B, 4ESO A, 4PRI A y 5PRI A.
+      No se ha prerrepartido nada a propósito: quién lleva a quién lo decide el centro, y el
+      aviso ámbar de cada clase está justo para eso

@@ -28,12 +28,12 @@ alumno se queda sin patio.
   de ejemplo). Se aplicó el SQL de `src/db/sql/puntualidad.sql` y se verificó con una prueba
   de humo (insertar un retraso de un alumno real de 2ESO, comprobar los joins del módulo y la
   consecuencia vinculada, y borrarlo todo dentro de la misma transacción: la base quedó a 0).
-- **Dependencia de arranque de curso:** las tutorías de `edu_tutorias` son todas del curso
-  **2025-26** y hoy el curso en vigor es **2026-27**, así que hasta que David asigne las
-  tutorías del curso nuevo en `/gestion/profes` (hay botón de promoción +1): el aviso del
-  tercer retraso creará la consecuencia pero **sin correo a nadie**, el resumen semanal no
-  saldrá, y un tutor verá su panel vacío. No es del módulo: afecta igual a los destinatarios
-  sugeridos del ABC.
+- **Tutorías del curso en vigor: ya asignadas** (comprobado en Neon el 2026-09-03: 36
+  tutorías en 28 clases de **2026-27**, 8 de ellas compartidas por dos tutores). Era la
+  dependencia de arranque de curso del módulo: sin tutorías del año en vigor, el aviso del
+  tercer retraso crearía la consecuencia **sin correo a nadie**, el resumen semanal no saldría
+  y un tutor vería su panel vacío. Si algún curso empieza otra vez con `edu_tutorias` vacía,
+  vuelve a pasar (afecta igual a los destinatarios sugeridos del ABC).
 
 ## Decisiones cerradas (2026-09-02, con David)
 
@@ -145,8 +145,8 @@ público a propósito.
       constraint e índice que genera Drizzle, para que un `pnpm db:push` posterior no vea
       diferencias. Verificado: 6 tablas, 7 claves ajenas, 16 índices, 1 tipo de consecuencia
       y 13 asignaturas de ejemplo
-- [ ] Asignar las tutorías del curso 2026-27 en `/gestion/profes` (**David**) — sin eso no
-      hay a quién avisar del tercer retraso (ver "Dependencia de arranque de curso")
+- [x] Asignar las tutorías del curso 2026-27 en `/gestion/profes` — hechas: 36 tutorías en
+      28 clases (verificado en Neon el 2026-09-03)
 
 ## Fase 1 · Formulario de registro — ✅
 - [x] Buscador de alumnado de secundaria por nombre/apellido (nombre completo + clase)
