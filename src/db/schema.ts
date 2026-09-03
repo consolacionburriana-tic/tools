@@ -906,3 +906,147 @@ export type NewPunRecord = typeof punRecords.$inferInsert;
 export type ConConsequence = typeof conConsequences.$inferSelect;
 export type NewConConsequence = typeof conConsequences.$inferInsert;
 export type ConConsequenceType = typeof conConsequenceTypes.$inferSelect;
+
+// ─── Cuaderno de tutor (prefijo cuad_) ────────────────────────────────────────
+// Generador de la documentación de tutoría a partir de plantillas de Google Docs.
+// Ficha: docs/18-cuaderno-tutor.md. La idea de fondo: el código NO conoce las etiquetas de
+// las plantillas (son de David y las cambia cuando quiere); conoce campos, y `cuad_alias`
+// traduce etiqueta → campo. Nada de esto guarda datos personales: solo referencias a
+// alumnos (`edu_students.id`) e ids de Drive.
+
+export const cuadPlantillas = pgTable('cuad_plantillas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(), // 'Dossier Personal' — sale en el nombre del archivo
+  googleDocId: text('google_doc_id').notNull(), // id del Google Doc plantilla
+  // 'alumno' = una copia por alumno · 'trimestre' = una por trimestre · 'unica' = una sola.
+  repeticion: text('repeticion').notNull().default('alumno'),
+  etapa: text('etapa'), // 'EI' | 'EP' | 'ESO' · null = vale para todas
+  orden: integer('orden').notNull().default(1), // el `x` de "1.x" en el nombre del archivo
+  saltoDePagina: boolean('salto_de_pagina').notNull().default(true),
+  generaPdf: boolean('genera_pdf').notNull().default(true),
+  activa: boolean('activa').notNull().default(true),
+  // Última lectura de la plantilla: etiquetas encontradas y si tiene filas repetibles.
+  etiquetas: jsonb('etiquetas').$type<string[]>(),
+  tieneFilas: boolean('tiene_filas').notNull().default(false),
+  analizadaAt: timestamp('analizada_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Etiqueta normalizada → campo del catálogo. Es el "aprendizaje" del panel: se mapea una
+// vez y no se vuelve a preguntar, aunque la etiqueta aparezca en otras plantillas.
+export const cuadAlias = pgTable('cuad_alias', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  etiqueta: text('etiqueta').notNull().unique(), // normalizada: 'n_clase'
+  campo: text('campo').notNull(), // id del catálogo: 'clase'
+  creadoPor: text('creado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Ajustes del módulo (fila única, id fijo 'global'): la carpeta base de Drive la da David.
+export const cuadAjustes = pgTable('cuad_ajustes', {
+  id: text('id').primaryKey().default('global'),
+  carpetaBaseId: text('carpeta_base_id'), // id de la subcarpeta de la unidad compartida
+  carpetaBaseUrl: text('carpeta_base_url'),
+  nombreCentro: text('nombre_centro').notNull().default('Colegio Consolación Burriana'),
+  // Al compartir la carpeta de clase: 'reader' (solo imprimir) o 'writer' (rellenar a mano).
+  permisoTutores: text('permiso_tutores').notNull().default('writer'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Una ejecución del generador. `numero` es el 1, 2, 3… del curso escolar: la primera tirada
+// va a la carpeta de la clase y las siguientes a una subcarpeta "aammdd - Ejecución N".
+export const cuadTiradas = pgTable('cuad_tiradas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  numero: integer('numero').notNull().default(1),
+  estado: text('estado').notNull().default('pendiente'), // pendiente | ejecutando | hecha | error | cancelada
+  opciones: jsonb('opciones').$type<{
+    formatos: ('doc' | 'pdf')[];
+    cuadernoCompletoPdf: boolean;
+    compartir: boolean;
+    avisarPorCorreo: boolean;
+    soloSinHoja: boolean;
+    subcarpetaPropia: boolean;
+  }>(),
+  carpetaCursoId: text('carpeta_curso_id'), // carpeta "Cuaderno de tutor 2026-2027"
+  carpetaCursoUrl: text('carpeta_curso_url'),
+  lanzadaPor: text('lanzada_por'), // email de la sesión
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  finishedAt: timestamp('finished_at'),
+}, (t) => [
+  index('cuad_tiradas_estado_idx').on(t.estado),
+]);
+
+// La unidad de trabajo de la cola: un documento = un tutor × una plantilla.
+// `alumnoIds` es el SNAPSHOT de quién entró en ese documento, que es lo que permite saber
+// después a quién le falta su hoja y regenerar solo eso.
+export const cuadItems = pgTable('cuad_items', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tiradaId: uuid('tirada_id').notNull().references(() => cuadTiradas.id, { onDelete: 'cascade' }),
+  plantillaId: uuid('plantilla_id').notNull().references(() => cuadPlantillas.id),
+  curso: text('curso').notNull(),
+  letra: text('letra').notNull().default(''),
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id), // null = clase sin tutor
+  indiceTutor: integer('indice_tutor').notNull().default(1),
+  alumnoIds: jsonb('alumno_ids').$type<string[]>().notNull().default([]),
+  estado: text('estado').notNull().default('pendiente'), // pendiente | haciendo | hecho | error | omitido
+  docId: text('doc_id'),
+  docUrl: text('doc_url'),
+  pdfId: text('pdf_id'),
+  pdfUrl: text('pdf_url'),
+  carpetaId: text('carpeta_id'), // carpeta donde acabó (la de la clase o la de la ejecución)
+  carpetaUrl: text('carpeta_url'),
+  intentos: integer('intentos').notNull().default(0),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('cuad_items_tirada_estado_idx').on(t.tiradaId, t.estado),
+  index('cuad_items_estado_idx').on(t.estado),
+]);
+
+// Número de lista congelado por curso escolar. Una vez impreso el cuaderno, el nº 14 es el
+// nº 14 todo el año: quien llega tarde recibe el siguiente número libre de su clase, y en
+// los listados regenerados aparece como "7* (31)" (ver `numeroListaTexto`).
+export const cuadNumeracion = pgTable('cuad_numeracion', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id, { onDelete: 'cascade' }),
+  academicYear: text('academic_year').notNull(),
+  curso: text('curso').notNull(),
+  letra: text('letra').notNull().default(''),
+  numero: integer('numero').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('cuad_numeracion_uq').on(t.eduStudentId, t.academicYear),
+  index('cuad_numeracion_clase_idx').on(t.academicYear, t.curso, t.letra),
+]);
+
+// "Este alumno ya tiene su hoja de esta plantilla en este curso escolar". Lo escribe el
+// worker cuando un documento sale bien; es lo que contesta a "¿a quién le falta?".
+export const cuadHojas = pgTable('cuad_hojas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id, { onDelete: 'cascade' }),
+  plantillaId: uuid('plantilla_id').notNull().references(() => cuadPlantillas.id, { onDelete: 'cascade' }),
+  academicYear: text('academic_year').notNull(),
+  tiradaId: uuid('tirada_id').references(() => cuadTiradas.id, { onDelete: 'set null' }),
+  itemId: uuid('item_id').references(() => cuadItems.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('cuad_hojas_uq').on(t.eduStudentId, t.plantillaId, t.academicYear),
+]);
+
+// ─── Types Cuaderno de tutor ──────────────────────────────────────────────────
+export type CuadPlantilla = typeof cuadPlantillas.$inferSelect;
+export type NewCuadPlantilla = typeof cuadPlantillas.$inferInsert;
+export type CuadAlias = typeof cuadAlias.$inferSelect;
+export type CuadAjustes = typeof cuadAjustes.$inferSelect;
+export type CuadTirada = typeof cuadTiradas.$inferSelect;
+export type NewCuadTirada = typeof cuadTiradas.$inferInsert;
+export type CuadItem = typeof cuadItems.$inferSelect;
+export type NewCuadItem = typeof cuadItems.$inferInsert;
+export type CuadNumeracion = typeof cuadNumeracion.$inferSelect;
+export type CuadHoja = typeof cuadHojas.$inferSelect;

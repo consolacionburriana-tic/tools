@@ -52,7 +52,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
 | `PUNTUALIDAD_AVISOS_COPIA` | Correos (separados por comas) que reciben copia del aviso del tercer retraso, además del tutor/a. Vacío = solo el tutor |
-| `CRON_SECRET` | Secreto del cron de Vercel del resumen semanal de Puntualidad (`vercel.json`) |
+| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad y worker del Cuaderno de tutor. El worker también lo usa para re-despertarse a sí mismo |
 
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
 código que la usa.
@@ -61,7 +61,7 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
 ## Base de datos (Drizzle + Neon)
 
 - **Todas las tablas en `src/db/schema.ts`**, agrupadas por módulo con su prefijo (`abc_`,
-  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`) y un comentario separador
+  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`) y un comentario separador
   por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
 - **Cambios de schema siempre aditivos** vía `pnpm db:push`: añadir tablas/columnas sí; renombrar
@@ -122,7 +122,7 @@ src/components/<modulo>/          # componentes propios del módulo
   son `src/lib/email-gmail.ts` (API de Gmail, cuenta de servicio con delegación de dominio) y
   el bloque Resend de `email.ts`. Se elige por env (`EMAIL_TRANSPORTE[_<PERFIL>]`), sin deploy.
 - **Perfiles de remitente** (`PerfilCorreo`: `licencias`, `salidas`, `abc`, `evaluaciones`,
-  `puntualidad`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
+  `puntualidad`, `cuaderno`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
   `licencias@consolacionburriana.com` (centralizado, buzón real); el resto sale del buzón
   genérico y **el `Reply-To` lo pone quien envía** (`guard.email` del tutor/gestor en los
   routes de recordatorio y de evaluaciones), para que las familias no contesten al vacío.

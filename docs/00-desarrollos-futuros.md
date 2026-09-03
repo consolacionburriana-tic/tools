@@ -45,6 +45,37 @@ Lo que sigue sin decidir, porque cada uno tiene su lógica:
 - **Panel por tutoría** (`clasesDeTutor`): esto se queda por clase completa a propósito — un
   tutor ve su grupo entero aunque la mitad sean del compañero. No hace falta decidir nada.
 
+### Cuaderno de tutor: lo que decidí yo al construirlo (2026-09-03) — revisar con David
+
+El módulo está entero (ficha [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md)), pero cuatro cosas
+las decidí sobre la marcha porque no estaban cerradas. Ninguna bloquea; todas se cambian en un rato:
+
+- **Números de lista.** Se congelan por curso escolar. Quien llega tarde recibe el siguiente número
+  libre de su clase (31, 32…) para no invalidar lo que ya está impreso, y en los listados
+  regenerados aparece como `7* (31)`: dónde le toca por alfabético, con un asterisco, y entre
+  paréntesis el número que se le dio. Es mi lectura de lo que dijo David ("hacemos correr la
+  lista"); si lo que quiere es que en la regeneración corra de verdad la numeración entera, es
+  cambiar `numeroListaTexto` y volver a numerar.
+- **Alumnado sin tutor personal en una clase de dos tutores.** Se queda FUERA de la tirada y se
+  avisa en la vista previa, en vez de asignarlo al primer tutor. Es un error que luego no
+  encontraría nadie; el arreglo son diez segundos en `/gestion/profes`.
+- **La carpeta de clase se comparte con TODOS sus tutores**, no cada juego con el suyo: es una
+  carpeta, un permiso, y las regeneraciones heredan el reparto. Efecto secundario: cada tutor ve
+  también los documentos de su compañero de tutoría. Si molesta, hay que bajar el compartir al
+  nivel de archivo (y pasa de 25 permisos a 125).
+- **Permiso por defecto: editor.** Para que el tutor pueda retocar el documento antes de
+  imprimirlo. Se cambia a "solo lectura" desde el propio panel, sin tocar código.
+
+### Cuaderno de tutor: ideas que quedaron fuera
+
+- Un PDF con el cuaderno de **todo el centro** (hoy el "cuaderno completo" es por tutor).
+- **Borrado del curso viejo**: hoy la carpeta de un curso escolar se borra a mano en Drive.
+  Un botón "archivar el curso 2025-26" tendría sentido cuando haya dos o tres cursos acumulados.
+- **Recordatorio anual**: un aviso en septiembre de "toca generar los cuadernos", cuando el
+  módulo lleve un curso en producción y sepamos la fecha buena.
+- **Primaria e Infantil**: el módulo ya soporta plantillas por etapa, pero solo hay plantillas de
+  ESO. Cuando lleguen las de Primaria, es darlas de alta y marcar la etapa.
+
 ### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
 `identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
 (`edu_guardians.dni`, comparado normalizado) o el **NIA del alumno**. `edu_students.dni` se
@@ -191,6 +222,11 @@ Recopilados de las fichas, para verlos de un vistazo:
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
+- **Cuaderno de tutor** (ficha `18`): (a) la **URL de la subcarpeta de la unidad compartida** donde
+  van los cuadernos, (b) dar de alta a la cuenta de servicio (`GOOGLE_SA_CLIENT_EMAIL`) como
+  **Administrador de contenido** de esa unidad, (c) compartir con ese mismo correo cada plantilla
+  de Google Docs, y (d) `pnpm db:push` para crear las tablas `cuad_*`. Con eso, el módulo se
+  estrena; todo lo demás está hecho y probado.
 - **Tutorías del curso 2026-27**: `edu_tutorias` solo tiene filas de **2025-26**, y el curso
   en vigor ya es 2026-27. Mientras no se asignen, Puntualidad no tiene a quién mandar el
   aviso del tercer retraso ni el resumen semanal, y los tutores ven su panel vacío. Afecta
