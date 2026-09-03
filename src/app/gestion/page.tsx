@@ -108,9 +108,7 @@ export default async function EscritorioPage() {
         )}
 
         {/* ── 1. Licencias, cuando es su temporada ──────────────────────── */}
-        {licenciasArriba && (
-          <LicenciasDestacada mes={ahora.getMonth() + 1 === 6 ? 'junio' : 'septiembre'} />
-        )}
+        {licenciasArriba && <LicenciasDestacada />}
 
         {/* ── 2. El día a día: registrar y consultar, de un toque ─────────── */}
         <section className="anim-stagger grid gap-3 sm:grid-cols-2">

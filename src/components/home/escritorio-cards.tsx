@@ -109,8 +109,11 @@ export function ToolDoble({
   );
 }
 
-/** Licencias en junio y septiembre: arriba del todo y con cuerpo de titular. */
-export function LicenciasDestacada({ mes }: { mes: string }) {
+/**
+ * Licencias en junio y septiembre: arriba del todo y con cuerpo de titular. Sin chip del
+ * mes — el sitio que ocupa ya dice que es su temporada; el chip solo era ruido.
+ */
+export function LicenciasDestacada() {
   return (
     <Link
       href="/gestion/licencias"
@@ -118,12 +121,7 @@ export function LicenciasDestacada({ mes }: { mes: string }) {
     >
       <BookMarked className="h-8 w-8 shrink-0 text-blue-600 dark:text-blue-400" />
       <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Licencias digitales</span>
-          <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-            {mes}
-          </span>
-        </span>
+        <span className="block text-lg font-semibold text-zinc-900 dark:text-zinc-100">Licencias digitales</span>
         <span className="block text-sm text-zinc-600 dark:text-zinc-300">
           Pedidos, quién falta, packs, exportaciones y correos a familias
         </span>
