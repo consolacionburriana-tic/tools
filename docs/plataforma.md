@@ -67,7 +67,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 |---|---|---|---|---|
 | Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (login del claustro; alumnado enlazado por NIA y en siglas; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
 | Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2b; magic links de familias listos, falta generarlos en Neon; quedan códigos de activación) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
-| BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
+| BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión. Tutor personal por alumno implementado, pendiente `db:push` de David para `edu_tutor_personal`/`edu_reparto_confirmado`) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
 | Salidas y pagos | ✅ | ✅ | ✅ (Blob activo, correos de recordatorio activos; falta export CSV) | [`15-salidasypagos.md`](./15-salidasypagos.md) |

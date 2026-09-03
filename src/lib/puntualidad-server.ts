@@ -21,9 +21,11 @@ import {
 import { academicYearActual } from '@/lib/constants';
 import { nombreClase } from '@/lib/cursos';
 import { vePuntualidadCompleta, type Role } from '@/lib/permissions';
+import { tutorPersonalDeAlumno } from '@/lib/tutorias-server';
 import {
   HORA_LIMITE,
   cursoEnPuntualidad,
+  destinatariosDelAviso,
   indiceDiaSemana,
   minutosRetraso,
   resumenHistorial,
@@ -302,6 +304,28 @@ export async function tutoresDeClase(
   }));
 }
 
+/**
+ * A quién se avisa de lo que le pasa a UN alumno concreto: a su **tutor personal** si lo
+ * tiene (clases con dos o tres tutores, reparto en `/gestion/profes`) y, si no, a todos
+ * los tutores de su clase.
+ *
+ * El aviso nunca se queda sin destinatario: si el tutor personal ya no tutoriza la clase o
+ * no tiene correo, se cae a la clase entera. El alcance del panel (`clasesDeTutor`) NO usa
+ * esto a propósito: un tutor ve su grupo completo aunque la mitad sean del compañero.
+ */
+export async function tutoresDeAlumno(
+  eduStudentId: string,
+  curso: string | null,
+  letra: string | null,
+  academicYear = academicYearActual(),
+): Promise<TutorClase[]> {
+  const [tutores, personal] = await Promise.all([
+    tutoresDeClase(curso, letra, academicYear),
+    tutorPersonalDeAlumno(eduStudentId, academicYear),
+  ]);
+  return destinatariosDelAviso(tutores, personal);
+}
+
 /** Clases que tutoriza esta persona (para filtrar el panel a "lo mío"). */
 export async function clasesDeTutor(
   email: string,
@@ -495,7 +519,8 @@ async function crearConsecuenciaDeCiclo(datos: {
     .onConflictDoNothing();
 
   const [tutores, detalle] = await Promise.all([
-    tutoresDeClase(datos.curso, datos.letra, datos.academicYear),
+    // Al tutor personal del alumno si lo tiene; si no, a todos los de la clase.
+    tutoresDeAlumno(datos.eduStudentId, datos.curso, datos.letra, datos.academicYear),
     filasDeRetrasos(inArray(punRecords.id, datos.recordIds)),
   ]);
   const destinatarios = tutores.map((t) => t.email).filter((e): e is string => Boolean(e));
