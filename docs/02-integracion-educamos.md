@@ -238,5 +238,52 @@ consultan `edu_*` a pelo desde sus rutas.
       cardinalidad): pantalla `/gestion/profes` (módulo nuevo `profes` en `permissions.ts`,
       acceso SuperTIC/TIC/Dirección/Jefatura) para asignar/quitar tutores por clase. Sembrada
       desde `esTutor`/`claseTutor` de Educamos; a partir de ahora es la fuente de verdad, el
-      sync de Educamos ya no la toca. Pendiente: botón "promocionar +1 curso" — reglas de
-      ciclo sin confirmar, ver `00-desarrollos-futuros.md`.
+      sync de Educamos ya no la toca.
+- [x] Botón "promocionar +1 curso" y "limpiar tutorías" (todas o por etapa), con vista previa
+      antes de aplicar. Reglas de ciclo en `cursoSiguiente()`, ver `00-desarrollos-futuros.md`.
+
+### Tutor personal: reparto del alumnado entre los tutores de una clase (2026-09-03)
+
+En Infantil y Primaria lo normal es un tutor por clase, pero **a veces son dos** (y como mucho
+tres). Cuando la tutoría está compartida, la clase entera es de los dos, pero cada alumno tiene
+un **tutor personal**: la persona a la que le toca lo que le pasa a ese alumno en concreto.
+
+Decisiones cerradas con David:
+
+- **El reparto es por orden alfabético y por mitades** (de 30 alumnos, del 1 al 15 para uno y
+  del 16 al 30 para el otro). Es el punto de partida, no una regla: se puede tocar alumno a
+  alumno.
+- **Al alumnado nuevo NUNCA se le autoasigna tutor personal.** Si una clase de 25 repartidos
+  pasa a 28, esos 3 se quedan en blanco y la clase avisa de que falta asignarlos; se colocan a
+  mano (o con "completar los que faltan", que los mete donde les toca por orden de lista).
+- **Hace falta confirmar el reparto cada curso** (`edu_reparto_confirmado`): mientras nadie diga
+  "esto ya está revisado", la clase lleva un aviso ámbar. Cambiar los tutores de la clase
+  (añadir, quitar, promocionar, limpiar) retira la confirmación: el reparto ya no vale.
+- **Hasta tres tutores**, no más.
+- Un tutor personal que **deja de tutorizar la clase** no cuenta: se muestra como hueco y hay
+  que reasignarlo (no se borra la fila hasta que se guarda el reparto).
+- **Quién recibe los correos no cambia todavía**: hoy los avisos de Puntualidad siguen yendo a
+  todos los tutores de la clase. Decisión pendiente en `00-desarrollos-futuros.md`.
+
+Plan técnico: `edu_tutor_personal` (una fila por alumno y curso académico, sin fila = sin
+asignar) y `edu_reparto_confirmado` (una fila por clase y curso, con quién y cuándo). Lógica de
+reparto **pura y testeada** en `src/lib/tutorias.ts` (`repartoPorMitades`, `aplicarCorte`,
+`invertirReparto`, `completarHuecos`, `cortesDeReparto`), queries en `tutorias-server.ts`, API en
+`/api/profes/admin/tutorias/reparto` (GET lista · PUT mapa completo de la clase · POST confirmar)
+y UI en `src/components/profes/reparto-alumnos.tsx`.
+
+Cómo es la pantalla (pensada para iPad, sin arrastrar nada porque en táctil no hay hover): la
+tarjeta de cada clase con dos o más tutores despliega la lista alfabética con un chip por tutor
+en cada fila (un toque = tutor personal de ese alumno) y **una franja de corte entre cada dos
+alumnos**: al tocarla, de ahí hacia arriba son de un tutor y hacia abajo del otro. Con tres
+tutores hay dos cortes y tocar cerca de uno lo mueve. Arriba: repartir por mitades, invertir el
+orden, completar los que faltan, limpiar, y el botón de confirmar. Se guarda solo (el PUT manda
+el mapa entero de la clase, así que el último toque gana).
+
+- [x] Tablas `edu_tutor_personal` y `edu_reparto_confirmado` en `src/db/schema.ts`
+- [x] Helpers puros del reparto en `src/lib/tutorias.ts` + 20 tests nuevos (`pnpm test` en verde)
+- [x] API `/api/profes/admin/tutorias/reparto` (GET/PUT/POST) con guard de módulo `profes`
+- [x] Reparto en la tarjeta de clase: cortes, chips por alumno, mitades, invertir, completar,
+      limpiar y confirmar; aviso ámbar por clase ("N sin tutor personal" / "falta confirmar")
+- [ ] `pnpm db:push` para crear las dos tablas en Neon (**David**) y repasar el reparto real de
+      las clases con dos tutores de 2026-27

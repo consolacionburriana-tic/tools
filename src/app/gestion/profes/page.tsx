@@ -16,7 +16,9 @@ export default async function ProfesPage() {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div>
             <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Tutorías</h1>
-            <p className="text-xs text-zinc-500">Toca un profe para asignarlo o quitarlo de la tutoría de una clase</p>
+            <p className="text-xs text-zinc-500">
+              Asigna los tutores de cada clase y, si son dos o tres, reparte el alumnado entre ellos
+            </p>
           </div>
           <Link
             href="/gestion"

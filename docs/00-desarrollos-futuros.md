@@ -28,6 +28,31 @@ en esta campaña". La foto histórica del pedido ya vive en `lic_orders`, que gu
 del 1 de noviembre de 2026**.
 
 
+### ¿Los avisos de un alumno concreto van a su tutor personal o a todos los tutores de la clase?
+Desde el 2026-09-03 cada alumno puede tener **tutor personal** (uno de los dos o tres tutores de
+su clase; tabla `edu_tutor_personal`, reparto en `/gestion/profes`). La pantalla ya está, pero
+**quién recibe los correos sigue igual que antes**: `tutoresDeClase()` de
+`src/lib/puntualidad-server.ts` avisa a **todos** los tutores de la clase (aviso del tercer
+retraso y resumen semanal), y el formulario del ABC sigue sugiriendo a todos como destinatarios.
+
+La razón de tener tutor personal es justo que "si algo pasa con un alumno en concreto, es de la
+tutoría de ese profesor en concreto", así que lo natural sería: **si el alumno tiene tutor
+personal, el aviso va a esa persona; si no lo tiene, a todos los tutores de la clase** (nunca a
+nadie: el hueco no puede dejar un aviso sin destinatario).
+
+Pendiente de David porque cambia a quién le llegan correos reales, y en cada módulo puede querer
+distinto:
+- **Puntualidad**, aviso del tercer retraso: es lo más "de un alumno concreto" que hay → parece
+  claro que al tutor personal.
+- **Puntualidad**, resumen semanal: ¿cada tutor recibe solo sus alumnos, o la clase entera para
+  tener la foto completa del grupo?
+- **ABC**: hoy sugiere destinatarios, no manda a ciegas, así que como mínimo convendría ordenar
+  primero al tutor personal del alumno.
+- **Panel por tutoría** (`clasesDeTutor`): eso sí que debería seguir siendo por clase completa —
+  un tutor ve su grupo entero aunque la mitad sean del compañero.
+
+Mientras no se decida, el tutor personal es solo información de la pantalla de tutorías.
+
 ### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
 `identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
 (`edu_guardians.dni`, comparado normalizado) o el **NIA del alumno**. `edu_students.dni` se
