@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { baseCod, campaignAbierta, cursoEfectivo, normalize, plazoVencido, resolveBilingual } from '@/lib/licencias';
+import {
+  baseCod,
+  campaignAbierta,
+  cursoEfectivo,
+  esTemporadaLicencias,
+  normalize,
+  plazoVencido,
+  resolveBilingual,
+} from '@/lib/licencias';
 
 describe('cursoEfectivo', () => {
   it('un alumno PDC usa siempre su curso PDC, ignore el seleccionado', () => {
@@ -95,5 +103,18 @@ describe('normalize', () => {
 
   it('con cadena vacía o nula no falla', () => {
     expect(normalize('')).toBe('');
+  });
+});
+
+describe('temporada fuerte de licencias (orden del escritorio)', () => {
+  it('junio y septiembre son temporada', () => {
+    expect(esTemporadaLicencias(new Date('2026-06-15T10:00:00'))).toBe(true);
+    expect(esTemporadaLicencias(new Date('2026-09-03T10:00:00'))).toBe(true);
+  });
+
+  it('el resto del año, no', () => {
+    for (const mes of ['01', '02', '03', '04', '05', '07', '08', '10', '11', '12']) {
+      expect(esTemporadaLicencias(new Date(`2026-${mes}-15T10:00:00`))).toBe(false);
+    }
   });
 });

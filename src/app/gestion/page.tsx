@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import {
@@ -14,8 +13,7 @@ import {
   KeyRound,
   Library,
   LogOut,
-  MessageSquareText,
-  Timer,
+  Settings2,
 } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -24,61 +22,26 @@ import { signOut } from '@/auth';
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess, ROLE_LABELS, type Module } from '@/lib/permissions';
 import { getCurrentCampaign } from '@/lib/licencias-server';
-import { NavPending } from '@/components/ui/nav-pending';
+import { esTemporadaLicencias } from '@/lib/licencias';
+import {
+  LicenciasDestacada,
+  ModuleCard,
+  Rotulo,
+  Stat,
+  ToolDoble,
+} from '@/components/home/escritorio-cards';
 
 export const metadata = { title: 'Escritorio · Tools Consolación' };
-
-function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{value}</p>
-      {sub && <p className="text-xs text-zinc-400">{sub}</p>}
-    </div>
-  );
-}
-
-function ModuleCard({
-  href,
-  icon,
-  title,
-  desc,
-  badge,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-  badge?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-start gap-3 rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:active:border-blue-600 dark:active:bg-blue-500/5"
-    >
-      <span className="mt-0.5 text-blue-600 dark:text-blue-400">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
-          {title}
-          {badge && (
-            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-              {badge}
-            </span>
-          )}
-        </span>
-        <span className="block text-xs text-zinc-500">{desc}</span>
-      </span>
-      {/* Cuál de las tarjetas está cargando (los paneles son force-dynamic) */}
-      <NavPending className="mt-0.5" />
-    </Link>
-  );
-}
 
 export default async function EscritorioPage() {
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login');
   if (!user.role) redirect('/gestion/sin-acceso');
   const puede = (m: Module) => canAccess(user, m);
+  // Junio y septiembre, Licencias manda: sale arriba del todo (ver esTemporadaLicencias).
+  const ahora = new Date();
+  const licenciasArriba = puede('licencias') && esTemporadaLicencias(ahora);
+  const configuracion = puede('profes') || puede('usuarios') || puede('educamos');
 
   // Stats solo de los módulos que el rol puede ver
   const [alumnos, profes, ultimoSync, pedidos, registrosAbc] = await Promise.all([
@@ -144,57 +107,41 @@ export default async function EscritorioPage() {
           </section>
         )}
 
-        <section className="anim-stagger space-y-3">
-          <ModuleCard
-            href="/registro-abc"
-            icon={<ClipboardList className="h-6 w-6" />}
-            title="Registrar conducta (ABC)"
-            desc="Formulario rápido de incidencias — para todo el claustro"
-          />
-          <ModuleCard
-            href="/puntualidad"
+        {/* ── 1. Licencias, cuando es su temporada ──────────────────────── */}
+        {licenciasArriba && (
+          <LicenciasDestacada mes={ahora.getMonth() + 1 === 6 ? 'junio' : 'septiembre'} />
+        )}
+
+        {/* ── 2. El día a día: registrar y consultar, de un toque ─────────── */}
+        <section className="anim-stagger grid gap-3 sm:grid-cols-2">
+          <ToolDoble
             icon={<AlarmClock className="h-6 w-6" />}
-            title="Registrar retraso (puntualidad)"
-            desc="Quién llega tarde a las 8:05 — para todo el claustro"
+            title="Puntualidad"
+            desc="Quién llega tarde a las 8:05 y sus consecuencias"
+            registrar="/puntualidad"
+            registrarLabel="Registrar retraso"
+            panel={puede('puntualidad') ? '/gestion/puntualidad' : undefined}
+            color="naranja"
           />
-          {puede('puntualidad') && (
-            <ModuleCard
-              href="/gestion/puntualidad"
-              icon={<Timer className="h-6 w-6" />}
-              title="Panel de Puntualidad"
-              desc="Retrasos, consecuencias y quién acumula"
-            />
-          )}
-          {puede('abc') && (
-            <ModuleCard
-              href="/gestion/abc"
-              icon={<MessageSquareText className="h-6 w-6" />}
-              title="Panel del Registro ABC"
-              desc="Listado, gráficos y configuración de alumnado destacado"
-            />
-          )}
-          {puede('licencias') && (
+          <ToolDoble
+            icon={<ClipboardList className="h-6 w-6" />}
+            title="Registro ABC"
+            desc="Incidencias de conducta y su análisis"
+            registrar="/registro-abc"
+            registrarLabel="Registrar conducta"
+            panel={puede('abc') ? '/gestion/abc' : undefined}
+            color="teal"
+          />
+        </section>
+
+        {/* ── 3. El resto de la gestión ──────────────────────────────────── */}
+        <section className="anim-stagger space-y-3">
+          {puede('licencias') && !licenciasArriba && (
             <ModuleCard
               href="/gestion/licencias"
               icon={<BookMarked className="h-6 w-6" />}
               title="Licencias digitales"
               desc="Pedidos, dashboard, exportaciones, packs y correos"
-            />
-          )}
-          {puede('educamos') && (
-            <ModuleCard
-              href="/gestion/educamos"
-              icon={<Database className="h-6 w-6" />}
-              title="BBDD central (Educamos)"
-              desc="Sincronizar alumnado y profesorado desde los exports"
-            />
-          )}
-          {puede('salidas') && (
-            <ModuleCard
-              href="/gestion/salidas"
-              icon={<Bus className="h-6 w-6" />}
-              title="Salidas y pagos"
-              desc="Excursiones, justificantes de pago y seguimiento por clase"
             />
           )}
           {puede('bancolibros') && (
@@ -205,6 +152,14 @@ export default async function EscritorioPage() {
               desc="Participantes, lotes por clase y valoración de cada libro"
             />
           )}
+          {puede('salidas') && (
+            <ModuleCard
+              href="/gestion/salidas"
+              icon={<Bus className="h-6 w-6" />}
+              title="Salidas y pagos"
+              desc="Excursiones, justificantes de pago y seguimiento por clase"
+            />
+          )}
           {puede('evaluaciones') && (
             <ModuleCard
               href="/gestion/evaluaciones"
@@ -213,23 +168,40 @@ export default async function EscritorioPage() {
               desc="Evalúa actividades con el alumnado o el claustro y mira los resultados"
             />
           )}
-          {puede('usuarios') && (
-            <ModuleCard
-              href="/gestion/usuarios"
-              icon={<KeyRound className="h-6 w-6" />}
-              title="Usuarios y roles"
-              desc="Quién puede entrar y con qué permisos"
-            />
-          )}
-          {puede('profes') && (
-            <ModuleCard
-              href="/gestion/profes"
-              icon={<GraduationCap className="h-6 w-6" />}
-              title="Tutorías"
-              desc="Asignar rápido qué profe tutoriza cada clase"
-            />
-          )}
         </section>
+
+        {/* ── 4. Configuración general: se toca de mes en mes, no a diario ── */}
+        {configuracion && (
+          <section className="anim-stagger space-y-3">
+            <Rotulo>
+              <Settings2 className="h-3.5 w-3.5" /> Configuración general
+            </Rotulo>
+            {puede('profes') && (
+              <ModuleCard
+                href="/gestion/profes"
+                icon={<GraduationCap className="h-6 w-6" />}
+                title="Tutorías"
+                desc="Asignar rápido qué profe tutoriza cada clase"
+              />
+            )}
+            {puede('usuarios') && (
+              <ModuleCard
+                href="/gestion/usuarios"
+                icon={<KeyRound className="h-6 w-6" />}
+                title="Usuarios y roles"
+                desc="Quién puede entrar y con qué permisos"
+              />
+            )}
+            {puede('educamos') && (
+              <ModuleCard
+                href="/gestion/educamos"
+                icon={<Database className="h-6 w-6" />}
+                title="BBDD central (Educamos)"
+                desc="Sincronizar alumnado y profesorado desde los exports"
+              />
+            )}
+          </section>
+        )}
 
       </main>
     </div>
