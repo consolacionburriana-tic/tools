@@ -28,6 +28,25 @@ en esta campaña". La foto histórica del pedido ya vive en `lic_orders`, que gu
 del 1 de noviembre de 2026**.
 
 
+### Horarios: cinco decisiones antes de crear las tablas
+Modelo de datos propuesto y razonado en [`07-horarios.md`](./07-horarios.md) (tres capas:
+rejilla → asignación docente → colocación). Nada implementado a propósito: estas cinco cambian
+el schema o el alcance, y las tres primeras hay que responderlas antes del primer `db:push`.
+
+1. **`hor_materias` vs `pun_subjects`.** Puntualidad ya tiene catálogo de asignaturas con
+   `pun_records.subject_id` apuntando a él. Propuesta: `hor_materias` es el catálogo compartido
+   y `pun_subjects` gana un `hor_materia_id` nullable (aditivo, no rompe el histórico). La
+   alternativa —renombrar `pun_subjects`— toca datos de producción.
+2. **Cuántas etapas y cuántas rejillas reales.** El modelo aguanta N; para sembrar hacen falta
+   los números de verdad (¿solo EI/EP/ESO+PDC, o viene bachillerato/FP?).
+3. **¿Los apoyos de PT/AL vienen en algún fichero o son siempre a mano?** Si son a mano,
+   `hor_apoyos` se queda sin importador.
+4. **¿Hacen falta días especiales** (un día suelto con rejilla propia: media jornada, día del
+   colegio, festivos)? Es una tabla chica; mejor no añadirla si nadie la va a rellenar.
+5. **Permisos.** Propuesta: módulo `horarios`, edición para dirección/jefatura/TIC y **lectura
+   para todo el claustro**. Detrás del login siempre: un horario dice dónde está cada profesor
+   a cada hora.
+
 ### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
 `identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
 (`edu_guardians.dni`, comparado normalizado) o el **NIA del alumno**. `edu_students.dni` se
@@ -186,6 +205,12 @@ Recopilados de las fichas, para verlos de un vistazo:
   Queda opcional: poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del
   aviso del 3er retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su
   `CRON_SECRET`.
+- **Horarios** (ficha `07`): un **export real de horarios de al menos una etapa** en CSV/XLSX
+  (del generador de horarios o de Educamos) y, si se puede, la **definición de las rejillas**.
+  Sin ver la forma real del fichero el importador no se puede escribir; el modelo de destino ya
+  está diseñado. Ideal: que el generador pueda sacar **lista larga** (una fila por sesión: día,
+  orden, grupo, materia, profe, aula) en vez de la matriz de imprimir — ahorra media
+  importación. El fichero NO se commitea (lleva nombres del profesorado).
 - **Banco de libros** (ficha `12`): ejecutar `pnpm db:push` en Neon para la columna
   `edu_students.ampa` y la tabla `bl_libros_curso` (cambios aditivos). El código está desplegable,
   pero hasta que no se aplique el schema la pestaña AMPA y los libros manuales darán error.

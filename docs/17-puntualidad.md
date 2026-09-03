@@ -190,6 +190,10 @@ de pie y con prisa, no haya que pensar):
       modo oscuro deslumbra).
 
 ## Fase 4 · Cuando estén los horarios — ⬜
+
+Los horarios son una **pieza transversal** con ficha propia: [`07-horarios.md`](./07-horarios.md)
+(modelo de datos diseñado, sin implementar). Estas tres casillas son su Fase 4.
+
 - [ ] Deducir asignatura (y profe) del día + hora contra el horario de la clase
 - [ ] Encender el aviso al profe de la asignatura (`htmlAvisoProfeAsignatura` ya está escrito)
 - [ ] Revisar si con horarios conviene distinguir franjas además de la entrada de las 8:00
