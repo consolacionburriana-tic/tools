@@ -151,12 +151,15 @@ Recopilados de las fichas, para verlos de un vistazo:
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
-- **Puntualidad** (ficha `17`): ejecutar `pnpm db:push` en Neon para las tablas nuevas
-  (`pun_subjects`, `pun_records`, `pun_digest_runs`, `con_consequences`,
-  `con_consequence_types`, `con_consequence_records`) — todo aditivo, no toca nada existente.
-  Hasta que se aplique, las pantallas del módulo darán error de tabla inexistente. Opcional:
-  poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del aviso del 3er
-  retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su `CRON_SECRET`.
+- **Tutorías del curso 2026-27**: `edu_tutorias` solo tiene filas de **2025-26**, y el curso
+  en vigor ya es 2026-27. Mientras no se asignen (`/gestion/profes`, con el botón de
+  promoción +1), Puntualidad no tiene a quién mandar el aviso del tercer retraso ni el
+  resumen semanal, y los tutores ven su panel vacío. Afecta también a los destinatarios
+  sugeridos del ABC. Es lo primero que conviene hacer del arranque de curso.
+- **Puntualidad** (ficha `17`): ~~ejecutar el SQL de las tablas~~ ✅ hecho (2026-09-03).
+  Queda opcional: poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del
+  aviso del 3er retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su
+  `CRON_SECRET`.
 - **Banco de libros** (ficha `12`): ejecutar `pnpm db:push` en Neon para la columna
   `edu_students.ampa` y la tabla `bl_libros_curso` (cambios aditivos). El código está desplegable,
   pero hasta que no se aplique el schema la pestaña AMPA y los libros manuales darán error.
