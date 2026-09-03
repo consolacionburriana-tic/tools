@@ -19,8 +19,10 @@ alumno se queda sin patio.
 - **Panel** (`/gestion/puntualidad`): dashboard con rangos (7/30/90 días y todo el curso),
   listado de retrasos con justificación a posteriori, consecuencias, ficha por alumno y
   catálogo de asignaturas. Export CSV.
-- **Correos**: aviso del tercer retraso al tutor/a (con enlace de un clic para poner el día
-  sin patio) y resumen semanal a tutores los viernes (solo si su clase tiene retrasos).
+- **Correos**: aviso del tercer retraso al tutor/a del alumno (con enlace de un clic para poner
+  el día sin patio) y resumen semanal a tutores los viernes (solo si su clase tiene retrasos).
+  En clases con dos o tres tutores, el aviso del tercer retraso va **solo al tutor personal**
+  del alumno cuando lo tiene (reparto en `/gestion/profes`).
 - **Base de datos aplicada** (2026-09-03): las 6 tablas `pun_*` / `con_*` están en Neon con
   sus 7 claves ajenas y sus índices, más las semillas (tipo `sin_patio` y las 13 asignaturas
   de ejemplo). Se aplicó el SQL de `src/db/sql/puntualidad.sql` y se verificó con una prueba
@@ -73,10 +75,14 @@ alumno se queda sin patio.
   (`vePuntualidadCompleta()` en `src/lib/permissions.ts`); un **tutor** tiene el módulo pero
   el panel le filtra a las clases que tutoriza (`edu_tutorias` del curso en vigor). El
   catálogo de asignaturas solo lo toca quien ve todo.
-- **Avisos:** (1) el del tercer retraso al tutor/es de la clase, con **copia opcional a
-  jefatura/dirección** (`PUNTUALIDAD_AVISOS_COPIA`); (2) **resumen semanal** a cada tutor los
-  viernes, **solo si su clase tiene retrasos esa semana** — si no hay nada que contar, no se
-  manda correo. Nada de avisos a familias por ahora.
+- **Avisos:** (1) el del tercer retraso al **tutor personal** del alumno si lo tiene y, si no,
+  a todos los tutores de su clase (`destinatariosDelAviso()` en `src/lib/puntualidad.ts`), con
+  **copia opcional a jefatura/dirección** (`PUNTUALIDAD_AVISOS_COPIA`); el aviso nunca se queda
+  sin destinatario: si el tutor personal ya no tutoriza la clase o no tiene correo, se cae a la
+  clase entera. (2) **resumen semanal** a cada tutor los viernes con **su clase completa** (no
+  se parte por tutor personal a propósito: el resumen es del grupo), **solo si su clase tiene
+  retrasos esa semana** — si no hay nada que contar, no se manda correo. Nada de avisos a
+  familias por ahora.
 - **Aviso al profe de la asignatura: escrito pero apagado.** La plantilla existe
   (`htmlAvisoProfeAsignatura`) y `pun_records.aviso_profe_enviado_at` está en el schema, pero
   no se llama desde ningún sitio: mientras los horarios del claustro no estén en la app, la
@@ -153,6 +159,7 @@ público a propósito.
 ## Fase 2 · Consecuencias — ✅
 - [x] Ciclo de tres no justificados → consecuencia + vínculo con los retrasos
 - [x] Correo al tutor/a con el detalle de los tres y copia a jefatura (`PUNTUALIDAD_AVISOS_COPIA`)
+- [x] En tutorías compartidas, el aviso va al **tutor personal** del alumno (2026-09-03)
 - [x] Pantalla de un clic con token (sin login) para poner el día sin patio
 - [x] Toggles de cumplida y avisada en Educamos
 - [x] Consecuencia a mano (origen `manual`), lista para vivir sin puntualidad detrás

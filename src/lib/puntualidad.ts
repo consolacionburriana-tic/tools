@@ -13,6 +13,26 @@ export const HORA_LIMITE = '08:05';
 /** Cada cuántos retrasos NO justificados se avisa al tutor y se pone consecuencia. */
 export const RETRASOS_POR_CONSECUENCIA = 3;
 
+/**
+ * Quién recibe el aviso del tercer retraso de UN alumno concreto.
+ *
+ * Si su clase tiene dos o tres tutores y él tiene **tutor personal** asignado (reparto de
+ * `/gestion/profes`), el correo es solo para esa persona: lo de un alumno concreto es de su
+ * tutoría, no del grupo. Sin tutor personal —lo normal en clases de un solo tutor, y lo que
+ * pasa con el alumnado recién llegado— va a todos los tutores de la clase.
+ *
+ * Un aviso nunca se queda sin destinatario: si el tutor personal ya no tutoriza esa clase o
+ * no tiene correo, se cae a la clase entera.
+ */
+export function destinatariosDelAviso<T extends { eduTeacherId: string; email: string | null }>(
+  tutoresDeLaClase: T[],
+  tutorPersonal: string | null,
+): T[] {
+  if (!tutorPersonal) return tutoresDeLaClase;
+  const suyo = tutoresDeLaClase.filter((t) => t.eduTeacherId === tutorPersonal && t.email);
+  return suyo.length > 0 ? suyo : tutoresDeLaClase;
+}
+
 export const JUSTIFICACION_TIPOS = [
   { value: 'familiar', label: 'Justificación familiar' },
   { value: 'medico', label: 'Justificante médico / analíticas' },

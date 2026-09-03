@@ -305,6 +305,41 @@ export const eduTutorias = pgTable('edu_tutorias', {
 export type EduTutoria = typeof eduTutorias.$inferSelect;
 export type NewEduTutoria = typeof eduTutorias.$inferInsert;
 
+// Tutor PERSONAL de un alumno concreto. Cuando una clase tiene dos (o tres) tutores, la
+// tutoría del grupo es de todos, pero cada alumno "es" de uno solo: es a esa persona a
+// quien se avisa de lo que le pasa a ese alumno en particular. Una fila por alumno y curso
+// académico (sin fila = sin tutor personal asignado todavía, que es lo normal en cuanto
+// llega alumnado nuevo: no se autoasigna nunca, ver /gestion/profes).
+export const eduTutorPersonal = pgTable('edu_tutor_personal', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id, { onDelete: 'cascade' }),
+  eduTeacherId: uuid('edu_teacher_id').notNull().references(() => eduTeachers.id),
+  academicYear: text('academic_year').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('edu_tutor_personal_uq').on(t.eduStudentId, t.academicYear),
+]);
+
+export type EduTutorPersonal = typeof eduTutorPersonal.$inferSelect;
+
+// "Este reparto de alumnos entre los tutores de la clase ya está revisado para este curso".
+// Sin fila = la pantalla avisa de que falta confirmarlo. Se guarda por clase y curso
+// académico; `letra` va notNull con '' (no nullable como en edu_tutorias) a propósito:
+// un índice único con NULL no deduplica, y aquí hacemos upsert sobre él.
+export const eduRepartoConfirmado = pgTable('edu_reparto_confirmado', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  curso: text('curso').notNull(),
+  letra: text('letra').notNull().default(''),
+  academicYear: text('academic_year').notNull(),
+  confirmadoAt: timestamp('confirmado_at').defaultNow().notNull(),
+  confirmadoPor: text('confirmado_por'), // email de la sesión que lo confirmó
+}, (t) => [
+  uniqueIndex('edu_reparto_confirmado_uq').on(t.curso, t.letra, t.academicYear),
+]);
+
+export type EduRepartoConfirmado = typeof eduRepartoConfirmado.$inferSelect;
+
 export const eduSyncRuns = pgTable('edu_sync_runs', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   // Qué se sincronizó. Las filas antiguas (anteriores a esta columna) son todas de

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   cierraCiclo,
   cursoEnPuntualidad,
+  destinatariosDelAviso,
   formatoRetraso,
   fraseHistorial,
   horaDeMinutos,
@@ -151,5 +152,33 @@ describe('semana ISO y días', () => {
   it('el lunes es el índice 0', () => {
     expect(indiceDiaSemana('2026-08-31')).toBe(0); // lunes
     expect(indiceDiaSemana('2026-09-04')).toBe(4); // viernes
+  });
+});
+
+describe('destinatariosDelAviso', () => {
+  const ana = { eduTeacherId: 't-ana', email: 'ana@colegio.es' };
+  const luis = { eduTeacherId: 't-luis', email: 'luis@colegio.es' };
+  const clase = [ana, luis];
+
+  it('sin tutor personal avisa a todos los tutores de la clase', () => {
+    expect(destinatariosDelAviso(clase, null)).toEqual(clase);
+  });
+
+  it('con tutor personal avisa solo a esa persona', () => {
+    expect(destinatariosDelAviso(clase, 't-luis')).toEqual([luis]);
+  });
+
+  it('si el tutor personal ya no tutoriza la clase, avisa a la clase entera', () => {
+    expect(destinatariosDelAviso(clase, 't-eva')).toEqual(clase);
+  });
+
+  it('si el tutor personal no tiene correo, avisa a la clase entera', () => {
+    const sinCorreo = [ana, { eduTeacherId: 't-luis', email: null }];
+    expect(destinatariosDelAviso(sinCorreo, 't-luis')).toEqual(sinCorreo);
+  });
+
+  it('con un solo tutor da igual lo que haya asignado', () => {
+    expect(destinatariosDelAviso([ana], 't-ana')).toEqual([ana]);
+    expect(destinatariosDelAviso([ana], null)).toEqual([ana]);
   });
 });
