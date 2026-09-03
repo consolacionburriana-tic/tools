@@ -199,3 +199,14 @@ export interface CatalogBook {
   bancoLibros: boolean;
   lengua: string | null;
 }
+
+/**
+ * ¿Estamos en temporada fuerte de Licencias? **Junio** (las familias hacen el pedido para
+ * el curso siguiente) y **septiembre** (los rezagados, las altas nuevas y el reparto de
+ * códigos). En esos dos meses el escritorio saca Licencias arriba del todo, porque es lo
+ * que se abre veinte veces al día; el resto del año vuelve a su sitio en la lista.
+ */
+export function esTemporadaLicencias(fecha = new Date()): boolean {
+  const mes = fecha.getMonth() + 1;
+  return mes === 6 || mes === 9;
+}

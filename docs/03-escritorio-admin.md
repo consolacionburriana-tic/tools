@@ -23,6 +23,30 @@ ves después del login" y depende de la matriz rol→módulos.
 - Acceso directo a "Usuarios" (solo tic/supertic) y a "BBDD central Educamos" (transversal).
 - Diseño coherente con la portada pública actual (logo, acento azul de marca), usable en iPad.
 
+## Orden de la pantalla (decidido con David, 2026-09-03)
+
+El escritorio se lee de arriba abajo por **frecuencia de uso**, no por orden alfabético ni
+por antigüedad del módulo:
+
+1. **Licencias destacada, solo en junio y septiembre.** Son los dos meses en que se abre
+   veinte veces al día (junio: pedidos del curso siguiente; septiembre: rezagados, altas y
+   códigos). El criterio vive en `esTemporadaLicencias()` de `src/lib/licencias.ts`, con
+   test: el resto del año Licencias vuelve a su sitio en la lista, sin destacar.
+2. **Puntualidad y ABC, a dos columnas** (izquierda / derecha), cada una con sus **dos
+   botones**: registrar (lo que usa todo el claustro) y su panel. Son las dos herramientas
+   del día a día y no deben costar más de un toque. Cada una lleva el acento de su módulo
+   (naranja y teal) para reconocerlas de un vistazo. En móvil se apilan.
+3. **El resto de la gestión**, en este orden: Banco de libros, Salidas y pagos y
+   **Evaluaciones al final** (es la menos frecuente de las tres).
+4. **Configuración general**, separada con su rótulo: Tutorías, Usuarios y roles y BBDD
+   central. Se toca de mes en mes, no a diario; abajo y agrupada.
+
+Las tarjetas viven en `src/components/home/escritorio-cards.tsx` (`ModuleCard`, `ToolDoble`,
+`LicenciasDestacada`, `Stat`, `Rotulo`), fuera de la página: así se pueden revisar y capturar
+sin sesión ni base de datos. Todo respeta la matriz de permisos: si tu rol no tiene un
+módulo, su tarjeta no existe (y la sección de configuración desaparece entera si no tienes
+ninguno de los tres).
+
 ## Decisiones cerradas
 
 - La parte pública (`/`) se queda como está: Licencias + acceso a administración.
