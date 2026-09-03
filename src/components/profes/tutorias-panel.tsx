@@ -1,25 +1,37 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ArrowRight,Eraser, Loader2, Plus, Search, TriangleAlert, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, Eraser, Loader2, Plus, Search, TriangleAlert, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { etapaDeCurso, type Etapa } from '@/lib/cursos';
 import type { ProfeItem } from '@/lib/profes';
-import { type CambioPromocion, planPromocion, resumenPlan } from '@/lib/tutorias';
+import { type CambioPromocion, type ClaseConTutoresUI, planPromocion, resumenPlan } from '@/lib/tutorias';
+import { RepartoAlumnos } from '@/components/profes/reparto-alumnos';
 
-export interface ClaseConTutoresProp {
-  curso: string;
-  letra: string | null;
-  numAlumnos: number;
-  tutores: { id: string; teacherId: string; nombre: string }[];
-}
+export type ClaseConTutoresProp = ClaseConTutoresUI;
 
 const ETAPA_LABEL: Record<'EI' | 'EP' | 'ESO', string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'Secundaria' };
 const ETAPA_ORDEN: ('EI' | 'EP' | 'ESO')[] = ['EI', 'EP', 'ESO'];
 
 function claseLabel(curso: string, letra: string | null) {
   return letra && letra !== 'PDC' ? `${curso} ${letra}` : curso;
+}
+
+/**
+ * Estado del reparto de alumnos de una clase. Solo tiene sentido con dos o más tutores:
+ * con un tutor único, todo su alumnado es suyo y no hay nada que repartir.
+ *
+ * Hay dos avisos distintos a propósito: "faltan N" salta solo cuando llega alumnado nuevo
+ * (que nunca se autoasigna), y "falta confirmar" cuando nadie ha dicho todavía que el
+ * reparto de este curso está revisado.
+ */
+function estadoReparto(c: ClaseConTutoresProp): { texto: string; alerta: boolean } | null {
+  if (c.tutores.length < 2) return null;
+  const faltan = c.numAlumnos - c.conTutorPersonal;
+  if (faltan > 0) return { texto: `${faltan} sin tutor personal`, alerta: true };
+  if (!c.repartoConfirmadoAt) return { texto: 'Falta confirmar el reparto', alerta: true };
+  return { texto: 'Reparto confirmado', alerta: false };
 }
 
 export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTutoresProp[]; profes: ProfeItem[] }) {
@@ -30,6 +42,7 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
   const [previa, setPrevia] = useState<CambioPromocion[] | null>(null); // plan de promoción a la vista
   const [limpiando, setLimpiando] = useState<Etapa | 'todas' | null>(null); // confirmación pendiente
   const [enMarcha, setEnMarcha] = useState(false);
+  const [reparto, setReparto] = useState<string | null>(null); // clase con el reparto de alumnos abierto
 
   const porEtapa = useMemo(() => {
     const grupos: Record<string, ClaseConTutoresProp[]> = { EI: [], EP: [], ESO: [], General: [] };
@@ -251,10 +264,11 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
       {ETAPA_ORDEN.filter((et) => porEtapa[et]?.length).map((et) => (
         <section key={et}>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{ETAPA_LABEL[et]}</h2>
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {porEtapa[et].map((c) => {
               const key = claseKey(c);
               const etapaClase = etapaDeCurso(c.curso);
+              const estado = estadoReparto(c);
               const yaAsignados = new Set(c.tutores.map((t) => t.teacherId));
               const candidatos = profes
                 .filter((p) => !yaAsignados.has(p.id))
@@ -262,10 +276,31 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
                 .sort((a, b) => Number(b.etapa === etapaClase) - Number(a.etapa === etapaClase) || a.nombre.localeCompare(b.nombre, 'es'));
 
               return (
-                <div key={key} className="rounded-2xl border border-zinc-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
-                  <div className="mb-2 flex items-center justify-between">
+                // Con el reparto abierto la tarjeta ocupa el ancho entero: en un ordenador
+                // la lista de 30 alumnos no cabe cómoda en media columna.
+                <div
+                  key={key}
+                  className={`rounded-2xl border border-zinc-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900 ${
+                    reparto === key ? 'sm:col-span-2 lg:col-span-3' : ''
+                  }`}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
                     <p className="font-semibold text-zinc-900 dark:text-zinc-100">{claseLabel(c.curso, c.letra)}</p>
-                    <p className="text-xs text-zinc-400">{c.numAlumnos} alumnos</p>
+                    <div className="flex items-center gap-1.5">
+                      {estado && (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            estado.alerta
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                          }`}
+                        >
+                          {estado.alerta && <TriangleAlert className="h-3 w-3" />}
+                          {estado.texto}
+                        </span>
+                      )}
+                      <p className="text-xs text-zinc-400">{c.numAlumnos} alumnos</p>
+                    </div>
                   </div>
 
                   <div className="mb-2 flex flex-wrap gap-1.5">
@@ -326,6 +361,34 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
                     >
                       <Plus className="h-3.5 w-3.5" /> Añadir tutor
                     </button>
+                  )}
+
+                  {/* Reparto de alumnos: solo cuando la tutoría está compartida */}
+                  {c.tutores.length >= 2 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setReparto(reparto === key ? null : key)}
+                        className="mt-2.5 flex w-full items-center gap-1.5 rounded-lg bg-zinc-50 px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-800/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        Reparto de alumnos
+                        <span className="text-zinc-400">
+                          {c.conTutorPersonal}/{c.numAlumnos} con tutor personal
+                        </span>
+                        <ChevronDown
+                          className={`ml-auto h-3.5 w-3.5 transition-transform ${reparto === key ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {reparto === key && (
+                        <RepartoAlumnos
+                          curso={c.curso}
+                          letra={c.letra}
+                          tutores={c.tutores.map((t) => ({ teacherId: t.teacherId, nombre: t.nombre }))}
+                          onClases={setClases}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               );

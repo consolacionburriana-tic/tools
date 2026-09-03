@@ -28,6 +28,23 @@ en esta campaña". La foto histórica del pedido ya vive en `lic_orders`, que gu
 del 1 de noviembre de 2026**.
 
 
+### ¿Qué más avisos van al tutor personal, aparte del tercer retraso?
+Desde el 2026-09-03 cada alumno puede tener **tutor personal** (uno de los dos o tres tutores de
+su clase; tabla `edu_tutor_personal`, reparto en `/gestion/profes`), y el **aviso del tercer
+retraso de Puntualidad ya va solo a esa persona** cuando la tiene asignada
+(`destinatariosDelAviso()` en `src/lib/puntualidad.ts`, con tests) — David lo pidió el mismo día.
+Si el alumno no tiene tutor personal, o su tutor personal ya no tutoriza la clase o no tiene
+correo, se cae a todos los tutores de la clase: un aviso nunca se queda sin destinatario.
+
+Lo que sigue sin decidir, porque cada uno tiene su lógica:
+- **Puntualidad, resumen semanal de los viernes**: hoy cada tutor recibe la clase entera. ¿Se
+  parte para que cada uno vea solo a sus alumnos, o se deja así para que tenga la foto completa
+  del grupo? (Argumento para dejarlo: el resumen es del grupo, no de un alumno.)
+- **ABC**: el formulario sugiere destinatarios, no manda a ciegas. Como mínimo convendría poner
+  primero al tutor personal del alumno en la lista de sugerencias.
+- **Panel por tutoría** (`clasesDeTutor`): esto se queda por clase completa a propósito — un
+  tutor ve su grupo entero aunque la mitad sean del compañero. No hace falta decidir nada.
+
 ### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
 `identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
 (`edu_guardians.dni`, comparado normalizado) o el **NIA del alumno**. `edu_students.dni` se
