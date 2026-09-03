@@ -75,8 +75,13 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; falta asignar las tutorías de 2026-27 para que salgan los avisos) | [`17-puntualidad.md`](./17-puntualidad.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
+| 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.
+
+> 🔴 **Lo primero a partir del 1 de noviembre de 2026** es la **fuente única de alumnado**
+> ([`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md)), por delante de cualquier
+> casilla de cualquier otro hito. Va también como parada obligatoria al principio de `AGENTS.md`.
 
 > Cuando arranquemos un módulo cualquier día, este documento dice de un vistazo qué falta:
 > si falta el "plan funcional", tocan preguntas y decisiones (ver `00-desarrollos-futuros.md`).

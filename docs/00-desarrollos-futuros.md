@@ -20,6 +20,14 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### ~~¿Dos tablas de alumnado (`edu_students` + `lic_students`)?~~ ✅ decidido (2026-09-03)
+**No.** Una sola fuente de verdad (`edu_students`) y `lic_students` adelgazada a "quién participa
+en esta campaña". La foto histórica del pedido ya vive en `lic_orders`, que guarda su propio
+`curso` y `banco_libros`. Plan cerrado y listo para ejecutar en
+[`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md), **con prioridad máxima a partir
+del 1 de noviembre de 2026**.
+
+
 ### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
 `identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
 (`edu_guardians.dni`, comparado normalizado) o el **NIA del alumno**. `edu_students.dni` se
