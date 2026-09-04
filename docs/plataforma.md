@@ -74,8 +74,9 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro, resumen agregado y conector Excel→catálogo; schema al día en Neon) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; falta asignar las tutorías de 2026-27 para que salgan los avisos) | [`17-puntualidad.md`](./17-puntualidad.md) |
-| Cuaderno de tutor | ✅ | ✅ | 🟡 (motor, cola, panel y compartir listos y probados con plantillas reales; falta el `db:push` y la unidad compartida de David) | [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md) |
+| Cuaderno de tutor | ✅ | ✅ | 🟡 (motor, cola, panel y compartir listos y probados con plantillas reales; tablas ya en Neon. Falta la carpeta de la unidad compartida de David) | [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
+| Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (Fase 0 ✅ en Neon y verificada: 13 tablas `hor_*`, permisos en dos módulos y helpers puros con tests; faltan las pantallas y el importador) | [`07-horarios.md`](./07-horarios.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.
@@ -105,7 +106,9 @@ empieza un hito hasta que el anterior está funcional (no hace falta que esté p
 | 5 | **Banco de libros** (`bl_*`) | [`12`](./12-bancolibros.md) | Necesita el modelo anual lote↔alumno bien pensado; se apoya en `edu_students`. |
 | 6 | **Evaluaciones** (`eval_*`) | [`16`](./16-evaluaciones.md) | Motorcito de formularios propio; el más independiente, puede ir en paralelo si conviene. |
 
-Transversales sin hito propio: la **PWA** ([`05-pwa.md`](./05-pwa.md), priorizada por David —
+Transversales sin hito propio: los **horarios** ([`07-horarios.md`](./07-horarios.md), Fase 0
+hecha — los estrena Puntualidad y enseguida los piden sustituciones y documentación de clase);
+la **PWA** ([`05-pwa.md`](./05-pwa.md), priorizada por David —
 Fases 1-2 hechas: iconos, atajos, service worker y página de sin conexión); auditoría de cambios y
 dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
 
@@ -119,7 +122,7 @@ dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
 - **Una base de datos (Neon + Drizzle), un schema por módulo con prefijo de tabla propio**:
   `abc_*` Registro ABC · `lic_*` Licencias · `edu_*` BBDD central Educamos · `auth_*` usuarios y
   roles · `sal_*` Salidas y pagos · `bl_*` Banco de libros · `eval_*` Evaluaciones ·
-  `pun_*` Puntualidad y `con_*` consecuencias (prefijo aparte a propósito: una consecuencia no
+  `hor_*` Horarios · `pun_*` Puntualidad y `con_*` consecuencias (prefijo aparte a propósito: una consecuencia no
   siempre nace de un retraso, ver [`17-puntualidad.md`](./17-puntualidad.md)). Así
   cualquiera puede ver en `src/db/schema.ts` a qué módulo pertenece cada tabla sin leer código.
 - **Alumnos y tutores como recurso compartido en `edu_*`.** La fuente de verdad administrativa

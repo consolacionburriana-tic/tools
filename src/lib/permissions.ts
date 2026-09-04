@@ -15,6 +15,8 @@ export const MODULES = [
   'bancolibros',
   'evaluaciones',
   'puntualidad',
+  'horarios',
+  'horarios-profes',
   'educamos',
   'cuaderno',
   'usuarios',
@@ -29,6 +31,8 @@ export const MODULE_LABELS: Record<Module, string> = {
   bancolibros: 'Banco de libros',
   evaluaciones: 'Evaluaciones',
   puntualidad: 'Puntualidad',
+  horarios: 'Horarios de clase',
+  'horarios-profes': 'Horarios del profesorado',
   educamos: 'BBDD central',
   cuaderno: 'Cuaderno de tutor',
   usuarios: 'Usuarios y roles',
@@ -77,15 +81,17 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'bancolibros',
     'evaluaciones',
     'puntualidad',
+    'horarios',
+    'horarios-profes',
     'educamos',
     'cuaderno',
     'profes',
   ],
-  jefe: ['salidas', 'bancolibros', 'puntualidad', 'profes'],
-  orientacion: ['abc', 'puntualidad'],
-  secretaria: ['licencias', 'salidas', 'bancolibros', 'cuaderno'],
-  tutor: ['salidas', 'bancolibros', 'puntualidad'],
-  profe: ['salidas', 'bancolibros'],
+  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'profes'],
+  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes'],
+  secretaria: ['licencias', 'salidas', 'bancolibros', 'horarios', 'cuaderno'],
+  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios'],
+  profe: ['salidas', 'bancolibros', 'horarios'],
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
   // 'tutor' y darle 'evaluaciones' como módulo extra.
@@ -170,6 +176,22 @@ export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
  */
 export function vePuntualidadCompleta(role: Role | null): boolean {
   return role === 'direccion' || role === 'jefe' || role === 'orientacion' || role === 'tic' || role === 'supertic';
+}
+
+/**
+ * Los horarios van en DOS módulos a propósito, no en uno:
+ *
+ *   - `horarios`         → ver el horario de las CLASES. Abierto a todo el claustro: un
+ *                          profe tiene que poder mirar qué tiene 2ESO B a 3ª.
+ *   - `horarios-profes`  → ver el horario de un PROFESOR concreto. Va aparte para poder
+ *                          quitárselo a alguien sin quitarle lo anterior (decisión de
+ *                          David: el horario de los demás invita al "a mí me has puesto…").
+ *
+ * Y encima, quién puede EDITAR (rejillas, importar, tocar asignaciones) es cuestión de rol,
+ * como `vePuntualidadCompleta()`: tener el módulo da vista, no lápiz.
+ */
+export function puedeEditarHorarios(role: Role | null): boolean {
+  return role === 'direccion' || role === 'jefe' || role === 'tic' || role === 'supertic';
 }
 
 export const DOMINIO_LOGIN = 'consolacionburriana.com';

@@ -28,6 +28,18 @@ en esta campaña". La foto histórica del pedido ya vive en `lic_orders`, que gu
 del 1 de noviembre de 2026**.
 
 
+### ~~Horarios: cinco decisiones antes de crear las tablas~~ ✅ decididas (2026-09-03)
+Cuatro cerradas y trasladadas a "Decisiones cerradas" de
+[`07-horarios.md`](./07-horarios.md): `hor_materias` se come a `pun_subjects` (no hay
+histórico, pero la demolición espera a la Fase 1 para no dejar a Puntualidad sin catálogo);
+etapas EI/EP/ESO activas y BACH/CFGM/CFGS previstas y desactivadas; PT y AL vienen en el
+fichero como profes normales (lo que encogió `hor_apoyos` a "qué alumnos toca cada hora");
+y los permisos van en **dos** módulos, `horarios` (clases, todo el claustro) y
+`horarios-profes` (horario de un profe, restringible), con la edición por rol.
+
+Queda una sin responder, que **no bloquea**: si hacen falta **días especiales** (un día
+suelto con rejilla propia — media jornada, día del colegio, festivos). Es una tabla chica y
+aditiva; no se crea por si acaso.
 ### ¿Qué más avisos van al tutor personal, aparte del tercer retraso?
 Desde el 2026-09-03 cada alumno puede tener **tutor personal** (uno de los dos o tres tutores de
 su clase; tabla `edu_tutor_personal`, reparto en `/gestion/profes`), y el **aviso del tercer
@@ -45,25 +57,26 @@ Lo que sigue sin decidir, porque cada uno tiene su lógica:
 - **Panel por tutoría** (`clasesDeTutor`): esto se queda por clase completa a propósito — un
   tutor ve su grupo entero aunque la mitad sean del compañero. No hace falta decidir nada.
 
-### 🔴 `pnpm db:push` está MINADO ahora mismo (visto el 2026-09-04)
+### `pnpm db:push` y las dos sesiones en paralelo (2026-09-04) — resuelto
 
-La BBDD de producción tiene **14 tablas `hor_*`** (un módulo de horarios: `hor_actividades`,
-`hor_asignaciones`, `hor_sesiones`, `hor_tramos`, `hor_rejillas`…) que **no están en
-`src/db/schema.ts` ni en `main`**. Alguien las creó directamente en Neon, o vienen de una rama
-que no está subida.
+Queda anotado porque puede repetirse. El 4-sep había dos módulos construyéndose a la vez en
+sesiones distintas (Horarios y Cuaderno de tutor). Al ir a crear las tablas del cuaderno, la
+BBDD de producción ya tenía 14 tablas `hor_*` que **no estaban en `src/db/schema.ts` ni en
+`main`**: eran de la otra sesión, que las había aplicado directamente en Neon.
 
-`drizzle-kit push` compara el schema con la BBDD y **borra lo que no esté en el schema**: si se
-lanza `pnpm db:push` hoy, se lleva por delante esas 14 tablas y sus datos. No es hipotético, es
-lo que hace la herramienta.
+`drizzle-kit push` compara el schema con la BBDD y **borra lo que no esté en el schema**: en
+ese momento, un `pnpm db:push` se habría llevado las 14 tablas de horarios con sus datos.
 
-Mientras eso no se arregle:
+Cómo se resolvió, y la regla que queda:
 
-- Los cambios de schema se aplican con **SQL aditivo** en `src/db/sql/` (como
-  `cuaderno-tutor.sql`, que es así justo por esto), no con push.
-- Para arreglarlo de raíz hay que **meter las tablas `hor_*` en `src/db/schema.ts`** (quien las
-  hizo tendrá el modelo) y entonces push vuelve a ser seguro.
-- La línea de `docs/04-convenciones-tecnicas.md` que dice "cambios de schema siempre aditivos vía
-  `pnpm db:push`" lleva ahora el aviso al lado.
+- Las tablas de cada módulo se crearon con **SQL aditivo** en `src/db/sql/`
+  (`horarios.sql` y `cuaderno-tutor.sql`), no con push. Los dos ficheros son idempotentes y
+  usan los nombres de constraints e índices que genera Drizzle, así que push no ve diferencias.
+- Las dos ramas están unificadas: `schema.ts` tiene ya los bloques `hor_*` y `cuad_*`, así que
+  **una vez esto esté en `main`, `db:push` vuelve a ser seguro**.
+- **La regla**: con dos módulos en marcha a la vez, no se lanza `db:push` sin mirar antes qué
+  tablas hay en Neon que no estén en `schema.ts`. Un `\dt` de treinta segundos evita perder
+  datos de producción de otra persona.
 
 ### Cuaderno de tutor: lo que decidí yo al construirlo (2026-09-03) — revisar con David
 
@@ -245,7 +258,7 @@ Recopilados de las fichas, para verlos de un vistazo:
 - **Cuaderno de tutor** (ficha `18`): (a) la **URL de la subcarpeta de la unidad compartida** donde
   van los cuadernos, (b) dar de alta a la cuenta de servicio (`GOOGLE_SA_CLIENT_EMAIL`) como
   **Administrador de contenido** de esa unidad, (c) compartir con ese mismo correo cada plantilla
-  de Google Docs, y (d) `pnpm db:push` para crear las tablas `cuad_*`. Con eso, el módulo se
+  de Google Docs. Las tablas `cuad_*` ya están creadas en Neon (4-sep). Con eso, el módulo se
   estrena; todo lo demás está hecho y probado.
 - **Tutorías del curso 2026-27**: `edu_tutorias` solo tiene filas de **2025-26**, y el curso
   en vigor ya es 2026-27. Mientras no se asignen, Puntualidad no tiene a quién mandar el
@@ -259,6 +272,13 @@ Recopilados de las fichas, para verlos de un vistazo:
   Queda opcional: poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del
   aviso del 3er retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su
   `CRON_SECRET`.
+- **Horarios** (ficha `07`): ~~ejecutar el SQL de las tablas~~ ✅ hecho (2026-09-03, 13 tablas
+  y semilla, con prueba de humo). Queda un **export real de horarios de al menos una etapa** en CSV/XLSX
+  (del generador de horarios o de Educamos) y, si se puede, la **definición de las rejillas**.
+  Sin ver la forma real del fichero el importador no se puede escribir; el modelo de destino ya
+  está diseñado. Ideal: que el generador pueda sacar **lista larga** (una fila por sesión: día,
+  orden, grupo, materia, profe, aula) en vez de la matriz de imprimir — ahorra media
+  importación. El fichero NO se commitea (lleva nombres del profesorado).
 - **Banco de libros** (ficha `12`): ejecutar `pnpm db:push` en Neon para la columna
   `edu_students.ampa` y la tabla `bl_libros_curso` (cambios aditivos). El código está desplegable,
   pero hasta que no se aplique el schema la pestaña AMPA y los libros manuales darán error.

@@ -64,9 +64,11 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
   `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`) y un comentario separador
   por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
-- 🔴 **`pnpm db:push` NO se puede lanzar ahora mismo**: la BBDD de producción tiene 14 tablas
-  `hor_*` que no están en `schema.ts`, y push las borraría. Hasta que estén en el schema, los
-  cambios se aplican con SQL aditivo en `src/db/sql/`. Ver `00-desarrollos-futuros.md`.
+- ⚠️ **Antes de `pnpm db:push`, mira qué hay en Neon.** Push borra lo que no esté en
+  `schema.ts`: si otra sesión está construyendo un módulo y ha aplicado sus tablas
+  directamente, push se las lleva con sus datos (pasó el 4-sep con las `hor_*`, ver
+  `00-desarrollos-futuros.md`). Cuando eso ocurre, los cambios se aplican con SQL aditivo en
+  `src/db/sql/`, como `horarios.sql` y `cuaderno-tutor.sql`.
 - **Cambios de schema siempre aditivos** vía `pnpm db:push`: añadir tablas/columnas sí; renombrar
   o borrar, solo con decisión explícita de David (hay datos reales de producción).
 - **Nunca borrar filas con significado histórico**: el patrón es `active=false` (así funcionan
