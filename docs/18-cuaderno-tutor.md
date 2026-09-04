@@ -132,6 +132,9 @@ escolar y las clases.
 | `cuad_numeracion` | Número de lista congelado por alumno y curso escolar |
 | `cuad_hojas` | "Este alumno ya tiene su hoja de esta plantilla este curso" |
 
+El DDL vive en `src/db/sql/cuaderno-tutor.sql` (idempotente). **No se aplica con `pnpm db:push`**:
+hoy push borraría las tablas `hor_*` de producción, que no están en `schema.ts`.
+
 ### Módulos de código
 
 ```
@@ -242,7 +245,9 @@ fábrica, sin mapear nada a mano.
 ### Fase 3 · Datos
 - [x] Tablas `cuad_*` en `src/db/schema.ts`
 - [x] `cuaderno-server.ts`: clases con tutores y reparto, alumnos con familiares, numeración congelada, hojas hechas
-- [ ] `pnpm db:push` aplicado en Neon *(lo tiene que lanzar David)*
+- [x] Tablas creadas en Neon (2026-09-04) con `src/db/sql/cuaderno-tutor.sql`, **no** con
+      `db:push`: hoy push borraría las tablas `hor_*` que no están en el schema (ver
+      `00-desarrollos-futuros.md`)
 
 ### Fase 4 · Cola
 - [x] Crear tirada + ítems, reclamar ítem, ejecutar, reintentos, cancelar

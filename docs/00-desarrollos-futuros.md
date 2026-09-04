@@ -45,6 +45,26 @@ Lo que sigue sin decidir, porque cada uno tiene su lógica:
 - **Panel por tutoría** (`clasesDeTutor`): esto se queda por clase completa a propósito — un
   tutor ve su grupo entero aunque la mitad sean del compañero. No hace falta decidir nada.
 
+### 🔴 `pnpm db:push` está MINADO ahora mismo (visto el 2026-09-04)
+
+La BBDD de producción tiene **14 tablas `hor_*`** (un módulo de horarios: `hor_actividades`,
+`hor_asignaciones`, `hor_sesiones`, `hor_tramos`, `hor_rejillas`…) que **no están en
+`src/db/schema.ts` ni en `main`**. Alguien las creó directamente en Neon, o vienen de una rama
+que no está subida.
+
+`drizzle-kit push` compara el schema con la BBDD y **borra lo que no esté en el schema**: si se
+lanza `pnpm db:push` hoy, se lleva por delante esas 14 tablas y sus datos. No es hipotético, es
+lo que hace la herramienta.
+
+Mientras eso no se arregle:
+
+- Los cambios de schema se aplican con **SQL aditivo** en `src/db/sql/` (como
+  `cuaderno-tutor.sql`, que es así justo por esto), no con push.
+- Para arreglarlo de raíz hay que **meter las tablas `hor_*` en `src/db/schema.ts`** (quien las
+  hizo tendrá el modelo) y entonces push vuelve a ser seguro.
+- La línea de `docs/04-convenciones-tecnicas.md` que dice "cambios de schema siempre aditivos vía
+  `pnpm db:push`" lleva ahora el aviso al lado.
+
 ### Cuaderno de tutor: lo que decidí yo al construirlo (2026-09-03) — revisar con David
 
 El módulo está entero (ficha [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md)), pero cuatro cosas

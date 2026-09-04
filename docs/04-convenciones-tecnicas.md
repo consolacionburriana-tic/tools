@@ -64,6 +64,9 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
   `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`) y un comentario separador
   por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
+- 🔴 **`pnpm db:push` NO se puede lanzar ahora mismo**: la BBDD de producción tiene 14 tablas
+  `hor_*` que no están en `schema.ts`, y push las borraría. Hasta que estén en el schema, los
+  cambios se aplican con SQL aditivo en `src/db/sql/`. Ver `00-desarrollos-futuros.md`.
 - **Cambios de schema siempre aditivos** vía `pnpm db:push`: añadir tablas/columnas sí; renombrar
   o borrar, solo con decisión explícita de David (hay datos reales de producción).
 - **Nunca borrar filas con significado histórico**: el patrón es `active=false` (así funcionan
