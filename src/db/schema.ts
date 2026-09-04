@@ -906,3 +906,418 @@ export type NewPunRecord = typeof punRecords.$inferInsert;
 export type ConConsequence = typeof conConsequences.$inferSelect;
 export type NewConConsequence = typeof conConsequences.$inferInsert;
 export type ConConsequenceType = typeof conConsequenceTypes.$inferSelect;
+
+// ─── Cuaderno de tutor (prefijo cuad_) ────────────────────────────────────────
+// Generador de la documentación de tutoría a partir de plantillas de Google Docs.
+// Ficha: docs/18-cuaderno-tutor.md. La idea de fondo: el código NO conoce las etiquetas de
+// las plantillas (son de David y las cambia cuando quiere); conoce campos, y `cuad_alias`
+// traduce etiqueta → campo. Nada de esto guarda datos personales: solo referencias a
+// alumnos (`edu_students.id`) e ids de Drive.
+
+export const cuadPlantillas = pgTable('cuad_plantillas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(), // 'Dossier Personal' — sale en el nombre del archivo
+  googleDocId: text('google_doc_id').notNull(), // id del Google Doc plantilla
+  // 'alumno' = una copia por alumno · 'trimestre' = una por trimestre · 'unica' = una sola.
+  repeticion: text('repeticion').notNull().default('alumno'),
+  etapa: text('etapa'), // 'EI' | 'EP' | 'ESO' · null = vale para todas
+  orden: integer('orden').notNull().default(1), // el `x` de "1.x" en el nombre del archivo
+  saltoDePagina: boolean('salto_de_pagina').notNull().default(true),
+  generaPdf: boolean('genera_pdf').notNull().default(true),
+  activa: boolean('activa').notNull().default(true),
+  // Última lectura de la plantilla: etiquetas encontradas y si tiene filas repetibles.
+  etiquetas: jsonb('etiquetas').$type<string[]>(),
+  tieneFilas: boolean('tiene_filas').notNull().default(false),
+  analizadaAt: timestamp('analizada_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Etiqueta normalizada → campo del catálogo. Es el "aprendizaje" del panel: se mapea una
+// vez y no se vuelve a preguntar, aunque la etiqueta aparezca en otras plantillas.
+export const cuadAlias = pgTable('cuad_alias', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  etiqueta: text('etiqueta').notNull().unique(), // normalizada: 'n_clase'
+  campo: text('campo').notNull(), // id del catálogo: 'clase'
+  creadoPor: text('creado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Ajustes del módulo (fila única, id fijo 'global'): la carpeta base de Drive la da David.
+export const cuadAjustes = pgTable('cuad_ajustes', {
+  id: text('id').primaryKey().default('global'),
+  carpetaBaseId: text('carpeta_base_id'), // id de la subcarpeta de la unidad compartida
+  carpetaBaseUrl: text('carpeta_base_url'),
+  nombreCentro: text('nombre_centro').notNull().default('Colegio Consolación Burriana'),
+  // Al compartir la carpeta de clase: 'reader' (solo imprimir) o 'writer' (rellenar a mano).
+  permisoTutores: text('permiso_tutores').notNull().default('writer'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Una ejecución del generador. `numero` es el 1, 2, 3… del curso escolar: la primera tirada
+// va a la carpeta de la clase y las siguientes a una subcarpeta "aammdd - Ejecución N".
+export const cuadTiradas = pgTable('cuad_tiradas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  numero: integer('numero').notNull().default(1),
+  estado: text('estado').notNull().default('pendiente'), // pendiente | ejecutando | hecha | error | cancelada
+  opciones: jsonb('opciones').$type<{
+    formatos: ('doc' | 'pdf')[];
+    cuadernoCompletoPdf: boolean;
+    compartir: boolean;
+    avisarPorCorreo: boolean;
+    soloSinHoja: boolean;
+    subcarpetaPropia: boolean;
+  }>(),
+  carpetaCursoId: text('carpeta_curso_id'), // carpeta "Cuaderno de tutor 2026-2027"
+  carpetaCursoUrl: text('carpeta_curso_url'),
+  lanzadaPor: text('lanzada_por'), // email de la sesión
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  finishedAt: timestamp('finished_at'),
+}, (t) => [
+  index('cuad_tiradas_estado_idx').on(t.estado),
+]);
+
+// La unidad de trabajo de la cola: un documento = un tutor × una plantilla.
+// `alumnoIds` es el SNAPSHOT de quién entró en ese documento, que es lo que permite saber
+// después a quién le falta su hoja y regenerar solo eso.
+export const cuadItems = pgTable('cuad_items', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tiradaId: uuid('tirada_id').notNull().references(() => cuadTiradas.id, { onDelete: 'cascade' }),
+  plantillaId: uuid('plantilla_id').notNull().references(() => cuadPlantillas.id),
+  curso: text('curso').notNull(),
+  letra: text('letra').notNull().default(''),
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id), // null = clase sin tutor
+  indiceTutor: integer('indice_tutor').notNull().default(1),
+  alumnoIds: jsonb('alumno_ids').$type<string[]>().notNull().default([]),
+  estado: text('estado').notNull().default('pendiente'), // pendiente | haciendo | hecho | error | omitido
+  docId: text('doc_id'),
+  docUrl: text('doc_url'),
+  pdfId: text('pdf_id'),
+  pdfUrl: text('pdf_url'),
+  carpetaId: text('carpeta_id'), // carpeta donde acabó (la de la clase o la de la ejecución)
+  carpetaUrl: text('carpeta_url'),
+  intentos: integer('intentos').notNull().default(0),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('cuad_items_tirada_estado_idx').on(t.tiradaId, t.estado),
+  index('cuad_items_estado_idx').on(t.estado),
+]);
+
+// Número de lista congelado por curso escolar. Una vez impreso el cuaderno, el nº 14 es el
+// nº 14 todo el año: quien llega tarde recibe el siguiente número libre de su clase, y en
+// los listados regenerados aparece como "7* (31)" (ver `numeroListaTexto`).
+export const cuadNumeracion = pgTable('cuad_numeracion', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id, { onDelete: 'cascade' }),
+  academicYear: text('academic_year').notNull(),
+  curso: text('curso').notNull(),
+  letra: text('letra').notNull().default(''),
+  numero: integer('numero').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('cuad_numeracion_uq').on(t.eduStudentId, t.academicYear),
+  index('cuad_numeracion_clase_idx').on(t.academicYear, t.curso, t.letra),
+]);
+
+// "Este alumno ya tiene su hoja de esta plantilla en este curso escolar". Lo escribe el
+// worker cuando un documento sale bien; es lo que contesta a "¿a quién le falta?".
+export const cuadHojas = pgTable('cuad_hojas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id, { onDelete: 'cascade' }),
+  plantillaId: uuid('plantilla_id').notNull().references(() => cuadPlantillas.id, { onDelete: 'cascade' }),
+  academicYear: text('academic_year').notNull(),
+  tiradaId: uuid('tirada_id').references(() => cuadTiradas.id, { onDelete: 'set null' }),
+  itemId: uuid('item_id').references(() => cuadItems.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('cuad_hojas_uq').on(t.eduStudentId, t.plantillaId, t.academicYear),
+]);
+
+// ─── Types Cuaderno de tutor ──────────────────────────────────────────────────
+export type CuadPlantilla = typeof cuadPlantillas.$inferSelect;
+export type NewCuadPlantilla = typeof cuadPlantillas.$inferInsert;
+export type CuadAlias = typeof cuadAlias.$inferSelect;
+export type CuadAjustes = typeof cuadAjustes.$inferSelect;
+export type CuadTirada = typeof cuadTiradas.$inferSelect;
+export type NewCuadTirada = typeof cuadTiradas.$inferInsert;
+export type CuadItem = typeof cuadItems.$inferSelect;
+export type NewCuadItem = typeof cuadItems.$inferInsert;
+export type CuadNumeracion = typeof cuadNumeracion.$inferSelect;
+export type CuadHoja = typeof cuadHojas.$inferSelect;
+// ─── Horarios (prefijo hor_, pieza transversal) ───────────────────────────────
+//
+// Modelo mental (ver docs/07-horarios.md). TRES CAPAS, separadas a propósito:
+//
+//   1. LA REJILLA — cuándo hay huecos.
+//      hor_periodos    tramo de FECHAS con horario propio (ordinario / junio / septiembre),
+//                      con prioridad: el de junio pisa al ordinario en sus fechas. Va por
+//                      fechas y no por meses porque "normalmente junio" nunca empieza el
+//                      mismo día dos años seguidos.
+//      hor_rejillas    la plantilla de huecos de ese periodo ("Primaria ordinaria").
+//      hor_tramos      UN hueco: rejilla + día + orden + horas. Hay una fila por
+//                      (rejilla, DÍA, orden) y no una por orden compartida entre días:
+//                      así los viernes de primaria pueden tener las mismas 6 sesiones con
+//                      horas distintas sin descolocar nada, porque las sesiones del horario
+//                      se refieren al tramo por ORDEN (la 3ª), nunca por hora.
+//      hor_rejilla_ambitos  a quién aplica cada rejilla, con precedencia:
+//                      centro → etapa → curso → curso+letra. Gana el más específico.
+//
+//   2. LA ASIGNACIÓN DOCENTE — qué se imparte, a quién y por quién. Existe con
+//      independencia de en qué hueco cae (es el "Unterricht" de Untis). Es la unidad que
+//      se importa y la que se duplica de un curso al siguiente.
+//      hor_actividades       catálogo del TIPO de hora (clase, guardia, departamento,
+//                            reunión, atención a padres…), con `lectiva` y
+//                            `cubre_sustitucion`.
+//      hor_materias          catálogo de asignaturas COMPARTIDO del centro.
+//      hor_asignaciones      actividad + materia + aula + periodo.
+//      hor_asignacion_grupos a qué grupo(s)/subgrupo(s) va (varios = optativa que junta
+//                            dos clases; subgrupo = desdoble).
+//      hor_asignacion_profes qué profe(s), con rol y `principal` (varios = dos profes en
+//                            el aula, o PT/AL entrando a apoyar).
+//
+//   3. LA COLOCACIÓN — hor_sesiones: la celda del horario, una asignación puesta en un
+//      tramo. SIN unicidad por grupo ni por profe a propósito: dos sesiones del mismo
+//      grupo en el mismo tramo es un desdoble legítimo y dos del mismo profe es un error
+//      de verdad; esa diferencia la sabe el negocio, no una constraint. Los choques salen
+//      como informe de conflictos.
+//
+// Y encima, hor_apoyos: QUÉ ALUMNOS concretos toca una asignación de PT/AL. El horario de
+// PT y AL viene en el fichero como el de cualquier profe (son asignaciones normales); lo
+// que no viene, y se mete a mano, es a quién sacan o a quién acompañan.
+
+export const horPeriodos = pgTable('hor_periodos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(), // '2026-27'
+  nombre: text('nombre').notNull(), // 'Ordinario', 'Junio', 'Septiembre'
+  fechaInicio: date('fecha_inicio').notNull(),
+  fechaFin: date('fecha_fin').notNull(),
+  // A mayor prioridad, gana cuando dos periodos se solapan en una fecha. El ordinario va
+  // a 0 y puede cubrir el curso entero; junio y septiembre van por encima y le recortan.
+  prioridad: integer('prioridad').notNull().default(0),
+  esOrdinario: boolean('es_ordinario').notNull().default(false),
+  notas: text('notas'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('hor_periodos_year_idx').on(t.academicYear),
+  index('hor_periodos_fechas_idx').on(t.fechaInicio, t.fechaFin),
+]);
+
+export const horRejillas = pgTable('hor_rejillas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  periodoId: uuid('periodo_id').notNull().references(() => horPeriodos.id),
+  nombre: text('nombre').notNull(), // 'Primaria ordinaria', 'Secundaria junio'
+  notas: text('notas'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('hor_rejillas_periodo_idx').on(t.periodoId),
+]);
+
+// A quién aplica una rejilla. Cuantos más campos rellenos, más específica y más manda:
+// todo a null = centro entero · solo etapa = 'EP' · etapa+curso = '1PRI' · +letra = '1PRI A'.
+export const horRejillaAmbitos = pgTable('hor_rejilla_ambitos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  rejillaId: uuid('rejilla_id').notNull().references(() => horRejillas.id),
+  etapa: text('etapa'), // 'EI' | 'EP' | 'ESO' | 'BACH' | 'CFGM' | 'CFGS'
+  curso: text('curso'), // '2ESO'
+  letra: text('letra'), // 'B'
+}, (t) => [
+  index('hor_rejilla_ambitos_rejilla_idx').on(t.rejillaId),
+  uniqueIndex('hor_rejilla_ambitos_uq').on(t.rejillaId, t.etapa, t.curso, t.letra),
+]);
+
+export const horTramos = pgTable('hor_tramos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  rejillaId: uuid('rejilla_id').notNull().references(() => horRejillas.id),
+  diaSemana: integer('dia_semana').notNull(), // 1 = lunes … 5 = viernes
+  orden: integer('orden').notNull(), // 1ª, 2ª… incluidos recreos, para que el orden sea el real
+  etiqueta: text('etiqueta'), // '1ª', 'Patio', '6ª'
+  // Hora de centro en texto 'HH:mm', sin zona horaria — igual que `pun_records.hora`.
+  horaInicio: text('hora_inicio').notNull(),
+  horaFin: text('hora_fin').notNull(),
+  tipo: text('tipo').notNull().default('sesion'), // 'sesion'|'recreo'|'comedor'|'entrada'|'salida'|'otro'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('hor_tramos_uq').on(t.rejillaId, t.diaSemana, t.orden),
+  index('hor_tramos_rejilla_dia_idx').on(t.rejillaId, t.diaSemana),
+]);
+
+export const horActividades = pgTable('hor_actividades', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  codigo: text('codigo').notNull().unique(), // 'clase'|'guardia'|'departamento'|'reunion'|…
+  nombre: text('nombre').notNull(),
+  // Defecto del catálogo; `hor_asignaciones.lectiva` lo pisa cuando toque (hay reuniones
+  // que caen en hora lectiva y otras que no).
+  lectiva: boolean('lectiva').notNull().default(true),
+  // ¿Si el profe falta, hay que cubrir esta hora? Y al revés: la guardia es la hora desde
+  // la que se cubre. Las dos preguntas del futuro módulo de sustituciones.
+  cubreSustitucion: boolean('cubre_sustitucion').notNull().default(false),
+  requiereGrupo: boolean('requiere_grupo').notNull().default(false),
+  color: text('color'),
+  orden: integer('orden').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const horMaterias = pgTable('hor_materias', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(),
+  abreviatura: text('abreviatura'), // 'GEH' — lo que se pinta en la celda del horario
+  etapa: text('etapa'),
+  orden: integer('orden').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const horAsignaciones = pgTable('hor_asignaciones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  periodoId: uuid('periodo_id').notNull().references(() => horPeriodos.id),
+  academicYear: text('academic_year').notNull(),
+  actividadId: uuid('actividad_id').notNull().references(() => horActividades.id),
+  materiaId: uuid('materia_id').references(() => horMaterias.id), // null: una guardia no tiene materia
+  etiqueta: text('etiqueta'), // 'Religión desdoble A', 'Reunión de departamento de Ciencias'
+  lectiva: boolean('lectiva'), // null = lo que diga la actividad
+  aula: text('aula'),
+  notas: text('notas'),
+  origen: text('origen').notNull().default('manual'), // 'importado' | 'manual'
+  importRunId: uuid('import_run_id'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('hor_asignaciones_periodo_idx').on(t.periodoId),
+  index('hor_asignaciones_year_idx').on(t.academicYear),
+]);
+
+// Grupos por texto (curso + letra), como en todo el repo (edu_tutorias, pun_records…).
+// Varias filas = una asignación que junta clases (la optativa de 1ESO A + 1ESO B).
+export const horAsignacionGrupos = pgTable('hor_asignacion_grupos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  asignacionId: uuid('asignacion_id').notNull().references(() => horAsignaciones.id),
+  curso: text('curso').notNull(),
+  letra: text('letra'),
+  subgrupo: text('subgrupo'), // desdoble: 'A1', 'Religión', 'Valores'
+}, (t) => [
+  index('hor_asignacion_grupos_asig_idx').on(t.asignacionId),
+  index('hor_asignacion_grupos_clase_idx').on(t.curso, t.letra),
+]);
+
+export const horAsignacionProfes = pgTable('hor_asignacion_profes', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  asignacionId: uuid('asignacion_id').notNull().references(() => horAsignaciones.id),
+  eduTeacherId: uuid('edu_teacher_id').notNull().references(() => eduTeachers.id),
+  rol: text('rol').notNull().default('titular'), // 'titular'|'apoyo'|'pt'|'al'|'practicas'
+  // El que responde por esa hora cuando hace falta uno solo (p. ej. el destinatario del
+  // aviso de Puntualidad). Los demás siguen ahí, no se pierden.
+  principal: boolean('principal').notNull().default(false),
+}, (t) => [
+  uniqueIndex('hor_asignacion_profes_uq').on(t.asignacionId, t.eduTeacherId),
+  index('hor_asignacion_profes_profe_idx').on(t.eduTeacherId),
+]);
+
+export const horSesiones = pgTable('hor_sesiones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  asignacionId: uuid('asignacion_id').notNull().references(() => horAsignaciones.id),
+  tramoId: uuid('tramo_id').notNull().references(() => horTramos.id),
+  // Desnormalizados desde el tramo: pintar la cuadrícula de una clase no debería
+  // necesitar tres joins.
+  diaSemana: integer('dia_semana').notNull(),
+  orden: integer('orden').notNull(),
+  // null = todas las semanas (es lo que hay hoy). Está por si algún día hay ciclo
+  // quincenal: es el segundo caso más común en las herramientas de horarios y cuesta
+  // una columna nullable ahora frente a una migración entonces.
+  semana: text('semana'),
+  aula: text('aula'), // pisa el de la asignación en esta sesión concreta
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('hor_sesiones_uq').on(t.asignacionId, t.tramoId),
+  index('hor_sesiones_tramo_idx').on(t.tramoId),
+]);
+
+// Alumnos concretos atendidos por PT/AL en una asignación. El profe y la hora salen de la
+// asignación (que viene del fichero como cualquier otra); esto es lo que NO viene y se
+// mete a mano desde orientación. `modalidad` distingue al PT que entra al aula del AL que
+// se lleva al alumno fuera, y `sale_de_asignacion_id` dice de qué clase se lo llevan — que
+// es la pregunta de verdad ("¿a este alumno siempre le estamos quitando Lengua?").
+export const horApoyos = pgTable('hor_apoyos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  asignacionId: uuid('asignacion_id').notNull().references(() => horAsignaciones.id),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id),
+  modalidad: text('modalidad').notNull().default('fuera'), // 'dentro' | 'fuera'
+  saleDeAsignacionId: uuid('sale_de_asignacion_id').references(() => horAsignaciones.id),
+  // Estos apoyos se reorganizan a mitad de curso; con fechas el histórico no se pierde.
+  fechaInicio: date('fecha_inicio'),
+  fechaFin: date('fecha_fin'),
+  notas: text('notas'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('hor_apoyos_asig_idx').on(t.asignacionId),
+  index('hor_apoyos_alumno_idx').on(t.eduStudentId),
+]);
+
+// Traducción de los códigos del fichero externo a nuestros IDs ('ALP' → un edu_teacher,
+// '2ESOB' → curso 2ESO letra B). Aquí vive el 90% del dolor de un importador: con esta
+// tabla, la segunda importación y todas las siguientes solo preguntan por los códigos nuevos.
+export const horAlias = pgTable('hor_alias', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tipo: text('tipo').notNull(), // 'profe' | 'materia' | 'grupo' | 'aula'
+  codigoExterno: text('codigo_externo').notNull(),
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id),
+  materiaId: uuid('materia_id').references(() => horMaterias.id),
+  curso: text('curso'),
+  letra: text('letra'),
+  aula: text('aula'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('hor_alias_uq').on(t.tipo, t.codigoExterno),
+]);
+
+// Bitácora de importaciones, calcada de edu_sync_runs.
+export const horImportRuns = pgTable('hor_import_runs', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  periodoId: uuid('periodo_id').references(() => horPeriodos.id),
+  tipo: text('tipo').notNull().default('horarios'), // 'horarios' | 'rejillas'
+  filename: text('filename'),
+  formato: text('formato'), // 'csv' | 'xls' | 'xlsx'
+  quienEmail: text('quien_email'),
+  resumen: jsonb('resumen').$type<{
+    asignaciones: number;
+    sesiones: number;
+    profesVinculados: number;
+    aliasNuevos: number;
+    conflictos: string[];
+    errores: string[];
+  }>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('hor_import_runs_created_idx').on(t.createdAt),
+]);
+
+// ─── Types Horarios ───────────────────────────────────────────────────────────
+export type HorPeriodo = typeof horPeriodos.$inferSelect;
+export type NewHorPeriodo = typeof horPeriodos.$inferInsert;
+export type HorRejilla = typeof horRejillas.$inferSelect;
+export type NewHorRejilla = typeof horRejillas.$inferInsert;
+export type HorTramo = typeof horTramos.$inferSelect;
+export type NewHorTramo = typeof horTramos.$inferInsert;
+export type HorActividad = typeof horActividades.$inferSelect;
+export type HorMateria = typeof horMaterias.$inferSelect;
+export type NewHorMateria = typeof horMaterias.$inferInsert;
+export type HorAsignacion = typeof horAsignaciones.$inferSelect;
+export type NewHorAsignacion = typeof horAsignaciones.$inferInsert;
+export type HorSesion = typeof horSesiones.$inferSelect;
+export type NewHorSesion = typeof horSesiones.$inferInsert;
+export type HorApoyo = typeof horApoyos.$inferSelect;
+export type NewHorApoyo = typeof horApoyos.$inferInsert;

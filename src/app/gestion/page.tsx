@@ -13,6 +13,7 @@ import {
   KeyRound,
   Library,
   LogOut,
+  NotebookPen,
   Settings2,
 } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
@@ -164,6 +165,14 @@ export default async function EscritorioPage() {
               icon={<ClipboardCheck className="h-6 w-6" />}
               title="Evaluaciones"
               desc="Evalúa actividades con el alumnado o el claustro y mira los resultados"
+            />
+          )}
+          {puede('cuaderno') && (
+            <ModuleCard
+              href="/gestion/cuaderno"
+              icon={<NotebookPen className="h-6 w-6" />}
+              title="Cuaderno de tutor"
+              desc="Genera la documentación de tutoría de cada clase y déjala en el Drive de sus tutores"
             />
           )}
         </section>
