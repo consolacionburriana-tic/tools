@@ -167,10 +167,21 @@ Coste real: **2-4 llamadas a Drive por documento**, no una por alumno. Una tirad
 
 `POST /api/cuaderno/tiradas` crea la tirada y sus ítems en estado `pendiente` y despierta al
 worker. `POST /api/cuaderno/worker` **reclama** un ítem con un `UPDATE … WHERE estado='pendiente'`
-(así dos workers no pisan el mismo), lo ejecuta, y sigue hasta agotar el tiempo de la función;
-entonces se re-despierta a sí mismo. Un cron de Vercel cada 5 minutos recoge lo que se hubiera
-quedado a medias. El panel hace polling del estado de la tirada: la barra de progreso no depende
-de que nadie tenga una pestaña abierta.
+(así dos workers no pisan el mismo), lo ejecuta, y sigue hasta agotar su tiempo; entonces se
+re-despierta a sí mismo. El panel hace polling del estado de la tirada: la barra de progreso no
+depende de que nadie tenga una pestaña abierta.
+
+**Límites del plan Hobby de Vercel** (es el plan del proyecto, y condiciona dos cosas):
+
+- `maxDuration` del worker es **60 s**, así que cada vuelta hace del orden de 10-15 documentos y
+  se re-despierta. Una tirada de ESO entera son unas diez vueltas: unos minutos, no una hora.
+- Los crons de Hobby solo pueden ir **una vez al día** (y como máximo dos en todo el proyecto).
+  El de rescate está a las 04:00, que es su único papel: recoger una tirada que se quedara a
+  medias de madrugada. Lo que de verdad mueve la cola es el re-despertar del worker; y si algo
+  se atasca mirando el panel, el propio `GET` del progreso le da un toque al worker cuando ve
+  la tirada parada más de dos minutos, y está el botón «Retomar» del historial.
+  Si algún día el proyecto pasa a Pro, subir el cron a `*/5 * * * *` y `maxDuration` a 300 es
+  cambiar dos líneas (`vercel.json` y el `route.ts` del worker), no hay nada más atado a eso.
 
 ### Permisos
 

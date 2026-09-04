@@ -4,11 +4,13 @@ import { tiradasConTrabajo } from '@/lib/cuaderno-server';
 import { despertarWorker, procesarTirada } from '@/lib/cuaderno/tirada';
 
 export const dynamic = 'force-dynamic';
-// Una tirada de ESO entera son ~125 documentos; el worker hace los que le caben en este
-// tiempo y se re-despierta. El cron de `vercel.json` recoge lo que se quede a medias.
-export const maxDuration = 300;
+// 60 s es el techo del plan Hobby de Vercel, así que el worker se ajusta a eso: hace los
+// documentos que le caben (del orden de 10-15) y se re-despierta hasta acabar la cola. Una
+// tirada de ESO entera (~125 documentos) son unas diez vueltas, unos pocos minutos en total.
+export const maxDuration = 60;
 
-const LIMITE_MS = 240_000;
+// Se corta antes del límite para que quepa el cierre: marcar el ítem y despertarse de nuevo.
+const LIMITE_MS = 45_000;
 
 /**
  * Quién puede despertar al worker: el cron de Vercel y el propio worker con `CRON_SECRET`,
