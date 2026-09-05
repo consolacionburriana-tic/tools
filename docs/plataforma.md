@@ -75,7 +75,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; falta asignar las tutorías de 2026-27 para que salgan los avisos) | [`17-puntualidad.md`](./17-puntualidad.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
-| Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (Fase 0 ✅ en Neon y verificada: 13 tablas `hor_*`, permisos en dos módulos y helpers puros con tests; faltan las pantallas y el importador) | [`07-horarios.md`](./07-horarios.md) |
+| Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (infantil y primaria importados y navegables en `/gestion/horarios`: vistas por clase, profesor y aula, con importación desde el `.docx` de Educamos; falta secundaria) | [`07-horarios.md`](./07-horarios.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.

@@ -350,6 +350,114 @@ export function generarTramosDia(opciones: {
   return salida;
 }
 
+// ─── La cuadrícula del navegador ──────────────────────────────────────────────
+
+/** Ventana visible del navegador: nada antes de las 8:00 ni después de las 18:00. */
+export const HORA_MIN = '08:00';
+export const HORA_MAX = '18:00';
+
+export interface CeldaHorario {
+  sesionId: string;
+  dia: number;
+  tramoId: string;
+  horaInicio: string;
+  horaFin: string;
+  tipoTramo: TipoTramo;
+  titulo: string; // materia, o el nombre de la actividad si no hay materia
+  subtitulo: string | null; // el grupo, el profe o el aula, según la vista
+  actividad: string;
+  lectiva: boolean;
+  espacio: string | null;
+  profes: { id: string; nombre: string; rol: string; principal: boolean }[];
+  grupos: string[];
+  notas: string | null;
+}
+
+export interface FilaHorario {
+  horaInicio: string;
+  horaFin: string;
+  tipo: TipoTramo;
+  etiqueta: string | null;
+  /** Una entrada por día (1-5); varias celdas en el mismo hueco = desdoble o apoyo. */
+  dias: CeldaHorario[][];
+}
+
+/**
+ * Monta la cuadrícula que pinta el navegador: filas = franjas horarias, columnas = días.
+ *
+ * Las filas NO salen de una rejilla concreta sino de las **franjas que de verdad aparecen**
+ * en las celdas, unidas y ordenadas por hora. Es lo que permite pintar el horario de un
+ * profe que da clase en infantil Y en primaria, que son rejillas distintas con horas
+ * distintas: en una vista por rejilla ese profe no cabría.
+ *
+ * Se recortan las franjas fuera de la ventana visible y los días de fin de semana.
+ */
+export function construirCuadricula(celdas: readonly CeldaHorario[]): FilaHorario[] {
+  const filas = new Map<string, FilaHorario>();
+  for (const c of celdas) {
+    if (c.dia < 1 || c.dia > 5) continue;
+    const ini = aMinutos(c.horaInicio);
+    const fin = aMinutos(c.horaFin);
+    if (ini === null || fin === null) continue;
+    if (fin <= (aMinutos(HORA_MIN) ?? 0) || ini >= (aMinutos(HORA_MAX) ?? 1440)) continue;
+
+    const clave = `${c.horaInicio}-${c.horaFin}`;
+    let fila = filas.get(clave);
+    if (!fila) {
+      fila = {
+        horaInicio: c.horaInicio,
+        horaFin: c.horaFin,
+        tipo: c.tipoTramo,
+        etiqueta: null,
+        dias: [[], [], [], [], []],
+      };
+      filas.set(clave, fila);
+    }
+    // Si en la misma franja conviven un recreo y una clase, manda la clase: el hueco se
+    // pinta como lectivo y el recreo se ve en su propia franja.
+    if (fila.tipo !== 'sesion' && c.tipoTramo === 'sesion') fila.tipo = 'sesion';
+    fila.dias[c.dia - 1].push(c);
+  }
+
+  const ordenadas = [...filas.values()].sort(
+    (a, b) => (aMinutos(a.horaInicio) ?? 0) - (aMinutos(b.horaInicio) ?? 0) || (aMinutos(a.horaFin) ?? 0) - (aMinutos(b.horaFin) ?? 0),
+  );
+  // La etiqueta ('1ª', '2ª'…) se numera sobre las filas LECTIVAS ya ordenadas, no sobre el
+  // `orden` de la rejilla: al mezclar etapas los órdenes chocan y saldrían dos "3ª".
+  let n = 0;
+  for (const f of ordenadas) {
+    if (f.tipo === 'sesion') { n++; f.etiqueta = `${n}ª`; }
+    else f.etiqueta = f.tipo === 'recreo' ? 'Patio' : f.tipo === 'comedor' ? 'Comedor' : null;
+  }
+  return ordenadas;
+}
+
+export interface Ahora {
+  dia: number | null; // 1-5, o null en fin de semana
+  hora: string; // 'HH:mm'
+  /** Índice de la fila en curso dentro de la cuadrícula, o null si no hay clase ahora. */
+  filaActual: number | null;
+}
+
+/**
+ * Dónde está "ahora" dentro de una cuadrícula, para poder resaltarlo. Se calcula con la
+ * hora local del navegador y no en servidor a propósito: el servidor está en UTC y el
+ * indicador se vería una hora corrida buena parte del año.
+ */
+export function situarAhora(filas: readonly FilaHorario[], fecha: Date): Ahora {
+  const dow = fecha.getDay();
+  const dia = dow >= 1 && dow <= 5 ? dow : null;
+  const hora = `${String(fecha.getHours()).padStart(2, '0')}:${String(fecha.getMinutes()).padStart(2, '0')}`;
+  const min = aMinutos(hora) ?? 0;
+  let filaActual: number | null = null;
+  filas.forEach((f, i) => {
+    const ini = aMinutos(f.horaInicio);
+    const fin = aMinutos(f.horaFin);
+    if (ini !== null && fin !== null && min >= ini && min < fin) filaActual = i;
+  });
+  return { dia, hora, filaActual };
+}
+
 // ─── Schemas Zod compartidos cliente/servidor ─────────────────────────────────
 
 const horaSchema = z.string().regex(/^\d{1,2}:\d{2}$/, 'Hora en formato HH:mm');

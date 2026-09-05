@@ -51,8 +51,16 @@ futura que necesite saber qué pasa en un aula un martes a las 10:15.
   sin casar**. Reejecutado dos veces: los números no se mueven (es idempotente).
   Verificado con consultas de las tres vistas: **por clase** (el lunes de 3ºA sale entero,
   con EF en Polideportivo 2 y Música en su aula), **por profesor** y **por aula**.
-- **Falta**: secundaria (David no lo tiene aún), las pantallas (Fases 1-2) y la demolición
-  de `pun_subjects` (ver decisión 1).
+- **Navegador en `/gestion/horarios`** (2026-09-05): tres vistas (clase · profesor · aula),
+  filtro por curso, buscador, selector de periodo, indicador de "hoy" y de la franja en
+  curso, recreo y comedor como separadores, y detalle al tocar una celda. **En móvil se ve
+  un solo día** con flechas, no la semana. Verificado en el navegador de verdad con los
+  datos importados, en escritorio (1280) y en móvil (390).
+- **Importación por pantalla** en `/gestion/horarios/importar`: arrastrar el `.docx` →
+  vista previa (qué clases, cuántas sesiones, qué códigos no reconoce, qué notas) →
+  confirmar. Solo para quien puede editar (`puedeEditarHorarios`).
+- **Falta**: secundaria (David no lo tiene aún) y la demolición de `pun_subjects`
+  (ver decisión 1).
 
 ## El vocabulario (importa, porque todo el modelo cuelga de aquí)
 
@@ -306,6 +314,15 @@ servir de red de seguridad para comprobar que no falta ningún profe.
 - ⚠️ Solo 2 códigos sin leyenda en todo el fichero: `Otros` y `AUX`. Sembrados como
   actividades (`otros`, `auxiliar`) en vez de tratarlos como error.
 
+### Qué hay que decirle al importar (y qué NO)
+
+- **La etapa NO se pregunta**: sale del código de cada clase (`3INFA`→EI, `2PRIA`→EP,
+  `1ESOA`→ESO). Un mismo fichero puede traer varias y cada una monta su rejilla.
+- **El curso académico SÍ**, aunque viene propuesto (`academicYearActual()`).
+- **El periodo SÍ, pero se sugiere**: el fichero no dice si es el ordinario o el corto de
+  septiembre/junio, pero se nota — el corto no tiene comedor y baja de seis franjas. La
+  pantalla propone y decide la persona.
+
 ### Cómo se importa hoy
 
 ```bash
@@ -461,13 +478,19 @@ necesitar tres joins.
 - [ ] Ámbitos (a qué etapa/curso aplica cada rejilla) y aviso si un grupo se queda sin rejilla
 - [ ] Semillas: primaria (45' desde 8:00) y secundaria (55'), con los datos reales
 
-### Fase 2 · Navegador de horarios — ⬜
-- [ ] Cuadrícula por clase (día × sesión) con materia, profe(s) y aula
-- [ ] Cuadrícula por profe, con las horas no lectivas marcadas
-- [ ] Selector de periodo de vigencia y de fecha ("qué había el 12 de junio")
+### Fase 2 · Navegador de horarios — 🟡
+- [x] Cuadrícula por clase, por profesor y por aula, con materia, profe(s) y aula
+- [x] Filtro por curso, buscador y selector de periodo
+- [x] Indicador de **hoy** y de la **franja en curso** (se calcula en cliente y se refresca
+      cada minuto: en servidor, que va en UTC, saldría una hora corrido)
+- [x] Ventana 08:00-18:00, sin fines de semana, recreo y comedor como separadores
+- [x] **Móvil: un solo día** con flechas (una rejilla 5×9 en un teléfono no se lee)
+- [x] Detalle al tocar una celda: grupo, profesorado con su rol, aula, lectiva o no
 - [ ] Informe de conflictos y de huecos
+- [ ] Editar a mano el horario de un profe (horas no lectivas: atención a padres, guardias)
 
 ### Fase 3 · Importación — 🟡
+- [x] Pantalla de importación con vista previa antes de escribir (`/gestion/horarios/importar`)
 - [x] Normalizador del bloque "HORARIO DE CLASE" → lista de sesiones, con tests (60) y
       probado contra el `.docx` real: 18/18 clases, 597 sesiones, 2 códigos sin reconocer
 - [x] Parser de rejillas del "Horario general" (corta los días detectando el reinicio de la
@@ -477,7 +500,7 @@ necesitar tres joins.
 - [x] Volcado a BBDD idempotente (`horarios-server.ts`) + `pnpm horarios:importar` con `--dry`
 - [x] Infantil y primaria importados y verificados en Neon (18 clases, 597 sesiones)
 - [ ] Importar **secundaria** cuando David tenga el fichero
-- [ ] Pantalla de importación (arrastrar el fichero) en vez del script
+- [x] ~~Pantalla de importación (arrastrar el fichero) en vez del script~~ hecha
 - [ ] Resolución de códigos vía `hor_alias`, preguntando solo por los nuevos
 - [ ] Vista previa → confirmar, con bitácora en `hor_import_runs`
 - [ ] Reconciliación de la hoja de profes sobre las asignaciones ya importadas

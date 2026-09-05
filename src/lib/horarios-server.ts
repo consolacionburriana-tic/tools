@@ -7,7 +7,7 @@
 // una foto completa de un curso, no un diario de cambios, y "lo que trae el fichero" es
 // siempre la verdad.
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import { db } from '@/db';
 import {
@@ -24,7 +24,8 @@ import {
   horSesiones,
   horTramos,
 } from '@/db/schema';
-import { etapaDeCursoHorario } from '@/lib/horarios';
+import { compararClases, nombreClase } from '@/lib/cursos';
+import { etapaDeCursoHorario, periodoVigente, type CeldaHorario } from '@/lib/horarios';
 import { type Incidencia, type ResultadoBloque } from '@/lib/horarios-import';
 
 export interface ResumenImportacion {
@@ -175,7 +176,14 @@ export async function importarBloques(
           academicYear: opciones.academicYear,
           actividadId,
           materiaId: primera.materiaCodigo ? (materiaPorCodigo.get(primera.materiaCodigo) ?? null) : null,
-          etiqueta: primera.materiaCodigo ? null : primera.crudo.slice(0, 120),
+          // La etiqueta guarda el texto de la celda siempre que NO haya materia que pintar,
+          // incluido el caso de una materia que no estaba en la leyenda ('Otros', 'AUX'):
+          // sin esto la celda caía en el nombre de la actividad y ponía 'Clase', perdiendo
+          // lo único que decía el fichero.
+          etiqueta:
+            primera.materiaCodigo && materiaPorCodigo.has(primera.materiaCodigo)
+              ? null
+              : primera.crudo.slice(0, 120),
           espacioId: primera.aulaCodigo ? (espacioPorCodigo.get(primera.aulaCodigo) ?? null) : null,
           aula: primera.aulaCodigo,
           origen: 'importado',
@@ -286,4 +294,262 @@ async function borrarAsignaciones(periodoId: string): Promise<void> {
   await db.delete(horAsignacionProfes).where(inArray(horAsignacionProfes.asignacionId, ids));
   await db.delete(horAsignacionGrupos).where(inArray(horAsignacionGrupos.asignacionId, ids));
   await db.delete(horAsignaciones).where(inArray(horAsignaciones.id, ids));
+}
+
+// ─── Consultas del navegador ──────────────────────────────────────────────────
+
+export interface PeriodoListado {
+  id: string;
+  nombre: string;
+  academicYear: string;
+  fechaInicio: string;
+  fechaFin: string;
+  prioridad: number;
+  esOrdinario: boolean;
+}
+
+export async function getPeriodos(): Promise<PeriodoListado[]> {
+  const filas = await db.select().from(horPeriodos).where(eq(horPeriodos.active, true));
+  return filas
+    .map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      academicYear: p.academicYear,
+      fechaInicio: p.fechaInicio,
+      fechaFin: p.fechaFin,
+      prioridad: p.prioridad,
+      esOrdinario: p.esOrdinario,
+    }))
+    .sort((a, b) => b.academicYear.localeCompare(a.academicYear) || a.prioridad - b.prioridad);
+}
+
+/** El periodo que manda una fecha; si no hay ninguno, el ordinario más reciente. */
+export async function getPeriodoVigente(iso = new Date().toISOString().slice(0, 10)): Promise<PeriodoListado | null> {
+  const todos = await getPeriodos();
+  const vigente = periodoVigente(todos, iso);
+  return vigente ?? todos.find((p) => p.esOrdinario) ?? todos[0] ?? null;
+}
+
+export interface OpcionesNavegador {
+  clases: { curso: string; letra: string | null; etiqueta: string; etapa: string | null }[];
+  profes: { id: string; nombre: string; alias: string | null; etapa: string | null }[];
+  espacios: { id: string; codigo: string; nombre: string }[];
+}
+
+/** Lo que se puede elegir en el navegador, sacado de lo que REALMENTE tiene horario. */
+export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesNavegador> {
+  const filas = await db
+    .select({
+      curso: horAsignacionGrupos.curso,
+      letra: horAsignacionGrupos.letra,
+    })
+    .from(horAsignacionGrupos)
+    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionGrupos.asignacionId))
+    .where(eq(horAsignaciones.periodoId, periodoId));
+
+  const vistas = new Map<string, { curso: string; letra: string | null }>();
+  for (const f of filas) vistas.set(`${f.curso}|${f.letra ?? ''}`, { curso: f.curso, letra: f.letra });
+  const clases = [...vistas.values()]
+    .sort(compararClases)
+    .map((c) => ({ ...c, etiqueta: nombreClase(c.curso, c.letra), etapa: etapaDeCursoHorario(c.curso) }));
+
+  const conProfes = await db
+    .selectDistinct({
+      id: eduTeachers.id,
+      nombre: eduTeachers.nombre,
+      apellido1: eduTeachers.apellido1,
+      apellido2: eduTeachers.apellido2,
+      alias: eduTeachers.alias,
+      etapa: eduTeachers.etapa,
+    })
+    .from(horAsignacionProfes)
+    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionProfes.asignacionId))
+    .innerJoin(eduTeachers, eq(eduTeachers.id, horAsignacionProfes.eduTeacherId))
+    .where(eq(horAsignaciones.periodoId, periodoId));
+
+  const profes = conProfes
+    .map((p) => ({
+      id: p.id,
+      nombre: [p.nombre, p.apellido1, p.apellido2].filter(Boolean).join(' '),
+      alias: p.alias,
+      etapa: p.etapa,
+    }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+  const conEspacios = await db
+    .selectDistinct({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre })
+    .from(horEspacios)
+    .innerJoin(horAsignaciones, eq(horAsignaciones.espacioId, horEspacios.id))
+    .where(eq(horAsignaciones.periodoId, periodoId));
+
+  return { clases, profes, espacios: conEspacios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) };
+}
+
+export type VistaHorario = 'clase' | 'profe' | 'aula';
+
+/**
+ * Todas las celdas de un horario, ya listas para `construirCuadricula()`.
+ *
+ * Se hace en UNA consulta ancha con los joins y se agrupa en memoria en vez de ir sesión a
+ * sesión: son unos cientos de filas por periodo y así el navegador responde de un tirón
+ * (Neon cobra por consulta, no por fila).
+ */
+export async function getCeldas(
+  periodoId: string,
+  vista: VistaHorario,
+  clave: string,
+): Promise<CeldaHorario[]> {
+  // Las columnas van en una constante y cada vista arma su cadena completa: compartir un
+  // builder "base" y encadenarle joins distintos rompe la inferencia de tipos de Drizzle.
+  const columnas = {
+    sesionId: horSesiones.id,
+    dia: horSesiones.diaSemana,
+    tramoId: horTramos.id,
+    horaInicio: horTramos.horaInicio,
+    horaFin: horTramos.horaFin,
+    tipoTramo: horTramos.tipo,
+    asignacionId: horAsignaciones.id,
+    materia: horMaterias.nombre,
+    etiqueta: horAsignaciones.etiqueta,
+    notas: horAsignaciones.notas,
+    actividad: horActividades.codigo,
+    actividadNombre: horActividades.nombre,
+    lectivaActividad: horActividades.lectiva,
+    lectivaAsignacion: horAsignaciones.lectiva,
+    espacio: horEspacios.nombre,
+    aulaTexto: horAsignaciones.aula,
+  };
+
+  interface FilaAncha {
+    sesionId: string; dia: number; tramoId: string; horaInicio: string; horaFin: string;
+    tipoTramo: string | null; asignacionId: string; materia: string | null;
+    etiqueta: string | null; notas: string | null; actividad: string; actividadNombre: string;
+    lectivaActividad: boolean; lectivaAsignacion: boolean | null;
+    espacio: string | null; aulaTexto: string | null;
+  }
+
+  const conJoins = () =>
+    db
+      .select(columnas)
+      .from(horSesiones)
+      .innerJoin(horTramos, eq(horTramos.id, horSesiones.tramoId))
+      .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
+      .innerJoin(horActividades, eq(horActividades.id, horAsignaciones.actividadId))
+      .leftJoin(horMaterias, eq(horMaterias.id, horAsignaciones.materiaId))
+      .leftJoin(horEspacios, eq(horEspacios.id, horAsignaciones.espacioId));
+
+  let filas: FilaAncha[];
+  if (vista === 'clase') {
+    const [curso, letra] = clave.split('|');
+    filas = await conJoins()
+      .innerJoin(horAsignacionGrupos, eq(horAsignacionGrupos.asignacionId, horAsignaciones.id))
+      .where(
+        and(
+          eq(horAsignaciones.periodoId, periodoId),
+          eq(horAsignacionGrupos.curso, curso),
+          letra ? eq(horAsignacionGrupos.letra, letra) : isNull(horAsignacionGrupos.letra),
+        ),
+      );
+  } else if (vista === 'profe') {
+    filas = await conJoins()
+      .innerJoin(horAsignacionProfes, eq(horAsignacionProfes.asignacionId, horAsignaciones.id))
+      .where(and(eq(horAsignaciones.periodoId, periodoId), eq(horAsignacionProfes.eduTeacherId, clave)));
+  } else {
+    filas = await conJoins().where(and(eq(horAsignaciones.periodoId, periodoId), eq(horAsignaciones.espacioId, clave)));
+  }
+
+  if (filas.length === 0) return [];
+
+  // Profes y grupos de cada asignación, en dos consultas más (no en el join ancho: un
+  // producto cartesiano de profes × grupos duplicaría las sesiones).
+  const asignacionIds = [...new Set(filas.map((f) => f.asignacionId))];
+  const profesFilas = await db
+    .select({
+      asignacionId: horAsignacionProfes.asignacionId,
+      id: eduTeachers.id,
+      nombre: eduTeachers.nombre,
+      apellido1: eduTeachers.apellido1,
+      rol: horAsignacionProfes.rol,
+      principal: horAsignacionProfes.principal,
+    })
+    .from(horAsignacionProfes)
+    .innerJoin(eduTeachers, eq(eduTeachers.id, horAsignacionProfes.eduTeacherId))
+    .where(inArray(horAsignacionProfes.asignacionId, asignacionIds));
+  const gruposFilas = await db
+    .select({ asignacionId: horAsignacionGrupos.asignacionId, curso: horAsignacionGrupos.curso, letra: horAsignacionGrupos.letra, subgrupo: horAsignacionGrupos.subgrupo })
+    .from(horAsignacionGrupos)
+    .where(inArray(horAsignacionGrupos.asignacionId, asignacionIds));
+
+  const profesPor = new Map<string, CeldaHorario['profes']>();
+  for (const p of profesFilas) {
+    const lista = profesPor.get(p.asignacionId) ?? [];
+    lista.push({ id: p.id, nombre: [p.nombre, p.apellido1].filter(Boolean).join(' '), rol: p.rol, principal: p.principal });
+    profesPor.set(p.asignacionId, lista);
+  }
+  for (const lista of profesPor.values()) lista.sort((a, b) => Number(b.principal) - Number(a.principal));
+
+  const gruposPor = new Map<string, string[]>();
+  for (const g of gruposFilas) {
+    const lista = gruposPor.get(g.asignacionId) ?? [];
+    lista.push(nombreClase(g.curso, g.letra) + (g.subgrupo ? ` · ${g.subgrupo}` : ''));
+    gruposPor.set(g.asignacionId, lista);
+  }
+
+  return filas.map((f) => {
+    const profes = profesPor.get(f.asignacionId) ?? [];
+    const grupos = gruposPor.get(f.asignacionId) ?? [];
+    // El subtítulo es lo que NO se está mirando: en el horario de una clase interesa quién
+    // la da; en el de un profe, a quién se la da; en el de un aula, las dos cosas.
+    const subtitulo =
+      vista === 'clase'
+        ? (profes[0]?.nombre ?? null)
+        : vista === 'profe'
+          ? (grupos.join(', ') || null)
+          : [grupos.join(', '), profes[0]?.nombre].filter(Boolean).join(' · ') || null;
+    return {
+      sesionId: f.sesionId,
+      dia: f.dia,
+      tramoId: f.tramoId,
+      horaInicio: f.horaInicio,
+      horaFin: f.horaFin,
+      tipoTramo: (f.tipoTramo ?? 'sesion') as CeldaHorario['tipoTramo'],
+      titulo: f.materia ?? f.etiqueta ?? f.actividadNombre,
+      subtitulo,
+      actividad: f.actividad,
+      lectiva: f.lectivaAsignacion ?? f.lectivaActividad,
+      espacio: f.espacio ?? f.aulaTexto,
+      profes,
+      grupos,
+      notas: f.notas,
+    };
+  });
+}
+
+/** Los recreos y comedores de la rejilla de un grupo, para que el hueco se vea aunque esté vacío. */
+export async function getTramosNoLectivos(periodoId: string, etapa: string | null): Promise<CeldaHorario[]> {
+  if (!etapa) return [];
+  const filas = await db
+    .select({ id: horTramos.id, dia: horTramos.diaSemana, horaInicio: horTramos.horaInicio, horaFin: horTramos.horaFin, tipo: horTramos.tipo })
+    .from(horTramos)
+    .innerJoin(horRejillas, eq(horRejillas.id, horTramos.rejillaId))
+    .innerJoin(horRejillaAmbitos, eq(horRejillaAmbitos.rejillaId, horRejillas.id))
+    .where(and(eq(horRejillas.periodoId, periodoId), eq(horRejillaAmbitos.etapa, etapa)));
+  return filas
+    .filter((t) => t.tipo !== 'sesion')
+    .map((t) => ({
+      sesionId: `tramo-${t.id}-${t.dia}`,
+      dia: t.dia,
+      tramoId: t.id,
+      horaInicio: t.horaInicio,
+      horaFin: t.horaFin,
+      tipoTramo: t.tipo as CeldaHorario['tipoTramo'],
+      titulo: t.tipo === 'recreo' ? 'Patio' : 'Comedor',
+      subtitulo: null,
+      actividad: t.tipo,
+      lectiva: false,
+      espacio: null,
+      profes: [],
+      grupos: [],
+      notas: null,
+    }));
 }
