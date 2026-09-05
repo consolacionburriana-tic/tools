@@ -18,6 +18,7 @@ export const MODULES = [
   'horarios',
   'horarios-profes',
   'educamos',
+  'cuaderno',
   'usuarios',
   'profes',
 ] as const;
@@ -33,6 +34,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   horarios: 'Horarios de clase',
   'horarios-profes': 'Horarios del profesorado',
   educamos: 'BBDD central',
+  cuaderno: 'Cuaderno de tutor',
   usuarios: 'Usuarios y roles',
   profes: 'Tutorías',
 };
@@ -72,10 +74,22 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   supertic: [...MODULES],
   tic: [...MODULES],
-  direccion: ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'puntualidad', 'horarios', 'horarios-profes', 'educamos', 'profes'],
+  direccion: [
+    'abc',
+    'licencias',
+    'salidas',
+    'bancolibros',
+    'evaluaciones',
+    'puntualidad',
+    'horarios',
+    'horarios-profes',
+    'educamos',
+    'cuaderno',
+    'profes',
+  ],
   jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'profes'],
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes'],
-  secretaria: ['licencias', 'salidas', 'bancolibros', 'horarios'],
+  secretaria: ['licencias', 'salidas', 'bancolibros', 'horarios', 'cuaderno'],
   tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios'],
   profe: ['salidas', 'bancolibros', 'horarios'],
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver

@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard } from 'lucide-react';
+import { ChevronLeft, LayoutDashboard } from 'lucide-react';
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess } from '@/lib/permissions';
 import { ensureSubjects } from '@/lib/puntualidad-server';
@@ -30,17 +30,27 @@ export default async function PuntualidadPage() {
       <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90">
         <div className="container mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
           <div className="flex items-baseline gap-2">
-            <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Puntualidad</h1>
+            <Link href="/gestion" className="font-semibold text-zinc-900 hover:text-orange-600 dark:text-zinc-100 dark:hover:text-orange-400">
+              Puntualidad
+            </Link>
             <span className="text-xs text-zinc-400">límite 08:05</span>
           </div>
-          {canAccess(user, 'puntualidad') && (
+          <div className="flex items-center gap-1">
+            {canAccess(user, 'puntualidad') && (
+              <Link
+                href="/gestion/puntualidad"
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              >
+                <LayoutDashboard className="h-4 w-4" /> Panel
+              </Link>
+            )}
             <Link
-              href="/gestion/puntualidad"
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              href="/gestion"
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
             >
-              <LayoutDashboard className="h-4 w-4" /> Panel
+              <ChevronLeft className="h-4 w-4" /> <span className="hidden sm:inline">Escritorio</span>
             </Link>
-          )}
+          </div>
         </div>
       </header>
 

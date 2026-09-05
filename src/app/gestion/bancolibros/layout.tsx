@@ -15,7 +15,9 @@ export default async function BancoLayout({ children }: { children: React.ReactN
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-4">
           <span className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            <Library className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Banco de libros
+            <Link href="/gestion" className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400">
+              <Library className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Banco de libros
+            </Link>
             <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
               curso {academicYearActual()}
             </span>

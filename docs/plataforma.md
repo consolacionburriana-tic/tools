@@ -71,9 +71,10 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
 | Salidas y pagos | ✅ | ✅ | ✅ (Blob activo, correos de recordatorio activos; falta export CSV) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
-| Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro y resumen agregado; pendiente `db:push` de David para `ampa`/`bl_libros_curso`) | [`12-bancolibros.md`](./12-bancolibros.md) |
+| Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro, resumen agregado y conector Excel→catálogo; schema al día en Neon) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; falta asignar las tutorías de 2026-27 para que salgan los avisos) | [`17-puntualidad.md`](./17-puntualidad.md) |
+| Cuaderno de tutor | ✅ | ✅ | 🟡 (motor, cola, panel y compartir listos y probados con plantillas reales; tablas ya en Neon. Falta la carpeta de la unidad compartida de David) | [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
 | Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (infantil y primaria importados y navegables en `/gestion/horarios`: vistas por clase, profesor y aula, con importación desde el `.docx` de Educamos; falta secundaria) | [`07-horarios.md`](./07-horarios.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |

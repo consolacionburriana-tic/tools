@@ -13,7 +13,7 @@ export default async function EvaluacionesLayout({ children }: { children: React
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
-          <Link href="/gestion/evaluaciones" className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <Link href="/gestion" className="flex items-center gap-2 text-sm font-semibold text-zinc-900 hover:text-blue-600 dark:text-zinc-100 dark:hover:text-blue-400">
             <ClipboardCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Evaluaciones
           </Link>
           <div className="flex items-center gap-2">

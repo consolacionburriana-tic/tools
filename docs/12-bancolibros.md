@@ -10,7 +10,7 @@ roadmap**.
 
 ---
 
-## Estado: implementado ✅ (2026-09-01) — AMPA, resumen agregado y libros manuales añadidos
+## Estado: implementado ✅ (2026-09-03) — + conector Excel → catálogo del banco
 
 Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Licencias (✅,
 `lic_books.banco_libros` marca qué libros son del banco).
@@ -162,6 +162,58 @@ bl_libro_registros (                  // valoración de UN libro de UNA asignaci
       el mismo `pnpm db:push`
 - [x] ~~Revisar si algún rol más necesita marcar participantes~~ (David, 2026-09-01: no, se queda
       solo dirección/TIC)
+
+### Fase 6 · Conector Excel → catálogo del banco (2026-09-03)
+
+David: los libros del banco por curso se estaban tecleando a mano en `bl_libros_curso`
+(`admin/libros-manual`), pero el Excel `BBDD Libros` que ya alimenta `lic_books` (sync de
+Licencias, ver Fase 2 de `11-licencias-v2.md`) tiene esos mismos libros. En vez de teclear,
+se reaprovecha el mismo patrón vista previa → confirmar y aplicar.
+
+- **Dónde vive el ajuste**: página propia `/gestion/bancolibros/sincronizar` (como
+  `/gestion/licencias/sincronizar`, no dentro del flujo iPad-first del panel principal),
+  enlazada desde el `<details>` "Configurar libros a mano" de la pestaña Libros. Reservado a
+  dirección/TIC (`puedeGestionarParticipantesBanco`), igual que el resto de gestión del
+  catálogo.
+- **Modo diff reaprovechado de verdad, no reinventado**: se extrajo el `PlanView`/`SyncCard`/
+  `usePreviewApply` de `components/licencias/sync-panel.tsx` a `components/sync/plan-view.tsx`
+  (componente compartido, sin lógica de un módulo concreto) y ambos paneles de sincronizar lo
+  usan ahora.
+- **Fuente y filtro**: mismo `getBooksFromSheet()` (pestaña `BBDD Libros`) que usa Licencias,
+  filtrando solo `Banco de Libros = Sí` — lo que no es del banco no pinta nada aquí.
+- **Destino y alcance, a propósito distintos de Licencias**: escribe en `bl_libros_curso`, no
+  en `lic_books` — sin campaña ni límite de cursos (Licencias solo cubre 6ºEP-4ºESO/PDC; el
+  banco cubre desde 3ºEP). Hoy el Excel no tiene todos los cursos: los que faltan se siguen
+  añadiendo a mano mientras tanto, y un curso puede tener libros de ambos orígenes a la vez.
+- **Sin duplicar lo que Licencias ya enseña solo**: `getLibrosBanco()` ya mezcla, sin sincronizar
+  nada, los libros de `lic_books` de la campaña vigente con los de `bl_libros_curso` — y el sync
+  de Licencias no filtra por curso, así que cualquier curso que YA esté en `lic_books` sale solo.
+  Si este conector metiera esas mismas filas también en `bl_libros_curso`, cada libro saldría
+  dos veces (dos códigos de valoración distintos para el mismo libro físico). Por eso el plan
+  excluye cualquier `(curso, cod)` ya activo en `lic_books` de la campaña vigente — solo rellena
+  los huecos que Licencias no cubre — y si un libro ya sincronizado aquí pasa a estar cubierto
+  por Licencias, se desactiva solo en la siguiente pasada (`outOfScope` en el resultado).
+- **Identidad**: columna `cod` nueva en `bl_libros_curso` (el COD del Excel), única por
+  `(curso, cod)`. Los libros tecleados a mano se quedan con `cod NULL` (Postgres no choca
+  varios NULL en un índice único) y esta sincronización nunca los toca ni los desactiva.
+- Upsert por `(curso, cod)`; lo que ya no esté en el Excel se desactiva (`activo=false`), igual
+  que en Licencias — nunca se borra, porque puede tener valoraciones (`bl_libro_registros`)
+  enganchadas por ese `cod`.
+
+- [x] Columna `bl_libros_curso.cod` + índice único `(curso, cod)` en el schema — aplicado en
+      Neon (producción) el 2026-09-03 vía MCP, probado antes en rama temporal
+- [x] `getLibrosCursoSyncPlan()` / `syncLibrosCursoFromSheet()` en `bancolibros-server.ts`
+- [x] Ruta `api/bancolibros/admin/sync/libros` (GET vista previa · POST aplica), guardada
+      igual que `libros-manual`
+- [x] Página `/gestion/bancolibros/sincronizar` + `BancoSyncPanel`, enlazada desde el panel
+- [x] `PlanView`/`SyncCard`/`usePreviewApply` extraídos a `components/sync/plan-view.tsx` y
+      reutilizados por Licencias y Banco de libros
+- [~] **Probar la sincronización real contra el Excel**: pendiente de que David la ejecute una
+      vez despliegue esta rama — el schema ya está listo en Neon
+
+> De paso, comprobado en Neon (2026-09-03): `edu_students.ampa` y la tabla `bl_libros_curso`
+> en sí **ya estaban aplicadas** en producción — la nota de "pendiente `db:push`" de la Fase 4
+> estaba desactualizada, solo faltaba de verdad la columna `cod` de esta fase.
 
 ### Fase 5 · Descuadre con Licencias (2026-09-03) — el bug de "no se actualiza el front"
 
