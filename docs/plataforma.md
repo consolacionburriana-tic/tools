@@ -25,8 +25,9 @@ Léelo en este orden si te incorporas a una sesión de desarrollo (persona o age
 2. **[`docs/04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md)** — CÓMO se escribe
    código aquí: patrones, gotchas del stack, reglas de datos personales y definition of done.
    Lectura obligada antes de implementar nada.
-3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — decisiones pendientes de
-   tomar (arriba) e ideas/caminos de crecimiento sin decidir todavía (abajo). Documento vivo.
+3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — decisiones pendientes,
+   inputs que solo David puede desbloquear, decisiones ya cerradas (el histórico del *por qué*) e
+   ideas sin decidir. Documento vivo.
 4. **`docs/<nn>-<modulo>.md`** — un documento por módulo/pieza con su plan funcional, plan
    técnico y checklist de fases (formato heredado de `11-licencias-v2.md`, que fue el primero).
 
@@ -66,20 +67,24 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Módulo / pieza | Plan funcional | Plan técnico | Implementado | Ficha |
 |---|---|---|---|---|
 | Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (login del claustro; alumnado enlazado por NIA y en siglas; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
-| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2b; magic links de familias listos, falta generarlos en Neon; quedan códigos de activación) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
-| BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 642 alumnos, 97 profes; faltan pantallas de gestión. Tutor personal por alumno implementado, pendiente `db:push` de David para `edu_tutor_personal`/`edu_reparto_confirmado`) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
+| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2b; 137 pedidos y 413 magic links de familias ya en Neon; quedan códigos de activación) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
+| BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 640 alumnos y 54 profes activos —97 fichas contando bajas—; faltan pantallas de gestión. Tutor personal por alumno en uso: 56 alumnos repartidos) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
 | Salidas y pagos | ✅ | ✅ | ✅ (Blob activo, correos de recordatorio activos; falta export CSV) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro, resumen agregado y conector Excel→catálogo; schema al día en Neon) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
-| Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; falta asignar las tutorías de 2026-27 para que salgan los avisos) | [`17-puntualidad.md`](./17-puntualidad.md) |
+| Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; tutorías de 2026-27 asignadas en las 28 clases, así que los avisos ya salen) | [`17-puntualidad.md`](./17-puntualidad.md) |
 | Cuaderno de tutor | ✅ | ✅ | 🟡 (motor, cola, panel y compartir listos y probados con plantillas reales; tablas ya en Neon. Falta la carpeta de la unidad compartida de David) | [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
 | Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (Fase 0 ✅ en Neon y verificada: 13 tablas `hor_*`, permisos en dos módulos y helpers puros con tests; faltan las pantallas y el importador) | [`07-horarios.md`](./07-horarios.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
-Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.
+Leyenda: ✅ hecho y verificado · 🟡 empezado y en uso, pero le falta algo (lo que falta va entre
+paréntesis) · ⬜ sin empezar.
+
+> **Última revisión de esta tabla contra Neon: 5-sep-2026.** Los estados se van quedando viejos
+> solos; cuando toques un módulo, comprueba su fila y actualiza esta fecha.
 
 > 🔴 **Lo primero a partir del 1 de noviembre de 2026** es la **fuente única de alumnado**
 > ([`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md)), por delante de cualquier
@@ -106,11 +111,14 @@ empieza un hito hasta que el anterior está funcional (no hace falta que esté p
 | 5 | **Banco de libros** (`bl_*`) | [`12`](./12-bancolibros.md) | Necesita el modelo anual lote↔alumno bien pensado; se apoya en `edu_students`. |
 | 6 | **Evaluaciones** (`eval_*`) | [`16`](./16-evaluaciones.md) | Motorcito de formularios propio; el más independiente, puede ir en paralelo si conviene. |
 
-Transversales sin hito propio: los **horarios** ([`07-horarios.md`](./07-horarios.md), Fase 0
-hecha — los estrena Puntualidad y enseguida los piden sustituciones y documentación de clase);
-la **PWA** ([`05-pwa.md`](./05-pwa.md), priorizada por David —
-Fases 1-2 hechas: iconos, atajos, service worker y página de sin conexión); auditoría de cambios y
-dashboard de dirección siguen como ideas en `00-desarrollos-futuros.md`.
+Fuera de esos seis hitos, y por eso no llevan número: los **horarios**
+([`07-horarios.md`](./07-horarios.md), Fase 0 hecha — los estrena Puntualidad y enseguida los
+piden sustituciones y documentación de clase); el **cuaderno de tutor**
+([`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md), construido de una pieza en septiembre de 2026:
+no dependía de nada nuevo, solo lee `edu_*`); y la **PWA** ([`05-pwa.md`](./05-pwa.md),
+priorizada por David — Fases 1-2 hechas: iconos, atajos, service worker y página de sin
+conexión). Auditoría de cambios y dashboard de dirección siguen como ideas en
+`00-desarrollos-futuros.md`.
 
 ---
 
