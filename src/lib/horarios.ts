@@ -368,7 +368,7 @@ export interface CeldaHorario {
   actividad: string;
   lectiva: boolean;
   espacio: string | null;
-  profes: { id: string; nombre: string; rol: string; principal: boolean }[];
+  profes: { id: string; nombre: string; corto: string; rol: string; principal: boolean }[];
   grupos: string[];
   notas: string | null;
 }
@@ -432,66 +432,96 @@ export function construirCuadricula(celdas: readonly CeldaHorario[]): FilaHorari
   return ordenadas;
 }
 
+// ─── Nombres de profesorado para pantalla ────────────────────────────────────
+
+function capitalizar(t: string): string {
+  return t
+    .toLocaleLowerCase('es')
+    .split(/(\s+|-)/)
+    .map((p) => (/^[a-zà-ÿñ]/.test(p) ? p.charAt(0).toLocaleUpperCase('es') + p.slice(1) : p))
+    .join('');
+}
+
+/**
+ * Nombre de profe para meter DENTRO de una celda del horario: 'Núria C.'.
+ * Cabe en una celda estrecha y basta para reconocer a alguien de tu claustro; el nombre
+ * completo está a un toque, en el detalle. En la BBDD los nombres vienen en mayúsculas,
+ * así que se recapitalizan (gritar en una celda pequeña se lee peor).
+ */
+export function nombreCorto(nombre: string | null, apellido1: string | null): string {
+  const n = capitalizar((nombre ?? '').trim().split(/\s+/)[0] ?? '');
+  const a = (apellido1 ?? '').trim();
+  if (!n) return capitalizar(a);
+  return a ? `${n} ${a.charAt(0).toLocaleUpperCase('es')}.` : n;
+}
+
+/** Nombre para listas y selectores: 'Alejandro Sánchez'. Un solo apellido, que basta. */
+export function nombreProfe(nombre: string | null, apellido1: string | null): string {
+  return [capitalizar((nombre ?? '').trim()), capitalizar((apellido1 ?? '').trim())].filter(Boolean).join(' ');
+}
+
 // ─── Colores por categoría (opcional) ─────────────────────────────────────────
 //
-// Paleta categórica de 8 tonos, con su versión para modo oscuro. NO es un degradado ni
-// tonos generados al vuelo: es un orden fijo, validado para daltonismo y para contraste
-// sobre las dos superficies (ver docs/07-horarios.md). Se usa como filete lateral + un
-// tinte muy suave, nunca como color del texto: el texto se queda en la tinta de siempre y
-// el color solo acompaña.
-export const PALETA_CATEGORICA: { claro: string; oscuro: string }[] = [
-  { claro: '#2a78d6', oscuro: '#3987e5' }, // azul
-  { claro: '#eb6834', oscuro: '#d95926' }, // naranja
-  { claro: '#1baf7a', oscuro: '#199e70' }, // aguamarina
-  { claro: '#eda100', oscuro: '#c98500' }, // amarillo
-  { claro: '#e87ba4', oscuro: '#d55181' }, // magenta
-  { claro: '#008300', oscuro: '#008300' }, // verde
-  { claro: '#4a3aa7', oscuro: '#9085e9' }, // violeta
-  { claro: '#e34948', oscuro: '#e66767' }, // rojo
-];
+// Los tonos se GENERAN repartiendo el círculo de color entre las categorías que haya, en
+// vez de salir de una lista cerrada: así todas las horas de Mates son de un color y todas
+// las de Coneixement de otro, haya 5 materias o 14, sin que dos acaben compartiendo tono.
+//
+// La luminosidad y el croma son fijos (y distintos en claro y en oscuro): eso es lo que
+// mantiene todos los tonos igual de legibles y evita que uno chille más que el resto. El
+// color va como filete y tinte suave, nunca en el texto, así que hace de pista visual y no
+// de portador de información: quien no distinga dos tonos sigue leyendo el nombre.
 
 export type ColorearPor = 'nada' | 'clase' | 'materia';
 
+export interface ColorCategoria {
+  claro: string;
+  oscuro: string;
+}
+
+/** Ángulo de arranque: deja el azul para la primera categoría, que es el tono más neutro. */
+const TONO_INICIAL = 255;
+
+function tono(indice: number, total: number): ColorCategoria {
+  const h = (TONO_INICIAL + (indice * 360) / Math.max(total, 1)) % 360;
+  return {
+    claro: `oklch(0.62 0.15 ${h.toFixed(1)})`,
+    oscuro: `oklch(0.7 0.14 ${h.toFixed(1)})`,
+  };
+}
+
 /**
- * Reparte los colores entre las categorías de un horario.
+ * Reparte un color a cada categoría del horario.
  *
- * Dos reglas que importan:
- *  - **El color va con la categoría, no con su posición.** Se ordena alfabéticamente el
- *    conjunto COMPLETO de categorías del horario antes de repartir, así que cambiar de día
- *    en el móvil o filtrar no repinta nada: "2ESO B" es siempre del mismo color mientras
- *    estés mirando el mismo horario.
- *  - **Pasadas 8 categorías no se inventan tonos**: las que sobran se quedan sin color en
- *    vez de reciclar uno y hacer creer que dos cosas distintas son la misma.
+ * El reparto se hace sobre el conjunto COMPLETO de categorías, ordenado alfabéticamente:
+ * así cambiar de día en el móvil no repinta nada, y mientras mires el mismo horario cada
+ * materia (o cada clase) conserva su color.
  */
-export function repartirColores(celdas: readonly CeldaHorario[], por: ColorearPor): Map<string, number> {
-  if (por === 'nada') return new Map();
+export function repartirColores(celdas: readonly CeldaHorario[], por: ColorearPor): Map<string, ColorCategoria> {
+  const mapa = new Map<string, ColorCategoria>();
+  if (por === 'nada') return mapa;
   const categorias = new Set<string>();
-  for (const c of celdas) {
-    for (const k of clavesDeColor(c, por)) categorias.add(k);
-  }
-  const mapa = new Map<string, number>();
-  [...categorias].sort((a, b) => a.localeCompare(b, 'es')).forEach((k, i) => {
-    if (i < PALETA_CATEGORICA.length) mapa.set(k, i);
-  });
+  for (const c of celdas) for (const k of clavesDeColor(c, por)) categorias.add(k);
+  const ordenadas = [...categorias].sort((a, b) => a.localeCompare(b, 'es'));
+  ordenadas.forEach((k, i) => mapa.set(k, tono(i, ordenadas.length)));
   return mapa;
 }
 
 /** Por qué categoría se colorea una celda (una celda de dos grupos entra en los dos). */
 export function clavesDeColor(celda: CeldaHorario, por: ColorearPor): string[] {
-  if (por === 'clase') return celda.grupos.length ? celda.grupos : [];
+  if (por === 'clase') return celda.grupos;
   if (por === 'materia') return [celda.titulo];
   return [];
 }
 
-/** El color de una celda, o null si no toca colorear (o se pasó de las 8 categorías). */
+/** El color de una celda, o null si no toca colorear. */
 export function colorDeCelda(
   celda: CeldaHorario,
-  reparto: Map<string, number>,
+  reparto: Map<string, ColorCategoria>,
   por: ColorearPor,
-): { claro: string; oscuro: string } | null {
+): ColorCategoria | null {
   for (const k of clavesDeColor(celda, por)) {
-    const i = reparto.get(k);
-    if (i !== undefined) return PALETA_CATEGORICA[i];
+    const c = reparto.get(k);
+    if (c) return c;
   }
   return null;
 }

@@ -22,6 +22,7 @@ import {
   repartirColores,
   situarAhora,
   type CeldaHorario,
+  type ColorCategoria,
   type ColorearPor,
   type FilaHorario,
 } from '@/lib/horarios';
@@ -78,7 +79,7 @@ export function Navegador({ celdas, titulo }: { celdas: CeldaHorario[]; titulo: 
 
   return (
     <>
-      <InterruptorColor valor={colorear} onCambio={setColorear} categorias={reparto.size} />
+      <InterruptorColor valor={colorear} onCambio={setColorear} />
 
       {/* Móvil: un solo día, con flechas */}
       <div className="lg:hidden">
@@ -175,7 +176,7 @@ function FilaMovil({
   dia: number;
   enCurso: boolean;
   onCelda: (c: CeldaHorario) => void;
-  colorDe2: (c: CeldaHorario) => { claro: string; oscuro: string } | null;
+  colorDe2: (c: CeldaHorario) => ColorCategoria | null;
 }) {
   const celdas = fila.dias[dia - 1];
   if (fila.tipo !== 'sesion') return <Separador fila={fila} />;
@@ -209,7 +210,7 @@ function FilaSemana({
   ahora: ReturnType<typeof situarAhora> | null;
   enCurso: boolean;
   onCelda: (c: CeldaHorario) => void;
-  colorDe2: (c: CeldaHorario) => { claro: string; oscuro: string } | null;
+  colorDe2: (c: CeldaHorario) => ColorCategoria | null;
 }) {
   if (fila.tipo !== 'sesion') {
     return (
@@ -256,15 +257,7 @@ function FilaSemana({
  * añade nada (todo es la misma clase) y en el de un profe es justo lo que hace falta para
  * ver de un vistazo cuántas veces entra en cada grupo.
  */
-function InterruptorColor({
-  valor,
-  onCambio,
-  categorias,
-}: {
-  valor: ColorearPor;
-  onCambio: (v: ColorearPor) => void;
-  categorias: number;
-}) {
+function InterruptorColor({ valor, onCambio }: { valor: ColorearPor; onCambio: (v: ColorearPor) => void }) {
   const opciones: { id: ColorearPor; label: string }[] = [
     { id: 'nada', label: 'Sin color' },
     { id: 'clase', label: 'Por clase' },
@@ -292,11 +285,6 @@ function InterruptorColor({
           </button>
         ))}
       </div>
-      {valor !== 'nada' && categorias === 8 && (
-        <span className="text-xs text-amber-600 dark:text-amber-400">
-          Solo se colorean 8; el resto se queda sin color para no repetir tonos.
-        </span>
-      )}
     </div>
   );
 }
@@ -320,7 +308,7 @@ function Celda({
   celda: CeldaHorario;
   onClick: () => void;
   grande?: boolean;
-  color?: { claro: string; oscuro: string } | null;
+  color?: ColorCategoria | null;
 }) {
   return (
     <button
@@ -352,16 +340,15 @@ function Celda({
         {celda.titulo}
       </p>
       {celda.subtitulo && (
-        <p className={cn('truncate text-zinc-500 dark:text-zinc-400', grande ? 'text-xs' : 'text-[10px]')}>{celda.subtitulo}</p>
+        <p className={cn('leading-tight text-zinc-500 dark:text-zinc-400', grande ? 'text-xs' : 'line-clamp-2 text-[10px]')}>
+          {celda.subtitulo}
+        </p>
       )}
       {celda.espacio && (
         <p className="mt-0.5 flex items-center gap-0.5 truncate text-[10px] text-zinc-400 dark:text-zinc-500">
           <MapPin className="h-2.5 w-2.5 shrink-0" />
           {celda.espacio}
         </p>
-      )}
-      {celda.profes.length > 1 && (
-        <p className="mt-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">+{celda.profes.length - 1} profe{celda.profes.length > 2 ? 's' : ''}</p>
       )}
     </button>
   );

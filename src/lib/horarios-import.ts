@@ -151,6 +151,28 @@ export function parsearLeyendas(lineas: readonly string[]): Leyendas {
   return leyendas;
 }
 
+/**
+ * Raíz del código de una materia: `EFI1`, `EFI3` y `EFI5` son **la misma** Educación Física
+ * en tres cursos. El número final es el curso, no parte de la identidad.
+ *
+ * OJO: se quitan solo los dígitos del FINAL. `LCO3` (Valencià) y `LC03` (Lectura, con un
+ * cero) conviven en el fichero real y son materias distintas; recortar por otro sitio las
+ * fusionaría y sería un error de verdad.
+ */
+export function raizMateria(codigo: string): string {
+  return (codigo ?? '').trim().toUpperCase().replace(/\d+$/, '') || (codigo ?? '').trim().toUpperCase();
+}
+
+/** Nombre normalizado para comparar ('Educació Física' ≠ 'Educación Física', pero 'English' = 'ENGLISH'). */
+export function normalizarNombreMateria(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 const RE_RECREO = /^(recreo|patio|esbarjo)$/i;
 const RE_COMEDOR = /^(comedor|menjador)$/i;
 

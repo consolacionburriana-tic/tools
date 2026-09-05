@@ -13,6 +13,8 @@ import {
   tramoEnHora,
   colorDeCelda,
   construirCuadricula,
+  nombreCorto,
+  nombreProfe,
   repartirColores,
   situarAhora,
   tramoSiguiente,
@@ -20,6 +22,7 @@ import {
   type SesionParaConflictos,
   type TramoBasico,
 } from '@/lib/horarios';
+import { normalizarNombreMateria, raizMateria } from '@/lib/horarios-import';
 
 describe('horas', () => {
   it('convierte HH:mm a minutos y vuelta', () => {
@@ -386,11 +389,19 @@ describe('colores por categoría', () => {
     const celdas = [c(['6PRI B']), c(['1PRI A']), c(['3PRI A'])];
     const a = repartirColores(celdas, 'clase');
     const b = repartirColores([...celdas].reverse(), 'clase');
-    expect(a.get('1PRI A')).toBe(b.get('1PRI A'));
-    expect(a.get('6PRI B')).toBe(b.get('6PRI B'));
-    // Y filtrar (quedarse con menos celdas) no repinta a las que quedan.
-    const filtrado = repartirColores([c(['6PRI B']), c(['1PRI A']), c(['3PRI A'])].slice(0, 2), 'clase');
-    expect(filtrado.get('1PRI A')).toBe(a.get('1PRI A'));
+    expect(a.get('1PRI A')).toEqual(b.get('1PRI A'));
+    expect(a.get('6PRI B')).toEqual(b.get('6PRI B'));
+  });
+
+  it('colorea TODAS las categorías, sin tope y sin repetir tono', () => {
+    // 14 materias es más de lo que cabe en cualquier lista cerrada de colores: se reparte
+    // el círculo entre las que haya.
+    const celdas = Array.from({ length: 14 }, (_, i) => c(['2ESO A'], `Materia ${i}`));
+    const r = repartirColores(celdas, 'materia');
+    expect(r.size).toBe(14);
+    expect(celdas.every((x) => colorDeCelda(x, r, 'materia') !== null)).toBe(true);
+    const tonos = new Set([...r.values()].map((v) => v.claro));
+    expect(tonos.size).toBe(14);
   });
 
   it('la misma clase siempre el mismo color, aunque cambie la materia', () => {
@@ -406,16 +417,43 @@ describe('colores por categoría', () => {
     expect(colorDeCelda(celdas[0], r, 'materia')).not.toEqual(colorDeCelda(celdas[2], r, 'materia'));
   });
 
-  it('pasadas 8 categorías las que sobran se quedan SIN color, no se recicla un tono', () => {
-    const celdas = Array.from({ length: 11 }, (_, i) => c([`Clase ${String.fromCharCode(65 + i)}`]));
-    const r = repartirColores(celdas, 'clase');
-    expect(r.size).toBe(8);
-    const sinColor = celdas.filter((x) => colorDeCelda(x, r, 'clase') === null);
-    expect(sinColor).toHaveLength(3);
-  });
-
   it('una celda sin grupo no se colorea por clase', () => {
     const celdas = [c([], 'Guardia')];
     expect(colorDeCelda(celdas[0], repartirColores(celdas, 'clase'), 'clase')).toBeNull();
+  });
+});
+
+describe('nombres de profesorado para pantalla', () => {
+  it('en la celda, nombre de pila + inicial del apellido', () => {
+    expect(nombreCorto('NÚRIA', 'CROUSEILLES')).toBe('Núria C.');
+    expect(nombreCorto('MARÍA VICTORIA', 'VERNIA')).toBe('María V.');
+    expect(nombreCorto('JORGE', null)).toBe('Jorge');
+    expect(nombreCorto(null, 'ENRICH')).toBe('Enrich');
+  });
+
+  it('en listas, nombre y UN apellido, recapitalizado', () => {
+    expect(nombreProfe('ALEJANDRO', 'SÁNCHEZ')).toBe('Alejandro Sánchez');
+    expect(nombreProfe('MARÍA JOSE', 'PERIS')).toBe('María Jose Peris');
+  });
+});
+
+describe('raíz de una materia', () => {
+  it('quita el curso del final: EFI1 y EFI3 son la misma', () => {
+    expect(raizMateria('EFI1')).toBe('EFI');
+    expect(raizMateria('EFI3')).toBe('EFI');
+    expect(raizMateria('MAT6')).toBe('MAT');
+  });
+
+  it('NO confunde LCO3 (Valencià) con LC03 (Lectura, con un cero)', () => {
+    expect(raizMateria('LCO3')).toBe('LCO');
+    expect(raizMateria('LC03')).toBe('LC');
+    expect(raizMateria('LCO3')).not.toBe(raizMateria('LC03'));
+  });
+
+  it('normaliza nombres para comparar idiomas y mayúsculas', () => {
+    expect(normalizarNombreMateria('English')).toBe(normalizarNombreMateria('ENGLISH'));
+    expect(normalizarNombreMateria('Tutoría')).toBe(normalizarNombreMateria('TutorIa'));
+    // Distinto idioma NO se junta por nombre: para eso está la raíz del código.
+    expect(normalizarNombreMateria('Educació Física')).not.toBe(normalizarNombreMateria('Educación Física'));
   });
 });

@@ -13,6 +13,7 @@ import { db } from '@/db';
 import {
   eduTeachers,
   horActividades,
+  horAlias,
   horAsignacionGrupos,
   horAsignacionProfes,
   horAsignaciones,
@@ -25,8 +26,8 @@ import {
   horTramos,
 } from '@/db/schema';
 import { compararClases, nombreClase } from '@/lib/cursos';
-import { etapaDeCursoHorario, periodoVigente, type CeldaHorario } from '@/lib/horarios';
-import { type Incidencia, type ResultadoBloque } from '@/lib/horarios-import';
+import { etapaDeCursoHorario, nombreCorto, nombreProfe, periodoVigente, type CeldaHorario } from '@/lib/horarios';
+import { normalizarNombreMateria, raizMateria, type Incidencia, type ResultadoBloque } from '@/lib/horarios-import';
 
 export interface ResumenImportacion {
   periodo: string;
@@ -219,7 +220,32 @@ export async function importarBloques(
     }
   }
 
+  await limpiarMateriasHuerfanas();
+
   return resumen;
+}
+
+/**
+ * Borra las materias que no usa nadie. Aparecen al reimportar después de cambiar cómo se
+ * unifican: la vieja "Educación Física" se queda a cero cuando sus asignaciones pasan a
+ * "Educació Física". Solo se van las que no tienen NI asignaciones NI alias apuntándolas,
+ * así que una materia arreglada a mano nunca se pierde.
+ */
+async function limpiarMateriasHuerfanas(): Promise<void> {
+  const materias = await db.select({ id: horMaterias.id }).from(horMaterias);
+  if (materias.length === 0) return;
+  const usadas = new Set(
+    (await db.selectDistinct({ id: horAsignaciones.materiaId }).from(horAsignaciones))
+      .map((a) => a.id)
+      .filter((id): id is string => !!id),
+  );
+  const conAlias = new Set(
+    (await db.selectDistinct({ id: horAlias.materiaId }).from(horAlias))
+      .map((a) => a.id)
+      .filter((id): id is string => !!id),
+  );
+  const sobran = materias.map((m) => m.id).filter((id) => !usadas.has(id) && !conAlias.has(id));
+  if (sobran.length) await db.delete(horMaterias).where(inArray(horMaterias.id, sobran));
 }
 
 function rolDeActividad(actividad: string, indice: number): string {
@@ -228,26 +254,114 @@ function rolDeActividad(actividad: string, indice: number): string {
   return indice === 0 ? 'titular' : 'apoyo';
 }
 
-/** Crea las materias que falten (por código) y devuelve el mapa código → id. */
+/**
+ * Crea las materias que falten y devuelve el mapa **código del fichero → id**.
+ *
+ * El fichero trae un código por curso (`EFI1`, `EFI3`, `EFI5`) y, peor, el mismo nombre en
+ * dos idiomas según la clase (`Educación Física` y `Educació Física`, `Religión` y
+ * `Religió`, `Tutoría` y `TutorIa`). Sin unificar salen veinte materias donde hay trece.
+ * Se juntan con tres señales, en este orden:
+ *
+ *  1. **La tabla `hor_alias`** (tipo 'materia'), que es el arreglo A MANO y manda sobre
+ *     todo: es donde se resuelven los casos que ninguna regla pilla, como `CEA`
+ *     ("Crecimiento en Armonía") y `CEH` ("Creixement en harmonia").
+ *  2. **La raíz del código**: `EFI1` y `EFI3` son la misma materia.
+ *  3. **El nombre normalizado**: `ENG` e `ING` tienen códigos distintos y los dos son
+ *     "English".
+ *
+ * Del grupo resultante se queda el nombre MÁS REPETIDO (a empate, el primero alfabético):
+ * es una elección arbitraria entre castellano y valencià, pero determinista, y se puede
+ * cambiar luego sin reimportar.
+ */
 async function asegurarMaterias(bloques: readonly ResultadoBloque[]): Promise<Map<string, string>> {
-  const nombres = new Map<string, { nombre: string; etapa: string | null }>();
+  // Todos los códigos vistos, con su nombre y su etapa.
+  const vistos = new Map<string, { nombre: string; etapa: string | null; veces: number }>();
   for (const b of bloques) {
     const etapa = etapaDeCursoHorario(b.clase?.curso) ?? null;
-    for (const [codigo, nombre] of b.leyendas.materias) if (!nombres.has(codigo)) nombres.set(codigo, { nombre, etapa });
-  }
-  // El código de materia lleva el curso pegado ('LEN1' vs 'LEN3'), así que la identidad de
-  // la materia es su NOMBRE; el código se guarda como abreviatura para poder repintarlo.
-  const existentes = await db.select().from(horMaterias);
-  const porNombre = new Map(existentes.map((m) => [m.nombre.toLowerCase(), m.id]));
-  const mapa = new Map<string, string>();
-  for (const [codigo, { nombre, etapa }] of nombres) {
-    let id = porNombre.get(nombre.toLowerCase());
-    if (!id) {
-      const [creada] = await db.insert(horMaterias).values({ nombre, abreviatura: codigo, etapa }).returning();
-      id = creada.id;
-      porNombre.set(nombre.toLowerCase(), id);
+    for (const [codigo, nombre] of b.leyendas.materias) {
+      const previo = vistos.get(codigo);
+      if (previo) previo.veces++;
+      else vistos.set(codigo, { nombre, etapa, veces: 1 });
     }
-    mapa.set(codigo, id);
+  }
+
+  // Union-find sobre los códigos: misma raíz o mismo nombre normalizado → mismo grupo.
+  const padre = new Map<string, string>();
+  const raiz = (x: string): string => {
+    const p = padre.get(x);
+    if (!p || p === x) return x;
+    const r = raiz(p);
+    padre.set(x, r);
+    return r;
+  };
+  const unir = (a: string, b: string) => {
+    const ra = raiz(a);
+    const rb = raiz(b);
+    if (ra !== rb) padre.set(ra, rb);
+  };
+  for (const c of vistos.keys()) padre.set(c, c);
+  const porRaizCodigo = new Map<string, string>();
+  const porNombre = new Map<string, string>();
+  for (const [codigo, { nombre }] of vistos) {
+    const rc = raizMateria(codigo);
+    const primeroRaiz = porRaizCodigo.get(rc);
+    if (primeroRaiz) unir(codigo, primeroRaiz);
+    else porRaizCodigo.set(rc, codigo);
+    const nn = normalizarNombreMateria(nombre);
+    const primeroNombre = porNombre.get(nn);
+    if (primeroNombre) unir(codigo, primeroNombre);
+    else porNombre.set(nn, codigo);
+  }
+
+  // hor_alias manda: si dos códigos ya apuntan a la misma materia, van juntos.
+  const alias = await db.select().from(horAlias).where(eq(horAlias.tipo, 'materia'));
+  const materiaPorAlias = new Map<string, string>();
+  const codigosPorMateria = new Map<string, string[]>();
+  for (const a of alias) {
+    if (!a.materiaId) continue;
+    materiaPorAlias.set(a.codigoExterno.toUpperCase(), a.materiaId);
+    codigosPorMateria.set(a.materiaId, [...(codigosPorMateria.get(a.materiaId) ?? []), a.codigoExterno.toUpperCase()]);
+  }
+  for (const codigos of codigosPorMateria.values()) {
+    const presentes = codigos.filter((c) => vistos.has(c));
+    for (let i = 1; i < presentes.length; i++) unir(presentes[0], presentes[i]);
+  }
+
+  // Un nombre y una etapa por grupo.
+  const grupos = new Map<string, { codigos: string[]; nombre: string; etapa: string | null }>();
+  for (const [codigo, info] of vistos) {
+    const g = raiz(codigo);
+    const actual = grupos.get(g);
+    if (!actual) grupos.set(g, { codigos: [codigo], nombre: info.nombre, etapa: info.etapa });
+    else actual.codigos.push(codigo);
+  }
+  for (const [g, datos] of grupos) {
+    const cuenta = new Map<string, number>();
+    for (const c of datos.codigos) {
+      const n = vistos.get(c)!;
+      cuenta.set(n.nombre, (cuenta.get(n.nombre) ?? 0) + n.veces);
+    }
+    datos.nombre = [...cuenta.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))[0][0];
+    grupos.set(g, datos);
+  }
+
+  const existentes = await db.select().from(horMaterias);
+  const porNombreExistente = new Map(existentes.map((m) => [normalizarNombreMateria(m.nombre), m.id]));
+
+  const mapa = new Map<string, string>();
+  for (const [, datos] of grupos) {
+    // Si algún código del grupo ya tiene alias a una materia, esa es la buena.
+    const porAlias = datos.codigos.map((c) => materiaPorAlias.get(c)).find(Boolean);
+    let id = porAlias ?? porNombreExistente.get(normalizarNombreMateria(datos.nombre));
+    if (!id) {
+      const [creada] = await db
+        .insert(horMaterias)
+        .values({ nombre: datos.nombre, abreviatura: raizMateria(datos.codigos[0]), etapa: datos.etapa })
+        .returning();
+      id = creada.id;
+      porNombreExistente.set(normalizarNombreMateria(datos.nombre), id);
+    }
+    for (const c of datos.codigos) mapa.set(c, id);
   }
   return mapa;
 }
@@ -370,7 +484,9 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
   const profes = conProfes
     .map((p) => ({
       id: p.id,
-      nombre: [p.nombre, p.apellido1, p.apellido2].filter(Boolean).join(' '),
+      // Un solo apellido: en un selector 'Alejandro Sánchez' identifica igual que
+      // 'ALEJANDRO SÁNCHEZ GIL' y cabe el triple de gente en pantalla.
+      nombre: nombreProfe(p.nombre, p.apellido1),
       alias: p.alias,
       etapa: p.etapa,
     }))
@@ -483,7 +599,13 @@ export async function getCeldas(
   const profesPor = new Map<string, CeldaHorario['profes']>();
   for (const p of profesFilas) {
     const lista = profesPor.get(p.asignacionId) ?? [];
-    lista.push({ id: p.id, nombre: [p.nombre, p.apellido1].filter(Boolean).join(' '), rol: p.rol, principal: p.principal });
+    lista.push({
+      id: p.id,
+      nombre: nombreProfe(p.nombre, p.apellido1),
+      corto: nombreCorto(p.nombre, p.apellido1),
+      rol: p.rol,
+      principal: p.principal,
+    });
     profesPor.set(p.asignacionId, lista);
   }
   for (const lista of profesPor.values()) lista.sort((a, b) => Number(b.principal) - Number(a.principal));
@@ -500,12 +622,13 @@ export async function getCeldas(
     const grupos = gruposPor.get(f.asignacionId) ?? [];
     // El subtítulo es lo que NO se está mirando: en el horario de una clase interesa quién
     // la da; en el de un profe, a quién se la da; en el de un aula, las dos cosas.
+    const enCorto = profes.map((p) => p.corto).join(', ');
     const subtitulo =
       vista === 'clase'
-        ? (profes[0]?.nombre ?? null)
+        ? (enCorto || null)
         : vista === 'profe'
           ? (grupos.join(', ') || null)
-          : [grupos.join(', '), profes[0]?.nombre].filter(Boolean).join(' · ') || null;
+          : [grupos.join(', '), enCorto].filter(Boolean).join(' · ') || null;
     return {
       sesionId: f.sesionId,
       dia: f.dia,

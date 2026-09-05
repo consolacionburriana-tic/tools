@@ -486,34 +486,63 @@ necesitar tres joins.
 - [x] Ventana 08:00-18:00, sin fines de semana, recreo y comedor como separadores
 - [x] **Móvil: un solo día** con flechas (una rejilla 5×9 en un teléfono no se lee)
 - [x] Detalle al tocar una celda: grupo, profesorado con su rol, aula, lectiva o no
-- [x] **Colorear opcional** por clase o por materia (apagado por defecto)
+- [x] **Colorear opcional** por clase o por materia (apagado por defecto), con tantos tonos
+      como categorías haya
+- [x] Nombres cortos del profesorado dentro de la celda ('Núria C.'), todos los que entran
 - [ ] Informe de conflictos y de huecos
-- [ ] Editar a mano el horario de un profe (horas no lectivas: atención a padres, guardias)
+- [ ] Editar a mano el horario de un profe (horas no lectivas: atención a padres, guardias).
+      **Es el hueco real**: solo se importan los horarios de CLASE, así que lo que existe
+      únicamente en el horario del profe (guardia, departamento, atención a padres) no entra
+- [ ] Pantalla de materias, para renombrar y fusionar lo que la unificación no pille
 
 #### Los colores del navegador
 
 Colorear es **opcional y por defecto está apagado**: en el horario de una clase el color no
-añade nada (todo es la misma clase) y en el de un profe es justo lo que hace falta para ver
-de un vistazo cuántas veces entra en cada grupo. Se puede colorear **por clase** o **por
-materia**.
+añade nada por sí solo (todo es la misma clase) y en el de un profe es justo lo que hace
+falta. Se colorea **por clase** o **por materia** — todas las horas de Mates de un color,
+todas las de Coneixement de otro.
 
-Tres reglas, ninguna decorativa:
+Los tonos se **generan repartiendo el círculo de color entre las categorías que haya**, no
+salen de una lista cerrada: da igual que un horario tenga 5 materias o 14, cada una tiene el
+suyo y ninguna comparte. La luminosidad y el croma son fijos (y distintos en claro y en
+oscuro), que es lo que mantiene todos los tonos igual de legibles sin que uno chille más que
+el resto.
 
-- **Paleta fija de 8 tonos, validada**, no tonos generados al vuelo. Está en
-  `PALETA_CATEGORICA` con su versión para modo oscuro, y pasa las comprobaciones de
-  separación para daltonismo (peor par ΔE 9,1 en claro y 8,4 en oscuro) y de contraste
-  sobre las dos superficies.
-- **El color va con la categoría, no con su posición.** Se ordena el conjunto completo de
-  categorías del horario antes de repartir, así que cambiar de día en el móvil o filtrar
-  **no repinta nada**: mientras mires el mismo horario, "3PRI B" es siempre del mismo color.
-- **Pasadas 8 categorías no se recicla ningún tono**: las que sobran se quedan sin color y
-  la pantalla lo dice. Repetir un color haría creer que dos materias distintas son la misma,
-  que es peor que no colorear.
+El reparto se hace sobre el conjunto completo de categorías, ordenado: cambiar de día en el
+móvil no repinta nada. Y el color va como **filete lateral y tinte suave**, nunca en el
+texto — el nombre de la materia siempre está escrito, así que el color es una pista visual
+y no el que lleva la información.
 
-El color va como **filete lateral y un tinte muy suave**; el texto nunca se tiñe. Es lo que
-mantiene el contraste legible en claro y en oscuro.
+#### Nombres del profesorado
 
-### Fase 3 · Importación — 🟡
+Dentro de una celda, **'Núria C.'**: cabe en una columna estrecha y basta para reconocer a
+alguien de tu claustro. Se listan **todos** los que entran a esa hora, no un "+1 profe" que
+obligaba a abrir el detalle para saber quién era el otro. En los selectores, nombre y **un
+solo apellido** ('Alejandro Sánchez'): identifica igual y cabe el triple de gente. El nombre
+completo está en el detalle. Como en la BBDD vienen en mayúsculas, se recapitalizan.
+
+#### Cómo se unifican las materias
+
+El fichero trae un código por curso (`EFI1`, `EFI3`, `EFI5`) y, peor, **el mismo nombre en
+dos idiomas según la clase**: `Educación Física` y `Educació Física`, `Religión` y `Religió`,
+`Ludiletras` y `Ludilletres`, `Psicomotricidad` y `Psicomotricitat`, y hasta un `TutorIa` mal
+escrito. Sin unificar salían **20 materias donde hay 17**. Se juntan con tres señales:
+
+1. **La tabla `hor_alias`** (tipo `materia`), que es el arreglo **a mano** y manda sobre todo.
+   Ahí se resuelve lo que ninguna regla pilla: `CEA` ("Crecimiento en Armonía") y `CEH`
+   ("Creixement en harmonia") no comparten ni código ni nombre, y van sembrados como alias.
+2. **La raíz del código**: `EFI1` y `EFI3` son la misma materia. Se quitan solo los dígitos
+   del **final** — `LCO3` (Valencià) y `LC03` (Lectura, con un cero) conviven en el fichero
+   real y son distintas; recortar por otro sitio las fusionaría.
+3. **El nombre normalizado**: `ENG` e `ING` tienen códigos distintos y los dos son "English".
+
+Del grupo se queda el nombre **más repetido** (a empate, el primero alfabético). Es una
+elección arbitraria entre castellano y valencià, pero determinista. Y al terminar, el
+importador **borra las materias que no usa nadie**: al cambiar la unificación, la vieja
+"Educación Física" se queda a cero y sobra. Solo se van las que no tienen ni asignaciones ni
+alias, así que una materia arreglada a mano nunca se pierde.
+
+### Fase 3 · Importación### Fase 3 · Importación — 🟡
 - [x] Pantalla de importación con vista previa antes de escribir (`/gestion/horarios/importar`)
 - [x] Normalizador del bloque "HORARIO DE CLASE" → lista de sesiones, con tests (60) y
       probado contra el `.docx` real: 18/18 clases, 597 sesiones, 2 códigos sin reconocer

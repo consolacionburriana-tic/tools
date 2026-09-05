@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { DoorOpen, Filter, MapPin, Users } from 'lucide-react';
+import { ChevronDown, DoorOpen, Filter, MapPin, Users } from 'lucide-react';
 
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -39,6 +39,7 @@ export function Selector({
   const params = useSearchParams();
   const [curso, setCurso] = useState<string>('');
   const [busca, setBusca] = useState('');
+  const [desplegado, setDesplegado] = useState(false);
 
   const vistas = puedeVerProfes ? VISTAS : VISTAS.filter((v) => v.id !== 'profe');
 
@@ -121,9 +122,29 @@ export function Selector({
 
       {/* En móvil una tira que se desliza (18 clases en rejilla se comen media pantalla);
           en pantalla grande, todas a la vista de un vistazo. */}
+      {/* Plegado, la lista es UNA fila que se desliza; desplegado, todo a la vista. Con 25
+          profes la rejilla completa se comía la pantalla antes de llegar al horario, que es
+          lo que se ha venido a ver. */}
       <div className="space-y-1.5">
-        <span className="block text-xs font-medium text-zinc-400 dark:text-zinc-500">{ETIQUETA_LISTA[vista]}</span>
-        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">{ETIQUETA_LISTA[vista]}</span>
+          {lista.length > 6 && (
+            <button
+              type="button"
+              onClick={() => { haptic.tap(); setDesplegado((d) => !d); }}
+              className="flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              {desplegado ? 'Plegar' : `Ver los ${lista.length}`}
+              <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', desplegado && 'rotate-180')} />
+            </button>
+          )}
+        </div>
+        <div
+          className={cn(
+            '-mx-4 flex gap-1.5 px-4 pb-1',
+            desplegado ? 'flex-wrap sm:mx-0 sm:px-0' : 'overflow-x-auto sm:mx-0 sm:px-0',
+          )}
+        >
         {lista.map((o) => (
           <button
             key={o.clave}
