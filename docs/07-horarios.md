@@ -37,8 +37,16 @@ futura que necesite saber qué pasa en un aula un martes a las 10:15.
   profes y su rol. También se comprobó que junio pisa al ordinario en sus fechas y que
   fuera de curso no hay periodo. Todo borrado después: la base quedó a 0 filas salvo la
   semilla.
-- **Falta**: las pantallas (Fases 1-2), el importador (Fase 3, necesita un fichero real) y
-  la demolición de `pun_subjects` (ver decisión 1).
+- **Adaptador de importación escrito y probado contra los ficheros reales** (2026-09-05):
+  `src/lib/horarios-import.ts`, con 60 tests de fixtures inventados **y** una pasada real
+  sobre el `.docx` de infantil y primaria: **18/18 clases, 597 sesiones**, 60 con aula, 29
+  apoyos de PT/AL y 64 con dos profes en el aula. Solo **2 códigos** de todo el fichero
+  quedaron sin reconocer (`Otros` y `AUX`, de infantil), y el adaptador los reporta en vez
+  de colarlos. Ver "Los ficheros reales" más abajo.
+- **`hor_espacios`** (aulas/pistas/salas) añadida a Neon con sus 3 claves ajenas: el
+  navegador tiene que poder ir **por aula**, y los ficheros ya traen el aula en la celda.
+- **Falta**: las pantallas (Fases 1-2), enganchar el adaptador a la BBDD (Fase 3) y la
+  demolición de `pun_subjects` (ver decisión 1).
 
 ## El vocabulario (importa, porque todo el modelo cuelga de aquí)
 
@@ -233,39 +241,72 @@ alumnos igual.
 
 ---
 
-## Importación (el diseño, no el parser)
+## Los ficheros reales (2026-09-05) y qué formato se adapta
 
-El parser se escribe cuando llegue el primer fichero real. Lo que sí se puede fijar ya:
+David pasó cuatro ficheros de infantil y primaria. **No dicen lo mismo**, y por eso importa
+elegir:
 
-- **SheetJS (`xlsx`)** y detección de columnas por **cabecera normalizada**, nunca por
-  posición — igual que el sync de Educamos (`04-convenciones-tecnicas.md`).
-- **Dos formas posibles del export**, y las dos se normalizan a la misma lista antes de
-  tocar la BBDD:
-  - **Matriz**: filas = sesiones, columnas = días, una hoja por clase o por profe. Es lo que
-    suelta la mayoría de generadores al "imprimir a Excel". Hay que leer la celda
-    ("MAT / 2ESOB / ALP") y partirla, y ahí es donde se pierde información.
-  - **Lista larga**: una fila por sesión (día, orden, grupo, materia, profe, aula). Es la
-    forma buena. **Si el generador o Educamos puede sacar esto, se pide esto** — ahorra la
-    mitad del importador y casi todos los errores.
-- **El horario de profes y el de clases tienen que converger en las MISMAS asignaciones.**
-  Es el punto que más fácil se rompe: si se importan por separado, sale un horario duplicado
-  y ninguna de las dos copias es la buena. La clave de reconciliación es
-  `(periodo, grupo(s), materia, tramo)`; la hoja de profesores no crea asignaciones nuevas,
-  **añade filas a `hor_asignacion_profes`** sobre las que ya existen. Y lo que aparece solo
-  en la hoja de profes (guardias, departamento, reuniones) sí crea asignaciones, pero sin
-  grupo — que es justo lo que son.
-- **`hor_alias`**: tabla de traducción de los códigos del fichero a nuestros IDs
-  (`tipo` 'profe'|'materia'|'grupo', `codigo_externo`, id destino). Aquí vive el 90% del
-  dolor de un importador: el generador dirá `ALP` y `2ESOB`, y nosotros tenemos
-  `edu_teachers.alias` y `curso`+`letra`. Con esta tabla, la segunda importación y todas las
-  siguientes son automáticas: solo se pregunta por los códigos nuevos.
-- **Patrón vista previa → confirmar**, y bitácora en `hor_import_runs` con el resumen
-  (altas/cambios/conflictos/errores), calcado de `edu_sync_runs`. Nada de importar a ciegas
-  sobre un horario que ya está en uso.
-- El fichero de horarios **no se commitea** (lleva nombres de profesorado): gitignore
-  primero, trabajar después, borrar al terminar.
+| Fichero | Qué trae | Qué le falta |
+|---|---|---|
+| **Horario general del colegio** (.xlsx) | Matriz profe × franja de **todo el centro**, y —esto es lo valioso— sus tres primeras filas **son las tres rejillas reales** (infantil, primaria, ESO) con las horas día a día | La celda solo tiene el **grupo** (`2PRIA`): ni materia, ni profe distinto del de la fila, ni aula |
+| **Horarios Primaria Sept/Junio** (.xlsx) | Export de Educamos "HORARIO DE CLASE" y "HORARIO DE PROFESOR", una hoja por clase y por profe. Celda `MATERIA - PROFE` + leyendas de códigos | Sin aula. Es el **periodo corto** (4 sesiones + recreo), no el ordinario |
+| **Horarios Inf. y Prim.** (.docx) | El **mismo** export de Educamos, del periodo ordinario y **con aula**: `EFI1 - SDOM0 - Poli2`, con leyenda `Aulas:` | Es Word: hay que sacar las tablas, no vale SheetJS |
+| El mismo (.pdf) | Para imprimir | Todo. No se parsea |
 
----
+**Decisión: el adaptador apunta al bloque "HORARIO DE CLASE" de Educamos.** Es el único
+formato con materia + profe + aula, y su estructura lógica es **idéntica en .xlsx y en
+.docx**: título, fila de días, filas `De HH:MM a HH:MM`, y leyendas al pie. Por eso
+`horarios-import.ts` **no lee ficheros**: recibe una cuadrícula de texto (`string[][]`) que
+produce quien sepa abrir cada formato, y la normaliza. Un formato nuevo (o la API del día de
+mañana) es un **lector** nuevo, no un importador nuevo.
+
+El "Horario general" se queda para lo que sí hace mejor que nadie: **sembrar las rejillas** y
+servir de red de seguridad para comprobar que no falta ningún profe.
+
+### Lo que los ficheros enseñaron (y cambió el código)
+
+- ✅ **Las rejillas confirman el diseño.** Primaria y ESO tienen horas distintas, y en ESO el
+  **lunes tiene 9 sesiones y el martes 7**, con el patio a las 10:40-11:00 el lunes y
+  10:40-11:05 el resto. Un tramo por `(rejilla, día, orden)` no era paranoia. Además el
+  `.docx` y el `.xlsx` general **coinciden exactamente** en la rejilla de primaria
+  (09:00-09:45 … comedor 13:30-15:30), que es una validación cruzada estupenda.
+- ✅ **`edu_teachers.alias` ES el código del export** (`MVER0`, `SDOM0`, `CRAL0`…). Verificado
+  contra Neon: casan uno a uno. El profesorado se resuelve por join directo y `hor_alias`
+  queda para materias y espacios.
+- 🔧 **Una celda puede llevar DOS cosas** (`MAT1 - MVER0` + salto + `PT- MAPI`): una clase y
+  un apoyo a la misma hora. El parser fusionaba las dos en una sesión y estaba **mal**; ahora
+  devuelve una lista. La regla: una línea que es solo códigos sueltos **continúa** la anterior
+  (el segundo profe del aula), y una que empieza por materia conocida o por PT/AL **abre una
+  entrada nueva**.
+- 🔧 **Las aulas necesitaban tabla propia** (`hor_espacios`). Vienen con código y leyenda
+  (`Poli2: Polideportivo 2`), y David quiere navegar por aula. El dato es pobre y sucio en el
+  origen (tres códigos, con `POLI` y `Poli2` conviviendo), así que `aula` sigue como texto
+  libre al lado: `espacio_id` se rellena cuando el código se reconoce y el texto es la red
+  para no perder lo que no.
+- ⚠️ **PT y AL son texto libre y sucio**: `PT- MAPI`, `PT. 1ºB`, `AL 5º y 6º`, `AL 4 AÑOS B`
+  y —ojo— **`AL Aitana`** y `AL ROBERTO 3ºPDC NAT`, con **nombre de alumno dentro de la
+  celda**. El adaptador reconoce la *actividad*, conserva el texto crudo para que alguien lo
+  revise, y **no** intenta sacar de ahí ni el grupo ni el alumno; si detecta lo que parece un
+  nombre de pila, levanta una incidencia `dato_personal`. A quién afecta un apoyo se sigue
+  metiendo a mano en `hor_apoyos`, como estaba decidido.
+- ⚠️ **Hay horas no lectivas escritas a mano en las celdas**: `María N. (At. Padres)`,
+  `Marisa (At. Padres)`, `Orientación`. Es exactamente lo que David pide poder **editar en el
+  horario del profe**, y confirma que el catálogo de actividades tiene que ser abierto.
+- ⚠️ **Cosas que no caben en ninguna cuadrícula**: `Taller Pensamiento Computacional: Lunes
+  16:15h. **1 sesión mensual**` y otro `1 sesión cada 6 semanas`. No se inventa un motor de
+  recurrencias por dos líneas: se guardan como **notas** del bloque y se resuelven a mano.
+- ⚠️ **Cuidado con `LCO3` y `LC03`** (letra O y cero) — conviven en el fichero y son materias
+  **distintas** (Valencià y Lectura). Nunca normalizar O↔0 en los códigos.
+- ⚠️ Solo 2 códigos sin leyenda en todo el fichero: `Otros` y `AUX`. Sembrados como
+  actividades (`otros`, `auxiliar`) en vez de tratarlos como error.
+
+### La leyenda es la que desambigua
+
+Una celda es `MATERIA - PROFE` o `MATERIA - PROFE - AULA`, y por regex no hay forma honesta
+de saber si `POLI` es un profe o un aula. Pero **cada bloque trae sus propias leyendas**
+(`Materias:`, `Profesores:`, `Aulas:`), así que se resuelve mirándolas. Lo que no esté en
+ninguna se reporta como incidencia en vez de colarse mal. Es la decisión de diseño que hace
+que el adaptador aguante un fichero sucio sin inventarse nada.
 
 ## Decisiones cerradas (2026-09-03, con David)
 
@@ -320,7 +361,8 @@ El parser se escribe cuando llegue el primer fichero real. Lo que sí se puede f
 | `hor_asignacion_profes` | Qué profe(s), con rol y `principal` |
 | `hor_sesiones` | La celda: asignación colocada en un tramo |
 | `hor_apoyos` | Qué alumnos concretos toca una asignación de PT/AL (lo único que no viene en el fichero) |
-| `hor_alias` | Traducción de códigos del fichero externo a nuestros IDs |
+| `hor_espacios` | Aulas, pistas y salas. El navegador va también **por aula** |
+| `hor_alias` | Traducción de códigos del fichero externo a nuestros IDs (materias y espacios; el profesorado casa por `edu_teachers.alias`) |
 | `hor_import_runs` | Bitácora de importaciones (como `edu_sync_runs`) |
 
 Futuras, **no en este alcance**: `hor_ausencias` y `hor_sustituciones`.
@@ -374,8 +416,13 @@ necesitar tres joins.
 - [ ] Selector de periodo de vigencia y de fecha ("qué había el 12 de junio")
 - [ ] Informe de conflictos y de huecos
 
-### Fase 3 · Importación — ⬜
-- [ ] Normalizador matriz / lista larga → lista de sesiones (helper puro con tests)
+### Fase 3 · Importación — 🟡
+- [x] Normalizador del bloque "HORARIO DE CLASE" → lista de sesiones, con tests (60) y
+      probado contra el `.docx` real: 18/18 clases, 597 sesiones, 2 códigos sin reconocer
+- [x] Parser de rejillas del "Horario general" (corta los días detectando el reinicio de la
+      hora, no contando columnas: en ESO el lunes tiene 9 sesiones y el martes 7)
+- [ ] Lector .xlsx (SheetJS) y lector .docx (tablas) que alimenten al normalizador
+- [ ] Volcado a BBDD: asignaciones + sesiones, resolviendo profes por `edu_teachers.alias`
 - [ ] Resolución de códigos vía `hor_alias`, preguntando solo por los nuevos
 - [ ] Vista previa → confirmar, con bitácora en `hor_import_runs`
 - [ ] Reconciliación de la hoja de profes sobre las asignaciones ya importadas
