@@ -77,6 +77,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Cuaderno de tutor | ✅ | ✅ | 🟡 (motor, cola, panel y compartir listos y probados con plantillas reales; tablas ya en Neon. Falta la carpeta de la unidad compartida de David) | [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
 | Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (Fase 0 ✅ en Neon y verificada: 13 tablas `hor_*`, permisos en dos módulos y helpers puros con tests; faltan las pantallas y el importador) | [`07-horarios.md`](./07-horarios.md) |
+| AUTOASM (Apple School Manager) | ✅ | ✅ | ✅ (los seis CSV de ASM: se generan de la BBDD central o del ZIP del curso pasado, se validan, se navegan y se descargan; falta la subida real a ASM de David) | [`19-autoasm.md`](./19-autoasm.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 en definición (hay idea, faltan decisiones) · ⬜ sin empezar.

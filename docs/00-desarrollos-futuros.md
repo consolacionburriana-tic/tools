@@ -255,6 +255,10 @@ Recopilados de las fichas, para verlos de un vistazo:
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
+- **AUTOASM** (ficha `19`): subir a Apple School Manager un ZIP generado por el módulo y
+  confirmar que lo acepta; y decidir qué hacer con lo que la validación encontró en el
+  export actual (29 matrículas duplicadas, `Cls-TValESO1` sin nombre, 57 correos en
+  mayúsculas).
 - **Cuaderno de tutor** (ficha `18`): (a) la **URL de la subcarpeta de la unidad compartida** donde
   van los cuadernos, (b) dar de alta a la cuenta de servicio (`GOOGLE_SA_CLIENT_EMAIL`) como
   **Administrador de contenido** de esa unidad, (c) compartir con ese mismo correo cada plantilla
@@ -312,6 +316,13 @@ Recopilados de las fichas, para verlos de un vistazo:
   Licencias + Salidas y pagos).
 - Firma electrónica de documentos (autorizaciones de salidas, documentación de banco de libros)
   en vez de papel escaneado.
+- **AUTOASM en Neon** (hoy el proyecto vive en `localStorage`, ver
+  [`19-autoasm.md`](./19-autoasm.md)): si algún día lo prepara más de una persona, o hace
+  falta ver "qué se subió a ASM en septiembre", tocaría un par de tablas `asm_*` con el
+  histórico de exports. Mientras lo lleve TIC desde su portátil, no compensa.
+- **AUTOASM ↔ horarios**: cuando `hor_*` tenga datos, las clases y sus profes podrían salir
+  de las asignaciones docentes en vez de asignarse a mano o arrastrarse del curso anterior.
+  Es el único trozo de ASM que hoy no sale de ninguna base de datos.
 - Exportación/sincronización automática hacia Educamos (hoy todo lo que sale de la app hacia
   Educamos es manual).
 - Auditoría/historial de cambios transversal (quién tocó qué registro y cuándo), útil sobre
