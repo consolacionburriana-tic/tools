@@ -11,10 +11,18 @@ import {
   periodoVigente,
   rejillaDeGrupo,
   tramoEnHora,
+  colorDeCelda,
+  construirCuadricula,
+  nombreCorto,
+  nombreProfe,
+  repartirColores,
+  situarAhora,
   tramoSiguiente,
+  type CeldaHorario,
   type SesionParaConflictos,
   type TramoBasico,
 } from '@/lib/horarios';
+import { normalizarNombreMateria, raizMateria } from '@/lib/horarios-import';
 
 describe('horas', () => {
   it('convierte HH:mm a minutos y vuelta', () => {
@@ -274,5 +282,178 @@ describe('etapa para horarios', () => {
     expect(etapaDeCursoHorario('1CFGM')).toBe('CFGM');
     expect(etapaDeCursoHorario('2CFGS')).toBe('CFGS');
     expect(etapaDeCursoHorario(null)).toBeNull();
+  });
+});
+
+describe('cuadrícula del navegador', () => {
+  const celda = (o: Partial<CeldaHorario> & { dia: number; horaInicio: string; horaFin: string }): CeldaHorario => ({
+    sesionId: `${o.dia}-${o.horaInicio}`,
+    tramoId: 't',
+    tipoTramo: 'sesion',
+    titulo: 'Mates',
+    subtitulo: null,
+    actividad: 'clase',
+    lectiva: true,
+    espacio: null,
+    profes: [],
+    grupos: [],
+    notas: null,
+    ...o,
+  });
+
+  it('ordena las filas por hora y numera solo las lectivas', () => {
+    const filas = construirCuadricula([
+      celda({ dia: 1, horaInicio: '10:30', horaFin: '11:15' }),
+      celda({ dia: 1, horaInicio: '09:00', horaFin: '09:45' }),
+      celda({ dia: 2, horaInicio: '11:15', horaFin: '11:45', tipoTramo: 'recreo' }),
+      celda({ dia: 1, horaInicio: '09:45', horaFin: '10:30' }),
+    ]);
+    expect(filas.map((f) => f.horaInicio)).toEqual(['09:00', '09:45', '10:30', '11:15']);
+    expect(filas.map((f) => f.etiqueta)).toEqual(['1ª', '2ª', '3ª', 'Patio']);
+  });
+
+  it('mezcla rejillas distintas: un profe de infantil Y primaria cabe en una sola cuadrícula', () => {
+    const filas = construirCuadricula([
+      celda({ dia: 1, horaInicio: '09:00', horaFin: '10:10' }), // infantil
+      celda({ dia: 2, horaInicio: '09:00', horaFin: '09:45' }), // primaria
+      celda({ dia: 2, horaInicio: '09:45', horaFin: '10:30' }),
+    ]);
+    expect(filas).toHaveLength(3);
+    expect(filas.map((f) => `${f.horaInicio}-${f.horaFin}`)).toEqual(['09:00-09:45', '09:00-10:10', '09:45-10:30']);
+    expect(filas.map((f) => f.etiqueta)).toEqual(['1ª', '2ª', '3ª']);
+  });
+
+  it('no pinta fines de semana ni nada fuera de 08:00-18:00', () => {
+    const filas = construirCuadricula([
+      celda({ dia: 6, horaInicio: '09:00', horaFin: '09:45' }),
+      celda({ dia: 0, horaInicio: '09:00', horaFin: '09:45' }),
+      celda({ dia: 1, horaInicio: '07:00', horaFin: '07:45' }),
+      celda({ dia: 1, horaInicio: '18:00', horaFin: '19:00' }),
+      celda({ dia: 1, horaInicio: '09:00', horaFin: '09:45' }),
+    ]);
+    expect(filas).toHaveLength(1);
+    expect(filas[0].horaInicio).toBe('09:00');
+  });
+
+  it('varias celdas en el mismo hueco (desdoble o apoyo) conviven', () => {
+    const filas = construirCuadricula([
+      celda({ dia: 1, horaInicio: '09:00', horaFin: '09:45', titulo: 'Mates', sesionId: 'a' }),
+      celda({ dia: 1, horaInicio: '09:00', horaFin: '09:45', titulo: 'Apoyo PT', actividad: 'apoyo_pt', sesionId: 'b' }),
+    ]);
+    expect(filas[0].dias[0]).toHaveLength(2);
+    expect(filas[0].dias[1]).toEqual([]);
+  });
+
+  it('si en una franja hay clase y recreo a la vez, manda la clase', () => {
+    const filas = construirCuadricula([
+      celda({ dia: 1, horaInicio: '11:15', horaFin: '11:45', tipoTramo: 'recreo', sesionId: 'r' }),
+      celda({ dia: 2, horaInicio: '11:15', horaFin: '11:45', tipoTramo: 'sesion', sesionId: 's' }),
+    ]);
+    expect(filas[0].tipo).toBe('sesion');
+  });
+});
+
+describe('situar "ahora" en la cuadrícula', () => {
+  const filas = construirCuadricula([
+    { sesionId: '1', dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45', tipoTramo: 'sesion', titulo: 'A', subtitulo: null, actividad: 'clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
+    { sesionId: '2', dia: 1, tramoId: 't', horaInicio: '09:45', horaFin: '10:30', tipoTramo: 'sesion', titulo: 'B', subtitulo: null, actividad: 'clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
+  ]);
+
+  it('encuentra la franja en curso un día lectivo', () => {
+    const a = situarAhora(filas, new Date(2026, 8, 7, 10, 0)); // lunes 7-sep-2026, 10:00
+    expect(a).toMatchObject({ dia: 1, hora: '10:00', filaActual: 1 });
+  });
+
+  it('en fin de semana no hay día que resaltar', () => {
+    expect(situarAhora(filas, new Date(2026, 8, 12, 10, 0)).dia).toBeNull(); // sábado
+  });
+
+  it('fuera de las franjas no resalta ninguna', () => {
+    expect(situarAhora(filas, new Date(2026, 8, 7, 16, 0)).filaActual).toBeNull();
+  });
+});
+
+describe('colores por categoría', () => {
+  const c = (grupos: string[], titulo = 'Mates'): CeldaHorario => ({
+    sesionId: `${grupos.join()}-${titulo}`, dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45',
+    tipoTramo: 'sesion', titulo, subtitulo: null, actividad: 'clase', lectiva: true, espacio: null,
+    profes: [], grupos, notas: null,
+  });
+
+  it('apagado no reparte nada', () => {
+    expect(repartirColores([c(['2ESO A'])], 'nada').size).toBe(0);
+    expect(colorDeCelda(c(['2ESO A']), new Map(), 'nada')).toBeNull();
+  });
+
+  it('el color va con la categoría, no con el orden en que aparece', () => {
+    const celdas = [c(['6PRI B']), c(['1PRI A']), c(['3PRI A'])];
+    const a = repartirColores(celdas, 'clase');
+    const b = repartirColores([...celdas].reverse(), 'clase');
+    expect(a.get('1PRI A')).toEqual(b.get('1PRI A'));
+    expect(a.get('6PRI B')).toEqual(b.get('6PRI B'));
+  });
+
+  it('colorea TODAS las categorías, sin tope y sin repetir tono', () => {
+    // 14 materias es más de lo que cabe en cualquier lista cerrada de colores: se reparte
+    // el círculo entre las que haya.
+    const celdas = Array.from({ length: 14 }, (_, i) => c(['2ESO A'], `Materia ${i}`));
+    const r = repartirColores(celdas, 'materia');
+    expect(r.size).toBe(14);
+    expect(celdas.every((x) => colorDeCelda(x, r, 'materia') !== null)).toBe(true);
+    const tonos = new Set([...r.values()].map((v) => v.claro));
+    expect(tonos.size).toBe(14);
+  });
+
+  it('la misma clase siempre el mismo color, aunque cambie la materia', () => {
+    const celdas = [c(['2ESO A'], 'Mates'), c(['2ESO A'], 'Lengua')];
+    const r = repartirColores(celdas, 'clase');
+    expect(colorDeCelda(celdas[0], r, 'clase')).toEqual(colorDeCelda(celdas[1], r, 'clase'));
+  });
+
+  it('por materia agrupa por materia, no por clase', () => {
+    const celdas = [c(['2ESO A'], 'Mates'), c(['3ESO B'], 'Mates'), c(['2ESO A'], 'Lengua')];
+    const r = repartirColores(celdas, 'materia');
+    expect(colorDeCelda(celdas[0], r, 'materia')).toEqual(colorDeCelda(celdas[1], r, 'materia'));
+    expect(colorDeCelda(celdas[0], r, 'materia')).not.toEqual(colorDeCelda(celdas[2], r, 'materia'));
+  });
+
+  it('una celda sin grupo no se colorea por clase', () => {
+    const celdas = [c([], 'Guardia')];
+    expect(colorDeCelda(celdas[0], repartirColores(celdas, 'clase'), 'clase')).toBeNull();
+  });
+});
+
+describe('nombres de profesorado para pantalla', () => {
+  it('en la celda, nombre de pila + inicial del apellido', () => {
+    expect(nombreCorto('NÚRIA', 'CROUSEILLES')).toBe('Núria C.');
+    expect(nombreCorto('MARÍA VICTORIA', 'VERNIA')).toBe('María V.');
+    expect(nombreCorto('JORGE', null)).toBe('Jorge');
+    expect(nombreCorto(null, 'ENRICH')).toBe('Enrich');
+  });
+
+  it('en listas, nombre y UN apellido, recapitalizado', () => {
+    expect(nombreProfe('ALEJANDRO', 'SÁNCHEZ')).toBe('Alejandro Sánchez');
+    expect(nombreProfe('MARÍA JOSE', 'PERIS')).toBe('María Jose Peris');
+  });
+});
+
+describe('raíz de una materia', () => {
+  it('quita el curso del final: EFI1 y EFI3 son la misma', () => {
+    expect(raizMateria('EFI1')).toBe('EFI');
+    expect(raizMateria('EFI3')).toBe('EFI');
+    expect(raizMateria('MAT6')).toBe('MAT');
+  });
+
+  it('NO confunde LCO3 (Valencià) con LC03 (Lectura, con un cero)', () => {
+    expect(raizMateria('LCO3')).toBe('LCO');
+    expect(raizMateria('LC03')).toBe('LC');
+    expect(raizMateria('LCO3')).not.toBe(raizMateria('LC03'));
+  });
+
+  it('normaliza nombres para comparar idiomas y mayúsculas', () => {
+    expect(normalizarNombreMateria('English')).toBe(normalizarNombreMateria('ENGLISH'));
+    expect(normalizarNombreMateria('Tutoría')).toBe(normalizarNombreMateria('TutorIa'));
+    // Distinto idioma NO se junta por nombre: para eso está la raíz del código.
+    expect(normalizarNombreMateria('Educació Física')).not.toBe(normalizarNombreMateria('Educación Física'));
   });
 });

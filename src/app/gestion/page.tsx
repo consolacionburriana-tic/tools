@@ -6,6 +6,7 @@ import {
   AlarmClock,
   BookMarked,
   Bus,
+  CalendarDays,
   ClipboardCheck,
   ClipboardList,
   Database,
@@ -141,6 +142,14 @@ export default async function EscritorioPage() {
               icon={<BookMarked className="h-6 w-6" />}
               title="Licencias digitales"
               desc="Pedidos, dashboard, exportaciones, packs y correos"
+            />
+          )}
+          {puede('horarios') && (
+            <ModuleCard
+              href="/gestion/horarios"
+              icon={<CalendarDays className="h-6 w-6" />}
+              title="Horarios"
+              desc="Horario por clase, por profesor y por aula, e importación desde Educamos"
             />
           )}
           {puede('bancolibros') && (

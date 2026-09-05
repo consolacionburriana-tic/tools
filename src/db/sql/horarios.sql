@@ -1,7 +1,7 @@
 -- Horarios · tablas de la pieza transversal (ficha: docs/07-horarios.md)
 -- Fecha: 2026-09-03 · equivalente a `pnpm db:push` para el bloque `hor_*`.
 --
--- Puramente ADITIVO: crea 13 tablas nuevas y no toca ninguna existente (solo las
+-- Puramente ADITIVO: crea 14 tablas nuevas y no toca ninguna existente (solo las
 -- referencia: edu_teachers y edu_students). Idempotente: se puede ejecutar dos veces.
 --
 -- Nombres de constraint e índice iguales a los que genera Drizzle, para que un
@@ -95,6 +95,19 @@ CREATE TABLE IF NOT EXISTS "hor_materias" (
   "updated_at" timestamp DEFAULT now() NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS "hor_espacios" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "codigo" text NOT NULL,
+  "nombre" text NOT NULL,
+  "tipo" text,
+  "capacidad" integer,
+  "notas" text,
+  "active" boolean DEFAULT true NOT NULL,
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "updated_at" timestamp DEFAULT now() NOT NULL,
+  CONSTRAINT "hor_espacios_codigo_unique" UNIQUE("codigo")
+);
+
 CREATE TABLE IF NOT EXISTS "hor_asignaciones" (
   "id" uuid PRIMARY KEY NOT NULL,
   "periodo_id" uuid NOT NULL,
@@ -103,6 +116,7 @@ CREATE TABLE IF NOT EXISTS "hor_asignaciones" (
   "materia_id" uuid,
   "etiqueta" text,
   "lectiva" boolean,
+  "espacio_id" uuid,
   "aula" text,
   "notas" text,
   "origen" text DEFAULT 'manual' NOT NULL,
@@ -142,6 +156,7 @@ CREATE TABLE IF NOT EXISTS "hor_sesiones" (
   "dia_semana" integer NOT NULL,
   "orden" integer NOT NULL,
   "semana" text,
+  "espacio_id" uuid,
   "aula" text,
   "created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -171,9 +186,9 @@ CREATE TABLE IF NOT EXISTS "hor_alias" (
   "codigo_externo" text NOT NULL,
   "edu_teacher_id" uuid,
   "materia_id" uuid,
+  "espacio_id" uuid,
   "curso" text,
   "letra" text,
-  "aula" text,
   "created_at" timestamp DEFAULT now() NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "hor_alias_uq" ON "hor_alias" ("tipo", "codigo_externo");
@@ -257,6 +272,18 @@ BEGIN
     ALTER TABLE "hor_alias" ADD CONSTRAINT "hor_alias_materia_id_hor_materias_id_fk"
       FOREIGN KEY ("materia_id") REFERENCES "hor_materias"("id");
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hor_asignaciones_espacio_id_hor_espacios_id_fk') THEN
+    ALTER TABLE "hor_asignaciones" ADD CONSTRAINT "hor_asignaciones_espacio_id_hor_espacios_id_fk"
+      FOREIGN KEY ("espacio_id") REFERENCES "hor_espacios"("id");
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hor_sesiones_espacio_id_hor_espacios_id_fk') THEN
+    ALTER TABLE "hor_sesiones" ADD CONSTRAINT "hor_sesiones_espacio_id_hor_espacios_id_fk"
+      FOREIGN KEY ("espacio_id") REFERENCES "hor_espacios"("id");
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hor_alias_espacio_id_hor_espacios_id_fk') THEN
+    ALTER TABLE "hor_alias" ADD CONSTRAINT "hor_alias_espacio_id_hor_espacios_id_fk"
+      FOREIGN KEY ("espacio_id") REFERENCES "hor_espacios"("id");
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hor_import_runs_periodo_id_hor_periodos_id_fk') THEN
     ALTER TABLE "hor_import_runs" ADD CONSTRAINT "hor_import_runs_periodo_id_hor_periodos_id_fk"
       FOREIGN KEY ("periodo_id") REFERENCES "hor_periodos"("id");
@@ -279,11 +306,22 @@ VALUES
   (gen_random_uuid(), 'atencion_padres',  'Atención a familias',    false, false, false, 90),
   (gen_random_uuid(), 'atencion_alumnos', 'Atención a alumnado',    false, false, false, 100),
   (gen_random_uuid(), 'oratorio',         'Oratorio',               true,  false, false, 110),
-  (gen_random_uuid(), 'libre_disposicion','Libre disposición',      false, false, false, 120)
+  (gen_random_uuid(), 'libre_disposicion','Libre disposición',      false, false, false, 120),
+  -- Vistos en el fichero real de infantil, sin entrada en su leyenda:
+  (gen_random_uuid(), 'otros',            'Otros',                  true,  false, false, 130),
+  (gen_random_uuid(), 'auxiliar',         'Auxiliar / apoyo en aula',true, false, false, 140)
+ON CONFLICT ("codigo") DO NOTHING;
+
+-- Espacios vistos en la leyenda "Aulas:" del horario de infantil y primaria.
+INSERT INTO "hor_espacios" ("id", "codigo", "nombre", "tipo") VALUES
+  (gen_random_uuid(), 'POLI',  'Polideportivo',   'pista'),
+  (gen_random_uuid(), 'POLI2', 'Polideportivo 2', 'pista'),
+  (gen_random_uuid(), 'MUS',   'Música',          'aula')
 ON CONFLICT ("codigo") DO NOTHING;
 
 COMMIT;
 
 -- Comprobación rápida tras ejecutarlo:
---   SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'hor\_%';  -- 13
---   SELECT count(*) FROM hor_actividades;                                          -- 12
+--   SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'hor\_%';  -- 14
+--   SELECT count(*) FROM hor_actividades;                                          -- 14
+--   SELECT count(*) FROM hor_espacios;                                             --  3
