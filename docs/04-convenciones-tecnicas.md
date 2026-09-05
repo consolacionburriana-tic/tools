@@ -30,6 +30,7 @@ pnpm db:studio    # inspeccionar la BBDD
 pnpm db:seed:licencias   # seeds puntuales (tsx + dotenv .env.local)
 pnpm tokens:familias     # genera los magic links de las familias de la campaña de licencias
 pnpm db:migrate:abc-nia  # migración puntual: enlaza abc_students con edu_students por NIA
+pnpm horarios:importar <fichero> [--dry]  # importa horarios de Educamos (.docx/.xlsx) a Neon
 ```
 
 ## Variables de entorno
@@ -172,6 +173,9 @@ src/components/<modulo>/          # componentes propios del módulo
   dirección de sus tutores); el enmascarado es obligatorio en **pantalla**.
 - Parseo de excels: **SheetJS (`xlsx`)** para `.csv/.xls/.xlsx`, detección de columnas por
   cabecera normalizada (mayúsculas sin acentos), nunca por posición.
+- Parseo de **.docx**: también con SheetJS, sin dependencias nuevas — `XLSX.CFB.read()` abre
+  el ZIP y `word/document.xml` se recorre con el árbol mínimo de `src/lib/horarios-lectores.ts`.
+  No añadas `mammoth` ni `jszip` para esto.
 
 ## Datos personales (esto no es negociable)
 

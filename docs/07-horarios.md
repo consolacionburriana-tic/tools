@@ -45,8 +45,14 @@ futura que necesite saber qué pasa en un aula un martes a las 10:15.
   de colarlos. Ver "Los ficheros reales" más abajo.
 - **`hor_espacios`** (aulas/pistas/salas) añadida a Neon con sus 3 claves ajenas: el
   navegador tiene que poder ir **por aula**, y los ficheros ya traen el aula en la celda.
-- **Falta**: las pantallas (Fases 1-2), enganchar el adaptador a la BBDD (Fase 3) y la
-  demolición de `pun_subjects` (ver decisión 1).
+- **Infantil y primaria IMPORTADOS en Neon** (2026-09-05) desde el `.docx` real, con
+  `pnpm horarios:importar`: **18 clases, 597 sesiones, 270 asignaciones, 85 tramos en 2
+  rejillas (EI y EP), 20 materias, 3 espacios y 288 vínculos con el profesorado — ninguno
+  sin casar**. Reejecutado dos veces: los números no se mueven (es idempotente).
+  Verificado con consultas de las tres vistas: **por clase** (el lunes de 3ºA sale entero,
+  con EF en Polideportivo 2 y Música en su aula), **por profesor** y **por aula**.
+- **Falta**: secundaria (David no lo tiene aún), las pantallas (Fases 1-2) y la demolición
+  de `pun_subjects` (ver decisión 1).
 
 ## El vocabulario (importa, porque todo el modelo cuelga de aquí)
 
@@ -300,6 +306,42 @@ servir de red de seguridad para comprobar que no falta ningún profe.
 - ⚠️ Solo 2 códigos sin leyenda en todo el fichero: `Otros` y `AUX`. Sembrados como
   actividades (`otros`, `auxiliar`) en vez de tratarlos como error.
 
+### Cómo se importa hoy
+
+```bash
+pnpm horarios:importar <fichero.docx|.xlsx> --dry          # vista previa, no escribe nada
+pnpm horarios:importar <fichero.docx> --year 2026-27 --periodo Ordinario \
+                       --desde 2026-09-01 --hasta 2027-05-31 --ordinario
+```
+
+Tres capas, cada una sin saber de las otras:
+
+- `src/lib/horarios-lectores.ts` — **formatos**: `.docx` y `.xlsx` → cuadrícula de texto.
+  Sin dependencias nuevas: SheetJS (que ya estaba para los excels) trae un lector de ZIP en
+  `XLSX.CFB`, y un `.docx` es un ZIP con XML dentro. El XML de Word se recorre con un árbol
+  mínimo hecho a mano (en Node no hay DOMParser y meter una librería de XML para leer un
+  fichero al año no compensa).
+- `src/lib/horarios-import.ts` — **horarios**: cuadrícula → sesiones y tramos. No sabe nada
+  de ficheros.
+- `src/lib/horarios-server.ts` — **BBDD**: el volcado. Es **idempotente por diseño**: borra
+  y reescribe el periodo por etapa dentro de la transacción en vez de casar fila a fila,
+  porque un horario es la foto completa de un curso, no un diario de cambios. Lo creado a
+  mano (`origen='manual'`) se respeta y no se borra nunca.
+
+Cuando llegue la API de Educamos será **un lector más**, y las otras dos capas no se tocan.
+
+### Lo que salió de importar de verdad
+
+- **288 de 288 vínculos con el profesorado resolvieron por `edu_teachers.alias`**, cero sin
+  casar. La apuesta de no montar tabla de traducción para profes era correcta.
+- **72 códigos de materia → 20 materias**. La identidad de una materia es su **nombre**, no
+  su código: `LEN1`, `LEN3` y `LEN5` son la misma Lengua en tres cursos, y el código se
+  guarda como abreviatura.
+- ⚠️ **Salen materias casi duplicadas**: `Educació Física` y `Educación Física` conviven,
+  porque cada clase trae su leyenda en su idioma. No las fusiono a ciegas (fusionar por
+  parecido es justo como se cruzan dos fichas); la pantalla de materias de la Fase 1 tendrá
+  que ofrecer "fusionar estas dos", que es una decisión de persona.
+
 ### La leyenda es la que desambigua
 
 Una celda es `MATERIA - PROFE` o `MATERIA - PROFE - AULA`, y por regex no hay forma honesta
@@ -336,6 +378,15 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
      jefatura y orientación.
    - **Editar** (rejillas, importar, asignaciones) es cuestión de rol, no de módulo:
      `puedeEditarHorarios()` — dirección, jefatura y TIC. Tener el módulo da vista, no lápiz.
+
+5. **Las actividades sin grupo son de primera clase** (2026-09-05). Sobre el "Taller de
+   Pensamiento Computacional": David lo zanjó — *"puedes no ponerlo vinculado a la clase, es
+   como la hora de oratorio: el profe tiene esa hora, con quién la hace no es relevante"*.
+   Así que una asignación **puede no tener ningún grupo** y eso no es un caso degradado: es
+   lo normal en oratorio, guardia, departamento, reunión y talleres. El modelo ya lo
+   soporta (los grupos viven en una tabla puente que puede estar vacía) y el importador no
+   fuerza grupo. Las líneas sueltas tipo "1 sesión mensual" se siguen guardando como **nota**
+   del bloque, sin inventar un motor de recurrencias.
 
 ### Sigue pendiente
 
@@ -421,8 +472,12 @@ necesitar tres joins.
       probado contra el `.docx` real: 18/18 clases, 597 sesiones, 2 códigos sin reconocer
 - [x] Parser de rejillas del "Horario general" (corta los días detectando el reinicio de la
       hora, no contando columnas: en ESO el lunes tiene 9 sesiones y el martes 7)
-- [ ] Lector .xlsx (SheetJS) y lector .docx (tablas) que alimenten al normalizador
-- [ ] Volcado a BBDD: asignaciones + sesiones, resolviendo profes por `edu_teachers.alias`
+- [x] Lector .xlsx (SheetJS) y lector .docx (`XLSX.CFB` + árbol mínimo de WordprocessingML),
+      sin dependencias nuevas
+- [x] Volcado a BBDD idempotente (`horarios-server.ts`) + `pnpm horarios:importar` con `--dry`
+- [x] Infantil y primaria importados y verificados en Neon (18 clases, 597 sesiones)
+- [ ] Importar **secundaria** cuando David tenga el fichero
+- [ ] Pantalla de importación (arrastrar el fichero) en vez del script
 - [ ] Resolución de códigos vía `hor_alias`, preguntando solo por los nuevos
 - [ ] Vista previa → confirmar, con bitácora en `hor_import_runs`
 - [ ] Reconciliación de la hoja de profes sobre las asignaciones ya importadas

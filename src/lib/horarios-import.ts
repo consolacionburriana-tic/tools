@@ -69,8 +69,17 @@ export interface Incidencia {
   crudo?: string;
 }
 
+export interface TramoImportado {
+  orden: number;
+  horaInicio: string;
+  horaFin: string;
+  tipo: TipoTramo;
+}
+
 export interface ResultadoBloque {
   clase: { codigo: string; curso: string; letra: string | null; nombre: string } | null;
+  /** Las filas de horas del bloque, recreos y comedor incluidos: ES la rejilla de la clase. */
+  tramos: TramoImportado[];
   sesiones: SesionImportada[];
   leyendas: Leyendas;
   incidencias: Incidencia[];
@@ -307,6 +316,7 @@ export function normalizarBloqueClase(filas: readonly (readonly string[])[]): Re
   });
 
   const sesiones: SesionImportada[] = [];
+  const tramos: TramoImportado[] = [];
   let ultimaFilaHoras = filaDias;
   let orden = 0;
 
@@ -327,6 +337,7 @@ export function normalizarBloqueClase(filas: readonly (readonly string[])[]): Re
       orden++;
       const celdasDelDia = columnaDia.map((col) => (col >= 0 ? (fila[col] ?? '') : ''));
       const tipoTramo = tipoDeFila(celdasDelDia);
+      tramos.push({ orden, horaInicio: rango.horaInicio, horaFin: rango.horaFin, tipo: tipoTramo });
 
       celdasDelDia.forEach((celda, idx) => {
         if (columnaDia[idx] < 0) return;
@@ -356,12 +367,12 @@ export function normalizarBloqueClase(filas: readonly (readonly string[])[]): Re
       .filter((t) => t.length > 8);
 
     if (orden === 0) incidencias.push({ tipo: 'sin_tramos', detalle: `El bloque de ${clase.codigo} no tiene ninguna fila de horas` });
-    return { clase, sesiones, leyendas, incidencias, notas };
+    return { clase, tramos, sesiones, leyendas, incidencias, notas };
   }
 
   if (!clase) incidencias.push({ tipo: 'grupo_ilegible', detalle: 'No se ha encontrado el título de clase del bloque (p. ej. "1PRIA: 1º EP-A")' });
   if (filaDias < 0) incidencias.push({ tipo: 'sin_tramos', detalle: 'No se ha encontrado la fila de días del bloque' });
-  return { clase, sesiones, leyendas: { materias: new Map(), profes: new Map(), aulas: new Map() }, incidencias, notas: [] };
+  return { clase, tramos, sesiones, leyendas: { materias: new Map(), profes: new Map(), aulas: new Map() }, incidencias, notas: [] };
 }
 
 // ─── Rejillas desde el "Horario general del colegio" ──────────────────────────

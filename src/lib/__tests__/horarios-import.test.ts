@@ -214,3 +214,29 @@ describe('rejillas del "Horario general del colegio"', () => {
     expect(parsearRejillaDeFila(['Profesor', 'Lunes', 'Martes'])).toBeNull();
   });
 });
+
+describe('los tramos del bloque son la rejilla de esa clase', () => {
+  const bloque = [
+    ['1PRIA: 1º EP-A'],
+    ['Horas', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'],
+    ['De 09:00 a 09:45', 'LEN1 - AAAA0', '', '', '', ''],
+    ['De 11:15 a 11:45', 'Recreo', 'Recreo', 'Recreo', 'Recreo', 'Recreo'],
+    ['De 13:30 a 15:30', 'Comedor', 'Comedor', 'Comedor', 'Comedor', 'Comedor'],
+    ['De 15:30 a 16:15', 'MAT1 - AAAA0', '', '', '', ''],
+    ['Materias:'],
+    ['LEN1: Lengua Castellana y Literatura', 'MAT1: Matemáticas'],
+    ['Profesores:'],
+    ['AAAA0: ANA ALVAREZ ALONSO'],
+  ];
+  const r = normalizarBloqueClase(bloque);
+
+  it('incluye recreo y comedor, que no son sesiones pero SÍ son huecos de la rejilla', () => {
+    expect(r.tramos.map((t) => t.tipo)).toEqual(['sesion', 'recreo', 'comedor', 'sesion']);
+    expect(r.tramos.map((t) => t.orden)).toEqual([1, 2, 3, 4]);
+    expect(r.tramos[1]).toMatchObject({ horaInicio: '11:15', horaFin: '11:45' });
+  });
+
+  it('el orden de la sesión casa con el del tramo', () => {
+    expect(r.sesiones.find((s) => s.materiaCodigo === 'MAT1')?.orden).toBe(4);
+  });
+});
