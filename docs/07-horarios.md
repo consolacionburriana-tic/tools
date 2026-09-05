@@ -486,8 +486,32 @@ necesitar tres joins.
 - [x] Ventana 08:00-18:00, sin fines de semana, recreo y comedor como separadores
 - [x] **Móvil: un solo día** con flechas (una rejilla 5×9 en un teléfono no se lee)
 - [x] Detalle al tocar una celda: grupo, profesorado con su rol, aula, lectiva o no
+- [x] **Colorear opcional** por clase o por materia (apagado por defecto)
 - [ ] Informe de conflictos y de huecos
 - [ ] Editar a mano el horario de un profe (horas no lectivas: atención a padres, guardias)
+
+#### Los colores del navegador
+
+Colorear es **opcional y por defecto está apagado**: en el horario de una clase el color no
+añade nada (todo es la misma clase) y en el de un profe es justo lo que hace falta para ver
+de un vistazo cuántas veces entra en cada grupo. Se puede colorear **por clase** o **por
+materia**.
+
+Tres reglas, ninguna decorativa:
+
+- **Paleta fija de 8 tonos, validada**, no tonos generados al vuelo. Está en
+  `PALETA_CATEGORICA` con su versión para modo oscuro, y pasa las comprobaciones de
+  separación para daltonismo (peor par ΔE 9,1 en claro y 8,4 en oscuro) y de contraste
+  sobre las dos superficies.
+- **El color va con la categoría, no con su posición.** Se ordena el conjunto completo de
+  categorías del horario antes de repartir, así que cambiar de día en el móvil o filtrar
+  **no repinta nada**: mientras mires el mismo horario, "3PRI B" es siempre del mismo color.
+- **Pasadas 8 categorías no se recicla ningún tono**: las que sobran se quedan sin color y
+  la pantalla lo dice. Repetir un color haría creer que dos materias distintas son la misma,
+  que es peor que no colorear.
+
+El color va como **filete lateral y un tinte muy suave**; el texto nunca se tiñe. Es lo que
+mantiene el contraste legible en claro y en oscuro.
 
 ### Fase 3 · Importación — 🟡
 - [x] Pantalla de importación con vista previa antes de escribir (`/gestion/horarios/importar`)

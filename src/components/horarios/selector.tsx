@@ -6,11 +6,17 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { DoorOpen, MapPin, Users } from 'lucide-react';
+import { DoorOpen, Filter, MapPin, Users } from 'lucide-react';
 
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import type { OpcionesNavegador, VistaHorario } from '@/lib/horarios-server';
+
+const ETIQUETA_LISTA: Record<VistaHorario, string> = {
+  clase: 'Clase',
+  profe: 'Profesor/a',
+  aula: 'Aula',
+};
 
 const VISTAS: { id: VistaHorario; label: string; icono: typeof Users }[] = [
   { id: 'clase', label: 'Clase', icono: Users },
@@ -89,8 +95,13 @@ export function Selector({
         ))}
       </div>
 
+      {/* Estas dos filas hacen cosas distintas y antes se confundían (parecían dos listas de
+          clases). Van etiquetadas: arriba se ACOTA el curso, abajo se ELIGE la clase. */}
       {vista === 'clase' && cursos.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="flex items-center gap-1 pr-0.5 text-xs font-medium text-zinc-400 dark:text-zinc-500">
+            <Filter className="h-3.5 w-3.5" /> Curso
+          </span>
           <Filtro activo={!curso} onClick={() => setCurso('')}>Todos</Filtro>
           {cursos.map((c) => (
             <Filtro key={c} activo={curso === c} onClick={() => setCurso(c)}>{c}</Filtro>
@@ -110,7 +121,9 @@ export function Selector({
 
       {/* En móvil una tira que se desliza (18 clases en rejilla se comen media pantalla);
           en pantalla grande, todas a la vista de un vistazo. */}
-      <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+      <div className="space-y-1.5">
+        <span className="block text-xs font-medium text-zinc-400 dark:text-zinc-500">{ETIQUETA_LISTA[vista]}</span>
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
         {lista.map((o) => (
           <button
             key={o.clave}
@@ -127,7 +140,8 @@ export function Selector({
             {o.pista && clave !== o.clave && <span className="ml-1.5 text-xs text-zinc-400 dark:text-zinc-500">{o.pista}</span>}
           </button>
         ))}
-        {lista.length === 0 && <p className="text-sm text-zinc-500 dark:text-zinc-400">Nada que mostrar.</p>}
+          {lista.length === 0 && <p className="text-sm text-zinc-500 dark:text-zinc-400">Nada que mostrar.</p>}
+        </div>
       </div>
     </div>
   );

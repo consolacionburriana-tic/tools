@@ -13,9 +13,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, DoorOpen, MapPin, Users, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, DoorOpen, MapPin, Palette, Users, X } from 'lucide-react';
 
-import { construirCuadricula, DIAS, situarAhora, type CeldaHorario, type FilaHorario } from '@/lib/horarios';
+import {
+  colorDeCelda,
+  construirCuadricula,
+  DIAS,
+  repartirColores,
+  situarAhora,
+  type CeldaHorario,
+  type ColorearPor,
+  type FilaHorario,
+} from '@/lib/horarios';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +53,8 @@ export function Navegador({ celdas, titulo }: { celdas: CeldaHorario[]; titulo: 
   // un setState dentro del efecto, que dispara renders en cascada), y en fin de semana cae
   // al lunes solo.
   const [diaElegido, setDiaElegido] = useState<number | null>(null);
+  const [colorear, setColorear] = useState<ColorearPor>('nada');
+  const reparto = useMemo(() => repartirColores(celdas, colorear), [celdas, colorear]);
   const dia = diaElegido ?? ahora?.dia ?? 1;
   const [detalle, setDetalle] = useState<CeldaHorario | null>(null);
 
@@ -67,6 +78,8 @@ export function Navegador({ celdas, titulo }: { celdas: CeldaHorario[]; titulo: 
 
   return (
     <>
+      <InterruptorColor valor={colorear} onCambio={setColorear} categorias={reparto.size} />
+
       {/* Móvil: un solo día, con flechas */}
       <div className="lg:hidden">
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -99,6 +112,7 @@ export function Navegador({ celdas, titulo }: { celdas: CeldaHorario[]; titulo: 
               dia={dia}
               enCurso={ahora?.dia === dia && ahora.filaActual === i}
               onCelda={setDetalle}
+              colorDe2={(c) => colorDeCelda(c, reparto, colorear)}
             />
           ))}
         </div>
@@ -131,7 +145,14 @@ export function Navegador({ celdas, titulo }: { celdas: CeldaHorario[]; titulo: 
             </thead>
             <tbody>
               {filas.map((f, i) => (
-                <FilaSemana key={`${f.horaInicio}-${f.horaFin}`} fila={f} ahora={ahora} enCurso={ahora?.filaActual === i} onCelda={setDetalle} />
+                <FilaSemana
+                  key={`${f.horaInicio}-${f.horaFin}`}
+                  fila={f}
+                  ahora={ahora}
+                  enCurso={ahora?.filaActual === i}
+                  onCelda={setDetalle}
+                  colorDe2={(c) => colorDeCelda(c, reparto, colorear)}
+                />
               ))}
             </tbody>
           </table>
@@ -148,11 +169,13 @@ function FilaMovil({
   dia,
   enCurso,
   onCelda,
+  colorDe2,
 }: {
   fila: FilaHorario;
   dia: number;
   enCurso: boolean;
   onCelda: (c: CeldaHorario) => void;
+  colorDe2: (c: CeldaHorario) => { claro: string; oscuro: string } | null;
 }) {
   const celdas = fila.dias[dia - 1];
   if (fila.tipo !== 'sesion') return <Separador fila={fila} />;
@@ -168,7 +191,7 @@ function FilaMovil({
             Libre
           </div>
         ) : (
-          celdas.map((c) => <Celda key={c.sesionId} celda={c} onClick={() => onCelda(c)} grande />)
+          celdas.map((c) => <Celda key={c.sesionId} celda={c} onClick={() => onCelda(c)} grande color={colorDe2(c)} />)
         )}
       </div>
     </div>
@@ -180,11 +203,13 @@ function FilaSemana({
   ahora,
   enCurso,
   onCelda,
+  colorDe2,
 }: {
   fila: FilaHorario;
   ahora: ReturnType<typeof situarAhora> | null;
   enCurso: boolean;
   onCelda: (c: CeldaHorario) => void;
+  colorDe2: (c: CeldaHorario) => { claro: string; oscuro: string } | null;
 }) {
   if (fila.tipo !== 'sesion') {
     return (
@@ -217,12 +242,62 @@ function FilaSemana({
         >
           <div className="space-y-1">
             {celdas.map((c) => (
-              <Celda key={c.sesionId} celda={c} onClick={() => onCelda(c)} />
+              <Celda key={c.sesionId} celda={c} onClick={() => onCelda(c)} color={colorDe2(c)} />
             ))}
           </div>
         </td>
       ))}
     </tr>
+  );
+}
+
+/**
+ * Colorear es OPCIONAL y por defecto está apagado: en el horario de una clase el color no
+ * añade nada (todo es la misma clase) y en el de un profe es justo lo que hace falta para
+ * ver de un vistazo cuántas veces entra en cada grupo.
+ */
+function InterruptorColor({
+  valor,
+  onCambio,
+  categorias,
+}: {
+  valor: ColorearPor;
+  onCambio: (v: ColorearPor) => void;
+  categorias: number;
+}) {
+  const opciones: { id: ColorearPor; label: string }[] = [
+    { id: 'nada', label: 'Sin color' },
+    { id: 'clase', label: 'Por clase' },
+    { id: 'materia', label: 'Por materia' },
+  ];
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <span className="flex items-center gap-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">
+        <Palette className="h-3.5 w-3.5" /> Colorear
+      </span>
+      <div className="flex gap-1 rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
+        {opciones.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => { haptic.tap(); onCambio(o.id); }}
+            className={cn(
+              'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+              valor === o.id
+                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
+                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {valor !== 'nada' && categorias === 8 && (
+        <span className="text-xs text-amber-600 dark:text-amber-400">
+          Solo se colorean 8; el resto se queda sin color para no repetir tonos.
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -236,15 +311,35 @@ function Separador({ fila }: { fila: FilaHorario }) {
   );
 }
 
-function Celda({ celda, onClick, grande }: { celda: CeldaHorario; onClick: () => void; grande?: boolean }) {
+function Celda({
+  celda,
+  onClick,
+  grande,
+  color,
+}: {
+  celda: CeldaHorario;
+  onClick: () => void;
+  grande?: boolean;
+  color?: { claro: string; oscuro: string } | null;
+}) {
   return (
     <button
       type="button"
       onClick={() => { haptic.tap(); onClick(); }}
+      // El color de categoría va como filete lateral + un tinte muy suave del mismo tono.
+      // El texto NUNCA se tiñe: se queda en la tinta de siempre y el color solo acompaña,
+      // que es lo que mantiene el contraste en claro y en oscuro.
+      style={
+        color
+          ? ({ '--hc': color.claro, '--hc-dark': color.oscuro } as React.CSSProperties)
+          : undefined
+      }
       className={cn(
         'w-full rounded-lg border px-2 text-left transition-colors hover:border-indigo-300 hover:shadow-sm dark:hover:border-indigo-500/50',
         grande ? 'py-2.5' : 'py-1.5',
-        colorDe(celda.actividad, celda.lectiva),
+        color
+          ? 'border-l-[3px] border-l-[var(--hc)] bg-[color-mix(in_oklab,var(--hc)_9%,white)] dark:border-l-[var(--hc-dark)] dark:bg-[color-mix(in_oklab,var(--hc-dark)_16%,#18181b)]'
+          : colorDe(celda.actividad, celda.lectiva),
       )}
     >
       <p

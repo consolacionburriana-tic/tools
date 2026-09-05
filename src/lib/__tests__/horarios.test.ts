@@ -11,7 +11,9 @@ import {
   periodoVigente,
   rejillaDeGrupo,
   tramoEnHora,
+  colorDeCelda,
   construirCuadricula,
+  repartirColores,
   situarAhora,
   tramoSiguiente,
   type CeldaHorario,
@@ -365,5 +367,55 @@ describe('situar "ahora" en la cuadrícula', () => {
 
   it('fuera de las franjas no resalta ninguna', () => {
     expect(situarAhora(filas, new Date(2026, 8, 7, 16, 0)).filaActual).toBeNull();
+  });
+});
+
+describe('colores por categoría', () => {
+  const c = (grupos: string[], titulo = 'Mates'): CeldaHorario => ({
+    sesionId: `${grupos.join()}-${titulo}`, dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45',
+    tipoTramo: 'sesion', titulo, subtitulo: null, actividad: 'clase', lectiva: true, espacio: null,
+    profes: [], grupos, notas: null,
+  });
+
+  it('apagado no reparte nada', () => {
+    expect(repartirColores([c(['2ESO A'])], 'nada').size).toBe(0);
+    expect(colorDeCelda(c(['2ESO A']), new Map(), 'nada')).toBeNull();
+  });
+
+  it('el color va con la categoría, no con el orden en que aparece', () => {
+    const celdas = [c(['6PRI B']), c(['1PRI A']), c(['3PRI A'])];
+    const a = repartirColores(celdas, 'clase');
+    const b = repartirColores([...celdas].reverse(), 'clase');
+    expect(a.get('1PRI A')).toBe(b.get('1PRI A'));
+    expect(a.get('6PRI B')).toBe(b.get('6PRI B'));
+    // Y filtrar (quedarse con menos celdas) no repinta a las que quedan.
+    const filtrado = repartirColores([c(['6PRI B']), c(['1PRI A']), c(['3PRI A'])].slice(0, 2), 'clase');
+    expect(filtrado.get('1PRI A')).toBe(a.get('1PRI A'));
+  });
+
+  it('la misma clase siempre el mismo color, aunque cambie la materia', () => {
+    const celdas = [c(['2ESO A'], 'Mates'), c(['2ESO A'], 'Lengua')];
+    const r = repartirColores(celdas, 'clase');
+    expect(colorDeCelda(celdas[0], r, 'clase')).toEqual(colorDeCelda(celdas[1], r, 'clase'));
+  });
+
+  it('por materia agrupa por materia, no por clase', () => {
+    const celdas = [c(['2ESO A'], 'Mates'), c(['3ESO B'], 'Mates'), c(['2ESO A'], 'Lengua')];
+    const r = repartirColores(celdas, 'materia');
+    expect(colorDeCelda(celdas[0], r, 'materia')).toEqual(colorDeCelda(celdas[1], r, 'materia'));
+    expect(colorDeCelda(celdas[0], r, 'materia')).not.toEqual(colorDeCelda(celdas[2], r, 'materia'));
+  });
+
+  it('pasadas 8 categorías las que sobran se quedan SIN color, no se recicla un tono', () => {
+    const celdas = Array.from({ length: 11 }, (_, i) => c([`Clase ${String.fromCharCode(65 + i)}`]));
+    const r = repartirColores(celdas, 'clase');
+    expect(r.size).toBe(8);
+    const sinColor = celdas.filter((x) => colorDeCelda(x, r, 'clase') === null);
+    expect(sinColor).toHaveLength(3);
+  });
+
+  it('una celda sin grupo no se colorea por clase', () => {
+    const celdas = [c([], 'Guardia')];
+    expect(colorDeCelda(celdas[0], repartirColores(celdas, 'clase'), 'clase')).toBeNull();
   });
 });

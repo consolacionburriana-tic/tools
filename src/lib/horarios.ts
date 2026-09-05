@@ -432,6 +432,70 @@ export function construirCuadricula(celdas: readonly CeldaHorario[]): FilaHorari
   return ordenadas;
 }
 
+// ─── Colores por categoría (opcional) ─────────────────────────────────────────
+//
+// Paleta categórica de 8 tonos, con su versión para modo oscuro. NO es un degradado ni
+// tonos generados al vuelo: es un orden fijo, validado para daltonismo y para contraste
+// sobre las dos superficies (ver docs/07-horarios.md). Se usa como filete lateral + un
+// tinte muy suave, nunca como color del texto: el texto se queda en la tinta de siempre y
+// el color solo acompaña.
+export const PALETA_CATEGORICA: { claro: string; oscuro: string }[] = [
+  { claro: '#2a78d6', oscuro: '#3987e5' }, // azul
+  { claro: '#eb6834', oscuro: '#d95926' }, // naranja
+  { claro: '#1baf7a', oscuro: '#199e70' }, // aguamarina
+  { claro: '#eda100', oscuro: '#c98500' }, // amarillo
+  { claro: '#e87ba4', oscuro: '#d55181' }, // magenta
+  { claro: '#008300', oscuro: '#008300' }, // verde
+  { claro: '#4a3aa7', oscuro: '#9085e9' }, // violeta
+  { claro: '#e34948', oscuro: '#e66767' }, // rojo
+];
+
+export type ColorearPor = 'nada' | 'clase' | 'materia';
+
+/**
+ * Reparte los colores entre las categorías de un horario.
+ *
+ * Dos reglas que importan:
+ *  - **El color va con la categoría, no con su posición.** Se ordena alfabéticamente el
+ *    conjunto COMPLETO de categorías del horario antes de repartir, así que cambiar de día
+ *    en el móvil o filtrar no repinta nada: "2ESO B" es siempre del mismo color mientras
+ *    estés mirando el mismo horario.
+ *  - **Pasadas 8 categorías no se inventan tonos**: las que sobran se quedan sin color en
+ *    vez de reciclar uno y hacer creer que dos cosas distintas son la misma.
+ */
+export function repartirColores(celdas: readonly CeldaHorario[], por: ColorearPor): Map<string, number> {
+  if (por === 'nada') return new Map();
+  const categorias = new Set<string>();
+  for (const c of celdas) {
+    for (const k of clavesDeColor(c, por)) categorias.add(k);
+  }
+  const mapa = new Map<string, number>();
+  [...categorias].sort((a, b) => a.localeCompare(b, 'es')).forEach((k, i) => {
+    if (i < PALETA_CATEGORICA.length) mapa.set(k, i);
+  });
+  return mapa;
+}
+
+/** Por qué categoría se colorea una celda (una celda de dos grupos entra en los dos). */
+export function clavesDeColor(celda: CeldaHorario, por: ColorearPor): string[] {
+  if (por === 'clase') return celda.grupos.length ? celda.grupos : [];
+  if (por === 'materia') return [celda.titulo];
+  return [];
+}
+
+/** El color de una celda, o null si no toca colorear (o se pasó de las 8 categorías). */
+export function colorDeCelda(
+  celda: CeldaHorario,
+  reparto: Map<string, number>,
+  por: ColorearPor,
+): { claro: string; oscuro: string } | null {
+  for (const k of clavesDeColor(celda, por)) {
+    const i = reparto.get(k);
+    if (i !== undefined) return PALETA_CATEGORICA[i];
+  }
+  return null;
+}
+
 export interface Ahora {
   dia: number | null; // 1-5, o null en fin de semana
   hora: string; // 'HH:mm'
