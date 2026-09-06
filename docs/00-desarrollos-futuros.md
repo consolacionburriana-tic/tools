@@ -61,21 +61,18 @@ las decidí sobre la marcha porque no estaban cerradas. Ninguna bloquea; todas s
 - **Permiso por defecto: editor.** Para que el tutor pueda retocar el documento antes de
   imprimirlo. Se cambia a "solo lectura" desde el propio panel, sin tocar código.
 
-### Mi horario en Google Calendar: tres decisiones
-Diseño completo en [`20-mi-horario.md`](./20-mi-horario.md). Ninguna bloquea empezar.
+### ~~Mi horario en Google Calendar: tres decisiones~~ ✅ decididas (2026-09-06)
+Diseño y código en [`20-mi-horario.md`](./20-mi-horario.md), Fases 0-3 hechas. David decidió
+ir directo a Calendar (sin `.ics`), plantilla general pero editable por persona, y exportar
+TODAS las horas del profesor (lectivas y no lectivas, solo quedan fuera recreo y comedor).
 
-1. **¿`.ics` primero o esperamos al scope de Calendar?** Recomendación: `.ics` ya — no
-   depende de nadie y el generador de eventos se reaprovecha entero para el botón directo.
-2. **¿Plantilla de título y emojis por persona, o unos del centro por defecto?**
-   Propuesta: unos por defecto que cada uno puede pisar.
-3. **¿Se exportan también las horas no lectivas?** Hoy no están importadas, así que la
-   pregunta es teórica, pero conviene decidirlo antes de montar la plantilla.
-
-📥 **De David, en la consola de Workspace**: añadir el scope
+📥 **Sigue pendiente de David, en la consola de Workspace**: añadir el scope
 `https://www.googleapis.com/auth/calendar` al Client ID de la cuenta de servicio que ya
-tiene delegación de dominio para `gmail.send`. Con eso, escribir en el calendario de cada
-profe no necesita OAuth por persona — ni para "mi horario" ni para que jefatura se lo pase a
-todo el claustro.
+tiene delegación de dominio para `gmail.send` (pasos esquemáticos en la ficha). Sin eso, la
+pantalla de `/mi-horario` deja preparar la plantilla y los emojis pero el botón de exportar
+avisa de que Calendar no está configurado. Y una vez añadido, la primera exportación real
+hay que mirarla con calma: el código sigue el mismo patrón que `email-gmail.ts` (ya probado
+en producción) pero esta sesión no tiene credenciales para probarlo en vivo.
 
 ### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
 `identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
@@ -143,6 +140,11 @@ Recopilados de las fichas, para verlos de un vistazo:
   vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`).
   No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
+- **Mi horario** (ficha `20`): en la consola de administración de Google Workspace, añadir
+  el scope `https://www.googleapis.com/auth/calendar` al Client ID que ya tiene delegación
+  de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin
+  esto el botón de exportar a Google Calendar no funciona; el resto de la pantalla
+  (plantilla, emojis, vista previa) sí.
 - ~~**Vercel Blob**: activar el store para justificantes~~ ✅ hecho — store creado, token
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
