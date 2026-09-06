@@ -41,6 +41,8 @@ mano los nombres, la clase y los datos de las familias, 30 veces por clase.
    documento (`cuad_hojas`), así que el panel sabe quién no tiene su hoja hecha y se puede
    lanzar una tirada solo para los que faltan: cae en una subcarpeta
    `aammdd - Ejecución Cuaderno 2` dentro de la carpeta de la clase, ya compartida.
+   **Salvo que la carpeta de la clase acabe de nacer**: si no había nada antes, no hay nada
+   que respetar y los documentos van directos a ella, sin subcarpeta que estorbe.
 9. **El trabajo lo hace el servidor, no el navegador de David.** Una tirada es una cola de
    ítems en Neon que consume un worker; la pantalla solo enseña el progreso. Se puede cerrar el
    portátil.
