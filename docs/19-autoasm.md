@@ -53,9 +53,22 @@ Cómo está montado hoy el centro (leído de los ficheros que pasó David, y rec
   cambiarlo mueve de grupo a todo el alumnado en ASM.
 - **`password_policy`**: `4` en todo el alumnado (PIN de cuatro dígitos). Valores válidos:
   4, 6 u 8.
-- Las clases de asignatura **no siempre llevan un grupo entero y solo uno**: las de ESO 3A
-  llevan también al alumnado de 3º PDC (de ahí que Religión de 3A tenga 31 matriculados y
-  la tutoría 19). Eso es una **regla de matrícula**, y el módulo la entiende como tal.
+- Las clases de asignatura **no siempre llevan un grupo entero y solo uno**. En ASM una
+  clase no dice "3º A": dice, alumno a alumno, quién está dentro (eso es `rosters.csv`).
+  Y en el centro hay asignaturas que juntan grupos — Música de 3º PDC va con la de 3º A,
+  y por eso Religión de 3A tiene 31 matriculados y la tutoría de 3A, 19.
+
+  **La regla de matrícula es el atajo para no tener que decirlo alumno a alumno**: en vez
+  de 31 líneas, la clase guarda "aquí entran ESO 3A y ESO 3 PDC", y el módulo escribe las
+  31 líneas él solo cada vez que cambia el alumnado. Al subir el `rosters.csv` del curso
+  pasado, el módulo mira quién está matriculado en cada clase y **deduce la regla**: si en
+  una clase está el grupo entero (o casi), lo apunta como regla; si hay un alumno suelto,
+  lo trata como excepción y no lo generaliza. Las reglas se ven y se tocan en la ficha de
+  cada clase ("Quién se matricula"), y se aplican con "Rehacer matrículas".
+
+  Esto es un apaño mientras los horarios no estén en Neon: **de dónde tiene que salir de
+  verdad es del horario** (una asignatura con dos grupos ES una clase conjunta). Ver
+  "Lo que falta" al final.
 
 ## Lo que se encontró en el export del curso (5-sep-2026)
 
@@ -74,6 +87,18 @@ datos, no del módulo:
   Excel). El módulo la descarta al leer y avisa.
 
 ## Decisiones cerradas
+
+### El alcance del alumnado es una opción, no una constante (2026-09-06)
+Los iPads no llegan a todo el centro y el corte se ha movido cada año: **2025-26 de 5º de
+primaria para arriba**, **2026-27 de 6º de primaria**, y **a partir de 2027-28 de 1º de ESO
+y ya no se mueve más**. Por eso hay un selector "**Alumnado desde**" en el paso 1 (por
+defecto 6º EP), que se guarda con el proyecto, y el sync deja fuera al resto diciendo
+cuántos y de qué cursos.
+
+Se filtra por el **curso de la BBDD central** (`6PRI`, `1ESO`) y no por el `grade_level`,
+que es texto libre; el PDC cuenta por su curso de verdad (`3ºPPDC` → 3º de ESO). El
+**profesorado entra siempre entero**: un profe da clase donde le toque, y además el
+claustro necesita sus cuentas aunque su grupo no tenga iPads.
 
 ### El proyecto vive en el navegador, no en Neon
 Lo que se manipula aquí es el alumnado entero del centro en su forma más exportable. Entra
@@ -143,6 +168,8 @@ src/lib/__tests__/autoasm.test.ts  # 34 tests con datos inventados
 ### Fase 2 · Orígenes de datos ✅
 - [x] Plantilla de la estructura del centro (41 cursos, 190 clases, reglas de grupo)
 - [x] Traer alumnado y profesorado de la BBDD central conservando identificadores
+- [x] Selector de alcance ("Alumnado desde", por defecto 6º EP), con aviso de cuántos y de
+      qué cursos se quedan fuera. El profesorado entra siempre entero
 - [x] Subir el ZIP o los CSV del curso pasado (identificación por nombre o por cabeceras)
 - [x] Inferir la regla de matrícula de cada clase a partir de sus matrículas reales
 
@@ -154,8 +181,71 @@ src/lib/__tests__/autoasm.test.ts  # 34 tests con datos inventados
 - [x] Descarga del ZIP (con LEEME) y de cada CSV suelto
 - [x] Revisado en claro y oscuro, y en ancho de iPad
 
-### Fase 4 · Pendiente de David
+### Fase 4 · Cuando haya horarios (`hor_*`)
+- [ ] Generar las clases y sus profes desde las asignaciones docentes (ver "Lo que falta")
+- [ ] Emparejar asignación ↔ `class_id` existente para no duplicar clases en ASM
+- [ ] Clases de curso entero y profes fijos (TIC/dirección) automáticos, si David lo ve
+
+### Fase 5 · Pendiente de David
 - [ ] Subir a ASM un ZIP generado por el módulo y confirmar que lo traga sin quejarse
 - [ ] Decidir qué hacer con los 29 duplicados de matrícula y con `Cls-TValESO1`
 - [ ] ¿Se normalizan a minúsculas los 57 correos en mayúsculas? (cambiarlo en la BBDD
       central, no aquí)
+
+---
+
+## Lo que falta: que las clases salgan del horario (2026-09-06)
+
+Hoy hay dos cosas que el módulo **no puede sacar de ninguna base de datos**, y por eso se
+arrastran del export del curso anterior o se ponen a mano:
+
+1. **Qué profes dan cada clase.**
+2. **Qué grupos van juntos en cada asignatura** (Música de 3º PDC con 3º A, Inglés que un
+   año es conjunto y al siguiente no).
+
+Las dos están, exactamente, en el horario. Cuando `hor_*` tenga datos
+([`07-horarios.md`](./07-horarios.md), Fase 0 hecha, falta el importador), el mapeo es
+directo:
+
+| ASM | Horarios |
+|---|---|
+| Una **clase** (`classes.csv`) | Una **asignación docente** lectiva de tipo clase (`hor_asignaciones`) |
+| `class_number` | `hor_materias.nombre` |
+| **Instructores** | `hor_asignacion_profes` (hasta 12; el `principal` primero) |
+| **Matrículas** (`rosters.csv`) | El alumnado de los grupos de `hor_asignacion_grupos` — que es la "regla de matrícula" de hoy, pero real: si la asignación junta 3ºA y 3º PDC, la clase junta 3ºA y 3º PDC |
+| `course_id` | El curso del grupo de la asignación (con varios, el del grupo mayor) |
+
+Lo único delicado es **no duplicar clases en ASM**: si una asignación genera un `class_id`
+distinto al que ya existe, ASM crea una clase nueva en vez de actualizar la de siempre. La
+solución cuando toque: guardar el `class_id` de ASM en la propia asignación (una columna
+`asm_class_id` en `hor_asignaciones`) y emparejar la primera vez por materia + grupo contra
+las clases que ya están.
+
+Mientras tanto, **subir el ZIP del curso pasado sigue teniendo sentido** por dos motivos:
+es lo que conserva los profes de cada clase hasta que haya horario, y es la forma de
+recuperar un proyecto si se cambia de dispositivo (el borrador vive en el navegador).
+
+## Decisión pendiente: las clases de curso entero y los accesos "por si acaso"
+
+En ASM hay hoy tres tipos de clase que no salen de ninguna asignatura y que responden a
+una necesidad distinta:
+
+- **De curso entero** (`Cls-ESO1`, `Cls-EP5`…): un sitio donde a un profe le salen TODOS
+  los alumnos de 1º de ESO, para actividades conjuntas.
+- **Compartidos** (`Cls-Comp`, `Cls-EPComp`, `Cls-EIComp`): las cuentas de los iPads
+  compartidos.
+- **Accesos "por si acaso"**: TIC está metido en las clases de curso o en todas las
+  tutorías para poder entrar cuando hace falta.
+
+Propuesta (a confirmar con David) para que esto también se genere solo:
+
+- Una clase de curso entero **por nivel dentro del alcance**, con todo su alumnado.
+- Sus instructores, automáticos: **los tutores de ese nivel** (salen de `edu_tutorias`, que
+  ya lleva el módulo de Tutorías) **+ el equipo TIC y dirección/jefatura** (salen de
+  `auth_users` por rol).
+- Un ajuste de "**profes fijos**": una lista corta de personas que se añaden a todas las
+  clases de un tipo (todas las tutorías, o todas las de curso). Ojo al límite: **ASM admite
+  12 instructores por clase**, y las tutorías de ESO ya van por 5-6.
+
+Con eso, el mantenimiento anual de los accesos de TIC dejaría de ser "acordarse de
+añadirse a mano en 35 tutorías".

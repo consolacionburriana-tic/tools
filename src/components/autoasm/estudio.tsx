@@ -32,9 +32,11 @@ import {
   type Incidencia,
 } from '@/lib/autoasm';
 import {
+  CURSOS_CENTRO,
   OPCIONES_POR_DEFECTO,
   OPCIONES_SYNC_POR_DEFECTO,
   inferirReglas,
+  labelCurso,
   proyectoDesdePlantilla,
   proyectoVacio,
   regenerarMatriculas,
@@ -54,6 +56,10 @@ export function EstudioAsm() {
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [sync, setSync] = useState<OpcionesSync>(OPCIONES_SYNC_POR_DEFECTO);
   const [verAjustes, setVerAjustes] = useState(false);
+  // Alcance elegido: manda el del proyecto si ya hay uno; si no, el de esta sesión, que
+  // es el que se usará al crearlo.
+  const [alcanceLocal, setAlcanceLocal] = useState<string | null>(OPCIONES_POR_DEFECTO.desdeCurso);
+  const desdeCurso = proyecto ? proyecto.opciones.desdeCurso : alcanceLocal;
 
   const incidencias = useMemo(() => (proyecto ? validarProyecto(proyecto.archivos) : []), [proyecto]);
   const conteo = contarIncidencias(incidencias);
@@ -66,9 +72,17 @@ export function EstudioAsm() {
     toast.success(mensaje);
   }
 
+  const opcionesNuevas = { ...OPCIONES_POR_DEFECTO, desdeCurso: alcanceLocal };
+
+  function cambiarAlcance(valor: string) {
+    const desde = valor === 'todos' ? null : valor;
+    setAlcanceLocal(desde);
+    if (proyecto) guardar({ ...proyecto, opciones: { ...proyecto.opciones, desdeCurso: desde } });
+  }
+
   function empezarPlantilla() {
     if (proyecto && !confirm('Esto reemplaza el proyecto que tienes empezado. ¿Seguimos?')) return;
-    aplicar(proyectoDesdePlantilla(proyecto?.opciones ?? OPCIONES_POR_DEFECTO), 'Estructura del centro cargada: cursos y clases listos, faltan las personas.');
+    aplicar(proyectoDesdePlantilla(proyecto?.opciones ?? opcionesNuevas), 'Estructura del centro cargada: cursos y clases listos, faltan las personas.');
   }
 
   async function subir(files: File[]) {
@@ -79,7 +93,7 @@ export function EstudioAsm() {
         toast.error('No he reconocido ningún fichero de Apple School Manager ahí dentro.');
         return;
       }
-      const base = proyecto ?? proyectoVacio(OPCIONES_POR_DEFECTO);
+      const base = proyecto ?? proyectoVacio(opcionesNuevas);
       const archivos = { ...base.archivos };
       for (const [archivo, filas] of Object.entries(lectura.archivos)) archivos[archivo as ArchivoAsm] = filas;
       if (archivos.locations.length === 0) archivos.locations = proyectoVacio(base.opciones).archivos.locations;
@@ -118,12 +132,16 @@ export function EstudioAsm() {
       const res = await fetch('/api/autoasm/admin/centro');
       if (!res.ok) throw new Error(String(res.status));
       const snapshot = (await res.json()) as SnapshotCentro;
-      const base = proyecto ?? proyectoDesdePlantilla(OPCIONES_POR_DEFECTO);
+      const base = proyecto ?? proyectoDesdePlantilla(opcionesNuevas);
       const { proyecto: actualizado, resumen } = sincronizarConCentro(base, snapshot, sync);
       aplicar(
         actualizado,
         `Alumnado: ${resumen.alumnos.altas} altas y ${resumen.alumnos.actualizados} cambios · Profesorado: ${resumen.profes.altas} altas · Matrículas: +${resumen.matriculas.altas} / −${resumen.matriculas.bajas}`,
       );
+      if (resumen.fueraDeAlcance.length > 0) {
+        const total = resumen.fueraDeAlcance.reduce((n, f) => n + f.n, 0);
+        toast.info(`Fuera del alcance (${labelCurso(desdeCurso)} para arriba): ${total} alumnos de ${resumen.fueraDeAlcance.map((f) => f.curso).join(', ')}.`, { duration: 9000 });
+      }
       if (resumen.alumnos.sinNia > 0) {
         toast.warning(`${resumen.alumnos.sinNia} alumnos sin NIA en la BBDD central: se les ha puesto un identificador a partir del correo.`, { duration: 9000 });
       }
@@ -197,6 +215,24 @@ export function EstudioAsm() {
               onClick={traerDelCentro}
               ocupado={trabajando !== null}
               destacado
+              extra={
+                <label className="mt-3 block">
+                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Alumnado desde</span>
+                  <select
+                    value={desdeCurso ?? 'todos'}
+                    onChange={(e) => cambiarAlcance(e.target.value)}
+                    className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  >
+                    {CURSOS_CENTRO.map((c) => (
+                      <option key={c.curso} value={c.curso}>{c.label} y superiores</option>
+                    ))}
+                    <option value="todos">Todo el centro</option>
+                  </select>
+                  <span className="mt-1 block text-[11px] text-zinc-500">
+                    El profesorado entra siempre entero, sin filtro.
+                  </span>
+                </label>
+              }
             />
           </div>
 
@@ -419,6 +455,7 @@ function AccionOrigen({
   onClick,
   ocupado,
   destacado,
+  extra,
 }: {
   titulo: string;
   desc: string;
@@ -427,6 +464,7 @@ function AccionOrigen({
   onClick: () => void;
   ocupado?: boolean;
   destacado?: boolean;
+  extra?: React.ReactNode;
 }) {
   return (
     <div className={`flex flex-col rounded-2xl border bg-white p-4 dark:bg-zinc-900 ${destacado ? 'border-blue-300 dark:border-blue-800' : 'border-zinc-200 dark:border-zinc-800'}`}>
@@ -435,6 +473,7 @@ function AccionOrigen({
       </span>
       <p className="mt-3 font-medium text-zinc-900 dark:text-zinc-100">{titulo}</p>
       <p className="mt-1 flex-1 text-xs text-zinc-500">{desc}</p>
+      {extra}
       <button
         type="button"
         onClick={onClick}

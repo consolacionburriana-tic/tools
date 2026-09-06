@@ -17,7 +17,10 @@ import {
   type FilaCsv,
 } from '@/lib/autoasm';
 import {
+  entraEnAlcance,
   inferirReglas,
+  labelCurso,
+  OPCIONES_POR_DEFECTO,
   proyectoDesdePlantilla,
   proyectoVacio,
   regenerarMatriculas,
@@ -245,9 +248,36 @@ describe('sincronizarConCentro', () => {
     expect(segunda.archivos.staff[0].last_name).toBe('Hopper-Murray');
   });
 
-  it('deja fuera del proyecto a los grupos que no se piden', () => {
-    const { proyecto } = sincronizarConCentro(proyectoVacio(), snapshot, { ...OPCIONES_SYNC_POR_DEFECTO, gruposIncluidos: ['ESO 2A'] });
-    expect(proyecto.archivos.students).toHaveLength(0);
+  it('el alcance decide qué alumnado entra, y el profesorado entra siempre entero', () => {
+    const conPrimaria: SnapshotCentro = {
+      ...snapshot,
+      alumnos: [
+        ...snapshot.alumnos,
+        { nia: '900003', codigo: null, nombre: 'Katherine', apellido1: 'Johnson', apellido2: 'Coleman', curso: '5PRI', letra: 'A', email: null, emailGoogle: 'kj@ej.com' },
+        { nia: '900004', codigo: null, nombre: 'Hedy', apellido1: 'Lamarr', apellido2: 'Kiesler', curso: '4INF', letra: 'B', email: null, emailGoogle: 'hl@ej.com' },
+      ],
+    };
+    const base = proyectoVacio({ ...OPCIONES_POR_DEFECTO, desdeCurso: '6PRI' });
+    const { proyecto, resumen } = sincronizarConCentro(base, conPrimaria);
+    expect(proyecto.archivos.students.map((s) => s.person_id)).toEqual(['900001', '900002']);
+    expect(resumen.fueraDeAlcance).toEqual([{ curso: '4INF', n: 1 }, { curso: '5PRI', n: 1 }]);
+    expect(proyecto.archivos.staff).toHaveLength(1);
+  });
+
+  it('con el alcance en todo el centro no se queda nadie fuera', () => {
+    const base = proyectoVacio({ ...OPCIONES_POR_DEFECTO, desdeCurso: null });
+    const { resumen } = sincronizarConCentro(base, snapshot);
+    expect(resumen.fueraDeAlcance).toEqual([]);
+    expect(resumen.alumnos.altas).toBe(2);
+  });
+
+  it('el PDC entra por su curso de verdad, no por el nombre del programa', () => {
+    expect(entraEnAlcance('3ºPPDC', '1ESO')).toBe(true);
+    expect(entraEnAlcance('6PRI', '1ESO')).toBe(false);
+    expect(entraEnAlcance('6PRI', '6PRI')).toBe(true);
+    expect(entraEnAlcance(null, null)).toBe(true);
+    expect(labelCurso('6PRI')).toBe('6º EP');
+    expect(labelCurso(null)).toBe('Todo el centro');
   });
 
   it('no borra a nadie salvo que se pida', () => {

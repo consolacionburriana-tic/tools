@@ -21,6 +21,7 @@ import {
   type OpcionesCsv,
   OPCIONES_CSV_ASM,
 } from '@/lib/autoasm';
+import { cursoBaseEso, ordenCurso } from '@/lib/cursos';
 import {
   CENTRO_PLANTILLA,
   CLASES_PLANTILLA,
@@ -33,6 +34,13 @@ import {
 export interface OpcionesProyecto {
   locationId: string;
   locationName: string;
+  /**
+   * Curso mínimo del alumnado que entra en ASM (`null` = todo el centro). El alcance se
+   * ha movido cada año — 2025-26 de 5º EP para arriba, 2026-27 de 6º EP — y a partir de
+   * 2027-28 se queda fijo en 1º ESO, así que es una opción, no una constante.
+   * El PROFESORADO entra siempre entero: un profe da clase donde le toque.
+   */
+  desdeCurso: string | null;
   /** 4 = PIN de 4 dígitos · 6 = PIN de 6 · 8 = contraseña larga. */
   passwordPolicy: '4' | '6' | '8';
   /** Dominio con el que se completa el correo del alumnado que no lo tiene en la BBDD. */
@@ -52,9 +60,44 @@ export interface ProyectoAsm {
   historial: { fecha: string; texto: string }[];
 }
 
+/** Cursos del centro de menor a mayor, para el selector "alumnado desde". */
+export const CURSOS_CENTRO: { curso: string; label: string }[] = [
+  { curso: '3INF', label: 'Infantil 3 años' },
+  { curso: '4INF', label: 'Infantil 4 años' },
+  { curso: '5INF', label: 'Infantil 5 años' },
+  { curso: '1PRI', label: '1º EP' },
+  { curso: '2PRI', label: '2º EP' },
+  { curso: '3PRI', label: '3º EP' },
+  { curso: '4PRI', label: '4º EP' },
+  { curso: '5PRI', label: '5º EP' },
+  { curso: '6PRI', label: '6º EP' },
+  { curso: '1ESO', label: '1º ESO' },
+  { curso: '2ESO', label: '2º ESO' },
+  { curso: '3ESO', label: '3º ESO' },
+  { curso: '4ESO', label: '4º ESO' },
+];
+
+export function labelCurso(curso: string | null): string {
+  if (!curso) return 'Todo el centro';
+  return CURSOS_CENTRO.find((c) => c.curso === curso)?.label ?? curso;
+}
+
+/**
+ * ¿Este alumno entra en ASM con el alcance elegido? Se compara por CURSO de la BBDD
+ * central (`6PRI`, `1ESO`) y no por `grade_level`, que es texto libre; y el PDC cuenta
+ * por su curso de verdad (`3ºPPDC` → 3º de ESO).
+ */
+export function entraEnAlcance(curso: string | null | undefined, desdeCurso: string | null): boolean {
+  if (!desdeCurso) return true;
+  if (!curso) return false;
+  return ordenCurso(cursoBaseEso(curso)) >= ordenCurso(desdeCurso);
+}
+
 export const OPCIONES_POR_DEFECTO: OpcionesProyecto = {
   locationId: CENTRO_PLANTILLA.location_id,
   locationName: CENTRO_PLANTILLA.location_name,
+  desdeCurso: '6PRI', // alcance del curso 2026-27
+
   passwordPolicy: '4',
   dominio: 'consolacionburriana.com',
   csv: OPCIONES_CSV_ASM,
@@ -158,6 +201,8 @@ export function emailDeAlumno(alumno: AlumnoCentro, dominio: string): string {
 
 export interface ResumenSync {
   alumnos: { altas: number; actualizados: number; bajas: number; sinNia: number };
+  /** Alumnado de la BBDD central que se ha quedado fuera por el alcance, por curso. */
+  fueraDeAlcance: { curso: string; n: number }[];
   profes: { altas: number; actualizados: number; bajas: number };
   matriculas: { altas: number; bajas: number };
   /** Instructores que se han quitado de alguna clase por haber causado baja. */
@@ -169,14 +214,11 @@ export interface OpcionesSync {
   quitarBajas: boolean;
   /** Rehacer las matrículas de las clases que tienen regla de grupos. */
   regenerarMatriculas: boolean;
-  /** Solo se traen los alumnos de estos `grade_level` (vacío = todos). */
-  gruposIncluidos: string[];
 }
 
 export const OPCIONES_SYNC_POR_DEFECTO: OpcionesSync = {
   quitarBajas: false,
   regenerarMatriculas: true,
-  gruposIncluidos: [],
 };
 
 /**
@@ -192,6 +234,7 @@ export function sincronizarConCentro(
   const { locationId, passwordPolicy, dominio } = proyecto.opciones;
   const resumen: ResumenSync = {
     alumnos: { altas: 0, actualizados: 0, bajas: 0, sinNia: 0 },
+    fueraDeAlcance: [],
     profes: { altas: 0, actualizados: 0, bajas: 0 },
     matriculas: { altas: 0, bajas: 0 },
     instructoresRetirados: [],
@@ -260,9 +303,14 @@ export function sincronizarConCentro(
   const studentsFinal: FilaCsv[] = [];
   const vivosAlumnos = new Set<string>();
 
+  const fuera = new Map<string, number>();
   for (const alumno of snapshot.alumnos) {
+    if (!entraEnAlcance(alumno.curso, proyecto.opciones.desdeCurso)) {
+      const clave = alumno.curso ?? 'sin curso';
+      fuera.set(clave, (fuera.get(clave) ?? 0) + 1);
+      continue;
+    }
     const grade = gradeLevelDe(alumno.curso, alumno.letra);
-    if (opciones.gruposIncluidos.length > 0 && !opciones.gruposIncluidos.includes(grade)) continue;
     const email = emailDeAlumno(alumno, dominio);
     const nia = (alumno.nia ?? '').trim();
     if (!nia) resumen.alumnos.sinNia += 1;
@@ -286,6 +334,9 @@ export function sincronizarConCentro(
     vivosAlumnos.add(personId);
     studentsFinal.push(nueva);
   }
+  resumen.fueraDeAlcance = [...fuera.entries()]
+    .map(([curso, n]) => ({ curso, n }))
+    .sort((a, b) => ordenCurso(a.curso) - ordenCurso(b.curso));
   const alumnosFuera = archivos.students.filter((f) => !vivosAlumnos.has(f.person_id));
   if (opciones.quitarBajas) {
     resumen.alumnos.bajas = alumnosFuera.length;

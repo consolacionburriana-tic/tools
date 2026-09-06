@@ -320,9 +320,15 @@ Recopilados de las fichas, para verlos de un vistazo:
   [`19-autoasm.md`](./19-autoasm.md)): si algún día lo prepara más de una persona, o hace
   falta ver "qué se subió a ASM en septiembre", tocaría un par de tablas `asm_*` con el
   histórico de exports. Mientras lo lleve TIC desde su portátil, no compensa.
-- **AUTOASM ↔ horarios**: cuando `hor_*` tenga datos, las clases y sus profes podrían salir
-  de las asignaciones docentes en vez de asignarse a mano o arrastrarse del curso anterior.
-  Es el único trozo de ASM que hoy no sale de ninguna base de datos.
+- **AUTOASM ↔ horarios** (David, 2026-09-06: es LA gracia del módulo): cuando `hor_*` tenga
+  datos, cada asignación docente es una clase de ASM — materia, profes y grupos incluidos,
+  con las asignaturas conjuntas (Música de 3º PDC con 3º A) saliendo solas y cambiando el
+  año que dejen de serlo. Mapeo campo a campo y el problema de no duplicar clases, en
+  [`19-autoasm.md`](./19-autoasm.md) → "Lo que falta".
+- **AUTOASM: clases de curso entero y accesos de TIC** — decisión pendiente con propuesta
+  escrita en [`19-autoasm.md`](./19-autoasm.md): generar una clase por nivel con todo su
+  alumnado y meter automáticamente a los tutores del nivel + TIC/dirección, en vez de
+  añadirse a mano en 35 tutorías. Límite de ASM: 12 instructores por clase.
 - Exportación/sincronización automática hacia Educamos (hoy todo lo que sale de la app hacia
   Educamos es manual).
 - Auditoría/historial de cambios transversal (quién tocó qué registro y cuándo), útil sobre
