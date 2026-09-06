@@ -1343,3 +1343,30 @@ export type HorEspacio = typeof horEspacios.$inferSelect;
 export type NewHorEspacio = typeof horEspacios.$inferInsert;
 export type HorApoyo = typeof horApoyos.$inferSelect;
 export type NewHorApoyo = typeof horApoyos.$inferInsert;
+
+// Asignaturas por curso para el cuaderno de tutor. Salen del horario (`hor_materias` vía
+// `hor_asignaciones`) con un botón, y a partir de ahí se editan a mano: el horario dice
+// "Valencià: Llengua i Literatura" y en una hoja impresa cabe "Valencià".
+//
+// El CÓDIGO de una asignatura (`<<asignatura1>>`, `<<asignatura2>>`…) es su POSICIÓN dentro
+// del curso, no un id: la plantilla es la misma para todos los cursos y cada clase rellena
+// las suyas. Por eso `orden` es lo único que decide qué sale en cada hueco.
+export const cuadAsignaturas = pgTable('cuad_asignaturas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  curso: text('curso').notNull(), // '2ESO', '1PRI'… (sin letra: son del curso, no de la clase)
+  nombre: text('nombre').notNull(), // el nombre largo, tal cual viene del horario
+  nombreCorto: text('nombre_corto'), // 'Mates' — si está, es lo que sale en las hojas
+  orden: integer('orden').notNull().default(1),
+  // De dónde salió, para que "traer del horario" no pise lo que se editó a mano.
+  horMateriaId: uuid('hor_materia_id').references(() => horMaterias.id, { onDelete: 'set null' }),
+  origen: text('origen').notNull().default('manual'), // 'horario' | 'manual'
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('cuad_asignaturas_curso_idx').on(t.academicYear, t.curso, t.orden),
+]);
+
+export type CuadAsignatura = typeof cuadAsignaturas.$inferSelect;
+export type NewCuadAsignatura = typeof cuadAsignaturas.$inferInsert;

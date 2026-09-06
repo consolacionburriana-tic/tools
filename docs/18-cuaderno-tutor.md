@@ -86,6 +86,7 @@ Las copias van separadas por salto de página.
   `num_alumnos`
 - **familiar1 / familiar2** — `familiar1_nombre`, `familiar1_telefono`, `familiar1_correo` (y
   los mismos con `familiar2_`)
+- **asignatura** — `asignatura1` … `asignatura15` y `num_asignaturas` (ver más abajo)
 - **centro** — `curso_escolar`, `centro`, `fecha_hoy`
 - **trimestre** — `trimestre`, `trimestre_num`, `trimestre_nombre`
 
@@ -118,6 +119,44 @@ escolar y las clases.
 
 ---
 
+## Asignaturas por curso
+
+Una plantilla de tutoría casi siempre tiene una tabla de asignaturas ("suspesas per avaluació",
+"pendents de cursos anteriors"). Como la plantilla es **la misma para todos los cursos**, las
+asignaturas van en huecos numerados y cada clase rellena los suyos:
+
+```
+1. <<asignatura1>>     →  3ºPRI: Arts          ·  3ºINF: Crecimiento En Armonía
+2. <<asignatura2>>     →  3ºPRI: Coneixement…  ·  3ºINF: English
+…
+12. <<asignatura12>>   →  3ºPRI: (vacío)       ·  3ºINF: (vacío)
+```
+
+Reglas, todas visibles en la pestaña **Asignaturas** del panel:
+
+- **El número es la posición**, no un id. Si borras la 2ª, la que era 3ª pasa a ser 2ª. Por eso
+  el panel enseña la etiqueta al lado de cada asignatura y las flechas de subir/bajar avisan de
+  que cambian el número.
+- **Los huecos que sobran salen en blanco.** Una tabla de doce filas no imprime
+  `<<asignatura12>>` en un curso que solo da diez: imprime nada. Hay 15 huecos
+  (`ASIGNATURAS_MAX`); el curso con más asignaturas del colegio tiene once.
+- **El nombre corto es el que se imprime**, si lo pones. El horario dice "Valencià: Llengua i
+  Literatura" y en una casilla cabe "Valencià". Sin nombre corto, sale el largo.
+- **Salen del horario** (`hor_materias` a través de `hor_asignaciones` y sus grupos) con el botón
+  «traer del horario», que **no pisa nada**: las que ya están se quedan como las tengas y solo se
+  añaden las nuevas al final. Los cursos sin horario cargado se rellenan a mano, con el mismo
+  panel.
+- **La abreviatura del horario NO se copia** como nombre corto: es un código del generador
+  (`EPV1`, `MYD1`, `LCO1`) que en una hoja impresa no dice nada.
+
+El panel enseña además, por curso, cuántos **alumnos de las clases que la tienen** — ojo con lo
+que eso no dice: en un desdoble (Religión / Valores) el horario no guarda quién va a cuál, así
+que las dos salen con la clase entera.
+
+> Estado a 6-sep-2026: el horario cargado es de **Infantil y Primaria** (9 cursos, 84
+> asignaturas ya traídas). ESO todavía no tiene horario, así que sus asignaturas se añaden a
+> mano — que es justo para lo que está el panel.
+
 ## Plan técnico
 
 ### Tablas (`cuad_*`)
@@ -130,6 +169,7 @@ escolar y las clases.
 | `cuad_tiradas` | Una ejecución: curso escolar, opciones, estado, carpeta raíz, quién y cuándo |
 | `cuad_items` | Unidad de trabajo = **tutor × plantilla**: alumnos que entran, estado, IDs de Drive, intentos |
 | `cuad_numeracion` | Número de lista congelado por alumno y curso escolar |
+| `cuad_asignaturas` | Asignaturas de cada curso, su orden (= su número de etiqueta) y su nombre corto |
 | `cuad_hojas` | "Este alumno ya tiene su hoja de esta plantilla este curso" |
 
 El DDL vive en `src/db/sql/cuaderno-tutor.sql` (idempotente) y ya está aplicado en Neon. Se hizo
@@ -262,6 +302,14 @@ fábrica, sin mapear nada a mano.
 ### Fase 6 · Compartir
 - [x] Permisos de la carpeta de clase a los tutores
 - [x] Correo de aviso al tutor con el enlace de su carpeta
+
+### Fase 6b · Asignaturas por curso
+- [x] Tabla `cuad_asignaturas` y SQL aditivo (`src/db/sql/cuaderno-asignaturas.sql`), aplicado en Neon
+- [x] Campos `<<asignatura1..15>>` y `<<num_asignaturas>>`, con los huecos sobrantes en blanco
+- [x] Traer del horario sin pisar lo editado a mano; alta, edición, borrado y reordenación
+- [x] Pestaña «Asignaturas»: asignaturas por curso, alumnos por asignatura y la etiqueta a la vista
+- [x] Semilla real: 84 asignaturas de los 9 cursos de Infantil y Primaria que tienen horario
+- [x] Probado de punta a punta contra Neon: 3ºPRI llena 11 huecos y deja el 12 vacío; 3ºINF, 8
 
 ### Fase 7 · Estreno real
 - [x] Prueba del motor con las plantillas .docx reales: 3 copias por alumno, saltos de página,
