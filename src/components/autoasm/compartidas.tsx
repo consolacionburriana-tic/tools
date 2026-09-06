@@ -9,7 +9,7 @@ import { Plus, Tablet, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cabecerasDe, type FilaCsv } from '@/lib/autoasm';
-import { darDeBaja, limpiarArchivos, type ProyectoAsm } from '@/lib/autoasm-construir';
+import { darDeBaja, limpiarArchivos, regenerarMatriculas, type ProyectoAsm } from '@/lib/autoasm-construir';
 import { num } from '@/components/autoasm/paleta';
 
 /** Números que ya están usados con ese prefijo, para seguir la serie sin pisar nada. */
@@ -68,10 +68,19 @@ export function PanelCompartidas({
       toast.info('No había ninguna que crear.');
       return;
     }
-    const archivos = { ...proyecto.archivos, students: [...proyecto.archivos.students, ...nuevas] };
+    const conAlumnado = { ...proyecto.archivos, students: [...proyecto.archivos.students, ...nuevas] };
+    // Si el grupo elegido ya es la regla de alguna clase de compartidos (lo normal: el
+    // desplegable sugiere justo esos), rehacer matrículas las mete solas ahí. Si el grupo
+    // es nuevo y ninguna clase lo pide todavía, esto no hace nada — se avisa igual.
+    const { filas: rosters, altas } = regenerarMatriculas(conAlumnado, proyecto.reglas, proyecto.archivados);
+    const archivos = limpiarArchivos({ ...conAlumnado, rosters }, proyecto.archivados);
     haptic.success();
-    onGuardar({ ...proyecto, archivos: limpiarArchivos(archivos, proyecto.archivados), compartidas, actualizado: new Date().toISOString() });
-    toast.success(`${nuevas.length} cuentas compartidas creadas. Matricúlalas en su clase desde "Clases".`);
+    onGuardar({ ...proyecto, archivos, compartidas, actualizado: new Date().toISOString() });
+    toast.success(
+      altas > 0
+        ? `${nuevas.length} cuentas compartidas creadas y matriculadas en su clase.`
+        : `${nuevas.length} cuentas compartidas creadas. Ninguna clase pide el grupo "${datos.grupo}" todavía: matricúlalas a mano desde "Clases".`,
+    );
     setAnadiendo(false);
   }
 
