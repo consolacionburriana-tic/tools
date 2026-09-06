@@ -5,8 +5,20 @@
 // sin ella no se puede generar nada, y es lo único que hay que configurar una vez.
 
 import { useState } from 'react';
-import { AlertTriangle, Check, ExternalLink, FolderOpen, History, Loader2, Play, Settings2, Wand2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  BookOpen,
+  Check,
+  ExternalLink,
+  FolderOpen,
+  History,
+  Loader2,
+  Play,
+  Settings2,
+  Wand2,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { AsignaturasPanel } from '@/components/cuaderno/asignaturas-panel';
 import { GenerarPanel } from '@/components/cuaderno/generar-panel';
 import { PlantillasPanel } from '@/components/cuaderno/plantillas-panel';
 import { HistorialPanel } from '@/components/cuaderno/historial-panel';
@@ -16,6 +28,7 @@ import { haptic } from '@/lib/haptics';
 const TABS = [
   { k: 'generar' as const, label: 'Generar', icon: Play },
   { k: 'plantillas' as const, label: 'Plantillas', icon: Wand2 },
+  { k: 'asignaturas' as const, label: 'Asignaturas', icon: BookOpen },
   { k: 'historial' as const, label: 'Historial', icon: History },
 ];
 
@@ -31,7 +44,7 @@ interface Props {
 }
 
 export function CuadernoPanel(props: Props) {
-  const [tab, setTab] = useState<'generar' | 'plantillas' | 'historial'>('generar');
+  const [tab, setTab] = useState<'generar' | 'plantillas' | 'asignaturas' | 'historial'>('generar');
   const [ajustes, setAjustes] = useState(props.ajustes);
   const [abiertoAjustes, setAbiertoAjustes] = useState(!props.ajustes.carpetaBaseId);
 
@@ -82,6 +95,7 @@ export function CuadernoPanel(props: Props) {
         />
       )}
       {tab === 'plantillas' && <PlantillasPanel plantillas={props.plantillas} cuenta={props.drive.cuenta} />}
+      {tab === 'asignaturas' && <AsignaturasPanel cursoEscolar={props.cursoEscolar} />}
       {tab === 'historial' && <HistorialPanel tiradas={props.tiradas} plantillas={props.plantillas} />}
     </div>
   );

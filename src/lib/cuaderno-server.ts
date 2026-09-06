@@ -10,6 +10,7 @@ import { db } from '@/db';
 import {
   cuadAjustes,
   cuadAlias,
+  cuadAsignaturas,
   cuadHojas,
   cuadItems,
   cuadNumeracion,
@@ -22,6 +23,7 @@ import {
   eduTutorias,
   eduTutorPersonal,
   type CuadAjustes,
+  type CuadAsignatura,
   type CuadItem,
   type CuadPlantilla,
   type CuadTirada,
@@ -476,6 +478,213 @@ export async function asegurarNumeracion(
     salida.set(alumno.id, { asignado: porAlumno.get(alumno.id) ?? i + 1, alfabetico: i + 1 });
   });
   return salida;
+}
+
+// ─── Asignaturas por curso ───────────────────────────────────────────────────
+//
+// El CÓDIGO de una asignatura (`<<asignatura1>>`) es su POSICIÓN dentro del curso, no su id:
+// la plantilla es la misma para todos y cada clase rellena las suyas. Si se borra la 2, la
+// que era 3 pasa a ser 2 — el panel lo enseña, y por eso los códigos se ven ahí siempre.
+
+export interface AsignaturaCuaderno {
+  id: string;
+  curso: string;
+  /** 1, 2, 3… = la etiqueta `<<asignaturaN>>`. Es la posición, se recalcula al leer. */
+  codigo: number;
+  nombre: string;
+  nombreCorto: string | null;
+  /** Lo que sale de verdad en la hoja: el corto si lo hay, si no el largo. */
+  enLaHoja: string;
+  origen: string;
+  horMateriaId: string | null;
+  /** Alumnos de las clases donde consta esa materia en el horario (null si es manual). */
+  alumnos: number | null;
+}
+
+const conCodigos = (filas: CuadAsignatura[], alumnosPorMateria: Map<string, number>): AsignaturaCuaderno[] =>
+  filas
+    .filter((f) => f.active)
+    .sort((a, b) => a.orden - b.orden || cmpEs(a.nombre, b.nombre))
+    .map((f, i) => ({
+      id: f.id,
+      curso: f.curso,
+      codigo: i + 1,
+      nombre: f.nombre,
+      nombreCorto: f.nombreCorto,
+      enLaHoja: f.nombreCorto?.trim() || f.nombre,
+      origen: f.origen,
+      horMateriaId: f.horMateriaId,
+      alumnos: f.horMateriaId ? alumnosPorMateria.get(`${f.curso}|${f.horMateriaId}`) ?? 0 : null,
+    }));
+
+/**
+ * Cuántos alumnos tiene cada (curso, materia) según el horario: los de las clases donde esa
+ * materia se imparte. Ojo con lo que NO dice: en un desdoble (Religión / Valores) los dos
+ * salen con la clase entera, porque el horario no guarda quién va a cuál. Por eso el panel
+ * lo llama "alumnos de las clases que la tienen" y no "matriculados".
+ */
+async function alumnosPorMateriaDelHorario(): Promise<Map<string, number>> {
+  const filas = await db.execute<{ curso: string; materia_id: string; alumnos: number }>(sql`
+    SELECT g.curso, a.materia_id, count(DISTINCT s.id)::int AS alumnos
+    FROM hor_asignacion_grupos g
+    JOIN hor_asignaciones a ON a.id = g.asignacion_id AND a.active AND a.materia_id IS NOT NULL
+    JOIN edu_students s ON s.active AND s.curso = g.curso
+      AND (g.letra IS NULL OR coalesce(s.letra, '') = g.letra)
+    GROUP BY g.curso, a.materia_id
+  `);
+  return new Map(filas.rows.map((f) => [`${f.curso}|${f.materia_id}`, Number(f.alumnos)]));
+}
+
+/** Asignaturas guardadas, por curso, ya con su código. */
+export async function getAsignaturas(academicYear: string): Promise<Map<string, AsignaturaCuaderno[]>> {
+  const [filas, alumnos] = await Promise.all([
+    db.select().from(cuadAsignaturas).where(eq(cuadAsignaturas.academicYear, academicYear)),
+    alumnosPorMateriaDelHorario(),
+  ]);
+  const porCurso = new Map<string, CuadAsignatura[]>();
+  for (const f of filas) porCurso.set(f.curso, [...(porCurso.get(f.curso) ?? []), f]);
+  return new Map([...porCurso].map(([curso, suyas]) => [curso, conCodigos(suyas, alumnos)]));
+}
+
+export interface MateriaDelHorario {
+  curso: string;
+  materiaId: string;
+  nombre: string;
+  abreviatura: string | null;
+  alumnos: number;
+  /** ¿Está ya en las asignaturas del cuaderno de ese curso? */
+  yaEsta: boolean;
+}
+
+/** Lo que el horario sabe de cada curso: la fuente del botón «traer del horario». */
+export async function getMateriasDelHorario(academicYear: string): Promise<MateriaDelHorario[]> {
+  const [filas, guardadas, alumnos] = await Promise.all([
+    db.execute<{ curso: string; materia_id: string; nombre: string; abreviatura: string | null }>(sql`
+      SELECT DISTINCT g.curso, m.id AS materia_id, m.nombre, m.abreviatura
+      FROM hor_asignacion_grupos g
+      JOIN hor_asignaciones a ON a.id = g.asignacion_id AND a.active AND a.materia_id IS NOT NULL
+      JOIN hor_materias m ON m.id = a.materia_id AND m.active
+      ORDER BY g.curso, m.nombre
+    `),
+    db.select().from(cuadAsignaturas).where(eq(cuadAsignaturas.academicYear, academicYear)),
+    alumnosPorMateriaDelHorario(),
+  ]);
+  const yaEstan = new Set(guardadas.filter((g) => g.active && g.horMateriaId).map((g) => `${g.curso}|${g.horMateriaId}`));
+  return filas.rows.map((f) => ({
+    curso: f.curso,
+    materiaId: f.materia_id,
+    nombre: f.nombre,
+    abreviatura: f.abreviatura,
+    alumnos: alumnos.get(`${f.curso}|${f.materia_id}`) ?? 0,
+    yaEsta: yaEstan.has(`${f.curso}|${f.materia_id}`),
+  }));
+}
+
+async function siguienteOrden(academicYear: string, curso: string): Promise<number> {
+  const [fila] = await db
+    .select({ max: sql<number>`coalesce(max(${cuadAsignaturas.orden}), 0)` })
+    .from(cuadAsignaturas)
+    .where(and(eq(cuadAsignaturas.academicYear, academicYear), eq(cuadAsignaturas.curso, curso)));
+  return (fila?.max ?? 0) + 1;
+}
+
+export async function crearAsignatura(datos: {
+  academicYear: string;
+  curso: string;
+  nombre: string;
+  nombreCorto?: string | null;
+  horMateriaId?: string | null;
+  origen?: string;
+}): Promise<CuadAsignatura> {
+  const orden = await siguienteOrden(datos.academicYear, datos.curso);
+  const [fila] = await db
+    .insert(cuadAsignaturas)
+    .values({ ...datos, orden, origen: datos.origen ?? 'manual' })
+    .returning();
+  return fila;
+}
+
+export async function actualizarAsignatura(
+  id: string,
+  cambios: Partial<{ nombre: string; nombreCorto: string | null; orden: number; active: boolean }>,
+): Promise<void> {
+  await db
+    .update(cuadAsignaturas)
+    .set({ ...cambios, updatedAt: new Date() })
+    .where(eq(cuadAsignaturas.id, id));
+}
+
+export async function borrarAsignatura(id: string): Promise<void> {
+  await db.delete(cuadAsignaturas).where(eq(cuadAsignaturas.id, id));
+}
+
+/**
+ * Sube o baja una asignatura dentro de su curso intercambiando el `orden` con su vecina.
+ * Cambiar el orden cambia el código: lo que era `<<asignatura3>>` pasa a ser `<<asignatura2>>`.
+ */
+export async function moverAsignatura(id: string, direccion: 'arriba' | 'abajo'): Promise<void> {
+  const [actual] = await db.select().from(cuadAsignaturas).where(eq(cuadAsignaturas.id, id)).limit(1);
+  if (!actual) return;
+  const hermanas = (
+    await db
+      .select()
+      .from(cuadAsignaturas)
+      .where(
+        and(eq(cuadAsignaturas.academicYear, actual.academicYear), eq(cuadAsignaturas.curso, actual.curso)),
+      )
+  )
+    .filter((f) => f.active)
+    .sort((a, b) => a.orden - b.orden);
+  const i = hermanas.findIndex((f) => f.id === id);
+  const j = direccion === 'arriba' ? i - 1 : i + 1;
+  if (i < 0 || j < 0 || j >= hermanas.length) return;
+  // Se reescriben los dos órdenes con la posición, no se intercambian los valores: así una
+  // lista con órdenes duplicados (o con huecos) se va arreglando sola al usarla.
+  await db.update(cuadAsignaturas).set({ orden: j + 1, updatedAt: new Date() }).where(eq(cuadAsignaturas.id, hermanas[i].id));
+  await db.update(cuadAsignaturas).set({ orden: i + 1, updatedAt: new Date() }).where(eq(cuadAsignaturas.id, hermanas[j].id));
+}
+
+/**
+ * Trae del horario las materias que falten. **No pisa nada**: las que ya están se dejan como
+ * estén (con su nombre corto editado a mano), y solo se añaden las nuevas al final.
+ */
+export async function sincronizarDesdeHorario(
+  academicYear: string,
+  curso?: string,
+): Promise<{ anadidas: number; cursos: string[] }> {
+  const materias = (await getMateriasDelHorario(academicYear)).filter(
+    (m) => !m.yaEsta && (!curso || m.curso === curso),
+  );
+  const cursos = new Set<string>();
+  let anadidas = 0;
+  for (const materia of materias) {
+    // El nombre corto se deja VACÍO a propósito: la abreviatura del horario es un código
+    // interno del generador ('EPV1', 'MYD1', 'LCO1') y en una hoja impresa no dice nada.
+    // El corto lo pone David cuando quiere ("Valencià: Llengua i Literatura" → "Valencià").
+    await crearAsignatura({
+      academicYear,
+      curso: materia.curso,
+      nombre: materia.nombre,
+      horMateriaId: materia.materiaId,
+      origen: 'horario',
+    });
+    cursos.add(materia.curso);
+    anadidas++;
+  }
+  return { anadidas, cursos: [...cursos] };
+}
+
+/** Cursos con alumnado activo, para que el panel enseñe también los que no tienen nada. */
+export async function getCursosConAlumnado(): Promise<{ curso: string; alumnos: number }[]> {
+  const filas = await db
+    .select({ curso: eduStudents.curso, n: sql<number>`count(*)::int` })
+    .from(eduStudents)
+    .where(eq(eduStudents.active, true))
+    .groupBy(eduStudents.curso);
+  return filas
+    .filter((f): f is { curso: string; n: number } => Boolean(f.curso))
+    .map((f) => ({ curso: f.curso, alumnos: f.n }))
+    .sort((a, b) => compararClases({ curso: a.curso, letra: null }, { curso: b.curso, letra: null }));
 }
 
 // ─── Tiradas y cola ──────────────────────────────────────────────────────────

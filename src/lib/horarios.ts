@@ -350,6 +350,208 @@ export function generarTramosDia(opciones: {
   return salida;
 }
 
+// ─── La cuadrícula del navegador ──────────────────────────────────────────────
+
+/** Ventana visible del navegador: nada antes de las 8:00 ni después de las 18:00. */
+export const HORA_MIN = '08:00';
+export const HORA_MAX = '18:00';
+
+export interface CeldaHorario {
+  sesionId: string;
+  dia: number;
+  tramoId: string;
+  horaInicio: string;
+  horaFin: string;
+  tipoTramo: TipoTramo;
+  titulo: string; // materia, o el nombre de la actividad si no hay materia
+  subtitulo: string | null; // el grupo, el profe o el aula, según la vista
+  actividad: string;
+  lectiva: boolean;
+  espacio: string | null;
+  profes: { id: string; nombre: string; corto: string; rol: string; principal: boolean }[];
+  grupos: string[];
+  notas: string | null;
+}
+
+export interface FilaHorario {
+  horaInicio: string;
+  horaFin: string;
+  tipo: TipoTramo;
+  etiqueta: string | null;
+  /** Una entrada por día (1-5); varias celdas en el mismo hueco = desdoble o apoyo. */
+  dias: CeldaHorario[][];
+}
+
+/**
+ * Monta la cuadrícula que pinta el navegador: filas = franjas horarias, columnas = días.
+ *
+ * Las filas NO salen de una rejilla concreta sino de las **franjas que de verdad aparecen**
+ * en las celdas, unidas y ordenadas por hora. Es lo que permite pintar el horario de un
+ * profe que da clase en infantil Y en primaria, que son rejillas distintas con horas
+ * distintas: en una vista por rejilla ese profe no cabría.
+ *
+ * Se recortan las franjas fuera de la ventana visible y los días de fin de semana.
+ */
+export function construirCuadricula(celdas: readonly CeldaHorario[]): FilaHorario[] {
+  const filas = new Map<string, FilaHorario>();
+  for (const c of celdas) {
+    if (c.dia < 1 || c.dia > 5) continue;
+    const ini = aMinutos(c.horaInicio);
+    const fin = aMinutos(c.horaFin);
+    if (ini === null || fin === null) continue;
+    if (fin <= (aMinutos(HORA_MIN) ?? 0) || ini >= (aMinutos(HORA_MAX) ?? 1440)) continue;
+
+    const clave = `${c.horaInicio}-${c.horaFin}`;
+    let fila = filas.get(clave);
+    if (!fila) {
+      fila = {
+        horaInicio: c.horaInicio,
+        horaFin: c.horaFin,
+        tipo: c.tipoTramo,
+        etiqueta: null,
+        dias: [[], [], [], [], []],
+      };
+      filas.set(clave, fila);
+    }
+    // Si en la misma franja conviven un recreo y una clase, manda la clase: el hueco se
+    // pinta como lectivo y el recreo se ve en su propia franja.
+    if (fila.tipo !== 'sesion' && c.tipoTramo === 'sesion') fila.tipo = 'sesion';
+    fila.dias[c.dia - 1].push(c);
+  }
+
+  const ordenadas = [...filas.values()].sort(
+    (a, b) => (aMinutos(a.horaInicio) ?? 0) - (aMinutos(b.horaInicio) ?? 0) || (aMinutos(a.horaFin) ?? 0) - (aMinutos(b.horaFin) ?? 0),
+  );
+  // La etiqueta ('1ª', '2ª'…) se numera sobre las filas LECTIVAS ya ordenadas, no sobre el
+  // `orden` de la rejilla: al mezclar etapas los órdenes chocan y saldrían dos "3ª".
+  let n = 0;
+  for (const f of ordenadas) {
+    if (f.tipo === 'sesion') { n++; f.etiqueta = `${n}ª`; }
+    else f.etiqueta = f.tipo === 'recreo' ? 'Patio' : f.tipo === 'comedor' ? 'Comedor' : null;
+  }
+  return ordenadas;
+}
+
+// ─── Nombres de profesorado para pantalla ────────────────────────────────────
+
+function capitalizar(t: string): string {
+  return t
+    .toLocaleLowerCase('es')
+    .split(/(\s+|-)/)
+    .map((p) => (/^[a-zà-ÿñ]/.test(p) ? p.charAt(0).toLocaleUpperCase('es') + p.slice(1) : p))
+    .join('');
+}
+
+/**
+ * Nombre de profe para meter DENTRO de una celda del horario: 'Núria C.'.
+ * Cabe en una celda estrecha y basta para reconocer a alguien de tu claustro; el nombre
+ * completo está a un toque, en el detalle. En la BBDD los nombres vienen en mayúsculas,
+ * así que se recapitalizan (gritar en una celda pequeña se lee peor).
+ */
+export function nombreCorto(nombre: string | null, apellido1: string | null): string {
+  const n = capitalizar((nombre ?? '').trim().split(/\s+/)[0] ?? '');
+  const a = (apellido1 ?? '').trim();
+  if (!n) return capitalizar(a);
+  return a ? `${n} ${a.charAt(0).toLocaleUpperCase('es')}.` : n;
+}
+
+/** Nombre para listas y selectores: 'Alejandro Sánchez'. Un solo apellido, que basta. */
+export function nombreProfe(nombre: string | null, apellido1: string | null): string {
+  return [capitalizar((nombre ?? '').trim()), capitalizar((apellido1 ?? '').trim())].filter(Boolean).join(' ');
+}
+
+// ─── Colores por categoría (opcional) ─────────────────────────────────────────
+//
+// Los tonos se GENERAN repartiendo el círculo de color entre las categorías que haya, en
+// vez de salir de una lista cerrada: así todas las horas de Mates son de un color y todas
+// las de Coneixement de otro, haya 5 materias o 14, sin que dos acaben compartiendo tono.
+//
+// La luminosidad y el croma son fijos (y distintos en claro y en oscuro): eso es lo que
+// mantiene todos los tonos igual de legibles y evita que uno chille más que el resto. El
+// color va como filete y tinte suave, nunca en el texto, así que hace de pista visual y no
+// de portador de información: quien no distinga dos tonos sigue leyendo el nombre.
+
+export type ColorearPor = 'nada' | 'clase' | 'materia';
+
+export interface ColorCategoria {
+  claro: string;
+  oscuro: string;
+}
+
+/** Ángulo de arranque: deja el azul para la primera categoría, que es el tono más neutro. */
+const TONO_INICIAL = 255;
+
+function tono(indice: number, total: number): ColorCategoria {
+  const h = (TONO_INICIAL + (indice * 360) / Math.max(total, 1)) % 360;
+  return {
+    claro: `oklch(0.62 0.15 ${h.toFixed(1)})`,
+    oscuro: `oklch(0.7 0.14 ${h.toFixed(1)})`,
+  };
+}
+
+/**
+ * Reparte un color a cada categoría del horario.
+ *
+ * El reparto se hace sobre el conjunto COMPLETO de categorías, ordenado alfabéticamente:
+ * así cambiar de día en el móvil no repinta nada, y mientras mires el mismo horario cada
+ * materia (o cada clase) conserva su color.
+ */
+export function repartirColores(celdas: readonly CeldaHorario[], por: ColorearPor): Map<string, ColorCategoria> {
+  const mapa = new Map<string, ColorCategoria>();
+  if (por === 'nada') return mapa;
+  const categorias = new Set<string>();
+  for (const c of celdas) for (const k of clavesDeColor(c, por)) categorias.add(k);
+  const ordenadas = [...categorias].sort((a, b) => a.localeCompare(b, 'es'));
+  ordenadas.forEach((k, i) => mapa.set(k, tono(i, ordenadas.length)));
+  return mapa;
+}
+
+/** Por qué categoría se colorea una celda (una celda de dos grupos entra en los dos). */
+export function clavesDeColor(celda: CeldaHorario, por: ColorearPor): string[] {
+  if (por === 'clase') return celda.grupos;
+  if (por === 'materia') return [celda.titulo];
+  return [];
+}
+
+/** El color de una celda, o null si no toca colorear. */
+export function colorDeCelda(
+  celda: CeldaHorario,
+  reparto: Map<string, ColorCategoria>,
+  por: ColorearPor,
+): ColorCategoria | null {
+  for (const k of clavesDeColor(celda, por)) {
+    const c = reparto.get(k);
+    if (c) return c;
+  }
+  return null;
+}
+
+export interface Ahora {
+  dia: number | null; // 1-5, o null en fin de semana
+  hora: string; // 'HH:mm'
+  /** Índice de la fila en curso dentro de la cuadrícula, o null si no hay clase ahora. */
+  filaActual: number | null;
+}
+
+/**
+ * Dónde está "ahora" dentro de una cuadrícula, para poder resaltarlo. Se calcula con la
+ * hora local del navegador y no en servidor a propósito: el servidor está en UTC y el
+ * indicador se vería una hora corrida buena parte del año.
+ */
+export function situarAhora(filas: readonly FilaHorario[], fecha: Date): Ahora {
+  const dow = fecha.getDay();
+  const dia = dow >= 1 && dow <= 5 ? dow : null;
+  const hora = `${String(fecha.getHours()).padStart(2, '0')}:${String(fecha.getMinutes()).padStart(2, '0')}`;
+  const min = aMinutos(hora) ?? 0;
+  let filaActual: number | null = null;
+  filas.forEach((f, i) => {
+    const ini = aMinutos(f.horaInicio);
+    const fin = aMinutos(f.horaFin);
+    if (ini !== null && fin !== null && min >= ini && min < fin) filaActual = i;
+  });
+  return { dia, hora, filaActual };
+}
+
 // ─── Schemas Zod compartidos cliente/servidor ─────────────────────────────────
 
 const horaSchema = z.string().regex(/^\d{1,2}:\d{2}$/, 'Hora en formato HH:mm');

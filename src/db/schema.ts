@@ -1179,6 +1179,24 @@ export const horMaterias = pgTable('hor_materias', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Espacios físicos del centro (aulas, pistas, salas). Nacen porque los horarios traen el
+// aula en la celda ('EFI1 - SDOM0 - Poli2') con su propia leyenda de códigos, y porque el
+// navegador tiene que poder mirar el horario POR AULA. Hoy el dato es pobre y sucio en el
+// origen (tres códigos, 'POLI' y 'Poli2' conviviendo), así que `hor_asignaciones.aula`
+// sigue existiendo como texto libre: `espacio_id` es lo que se rellena cuando el código se
+// reconoce, y el texto es la red de seguridad para no perder lo que no se reconoce.
+export const horEspacios = pgTable('hor_espacios', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  codigo: text('codigo').notNull().unique(), // 'POLI2', 'MUS' — normalizado a mayúsculas
+  nombre: text('nombre').notNull(), // 'Polideportivo 2'
+  tipo: text('tipo'), // 'aula' | 'pista' | 'sala' | 'laboratorio' | 'otro'
+  capacidad: integer('capacidad'),
+  notas: text('notas'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const horAsignaciones = pgTable('hor_asignaciones', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   periodoId: uuid('periodo_id').notNull().references(() => horPeriodos.id),
@@ -1187,7 +1205,8 @@ export const horAsignaciones = pgTable('hor_asignaciones', {
   materiaId: uuid('materia_id').references(() => horMaterias.id), // null: una guardia no tiene materia
   etiqueta: text('etiqueta'), // 'Religión desdoble A', 'Reunión de departamento de Ciencias'
   lectiva: boolean('lectiva'), // null = lo que diga la actividad
-  aula: text('aula'),
+  espacioId: uuid('espacio_id').references(() => horEspacios.id),
+  aula: text('aula'), // lo que venía en el fichero, aunque no se reconociera
   notas: text('notas'),
   origen: text('origen').notNull().default('manual'), // 'importado' | 'manual'
   importRunId: uuid('import_run_id'),
@@ -1237,7 +1256,8 @@ export const horSesiones = pgTable('hor_sesiones', {
   // quincenal: es el segundo caso más común en las herramientas de horarios y cuesta
   // una columna nullable ahora frente a una migración entonces.
   semana: text('semana'),
-  aula: text('aula'), // pisa el de la asignación en esta sesión concreta
+  espacioId: uuid('espacio_id').references(() => horEspacios.id), // pisa el de la asignación
+  aula: text('aula'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   uniqueIndex('hor_sesiones_uq').on(t.asignacionId, t.tramoId),
@@ -1276,9 +1296,9 @@ export const horAlias = pgTable('hor_alias', {
   codigoExterno: text('codigo_externo').notNull(),
   eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id),
   materiaId: uuid('materia_id').references(() => horMaterias.id),
+  espacioId: uuid('espacio_id').references(() => horEspacios.id),
   curso: text('curso'),
   letra: text('letra'),
-  aula: text('aula'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   uniqueIndex('hor_alias_uq').on(t.tipo, t.codigoExterno),
@@ -1319,5 +1339,34 @@ export type HorAsignacion = typeof horAsignaciones.$inferSelect;
 export type NewHorAsignacion = typeof horAsignaciones.$inferInsert;
 export type HorSesion = typeof horSesiones.$inferSelect;
 export type NewHorSesion = typeof horSesiones.$inferInsert;
+export type HorEspacio = typeof horEspacios.$inferSelect;
+export type NewHorEspacio = typeof horEspacios.$inferInsert;
 export type HorApoyo = typeof horApoyos.$inferSelect;
 export type NewHorApoyo = typeof horApoyos.$inferInsert;
+
+// Asignaturas por curso para el cuaderno de tutor. Salen del horario (`hor_materias` vía
+// `hor_asignaciones`) con un botón, y a partir de ahí se editan a mano: el horario dice
+// "Valencià: Llengua i Literatura" y en una hoja impresa cabe "Valencià".
+//
+// El CÓDIGO de una asignatura (`<<asignatura1>>`, `<<asignatura2>>`…) es su POSICIÓN dentro
+// del curso, no un id: la plantilla es la misma para todos los cursos y cada clase rellena
+// las suyas. Por eso `orden` es lo único que decide qué sale en cada hueco.
+export const cuadAsignaturas = pgTable('cuad_asignaturas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  curso: text('curso').notNull(), // '2ESO', '1PRI'… (sin letra: son del curso, no de la clase)
+  nombre: text('nombre').notNull(), // el nombre largo, tal cual viene del horario
+  nombreCorto: text('nombre_corto'), // 'Mates' — si está, es lo que sale en las hojas
+  orden: integer('orden').notNull().default(1),
+  // De dónde salió, para que "traer del horario" no pise lo que se editó a mano.
+  horMateriaId: uuid('hor_materia_id').references(() => horMaterias.id, { onDelete: 'set null' }),
+  origen: text('origen').notNull().default('manual'), // 'horario' | 'manual'
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('cuad_asignaturas_curso_idx').on(t.academicYear, t.curso, t.orden),
+]);
+
+export type CuadAsignatura = typeof cuadAsignaturas.$inferSelect;
+export type NewCuadAsignatura = typeof cuadAsignaturas.$inferInsert;
