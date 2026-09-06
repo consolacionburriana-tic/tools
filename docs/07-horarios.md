@@ -429,7 +429,7 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
 | `hor_asignacion_profes` | Qué profe(s), con rol y `principal` |
 | `hor_sesiones` | La celda: asignación colocada en un tramo |
 | `hor_apoyos` | Qué alumnos concretos toca una asignación de PT/AL (lo único que no viene en el fichero) |
-| `hor_espacios` | Aulas, pistas y salas. El navegador va también **por aula** |
+| `hor_espacios` | Aulas, pistas y salas, con `admite_solapes` para los que aceptan varias clases a la vez (polideportivo). El navegador va también **por aula** |
 | `hor_alias` | Traducción de códigos del fichero externo a nuestros IDs (materias y espacios; el profesorado casa por `edu_teachers.alias`) |
 | `hor_import_runs` | Bitácora de importaciones (como `edu_sync_runs`) |
 
@@ -493,7 +493,8 @@ necesitar tres joins.
 - [ ] Editar a mano el horario de un profe (horas no lectivas: atención a padres, guardias).
       **Es el hueco real**: solo se importan los horarios de CLASE, así que lo que existe
       únicamente en el horario del profe (guardia, departamento, atención a padres) no entra
-- [ ] Pantalla de materias, para renombrar y fusionar lo que la unificación no pille
+- [ ] Pantalla de materias y espacios, para renombrar, fusionar y marcar `admite_solapes`
+- [ ] **Exportar a Google Calendar**: se ha ido a su propia ficha, [`20-mi-horario.md`](./20-mi-horario.md)
 
 #### Los colores del navegador
 
@@ -512,6 +513,22 @@ El reparto se hace sobre el conjunto completo de categorías, ordenado: cambiar 
 móvil no repinta nada. Y el color va como **filete lateral y tinte suave**, nunca en el
 texto — el nombre de la materia siempre está escrito, así que el color es una pista visual
 y no el que lleva la información.
+
+#### Cómo se unifican los espacios
+
+Mismo problema que con las materias: el fichero llama `POLI` y `Poli2` a **un solo sitio**.
+Interesa que sea uno, porque saber que a tercera hay dos grupos en el polideportivo es
+información útil — y **no es un choque**: allí caben varios. Por eso `hor_espacios` tiene
+`admite_solapes`, y el detector de conflictos mira esa columna en vez de suponer que todo
+espacio es exclusivo. En un aula normal, dos clases a la vez **sí** es un error y se sigue
+avisando; el profe en dos sitios a la vez, también, esté donde esté.
+
+Se unifican por la **raíz del código** (quitando los dígitos del final, como las materias) y
+por **`hor_alias`** (tipo `espacio`), que es el arreglo a mano. Se guarda con la raíz como
+código (`POLI`), no con lo que trajo el fichero, para que el siguiente import lo encuentre
+venga como venga. Cuando llegue secundaria con sus laboratorios y aulas de informática,
+entrarán solos; los que haya que juntar o marcar como compartidos son una fila de alias o un
+`admite_solapes`, sin tocar código.
 
 #### Nombres del profesorado
 

@@ -61,6 +61,22 @@ las decidí sobre la marcha porque no estaban cerradas. Ninguna bloquea; todas s
 - **Permiso por defecto: editor.** Para que el tutor pueda retocar el documento antes de
   imprimirlo. Se cambia a "solo lectura" desde el propio panel, sin tocar código.
 
+### Mi horario en Google Calendar: tres decisiones
+Diseño completo en [`20-mi-horario.md`](./20-mi-horario.md). Ninguna bloquea empezar.
+
+1. **¿`.ics` primero o esperamos al scope de Calendar?** Recomendación: `.ics` ya — no
+   depende de nadie y el generador de eventos se reaprovecha entero para el botón directo.
+2. **¿Plantilla de título y emojis por persona, o unos del centro por defecto?**
+   Propuesta: unos por defecto que cada uno puede pisar.
+3. **¿Se exportan también las horas no lectivas?** Hoy no están importadas, así que la
+   pregunta es teórica, pero conviene decidirlo antes de montar la plantilla.
+
+📥 **De David, en la consola de Workspace**: añadir el scope
+`https://www.googleapis.com/auth/calendar` al Client ID de la cuenta de servicio que ya
+tiene delegación de dominio para `gmail.send`. Con eso, escribir en el calendario de cada
+profe no necesita OAuth por persona — ni para "mi horario" ni para que jefatura se lo pase a
+todo el claustro.
+
 ### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
 `identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
 (`edu_guardians.dni`, comparado normalizado) o el **NIA del alumno**. `edu_students.dni` se

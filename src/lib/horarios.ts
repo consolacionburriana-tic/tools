@@ -231,6 +231,8 @@ export interface SesionParaConflictos {
   profeIds: readonly string[];
   grupos: readonly { curso: string; letra?: string | null; subgrupo?: string | null }[];
   aula?: string | null;
+  /** El espacio admite varias clases a la vez (polideportivo, patio…): no es choque. */
+  aulaAdmiteSolapes?: boolean;
 }
 
 export type TipoConflicto = 'profe' | 'grupo' | 'aula';
@@ -250,7 +252,8 @@ export interface Conflicto {
  *   - profe en dos sesiones del mismo tramo  → conflicto siempre.
  *   - grupo en dos sesiones del mismo tramo  → conflicto SOLO si alguna no declara
  *     subgrupo, o si dos declaran el mismo. Con subgrupos distintos es un desdoble.
- *   - aula en dos sesiones del mismo tramo   → conflicto (dos clases en un aula).
+ *   - aula en dos sesiones del mismo tramo   → conflicto, SALVO que el espacio admita
+ *     solapes: en el polideportivo caben dos grupos y eso no es un error.
  */
 export function detectarConflictos(sesiones: readonly SesionParaConflictos[]): Conflicto[] {
   const conflictos: Conflicto[] = [];
@@ -265,7 +268,8 @@ export function detectarConflictos(sesiones: readonly SesionParaConflictos[]): C
     if (grupo.length < 2) continue;
 
     acumular(conflictos, 'profe', tramoId, grupo, (s) => s.profeIds.map((p) => p));
-    acumular(conflictos, 'aula', tramoId, grupo, (s) => (s.aula ? [s.aula] : []));
+    // Un espacio que admite solapes (el polideportivo) nunca genera conflicto de aula.
+    acumular(conflictos, 'aula', tramoId, grupo, (s) => (s.aula && !s.aulaAdmiteSolapes ? [s.aula] : []));
 
     // Grupos: la clave incluye el subgrupo, así que dos desdobles distintos no chocan…
     const porClase = new Map<string, SesionParaConflictos[]>();
