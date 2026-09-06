@@ -147,10 +147,15 @@ Recopilados de las fichas, para verlos de un vistazo:
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
-- **AUTOASM** (ficha `19`): subir a Apple School Manager un ZIP generado por el módulo y
-  confirmar que lo acepta; y decidir qué hacer con lo que la validación encontró en el
-  export actual (29 matrículas duplicadas, `Cls-TValESO1` sin nombre, 57 correos en
-  mayúsculas).
+- **AUTOASM** (ficha `19`): (a) **ejecutar `src/db/sql/autoasm.sql` en Neon** — dos tablas
+  aditivas para el histórico de entregas y el FTP; sin ellas el módulo va, pero sin memoria
+  de qué se subió; (b) meter **los datos del FTP** de ASM en el módulo (una vez: la
+  contraseña se guarda cifrada); (c) subir un ZIP generado por el módulo y confirmar que ASM
+  lo acepta; (d) el **horario de secundaria** en `hor_*` — sin él, las clases de ESO siguen
+  viniendo del ZIP del curso pasado (infantil y primaria ya están, así que 5º y 6º EP salen
+  del horario). Lo que la validación encontró en el export viejo (29 matrículas duplicadas,
+  correos en mayúsculas, una clase sin nombre) ya no hace falta arreglarlo: el fichero nuevo
+  sale limpio por construcción.
 - **Cuaderno de tutor** (ficha `18`): (a) la **URL de la subcarpeta de la unidad compartida** donde
   van los cuadernos, (b) dar de alta a la cuenta de servicio (`GOOGLE_SA_CLIENT_EMAIL`) como
   **Administrador de contenido** de esa unidad, (c) compartir con ese mismo correo cada plantilla
@@ -332,15 +337,16 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   [`19-autoasm.md`](./19-autoasm.md)): si algún día lo prepara más de una persona, o hace
   falta ver "qué se subió a ASM en septiembre", tocaría un par de tablas `asm_*` con el
   histórico de exports. Mientras lo lleve TIC desde su portátil, no compensa.
-- **AUTOASM ↔ horarios** (David, 2026-09-06: es LA gracia del módulo): cuando `hor_*` tenga
-  datos, cada asignación docente es una clase de ASM — materia, profes y grupos incluidos,
-  con las asignaturas conjuntas (Música de 3º PDC con 3º A) saliendo solas y cambiando el
-  año que dejen de serlo. Mapeo campo a campo y el problema de no duplicar clases, en
-  [`19-autoasm.md`](./19-autoasm.md) → "Lo que falta".
-- **AUTOASM: clases de curso entero y accesos de TIC** — decisión pendiente con propuesta
-  escrita en [`19-autoasm.md`](./19-autoasm.md): generar una clase por nivel con todo su
-  alumnado y meter automáticamente a los tutores del nivel + TIC/dirección, en vez de
-  añadirse a mano en 35 tutorías. Límite de ASM: 12 instructores por clase.
+- ~~**AUTOASM ↔ horarios**~~ ✅ hecho (2026-09-06) · ~~**clases de curso entero y accesos de
+  TIC**~~ ✅ hecho (2026-09-06). Ver [`19-autoasm.md`](./19-autoasm.md).
+- **AUTOASM: diff contra lo que ya está en ASM** — subir el export actual de ASM y que el
+  módulo diga "12 altas, 3 bajas, 5 cambios de curso" antes de subir nada. **Aparcado**
+  (David, 2026-09-06): hace falta el export real de ASM y hoy no lo tenemos.
+- ~~**AUTOASM: subida por FTP**~~ ✅ hecha (2026-09-06), como paso opcional tras generar.
+- ~~**AUTOASM: histórico en Neon**~~ ✅ hecho (2026-09-06): `asm_entregas`.
+- ~~**AUTOASM: recordatorio anual**~~ ✅ resuelto de otra forma (2026-09-06): el módulo sube
+  solo al principio del escritorio en julio-septiembre y cuando hay alumnado nuevo sin
+  cuenta, en vez de mandar un aviso.
 - Exportación/sincronización automática hacia Educamos (hoy todo lo que sale de la app hacia
   Educamos es manual).
 - Auditoría/historial de cambios transversal (quién tocó qué registro y cuándo), útil sobre
