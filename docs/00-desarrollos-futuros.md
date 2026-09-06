@@ -372,6 +372,14 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   módulo lleve un curso en producción y sepamos la fecha buena.
 - **Primaria e Infantil**: el módulo ya soporta plantillas por etapa, pero solo hay plantillas de
   ESO. Cuando lleguen las de Primaria, es darlas de alta y marcar la etapa.
+- **Mapeo dinámico de etiquetas, de verdad** (idea de David, 2026-09-06). Hoy el catálogo de
+  campos está escrito en el código (`src/lib/cuaderno/campos.ts`) y las etiquetas raras se
+  traducen con alias. Lo suyo sería al revés: que el panel lea la plantilla, enseñe cada
+  `<<etiqueta>>` que no reconozca y te deje **asignarla a cualquier dato de alumno, familiar o
+  profesor** desde un desplegable bien ordenado por ámbito, sin pasar por el código. La pieza
+  que falta es un catálogo de campos en BBDD (columna de `edu_*` → etiqueta y formato), no la
+  interfaz: la pestaña «Vista previa» ya enseña etiqueta a etiqueta lo que va a salir y ya avisa
+  de las que no existen. **Cuando sobren tokens**; con lo de ahora se trabaja bien.
 
 ## Backlog de módulos futuros (mencionados, sin desarrollar todavía)
 

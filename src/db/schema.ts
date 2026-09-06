@@ -1062,6 +1062,22 @@ export const cuadHojas = pgTable('cuad_hojas', {
   uniqueIndex('cuad_hojas_uq').on(t.eduStudentId, t.plantillaId, t.academicYear),
 ]);
 
+// Cómo se llama a alguien en el cuaderno, cuando lo que trae Educamos no vale. Es la
+// válvula de escape de `nombresDe()`: la heurística acierta casi siempre («CARLOS ANDRES
+// VALERO AICART» → «Carlos Valero Aicart»), y para el resto se escribe aquí a mano.
+// Solo se guardan las personas que se han tocado; el resto ni aparece.
+export const cuadPersonas = pgTable('cuad_personas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  ambito: text('ambito').notNull(), // profe | alumno | familiar
+  personaId: uuid('persona_id').notNull(), // edu_teachers.id | edu_students.id | edu_guardians.id
+  pila: text('pila'), // «Pepe» donde el export dice «JOSE MANUEL»
+  completo: text('completo'), // el nombre entero, si ni los apellidos valen
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('cuad_personas_uq').on(t.ambito, t.personaId),
+]);
+
 // ─── Types Cuaderno de tutor ──────────────────────────────────────────────────
 export type CuadPlantilla = typeof cuadPlantillas.$inferSelect;
 export type NewCuadPlantilla = typeof cuadPlantillas.$inferInsert;
@@ -1074,6 +1090,7 @@ export type NewCuadItem = typeof cuadItems.$inferInsert;
 export type CuadNumeracion = typeof cuadNumeracion.$inferSelect;
 export type CuadHoja = typeof cuadHojas.$inferSelect;
 export type CuadEvento = typeof cuadEventos.$inferSelect;
+export type CuadPersona = typeof cuadPersonas.$inferSelect;
 // ─── Horarios (prefijo hor_, pieza transversal) ───────────────────────────────
 //
 // Modelo mental (ver docs/07-horarios.md). TRES CAPAS, separadas a propósito:
