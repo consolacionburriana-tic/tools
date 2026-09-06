@@ -98,6 +98,54 @@ una etiqueta sin mapear, **la tirada no arranca**: mejor pararla que sacar 125 d
 
 ---
 
+## Cómo se escriben los nombres (y quién manda)
+
+De Educamos todo llega **a gritos y con todos los nombres de pila**: `CARLOS ANDRES VALERO
+AICART`, correos en mayúsculas. En una hoja que va a leer una familia eso queda fatal, así que
+se arregla una sola vez, en `src/lib/cuaderno/personas.ts`, por donde pasan todos los nombres
+antes de llegar a ninguna plantilla:
+
+- **Mayúsculas bellas**: `CARLOS ANDRES VALERO AICART` → `Carlos Andres Valero Aicart`, con las
+  partículas de en medio en minúscula (`MARIA DE LA FUENTE` → `Maria de la Fuente`) y los dos
+  lados de un guion o un apóstrofe capitalizados (`O'CONNOR`, `Maria-Jose`).
+  **No se inventan acentos**: lo que no venía con tilde sigue sin ella, porque adivinarla es
+  peor que no ponerla (`Nuria`/`Núria`, `Andres`/`Andrés`).
+  Y si alguien ya lo escribió bien —`María de la O`, `van Gogh`, `McCarthy`— **no se toca**: la
+  función solo actúa sobre lo que viene TODO en mayúsculas o TODO en minúsculas.
+- **Correos siempre en minúscula**, sin espacios.
+- **Nombre de pila**: el trozo por el que a alguien se le llama de verdad. `CARLOS ANDRES` →
+  `Carlos`, pero los compuestos de siempre se respetan (`MARIA JOSE` → `Maria Jose`,
+  `MARIA DEL CARMEN` → `Maria del Carmen`).
+
+De ahí salen los cuatro nombres que usa el módulo, y cada uno tiene su sitio:
+
+| Nombre | Ejemplo | Dónde sale |
+| --- | --- | --- |
+| `usual` | `Carlos Valero Aicart` | **el de las hojas**: `<<tutor>>`, `<<nombre_completo>>` |
+| `corto` | `Carlos V` | carpetas de clase y nombres de archivo |
+| `pila` | `Carlos` | `<<nom>>` del alumnado |
+| `completo` | `Carlos Andres Valero Aicart` | `<<tutor_completo>>`, para quien lo quiera entero |
+
+**La heurística se equivoca alguna vez, y por eso hay una válvula de escape**: la tabla
+`cuad_personas` guarda el nombre de quien haga falta escrito a mano (`pila`, y `completo` si ni
+los apellidos valen), y manda sobre todo lo demás. Se edita desde la pestaña «Vista previa», que
+enseña los tutores de la clase — son dos, no trescientos — y no obliga a inventarse un campo
+"nombre por el que le llamamos" en `edu_teachers`, que es de otro módulo.
+
+## Vista previa
+
+Pestaña «Vista previa»: se elige una plantilla y una clase, y sale **etiqueta a etiqueta lo que
+se va a imprimir**, con los datos de verdad. Se calcula con el mismo `construirPlan()` que usa
+el worker (`src/lib/cuaderno/vista-previa.ts`), así que no puede desviarse de lo que sale en el
+documento; lo que se repite por alumno se enseña con un ejemplo (el primero de la lista) y de lo
+que hay poco —los tutores— se enseña todo.
+
+Contesta a las dos preguntas que antes obligaban a generar el documento para descubrirlas:
+
+1. **¿Está bien escrita esta etiqueta?** Las que no casan con ningún campo salen marcadas en
+   rojo y listadas arriba: son las que se imprimirían en crudo (`<<professio1>>`) en la hoja.
+2. **¿Cómo va a quedar este nombre?** Y si no queda bien, se arregla ahí mismo.
+
 ## Estructura en Drive
 
 ```
@@ -334,6 +382,13 @@ fábrica, sin mapear nada a mano.
 ### Fase 6 · Compartir
 - [x] Permisos de la carpeta de clase a los tutores
 - [x] Correo de aviso al tutor con el enlace de su carpeta
+
+### Fase 6c · Nombres y vista previa
+- [x] `personas.ts`: mayúsculas bellas, correos en minúscula y nombre de pila (`nombresDe`)
+- [x] Tabla `cuad_personas` para el nombre escrito a mano, con SQL aditivo aplicado en Neon
+- [x] Campo `<<tutor_completo>>` para quien quiera todos los nombres de pila
+- [x] Pestaña «Vista previa»: valor real de cada etiqueta, aviso de las que no existen y
+      edición del nombre de los tutores
 
 ### Fase 6b · Asignaturas por curso
 - [x] Tabla `cuad_asignaturas` y SQL aditivo (`src/db/sql/cuaderno-asignaturas.sql`), aplicado en Neon

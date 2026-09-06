@@ -15,6 +15,7 @@ import {
   cuadHojas,
   cuadItems,
   cuadNumeracion,
+  cuadPersonas,
   cuadPlantillas,
   cuadTiradas,
   eduGuardians,
@@ -33,7 +34,8 @@ import {
 import { academicYearActual } from '@/lib/constants';
 import { compararClases, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import { construirMapeo, normalizarEtiqueta, type Repeticion } from '@/lib/cuaderno/campos';
-import { claseCorta, tutorCorto, tutorCompleto } from '@/lib/cuaderno/nombres';
+import { claseCorta } from '@/lib/cuaderno/nombres';
+import { correoBonito, mayusculasBellas, nombresDe, type NombreAMano } from '@/lib/cuaderno/personas';
 
 export { academicYearActual };
 
@@ -157,8 +159,12 @@ export async function borrarAlias(etiqueta: string): Promise<void> {
 
 export interface TutorCuaderno {
   teacherId: string;
+  /** El de las hojas: nombre de pila + apellidos («Carlos Valero Aicart»). */
   nombre: string;
+  /** El de carpetas y archivos («Carlos V»). */
   corto: string;
+  /** Todo lo que trae el export («Carlos Andres Valero Aicart»), por si hace falta. */
+  completo: string;
   email: string | null;
 }
 
@@ -201,6 +207,45 @@ const ordenAlfabetico = (a: AlumnoCuaderno, b: AlumnoCuaderno) =>
 const telefonoDe = (g: { telPersonal: string | null; movilTrabajo: string | null; telCasa: string | null }) =>
   g.telPersonal ?? g.movilTrabajo ?? g.telCasa ?? '';
 
+// ─── Nombres a mano ───────────────────────────────────────────────────────────
+//
+// Educamos manda los nombres A GRITOS y con todos los nombres de pila («CARLOS ANDRES
+// VALERO AICART»). `nombresDe()` los arregla solo, y lo poco que la heurística no acierta
+// se escribe a mano aquí. La clave del mapa es `ambito:personaId`.
+
+export type ClavePersona = `profe:${string}` | `alumno:${string}` | `familiar:${string}`;
+
+export async function getNombresAMano(): Promise<Map<string, NombreAMano>> {
+  const filas = await db.select().from(cuadPersonas);
+  return new Map(filas.map((f) => [`${f.ambito}:${f.personaId}`, { pila: f.pila, completo: f.completo }]));
+}
+
+/**
+ * Fija (o borra) el nombre de una persona en el cuaderno. Con los dos campos en blanco se
+ * quita la fila y se vuelve a lo que diga el export.
+ */
+export async function fijarNombre(opciones: {
+  ambito: 'profe' | 'alumno' | 'familiar';
+  personaId: string;
+  pila: string | null;
+  completo: string | null;
+}): Promise<void> {
+  const pila = opciones.pila?.trim() || null;
+  const completo = opciones.completo?.trim() || null;
+  const donde = and(eq(cuadPersonas.ambito, opciones.ambito), eq(cuadPersonas.personaId, opciones.personaId));
+  if (!pila && !completo) {
+    await db.delete(cuadPersonas).where(donde);
+    return;
+  }
+  await db
+    .insert(cuadPersonas)
+    .values({ ambito: opciones.ambito, personaId: opciones.personaId, pila, completo })
+    .onConflictDoUpdate({
+      target: [cuadPersonas.ambito, cuadPersonas.personaId],
+      set: { pila, completo, updatedAt: new Date() },
+    });
+}
+
 /**
  * Todas las clases con alumnado activo, sus tutores del curso académico en vigor y su
  * alumnado con familiares. Es la fuente de datos de una tirada entera: se pide una vez y
@@ -213,7 +258,7 @@ export async function getClasesCuaderno(opciones?: {
   etapas?: Etapa[];
 }): Promise<ClaseCuaderno[]> {
   const academicYear = academicYearActual();
-  const [alumnado, tutorias, profes, personales] = await Promise.all([
+  const [alumnado, tutorias, profes, personales, aMano] = await Promise.all([
     db
       .select({
         id: eduStudents.id,
@@ -236,6 +281,7 @@ export async function getClasesCuaderno(opciones?: {
       .select({ eduStudentId: eduTutorPersonal.eduStudentId, eduTeacherId: eduTutorPersonal.eduTeacherId })
       .from(eduTutorPersonal)
       .where(eq(eduTutorPersonal.academicYear, academicYear)),
+    getNombresAMano(),
   ]);
 
   const quiere = (curso: string | null, letra: string | null) => {
@@ -260,12 +306,16 @@ export async function getClasesCuaderno(opciones?: {
         .filter((t) => t.curso === curso && (t.letra ?? '') === (a.letra ?? ''))
         .map((t) => profePorId.get(t.eduTeacherId))
         .filter((p): p is NonNullable<typeof p> => Boolean(p))
-        .map((p) => ({
-          teacherId: p.id,
-          nombre: tutorCompleto(p),
-          corto: tutorCorto(p.nombre, p.apellido1),
-          email: p.email ?? p.emailOtro ?? null,
-        }))
+        .map((p) => {
+          const n = nombresDe(p, aMano.get(`profe:${p.id}`));
+          return {
+            teacherId: p.id,
+            nombre: n.usual,
+            corto: n.corto,
+            completo: n.completo,
+            email: correoBonito(p.email ?? p.emailOtro) || null,
+          };
+        })
         .sort((x, y) => cmpEs(x.nombre, y.nombre));
       clase = {
         curso,
@@ -277,13 +327,16 @@ export async function getClasesCuaderno(opciones?: {
       };
       clases.set(clave, clase);
     }
+    const suyo = nombresDe(a, aMano.get(`alumno:${a.id}`));
     clase.alumnos.push({
       id: a.id,
-      nombre: a.nombre ?? '',
-      apellido1: a.apellido1 ?? '',
-      apellido2: a.apellido2 ?? '',
+      nombre: suyo.pila,
+      // Cada apellido por su lado: partir `suyo.apellidos` por el espacio dejaría
+      // «de la Fuente Pons» como apellido1 «de» y apellido2 «la Fuente Pons».
+      apellido1: mayusculasBellas(a.apellido1),
+      apellido2: mayusculasBellas(a.apellido2),
       nia: a.nia ?? '',
-      email: a.email ?? a.emailGoogle ?? '',
+      email: correoBonito(a.email ?? a.emailGoogle),
       sexo: a.sexo ?? '',
       fechaNacimiento: a.fechaNacimiento ?? null,
       tutorPersonalId: personalPorAlumno.get(a.id) ?? null,
@@ -300,9 +353,11 @@ export async function getClasesCuaderno(opciones?: {
 async function getFamiliares(alumnoIds: string[]): Promise<Map<string, FamiliarCuaderno[]>> {
   const salida = new Map<string, FamiliarCuaderno[]>();
   if (alumnoIds.length === 0) return salida;
+  const aMano = await getNombresAMano();
   const filas = await db
     .select({
       studentId: eduStudentGuardians.studentId,
+      guardianId: eduGuardians.id,
       orden: eduStudentGuardians.orden,
       nombre: eduGuardians.nombre,
       apellido1: eduGuardians.apellido1,
@@ -328,9 +383,9 @@ async function getFamiliares(alumnoIds: string[]): Promise<Map<string, FamiliarC
     salida.set(
       alumnoId,
       ordenados.map((g) => ({
-        nombre: [g.nombre, g.apellido1, g.apellido2].filter(Boolean).join(' '),
+        nombre: nombresDe(g, aMano.get(`familiar:${g.guardianId}`)).usual,
         telefono: telefonoDe(g),
-        correo: g.email ?? g.emailGoogle ?? '',
+        correo: correoBonito(g.email ?? g.emailGoogle),
       })),
     );
   }
@@ -354,7 +409,7 @@ export interface ResumenClasePanel {
  */
 export async function getResumenClases(): Promise<ResumenClasePanel[]> {
   const academicYear = academicYearActual();
-  const [alumnado, tutorias, profes, personales] = await Promise.all([
+  const [alumnado, tutorias, profes, personales, aMano] = await Promise.all([
     db
       .select({ id: eduStudents.id, curso: eduStudents.curso, letra: eduStudents.letra })
       .from(eduStudents)
@@ -365,6 +420,7 @@ export async function getResumenClases(): Promise<ResumenClasePanel[]> {
       .select({ eduStudentId: eduTutorPersonal.eduStudentId, eduTeacherId: eduTutorPersonal.eduTeacherId })
       .from(eduTutorPersonal)
       .where(eq(eduTutorPersonal.academicYear, academicYear)),
+    getNombresAMano(),
   ]);
   const profePorId = new Map(profes.map((p) => [p.id, p]));
   const personalPorAlumno = new Map(personales.map((p) => [p.eduStudentId, p.eduTeacherId]));
@@ -379,11 +435,10 @@ export async function getResumenClases(): Promise<ResumenClasePanel[]> {
         .filter((t) => t.curso === a.curso && (t.letra ?? '') === (a.letra ?? ''))
         .map((t) => profePorId.get(t.eduTeacherId))
         .filter((p): p is NonNullable<typeof p> => Boolean(p))
-        .map((p) => ({
-          nombre: tutorCompleto(p),
-          corto: tutorCorto(p.nombre, p.apellido1),
-          email: p.email ?? p.emailOtro ?? null,
-        }))
+        .map((p) => {
+          const n = nombresDe(p, aMano.get(`profe:${p.id}`));
+          return { nombre: n.usual, corto: n.corto, email: correoBonito(p.email ?? p.emailOtro) || null };
+        })
         .sort((x, y) => cmpEs(x.nombre, y.nombre));
       clase = {
         curso: a.curso,

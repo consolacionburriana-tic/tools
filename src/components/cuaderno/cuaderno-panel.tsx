@@ -1,6 +1,7 @@
 'use client';
 
-// Panel del Cuaderno de tutor: tres pestañas (Generar · Plantillas · Historial) y, arriba,
+// Panel del Cuaderno de tutor: cinco pestañas (Generar · Vista previa · Plantillas ·
+// Asignaturas · Historial) y, arriba,
 // la carpeta base de Drive. Si la carpeta base falta, el aviso va primero y bien grande:
 // sin ella no se puede generar nada, y es lo único que hay que configurar una vez.
 
@@ -10,6 +11,7 @@ import {
   BookOpen,
   Check,
   ExternalLink,
+  Eye,
   FolderOpen,
   History,
   Loader2,
@@ -22,11 +24,13 @@ import { AsignaturasPanel } from '@/components/cuaderno/asignaturas-panel';
 import { GenerarPanel } from '@/components/cuaderno/generar-panel';
 import { PlantillasPanel } from '@/components/cuaderno/plantillas-panel';
 import { HistorialPanel } from '@/components/cuaderno/historial-panel';
+import { VistaPreviaPanel } from '@/components/cuaderno/vista-previa-panel';
 import type { AjustesUI, ClaseUI, DriveUI, FaltaUI, PlantillaUI, TiradaUI } from '@/components/cuaderno/tipos';
 import { haptic } from '@/lib/haptics';
 
 const TABS = [
   { k: 'generar' as const, label: 'Generar', icon: Play },
+  { k: 'vista' as const, label: 'Vista previa', icon: Eye },
   { k: 'plantillas' as const, label: 'Plantillas', icon: Wand2 },
   { k: 'asignaturas' as const, label: 'Asignaturas', icon: BookOpen },
   { k: 'historial' as const, label: 'Historial', icon: History },
@@ -44,7 +48,7 @@ interface Props {
 }
 
 export function CuadernoPanel(props: Props) {
-  const [tab, setTab] = useState<'generar' | 'plantillas' | 'asignaturas' | 'historial'>('generar');
+  const [tab, setTab] = useState<'generar' | 'vista' | 'plantillas' | 'asignaturas' | 'historial'>('generar');
   const [ajustes, setAjustes] = useState(props.ajustes);
   const [abiertoAjustes, setAbiertoAjustes] = useState(!props.ajustes.carpetaBaseId);
 
@@ -94,6 +98,7 @@ export function CuadernoPanel(props: Props) {
           listoParaGenerar={props.drive.configurado && Boolean(ajustes.carpetaBaseId)}
         />
       )}
+      {tab === 'vista' && <VistaPreviaPanel plantillas={props.plantillas} clases={props.clases} />}
       {tab === 'plantillas' && <PlantillasPanel plantillas={props.plantillas} cuenta={props.drive.cuenta} />}
       {tab === 'asignaturas' && <AsignaturasPanel cursoEscolar={props.cursoEscolar} />}
       {tab === 'historial' && <HistorialPanel tiradas={props.tiradas} plantillas={props.plantillas} />}
