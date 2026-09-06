@@ -8,12 +8,13 @@
 //
 // Todo es puro y testeado en `src/lib/__tests__/cuaderno-campos.test.ts`.
 
-export const AMBITOS = ['alumno', 'clase', 'familiar', 'centro', 'trimestre'] as const;
+export const AMBITOS = ['alumno', 'clase', 'asignatura', 'familiar', 'centro', 'trimestre'] as const;
 export type Ambito = (typeof AMBITOS)[number];
 
 export const AMBITO_LABELS: Record<Ambito, string> = {
   alumno: 'Alumno/a',
   clase: 'Clase y tutor',
+  asignatura: 'Asignaturas del curso',
   familiar: 'Familias',
   centro: 'Centro y curso',
   trimestre: 'Trimestre',
@@ -25,6 +26,22 @@ export interface Campo {
   ambito: Ambito;
   label: string;
   ejemplo: string;
+}
+
+/**
+ * Cuántos huecos de asignatura hay: `<<asignatura1>>` … `<<asignatura15>>`. El curso con más
+ * asignaturas del colegio tiene once, así que quince da margen sin llenar de ruido el
+ * desplegable de mapeo.
+ */
+export const ASIGNATURAS_MAX = 15;
+
+function camposAsignatura(): Campo[] {
+  return Array.from({ length: ASIGNATURAS_MAX }, (_, i) => ({
+    id: `asignatura${i + 1}`,
+    ambito: 'asignatura' as const,
+    label: `Asignatura ${i + 1} del curso`,
+    ejemplo: i === 0 ? 'Mates' : i === 1 ? 'Valencià' : '…',
+  }));
 }
 
 /** Todo lo que el módulo sabe rellenar. Añadir aquí = añadir en `datosDe*` de cuaderno-server. */
@@ -57,6 +74,11 @@ export const CAMPOS: readonly Campo[] = [
   { id: 'tutores', ambito: 'clase', label: 'Todos los tutores de la clase', ejemplo: 'María R + Paola G' },
   { id: 'tutor_email', ambito: 'clase', label: 'Correo del tutor/a', ejemplo: 'mremolar@…' },
   { id: 'num_alumnos', ambito: 'clase', label: 'Nº de alumnos del tutor/a', ejemplo: '15' },
+  { id: 'num_asignaturas', ambito: 'asignatura', label: 'Nº de asignaturas del curso', ejemplo: '11' },
+  // Asignaturas del curso (ver ASIGNATURAS_MAX). El hueco que no tenga asignatura sale
+  // vacío, para que una plantilla con doce filas no imprima `<<asignatura12>>` en las clases
+  // que solo dan diez.
+  ...camposAsignatura(),
   // Familias
   { id: 'familiar1_nombre', ambito: 'familiar', label: 'Familiar 1 · nombre', ejemplo: 'Ana Gil Soler' },
   { id: 'familiar1_telefono', ambito: 'familiar', label: 'Familiar 1 · teléfono', ejemplo: '600 11 22 33' },
@@ -156,6 +178,10 @@ export const ALIAS_POR_DEFECTO: Readonly<Record<string, string>> = {
   correo2: 'familiar2_correo',
   email1: 'familiar1_correo',
   email2: 'familiar2_correo',
+  asignatura: 'asignatura1',
+  materia1: 'asignatura1',
+  materia2: 'asignatura2',
+  materia3: 'asignatura3',
   // Centro y trimestre
   curs: 'curso_escolar',
   curs_escolar: 'curso_escolar',
