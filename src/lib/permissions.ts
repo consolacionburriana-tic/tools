@@ -21,6 +21,7 @@ export const MODULES = [
   'cuaderno',
   'usuarios',
   'profes',
+  'autoasm',
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -37,6 +38,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   cuaderno: 'Cuaderno de tutor',
   usuarios: 'Usuarios y roles',
   profes: 'Tutorías',
+  autoasm: 'AUTOASM (Apple School Manager)',
 };
 
 /**
@@ -86,8 +88,9 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'educamos',
     'cuaderno',
     'profes',
+    'autoasm',
   ],
-  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'profes'],
+  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'profes', 'autoasm'],
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes'],
   secretaria: ['licencias', 'salidas', 'bancolibros', 'horarios', 'cuaderno'],
   tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios'],

@@ -108,6 +108,7 @@ panel de gestión bajo `/gestion/<modulo>` (detrás de login con Google, solo cu
 | Salidas y pagos | `/salidas` | `/gestion/salidas` |
 | Banco de libros | — | `/gestion/bancolibros` |
 | BBDD central Educamos (alumnado + tutores + profes) | — | `/gestion/educamos` |
+| AUTOASM (ficheros de Apple School Manager) | — | `/gestion/autoasm` |
 | Usuarios y roles | — | `/gestion/usuarios` |
 
 `/admin` es una ruta heredada de antes del login: hoy es solo un redirect a

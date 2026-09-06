@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import {
   AlarmClock,
+  Apple,
   BookMarked,
   Bus,
   CalendarDays,
@@ -43,7 +44,7 @@ export default async function EscritorioPage() {
   // Junio y septiembre, Licencias manda: sale arriba del todo (ver esTemporadaLicencias).
   const ahora = new Date();
   const licenciasArriba = puede('licencias') && esTemporadaLicencias(ahora);
-  const configuracion = puede('profes') || puede('usuarios') || puede('educamos');
+  const configuracion = puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm');
 
   // Stats solo de los módulos que el rol puede ver
   const [alumnos, profes, ultimoSync, pedidos, registrosAbc] = await Promise.all([
@@ -214,6 +215,14 @@ export default async function EscritorioPage() {
                 icon={<Database className="h-6 w-6" />}
                 title="BBDD central (Educamos)"
                 desc="Sincronizar alumnado y profesorado desde los exports"
+              />
+            )}
+            {puede('autoasm') && (
+              <ModuleCard
+                href="/gestion/autoasm"
+                icon={<Apple className="h-6 w-6" />}
+                title="AUTOASM (Apple School Manager)"
+                desc="Generar y revisar los seis CSV de ASM y descargarlos en un ZIP"
               />
             )}
           </section>
