@@ -238,9 +238,13 @@ export async function buscarEnCarpeta(
  * Carpeta con ese nombre dentro del padre: la reutiliza si ya existe. Idempotente a
  * propósito — una tirada que se reintenta no debe dejar cinco carpetas "2ºA — María R".
  */
-export async function asegurarCarpeta(nombre: string, padreId: string): Promise<{ id: string; url: string }> {
+/** `nueva` dice si la ha creado esta llamada o ya estaba: quien lo pregunta decide con eso. */
+export async function asegurarCarpeta(
+  nombre: string,
+  padreId: string,
+): Promise<{ id: string; url: string; nueva: boolean }> {
   const existente = await buscarEnCarpeta(nombre, padreId, MIME_CARPETA);
-  if (existente) return { id: existente.id, url: urlCarpeta(existente.id) };
+  if (existente) return { id: existente.id, url: urlCarpeta(existente.id), nueva: false };
   const drive = getDrive();
   const res = await conReintentos(() =>
     drive.files.create({
@@ -251,7 +255,7 @@ export async function asegurarCarpeta(nombre: string, padreId: string): Promise<
   );
   const id = res.data.id;
   if (!id) throw new Error(`No se pudo crear la carpeta «${nombre}»`);
-  return { id, url: urlCarpeta(id) };
+  return { id, url: urlCarpeta(id), nueva: true };
 }
 
 /** Copia un archivo (se usa para dejar las plantillas usadas en `# Plantillas`). */

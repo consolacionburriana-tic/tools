@@ -219,7 +219,7 @@ export interface ResultadoWorker {
 interface Cache {
   docx: Map<string, Buffer>;
   asignaturas: Map<string, AsignaturaCuaderno[]>;
-  carpetaClase: Map<string, { id: string; url: string }>;
+  carpetaClase: Map<string, { id: string; url: string; nueva: boolean }>;
   carpetaEtapa: Map<string, string>;
   clases: Map<string, ClaseCuaderno>;
   numeros: Map<string, Map<string, { asignado: number; alfabetico: number }>>;
@@ -397,7 +397,9 @@ async function carpetaDestino(ctx: ContextoItem, clase: ClaseCuaderno): Promise<
 
   // Las tiradas posteriores a la primera van a su propia subcarpeta dentro de la carpeta de
   // la clase (que ya está compartida): el alumnado que llega tarde no rehace nada de nadie.
-  const propia = opciones.subcarpetaPropia || tirada.numero > 1;
+  // Pero si la carpeta de la clase ACABA DE NACER no hay nada que respetar, así que los
+  // documentos van directos ahí: una subcarpeta «Ejecución 2» vacía de contexto solo estorba.
+  const propia = (opciones.subcarpetaPropia || tirada.numero > 1) && !deLaClase.nueva;
   if (!propia) return deLaClase;
   const claveEjecucion = `${clave}#${tirada.numero}`;
   const cacheada = cache.carpetaClase.get(claveEjecucion);
