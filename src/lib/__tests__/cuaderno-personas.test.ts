@@ -6,6 +6,7 @@ import {
   nombresDe,
   pareceMalEscrito,
 } from '@/lib/cuaderno/personas';
+import { limpiarAbreviatura } from '@/lib/cuaderno-server';
 
 // Los nombres de estas pruebas son inventados salvo el patrón que los motiva (el export de
 // Educamos llega todo en mayúsculas). Nunca datos reales de alumnado.
@@ -113,5 +114,23 @@ describe('nombresDe', () => {
   it('aguanta a quien no tiene apellidos, o no existe', () => {
     expect(nombresDe({ nombre: 'PAOLA', apellido1: null, apellido2: null }).usual).toBe('Paola');
     expect(nombresDe(null)).toEqual({ completo: '', usual: '', corto: '', pila: '', apellidos: '' });
+  });
+});
+
+describe('limpiarAbreviatura', () => {
+  it('le quita el dígito de nivel que trae Untis', () => {
+    expect(limpiarAbreviatura('MAT1')).toBe('MAT');
+    expect(limpiarAbreviatura('EFI3')).toBe('EFI');
+    expect(limpiarAbreviatura('LEN1')).toBe('LEN');
+  });
+
+  it('no deja un código de una letra: antes eso que nada', () => {
+    expect(limpiarAbreviatura('LU')).toBe('LU');
+    expect(limpiarAbreviatura('E1')).toBe('E1'); // quitarle el 1 dejaría solo «E»
+  });
+
+  it('aguanta lo vacío', () => {
+    expect(limpiarAbreviatura(null)).toBeNull();
+    expect(limpiarAbreviatura('  ')).toBeNull();
   });
 });

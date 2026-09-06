@@ -128,8 +128,27 @@ export async function actualizarPlantilla(
   return fila ?? null;
 }
 
-export async function borrarPlantilla(id: string): Promise<void> {
-  await db.delete(cuadPlantillas).where(eq(cuadPlantillas.id, id));
+/**
+ * Cuánto historial se lleva por delante quitar una plantilla. Se enseña ANTES de borrar,
+ * porque «quitar la plantilla» y «borrar los 30 documentos que salieron de ella» no son la
+ * misma decisión y quien la toma tiene que saberlo.
+ */
+export async function historialDePlantilla(id: string): Promise<{ documentos: number; hojas: number }> {
+  const [documentos, hojas] = await Promise.all([
+    db.select({ n: sql<number>`count(*)::int` }).from(cuadItems).where(eq(cuadItems.plantillaId, id)),
+    db.select({ n: sql<number>`count(*)::int` }).from(cuadHojas).where(eq(cuadHojas.plantillaId, id)),
+  ]);
+  return { documentos: documentos[0]?.n ?? 0, hojas: hojas[0]?.n ?? 0 };
+}
+
+/**
+ * Quita una plantilla y, con ella, los ítems de tirada y las hojas que salieron de ella
+ * (las dos tablas van en cascada). Lo de Drive no se toca: los documentos ya generados son
+ * del tutor, no de aquí.
+ */
+export async function borrarPlantilla(id: string): Promise<boolean> {
+  const borradas = await db.delete(cuadPlantillas).where(eq(cuadPlantillas.id, id)).returning({ id: cuadPlantillas.id });
+  return borradas.length > 0;
 }
 
 /** Alias aprendidos: etiqueta normalizada → campo. */
@@ -165,6 +184,10 @@ export interface TutorCuaderno {
   corto: string;
   /** Todo lo que trae el export («Carlos Andres Valero Aicart»), por si hace falta. */
   completo: string;
+  /** Los trozos sueltos, para plantillas que los piden por separado. */
+  pila: string;
+  apellido1: string;
+  apellido2: string;
   email: string | null;
 }
 
@@ -313,6 +336,9 @@ export async function getClasesCuaderno(opciones?: {
             nombre: n.usual,
             corto: n.corto,
             completo: n.completo,
+            pila: n.pila,
+            apellido1: mayusculasBellas(p.apellido1),
+            apellido2: mayusculasBellas(p.apellido2),
             email: correoBonito(p.email ?? p.emailOtro) || null,
           };
         })
@@ -556,9 +582,20 @@ export interface AsignaturaCuaderno {
   horMateriaId: string | null;
   /** Alumnos de las clases donde consta esa materia en el horario (null si es manual). */
   alumnos: number | null;
+  /**
+   * La abreviatura que el horario tiene para esa materia, limpia del dígito de nivel
+   * (`MAT1` → `MAT`). Se ofrece como SUGERENCIA, no se copia sola: en Untis son códigos
+   * internos y hay unos cuantos que no se entienden fuera («MYD» para Music, «EPV» para
+   * Arts). Quien decide qué se imprime en la hoja es la persona, no el horario.
+   */
+  sugerenciaCorto: string | null;
 }
 
-const conCodigos = (filas: CuadAsignatura[], alumnosPorMateria: Map<string, number>): AsignaturaCuaderno[] =>
+const conCodigos = (
+  filas: CuadAsignatura[],
+  alumnosPorMateria: Map<string, number>,
+  abreviaturas: Map<string, string> = new Map(),
+): AsignaturaCuaderno[] =>
   filas
     .filter((f) => f.active)
     .sort((a, b) => a.orden - b.orden || cmpEs(a.nombre, b.nombre))
@@ -572,6 +609,7 @@ const conCodigos = (filas: CuadAsignatura[], alumnosPorMateria: Map<string, numb
       origen: f.origen,
       horMateriaId: f.horMateriaId,
       alumnos: f.horMateriaId ? alumnosPorMateria.get(`${f.curso}|${f.horMateriaId}`) ?? 0 : null,
+      sugerenciaCorto: f.horMateriaId ? abreviaturas.get(f.horMateriaId) ?? null : null,
     }));
 
 /**
@@ -594,13 +632,38 @@ async function alumnosPorMateriaDelHorario(): Promise<Map<string, number>> {
 
 /** Asignaturas guardadas, por curso, ya con su código. */
 export async function getAsignaturas(academicYear: string): Promise<Map<string, AsignaturaCuaderno[]>> {
-  const [filas, alumnos] = await Promise.all([
+  const [filas, alumnos, abreviaturas] = await Promise.all([
     db.select().from(cuadAsignaturas).where(eq(cuadAsignaturas.academicYear, academicYear)),
     alumnosPorMateriaDelHorario(),
+    abreviaturasDelHorario(),
   ]);
   const porCurso = new Map<string, CuadAsignatura[]>();
   for (const f of filas) porCurso.set(f.curso, [...(porCurso.get(f.curso) ?? []), f]);
-  return new Map([...porCurso].map(([curso, suyas]) => [curso, conCodigos(suyas, alumnos)]));
+  return new Map([...porCurso].map(([curso, suyas]) => [curso, conCodigos(suyas, alumnos, abreviaturas)]));
+}
+
+/**
+ * Abreviatura del horario por materia, ya limpia. En Untis vienen con el nivel pegado
+ * (`MAT1`, `EFI3`, `LEN1`) porque allí distinguen la materia de 1º de la de 3º; aquí eso
+ * sobra, así que se le quita el dígito final. Las de dos letras o menos no se tocan.
+ */
+export async function abreviaturasDelHorario(): Promise<Map<string, string>> {
+  const filas = await db.execute<{ id: string; abreviatura: string | null }>(sql`
+    SELECT id, abreviatura FROM hor_materias WHERE active AND abreviatura IS NOT NULL AND abreviatura <> ''
+  `);
+  const mapa = new Map<string, string>();
+  for (const f of filas.rows ?? []) {
+    const limpia = limpiarAbreviatura(f.abreviatura);
+    if (limpia) mapa.set(f.id, limpia);
+  }
+  return mapa;
+}
+
+export function limpiarAbreviatura(abreviatura: string | null): string | null {
+  const bruta = (abreviatura ?? '').trim();
+  if (bruta === '') return null;
+  const sinNivel = bruta.replace(/\d+$/, '');
+  return (sinNivel.length >= 2 ? sinNivel : bruta) || null;
 }
 
 export interface MateriaDelHorario {
@@ -669,6 +732,50 @@ export async function actualizarAsignatura(
     .update(cuadAsignaturas)
     .set({ ...cambios, updatedAt: new Date() })
     .where(eq(cuadAsignaturas.id, id));
+}
+
+/**
+ * Pone el mismo nombre corto a las asignaturas que se llaman igual en los demás cursos.
+ *
+ * «Biología» es «BG» en 1º de la ESO y en 3º y en 4º: escribirlo cinco veces es una pérdida
+ * de tiempo. Por defecto solo rellena las que están **en blanco**, para no pisar un nombre
+ * corto que alguien puso a propósito; con `pisar` se aplica a todas.
+ *
+ * Devuelve a cuántas llegó («BG puesto también en 4 cursos») y cuántas se quedaron fuera
+ * por tener ya un nombre corto distinto, que es lo que el panel ofrece pisar.
+ */
+export async function propagarNombreCorto(opciones: {
+  academicYear: string;
+  nombre: string;
+  nombreCorto: string | null;
+  excluirId: string;
+  pisar?: boolean;
+}): Promise<{ propagadas: number; conOtro: number }> {
+  const { academicYear, nombre, nombreCorto, excluirId, pisar = false } = opciones;
+  const hermanas = await db
+    .select({ id: cuadAsignaturas.id, nombre: cuadAsignaturas.nombre, nombreCorto: cuadAsignaturas.nombreCorto })
+    .from(cuadAsignaturas)
+    .where(and(eq(cuadAsignaturas.academicYear, academicYear), eq(cuadAsignaturas.active, true)));
+
+  // Se comparan los nombres con la misma normalización que las etiquetas: así «Biología y
+  // Geología» y «BIOLOGIA Y GEOLOGIA» son la misma asignatura, que es lo que uno espera.
+  const clave = normalizarEtiqueta(nombre);
+  const gemelas = hermanas.filter(
+    (a) => a.id !== excluirId && normalizarEtiqueta(a.nombre) === clave && a.nombreCorto !== nombreCorto,
+  );
+  const ids = gemelas.filter((a) => pisar || !a.nombreCorto).map((a) => a.id);
+  const conOtro = pisar ? 0 : gemelas.filter((a) => a.nombreCorto).length;
+  if (ids.length === 0) return { propagadas: 0, conOtro };
+  await db
+    .update(cuadAsignaturas)
+    .set({ nombreCorto, updatedAt: new Date() })
+    .where(inArray(cuadAsignaturas.id, ids));
+  return { propagadas: ids.length, conOtro };
+}
+
+export async function getAsignatura(id: string): Promise<CuadAsignatura | null> {
+  const [fila] = await db.select().from(cuadAsignaturas).where(eq(cuadAsignaturas.id, id)).limit(1);
+  return fila ?? null;
 }
 
 export async function borrarAsignatura(id: string): Promise<void> {

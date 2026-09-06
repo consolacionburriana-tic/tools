@@ -71,6 +71,15 @@ export const CAMPOS: readonly Campo[] = [
   { id: 'etapa', ambito: 'clase', label: 'Etapa', ejemplo: 'ESO' },
   { id: 'tutor', ambito: 'clase', label: 'Tutor/a', ejemplo: 'Carlos Valero Aicart' },
   { id: 'tutor_corto', ambito: 'clase', label: 'Tutor/a (nombre corto)', ejemplo: 'Carlos V' },
+  { id: 'tutor_nombre', ambito: 'clase', label: 'Tutor/a (solo el nombre)', ejemplo: 'Carlos' },
+  { id: 'tutor_apellido1', ambito: 'clase', label: 'Tutor/a (primer apellido)', ejemplo: 'Valero' },
+  { id: 'tutor_apellido2', ambito: 'clase', label: 'Tutor/a (segundo apellido)', ejemplo: 'Aicart' },
+  {
+    id: 'tutor_1apellido',
+    ambito: 'clase',
+    label: 'Tutor/a (nombre y un apellido)',
+    ejemplo: 'Carlos Valero',
+  },
   {
     id: 'tutor_completo',
     ambito: 'clase',

@@ -40,6 +40,8 @@ interface AsignaturaUI {
   enLaHoja: string;
   origen: string;
   alumnos: number | null;
+  /** La abreviatura del horario, limpia. Se ofrece, no se impone. */
+  sugerenciaCorto: string | null;
 }
 
 interface MateriaHorario {
@@ -227,6 +229,45 @@ export function AsignaturasPanel({ cursoEscolar }: { cursoEscolar: string }) {
   );
 }
 
+/**
+ * Guarda el nombre corto y lo lleva a las asignaturas que se llaman igual en los demás
+ * cursos: «Biología» es «BG» en 1º, 3º y 4º, y escribirlo tres veces es una pérdida de
+ * tiempo. Solo rellena las que están en blanco; las que ya tenían otro se quedan como
+ * estaban y el aviso ofrece pisarlas de una vez.
+ */
+async function guardarNombreCorto(
+  asignatura: AsignaturaUI,
+  valor: string,
+  onLlamar: (metodo: string, cuerpo: Record<string, unknown>, marca: string) => Promise<unknown>,
+) {
+  const respuesta = (await onLlamar('PATCH', { id: asignatura.id, nombreCorto: valor }, asignatura.id)) as {
+    propagadas?: number;
+    conOtro?: number;
+  } | null;
+  if (!respuesta) return;
+  const corto = valor.trim();
+  const { propagadas = 0, conOtro = 0 } = respuesta;
+  if (propagadas > 0) {
+    toast.success(
+      corto
+        ? `«${corto}» puesto también en ${propagadas} curso(s) más`
+        : `Nombre corto quitado también en ${propagadas} curso(s) más`,
+    );
+  }
+  if (conOtro > 0) {
+    toast(`${conOtro} «${asignatura.nombre}» de otros cursos tienen otro nombre corto`, {
+      action: {
+        label: 'Poner el mismo',
+        onClick: () => {
+          void onLlamar('PATCH', { id: asignatura.id, nombreCorto: valor, pisar: true }, asignatura.id).then(() =>
+            toast.success(`«${corto}» aplicado a todos los cursos`),
+          );
+        },
+      },
+    });
+  }
+}
+
 function FilaCurso({
   curso,
   alumnosDelCurso,
@@ -389,15 +430,33 @@ function Asignatura({
         onBlur={(e) => e.target.value.trim() !== a.nombre && onLlamar('PATCH', { id: a.id, nombre: e.target.value }, a.id)}
         className="min-w-40 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm outline-none hover:border-zinc-200 focus:border-zinc-400 dark:hover:border-zinc-700"
       />
-      <input
-        defaultValue={a.nombreCorto ?? ''}
-        placeholder="corto (opcional)"
-        onBlur={(e) =>
-          (e.target.value.trim() || null) !== a.nombreCorto &&
-          onLlamar('PATCH', { id: a.id, nombreCorto: e.target.value }, a.id)
-        }
-        className="w-40 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm outline-none hover:border-zinc-200 focus:border-zinc-400 dark:hover:border-zinc-700"
-      />
+      <span className="flex w-40 shrink-0 items-center gap-1">
+        <input
+          key={a.nombreCorto ?? ''}
+          defaultValue={a.nombreCorto ?? ''}
+          placeholder="corto (opcional)"
+          title="Se copia solo a las asignaturas que se llaman igual en los demás cursos"
+          onBlur={(e) => {
+            if ((e.target.value.trim() || null) === a.nombreCorto) return;
+            void guardarNombreCorto(a, e.target.value, onLlamar);
+          }}
+          className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm outline-none hover:border-zinc-200 focus:border-zinc-400 dark:hover:border-zinc-700"
+        />
+        {/* La del horario, por si sirve. Son códigos de Untis, así que se ofrece y ya. */}
+        {!a.nombreCorto && a.sugerenciaCorto && (
+          <button
+            type="button"
+            title={`Usar «${a.sugerenciaCorto}», que es lo que el horario tiene para esta materia`}
+            onClick={() => {
+              haptic.tap();
+              void guardarNombreCorto(a, a.sugerenciaCorto as string, onLlamar);
+            }}
+            className="shrink-0 rounded-lg bg-zinc-100 px-1.5 py-1 font-mono text-[11px] text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+          >
+            {a.sugerenciaCorto}
+          </button>
+        )}
+      </span>
 
       <span className="w-28 shrink-0 text-right text-xs text-zinc-400">
         {a.alumnos === null ? 'a mano' : `${a.alumnos} alumnos`}
