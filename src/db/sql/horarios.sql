@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS "hor_espacios" (
   "codigo" text NOT NULL,
   "nombre" text NOT NULL,
   "tipo" text,
+  "admite_solapes" boolean DEFAULT false NOT NULL,
   "capacidad" integer,
   "notas" text,
   "active" boolean DEFAULT true NOT NULL,
@@ -314,9 +315,10 @@ ON CONFLICT ("codigo") DO NOTHING;
 
 -- Espacios vistos en la leyenda "Aulas:" del horario de infantil y primaria.
 INSERT INTO "hor_espacios" ("id", "codigo", "nombre", "tipo") VALUES
-  (gen_random_uuid(), 'POLI',  'Polideportivo',   'pista'),
-  (gen_random_uuid(), 'POLI2', 'Polideportivo 2', 'pista'),
-  (gen_random_uuid(), 'MUS',   'Música',          'aula')
+  -- El polideportivo admite varias clases a la vez: dos grupos en las dos pistas no es
+  -- un choque. POLI y POLI2 son EL MISMO sitio, así que va una sola fila.
+  (gen_random_uuid(), 'POLI', 'Polideportivo', 'pista'),
+  (gen_random_uuid(), 'MUS',  'Música',        'aula')
 ON CONFLICT ("codigo") DO NOTHING;
 
 COMMIT;
@@ -324,4 +326,4 @@ COMMIT;
 -- Comprobación rápida tras ejecutarlo:
 --   SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'hor\_%';  -- 14
 --   SELECT count(*) FROM hor_actividades;                                          -- 14
---   SELECT count(*) FROM hor_espacios;                                             --  3
+--   SELECT count(*) FROM hor_espacios;                                             --  2

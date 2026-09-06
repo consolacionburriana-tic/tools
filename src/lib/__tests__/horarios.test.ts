@@ -292,7 +292,10 @@ describe('cuadrícula del navegador', () => {
     tipoTramo: 'sesion',
     titulo: 'Mates',
     subtitulo: null,
+    materiaId: null,
+    abreviatura: null,
     actividad: 'clase',
+    actividadNombre: 'Clase',
     lectiva: true,
     espacio: null,
     profes: [],
@@ -355,8 +358,8 @@ describe('cuadrícula del navegador', () => {
 
 describe('situar "ahora" en la cuadrícula', () => {
   const filas = construirCuadricula([
-    { sesionId: '1', dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45', tipoTramo: 'sesion', titulo: 'A', subtitulo: null, actividad: 'clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
-    { sesionId: '2', dia: 1, tramoId: 't', horaInicio: '09:45', horaFin: '10:30', tipoTramo: 'sesion', titulo: 'B', subtitulo: null, actividad: 'clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
+    { sesionId: '1', dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45', tipoTramo: 'sesion', titulo: 'A', subtitulo: null, materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
+    { sesionId: '2', dia: 1, tramoId: 't', horaInicio: '09:45', horaFin: '10:30', tipoTramo: 'sesion', titulo: 'B', subtitulo: null, materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
   ]);
 
   it('encuentra la franja en curso un día lectivo', () => {
@@ -376,7 +379,8 @@ describe('situar "ahora" en la cuadrícula', () => {
 describe('colores por categoría', () => {
   const c = (grupos: string[], titulo = 'Mates'): CeldaHorario => ({
     sesionId: `${grupos.join()}-${titulo}`, dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45',
-    tipoTramo: 'sesion', titulo, subtitulo: null, actividad: 'clase', lectiva: true, espacio: null,
+    tipoTramo: 'sesion', titulo, subtitulo: null, materiaId: null, abreviatura: null,
+    actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null,
     profes: [], grupos, notas: null,
   });
 
@@ -455,5 +459,33 @@ describe('raíz de una materia', () => {
     expect(normalizarNombreMateria('Tutoría')).toBe(normalizarNombreMateria('TutorIa'));
     // Distinto idioma NO se junta por nombre: para eso está la raíz del código.
     expect(normalizarNombreMateria('Educació Física')).not.toBe(normalizarNombreMateria('Educación Física'));
+  });
+});
+
+describe('espacios que admiten varias clases a la vez', () => {
+  const base = { tramoId: 'T1', grupos: [], profeIds: [] };
+
+  it('dos clases en un aula normal SÍ es conflicto', () => {
+    const s: SesionParaConflictos[] = [
+      { ...base, id: 'a', profeIds: ['ana'], grupos: [{ curso: '2ESO', letra: 'A' }], aula: 'Aula 14' },
+      { ...base, id: 'b', profeIds: ['pep'], grupos: [{ curso: '3ESO', letra: 'B' }], aula: 'Aula 14' },
+    ];
+    expect(detectarConflictos(s).filter((c) => c.tipo === 'aula')).toHaveLength(1);
+  });
+
+  it('dos clases en el polideportivo NO es conflicto: allí caben varias', () => {
+    const s: SesionParaConflictos[] = [
+      { ...base, id: 'a', profeIds: ['ana'], grupos: [{ curso: '2ESO', letra: 'A' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
+      { ...base, id: 'b', profeIds: ['pep'], grupos: [{ curso: '3ESO', letra: 'B' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
+    ];
+    expect(detectarConflictos(s).filter((c) => c.tipo === 'aula')).toEqual([]);
+  });
+
+  it('pero el profe en dos sitios a la vez sigue siendo conflicto, esté donde esté', () => {
+    const s: SesionParaConflictos[] = [
+      { ...base, id: 'a', profeIds: ['ana'], grupos: [{ curso: '2ESO', letra: 'A' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
+      { ...base, id: 'b', profeIds: ['ana'], grupos: [{ curso: '3ESO', letra: 'B' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
+    ];
+    expect(detectarConflictos(s).some((c) => c.tipo === 'profe')).toBe(true);
   });
 });

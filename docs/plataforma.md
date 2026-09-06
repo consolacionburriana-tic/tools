@@ -79,6 +79,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
 | Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (infantil y primaria importados y navegables en `/gestion/horarios`: vistas por clase, profesor y aula, con importación desde el `.docx` de Educamos; falta secundaria) | [`07-horarios.md`](./07-horarios.md) |
 | AUTOASM (Apple School Manager) | ✅ | ✅ | ✅ (los seis CSV de ASM: se generan de la BBDD central o del ZIP del curso pasado, se validan, se navegan y se descargan; falta la subida real a ASM de David) | [`19-autoasm.md`](./19-autoasm.md) |
+| Mi horario (ver el mío y llevarlo a Google Calendar) | ✅ | ✅ | 🟡 (Fases 0-3 hechas y en Neon; falta que David añada el scope de Calendar en Workspace y la primera prueba real) | [`20-mi-horario.md`](./20-mi-horario.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 empezado y en uso, pero le falta algo (lo que falta va entre

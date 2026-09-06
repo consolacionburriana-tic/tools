@@ -13,6 +13,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  Archive,
   ArrowDownAZ,
   ArrowUpAZ,
   ChevronLeft,
@@ -20,6 +21,8 @@ import {
   Download,
   Plus,
   Search,
+  Tablet,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
@@ -32,7 +35,7 @@ import {
   type ArchivoAsm,
   type FilaCsv,
 } from '@/lib/autoasm';
-import type { ProyectoAsm } from '@/lib/autoasm-construir';
+import { darDeBaja, type ProyectoAsm } from '@/lib/autoasm-construir';
 import { ESTILO, num } from '@/components/autoasm/paleta';
 import { useProyecto } from '@/components/autoasm/proyecto-store';
 import { descargarCsv } from '@/components/autoasm/descargas';
@@ -54,6 +57,7 @@ export function ExploradorAsm({ archivo, consultaInicial }: { archivo: ArchivoAs
   const [pagina, setPagina] = useState(0);
   const [abierta, setAbierta] = useState<string | null>(null); // clave de la fila abierta
   const [verVacias, setVerVacias] = useState(false);
+  const [verArchivados, setVerArchivados] = useState(false);
 
   const espec = ESPEC[archivo];
   const estilo = ESTILO[archivo];
@@ -61,9 +65,18 @@ export function ExploradorAsm({ archivo, consultaInicial }: { archivo: ArchivoAs
   const filas = useMemo(() => proyecto?.archivos[archivo] ?? [], [proyecto, archivo]);
   const indice = useMemo(() => (proyecto ? construirIndice(proyecto) : null), [proyecto]);
 
+  const archivados = useMemo(() => new Set(proyecto?.archivados ?? []), [proyecto]);
+  const conArchivados = archivo === 'students' || archivo === 'staff';
+  const cuantosArchivados = useMemo(
+    () => (conArchivados ? filas.filter((f) => archivados.has(f[espec.clave])).length : 0),
+    [filas, archivados, conArchivados, espec.clave],
+  );
+
   const visibles = useMemo(() => {
     const texto = q.trim().toLowerCase();
     let salida = filas;
+    // Las cuentas archivadas siguen en el fichero (y en el ZIP), pero no estorban aquí.
+    if (conArchivados && !verArchivados) salida = salida.filter((f) => !archivados.has(f[espec.clave]));
     if (faceta) salida = salida.filter((f) => (f[faceta.campo] ?? '') === faceta.valor);
     if (texto) {
       salida = salida.filter((f) =>
@@ -79,7 +92,7 @@ export function ExploradorAsm({ archivo, consultaInicial }: { archivo: ArchivoAs
       });
     }
     return salida;
-  }, [filas, q, faceta, orden, archivo, indice]);
+  }, [filas, q, faceta, orden, archivo, indice, archivados, conArchivados, verArchivados, espec.clave]);
 
   const paginas = Math.max(1, Math.ceil(visibles.length / POR_PAGINA));
   const pag = Math.min(pagina, paginas - 1);
@@ -214,6 +227,19 @@ export function ExploradorAsm({ archivo, consultaInicial }: { archivo: ArchivoAs
                   ))}
                 </select>
               ))}
+              {cuantosArchivados > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setVerArchivados((v) => !v)}
+                  className={`min-h-11 rounded-xl border px-3 text-xs font-medium transition-colors ${
+                    verArchivados
+                      ? 'border-zinc-400 bg-zinc-100 text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200'
+                      : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  {verArchivados ? 'Ocultar' : 'Ver'} {num(cuantosArchivados)} archivad{cuantosArchivados === 1 ? 'o' : 'os'}
+                </button>
+              )}
               {vacias.length > 0 && (
                 <button
                   type="button"
@@ -253,7 +279,9 @@ export function ExploradorAsm({ archivo, consultaInicial }: { archivo: ArchivoAs
                       <tr
                         key={`${fila[espec.clave]}-${i}`}
                         onClick={() => setAbierta(fila[espec.clave])}
-                        className="cursor-pointer even:bg-zinc-50/60 hover:bg-blue-50/60 dark:even:bg-zinc-800/30 dark:hover:bg-blue-500/5"
+                        className={`cursor-pointer even:bg-zinc-50/60 hover:bg-blue-50/60 dark:even:bg-zinc-800/30 dark:hover:bg-blue-500/5 ${
+                          archivados.has(fila[espec.clave]) ? 'opacity-50' : ''
+                        }`}
                       >
                         {columnas.map((campo) => (
                           <td key={campo.nombre} className="px-3 py-2 align-top">
@@ -463,6 +491,14 @@ function Ficha({
             <p className="truncate font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{clave}</p>
             {archivo === 'students' && <p className="truncate text-sm text-zinc-600 dark:text-zinc-300">{fila.first_name} {fila.last_name} · {fila.grade_level}</p>}
             {archivo === 'staff' && <p className="truncate text-sm text-zinc-600 dark:text-zinc-300">{fila.first_name} {fila.last_name}</p>}
+            <span className="mt-1 flex flex-wrap gap-1">
+              {proyecto.archivados.includes(clave) && (
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">Archivado</span>
+              )}
+              {proyecto.compartidas.includes(clave) && (
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">iPad compartido</span>
+              )}
+            </span>
             {archivo === 'classes' && <p className="truncate text-sm text-zinc-600 dark:text-zinc-300">{fila.class_number} · {indice.cursos.get(fila.course_id) ?? fila.course_id}</p>}
           </div>
           <button type="button" onClick={onCerrar} className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
@@ -485,6 +521,10 @@ function Ficha({
               </div>
             ))}
           </dl>
+
+          {(archivo === 'students' || archivo === 'staff') && (
+            <AccionesPersona archivo={archivo} personId={clave} proyecto={proyecto} onGuardar={onGuardar} onCerrar={onCerrar} />
+          )}
 
           {archivo === 'classes' && (
             <EditorClase clase={fila} proyecto={proyecto} indice={indice} onGuardar={onGuardar} />
@@ -557,6 +597,79 @@ function ListaEnlaces({ titulo, items, vacio }: { titulo: string; items: { id: s
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+/**
+ * Qué se puede hacer con una persona sin romper nada: archivarla (se queda en el fichero,
+ * conserva su cuenta y su iCloud, y sale de las clases), marcarla como cuenta de iPad
+ * compartido —para que el sync no la toque nunca— o darla de baja de verdad, que es lo
+ * único destructivo del módulo y por eso se pregunta dos veces.
+ */
+function AccionesPersona({
+  archivo,
+  personId,
+  proyecto,
+  onGuardar,
+  onCerrar,
+}: {
+  archivo: ArchivoAsm;
+  personId: string;
+  proyecto: ProyectoAsm;
+  onGuardar: (p: ProyectoAsm) => { ok: boolean; error?: string };
+  onCerrar: () => void;
+}) {
+  const archivado = proyecto.archivados.includes(personId);
+  const compartida = proyecto.compartidas.includes(personId);
+
+  function alternar(campo: 'archivados' | 'compartidas') {
+    const lista = proyecto[campo];
+    const nueva = lista.includes(personId) ? lista.filter((p) => p !== personId) : [...lista, personId];
+    haptic.tap();
+    onGuardar({ ...proyecto, [campo]: nueva, actualizado: new Date().toISOString() });
+  }
+
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Qué hacer con esta cuenta</h3>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => alternar('archivados')}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          <Archive className="h-4 w-4" /> {archivado ? 'Desarchivar' : 'Archivar'}
+        </button>
+        {archivo === 'students' && (
+          <button
+            type="button"
+            onClick={() => alternar('compartidas')}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <Tablet className="h-4 w-4" /> {compartida ? 'No es un iPad compartido' : 'Es un iPad compartido'}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            if (!confirm('Dar de baja quita a esta persona del fichero. Al desaparecer de la importación, ASM se lleva por delante su cuenta y su iCloud.\n\n¿Seguro que no prefieres archivarla?')) return;
+            if (!confirm('Última: se borra de students/staff, de sus clases y de sus matrículas. ¿Continuamos?')) return;
+            const r = onGuardar(darDeBaja(proyecto, personId));
+            if (!r.ok && r.error) toast.warning(r.error);
+            toast.success('Dada de baja del fichero.');
+            haptic.warning();
+            onCerrar();
+          }}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-red-200 px-3 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-500/10"
+        >
+          <Trash2 className="h-4 w-4" /> Dar de baja
+        </button>
+      </div>
+      <p className="text-xs text-zinc-500">
+        Archivar es lo normal cuando alguien se va: la cuenta sigue existiendo en ASM (no se pierde su iCloud), pero deja de
+        estar en clases y de aparecer en estas listas.
+      </p>
     </section>
   );
 }

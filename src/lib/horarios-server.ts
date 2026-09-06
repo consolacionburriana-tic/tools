@@ -366,16 +366,52 @@ async function asegurarMaterias(bloques: readonly ResultadoBloque[]): Promise<Ma
   return mapa;
 }
 
-/** Crea los espacios que falten (por código normalizado) y devuelve código → id. */
+/**
+ * Crea los espacios que falten y devuelve el mapa **código del fichero → id**.
+ *
+ * Mismo problema que con las materias, y misma solución: el fichero llama `POLI` y `Poli2`
+ * a **un solo sitio**, el polideportivo. Interesa que sea uno solo, porque saber que a
+ * tercera hay dos grupos en el polideportivo es información útil — y no es un choque: allí
+ * caben varios (`admiteSolapes`). Se unifican con dos señales:
+ *
+ *  1. **`hor_alias`** (tipo 'espacio'), el arreglo a mano, que manda sobre todo.
+ *  2. **La raíz del código**: `POLI` y `POLI2` comparten raíz una vez quitados los dígitos
+ *     del final, igual que `EFI1`/`EFI3` en materias.
+ *
+ * Cuando llegue secundaria traerá más espacios (laboratorios, aulas de informática…) y
+ * entrarán solos; los que haya que juntar o marcar como compartidos se resuelven con una
+ * fila de alias o tocando `admite_solapes`, sin cambiar código.
+ */
 async function asegurarEspacios(bloques: readonly ResultadoBloque[]): Promise<Map<string, string>> {
   const vistos = new Map<string, string>();
   for (const b of bloques) for (const [codigo, nombre] of b.leyendas.aulas) if (!vistos.has(codigo)) vistos.set(codigo, nombre);
+  if (vistos.size === 0) return new Map();
+
+  const alias = await db.select().from(horAlias).where(eq(horAlias.tipo, 'espacio'));
+  const espaciosPorAlias = new Map<string, string>();
+  for (const a of alias) if (a.espacioId) espaciosPorAlias.set(a.codigoExterno.toUpperCase(), a.espacioId);
+
   const existentes = await db.select().from(horEspacios);
-  const mapa = new Map<string, string>(existentes.map((e) => [e.codigo, e.id] as const));
+  const porCodigo = new Map(existentes.map((e) => [e.codigo.toUpperCase(), e.id] as const));
+  const porRaiz = new Map(existentes.map((e) => [raizMateria(e.codigo), e.id] as const));
+
+  const mapa = new Map<string, string>();
   for (const [codigo, nombre] of vistos) {
-    if (mapa.has(codigo)) continue;
-    const [creado] = await db.insert(horEspacios).values({ codigo, nombre }).returning();
-    mapa.set(codigo, creado.id);
+    const cod = codigo.toUpperCase();
+    const raiz = raizMateria(cod);
+    let id = espaciosPorAlias.get(cod) ?? porCodigo.get(cod) ?? porRaiz.get(raiz);
+    if (!id) {
+      // Se guarda con la RAÍZ como código ('POLI'), no con el que trajo el fichero
+      // ('Poli2'), para que el siguiente import lo encuentre venga como venga.
+      const [creado] = await db
+        .insert(horEspacios)
+        .values({ codigo: raiz, nombre: nombre.replace(/\s*\d+\s*$/, '').trim() || nombre })
+        .returning();
+      id = creado.id;
+      porCodigo.set(raiz, id);
+      porRaiz.set(raiz, id);
+    }
+    mapa.set(codigo, id);
   }
   return mapa;
 }
@@ -525,7 +561,9 @@ export async function getCeldas(
     horaFin: horTramos.horaFin,
     tipoTramo: horTramos.tipo,
     asignacionId: horAsignaciones.id,
+    materiaId: horMaterias.id,
     materia: horMaterias.nombre,
+    materiaAbreviatura: horMaterias.abreviatura,
     etiqueta: horAsignaciones.etiqueta,
     notas: horAsignaciones.notas,
     actividad: horActividades.codigo,
@@ -538,7 +576,8 @@ export async function getCeldas(
 
   interface FilaAncha {
     sesionId: string; dia: number; tramoId: string; horaInicio: string; horaFin: string;
-    tipoTramo: string | null; asignacionId: string; materia: string | null;
+    tipoTramo: string | null; asignacionId: string; materiaId: string | null; materia: string | null;
+    materiaAbreviatura: string | null;
     etiqueta: string | null; notas: string | null; actividad: string; actividadNombre: string;
     lectivaActividad: boolean; lectivaAsignacion: boolean | null;
     espacio: string | null; aulaTexto: string | null;
@@ -638,7 +677,10 @@ export async function getCeldas(
       tipoTramo: (f.tipoTramo ?? 'sesion') as CeldaHorario['tipoTramo'],
       titulo: f.materia ?? f.etiqueta ?? f.actividadNombre,
       subtitulo,
+      materiaId: f.materiaId,
+      abreviatura: f.materiaAbreviatura,
       actividad: f.actividad,
+      actividadNombre: f.actividadNombre,
       lectiva: f.lectivaAsignacion ?? f.lectivaActividad,
       espacio: f.espacio ?? f.aulaTexto,
       profes,
@@ -668,7 +710,10 @@ export async function getTramosNoLectivos(periodoId: string, etapa: string | nul
       tipoTramo: t.tipo as CeldaHorario['tipoTramo'],
       titulo: t.tipo === 'recreo' ? 'Patio' : 'Comedor',
       subtitulo: null,
+      materiaId: null,
+      abreviatura: null,
       actividad: t.tipo,
+      actividadNombre: t.tipo === 'recreo' ? 'Patio' : 'Comedor',
       lectiva: false,
       espacio: null,
       profes: [],

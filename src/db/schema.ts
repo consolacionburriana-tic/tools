@@ -111,6 +111,10 @@ export const licStudents = pgTable('lic_students', {
   bancoLibros: boolean('banco_libros').notNull().default(false),
   lenguaBase: text('lengua_base'),
   active: boolean('active').notNull().default(true), // en rango del formulario
+  // Marcado a mano desde "Quién falta" para alumnos que en realidad no tienen que hacer pedido
+  // (p.ej. PDC). Deja de contar como pendiente aunque no haya lic_orders para él.
+  manualCompletedAt: timestamp('manual_completed_at'),
+  manualCompletedReason: text('manual_completed_reason'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   // Un alumno, una fila por campaña. Antes la única era (campaign_id, student_code), y como el
@@ -1227,6 +1231,11 @@ export const horEspacios = pgTable('hor_espacios', {
   codigo: text('codigo').notNull().unique(), // 'POLI2', 'MUS' — normalizado a mayúsculas
   nombre: text('nombre').notNull(), // 'Polideportivo 2'
   tipo: text('tipo'), // 'aula' | 'pista' | 'sala' | 'laboratorio' | 'otro'
+  // ¿Caben varias clases a la vez? En el polideportivo sí: dos grupos haciendo EF en las
+  // dos pistas no es un choque, es un martes normal. En un aula, dos clases a la vez SÍ es
+  // un error. Por eso el detector de conflictos mira esta columna en vez de suponer que
+  // todo espacio es exclusivo.
+  admiteSolapes: boolean('admite_solapes').notNull().default(false),
   capacidad: integer('capacidad'),
   notas: text('notas'),
   active: boolean('active').notNull().default(true),
@@ -1381,6 +1390,71 @@ export type NewHorEspacio = typeof horEspacios.$inferInsert;
 export type HorApoyo = typeof horApoyos.$inferSelect;
 export type NewHorApoyo = typeof horApoyos.$inferInsert;
 
+// Calendario de festivos del centro: COMPARTIDO (no es de cada profe), por rangos porque
+// Navidad, Fallas y Semana Santa lo son, y meterlos día a día es garantizar que alguien se
+// deje uno. Lo usa "Mi horario" para no crear eventos en días sin clase, y algún día también
+// el navegador para pintarlos. El primero que los mete los deja puestos para el resto del
+// claustro — no hay "mis festivos", son los del centro.
+export const horFestivos = pgTable('hor_festivos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  nombre: text('nombre').notNull(), // 'Navidad', '9 d\'Octubre', 'Fallas'
+  fechaInicio: date('fecha_inicio').notNull(),
+  fechaFin: date('fecha_fin').notNull(), // igual a fechaInicio si es un solo día
+  tipo: text('tipo').notNull().default('festivo'), // 'festivo' | 'vacaciones' | 'no_lectivo'
+  notas: text('notas'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('hor_festivos_year_idx').on(t.academicYear),
+  index('hor_festivos_fechas_idx').on(t.fechaInicio, t.fechaFin),
+]);
+
+export type HorFestivo = typeof horFestivos.$inferSelect;
+export type NewHorFestivo = typeof horFestivos.$inferInsert;
+
+// ─── Tool: Mi horario (prefijo mih_) ───────────────────────────────────────────
+//
+// Módulo pequeño y personal: cada profe ve SOLO lo suyo y se lo lleva a su Google Calendar.
+// No tiene datos de horario propios — todo sale de `hor_*` — solo dos cosas que son de cada
+// persona: cómo quiere que se llamen sus eventos, y el registro de qué se exportó para poder
+// deshacerlo. Ver docs/20-mi-horario.md.
+
+export const mihPreferencias = pgTable('mih_preferencias', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduTeacherId: uuid('edu_teacher_id').notNull().unique().references(() => eduTeachers.id),
+  plantillaTitulo: text('plantilla_titulo').notNull().default('{emoji} {abrev} · {clase}'),
+  plantillaDescripcion: text('plantilla_descripcion'),
+  // Emoji por clave: 'materia:<id>' o 'actividad:<codigo>'. Empieza vacío; la pantalla
+  // propone los del centro (ver EMOJIS_POR_DEFECTO en mihorario.ts) y esto guarda solo lo
+  // que la persona ha CAMBIADO respecto a esa propuesta — igual que auth_users con los
+  // módulos extra/bloqueados: la propuesta del centro puede mejorar sin pisar lo que alguien
+  // ya eligió a mano.
+  emojis: jsonb('emojis').$type<Record<string, string>>().notNull().default({}),
+  calendarioGoogleId: text('calendario_google_id'), // null = el calendario principal
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type MihPreferencias = typeof mihPreferencias.$inferSelect;
+export type NewMihPreferencias = typeof mihPreferencias.$inferInsert;
+
+// Bitácora de qué se exportó, para poder deshacer sin tocar lo que la persona haya puesto a
+// mano en su calendario: cada evento creado se marca con `origen` (ver mihorario-google.ts)
+// y esta fila es la que dice "esto es lo tuyo de este periodo, se puede borrar limpio".
+export const mihExportaciones = pgTable('mih_exportaciones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduTeacherId: uuid('edu_teacher_id').notNull().references(() => eduTeachers.id),
+  periodoId: uuid('periodo_id').notNull().references(() => horPeriodos.id),
+  calendarioGoogleId: text('calendario_google_id').notNull(),
+  eventosCreados: integer('eventos_creados').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('mih_exportaciones_profe_idx').on(t.eduTeacherId, t.periodoId),
+]);
+
+export type MihExportacion = typeof mihExportaciones.$inferSelect;
+export type NewMihExportacion = typeof mihExportaciones.$inferInsert;
+
 // Asignaturas por curso para el cuaderno de tutor. Salen del horario (`hor_materias` vía
 // `hor_asignaciones`) con un botón, y a partir de ahí se editan a mano: el horario dice
 // "Valencià: Llengua i Literatura" y en una hoja impresa cabe "Valencià".
@@ -1407,3 +1481,58 @@ export const cuadAsignaturas = pgTable('cuad_asignaturas', {
 
 export type CuadAsignatura = typeof cuadAsignaturas.$inferSelect;
 export type NewCuadAsignatura = typeof cuadAsignaturas.$inferInsert;
+
+// ─── AUTOASM (prefijo asm_) ───────────────────────────────────────────────────
+//
+// El módulo trabaja en el navegador y no guarda ningún export en la base de datos (ver
+// docs/19-autoasm.md). Lo único que sí vive aquí son DOS cosas que tienen que sobrevivir
+// al navegador de quien lo prepare:
+//
+//   1. El **histórico de entregas**: qué día se generó el fichero y si se llegó a subir a
+//      Apple School Manager, a mano o por FTP. Sin nombres ni NIAs: solo recuentos.
+//   2. La **configuración del FTP**, con la contraseña cifrada (nunca en claro, ver
+//      `src/lib/cripto.ts`), para no tener que pedirla cada septiembre.
+
+export const asmEntregas = pgTable('asm_entregas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  // 'descargado' = se generó el ZIP y ahí se quedó · 'ftp' = lo subió el módulo ·
+  // 'manual' = lo subió una persona a mano y lo marcó aquí.
+  modo: text('modo').notNull().default('descargado'),
+  estado: text('estado').notNull().default('ok'), // 'ok' | 'error'
+  quien: text('quien'), // correo de quien lo hizo
+  desdeCurso: text('desde_curso'), // alcance del alumnado en esa entrega ('6PRI', null = todo)
+  // Recuentos del ZIP: sirven para el histórico y para no tener que guardar los ficheros.
+  alumnos: integer('alumnos').notNull().default(0),
+  profes: integer('profes').notNull().default(0),
+  cursos: integer('cursos').notNull().default(0),
+  clases: integer('clases').notNull().default(0),
+  matriculas: integer('matriculas').notNull().default(0),
+  errores: integer('errores').notNull().default(0),
+  avisos: integer('avisos').notNull().default(0),
+  fichero: text('fichero'), // nombre del ZIP generado
+  destino: text('destino'), // host y carpeta, si se subió por FTP
+  detalle: text('detalle'), // notas o el error, si lo hubo
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('asm_entregas_year_idx').on(t.academicYear, t.createdAt),
+]);
+
+export const asmFtpConfig = pgTable('asm_ftp_config', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  protocolo: text('protocolo').notNull().default('ftps'), // 'ftps' | 'ftp' | 'sftp'
+  host: text('host').notNull(),
+  puerto: integer('puerto'),
+  usuario: text('usuario').notNull(),
+  // AES-256-GCM (ver src/lib/cripto.ts). Nunca sale de aquí hacia el navegador.
+  passwordCifrada: text('password_cifrada').notNull(),
+  ruta: text('ruta').notNull().default('/'), // carpeta remota donde deja los CSV
+  notas: text('notas'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type AsmEntrega = typeof asmEntregas.$inferSelect;
+export type NewAsmEntrega = typeof asmEntregas.$inferInsert;
+export type AsmFtpConfig = typeof asmFtpConfig.$inferSelect;

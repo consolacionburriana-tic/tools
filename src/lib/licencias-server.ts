@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { getBooksFromSheet, type SheetBookRow, type SheetStudentRow } from '@/lib/google-sheets';
 import { getStudents as getEduStudents } from '@/lib/educamos-server';
 import {
+  eduStudents,
   licBooks,
   licCampaigns,
   licOrderItems,
@@ -261,11 +262,15 @@ export async function savePacks(campaignId: string, curso: string, packs: PackIn
 }
 
 export interface MissingStudent {
+  id: string;
   apellidos: string;
   nombre: string;
   curso: string;
   letra: string | null;
   email: string | null;
+  nia: string | null;
+  manualCompletedAt: string | null;
+  manualCompletedReason: string | null;
 }
 
 export async function getMissingStudents(campaignId: string): Promise<MissingStudent[]> {
@@ -278,8 +283,12 @@ export async function getMissingStudents(campaignId: string): Promise<MissingStu
         curso: licStudents.curso,
         letra: licStudents.letra,
         email: licStudents.email,
+        nia: eduStudents.nia,
+        manualCompletedAt: licStudents.manualCompletedAt,
+        manualCompletedReason: licStudents.manualCompletedReason,
       })
       .from(licStudents)
+      .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
       .select({ studentId: licOrders.studentId })
@@ -291,13 +300,31 @@ export async function getMissingStudents(campaignId: string): Promise<MissingStu
   return students
     .filter((s) => !withOrder.has(s.id))
     .map((s) => ({
+      id: s.id,
       apellidos: s.apellidos,
       nombre: s.nombre,
       curso: isPdcLetra(s.letra) ? toPdcCurso(s.curso) : s.curso,
       letra: s.letra,
       email: s.email,
+      nia: s.nia,
+      manualCompletedAt: s.manualCompletedAt ? s.manualCompletedAt.toISOString() : null,
+      manualCompletedReason: s.manualCompletedReason,
     }))
     .sort((a, b) => a.curso.localeCompare(b.curso) || a.apellidos.localeCompare(b.apellidos, 'es'));
+}
+
+/**
+ * Marca (o desmarca) a mano un alumno como "ya resuelto" en Quién falta sin que tenga
+ * lic_orders real — p. ej. cursos que no tienen que hacer pedido (PDC). No toca lic_orders.
+ */
+export async function setStudentManualCompleted(studentId: string, completed: boolean, reason?: string) {
+  await db
+    .update(licStudents)
+    .set({
+      manualCompletedAt: completed ? new Date() : null,
+      manualCompletedReason: completed ? (reason ?? null) : null,
+    })
+    .where(eq(licStudents.id, studentId));
 }
 
 export interface Recipient {
@@ -586,6 +613,7 @@ export interface OrderListItem {
   letra: string | null; // clase del alumno ('A', 'B', 'PDC'…), para poder ordenar y filtrar
   bancoLibros: boolean;
   email: string | null;
+  nia: string | null;
   total: string;
   itemCount: number;
   confirmedAt: Date | null;
@@ -601,7 +629,11 @@ export async function listOrders(campaignId: string, opts: { includeArchived?: b
   if (!opts.includeArchived) conditions.push(eq(licOrders.archived, false));
   const [orders, students, itemCounts] = await Promise.all([
     db.select().from(licOrders).where(and(...conditions)),
-    db.select().from(licStudents).where(eq(licStudents.campaignId, campaignId)),
+    db
+      .select({ student: licStudents, nia: eduStudents.nia })
+      .from(licStudents)
+      .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
+      .where(eq(licStudents.campaignId, campaignId)),
     db
       .select({ orderId: licOrderItems.orderId, n: sql<number>`count(*)::int` })
       .from(licOrderItems)
@@ -609,12 +641,13 @@ export async function listOrders(campaignId: string, opts: { includeArchived?: b
       .where(eq(licOrders.campaignId, campaignId))
       .groupBy(licOrderItems.orderId),
   ]);
-  const studentById = new Map(students.map((s) => [s.id, s]));
+  const studentById = new Map(students.map((r) => [r.student.id, r]));
   const countByOrder = new Map(itemCounts.map((i) => [i.orderId, i.n]));
 
   return orders
     .map((o) => {
-      const s = studentById.get(o.studentId);
+      const r = studentById.get(o.studentId);
+      const s = r?.student;
       return {
         id: o.id,
         studentId: o.studentId,
@@ -624,6 +657,7 @@ export async function listOrders(campaignId: string, opts: { includeArchived?: b
         letra: s?.letra ?? null,
         bancoLibros: o.bancoLibros,
         email: o.email,
+        nia: r?.nia ?? null,
         total: o.totalPrice,
         itemCount: countByOrder.get(o.id) ?? 0,
         confirmedAt: o.confirmedAt,

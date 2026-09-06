@@ -17,6 +17,7 @@ export const MODULES = [
   'puntualidad',
   'horarios',
   'horarios-profes',
+  'mi-horario',
   'educamos',
   'cuaderno',
   'usuarios',
@@ -34,6 +35,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   puntualidad: 'Puntualidad',
   horarios: 'Horarios de clase',
   'horarios-profes': 'Horarios del profesorado',
+  'mi-horario': 'Mi horario',
   educamos: 'BBDD central',
   cuaderno: 'Cuaderno de tutor',
   usuarios: 'Usuarios y roles',
@@ -85,20 +87,21 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'puntualidad',
     'horarios',
     'horarios-profes',
+    'mi-horario',
     'educamos',
     'cuaderno',
     'profes',
     'autoasm',
   ],
-  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'profes', 'autoasm'],
-  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes'],
-  secretaria: ['licencias', 'salidas', 'bancolibros', 'horarios', 'cuaderno'],
-  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios'],
-  profe: ['salidas', 'bancolibros', 'horarios'],
+  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm'],
+  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario'],
+  secretaria: ['licencias', 'salidas', 'bancolibros', 'horarios', 'mi-horario', 'cuaderno'],
+  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario'],
+  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario'],
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
   // 'tutor' y darle 'evaluaciones' como módulo extra.
-  evaluaciones: ['evaluaciones'],
+  evaluaciones: ['evaluaciones', 'mi-horario'],
 };
 // Nota: el FORMULARIO del ABC lo puede enviar cualquier persona autenticada del claustro
 // (basta sesión); el módulo 'abc' de esta matriz es su panel de gestión.

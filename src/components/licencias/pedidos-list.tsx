@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronUp, Loader2, PiggyBank, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronUp, Copy, Loader2, PiggyBank, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { haptic } from '@/lib/haptics';
 import { CURSOS_FORM, cursoLabel, euros, normalize } from '@/lib/licencias';
 import { ordenCurso } from '@/lib/cursos';
 
@@ -15,6 +17,7 @@ interface OrderRow {
   letra: string | null;
   bancoLibros: boolean;
   email: string | null;
+  nia: string | null;
   total: string;
   itemCount: number;
   confirmedAt: string | null;
@@ -133,6 +136,12 @@ export function PedidosList() {
     }
   }
 
+  function copiarNia(nia: string) {
+    void navigator.clipboard.writeText(nia);
+    haptic.success();
+    toast.success('NIA copiado');
+  }
+
   async function eliminar(o: OrderRow) {
     if (!confirm(`Esto BORRA definitivamente el pedido de ${o.nombre} ${o.apellidos} (no queda backup). ¿Seguro? Si dudas, usa "Archivar" en su lugar.`)) return;
     setBusyId(o.id);
@@ -202,6 +211,7 @@ export function PedidosList() {
                     </button>
                   </th>
                 ))}
+                <th className="px-3 py-2 text-left font-medium">NIA</th>
                 <th className="px-3 py-2 text-center font-medium">🧾</th>
                 <th className="px-3 py-2 text-center font-medium">📤</th>
                 <th className="px-3 py-2 text-center font-medium">💰</th>
@@ -229,6 +239,20 @@ export function PedidosList() {
                   </td>
                   <td className="px-3 py-2.5 text-zinc-500">{fmt(o.confirmedAt)}</td>
                   <td className="px-3 py-2.5 text-right font-medium text-zinc-800 dark:text-zinc-100">{euros(parseFloat(o.total))}</td>
+                  <td className="px-3 py-2.5">
+                    {o.nia ? (
+                      <button
+                        type="button"
+                        title="Copiar NIA"
+                        onClick={() => copiarNia(o.nia!)}
+                        className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800 cursor-pointer"
+                      >
+                        {o.nia} <Copy className="h-3 w-3" />
+                      </button>
+                    ) : (
+                      <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2.5 text-center"><Badge on={!!o.editorialProcessedAt} label="🧾" title="Pedido a la editorial" /></td>
                   <td className="px-3 py-2.5 text-center"><Badge on={!!o.sentToTemplateAt} label="📤" title="Pasado a plantillas de envío" /></td>
                   <td className="px-3 py-2.5 text-center"><Badge on={!!o.paidAt} label="💰" title="Pagado" /></td>
@@ -267,7 +291,7 @@ export function PedidosList() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-6 text-center text-zinc-400">Sin pedidos que coincidan.</td>
+                  <td colSpan={10} className="px-3 py-6 text-center text-zinc-400">Sin pedidos que coincidan.</td>
                 </tr>
               )}
             </tbody>

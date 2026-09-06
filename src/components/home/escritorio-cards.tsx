@@ -2,7 +2,7 @@
 // tiene bastante con resolver permisos y stats, y porque así se pueden mirar de un vistazo
 // (y capturar) sin necesitar sesión ni base de datos.
 import Link from 'next/link';
-import { BarChart3, BookMarked, Plus } from 'lucide-react';
+import { Apple, BarChart3, BookMarked, Plus } from 'lucide-react';
 import { NavPending } from '@/components/ui/nav-pending';
 
 export function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
@@ -128,6 +128,40 @@ export function LicenciasDestacada() {
         <span className="block text-lg font-semibold text-zinc-900 dark:text-zinc-100">Licencias digitales</span>
         <span className="block text-sm text-zinc-600 dark:text-zinc-300">
           Pedidos, quién falta, packs, exportaciones y correos a familias
+        </span>
+      </span>
+      <NavPending className="mt-1" />
+    </Link>
+  );
+}
+
+/**
+ * AUTOASM cuando toca. El módulo vive abajo, en configuración, pero sube al principio del
+ * escritorio en dos casos: en el arranque de curso (julio-septiembre) mientras no se haya
+ * subido nada a Apple School Manager, y cuando han entrado alumnos nuevos después de la
+ * última subida — que son los que hoy no tendrían cuenta en el iPad. Siempre por debajo de
+ * Licencias, que en junio y septiembre manda.
+ */
+export function AutoasmDestacada({ alumnosNuevos, esTemporada }: { alumnosNuevos: number; esTemporada: boolean }) {
+  const urgente = alumnosNuevos > 0;
+  return (
+    <Link
+      href="/gestion/autoasm"
+      className={`flex items-center gap-4 rounded-2xl border p-5 transition-colors ${
+        urgente
+          ? 'border-amber-300 bg-amber-50/70 hover:border-amber-400 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-500/10'
+          : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900'
+      }`}
+    >
+      <Apple className={`h-8 w-8 shrink-0 ${urgente ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'}`} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-lg font-semibold text-zinc-900 dark:text-zinc-100">AUTOASM · Apple School Manager</span>
+        <span className="block text-sm text-zinc-600 dark:text-zinc-300">
+          {urgente
+            ? `${alumnosNuevos} alumno(s) han entrado después de la última subida: hoy no tienen cuenta en el iPad`
+            : esTemporada
+              ? 'Arranque de curso: todavía no se ha subido nada a Apple School Manager'
+              : 'Generar y subir los ficheros del centro'}
         </span>
       </span>
       <NavPending className="mt-1" />
