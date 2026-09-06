@@ -1190,6 +1190,11 @@ export const horEspacios = pgTable('hor_espacios', {
   codigo: text('codigo').notNull().unique(), // 'POLI2', 'MUS' — normalizado a mayúsculas
   nombre: text('nombre').notNull(), // 'Polideportivo 2'
   tipo: text('tipo'), // 'aula' | 'pista' | 'sala' | 'laboratorio' | 'otro'
+  // ¿Caben varias clases a la vez? En el polideportivo sí: dos grupos haciendo EF en las
+  // dos pistas no es un choque, es un martes normal. En un aula, dos clases a la vez SÍ es
+  // un error. Por eso el detector de conflictos mira esta columna en vez de suponer que
+  // todo espacio es exclusivo.
+  admiteSolapes: boolean('admite_solapes').notNull().default(false),
   capacidad: integer('capacidad'),
   notas: text('notas'),
   active: boolean('active').notNull().default(true),

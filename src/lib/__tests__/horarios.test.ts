@@ -457,3 +457,31 @@ describe('raíz de una materia', () => {
     expect(normalizarNombreMateria('Educació Física')).not.toBe(normalizarNombreMateria('Educación Física'));
   });
 });
+
+describe('espacios que admiten varias clases a la vez', () => {
+  const base = { tramoId: 'T1', grupos: [], profeIds: [] };
+
+  it('dos clases en un aula normal SÍ es conflicto', () => {
+    const s: SesionParaConflictos[] = [
+      { ...base, id: 'a', profeIds: ['ana'], grupos: [{ curso: '2ESO', letra: 'A' }], aula: 'Aula 14' },
+      { ...base, id: 'b', profeIds: ['pep'], grupos: [{ curso: '3ESO', letra: 'B' }], aula: 'Aula 14' },
+    ];
+    expect(detectarConflictos(s).filter((c) => c.tipo === 'aula')).toHaveLength(1);
+  });
+
+  it('dos clases en el polideportivo NO es conflicto: allí caben varias', () => {
+    const s: SesionParaConflictos[] = [
+      { ...base, id: 'a', profeIds: ['ana'], grupos: [{ curso: '2ESO', letra: 'A' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
+      { ...base, id: 'b', profeIds: ['pep'], grupos: [{ curso: '3ESO', letra: 'B' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
+    ];
+    expect(detectarConflictos(s).filter((c) => c.tipo === 'aula')).toEqual([]);
+  });
+
+  it('pero el profe en dos sitios a la vez sigue siendo conflicto, esté donde esté', () => {
+    const s: SesionParaConflictos[] = [
+      { ...base, id: 'a', profeIds: ['ana'], grupos: [{ curso: '2ESO', letra: 'A' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
+      { ...base, id: 'b', profeIds: ['ana'], grupos: [{ curso: '3ESO', letra: 'B' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
+    ];
+    expect(detectarConflictos(s).some((c) => c.tipo === 'profe')).toBe(true);
+  });
+});
