@@ -152,6 +152,28 @@ Contesta a las dos preguntas que antes obligaban a generar el documento para des
    rojo y listadas arriba: son las que se imprimirían en crudo (`<<professio1>>`) en la hoja.
 2. **¿Cómo va a quedar este nombre?** Y si no queda bien, se arregla ahí mismo.
 
+## Un listado como el de la hoja de seguimiento
+
+La hoja de la imagen —número de lista, nombre, y las columnas de entrevistas— sale con tres
+cosas que ya existen, sin nada especial:
+
+1. **Cada tutor recibe su propia hoja con SOLO sus alumnos.** No hay que hacer nada: un
+   documento del cuaderno es *un tutor × una plantilla*, y el alumnado que entra es el de ese
+   tutor según `edu_tutor_personal`. Si la clase lleva dos tutores salen dos juegos de archivos
+   (`1.x` y `2.x`), cada uno con su mitad.
+2. **La tabla se repite sola** con `<<#alumnos>>` en la fila que hay que clonar.
+3. **Dentro de esa fila valen todos los campos de alumno**, cada uno en su celda:
+   `<<numero>>` (o `<<numero_lista>>`) en la primera columna y `<<nombre_1apellido>>` en la
+   segunda. Las columnas que se rellenan a mano se dejan vacías.
+
+En la plantilla, esa fila queda así:
+
+| `<<#alumnos>><<numero>>` | `<<nombre_1apellido>>` | | | |
+| --- | --- | --- | --- | --- |
+
+Y la cabecera, fuera de la tabla: `<<tutor>>` (o `<<tutor_1apellido>>`), `<<clase>>`,
+`<<curso_escolar>>`.
+
 ## Estructura en Drive
 
 ```

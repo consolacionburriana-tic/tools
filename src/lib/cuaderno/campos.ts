@@ -53,6 +53,7 @@ export const CAMPOS: readonly Campo[] = [
   { id: 'apellido2', ambito: 'alumno', label: 'Segundo apellido', ejemplo: 'Roldán' },
   { id: 'nombre_completo', ambito: 'alumno', label: 'Nombre y apellidos', ejemplo: 'Aitana Pitarch Roldán' },
   { id: 'nombre_lista', ambito: 'alumno', label: 'Apellidos, Nombre', ejemplo: 'Pitarch Roldán, Aitana' },
+  { id: 'nombre_1apellido', ambito: 'alumno', label: 'Nombre y un apellido', ejemplo: 'Aitana Pitarch' },
   { id: 'numero', ambito: 'alumno', label: 'Nº de lista', ejemplo: '19' },
   {
     id: 'numero_lista',
@@ -158,6 +159,8 @@ export const ALIAS_POR_DEFECTO: Readonly<Record<string, string>> = {
   cognoms: 'apellidos',
   cognom: 'apellidos',
   apellido: 'apellidos',
+  nom_cognom: 'nombre_1apellido',
+  nombre_apellido: 'nombre_1apellido',
   nombre_alumno: 'nombre_completo',
   nom_alumne_a: 'nombre_completo',
   nombre_del_alumno: 'nombre_completo',
