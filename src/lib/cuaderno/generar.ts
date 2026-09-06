@@ -49,6 +49,7 @@ export function valoresCentro(ajustes: Pick<CuadAjustes, 'nombreCentro'>, cursoE
 }
 
 export function valoresClase(clase: ClaseCuaderno, tutor: TutorCuaderno | null, numAlumnos: number): Valores {
+  // `num_alumnos` es el trozo de este tutor; `num_alumnos_clase`, la clase entera.
   return {
     clase: clase.clase,
     curso: clase.curso,
@@ -64,6 +65,7 @@ export function valoresClase(clase: ClaseCuaderno, tutor: TutorCuaderno | null, 
     tutores: clase.tutores.map((t) => t.corto).join(' + '),
     tutor_email: tutor?.email ?? '',
     num_alumnos: String(numAlumnos),
+    num_alumnos_clase: String(clase.alumnos.length),
   };
 }
 
@@ -164,11 +166,15 @@ export function construirPlan(datos: DatosDocumento): PlanRelleno {
     ...valoresClase(clase, tutor, alumnos.length),
     ...valoresAsignaturas(asignaturas),
   };
-  const filas = (): Contexto[] =>
-    alumnos.map((a) => ({
+  const filasDe = (lista: AlumnoCuaderno[]): Contexto[] =>
+    lista.map((a) => ({
       valores: expandirConAlias({ ...base, ...valoresAlumno(a, numeros.get(a.id)) }, mapeo),
       presentes: presentesDe(a),
     }));
+  // `<<#alumnos>>` = los de este tutor · `<<#clase>>` = la clase entera, para el listado
+  // general que va igual en el cuaderno de los dos tutores.
+  const filas = (): Contexto[] => filasDe(alumnos);
+  const filasClase = (): Contexto[] => filasDe(clase.alumnos);
 
   const repeticion = plantilla.repeticion as Repeticion;
   let copias: Contexto[];
@@ -176,18 +182,21 @@ export function construirPlan(datos: DatosDocumento): PlanRelleno {
     copias = alumnos.map((a) => ({
       valores: expandirConAlias({ ...base, ...valoresAlumno(a, numeros.get(a.id)) }, mapeo),
       presentes: presentesDe(a),
+      filas: filas(),
+      filasClase: filasClase(),
     }));
   } else if (repeticion === 'trimestre') {
     copias = TRIMESTRES.map((_, i) => ({
       valores: expandirConAlias({ ...base, ...valoresTrimestre(i) }, mapeo),
       filas: filas(),
+      filasClase: filasClase(),
     }));
   } else {
-    copias = [{ valores: expandirConAlias(base, mapeo), filas: filas() }];
+    copias = [{ valores: expandirConAlias(base, mapeo), filas: filas(), filasClase: filasClase() }];
   }
   // Sin alumnos no hay documento; el llamante ya lo filtra, pero por si acaso no se
   // devuelve un plan vacío (dejaría el cuerpo de la plantilla con las etiquetas crudas).
-  if (copias.length === 0) copias = [{ valores: expandirConAlias(base, mapeo) }];
+  if (copias.length === 0) copias = [{ valores: expandirConAlias(base, mapeo), filasClase: filasClase() }];
   return { copias, saltoDePagina: plantilla.saltoDePagina };
 }
 

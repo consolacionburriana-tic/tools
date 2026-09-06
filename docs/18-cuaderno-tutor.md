@@ -161,7 +161,10 @@ cosas que ya existen, sin nada especial:
    documento del cuaderno es *un tutor × una plantilla*, y el alumnado que entra es el de ese
    tutor según `edu_tutor_personal`. Si la clase lleva dos tutores salen dos juegos de archivos
    (`1.x` y `2.x`), cada uno con su mitad.
-2. **La tabla se repite sola** con `<<#alumnos>>` en la fila que hay que clonar.
+2. **La tabla se repite sola** con `<<#alumnos>>` en la fila que hay que clonar. Si lo que
+   quieres es un listado de **toda la clase** —el general del final, igual en el cuaderno de
+   los dos tutores— la marca es `<<#clase>>`, y las dos tablas pueden convivir en la misma
+   hoja. `<<num_alumnos>>` es el trozo de este tutor y `<<num_alumnos_clase>>` la clase entera.
 3. **Dentro de esa fila valen todos los campos de alumno**, cada uno en su celda:
    `<<numero>>` (o `<<numero_lista>>`) en la primera columna y `<<nombre_1apellido>>` en la
    segunda. Las columnas que se rellenan a mano se dejan vacías.
