@@ -194,13 +194,34 @@ function FilaPlantilla({ plantilla }: { plantilla: PlantillaUI }) {
     }
   }
 
+  /**
+   * Quitar una plantilla. Primero se pregunta cuánto historial arrastra, para que la
+   * confirmación diga la verdad; y sobre todo se mira la respuesta del borrado, que es lo
+   * que antes faltaba: decía «quitada» aunque la base de datos lo hubiera rechazado.
+   */
   async function borrar() {
-    if (!confirm(`¿Quitar la plantilla «${plantilla.nombre}»? Los documentos ya generados en Drive no se tocan.`)) return;
     setOcupado('borrar');
     try {
-      await fetch(`/api/cuaderno/admin/plantillas/${plantilla.id}`, { method: 'DELETE' });
+      const previo = await fetch(`/api/cuaderno/admin/plantillas/${plantilla.id}`, { cache: 'no-store' });
+      const historial = previo.ok ? await previo.json() : { documentos: 0, hojas: 0 };
+      const arrastra =
+        historial.documentos > 0
+          ? `\n\nSe borrará también su rastro en el historial: ${historial.documentos} documento(s) de tiradas y ${historial.hojas} hoja(s) marcada(s) como hechas.`
+          : '';
+      if (
+        !confirm(
+          `¿Quitar la plantilla «${plantilla.nombre}»?${arrastra}\n\nLos documentos ya generados en Drive no se tocan.`,
+        )
+      ) {
+        return;
+      }
+      const res = await fetch(`/api/cuaderno/admin/plantillas/${plantilla.id}`, { method: 'DELETE' });
+      const cuerpo = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(cuerpo.error ?? 'No se pudo quitar la plantilla');
       toast.success('Plantilla quitada');
       router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo quitar la plantilla');
     } finally {
       setOcupado(null);
     }

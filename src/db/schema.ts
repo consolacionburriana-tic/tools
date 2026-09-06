@@ -1009,7 +1009,9 @@ export const cuadEventos = pgTable('cuad_eventos', {
 export const cuadItems = pgTable('cuad_items', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   tiradaId: uuid('tirada_id').notNull().references(() => cuadTiradas.id, { onDelete: 'cascade' }),
-  plantillaId: uuid('plantilla_id').notNull().references(() => cuadPlantillas.id),
+  // Cascade: quitar una plantilla se lleva por delante los documentos que salieron de ella.
+  // Sin esto, la BBDD rechazaba el borrado y el panel decía «quitada» sin haber quitado nada.
+  plantillaId: uuid('plantilla_id').notNull().references(() => cuadPlantillas.id, { onDelete: 'cascade' }),
   curso: text('curso').notNull(),
   letra: text('letra').notNull().default(''),
   eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id), // null = clase sin tutor

@@ -205,6 +205,35 @@ que las dos salen con la clase entera.
 > asignaturas ya traídas). ESO todavía no tiene horario, así que sus asignaturas se añaden a
 > mano — que es justo para lo que está el panel.
 
+## Nombre corto de una asignatura, y por qué el horario no manda
+
+El nombre corto es lo que se imprime (`Mates` en vez de `Matemáticas`), y es opcional. Dos
+detalles que ahorran tiempo:
+
+- **Se reparte solo entre cursos.** «Biología» es «BG» en 1º, 3º y 4º de la ESO: se escribe una
+  vez y `propagarNombreCorto()` lo lleva a las asignaturas **que se llaman igual** en los demás
+  cursos del mismo curso escolar. Solo rellena las que están en blanco, para no pisar lo que
+  alguien puso a propósito; si alguna tenía otro, el panel lo dice y ofrece igualarlas de un
+  clic. Los nombres se comparan con la misma normalización que las etiquetas, así que
+  «Biología y Geología» y «BIOLOGIA Y GEOLOGIA» son la misma asignatura.
+- **La abreviatura del horario se ofrece, no se copia.** Al lado del campo sale un botón con lo
+  que Untis tiene para esa materia, ya limpio del dígito de nivel (`MAT1` → `MAT`, `EFI3` →
+  `EFI`). No se aplica sola, y es a propósito: son códigos internos y unos cuantos no se
+  entienden fuera del horario — `MYD` es Music, `EPV` es Arts, `LC03` es Lectura. Imprimir eso
+  en la hoja de una tutoría sería peor que el nombre largo. Quien decide es la persona.
+
+## Quitar una plantilla
+
+`DELETE` de la plantilla arrastra en cascada sus ítems de tirada (`cuad_items`) y las hojas
+marcadas como hechas (`cuad_hojas`). Lo de Drive **no se toca**: los documentos ya generados son
+del tutor. Antes de confirmar, el panel pregunta cuánto historial se lleva por delante y lo dice
+en el aviso.
+
+> `cuad_items.plantilla_id` nació sin `ON DELETE` y la BBDD rechazaba el borrado; como el panel
+> tampoco miraba la respuesta del `fetch`, decía «Plantilla quitada» sin haber quitado nada.
+> Arreglado en las tres capas (FK en cascada, la ruta devuelve el error, el panel lo enseña);
+> el SQL está en `src/db/sql/cuaderno-borrado-plantillas.sql`.
+
 ## Plan técnico
 
 ### Tablas (`cuad_*`)
@@ -382,6 +411,12 @@ fábrica, sin mapear nada a mano.
 ### Fase 6 · Compartir
 - [x] Permisos de la carpeta de clase a los tutores
 - [x] Correo de aviso al tutor con el enlace de su carpeta
+
+### Fase 6d · Arreglos de uso
+- [x] Quitar una plantilla funciona de verdad: FK en cascada, error visible y aviso de lo que
+      arrastra (`src/db/sql/cuaderno-borrado-plantillas.sql`, aplicado en Neon)
+- [x] El nombre corto de una asignatura se reparte entre los cursos que la tienen igual
+- [x] La abreviatura del horario se ofrece como sugerencia, limpia del dígito de nivel
 
 ### Fase 6c · Nombres y vista previa
 - [x] `personas.ts`: mayúsculas bellas, correos en minúscula y nombre de pila (`nombresDe`)
