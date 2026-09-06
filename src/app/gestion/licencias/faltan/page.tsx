@@ -17,7 +17,9 @@ export default async function FaltanPage() {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div>
             <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Quién falta</h1>
-            <p className="text-xs text-zinc-500">Alumnos sin pedido · {data.length}</p>
+            <p className="text-xs text-zinc-500">
+              Alumnos sin pedido · {data.filter((s) => !s.manualCompletedAt).length}
+            </p>
           </div>
           <Link
             href="/gestion/licencias"

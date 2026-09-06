@@ -111,6 +111,10 @@ export const licStudents = pgTable('lic_students', {
   bancoLibros: boolean('banco_libros').notNull().default(false),
   lenguaBase: text('lengua_base'),
   active: boolean('active').notNull().default(true), // en rango del formulario
+  // Marcado a mano desde "Quién falta" para alumnos que en realidad no tienen que hacer pedido
+  // (p.ej. PDC). Deja de contar como pendiente aunque no haya lic_orders para él.
+  manualCompletedAt: timestamp('manual_completed_at'),
+  manualCompletedReason: text('manual_completed_reason'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   // Un alumno, una fila por campaña. Antes la única era (campaign_id, student_code), y como el
