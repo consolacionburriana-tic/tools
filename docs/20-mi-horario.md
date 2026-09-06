@@ -10,10 +10,13 @@ tiene datos propios más allá de las preferencias de cada uno y el calendario d
 
 ---
 
-## Estado: ⬜ diseño, sin implementar
+## Estado: 🟡 Fase 0-3 escritas, sin probar en vivo
 
-Este documento es la propuesta. **Nada escrito todavía.** Hay tres decisiones de David
-pendientes (marcadas 🟡) y un paso en la consola de Workspace que solo puede dar él.
+Las tres decisiones pendientes están cerradas (2026-09-06, con David) y el código está
+escrito: schema en Neon, permisos, helpers puros con tests, cliente de Google Calendar y
+la pantalla en `/mi-horario`. **Lo único que falta es el paso de David en la consola de
+Workspace** (añadir el scope de Calendar) y la primera prueba real contra un calendario de
+verdad — esta sesión no tiene credenciales para ejecutarlo en vivo.
 
 ---
 
@@ -209,31 +212,44 @@ src/app/(public)/mi-horario/  # la pantalla
 
 ## Fases
 
-### Fase 0 · Cimientos — ⬜
-- [ ] Módulo `mi-horario` en la matriz de permisos (todo el claustro), con tests
-- [ ] Tabla `hor_festivos` + `mih_preferencias` + `mih_exportaciones` (aditivas)
-- [ ] Casar el usuario del login con `edu_teachers.email`, y decirlo claro si no casa
+### Fase 0 · Cimientos — ✅
+- [x] Módulo `mi-horario` en la matriz de permisos (todo el claustro), con tests
+- [x] Tablas `hor_festivos` + `mih_preferencias` + `mih_exportaciones` (aditivas), aplicadas
+      en Neon (2026-09-06) — verificado: 3 tablas, sus claves ajenas
+- [x] Casar el usuario del login con `edu_teachers.email` (`getProfePorEmail`); si no casa,
+      la pantalla lo dice con el correo exacto que no encontró, no adivina
 
-### Fase 1 · Mi horario en pantalla — ⬜
-- [ ] `/mi-horario`: mi cuadrícula, reusando el navegador que ya existe
-- [ ] Selector de periodo (ordinario / junio-septiembre)
+### Fase 1 · Mi horario en pantalla — ✅
+- [x] `/mi-horario`: mi cuadrícula, reusando el `Navegador` que ya existe (vista `profe`)
+- [x] Selector de periodo (reusa `SelectorPeriodo`, ahora con `basePath` para poder vivir
+      fuera de `/gestion/horarios`)
 
-### Fase 2 · Festivos — ⬜
-- [ ] Pantalla del calendario del centro, con los fijos del curso **ya propuestos**
-- [ ] Rangos de Navidad, Fallas y Semana Santa a mano
+### Fase 2 · Festivos — 🟡
+- [x] Tabla compartida `hor_festivos`, por rangos
+- [x] Los 5 fijos del curso 2026-27 ya sembrados (9-oct, 12-oct, 6-dic, 8-dic, 1-mayo)
+- [x] API de alta/baja (`/api/mi-horario/admin/festivos`), solo para quien edita horarios
+- [ ] Pantalla para gestionarlos visualmente (hoy es API sin UI; alta a mano por SQL o API)
+- [ ] Rangos de Navidad, Fallas y Semana Santa (**David**: fechas de este curso)
 - [ ] Pintarlos también en el navegador de horarios
 
-### Fase 3 · Exportar — ⬜
-- [ ] Plantilla de título editable, con vista previa **de eventos reales míos** antes de nada
-- [ ] Emojis por materia, con los de partida ya puestos
-- [ ] Generar `.ics` con eventos recurrentes y `EXDATE` de los festivos (helper puro con tests)
-- [ ] Descarga y bitácora
+### Fase 3 · La plantilla y el emoji — ✅
+- [x] Motor de plantilla con huecos y recorte de separadores huérfanos, con tests
+- [x] Generador de abreviatura de respaldo (regla "GeH"), con tests
+- [x] Emojis por defecto (materia y actividad) + los que pida cada persona, con tests
+- [x] Pantalla de preferencias (plantilla, descripción, emoji por categoría — solo las que
+      la persona REALMENTE tiene en su horario)
 
-### Fase 4 · Botón directo a Google Calendar — ⬜ (necesita el scope)
+### Fase 4 · A Google Calendar directamente — 🟡 (sin probar en vivo)
+- [x] `construirEventoGoogle`: RRULE semanal + EXDATE por festivo, con tests exhaustivos
+- [x] Cliente de Calendar (`mihorario-google.ts`), mismo patrón que `email-gmail.ts`
+      (delegación de dominio, JWT con `subject`); reintentos con backoff
+- [x] Vista previa → confirmar (igual que el importador de horarios), con selector de
+      calendario de destino
+- [x] Reexportar = borrar lo de ese periodo y volver a crear; botón de deshacer
 - [ ] **David**: añadir el scope `calendar` al Client ID en la consola de Workspace
-- [ ] Elegir calendario de destino
-- [ ] Crear los eventos marcados con `extendedProperties`, y el botón de deshacer
-- [ ] Reexportar = borrar lo de ese periodo y volver a crear
+- [ ] **Primera prueba real** contra un calendario de verdad — esta sesión no tiene
+      credenciales para ejecutarlo en vivo, así que el camino feliz está escrito y
+      tipado pero no verificado con Google de por medio
 
 ### Fase 5 · Desde jefatura, a todo el claustro — ⬜
 - [ ] Mismo mecanismo, en bucle, para quien tenga `horarios-profes` y pueda editar
@@ -241,13 +257,44 @@ src/app/(public)/mi-horario/  # la pantalla
 
 ---
 
-## Decisiones pendientes 🟡
+## Decisiones cerradas (2026-09-06, con David)
 
-1. **¿Empezamos por `.ics` o esperamos al scope de Calendar?** Mi recomendación: `.ics` ya,
-   porque no depende de nadie y el generador de eventos se reaprovecha entero.
-2. **¿La plantilla y los emojis son de cada uno o hay unos del centro por defecto?**
-   Propuesta: unos por defecto del centro, que cada uno puede pisar.
-3. **¿El horario que se exporta incluye las horas no lectivas** (guardias, departamento,
-   atención a familias)? Hoy esas horas **no están importadas** (ver el hueco en
-   [`07-horarios.md`](./07-horarios.md)), así que de momento la pregunta es teórica, pero
-   conviene decidirlo antes de montar la plantilla.
+1. **Directo a Google Calendar, sin pasar por `.ics` primero.** David lo prefiere así.
+   Asumimos que el scope ya está añadido en Workspace (ver más abajo cómo).
+2. **Plantilla general del centro, pero modificable por cada uno.** Con abreviatura por
+   materia: la mayoría YA tiene una buena (heredada del código de Educamos, `EFI1`→`EFI`);
+   para lo que no la tenga (una asignación manual), un generador de respaldo seguía la
+   convención que puso David: "Geografía e Historia" → **GeH** (iniciales en mayúscula,
+   con el conector de en medio en minúscula).
+3. **Se exportan TODAS las horas del profesor**, lectivas y no lectivas (guardias,
+   reuniones, atención a familias…). Solo quedan fuera el recreo y el comedor, que no son
+   horas de nadie — son huecos de la rejilla, no sesiones, así que ya salían fuera sin
+   filtrar nada.
+
+Emojis por defecto que dio David, ya en el código (`EMOJIS_ACTIVIDAD_POR_DEFECTO` en
+`src/lib/mihorario.ts`): 🗣️ atención a familias, 👥 reunión/departamento/coordinación,
+🛟 guardia, y 👤 como genérico de cualquier hora no lectiva sin emoji propio.
+
+📥 **Nota devuelta a David**: en la tabla de ejemplo que pasó (abreviatura · emoji · clase)
+`TRDR` aparece dos veces con emojis distintos (🖥️ y 🤕). No lo he resuelto por mi cuenta —
+esas son sus emojis personales para asignaturas de secundaria que aún no existen en la
+BBDD (secundaria no está importada), así que no hay nada que sembrar todavía; cuando
+importe secundaria y entre en su pantalla de preferencias, que revise cuál de los dos
+quería para `TRDR`.
+
+### Cómo añadir el scope de Calendar (esquemático, para cuando haga falta)
+
+1. **Consola de administración de Google Workspace**, con una cuenta de administrador:
+   **Seguridad → Control de acceso y datos → Controles de API → Delegación de todo el
+   dominio**.
+2. Busca el **Client ID** que ya está de alta (el que usa `GOOGLE_SA_CLIENT_EMAIL` para el
+   scope `gmail.send`).
+3. Edítalo y **añade**, sin quitar los que ya tiene:
+   ```
+   https://www.googleapis.com/auth/calendar
+   ```
+   (el scope completo, no solo `calendar.events`: hace falta para poder listar los
+   calendarios de cada persona y que elija destino).
+4. Guardar. Propagación casi inmediata (unos minutos como mucho). No hace falta que nadie
+   reautorice nada: es la misma credencial, un scope más.
+

@@ -292,7 +292,10 @@ describe('cuadrícula del navegador', () => {
     tipoTramo: 'sesion',
     titulo: 'Mates',
     subtitulo: null,
+    materiaId: null,
+    abreviatura: null,
     actividad: 'clase',
+    actividadNombre: 'Clase',
     lectiva: true,
     espacio: null,
     profes: [],
@@ -355,8 +358,8 @@ describe('cuadrícula del navegador', () => {
 
 describe('situar "ahora" en la cuadrícula', () => {
   const filas = construirCuadricula([
-    { sesionId: '1', dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45', tipoTramo: 'sesion', titulo: 'A', subtitulo: null, actividad: 'clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
-    { sesionId: '2', dia: 1, tramoId: 't', horaInicio: '09:45', horaFin: '10:30', tipoTramo: 'sesion', titulo: 'B', subtitulo: null, actividad: 'clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
+    { sesionId: '1', dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45', tipoTramo: 'sesion', titulo: 'A', subtitulo: null, materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
+    { sesionId: '2', dia: 1, tramoId: 't', horaInicio: '09:45', horaFin: '10:30', tipoTramo: 'sesion', titulo: 'B', subtitulo: null, materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
   ]);
 
   it('encuentra la franja en curso un día lectivo', () => {
@@ -376,7 +379,8 @@ describe('situar "ahora" en la cuadrícula', () => {
 describe('colores por categoría', () => {
   const c = (grupos: string[], titulo = 'Mates'): CeldaHorario => ({
     sesionId: `${grupos.join()}-${titulo}`, dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45',
-    tipoTramo: 'sesion', titulo, subtitulo: null, actividad: 'clase', lectiva: true, espacio: null,
+    tipoTramo: 'sesion', titulo, subtitulo: null, materiaId: null, abreviatura: null,
+    actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null,
     profes: [], grupos, notas: null,
   });
 

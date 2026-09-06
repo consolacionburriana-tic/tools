@@ -7,6 +7,7 @@ import {
   Apple,
   BookMarked,
   Bus,
+  CalendarCheck,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -164,6 +165,14 @@ export default async function EscritorioPage() {
               icon={<CalendarDays className="h-6 w-6" />}
               title="Horarios"
               desc="Horario por clase, por profesor y por aula, e importación desde Educamos"
+            />
+          )}
+          {puede('mi-horario') && (
+            <ModuleCard
+              href="/mi-horario"
+              icon={<CalendarCheck className="h-6 w-6" />}
+              title="Mi horario"
+              desc="Tu horario, para llevártelo a tu Google Calendar"
             />
           )}
           {puede('bancolibros') && (

@@ -369,7 +369,10 @@ export interface CeldaHorario {
   tipoTramo: TipoTramo;
   titulo: string; // materia, o el nombre de la actividad si no hay materia
   subtitulo: string | null; // el grupo, el profe o el aula, según la vista
-  actividad: string;
+  materiaId: string | null; // para el emoji por materia de "Mi horario"
+  abreviatura: string | null; // la de hor_materias, o null si no hay materia
+  actividad: string; // código de hor_actividades ('clase', 'guardia', 'reunion'…)
+  actividadNombre: string;
   lectiva: boolean;
   espacio: string | null;
   profes: { id: string; nombre: string; corto: string; rol: string; principal: boolean }[];

@@ -561,7 +561,9 @@ export async function getCeldas(
     horaFin: horTramos.horaFin,
     tipoTramo: horTramos.tipo,
     asignacionId: horAsignaciones.id,
+    materiaId: horMaterias.id,
     materia: horMaterias.nombre,
+    materiaAbreviatura: horMaterias.abreviatura,
     etiqueta: horAsignaciones.etiqueta,
     notas: horAsignaciones.notas,
     actividad: horActividades.codigo,
@@ -574,7 +576,8 @@ export async function getCeldas(
 
   interface FilaAncha {
     sesionId: string; dia: number; tramoId: string; horaInicio: string; horaFin: string;
-    tipoTramo: string | null; asignacionId: string; materia: string | null;
+    tipoTramo: string | null; asignacionId: string; materiaId: string | null; materia: string | null;
+    materiaAbreviatura: string | null;
     etiqueta: string | null; notas: string | null; actividad: string; actividadNombre: string;
     lectivaActividad: boolean; lectivaAsignacion: boolean | null;
     espacio: string | null; aulaTexto: string | null;
@@ -674,7 +677,10 @@ export async function getCeldas(
       tipoTramo: (f.tipoTramo ?? 'sesion') as CeldaHorario['tipoTramo'],
       titulo: f.materia ?? f.etiqueta ?? f.actividadNombre,
       subtitulo,
+      materiaId: f.materiaId,
+      abreviatura: f.materiaAbreviatura,
       actividad: f.actividad,
+      actividadNombre: f.actividadNombre,
       lectiva: f.lectivaAsignacion ?? f.lectivaActividad,
       espacio: f.espacio ?? f.aulaTexto,
       profes,
@@ -704,7 +710,10 @@ export async function getTramosNoLectivos(periodoId: string, etapa: string | nul
       tipoTramo: t.tipo as CeldaHorario['tipoTramo'],
       titulo: t.tipo === 'recreo' ? 'Patio' : 'Comedor',
       subtitulo: null,
+      materiaId: null,
+      abreviatura: null,
       actividad: t.tipo,
+      actividadNombre: t.tipo === 'recreo' ? 'Patio' : 'Comedor',
       lectiva: false,
       espacio: null,
       profes: [],
