@@ -5,12 +5,13 @@
 // tutores, y el reparto de alumnos entre los dos tutores de una clase sale de
 // `edu_tutor_personal` (módulo Tutorías), no se decide aquí. Lo único propio son las
 // plantillas, los alias, la numeración congelada y la bitácora de tiradas.
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   cuadAjustes,
   cuadAlias,
   cuadAsignaturas,
+  cuadEventos,
   cuadHojas,
   cuadItems,
   cuadNumeracion,
@@ -24,6 +25,7 @@ import {
   eduTutorPersonal,
   type CuadAjustes,
   type CuadAsignatura,
+  type CuadEvento,
   type CuadItem,
   type CuadPlantilla,
   type CuadTirada,
@@ -822,12 +824,104 @@ export async function actualizarTirada(
     carpetaCursoUrl: string;
     error: string | null;
     finishedAt: Date | null;
+    latidoAt: Date | null;
   }>,
 ): Promise<void> {
   await db
     .update(cuadTiradas)
     .set({ ...cambios, updatedAt: new Date() })
     .where(eq(cuadTiradas.id, id));
+}
+
+// ─── Bitácora ─────────────────────────────────────────────────────────────────
+//
+// Cada tirada deja escrito lo que le pasa. Es lo que el panel le cuenta a quien la lanzó
+// («el worker no ha arrancado nunca» vs. «va por el documento 7 de 12») y lo que se mira
+// después para saber por qué un documento no salió. Escribir un evento NUNCA puede tumbar
+// una tirada: si falla el INSERT, se queda en el log del servidor y se sigue.
+
+export interface EventoNuevo {
+  tiradaId?: string | null;
+  itemId?: string | null;
+  nivel?: 'info' | 'aviso' | 'error';
+  fase: 'lanzar' | 'worker' | 'drive' | 'documento' | 'cierre' | 'correo' | 'toque';
+  mensaje: string;
+  datos?: Record<string, unknown>;
+}
+
+export async function registrarEvento(evento: EventoNuevo): Promise<void> {
+  const nivel = evento.nivel ?? 'info';
+  // Espejo en el log del servidor: en Vercel se lee ahí incluso si Neon está caído.
+  const linea = `[cuaderno:${evento.fase}] ${evento.mensaje}`;
+  if (nivel === 'error') console.error(linea);
+  else console.log(linea);
+  try {
+    await db.insert(cuadEventos).values({
+      tiradaId: evento.tiradaId ?? null,
+      itemId: evento.itemId ?? null,
+      nivel,
+      fase: evento.fase,
+      mensaje: evento.mensaje.slice(0, 2000),
+      datos: evento.datos ?? null,
+    });
+  } catch (error) {
+    console.error('[cuaderno] no se pudo guardar el evento:', error instanceof Error ? error.message : error);
+  }
+}
+
+export async function getEventos(tiradaId: string, limite = 60): Promise<CuadEvento[]> {
+  const filas = await db
+    .select()
+    .from(cuadEventos)
+    .where(eq(cuadEventos.tiradaId, tiradaId))
+    .orderBy(desc(cuadEventos.createdAt))
+    .limit(limite);
+  return filas.reverse(); // en el panel se leen de arriba abajo, como un diario
+}
+
+/** Un pase del worker sobre la tirada: mueve el latido y suma la vuelta. */
+export async function anotarPase(tiradaId: string): Promise<number> {
+  const [fila] = await db
+    .update(cuadTiradas)
+    .set({ latidoAt: new Date(), pases: sql`${cuadTiradas.pases} + 1`, updatedAt: new Date() })
+    .where(eq(cuadTiradas.id, tiradaId))
+    .returning({ pases: cuadTiradas.pases });
+  return fila?.pases ?? 0;
+}
+
+/**
+ * Devuelve a la cola los ítems que se quedaron en `haciendo`. Pasa de verdad: si la
+ * función del worker se agota o se cae en mitad de un documento, el ítem queda reclamado
+ * para siempre y la tirada se queda a medias sin nada pendiente que la despierte.
+ */
+export async function rescatarItemsColgados(tiradaId: string, antiguedadMs = 180_000): Promise<number> {
+  const filas = await db
+    .update(cuadItems)
+    .set({ estado: 'pendiente', updatedAt: new Date() })
+    .where(
+      and(
+        eq(cuadItems.tiradaId, tiradaId),
+        eq(cuadItems.estado, 'haciendo'),
+        lt(cuadItems.updatedAt, new Date(Date.now() - antiguedadMs)),
+      ),
+    )
+    .returning({ id: cuadItems.id });
+  return filas.length;
+}
+
+/** Tiradas vivas que llevan mucho sin latir: las que el cron tiene que rescatar. */
+export async function tiradasColgadas(antiguedadMs = 300_000): Promise<CuadTirada[]> {
+  return db
+    .select()
+    .from(cuadTiradas)
+    .where(
+      and(
+        inArray(cuadTiradas.estado, ['pendiente', 'ejecutando']),
+        lt(cuadTiradas.updatedAt, new Date(Date.now() - antiguedadMs)),
+      ),
+    )
+    .orderBy(asc(cuadTiradas.createdAt))
+    .limit(10);
 }
 
 /** Cancela una tirada: los ítems que aún no se habían hecho se marcan como omitidos. */

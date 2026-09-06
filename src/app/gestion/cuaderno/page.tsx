@@ -91,6 +91,8 @@ export default async function CuadernoPage() {
             lanzadaPor: t.tirada.lanzadaPor,
             createdAt: t.tirada.createdAt.toISOString(),
             error: t.tirada.error,
+            latidoAt: t.tirada.latidoAt?.toISOString() ?? null,
+            pases: t.tirada.pases,
             total: t.total,
             hechos: t.hechos,
             errores: t.errores,

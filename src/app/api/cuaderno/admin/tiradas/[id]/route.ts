@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { cancelarTirada, getItemsDeTirada, getProgreso, reintentarErrores } from '@/lib/cuaderno-server';
-import { despertarWorker } from '@/lib/cuaderno/tirada';
+import {
+  cancelarTirada,
+  getEventos,
+  getItemsDeTirada,
+  getProgreso,
+  registrarEvento,
+  reintentarErrores,
+} from '@/lib/cuaderno-server';
+import { arrancarWorker } from '@/lib/cuaderno/tirada';
 
 export const dynamic = 'force-dynamic';
+// «Seguir ahora» arranca un pase en esta misma invocación (ver `arrancarWorker`).
+export const maxDuration = 60;
 
 /** Estado de una tirada: lo que consulta la barra de progreso del panel. */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,10 +25,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // Si queda trabajo y hace más de dos minutos que no se toca, se le da un toque al worker:
   // así mirar el progreso rescata por sí solo una tirada que se quedó a medias.
   const parada = Date.now() - progreso.tirada.updatedAt.getTime() > 120_000;
-  if (parada && progreso.pendientes > 0 && ['pendiente', 'ejecutando'].includes(progreso.tirada.estado)) {
-    despertarWorker(id);
+  if (parada && progreso.pendientes + progreso.haciendo > 0 && ['pendiente', 'ejecutando'].includes(progreso.tirada.estado)) {
+    arrancarWorker(id);
   }
-  return NextResponse.json({ ...progreso, items: await getItemsDeTirada(id) });
+  const [items, eventos] = await Promise.all([getItemsDeTirada(id), getEventos(id)]);
+  return NextResponse.json({ ...progreso, items, eventos });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -30,14 +40,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { accion } = z.object({ accion: z.enum(['cancelar', 'reintentar', 'seguir']) }).parse(await request.json());
     if (accion === 'cancelar') {
       await cancelarTirada(id);
+      await registrarEvento({ tiradaId: id, nivel: 'aviso', fase: 'lanzar', mensaje: `Cancelada por ${guard.email}` });
       return NextResponse.json({ ok: true });
     }
     if (accion === 'reintentar') {
       const reencolados = await reintentarErrores(id);
-      if (reencolados > 0) despertarWorker(id);
+      if (reencolados > 0) {
+        await registrarEvento({ tiradaId: id, fase: 'lanzar', mensaje: `${reencolados} documento(s) con error vuelven a la cola` });
+        arrancarWorker(id);
+      }
       return NextResponse.json({ ok: true, reencolados });
     }
-    despertarWorker(id);
+    await registrarEvento({ tiradaId: id, fase: 'lanzar', mensaje: `«Seguir ahora» pulsado por ${guard.email}` });
+    arrancarWorker(id);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Error' }, { status: 400 });

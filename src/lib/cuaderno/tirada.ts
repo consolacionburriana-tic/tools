@@ -4,6 +4,7 @@
 // bloqueos hay) y se ejecuta como una cola de ítems en Neon. El worker coge ítems mientras
 // le quede tiempo de función y se re-despierta; el navegador de quien la lanzó no participa.
 // Ficha: docs/18-cuaderno-tutor.md
+import { after } from 'next/server';
 import type { CuadItem, CuadPlantilla, CuadTirada } from '@/db/schema';
 import { appBaseUrl } from '@/lib/constants';
 import { etapaDeCurso, type Etapa } from '@/lib/cursos';
@@ -31,6 +32,7 @@ import {
 } from '@/lib/cuaderno/nombres';
 import {
   actualizarTirada,
+  anotarPase,
   asegurarNumeracion,
   getAjustes,
   getAsignaturas,
@@ -42,7 +44,9 @@ import {
   getTirada,
   marcarItem,
   reclamarItem,
+  registrarEvento,
   registrarHojas,
+  rescatarItemsColgados,
   type AlumnoCuaderno,
   type AsignaturaCuaderno,
   type ClaseCuaderno,
@@ -236,13 +240,22 @@ export async function procesarTirada(tiradaId: string, limiteMs = 240_000): Prom
     return { tiradaId, procesados: 0, errores: 0, pendientes: 0, terminada: true };
   }
 
+  const pase = await anotarPase(tiradaId);
+  // Ítems que se quedaron reclamados en un pase que se cortó: vuelven a la cola o la
+  // tirada se quedaría parada para siempre sin nada pendiente que la despierte.
+  const rescatados = await rescatarItemsColgados(tiradaId);
+  await registrarEvento({
+    tiradaId,
+    fase: 'worker',
+    mensaje: `Pase ${pase} del worker${rescatados > 0 ? ` · ${rescatados} documento(s) colgado(s) devuelto(s) a la cola` : ''}`,
+    datos: { pase, rescatados },
+  });
+
   const [ajustes, plantillas, mapeo] = await Promise.all([getAjustes(), getPlantillas(), getMapeo()]);
   if (!ajustes.carpetaBaseId) {
-    await actualizarTirada(tiradaId, {
-      estado: 'error',
-      error: 'Falta la carpeta base de Drive en los ajustes del módulo',
-      finishedAt: new Date(),
-    });
+    const falta = 'Falta la carpeta base de Drive en los ajustes del módulo';
+    await registrarEvento({ tiradaId, nivel: 'error', fase: 'drive', mensaje: falta });
+    await actualizarTirada(tiradaId, { estado: 'error', error: falta, finishedAt: new Date() });
     return { tiradaId, procesados: 0, errores: 0, pendientes: 0, terminada: true };
   }
 
@@ -257,9 +270,20 @@ export async function procesarTirada(tiradaId: string, limiteMs = 240_000): Prom
   // Carpeta del curso escolar (se reutiliza si ya existe: la tirada 2 no crea otra).
   let carpetaCursoId = tirada.carpetaCursoId;
   if (!carpetaCursoId) {
-    const carpeta = await asegurarCarpeta(carpetaCursoEscolar(tirada.academicYear), ajustes.carpetaBaseId);
-    carpetaCursoId = carpeta.id;
-    await actualizarTirada(tiradaId, { carpetaCursoId: carpeta.id, carpetaCursoUrl: carpeta.url });
+    const nombreCarpeta = carpetaCursoEscolar(tirada.academicYear);
+    try {
+      const carpeta = await asegurarCarpeta(nombreCarpeta, ajustes.carpetaBaseId);
+      carpetaCursoId = carpeta.id;
+      await actualizarTirada(tiradaId, { carpetaCursoId: carpeta.id, carpetaCursoUrl: carpeta.url });
+      await registrarEvento({ tiradaId, fase: 'drive', mensaje: `Carpeta del curso lista: «${nombreCarpeta}»` });
+    } catch (error) {
+      // Es el fallo típico de la primera vez: la cuenta de servicio no ve la carpeta base
+      // o no es una unidad compartida. Se dice con nombre y apellidos y se para la tirada.
+      const mensaje = `No se pudo crear «${nombreCarpeta}» en la carpeta base de Drive: ${mensajeDeError(error)}`;
+      await registrarEvento({ tiradaId, nivel: 'error', fase: 'drive', mensaje });
+      await actualizarTirada(tiradaId, { estado: 'error', error: mensaje, finishedAt: new Date() });
+      return { tiradaId, procesados: 0, errores: 0, pendientes: 0, terminada: true };
+    }
   }
 
   // Todas las clases de la tirada, de una vez.
@@ -289,18 +313,49 @@ export async function procesarTirada(tiradaId: string, limiteMs = 240_000): Prom
       procesados++;
     } catch (error) {
       errores++;
-      await marcarItem(item.id, { estado: 'error', error: mensajeDeError(error) });
+      const mensaje = mensajeDeError(error);
+      await marcarItem(item.id, { estado: 'error', error: mensaje });
+      await registrarEvento({
+        tiradaId,
+        itemId: item.id,
+        nivel: 'error',
+        fase: 'documento',
+        mensaje: `${item.curso} ${item.letra} · tutor ${item.indiceTutor}: ${mensaje}`,
+      });
     }
   }
 
   const progreso = await getProgreso(tiradaId);
   const pendientes = (progreso?.pendientes ?? 0) + (progreso?.haciendo ?? 0);
   if (pendientes === 0 && progreso) {
-    await finalizarTirada({ tirada, ajustes, opciones, plantillas, carpetaCursoId, variasEtapas, cache });
+    try {
+      await finalizarTirada({ tirada, ajustes, opciones, plantillas, carpetaCursoId, variasEtapas, cache });
+    } catch (error) {
+      await registrarEvento({
+        tiradaId,
+        nivel: 'aviso',
+        fase: 'cierre',
+        mensaje: `Los documentos están, pero el cierre falló: ${mensajeDeError(error)}`,
+      });
+    }
     await actualizarTirada(tiradaId, {
       estado: progreso.errores > 0 ? 'error' : 'hecha',
       error: progreso.errores > 0 ? `${progreso.errores} documento(s) con error` : null,
       finishedAt: new Date(),
+    });
+    await registrarEvento({
+      tiradaId,
+      nivel: progreso.errores > 0 ? 'aviso' : 'info',
+      fase: 'cierre',
+      mensaje: `Tirada terminada: ${progreso.hechos} documento(s) hechos, ${progreso.errores} con error`,
+      datos: { hechos: progreso.hechos, errores: progreso.errores },
+    });
+  } else {
+    await registrarEvento({
+      tiradaId,
+      fase: 'worker',
+      mensaje: `Pase ${pase} cerrado: ${procesados} hecho(s) en esta vuelta, ${pendientes} por hacer`,
+      datos: { pase, procesados, errores, pendientes },
     });
   }
   return { tiradaId, procesados, errores, pendientes, terminada: pendientes === 0 };
@@ -413,6 +468,16 @@ async function ejecutarItem(ctx: ContextoItem): Promise<void> {
     carpetaUrl: carpeta.url,
     error: resultado.sinResolver.length > 0 ? `Etiquetas sin datos: ${resultado.sinResolver.join(', ')}` : null,
   });
+  await registrarEvento({
+    tiradaId: tirada.id,
+    itemId: item.id,
+    nivel: resultado.sinResolver.length > 0 ? 'aviso' : 'info',
+    fase: 'documento',
+    mensaje:
+      `${clase.clase} · ${tutor?.corto ?? 'sin tutor'} · ${plantilla.nombre}: hecho (${alumnos.length} alumno/a(s))` +
+      (resultado.sinResolver.length > 0 ? ` — sin datos para: ${resultado.sinResolver.join(', ')}` : ''),
+    datos: { docUrl: resultado.docUrl, pdfUrl: resultado.pdfUrl },
+  });
   await registrarHojas({
     alumnoIds: alumnos.map((a) => a.id),
     plantillaId: plantilla.id,
@@ -511,28 +576,78 @@ async function finalizarTirada(opciones: {
           });
         }
       } catch (error) {
-        console.error('[cuaderno] no se pudo compartir la carpeta de clase:', mensajeDeError(error));
+        await registrarEvento({
+          tiradaId: tirada.id,
+          nivel: 'aviso',
+          fase: 'cierre',
+          mensaje: `No se pudo compartir «${clase.clase}» con ${tutor.email}: ${mensajeDeError(error)}`,
+        });
       }
     }
   }
 }
 
-// ─── Despertar al worker ─────────────────────────────────────────────────────
+// ─── Arrancar el worker ──────────────────────────────────────────────────────
 
 /**
- * Le da un toque al worker para que empiece (o siga) sin que nadie espere en el navegador.
- * Es "fire and forget" a propósito: quien lanza la tirada recibe su respuesta al momento y
- * el trabajo sigue en el servidor. Si el toque se pierde, el cron de `vercel.json` lo
- * recoge en el siguiente pase.
+ * Pone la tirada en marcha sin que nadie espere en el navegador.
+ *
+ * Lo hace `after()` de Next: la respuesta sale al momento y el trabajo sigue en LA MISMA
+ * invocación, hasta el `maxDuration` de la ruta. Antes esto era un `fetch` a la propia app
+ * y ahí estaba el fallo que dejó dos tiradas sin arrancar: una llamada servidor→servidor no
+ * lleva la cookie de sesión, así que el worker la rechazaba con un 401 que además nadie
+ * miraba (era "fire and forget"). Ahora no hay salto HTTP ni autenticación que fallar para
+ * el primer pase; el `fetch` solo se usa para PEDIR OTRA INVOCACIÓN cuando queda cola, y su
+ * resultado se apunta en la bitácora.
  */
-export function despertarWorker(tiradaId?: string): void {
-  const secreto = process.env.CRON_SECRET;
-  const url = `${appBaseUrl()}/api/cuaderno/worker${tiradaId ? `?tirada=${tiradaId}` : ''}`;
-  void fetch(url, {
-    method: 'POST',
-    headers: secreto ? { authorization: `Bearer ${secreto}` } : undefined,
-    cache: 'no-store',
-  }).catch((error) => {
-    console.error('[cuaderno] no se pudo despertar al worker:', error instanceof Error ? error.message : error);
+export function arrancarWorker(tiradaId: string): void {
+  after(async () => {
+    try {
+      const resultado = await procesarTirada(tiradaId, LIMITE_PASE_MS);
+      if (!resultado.terminada) await pedirOtraVuelta(tiradaId);
+    } catch (error) {
+      const mensaje = mensajeDeError(error);
+      await registrarEvento({ tiradaId, nivel: 'error', fase: 'worker', mensaje: `El pase se cortó: ${mensaje}` });
+      await actualizarTirada(tiradaId, { estado: 'error', error: mensaje, finishedAt: new Date() });
+    }
   });
+}
+
+/** Tiempo de trabajo por invocación: 45 s del techo de 60 s, el resto para cerrar. */
+export const LIMITE_PASE_MS = 45_000;
+
+/**
+ * Pide otra invocación del worker para seguir con la cola. Aquí el salto HTTP es
+ * inevitable (una función de Vercel no puede alargarse sola), así que se espera la
+ * respuesta y se apunta qué contestó: si esto falla, el panel lo dice en vez de dejar la
+ * tirada muda. Como red de seguridad, el cron diario recoge lo que quede.
+ */
+export async function pedirOtraVuelta(tiradaId: string): Promise<boolean> {
+  const url = `${appBaseUrl()}/api/cuaderno/worker?tirada=${encodeURIComponent(tiradaId)}`;
+  const secreto = process.env.CRON_SECRET;
+  try {
+    const respuesta = await fetch(url, {
+      method: 'POST',
+      headers: secreto ? { authorization: `Bearer ${secreto}` } : undefined,
+      cache: 'no-store',
+    });
+    if (respuesta.ok) return true;
+    await registrarEvento({
+      tiradaId,
+      nivel: 'aviso',
+      fase: 'toque',
+      mensaje: `Queda cola y el aviso al worker no entró (HTTP ${respuesta.status} en ${url}). Pulsa «Seguir ahora» para continuar.`,
+      datos: { estado: respuesta.status, url },
+    });
+    return false;
+  } catch (error) {
+    await registrarEvento({
+      tiradaId,
+      nivel: 'aviso',
+      fase: 'toque',
+      mensaje: `Queda cola y no se pudo avisar al worker (${mensajeDeError(error)}). Pulsa «Seguir ahora» para continuar.`,
+      datos: { url },
+    });
+    return false;
+  }
 }

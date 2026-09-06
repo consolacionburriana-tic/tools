@@ -53,6 +53,17 @@ export interface TiradaUI {
   hechos: number;
   errores: number;
   pendientes: number;
+  latidoAt: string | null;
+  pases: number;
+}
+
+/** Una línea de la bitácora de una tirada (tabla `cuad_eventos`). */
+export interface EventoUI {
+  id: string;
+  nivel: string;
+  fase: string;
+  mensaje: string;
+  createdAt: string;
 }
 
 export interface FaltaUI {
