@@ -10,10 +10,12 @@ Acceso: **TIC, SuperTIC, Dirección y Jefatura** (`autoasm` en `src/lib/permissi
 
 ---
 
-## Estado: plan funcional ✅ · plan técnico ✅ · implementado ✅ (2026-09-05)
+## Estado: plan funcional ✅ · plan técnico ✅ · implementado ✅ (2026-09-05 · ampliado 2026-09-06)
 
-Depende de la BBDD central (`edu_students`, `edu_teachers`) para las personas. No crea
-tablas nuevas: el proyecto de trabajo vive en el navegador (ver decisiones).
+Depende de la BBDD central (`edu_students`, `edu_teachers`) para las personas, de
+`edu_tutorias` y `auth_users` para saber quién entra solo en cada clase, y de `hor_*` para
+las clases y sus profes. No crea tablas nuevas: el proyecto de trabajo vive en el
+navegador (ver decisiones).
 
 ---
 
@@ -72,8 +74,10 @@ Cómo está montado hoy el centro (leído de los ficheros que pasó David, y rec
 
 ## Lo que se encontró en el export del curso (5-sep-2026)
 
-La validación del módulo, pasada por los ficheros reales, saca esto — son cosas de los
-datos, no del módulo:
+La validación del módulo, pasada por los ficheros reales, sacó esto. David decidió
+(6-sep) **no arreglar el fichero viejo**: el de este curso se genera de cero y sale limpio
+por construcción (duplicados fuera, correos en minúsculas, `Cls-TValESO1` con su nombre).
+Queda aquí como registro de qué había:
 
 - **29 líneas de matrícula duplicadas** (15 pares alumno-clase repetidos): 14 alumnos de
   `Cls-EPComp` aparecen **tres veces** y uno de `Cls-PIARESO3`, dos.
@@ -99,6 +103,48 @@ Se filtra por el **curso de la BBDD central** (`6PRI`, `1ESO`) y no por el `grad
 que es texto libre; el PDC cuenta por su curso de verdad (`3ºPPDC` → 3º de ESO). El
 **profesorado entra siempre entero**: un profe da clase donde le toque, y además el
 claustro necesita sus cuentas aunque su grupo no tenga iPads.
+
+### Las clases salen del horario (2026-09-06)
+Cada **asignación docente** de `hor_*` es una clase de ASM: la materia da el nombre,
+`hor_asignacion_profes` los instructores y `hor_asignacion_grupos` quién se matricula. Así
+la asignatura conjunta (Música de 3º PDC con 3º A) sale sola, y el año que Inglés deje de
+serlo, se parte sola. Con dos cautelas que hacen que sea una **propuesta revisable** y no
+una aplicación a ciegas:
+
+1. **De una clase que ya existe no se toca ni el `class_id` ni el `course_id`**: si
+   cambian, ASM no renombra, crea otra clase. Solo se actualizan profes y matrículas.
+2. **Un hueco en el horario no vacía una clase**: si una asignación no trae profesorado, la
+   clase se queda con el que tenía y se avisa.
+
+El emparejamiento asignación ↔ clase se recuerda en el proyecto (`ProyectoAsm.horario`)
+para que el año siguiente no haya que adivinarlo. Los **desdobles** (subgrupo) no generan
+matrícula automática: media clase no se puede deducir, y se dice.
+
+### Nadie se borra: se archiva (2026-09-06)
+Cuando alguien deja el centro, quitarlo del fichero hace que ASM **se lleve por delante su
+cuenta y su iCloud**. Así que el sync no borra a nadie: lo **archiva**. La persona sigue en
+`students.csv`/`staff.csv` (la cuenta vive), sale de todas sus clases y matrículas, y
+desaparece de las pantallas salvo que se pida verla. Dar de baja de verdad existe, es lo
+único destructivo del módulo, y pregunta dos veces.
+
+### Los iPads compartidos son una lista propia (2026-09-06)
+Las cuentas de iPad compartido (`aluprimaria7`, "Alu Primaria 7"…) no vienen de Educamos.
+Se reconocen solas al importar el CSV anterior (por su `grade_level` de compartidos o por
+su identificador), quedan marcadas en el proyecto y **el sync no las toca ni las archiva
+nunca**. La lista se edita a mano desde la ficha de cada cuenta.
+
+### Quién entra solo en cada clase (2026-09-06)
+- En **todas las tutorías**, el equipo **TIC**.
+- En las clases de **curso entero**, los **tutores de ese nivel** (de `edu_tutorias`) + TIC
+  + **dirección y jefatura** (de `auth_users`, por rol: no hay una segunda lista que
+  mantener).
+- ASM admite **12 instructores por clase**. Si no caben, se cae **primero dirección y
+  jefatura; TIC nunca**, y se dice en qué clases ha pasado.
+
+### Los ficheros salen limpios, siempre (2026-09-06)
+Después de cada acción —no solo al descargar— se normaliza la salida: **correos en
+minúsculas**, **sin matrículas repetidas**, sin espacios sobrantes y con los `roster_id`
+correlativos. Lo que se ve en el explorador es exactamente lo que se va a subir.
 
 ### El proyecto vive en el navegador, no en Neon
 Lo que se manipula aquí es el alumnado entero del centro en su forma más exportable. Entra
@@ -138,12 +184,14 @@ Todo lo demás se trae o se sube.
 ```
 src/lib/autoasm.ts              # especificación de los 6 ficheros, CSV (leer/escribir), validación
 src/lib/autoasm-plantilla.ts    # estructura académica del centro (sin personas)
-src/lib/autoasm-construir.ts    # BBDD central → filas, sync, matrículas, inferencia de reglas
-src/lib/autoasm-server.ts       # única query: alumnado y profesorado activos
-src/app/api/autoasm/admin/centro/route.ts   # GET protegido con hasModule('autoasm')
+src/lib/autoasm-construir.ts    # BBDD central → filas: sync, archivado, matrículas, profes automáticos
+src/lib/autoasm-horario.ts      # asignaciones docentes → clases de ASM (propuesta y aplicación)
+src/lib/autoasm-server.ts       # las tres lecturas: personas, equipos (tutorías + roles) y horario
+src/app/api/autoasm/admin/centro/route.ts    # GET protegido con hasModule('autoasm')
+src/app/api/autoasm/admin/horario/route.ts   # ídem, las asignaciones del periodo en vigor
 src/app/gestion/autoasm/…       # portada (estudio) y explorador por fichero
 src/components/autoasm/…        # estudio, explorador, subida, descargas, store de proyecto
-src/lib/__tests__/autoasm.test.ts  # 34 tests con datos inventados
+src/lib/__tests__/autoasm.test.ts + autoasm-horario.test.ts   # 58 tests con datos inventados
 ```
 
 - La **validación** (`validarProyecto`) mira lo mismo que ASM: campos obligatorios, claves
@@ -154,7 +202,41 @@ src/lib/__tests__/autoasm.test.ts  # 34 tests con datos inventados
 - El **ZIP** se genera en el navegador con `jszip` (ya era dependencia) e incluye un
   `LEEME.txt` con el recuento, el separador usado y cómo se sube.
 - El **explorador** resuelve los identificadores a nombres (`Cls-MatESO1A` → "Matemáticas ·
-  ESO 1A"), los hace navegables entre ficheros y esconde las columnas vacías.
+  ESO 1A"), los hace navegables entre ficheros, esconde las columnas vacías y las cuentas
+  archivadas, y deja archivar, marcar como iPad compartido o dar de baja desde la ficha.
+- La **limpieza de salida** (`limpiarArchivos`) se aplica tras cada acción, no solo al
+  descargar.
+
+## Cómo se traduce el horario a clases de ASM
+
+| ASM | Horarios (`hor_*`) |
+|---|---|
+| Una **clase** (`classes.csv`) | Una **asignación docente** lectiva de tipo `clase` |
+| `class_number` | `hor_materias.nombre` |
+| **Instructores** | `hor_asignacion_profes`, el `principal` primero (máx. 12) |
+| **Matrículas** (`rosters.csv`) | El alumnado de los grupos de `hor_asignacion_grupos` |
+| `course_id` (solo en clases nuevas) | El curso del grupo; si son varios grupos del mismo nivel, el curso de nivel entero (`ESO1`) |
+
+Lo que el módulo **no** deduce y deja como aviso: los **desdobles** (un subgrupo es media
+clase: quién entra hay que decirlo a mano), el profesorado que no tenga cuenta en
+`staff.csv`, y las clases de ASM que el horario no menciona (compartidos, clases de curso
+entero…), que se quedan como están.
+
+Estado del origen: `hor_*` tiene **infantil y primaria** importados; **falta secundaria**
+(ver [`07-horarios.md`](./07-horarios.md)). O sea que hoy el horario ya alimenta 5º y 6º de
+primaria —que es lo que entra en ASM de primaria— y ESO entrará en cuanto se importe.
+
+## Las clases que no salen de ninguna asignatura
+
+Tres tipos de clase existen por otros motivos, y por eso se mantienen a mano o por regla:
+
+- **De curso entero** (`Cls-ESO1`, `Cls-EP5`…): un sitio donde a un profe le salen TODOS
+  los alumnos de 1º de ESO, para actividades conjuntas. Sus profes se ponen solos (ver
+  "Quién entra solo en cada clase").
+- **Compartidos** (`Cls-Comp`, `Cls-EPComp`, `Cls-EIComp`): los iPads compartidos con sus
+  cuentas propias.
+- **Tutorías de infantil y primaria 1-4**: siguen existiendo aunque su alumnado no entre en
+  ASM (decisión de David, 6-sep): son la clase que sus profes ven en el iPad.
 
 ## Fases
 
@@ -181,71 +263,20 @@ src/lib/__tests__/autoasm.test.ts  # 34 tests con datos inventados
 - [x] Descarga del ZIP (con LEEME) y de cada CSV suelto
 - [x] Revisado en claro y oscuro, y en ancho de iPad
 
-### Fase 4 · Cuando haya horarios (`hor_*`)
-- [ ] Generar las clases y sus profes desde las asignaciones docentes (ver "Lo que falta")
-- [ ] Emparejar asignación ↔ `class_id` existente para no duplicar clases en ASM
-- [ ] Clases de curso entero y profes fijos (TIC/dirección) automáticos, si David lo ve
+### Fase 4 · Desde el horario y cuentas con historia ✅ (2026-09-06)
+- [x] Clases, profes y matrículas propuestos desde las asignaciones docentes de `hor_*`
+- [x] Emparejamiento asignación ↔ clase recordado en el proyecto (no duplica clases en ASM)
+- [x] Panel de propuesta: qué se crea, qué cambia y qué avisos hay, antes de tocar nada
+- [x] Profes automáticos: TIC en las tutorías; tutores + TIC + dirección en las de curso,
+      con el tope de 12 de ASM (se cae dirección antes que TIC)
+- [x] Archivar en vez de borrar, con baja definitiva a dos confirmaciones
+- [x] Cuentas de iPad compartido reconocidas y protegidas del sync
+- [x] Salida siempre limpia: minúsculas, sin matrículas repetidas, `roster_id` correlativos
 
 ### Fase 5 · Pendiente de David
 - [ ] Subir a ASM un ZIP generado por el módulo y confirmar que lo traga sin quejarse
-- [ ] Decidir qué hacer con los 29 duplicados de matrícula y con `Cls-TValESO1`
-- [ ] ¿Se normalizan a minúsculas los 57 correos en mayúsculas? (cambiarlo en la BBDD
-      central, no aquí)
+- [ ] Importar el horario de **secundaria** en `hor_*`: hasta entonces, las clases de ESO
+      siguen viniendo del ZIP del curso pasado o a mano
+- [ ] Revisar los desdobles (Religión/Valores) a mano tras aplicar el horario
 
 ---
-
-## Lo que falta: que las clases salgan del horario (2026-09-06)
-
-Hoy hay dos cosas que el módulo **no puede sacar de ninguna base de datos**, y por eso se
-arrastran del export del curso anterior o se ponen a mano:
-
-1. **Qué profes dan cada clase.**
-2. **Qué grupos van juntos en cada asignatura** (Música de 3º PDC con 3º A, Inglés que un
-   año es conjunto y al siguiente no).
-
-Las dos están, exactamente, en el horario. Cuando `hor_*` tenga datos
-([`07-horarios.md`](./07-horarios.md), Fase 0 hecha, falta el importador), el mapeo es
-directo:
-
-| ASM | Horarios |
-|---|---|
-| Una **clase** (`classes.csv`) | Una **asignación docente** lectiva de tipo clase (`hor_asignaciones`) |
-| `class_number` | `hor_materias.nombre` |
-| **Instructores** | `hor_asignacion_profes` (hasta 12; el `principal` primero) |
-| **Matrículas** (`rosters.csv`) | El alumnado de los grupos de `hor_asignacion_grupos` — que es la "regla de matrícula" de hoy, pero real: si la asignación junta 3ºA y 3º PDC, la clase junta 3ºA y 3º PDC |
-| `course_id` | El curso del grupo de la asignación (con varios, el del grupo mayor) |
-
-Lo único delicado es **no duplicar clases en ASM**: si una asignación genera un `class_id`
-distinto al que ya existe, ASM crea una clase nueva en vez de actualizar la de siempre. La
-solución cuando toque: guardar el `class_id` de ASM en la propia asignación (una columna
-`asm_class_id` en `hor_asignaciones`) y emparejar la primera vez por materia + grupo contra
-las clases que ya están.
-
-Mientras tanto, **subir el ZIP del curso pasado sigue teniendo sentido** por dos motivos:
-es lo que conserva los profes de cada clase hasta que haya horario, y es la forma de
-recuperar un proyecto si se cambia de dispositivo (el borrador vive en el navegador).
-
-## Decisión pendiente: las clases de curso entero y los accesos "por si acaso"
-
-En ASM hay hoy tres tipos de clase que no salen de ninguna asignatura y que responden a
-una necesidad distinta:
-
-- **De curso entero** (`Cls-ESO1`, `Cls-EP5`…): un sitio donde a un profe le salen TODOS
-  los alumnos de 1º de ESO, para actividades conjuntas.
-- **Compartidos** (`Cls-Comp`, `Cls-EPComp`, `Cls-EIComp`): las cuentas de los iPads
-  compartidos.
-- **Accesos "por si acaso"**: TIC está metido en las clases de curso o en todas las
-  tutorías para poder entrar cuando hace falta.
-
-Propuesta (a confirmar con David) para que esto también se genere solo:
-
-- Una clase de curso entero **por nivel dentro del alcance**, con todo su alumnado.
-- Sus instructores, automáticos: **los tutores de ese nivel** (salen de `edu_tutorias`, que
-  ya lleva el módulo de Tutorías) **+ el equipo TIC y dirección/jefatura** (salen de
-  `auth_users` por rol).
-- Un ajuste de "**profes fijos**": una lista corta de personas que se añaden a todas las
-  clases de un tipo (todas las tutorías, o todas las de curso). Ojo al límite: **ASM admite
-  12 instructores por clase**, y las tutorías de ESO ya van por 5-6.
-
-Con eso, el mantenimiento anual de los accesos de TIC dejaría de ser "acordarse de
-añadirse a mano en 35 tutorías".

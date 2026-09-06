@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CAMPOS_INSTRUCTOR,
   archivoDeNombre,
   archivoPorCabeceras,
   cabecerasDe,
@@ -17,15 +18,21 @@ import {
   type FilaCsv,
 } from '@/lib/autoasm';
 import {
+  cursoDeCourseNumber,
+  darDeBaja,
   entraEnAlcance,
   inferirReglas,
+  inferirTipos,
   labelCurso,
+  limpiarArchivos,
   OPCIONES_POR_DEFECTO,
+  profesAutomaticos,
   proyectoDesdePlantilla,
   proyectoVacio,
   regenerarMatriculas,
   sincronizarConCentro,
   OPCIONES_SYNC_POR_DEFECTO,
+  type EquiposCentro,
   type SnapshotCentro,
 } from '@/lib/autoasm-construir';
 
@@ -220,6 +227,7 @@ describe('sincronizarConCentro', () => {
     profes: [
       { alias: 'GH', nombre: 'Grace', apellido1: 'Hopper', apellido2: 'Murray', email: 'grace@ej.com' },
     ],
+    equipos: { tutorias: [], tic: [], direccion: [] },
   };
 
   it('monta alumnado y profesorado con el NIA y el correo como identidad', () => {
@@ -280,22 +288,45 @@ describe('sincronizarConCentro', () => {
     expect(labelCurso(null)).toBe('Todo el centro');
   });
 
-  it('no borra a nadie salvo que se pida', () => {
+  it('a quien ya no está NO se le borra: se archiva (para no perder su cuenta de iCloud)', () => {
     const primera = sincronizarConCentro(proyectoVacio(), snapshot).proyecto;
     const vacio: SnapshotCentro = { ...snapshot, alumnos: [], profes: [] };
-    expect(sincronizarConCentro(primera, vacio).proyecto.archivos.students).toHaveLength(2);
-    const limpiado = sincronizarConCentro(primera, vacio, { ...OPCIONES_SYNC_POR_DEFECTO, quitarBajas: true }).proyecto;
-    expect(limpiado.archivos.students).toHaveLength(0);
+    const segunda = sincronizarConCentro(primera, vacio);
+    expect(segunda.proyecto.archivos.students).toHaveLength(2); // siguen en el fichero
+    expect(segunda.proyecto.archivados).toEqual(expect.arrayContaining(['900001', '900002', 'gracehopper']));
+    expect(segunda.resumen.alumnos.archivados).toBe(2);
+    expect(segunda.resumen.profes.archivados).toBe(1);
+    // …y si vuelve a aparecer, deja de estar archivado
+    const tercera = sincronizarConCentro(segunda.proyecto, snapshot).proyecto;
+    expect(tercera.archivados).toHaveLength(0);
   });
 
-  it('al quitar a un profe lo saca también de sus clases', () => {
+  it('un profe archivado sale de sus clases y un alumno archivado, de sus matrículas', () => {
     const base = proyectoVacio();
     const conGente = sincronizarConCentro(base, snapshot).proyecto;
-    conGente.archivos.courses = [fila('courses', { course_id: 'Curso-1A', course_number: '1A', course_name: 'ESO 1A', location_id: base.opciones.locationId })];
+    conGente.archivos.courses = [fila('courses', { course_id: 'Curso-1A', course_number: 'ESO1A', course_name: 'ESO 1A', location_id: base.opciones.locationId })];
     conGente.archivos.classes = [fila('classes', { class_id: 'Cls-Mat1A', class_number: 'Mates', course_id: 'Curso-1A', instructor_id: 'gracehopper', location_id: base.opciones.locationId })];
-    const sinProfe = sincronizarConCentro(conGente, { ...snapshot, profes: [] }, { ...OPCIONES_SYNC_POR_DEFECTO, quitarBajas: true });
-    expect(sinProfe.proyecto.archivos.classes[0].instructor_id).toBe('');
-    expect(sinProfe.resumen.instructoresRetirados).toEqual(['gracehopper']);
+    conGente.reglas = { 'Cls-Mat1A': ['ESO 1A'] };
+    const vaciado = sincronizarConCentro(conGente, { ...snapshot, profes: [], alumnos: [snapshot.alumnos[0]] });
+    expect(vaciado.proyecto.archivos.classes[0].instructor_id).toBe('');
+    expect(vaciado.proyecto.archivos.rosters.map((r) => r.student_id)).toEqual(['900001']);
+  });
+
+  it('las cuentas de iPad compartido se reconocen solas y el sync no las toca', () => {
+    const base = proyectoVacio();
+    base.archivos.students = [
+      fila('students', { person_id: 'aluprimaria7', first_name: 'Alu Primaria 7', last_name: 'P7', grade_level: 'Primaria Compartido', email_address: 'aluprimaria7@ej.com', sis_username: 'aluprimaria7', password_policy: '4', location_id: base.opciones.locationId }),
+    ];
+    const { proyecto, resumen } = sincronizarConCentro(base, snapshot);
+    expect(resumen.compartidasDetectadas).toBe(1);
+    expect(proyecto.compartidas).toEqual(['aluprimaria7']);
+    expect(proyecto.archivados).not.toContain('aluprimaria7');
+  });
+
+  it('dar de baja de verdad sí borra, y se lleva sus clases y matrículas', () => {
+    const conGente = sincronizarConCentro(proyectoVacio(), snapshot).proyecto;
+    const despues = darDeBaja(conGente, '900001');
+    expect(despues.archivos.students.map((s) => s.person_id)).toEqual(['900002']);
   });
 });
 
@@ -328,5 +359,109 @@ describe('matrículas', () => {
     archivos.students.push(fila('students', { person_id: '334', first_name: 'Barbara', last_name: 'Liskov', grade_level: 'ESO 2B', email_address: 'bl@ej.com', sis_username: 'bl', password_policy: '4', location_id: 'Centro' }));
     archivos.rosters.push(fila('rosters', { roster_id: 'rst00003', class_id: 'Cls-Mat1A', student_id: '333' }));
     expect(inferirReglas(archivos)['Cls-Mat1A']).toEqual(['ESO 1A']);
+  });
+});
+
+describe('limpiarArchivos', () => {
+  it('baja los correos a minúsculas y quita las matrículas repetidas, renumerando', () => {
+    const archivos = proyectoDePrueba();
+    archivos.students[0].email_address = 'ADA@EJ.COM';
+    archivos.rosters.push(fila('rosters', { roster_id: 'rst00099', class_id: 'Cls-Mat1A', student_id: '111' }));
+    const limpio = limpiarArchivos(archivos);
+    expect(limpio.students[0].email_address).toBe('ada@ej.com');
+    expect(limpio.rosters).toHaveLength(2);
+    expect(limpio.rosters.map((r) => r.roster_id)).toEqual(['rst00001', 'rst00002']);
+  });
+
+  it('saca de las clases a los archivados, pero los deja en el fichero', () => {
+    const archivos = proyectoDePrueba();
+    const limpio = limpiarArchivos(archivos, ['111']);
+    expect(limpio.students).toHaveLength(2);
+    expect(limpio.rosters.map((r) => r.student_id)).toEqual(['222']);
+  });
+});
+
+describe('cursoDeCourseNumber', () => {
+  it('traduce los códigos de curso de ASM a los de la BBDD central', () => {
+    expect(cursoDeCourseNumber('ESO1A')).toEqual({ curso: '1ESO', letra: 'A' });
+    expect(cursoDeCourseNumber('ESO1')).toEqual({ curso: '1ESO', letra: null });
+    expect(cursoDeCourseNumber('EP5B')).toEqual({ curso: '5PRI', letra: 'B' });
+    expect(cursoDeCourseNumber('ESO3PDC')).toEqual({ curso: '3ESO', letra: 'PDC' });
+    expect(cursoDeCourseNumber('EI1A')).toEqual({ curso: '3INF', letra: 'A' }); // infantil 1 = 3 años
+    expect(cursoDeCourseNumber('Comp')).toBeNull();
+  });
+});
+
+describe('inferirTipos', () => {
+  it('distingue tutoría de grupo, clase de curso entero y asignatura', () => {
+    const archivos = proyectoDePrueba();
+    archivos.courses.push(fila('courses', { course_id: 'Curso-1', course_number: 'ESO1', course_name: 'ESO1', location_id: 'Centro' }));
+    archivos.classes = [
+      fila('classes', { class_id: 'C1', class_number: 'Tutoría', course_id: 'Curso-1A', location_id: 'Centro' }),
+      fila('classes', { class_id: 'C2', class_number: 'Tutoría', course_id: 'Curso-1', location_id: 'Centro' }),
+      fila('classes', { class_id: 'C3', class_number: 'Matemáticas', course_id: 'Curso-1A', location_id: 'Centro' }),
+    ];
+    archivos.courses[0] = fila('courses', { course_id: 'Curso-1A', course_number: 'ESO1A', course_name: 'ESO 1A', location_id: 'Centro' });
+    expect(inferirTipos(archivos)).toEqual({ C1: 'tutoria', C2: 'curso', C3: 'asignatura' });
+  });
+});
+
+describe('profesAutomaticos', () => {
+  const equipos: EquiposCentro = {
+    tutorias: [
+      { curso: '1ESO', letra: 'A', email: 'tutora@ej.com' },
+      { curso: '1ESO', letra: 'B', email: 'tutorb@ej.com' },
+      { curso: '2ESO', letra: 'A', email: 'otro@ej.com' },
+    ],
+    tic: ['tic1@ej.com'],
+    direccion: ['dire@ej.com'],
+  };
+
+  function conStaff(correos: string[]): Archivos {
+    const archivos = proyectoDePrueba();
+    archivos.staff = correos.map((email, i) =>
+      fila('staff', { person_id: `p${i}`, first_name: `P${i}`, last_name: 'Prueba', email_address: email, location_id: 'Centro' }),
+    );
+    return archivos;
+  }
+
+  it('mete a TIC en las tutorías y a tutores + TIC + dirección en las clases de curso', () => {
+    const archivos = conStaff(['tutora@ej.com', 'tutorb@ej.com', 'otro@ej.com', 'tic1@ej.com', 'dire@ej.com']);
+    archivos.courses = [
+      fila('courses', { course_id: 'C-1A', course_number: 'ESO1A', course_name: 'ESO 1A', location_id: 'Centro' }),
+      fila('courses', { course_id: 'C-1', course_number: 'ESO1', course_name: 'ESO1', location_id: 'Centro' }),
+    ];
+    archivos.classes = [
+      fila('classes', { class_id: 'Tut1A', class_number: 'Tutoría', course_id: 'C-1A', instructor_id: 'p0', location_id: 'Centro' }),
+      fila('classes', { class_id: 'Curso1', class_number: 'Tutoría', course_id: 'C-1', location_id: 'Centro' }),
+    ];
+    const { archivos: salida } = profesAutomaticos(archivos, { Tut1A: 'tutoria', Curso1: 'curso' }, equipos);
+    const tutoria = salida.classes[0];
+    expect([tutoria.instructor_id, tutoria.instructor_id_2]).toEqual(['p0', 'p3']); // el suyo + TIC
+    const curso = salida.classes[1];
+    // Los dos tutores de 1º ESO (no el de 2º), TIC y dirección — en ese orden
+    expect([curso.instructor_id, curso.instructor_id_2, curso.instructor_id_3, curso.instructor_id_4]).toEqual(['p0', 'p1', 'p3', 'p4']);
+  });
+
+  it('cuando no caben los 12 de ASM, se cae dirección antes que TIC', () => {
+    const correos = Array.from({ length: 12 }, (_, i) => `t${i}@ej.com`);
+    const archivos = conStaff([...correos, 'tic1@ej.com', 'dire@ej.com']);
+    archivos.courses = [fila('courses', { course_id: 'C-1', course_number: 'ESO1', course_name: 'ESO1', location_id: 'Centro' })];
+    const clase = fila('classes', { class_id: 'Curso1', class_number: 'Tutoría', course_id: 'C-1', location_id: 'Centro' });
+    CAMPOS_INSTRUCTOR.forEach((campo, i) => { clase[campo] = i < 11 ? `p${i}` : ''; });
+    archivos.classes = [clase];
+    const { archivos: salida, resumen } = profesAutomaticos(archivos, { Curso1: 'curso' }, equipos);
+    const dentro = CAMPOS_INSTRUCTOR.map((c) => salida.classes[0][c]).filter(Boolean);
+    expect(dentro).toHaveLength(12);
+    expect(dentro).toContain('p12'); // TIC entra
+    expect(dentro).not.toContain('p13'); // dirección se queda fuera
+    expect(resumen.sinSitio[0].personas).toEqual(['p13']);
+  });
+
+  it('no toca las asignaturas', () => {
+    const archivos = conStaff(['tic1@ej.com']);
+    archivos.classes = [fila('classes', { class_id: 'Mat', class_number: 'Matemáticas', course_id: 'Curso-1A', location_id: 'Centro' })];
+    const { archivos: salida } = profesAutomaticos(archivos, { Mat: 'asignatura' }, equipos);
+    expect(salida.classes[0].instructor_id).toBe('');
   });
 });

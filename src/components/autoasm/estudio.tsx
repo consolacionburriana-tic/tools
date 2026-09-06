@@ -10,6 +10,7 @@ import { motion } from 'motion/react';
 import {
   AlertTriangle,
   ArrowRight,
+  CalendarClock,
   CheckCircle2,
   ChevronLeft,
   Download,
@@ -31,12 +32,16 @@ import {
   type ArchivoAsm,
   type Incidencia,
 } from '@/lib/autoasm';
+import { aplicarPropuestas, proponerDesdeHorario, type AsignacionHorario, type ResultadoHorario } from '@/lib/autoasm-horario';
 import {
   CURSOS_CENTRO,
   OPCIONES_POR_DEFECTO,
   OPCIONES_SYNC_POR_DEFECTO,
   inferirReglas,
+  inferirTipos,
   labelCurso,
+  limpiarArchivos,
+  pareceCompartida,
   proyectoDesdePlantilla,
   proyectoVacio,
   regenerarMatriculas,
@@ -59,6 +64,7 @@ export function EstudioAsm() {
   // Alcance elegido: manda el del proyecto si ya hay uno; si no, el de esta sesión, que
   // es el que se usará al crearlo.
   const [alcanceLocal, setAlcanceLocal] = useState<string | null>(OPCIONES_POR_DEFECTO.desdeCurso);
+  const [horario, setHorario] = useState<ResultadoHorario | null>(null);
   const desdeCurso = proyecto ? proyecto.opciones.desdeCurso : alcanceLocal;
 
   const incidencias = useMemo(() => (proyecto ? validarProyecto(proyecto.archivos) : []), [proyecto]);
@@ -106,12 +112,15 @@ export function EstudioAsm() {
       }
 
       const texto = lectura.detalle.map((d) => `${ESPEC[d.archivo].fichero} (${num(d.filas)})`).join(', ');
+      const compartidas = [...new Set([...base.compartidas, ...archivos.students.filter(pareceCompartida).map((f) => f.person_id)])];
       aplicar(
         {
           ...base,
           opciones,
-          archivos,
+          archivos: limpiarArchivos(archivos, base.archivados),
           reglas: inferirReglas(archivos),
+          tipos: inferirTipos(archivos, base.tipos),
+          compartidas,
           historial: [...base.historial, { fecha: new Date().toISOString(), texto: `Importado: ${texto}` }].slice(-20),
         },
         `Leídos ${lectura.detalle.length} ficheros: ${texto}`,
@@ -136,7 +145,7 @@ export function EstudioAsm() {
       const { proyecto: actualizado, resumen } = sincronizarConCentro(base, snapshot, sync);
       aplicar(
         actualizado,
-        `Alumnado: ${resumen.alumnos.altas} altas y ${resumen.alumnos.actualizados} cambios · Profesorado: ${resumen.profes.altas} altas · Matrículas: +${resumen.matriculas.altas} / −${resumen.matriculas.bajas}`,
+        `Alumnado: ${resumen.alumnos.altas} altas y ${resumen.alumnos.actualizados} cambios · Profesorado: ${resumen.profes.altas} altas · Matrículas: +${resumen.matriculas.altas} / −${resumen.matriculas.bajas}${resumen.profesAutomaticos ? ` · Profes automáticos en ${resumen.profesAutomaticos.clasesTocadas} clases` : ''}`,
       );
       if (resumen.fueraDeAlcance.length > 0) {
         const total = resumen.fueraDeAlcance.reduce((n, f) => n + f.n, 0);
@@ -145,8 +154,16 @@ export function EstudioAsm() {
       if (resumen.alumnos.sinNia > 0) {
         toast.warning(`${resumen.alumnos.sinNia} alumnos sin NIA en la BBDD central: se les ha puesto un identificador a partir del correo.`, { duration: 9000 });
       }
-      if (resumen.instructoresRetirados.length > 0) {
-        toast.warning(`Quitados de sus clases (ya no están en el centro): ${resumen.instructoresRetirados.join(', ')}`, { duration: 9000 });
+      const archivados = resumen.alumnos.archivados + resumen.profes.archivados;
+      if (archivados > 0) {
+        toast.info(`${archivados} cuentas archivadas: siguen en el fichero (no se pierde su iCloud), fuera de las clases y escondidas aquí.`, { duration: 9000 });
+      }
+      if (resumen.compartidasDetectadas > 0) {
+        toast.info(`${resumen.compartidasDetectadas} cuentas de iPad compartido reconocidas: el sync ya no las tocará.`, { duration: 8000 });
+      }
+      const sinSitio = resumen.profesAutomaticos?.sinSitio ?? [];
+      if (sinSitio.length > 0) {
+        toast.warning(`${sinSitio.length} clases llegan al tope de 12 profes de ASM: se ha quedado fuera dirección/jefatura (TIC nunca).`, { duration: 9000 });
       }
     } catch (error) {
       console.error('AUTOASM: error trayendo la BBDD central', error);
@@ -156,9 +173,52 @@ export function EstudioAsm() {
     }
   }
 
+  async function traerDelHorario() {
+    if (!proyecto) {
+      toast.error('Antes carga la estructura del centro o el ZIP del curso pasado.');
+      return;
+    }
+    setTrabajando('horario');
+    try {
+      const res = await fetch('/api/autoasm/admin/horario');
+      if (!res.ok) throw new Error(String(res.status));
+      const { asignaciones } = (await res.json()) as { asignaciones: AsignacionHorario[] };
+      if (asignaciones.length === 0) {
+        toast.info('El horario del periodo en vigor no tiene ninguna clase todavía.');
+        return;
+      }
+      const resultado = proponerDesdeHorario(proyecto, asignaciones);
+      setHorario(resultado);
+      const cambian = resultado.propuestas.filter((p) => p.estado !== 'igual').length;
+      toast.success(cambian === 0 ? 'El horario dice lo mismo que ya tienes.' : `${cambian} clases por revisar, de ${asignaciones.length} del horario.`);
+    } catch (error) {
+      console.error('AUTOASM: error leyendo el horario', error);
+      toast.error('No he podido leer el horario.');
+    } finally {
+      setTrabajando(null);
+    }
+  }
+
+  function aplicarHorario() {
+    if (!proyecto || !horario) return;
+    const cambian = horario.propuestas.filter((p) => p.estado !== 'igual');
+    const conPropuestas = aplicarPropuestas(proyecto, cambian);
+    const { filas } = regenerarMatriculas(conPropuestas.archivos, conPropuestas.reglas, conPropuestas.archivados);
+    const nuevas = cambian.filter((p) => p.estado === 'nueva').length;
+    aplicar(
+      {
+        ...conPropuestas,
+        archivos: limpiarArchivos({ ...conPropuestas.archivos, rosters: filas }, conPropuestas.archivados),
+        historial: [...proyecto.historial, { fecha: new Date().toISOString(), texto: `Del horario: ${cambian.length} clases (${nuevas} nuevas)` }].slice(-20),
+      },
+      `Horario aplicado: ${cambian.length} clases (${nuevas} nuevas).`,
+    );
+    setHorario(null);
+  }
+
   function rehacerMatriculas() {
     if (!proyecto) return;
-    const { filas, altas, bajas } = regenerarMatriculas(proyecto.archivos, proyecto.reglas);
+    const { filas, altas, bajas } = regenerarMatriculas(proyecto.archivos, proyecto.reglas, proyecto.archivados);
     aplicar(
       { ...proyecto, archivos: { ...proyecto.archivos, rosters: filas } },
       `Matrículas rehechas: ${num(filas.length)} líneas (+${altas} / −${bajas}).`,
@@ -190,7 +250,7 @@ export function EstudioAsm() {
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
         {/* PASO 1 · Origen ------------------------------------------------ */}
         <Paso n={1} titulo="De dónde salen los datos" sub="Puedes combinarlos: la estructura del año pasado + el alumnado de hoy.">
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <AccionOrigen
               titulo="Estructura del centro"
               desc="Los cursos y clases que ya existen en ASM (tutorías, asignaturas, PDC y compartidos). Sin personas."
@@ -234,7 +294,17 @@ export function EstudioAsm() {
                 </label>
               }
             />
+            <AccionOrigen
+              titulo="Clases desde el horario"
+              desc="Cada asignación docente es una clase: materia, profes y grupos que van juntos. Se propone y tú decides."
+              boton={trabajando === 'horario' ? 'Leyendo…' : 'Ver qué dice el horario'}
+              icono={trabajando === 'horario' ? <Loader2 className="h-5 w-5 animate-spin" /> : <CalendarClock className="h-5 w-5" />}
+              onClick={traerDelHorario}
+              ocupado={trabajando !== null}
+            />
           </div>
+
+          {horario && <PanelHorario resultado={horario} onAplicar={aplicarHorario} onDescartar={() => setHorario(null)} />}
 
           <button
             type="button"
@@ -252,13 +322,15 @@ export function EstudioAsm() {
                 desc="Cada clase con regla de grupos vuelve a llenarse con el alumnado de esos grupos. Lo normal en septiembre."
               />
               <Interruptor
-                valor={sync.quitarBajas}
-                onChange={(v) => setSync({ ...sync, quitarBajas: v })}
-                titulo="Quitar a quien ya no está"
-                desc="Borra del proyecto al alumnado y profesorado que no esté activo en la BBDD central (y los saca de sus clases). Si lo dejas apagado, se quedan y tú decides."
+                valor={sync.repartirProfes}
+                onChange={(v) => setSync({ ...sync, repartirProfes: v })}
+                titulo="Meter solos a TIC, tutores y dirección"
+                desc="TIC entra en todas las tutorías; en las clases de curso entero entran además los tutores de ese nivel y dirección/jefatura. Si no caben los 12 que admite ASM, se cae antes dirección que TIC."
               />
               <p className="pt-1 text-xs text-zinc-500">
-                Las cuentas que no vienen de Educamos (dirección, pruebas, compartidos) no se tocan salvo que actives lo segundo.
+                A quien ya no está en la BBDD central no se le borra: se <strong>archiva</strong> (conserva su cuenta y su
+                iCloud, sale de las clases y deja de estorbar en las pantallas). Las cuentas de los iPads compartidos no se
+                tocan nunca.
               </p>
             </div>
           )}
@@ -622,6 +694,92 @@ function PanelIncidencias({ incidencias }: { incidencias: Incidencia[] }) {
           )}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Lo que propone el horario, antes de tocar nada. */
+function PanelHorario({
+  resultado,
+  onAplicar,
+  onDescartar,
+}: {
+  resultado: ResultadoHorario;
+  onAplicar: () => void;
+  onDescartar: () => void;
+}) {
+  const [todo, setTodo] = useState(false);
+  const cambian = resultado.propuestas.filter((p) => p.estado !== 'igual');
+  const nuevas = cambian.filter((p) => p.estado === 'nueva');
+  const avisos = resultado.propuestas.flatMap((p) => p.avisos.map((a) => ({ clase: p.classId, aviso: a })));
+  const visibles = todo ? cambian : cambian.slice(0, 8);
+
+  return (
+    <div className="mt-3 rounded-2xl border border-emerald-200 bg-white dark:border-emerald-800 dark:bg-zinc-900">
+      <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
+        <p className="font-medium text-zinc-900 dark:text-zinc-100">Lo que dice el horario</p>
+        <p className="mt-0.5 text-xs text-zinc-500">
+          {num(cambian.length)} clases cambian ({num(nuevas.length)} nuevas) · {num(resultado.propuestas.length - cambian.length)} ya estaban igual ·{' '}
+          {num(resultado.clasesSinHorario.length)} clases de ASM que el horario no menciona (no se tocan)
+        </p>
+      </div>
+
+      {cambian.length > 0 && (
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {visibles.map((p) => (
+            <li key={p.asignacionId} className="flex items-start gap-3 p-3">
+              <span className={`mt-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                p.estado === 'nueva'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                  : 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
+              }`}>
+                {p.estado === 'nueva' ? 'nueva' : 'cambia'}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-zinc-900 dark:text-zinc-100">
+                  {p.className} <span className="font-mono text-[11px] text-zinc-400">{p.classId}</span>
+                </p>
+                {p.cambios.map((c) => (
+                  <p key={c} className="text-xs text-zinc-500">{c}</p>
+                ))}
+                {p.avisos.map((a) => (
+                  <p key={a} className="text-xs text-amber-600 dark:text-amber-400">{a}</p>
+                ))}
+              </div>
+            </li>
+          ))}
+          {!todo && cambian.length > visibles.length && (
+            <li className="p-3">
+              <button type="button" onClick={() => setTodo(true)} className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">
+                Ver las {cambian.length - visibles.length} restantes
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
+        <button
+          type="button"
+          onClick={onAplicar}
+          disabled={cambian.length === 0}
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
+        >
+          Aplicar {num(cambian.length)} cambios
+        </button>
+        <button
+          type="button"
+          onClick={onDescartar}
+          className="inline-flex min-h-11 items-center rounded-xl border border-zinc-200 px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          Descartar
+        </button>
+        {avisos.length > 0 && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            {avisos.length === 1 ? '1 aviso que mirar antes' : `${avisos.length} avisos que mirar antes`}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
