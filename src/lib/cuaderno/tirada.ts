@@ -33,6 +33,7 @@ import {
   actualizarTirada,
   asegurarNumeracion,
   getAjustes,
+  getAsignaturas,
   getClasesCuaderno,
   getItemsDeTirada,
   getMapeo,
@@ -43,6 +44,7 @@ import {
   reclamarItem,
   registrarHojas,
   type AlumnoCuaderno,
+  type AsignaturaCuaderno,
   type ClaseCuaderno,
   type ItemNuevo,
   type OpcionesTirada,
@@ -212,6 +214,7 @@ export interface ResultadoWorker {
 /** Caché de una invocación del worker: lo que no tiene sentido pedir dos veces. */
 interface Cache {
   docx: Map<string, Buffer>;
+  asignaturas: Map<string, AsignaturaCuaderno[]>;
   carpetaClase: Map<string, { id: string; url: string }>;
   carpetaEtapa: Map<string, string>;
   clases: Map<string, ClaseCuaderno>;
@@ -266,6 +269,7 @@ export async function procesarTirada(tiradaId: string, limiteMs = 240_000): Prom
   });
   const cache: Cache = {
     docx: new Map(),
+    asignaturas: await getAsignaturas(tirada.academicYear),
     carpetaClase: new Map(),
     carpetaEtapa: new Map(),
     clases: new Map(),
@@ -386,6 +390,7 @@ async function ejecutarItem(ctx: ContextoItem): Promise<void> {
       clase,
       tutor,
       alumnos,
+      asignaturas: cache.asignaturas.get(clase.curso) ?? [],
       numeros,
       mapeo,
     },

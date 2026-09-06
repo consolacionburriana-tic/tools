@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   analizarEtiqueta,
+  ASIGNATURAS_MAX,
   avisosDePlantilla,
   CAMPOS,
   construirMapeo,
@@ -90,6 +91,27 @@ describe('avisosDePlantilla', () => {
   it('avisa si se repite por trimestre pero no usa el trimestre', () => {
     const avisos = avisosDePlantilla(analizar(['tutoria']), 'trimestre', true);
     expect(avisos.some((a) => a.texto.includes('trimestre'))).toBe(true);
+  });
+});
+
+describe('asignaturas', () => {
+  const mapeo = construirMapeo();
+
+  it('hay un campo por hueco y el catálogo los reconoce', () => {
+    expect(CAMPOS.filter((c) => c.ambito === 'asignatura' && c.id !== 'num_asignaturas')).toHaveLength(
+      ASIGNATURAS_MAX,
+    );
+    expect(analizarEtiqueta('asignatura1', mapeo).campo).toBe('asignatura1');
+    expect(analizarEtiqueta(`asignatura${ASIGNATURAS_MAX}`, mapeo).campo).toBe(`asignatura${ASIGNATURAS_MAX}`);
+  });
+
+  it('pasado el último hueco ya no hay campo (y el panel lo avisa)', () => {
+    expect(analizarEtiqueta(`asignatura${ASIGNATURAS_MAX + 1}`, mapeo).campo).toBeNull();
+  });
+
+  it('reconoce los alias que escribiría un humano', () => {
+    expect(mapeo.get('materia1')).toBe('asignatura1');
+    expect(analizarEtiqueta('Asignatura', mapeo).campo).toBe('asignatura1');
   });
 });
 

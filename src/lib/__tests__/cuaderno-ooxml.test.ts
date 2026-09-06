@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { normalizarEtiqueta } from '@/lib/cuaderno/campos';
+import { ASIGNATURAS_MAX, normalizarEtiqueta } from '@/lib/cuaderno/campos';
+import { valoresAsignaturas } from '@/lib/cuaderno/generar';
 import {
   aplicarContexto,
   etiquetasDeXml,
@@ -180,5 +181,34 @@ describe('rellenarDocumentXml', () => {
       norm,
     );
     expect(sinResolver).toEqual(['professio1']);
+  });
+});
+
+describe('valoresAsignaturas', () => {
+  it('coloca cada asignatura en su hueco y deja el resto en blanco', () => {
+    const valores = valoresAsignaturas([{ enLaHoja: 'Mates' }, { enLaHoja: 'Valencià' }]);
+    expect(valores.asignatura1).toBe('Mates');
+    expect(valores.asignatura2).toBe('Valencià');
+    expect(valores.asignatura3).toBe('');
+    expect(valores[`asignatura${ASIGNATURAS_MAX}`]).toBe('');
+    expect(valores.num_asignaturas).toBe('2');
+  });
+
+  it('los huecos vacíos borran la etiqueta en vez de imprimirla', () => {
+    const plantilla = documento(parrafo('1. <<asignatura1>> · 2. <<asignatura2>>'));
+    const { xml } = rellenarDocumentXml(
+      plantilla,
+      { copias: [{ valores: valoresAsignaturas([{ enLaHoja: 'Mates' }]) }] },
+      norm,
+    );
+    expect(textoPlano(xml)).toBe('1. Mates · 2. ');
+  });
+
+  it('pasar del último hueco no rompe nada: las de más no salen', () => {
+    const muchas = Array.from({ length: ASIGNATURAS_MAX + 3 }, (_, i) => ({ enLaHoja: `M${i + 1}` }));
+    const valores = valoresAsignaturas(muchas);
+    expect(valores[`asignatura${ASIGNATURAS_MAX}`]).toBe(`M${ASIGNATURAS_MAX}`);
+    expect(valores[`asignatura${ASIGNATURAS_MAX + 1}`]).toBeUndefined();
+    expect(valores.num_asignaturas).toBe(String(ASIGNATURAS_MAX + 3));
   });
 });

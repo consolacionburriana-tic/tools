@@ -8,7 +8,7 @@ import { es } from 'date-fns/locale';
 import JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
 import type { CuadAjustes, CuadPlantilla } from '@/db/schema';
-import { normalizarEtiqueta, TRIMESTRES, type Repeticion } from '@/lib/cuaderno/campos';
+import { ASIGNATURAS_MAX, normalizarEtiqueta, TRIMESTRES, type Repeticion } from '@/lib/cuaderno/campos';
 import { limpiarNombre, nombreDocumento, numeroListaTexto } from '@/lib/cuaderno/nombres';
 import {
   etiquetasDeXml,
@@ -19,7 +19,13 @@ import {
   type PlanRelleno,
 } from '@/lib/cuaderno/ooxml';
 import { subirComoGoogleDoc, exportarPdf, subirPdf, borrarArchivo, buscarEnCarpeta } from '@/lib/cuaderno/drive';
-import type { AlumnoCuaderno, ClaseCuaderno, NumeroAlumno, TutorCuaderno } from '@/lib/cuaderno-server';
+import type {
+  AlumnoCuaderno,
+  AsignaturaCuaderno,
+  ClaseCuaderno,
+  NumeroAlumno,
+  TutorCuaderno,
+} from '@/lib/cuaderno-server';
 
 // ─── Valores de cada ámbito ───────────────────────────────────────────────────
 
@@ -83,6 +89,19 @@ export function valoresAlumno(alumno: AlumnoCuaderno, numero: NumeroAlumno | und
   };
 }
 
+/**
+ * Las asignaturas del curso en sus huecos: `<<asignatura1>>` … `<<asignatura15>>`. Sale el
+ * nombre corto si lo hay, y los huecos sobrantes van **en blanco** a propósito: una plantilla
+ * con doce filas no debe imprimir `<<asignatura12>>` en un curso que solo da diez.
+ */
+export function valoresAsignaturas(asignaturas: readonly Pick<AsignaturaCuaderno, 'enLaHoja'>[]): Valores {
+  const valores: Valores = { num_asignaturas: String(asignaturas.length) };
+  for (let i = 0; i < ASIGNATURAS_MAX; i++) {
+    valores[`asignatura${i + 1}`] = asignaturas[i]?.enLaHoja ?? '';
+  }
+  return valores;
+}
+
 export function valoresTrimestre(indice: number): Valores {
   const t = TRIMESTRES[indice] ?? TRIMESTRES[0];
   return { trimestre: t.corto, trimestre_num: t.num, trimestre_nombre: t.nombre };
@@ -120,6 +139,8 @@ export interface DatosDocumento {
   tutor: TutorCuaderno | null;
   /** Alumnado de ESTE tutor, en orden de lista. */
   alumnos: AlumnoCuaderno[];
+  /** Asignaturas del curso de la clase, en orden: son los huecos `<<asignaturaN>>`. */
+  asignaturas: readonly Pick<AsignaturaCuaderno, 'enLaHoja'>[];
   numeros: Map<string, NumeroAlumno>;
   mapeo: Map<string, string>;
   hoy?: Date;
@@ -131,10 +152,11 @@ export interface DatosDocumento {
  * o una sola (reunión de familias, con el alumnado en una tabla).
  */
 export function construirPlan(datos: DatosDocumento): PlanRelleno {
-  const { plantilla, ajustes, cursoEscolar, clase, tutor, alumnos, numeros, mapeo, hoy } = datos;
+  const { plantilla, ajustes, cursoEscolar, clase, tutor, alumnos, asignaturas, numeros, mapeo, hoy } = datos;
   const base = {
     ...valoresCentro(ajustes, cursoEscolar, hoy),
     ...valoresClase(clase, tutor, alumnos.length),
+    ...valoresAsignaturas(asignaturas),
   };
   const filas = (): Contexto[] =>
     alumnos.map((a) => ({
@@ -172,6 +194,7 @@ export function contextoCabecera(datos: DatosDocumento): Contexto {
   const base = {
     ...valoresCentro(datos.ajustes, datos.cursoEscolar, datos.hoy),
     ...valoresClase(datos.clase, datos.tutor, datos.alumnos.length),
+    ...valoresAsignaturas(datos.asignaturas),
   };
   const enBlanco: Valores = {};
   for (const etiqueta of datos.mapeo.keys()) enBlanco[etiqueta] = '';
