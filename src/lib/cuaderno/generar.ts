@@ -79,6 +79,7 @@ export function valoresAlumno(alumno: AlumnoCuaderno, numero: NumeroAlumno | und
     apellido2: alumno.apellido2,
     nombre_completo: [alumno.nombre, apellidos].filter(Boolean).join(' '),
     nombre_lista: apellidos ? `${apellidos}, ${alumno.nombre}` : alumno.nombre,
+    nombre_1apellido: [alumno.nombre, alumno.apellido1].filter(Boolean).join(' '),
     numero: asignado ? String(asignado) : '',
     numero_lista: asignado ? numeroListaTexto(asignado, alfabetico) : '',
     fecha_nacimiento: fechaCorta(alumno.fechaNacimiento),
