@@ -92,6 +92,30 @@ Queda aquí como registro de qué había:
 
 ## Decisiones cerradas
 
+### Un fichero descargado no es una entrega (2026-09-06)
+Descargar el ZIP no significa que ASM lo tenga. Por eso, al generarlo, el módulo pregunta
+**quién lo sube**: "lo subo yo a mano" (y queda apuntado) o "súbelo tú por FTP". Todo va a
+un **histórico en Neon** (`asm_entregas`) que responde a la pregunta de enero: *¿esto se
+llegó a subir?*. Se guardan la fecha, quién, el alcance, los recuentos y si fue a mano o
+por FTP — **ni un nombre ni un NIA**: el contenido es el ZIP, y ese no se guarda.
+
+La subida por FTP admite FTP, FTPS y SFTP; los datos del servidor se piden una vez y se
+guardan en `asm_ftp_config` con **la contraseña cifrada** (AES-256-GCM, `src/lib/cripto.ts`),
+que nunca vuelve a salir hacia el navegador. Los CSV pasan por el servidor solo mientras
+dura la subida: no se escriben en ningún sitio.
+
+### El módulo avisa solo, en vez de un recordatorio anual (2026-09-06)
+AUTOASM vive abajo, en "Configuración general", pero **sube al principio del escritorio**
+cuando toca:
+
+- **Julio, agosto y septiembre**, mientras no haya una entrega subida de ese curso.
+- **Cuando entra alumnado nuevo después de la última subida** — con el aviso de cuántos son
+  y quiénes. Siempre **por debajo de Licencias**, que en junio y septiembre manda.
+
+Y solo cuenta el alumnado **dentro del alcance de la última entrega**: si ASM va de 6º EP
+para arriba y se matriculan cinco de 1º de primaria, el módulo no dice nada. Cuando se
+sube, vuelve solo a su sitio de siempre.
+
 ### El alcance del alumnado es una opción, no una constante (2026-09-06)
 Los iPads no llegan a todo el centro y el corte se ha movido cada año: **2025-26 de 5º de
 primaria para arriba**, **2026-27 de 6º de primaria**, y **a partir de 2027-28 de 1º de ESO
@@ -187,11 +211,19 @@ src/lib/autoasm-plantilla.ts    # estructura académica del centro (sin personas
 src/lib/autoasm-construir.ts    # BBDD central → filas: sync, archivado, matrículas, profes automáticos
 src/lib/autoasm-horario.ts      # asignaciones docentes → clases de ASM (propuesta y aplicación)
 src/lib/autoasm-server.ts       # las tres lecturas: personas, equipos (tutorías + roles) y horario
+src/lib/autoasm-entregas.ts     # histórico en Neon, estado del módulo y configuración del FTP
+src/lib/autoasm-ftp.ts          # subida por FTP / FTPS / SFTP
+src/lib/cripto.ts               # AES-256-GCM para la contraseña del FTP (transversal)
 src/app/api/autoasm/admin/centro/route.ts    # GET protegido con hasModule('autoasm')
 src/app/api/autoasm/admin/horario/route.ts   # ídem, las asignaciones del periodo en vigor
+src/app/api/autoasm/admin/entregas/route.ts  # histórico: apuntar, listar y marcar como subida
+src/app/api/autoasm/admin/estado/route.ts    # ¿está al día? ¿hay alumnado sin cuenta?
+src/app/api/autoasm/admin/ftp/route.ts       # configuración del FTP (sin contraseña de vuelta)
+src/app/api/autoasm/admin/subir/route.ts     # sube los seis CSV y lo apunta
 src/app/gestion/autoasm/…       # portada (estudio) y explorador por fichero
 src/components/autoasm/…        # estudio, explorador, subida, descargas, store de proyecto
-src/lib/__tests__/autoasm.test.ts + autoasm-horario.test.ts   # 58 tests con datos inventados
+src/db/sql/autoasm.sql          # asm_entregas y asm_ftp_config (aditivo e idempotente)
+src/lib/__tests__/autoasm*.test.ts + cripto.test.ts   # 62 tests con datos inventados
 ```
 
 - La **validación** (`validarProyecto`) mira lo mismo que ASM: campos obligatorios, claves
@@ -273,8 +305,20 @@ Tres tipos de clase existen por otros motivos, y por eso se mantienen a mano o p
 - [x] Cuentas de iPad compartido reconocidas y protegidas del sync
 - [x] Salida siempre limpia: minúsculas, sin matrículas repetidas, `roster_id` correlativos
 
-### Fase 5 · Pendiente de David
-- [ ] Subir a ASM un ZIP generado por el módulo y confirmar que lo traga sin quejarse
+### Fase 5 · Entrega, histórico y avisos ✅ (2026-09-06)
+- [x] Al descargar, el módulo pregunta quién sube el fichero y lo apunta
+- [x] Histórico de entregas en Neon (`asm_entregas`): fecha, quién, alcance, recuentos y
+      si fue a mano, por FTP o se quedó en descarga
+- [x] Subida por FTP / FTPS / SFTP con la contraseña cifrada en Neon (`asm_ftp_config`)
+- [x] El módulo sube al principio del escritorio en julio-septiembre y cuando hay alumnado
+      nuevo sin cuenta; con la lista de quiénes son al entrar
+- [x] Cuentas de iPad compartido: panel propio para crearlas en serie y quitarlas
+
+### Fase 6 · Pendiente de David
+- [ ] **Ejecutar `src/db/sql/autoasm.sql` en Neon** (dos tablas, aditivo): sin él, el
+      histórico y el FTP no van — el resto del módulo funciona igual
+- [ ] Meter los datos del FTP de ASM en el módulo (una vez; la contraseña queda cifrada)
+- [ ] Subir un ZIP generado por el módulo y confirmar que ASM lo traga sin quejarse
 - [ ] Importar el horario de **secundaria** en `hor_*`: hasta entonces, las clases de ESO
       siguen viniendo del ZIP del curso pasado o a mano
 - [ ] Revisar los desdobles (Religión/Valores) a mano tras aplicar el horario

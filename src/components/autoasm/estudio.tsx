@@ -4,7 +4,7 @@
 // revisión → ZIP. Los cuatro pasos en una pantalla, porque esto se hace una vez al año
 // (y en septiembre, con prisa).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import {
@@ -13,7 +13,6 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronLeft,
-  Download,
   Info,
   Loader2,
   RefreshCw,
@@ -54,7 +53,8 @@ import { ESTILO, num } from '@/components/autoasm/paleta';
 import { useProyecto } from '@/components/autoasm/proyecto-store';
 import { ZonaSubida } from '@/components/autoasm/zona-subida';
 import { leerFicherosAsm } from '@/components/autoasm/leer-ficheros';
-import { descargarZip } from '@/components/autoasm/descargas';
+import { PanelCompartidas } from '@/components/autoasm/compartidas';
+import { PanelEntrega } from '@/components/autoasm/entrega';
 
 export function EstudioAsm() {
   const { proyecto, cargando, guardar } = useProyecto();
@@ -65,6 +65,18 @@ export function EstudioAsm() {
   // es el que se usará al crearlo.
   const [alcanceLocal, setAlcanceLocal] = useState<string | null>(OPCIONES_POR_DEFECTO.desdeCurso);
   const [horario, setHorario] = useState<ResultadoHorario | null>(null);
+  const [estado, setEstado] = useState<EstadoApi | null>(null);
+
+  // En qué punto está el curso: si ya se subió algo a ASM y qué alumnado ha entrado
+  // después. Es lo que hace que el módulo avise en vez de esperar a que alguien se acuerde.
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/autoasm/admin/estado')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((datos) => { if (vivo && datos) setEstado(datos as EstadoApi); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []);
   const desdeCurso = proyecto ? proyecto.opciones.desdeCurso : alcanceLocal;
 
   const incidencias = useMemo(() => (proyecto ? validarProyecto(proyecto.archivos) : []), [proyecto]);
@@ -225,21 +237,6 @@ export function EstudioAsm() {
     );
   }
 
-  async function descargar() {
-    if (!proyecto) return;
-    setTrabajando('zip');
-    try {
-      await descargarZip(proyecto);
-      haptic.success();
-      toast.success('ZIP generado. Contiene datos personales: cuidado dónde queda.');
-    } catch (error) {
-      console.error('AUTOASM: error generando el ZIP', error);
-      toast.error('No he podido generar el ZIP.');
-    } finally {
-      setTrabajando(null);
-    }
-  }
-
   const totalFilas = proyecto ? ORDEN_ARCHIVOS.reduce((n, a) => n + proyecto.archivos[a].length, 0) : 0;
   const listo = proyecto !== null && conteo.errores === 0 && totalFilas > 0;
 
@@ -248,6 +245,8 @@ export function EstudioAsm() {
       <Cabecera proyecto={proyecto} errores={conteo.errores} avisos={conteo.avisos} listo={listo} />
 
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+        {estado && <AvisoEstado estado={estado} />}
+
         {/* PASO 1 · Origen ------------------------------------------------ */}
         <Paso n={1} titulo="De dónde salen los datos" sub="Puedes combinarlos: la estructura del año pasado + el alumnado de hoy.">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -376,49 +375,17 @@ export function EstudioAsm() {
           )}
         </Paso>
 
-        {/* PASO 4 · Descarga ---------------------------------------------- */}
-        <Paso n={4} titulo="Descargar e importar" sub="Un ZIP con los seis CSV y una nota de cómo se suben.">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex flex-wrap items-center gap-2">
-              <OpcionSalida
-                activo={proyecto?.opciones.csv.delimitador === ','}
-                onClick={() => proyecto && guardar({ ...proyecto, opciones: { ...proyecto.opciones, csv: { ...proyecto.opciones.csv, delimitador: ',' } } })}
-                titulo="Separado por comas"
-                nota="lo que pide Apple"
-              />
-              <OpcionSalida
-                activo={proyecto?.opciones.csv.delimitador === ';'}
-                onClick={() => proyecto && guardar({ ...proyecto, opciones: { ...proyecto.opciones, csv: { ...proyecto.opciones.csv, delimitador: ';' } } })}
-                titulo="Separado por puntos y coma"
-                nota="como los abre Excel en español"
-              />
-              <OpcionSalida
-                activo={proyecto?.opciones.csv.bom === true}
-                onClick={() => proyecto && guardar({ ...proyecto, opciones: { ...proyecto.opciones, csv: { ...proyecto.opciones.csv, bom: !proyecto.opciones.csv.bom } } })}
-                titulo="Con BOM"
-                nota="tildes correctas al abrir en Excel"
-              />
-            </div>
-            <p className="mt-3 text-xs text-zinc-500">
-              Para subir a Apple School Manager, comas y sin BOM. El punto y coma solo si vas a revisarlo antes en Excel.
-            </p>
-
-            <button
-              type="button"
-              onClick={descargar}
-              disabled={!proyecto || trabajando !== null || totalFilas === 0}
-              className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40 sm:w-auto"
-            >
-              {trabajando === 'zip' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Descargar el ZIP {totalFilas > 0 && `· ${num(totalFilas)} filas`}
-            </button>
-            {conteo.errores > 0 && (
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
-                <TriangleAlert className="h-3.5 w-3.5" /> Puedes descargarlo igual, pero con {conteo.errores} error(es) ASM lo rechazará.
-              </p>
-            )}
-          </div>
+        {/* PASO 4 · Descarga y entrega ------------------------------------ */}
+        <Paso n={4} titulo="Descargar y subir" sub="Un ZIP con los seis CSV… y quién lo sube, que si no, no es una entrega.">
+          <PanelEntrega
+            proyecto={proyecto}
+            errores={conteo.errores}
+            avisos={conteo.avisos}
+            onOpciones={(csv) => proyecto && guardar({ ...proyecto, opciones: { ...proyecto.opciones, csv } })}
+          />
         </Paso>
+
+        {proyecto && <PanelCompartidas proyecto={proyecto} onGuardar={guardar} />}
 
         {proyecto && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
@@ -486,6 +453,74 @@ function Cabecera({ proyecto, errores, avisos, listo }: { proyecto: ProyectoAsm 
         </div>
       </div>
     </header>
+  );
+}
+
+interface EstadoApi {
+  ultimaSubida: { createdAt: string; modo: string; desdeCurso: string | null } | null;
+  ultimaEntrega: { createdAt: string; modo: string } | null;
+  alumnosSinPasar: { nombre: string; grupo: string; alta: string }[];
+  esTemporada: boolean;
+}
+
+/**
+ * El aviso de "esto está a medias": o estamos en el arranque de curso y todavía no se ha
+ * subido nada, o han entrado alumnos nuevos después de la última subida — que son los que
+ * hoy no tendrían cuenta en el iPad.
+ */
+function AvisoEstado({ estado }: { estado: EstadoApi }) {
+  const [todos, setTodos] = useState(false);
+  const nuevos = estado.alumnosSinPasar;
+
+  if (nuevos.length === 0 && !estado.esTemporada) {
+    if (!estado.ultimaSubida) return null;
+    return (
+      <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-500/10">
+        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <p className="text-sm text-emerald-900 dark:text-emerald-200">
+          Al día: la última entrega se subió el{' '}
+          {new Date(estado.ultimaSubida.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+          {estado.ultimaSubida.modo === 'ftp' ? ' por FTP' : ' a mano'}, y desde entonces no ha entrado alumnado nuevo.
+        </p>
+      </div>
+    );
+  }
+
+  const visibles = todos ? nuevos : nuevos.slice(0, 12);
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-500/10">
+      <p className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
+        <AlertTriangle className="h-5 w-5 shrink-0" />
+        {nuevos.length > 0
+          ? `${nuevos.length} alumno(s) no han pasado por aquí`
+          : 'Arranque de curso: todavía no se ha subido nada a Apple School Manager'}
+      </p>
+      {nuevos.length > 0 ? (
+        <>
+          <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+            Se dieron de alta en la BBDD central después de la última subida
+            {estado.ultimaSubida && ` (${new Date(estado.ultimaSubida.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })})`}
+            , así que hoy no tienen cuenta en el iPad. Trae del centro y vuelve a entregar.
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {visibles.map((a) => (
+              <li key={`${a.nombre}-${a.alta}`} className="rounded-full bg-white/70 px-2.5 py-1 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+                {a.nombre} <span className="opacity-70">· {a.grupo}</span>
+              </li>
+            ))}
+          </ul>
+          {!todos && nuevos.length > visibles.length && (
+            <button type="button" onClick={() => setTodos(true)} className="mt-2 text-xs font-medium text-amber-900 underline dark:text-amber-200">
+              Ver los {nuevos.length - visibles.length} restantes
+            </button>
+          )}
+        </>
+      ) : (
+        <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+          En julio, agosto y septiembre este módulo sube al principio del escritorio hasta que haya una entrega subida.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -800,23 +835,6 @@ function Interruptor({ valor, onChange, titulo, desc }: { valor: boolean; onChan
         <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">{titulo}</span>
         <span className="block text-xs text-zinc-500">{desc}</span>
       </span>
-    </button>
-  );
-}
-
-function OpcionSalida({ activo, onClick, titulo, nota }: { activo: boolean; onClick: () => void; titulo: string; nota: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`min-h-11 rounded-xl border px-3 text-left text-sm transition-colors ${
-        activo
-          ? 'border-blue-400 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-500/10 dark:text-blue-200'
-          : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
-      }`}
-    >
-      <span className="block font-medium">{titulo}</span>
-      <span className="block text-[11px] opacity-70">{nota}</span>
     </button>
   );
 }

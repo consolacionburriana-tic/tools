@@ -1370,3 +1370,58 @@ export const cuadAsignaturas = pgTable('cuad_asignaturas', {
 
 export type CuadAsignatura = typeof cuadAsignaturas.$inferSelect;
 export type NewCuadAsignatura = typeof cuadAsignaturas.$inferInsert;
+
+// ─── AUTOASM (prefijo asm_) ───────────────────────────────────────────────────
+//
+// El módulo trabaja en el navegador y no guarda ningún export en la base de datos (ver
+// docs/19-autoasm.md). Lo único que sí vive aquí son DOS cosas que tienen que sobrevivir
+// al navegador de quien lo prepare:
+//
+//   1. El **histórico de entregas**: qué día se generó el fichero y si se llegó a subir a
+//      Apple School Manager, a mano o por FTP. Sin nombres ni NIAs: solo recuentos.
+//   2. La **configuración del FTP**, con la contraseña cifrada (nunca en claro, ver
+//      `src/lib/cripto.ts`), para no tener que pedirla cada septiembre.
+
+export const asmEntregas = pgTable('asm_entregas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  // 'descargado' = se generó el ZIP y ahí se quedó · 'ftp' = lo subió el módulo ·
+  // 'manual' = lo subió una persona a mano y lo marcó aquí.
+  modo: text('modo').notNull().default('descargado'),
+  estado: text('estado').notNull().default('ok'), // 'ok' | 'error'
+  quien: text('quien'), // correo de quien lo hizo
+  desdeCurso: text('desde_curso'), // alcance del alumnado en esa entrega ('6PRI', null = todo)
+  // Recuentos del ZIP: sirven para el histórico y para no tener que guardar los ficheros.
+  alumnos: integer('alumnos').notNull().default(0),
+  profes: integer('profes').notNull().default(0),
+  cursos: integer('cursos').notNull().default(0),
+  clases: integer('clases').notNull().default(0),
+  matriculas: integer('matriculas').notNull().default(0),
+  errores: integer('errores').notNull().default(0),
+  avisos: integer('avisos').notNull().default(0),
+  fichero: text('fichero'), // nombre del ZIP generado
+  destino: text('destino'), // host y carpeta, si se subió por FTP
+  detalle: text('detalle'), // notas o el error, si lo hubo
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('asm_entregas_year_idx').on(t.academicYear, t.createdAt),
+]);
+
+export const asmFtpConfig = pgTable('asm_ftp_config', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  protocolo: text('protocolo').notNull().default('ftps'), // 'ftps' | 'ftp' | 'sftp'
+  host: text('host').notNull(),
+  puerto: integer('puerto'),
+  usuario: text('usuario').notNull(),
+  // AES-256-GCM (ver src/lib/cripto.ts). Nunca sale de aquí hacia el navegador.
+  passwordCifrada: text('password_cifrada').notNull(),
+  ruta: text('ruta').notNull().default('/'), // carpeta remota donde deja los CSV
+  notas: text('notas'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type AsmEntrega = typeof asmEntregas.$inferSelect;
+export type NewAsmEntrega = typeof asmEntregas.$inferInsert;
+export type AsmFtpConfig = typeof asmFtpConfig.$inferSelect;

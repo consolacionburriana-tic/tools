@@ -25,8 +25,10 @@ import { signOut } from '@/auth';
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess, ROLE_LABELS, type Module } from '@/lib/permissions';
 import { getCurrentCampaign } from '@/lib/licencias-server';
+import { getEstadoAutoasm } from '@/lib/autoasm-entregas';
 import { esTemporadaLicencias } from '@/lib/licencias';
 import {
+  AutoasmDestacada,
   LicenciasDestacada,
   ModuleCard,
   Rotulo,
@@ -47,7 +49,7 @@ export default async function EscritorioPage() {
   const configuracion = puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm');
 
   // Stats solo de los módulos que el rol puede ver
-  const [alumnos, profes, ultimoSync, pedidos, registrosAbc] = await Promise.all([
+  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm] = await Promise.all([
     puede('educamos') ? db.select({ n: count() }).from(eduStudents).where(eq(eduStudents.active, true)) : null,
     puede('educamos') ? db.select({ n: count() }).from(eduTeachers).where(eq(eduTeachers.active, true)) : null,
     puede('educamos') ? db.select().from(eduSyncRuns).orderBy(desc(eduSyncRuns.createdAt)).limit(1) : null,
@@ -62,7 +64,13 @@ export default async function EscritorioPage() {
         )
       : null,
     puede('abc') ? db.select({ n: count() }).from(abcBehaviorReports) : null,
+    // AUTOASM avisa solo: sube al principio en el arranque de curso y cuando hay alumnado
+    // nuevo que todavía no ha pasado por Apple School Manager.
+    puede('autoasm') ? getEstadoAutoasm(ahora).catch(() => null) : null,
   ]);
+
+  const asm = estadoAsm ?? null;
+  const autoasmArriba = asm !== null && (asm.esTemporada || asm.alumnosSinPasar.length > 0);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -112,6 +120,11 @@ export default async function EscritorioPage() {
 
         {/* ── 1. Licencias, cuando es su temporada ──────────────────────── */}
         {licenciasArriba && <LicenciasDestacada />}
+
+        {/* ── 1b. AUTOASM, en el arranque de curso o si hay alumnos sin cuenta ─ */}
+        {autoasmArriba && asm && (
+          <AutoasmDestacada alumnosNuevos={asm.alumnosSinPasar.length} esTemporada={asm.esTemporada} />
+        )}
 
         {/* ── 2. El día a día: registrar y consultar, de un toque ─────────── */}
         <section className="anim-stagger grid gap-3 sm:grid-cols-2">
@@ -217,7 +230,7 @@ export default async function EscritorioPage() {
                 desc="Sincronizar alumnado y profesorado desde los exports"
               />
             )}
-            {puede('autoasm') && (
+            {puede('autoasm') && !autoasmArriba && (
               <ModuleCard
                 href="/gestion/autoasm"
                 icon={<Apple className="h-6 w-6" />}
