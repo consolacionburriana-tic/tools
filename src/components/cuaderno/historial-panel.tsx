@@ -76,11 +76,17 @@ export function HistorialPanel({ tiradas, plantillas }: { tiradas: TiradaUI[]; p
                   <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-800">
                     {ESTADO_LABEL[tirada.estado] ?? tirada.estado}
                   </span>
+                  {enMarcha && tirada.pases === 0 && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                      el worker no ha pasado
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">
                   {format(parseISO(tirada.createdAt), "d 'de' MMMM 'a las' HH:mm", { locale: es })}
                   {tirada.lanzadaPor ? ` · ${tirada.lanzadaPor}` : ''} · {tirada.hechos}/{tirada.total} documentos
                   {tirada.errores > 0 ? ` · ${tirada.errores} con error` : ''}
+                  {tirada.pases > 0 ? ` · ${tirada.pases} pase(s) del worker` : ''}
                 </p>
               </div>
               <div className="flex gap-1.5">

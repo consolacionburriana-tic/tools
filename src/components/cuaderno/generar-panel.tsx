@@ -17,7 +17,9 @@ import {
   FileWarning,
   Loader2,
   Play,
+  RefreshCw,
   RotateCcw,
+  ScrollText,
   Square,
   UserPlus,
   X,
@@ -30,6 +32,7 @@ import {
   ETAPA_ORDEN,
   plantillaLista,
   type ClaseUI,
+  type EventoUI,
   type FaltaUI,
   type ItemUI,
   type PlantillaUI,
@@ -56,8 +59,18 @@ interface Progreso {
   errores: number;
   pendientes: number;
   haciendo: number;
-  tirada: { id: string; estado: string; numero: number; carpetaCursoUrl: string | null; error: string | null };
+  tirada: {
+    id: string;
+    estado: string;
+    numero: number;
+    carpetaCursoUrl: string | null;
+    error: string | null;
+    createdAt: string;
+    latidoAt: string | null;
+    pases: number;
+  };
   items: ItemUI[];
+  eventos: EventoUI[];
 }
 
 export function GenerarPanel({
@@ -570,6 +583,18 @@ export function TiradaEnMarcha({
   const { total, hechos, errores, tirada } = progreso;
   const porcentaje = total > 0 ? Math.round((hechos / total) * 100) : 0;
   const enMarcha = tirada.estado === 'pendiente' || tirada.estado === 'ejecutando';
+  // Lo que le faltaba al panel: decir POR QUÉ no pasa nada. Con el latido y los pases del
+  // worker se distingue «va lento» de «no ha arrancado nunca», que es lo que pasó de verdad.
+  const desdeLatido = tirada.latidoAt ? Date.now() - new Date(tirada.latidoAt).getTime() : null;
+  const desdeCreada = Date.now() - new Date(tirada.createdAt).getTime();
+  const diagnostico =
+    !enMarcha
+      ? null
+      : tirada.pases === 0 && desdeCreada > 20_000
+        ? 'Lleva encolada más de 20 segundos y el worker todavía no ha pasado por ella.'
+        : desdeLatido !== null && desdeLatido > 150_000
+          ? `Sin señales del worker desde hace ${Math.round(desdeLatido / 60_000)} min.`
+          : null;
 
   return (
     <div className="space-y-3">
@@ -595,6 +620,16 @@ export function TiradaEnMarcha({
               >
                 Abrir en Drive <ExternalLink className="h-3.5 w-3.5" />
               </a>
+            )}
+            {enMarcha && (
+              <button
+                type="button"
+                onClick={() => accion('seguir')}
+                disabled={ocupado}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${ocupado ? 'animate-spin' : ''}`} /> Seguir ahora
+              </button>
             )}
             {enMarcha && (
               <button
@@ -634,11 +669,21 @@ export function TiradaEnMarcha({
         </div>
         {enMarcha && (
           <p className="mt-2 text-xs text-zinc-500">
-            Lo está haciendo el servidor: puedes cerrar esta pantalla (o el portátil) y volver luego.
+            {diagnostico ?? 'Lo está haciendo el servidor: puedes cerrar esta pantalla (o el portátil) y volver luego.'}
           </p>
         )}
         {tirada.error && <div className="mt-2">{<Aviso tono="ambar">{tirada.error}</Aviso>}</div>}
+        {enMarcha && diagnostico && (
+          <div className="mt-2">
+            <Aviso tono="ambar">
+              El worker no ha dado señales de vida. Pulsa «Seguir ahora» para empujarla desde aquí; si vuelve a
+              quedarse parada, mira la bitácora de abajo.
+            </Aviso>
+          </div>
+        )}
       </Tarjeta>
+
+      <Bitacora eventos={progreso.eventos ?? []} />
 
       <Tarjeta>
         <div className="max-h-96 space-y-1 overflow-y-auto">
@@ -661,6 +706,52 @@ export function TiradaEnMarcha({
         </div>
       </Tarjeta>
     </div>
+  );
+}
+
+/**
+ * La bitácora de la tirada, tal cual la escribió el servidor. Es la respuesta a «no me
+ * dice nada»: cada pase del worker, cada documento y cada fallo de Drive deja su línea.
+ */
+function Bitacora({ eventos }: { eventos: EventoUI[] }) {
+  const [abierta, setAbierta] = useState(true);
+  if (eventos.length === 0) return null;
+  const color = (nivel: string) =>
+    nivel === 'error'
+      ? 'text-red-600 dark:text-red-400'
+      : nivel === 'aviso'
+        ? 'text-amber-600 dark:text-amber-400'
+        : 'text-zinc-600 dark:text-zinc-300';
+  return (
+    <Tarjeta>
+      <button
+        type="button"
+        onClick={() => {
+          haptic.tap();
+          setAbierta((a) => !a);
+        }}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <ScrollText className="h-4 w-4 text-zinc-400" />
+        <h3 className="flex-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          Bitácora <span className="text-zinc-400">· {eventos.length} línea(s)</span>
+        </h3>
+        <span className="text-xs text-zinc-400">{abierta ? 'ocultar' : 'ver'}</span>
+      </button>
+      {abierta && (
+        <div className="mt-2 max-h-72 space-y-0.5 overflow-y-auto font-mono text-[11px] leading-relaxed">
+          {eventos.map((evento) => (
+            <div key={evento.id} className="flex gap-2">
+              <span className="shrink-0 text-zinc-400">
+                {new Date(evento.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className="shrink-0 text-zinc-400">{evento.fase}</span>
+              <span className={`min-w-0 flex-1 ${color(evento.nivel)}`}>{evento.mensaje}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Tarjeta>
   );
 }
 

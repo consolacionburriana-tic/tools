@@ -7,10 +7,14 @@ import {
   faltasPorPlantilla,
   getAjustes,
   listarTiradas,
+  registrarEvento,
 } from '@/lib/cuaderno-server';
-import { despertarWorker, planificarTirada } from '@/lib/cuaderno/tirada';
+import { arrancarWorker, planificarTirada } from '@/lib/cuaderno/tirada';
 
 export const dynamic = 'force-dynamic';
+// El primer pase de la tirada se hace en esta misma invocación, después de contestar
+// (`after()` dentro de `arrancarWorker`), así que necesita el techo de tiempo entero.
+export const maxDuration = 60;
 
 export async function GET() {
   const guard = await requireModule('cuaderno');
@@ -70,7 +74,16 @@ export async function POST(request: Request) {
       lanzadaPor: guard.email,
       items: plan.items,
     });
-    despertarWorker(tirada.id);
+    await registrarEvento({
+      tiradaId: tirada.id,
+      fase: 'lanzar',
+      mensaje: `Tirada ${tirada.numero} lanzada por ${guard.email}: ${plan.items.length} documento(s), ${datos.clases.length} clase(s), ${datos.plantillaIds.length} plantilla(s)`,
+      datos: { opciones: tirada.opciones, avisos: plan.avisos },
+    });
+    for (const aviso of plan.avisos) {
+      await registrarEvento({ tiradaId: tirada.id, nivel: 'aviso', fase: 'lanzar', mensaje: aviso });
+    }
+    arrancarWorker(tirada.id);
     return NextResponse.json({ tirada, total: plan.items.length, avisos: plan.avisos });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Error' }, { status: 400 });

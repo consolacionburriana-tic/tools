@@ -976,8 +976,27 @@ export const cuadTiradas = pgTable('cuad_tiradas', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   finishedAt: timestamp('finished_at'),
+  // Latido del worker: la única forma de distinguir "va lento" de "no ha arrancado nunca".
+  // `pases` cuenta las vueltas del worker sobre esta tirada (una por invocación).
+  latidoAt: timestamp('latido_at'),
+  pases: integer('pases').notNull().default(0),
 }, (t) => [
   index('cuad_tiradas_estado_idx').on(t.estado),
+]);
+
+// Bitácora de la tirada: lo que el panel le cuenta a quien la lanzó y lo que se mira
+// después para saber por qué algo no salió. Es append-only y se borra con la tirada.
+export const cuadEventos = pgTable('cuad_eventos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tiradaId: uuid('tirada_id').references(() => cuadTiradas.id, { onDelete: 'cascade' }),
+  itemId: uuid('item_id'), // sin FK: el evento sobrevive al borrado de un ítem
+  nivel: text('nivel').notNull().default('info'), // info | aviso | error
+  fase: text('fase').notNull(), // lanzar | worker | drive | documento | cierre | correo | toque
+  mensaje: text('mensaje').notNull(),
+  datos: jsonb('datos').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('cuad_eventos_tirada_idx').on(t.tiradaId, t.createdAt),
 ]);
 
 // La unidad de trabajo de la cola: un documento = un tutor × una plantilla.
@@ -1050,6 +1069,7 @@ export type CuadItem = typeof cuadItems.$inferSelect;
 export type NewCuadItem = typeof cuadItems.$inferInsert;
 export type CuadNumeracion = typeof cuadNumeracion.$inferSelect;
 export type CuadHoja = typeof cuadHojas.$inferSelect;
+export type CuadEvento = typeof cuadEventos.$inferSelect;
 // ─── Horarios (prefijo hor_, pieza transversal) ───────────────────────────────
 //
 // Modelo mental (ver docs/07-horarios.md). TRES CAPAS, separadas a propósito:

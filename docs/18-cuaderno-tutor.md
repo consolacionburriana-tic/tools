@@ -209,21 +209,51 @@ Coste real: **2-4 llamadas a Drive por documento**, no una por alumno. Una tirad
 
 ### La cola
 
-`POST /api/cuaderno/tiradas` crea la tirada y sus ítems en estado `pendiente` y despierta al
-worker. `POST /api/cuaderno/worker` **reclama** un ítem con un `UPDATE … WHERE estado='pendiente'`
-(así dos workers no pisan el mismo), lo ejecuta, y sigue hasta agotar su tiempo; entonces se
-re-despierta a sí mismo. El panel hace polling del estado de la tirada: la barra de progreso no
-depende de que nadie tenga una pestaña abierta.
+`POST /api/cuaderno/tiradas` crea la tirada y sus ítems en estado `pendiente` y **arranca el
+worker en la misma invocación**: `arrancarWorker()` usa `after()` de Next, así que la respuesta
+sale al momento y `procesarTirada()` sigue trabajando por detrás hasta el `maxDuration` de la
+ruta. `procesarTirada` **reclama** cada ítem con un `UPDATE … WHERE estado='pendiente'` (así dos
+workers no pisan el mismo) y sigue hasta agotar su tiempo. Si queda cola, pide otra invocación
+con un `fetch` a `POST /api/cuaderno/worker?tirada=<id>`. El panel hace polling del estado: la
+barra de progreso no depende de que nadie tenga una pestaña abierta.
+
+**Por qué así, y no como estaba** (incidente del 2026-09-06): antes el arranque era un `fetch`
+"fire and forget" de la app a sí misma. Una llamada servidor→servidor no lleva la cookie de
+sesión, y el worker solo aceptaba `CRON_SECRET` (sin fijar en Vercel) o sesión con módulo: se
+contestaba **401 a su propio aviso**, y como nadie miraba la respuesta, dos tiradas se quedaron
+en `pendiente` sin arrancar nunca y sin decir nada. De ahí las tres decisiones:
+
+1. El primer pase no pasa por HTTP ni por autenticación: `after()`, dentro de la misma petición.
+2. Quien sí necesita el salto HTTP (pedir otra vuelta) **espera la respuesta y la apunta** en la
+   bitácora. Un `fetch` que falla nunca vuelve a ser invisible.
+3. El worker acepta, además del secreto y de la sesión, una petición que trae el **id de una
+   tirada concreta**: el UUID solo lo conoce quien ya tiene acceso al módulo, con él no se
+   devuelve ningún dato y lo único que consigue es que se haga el trabajo que su dueño ya había
+   encolado. Así esto funciona sin configurar ni una variable de entorno.
+
+**Bitácora y latido** (`cuad_eventos`, `cuad_tiradas.latido_at`, `cuad_tiradas.pases`): cada pase
+del worker, cada documento, cada fallo de Drive y cada aviso al worker que no entra deja su línea,
+y el panel la enseña debajo de la barra. Con `pases` y `latido_at` el panel puede decir la única
+cosa que antes no sabía decir: la diferencia entre «va lento» y **«el worker no ha pasado
+nunca»**, y ofrecer el botón «Seguir ahora», que hace un pase completo desde la sesión de quien
+está mirando (ahí sí hay cookie, no hay nada que pueda fallar). Escribir un evento nunca puede
+tumbar una tirada: si el INSERT falla, se queda en el log del servidor y se sigue.
+
+**Ítems colgados**: si una invocación se corta en mitad de un documento, el ítem se queda en
+`haciendo` para siempre y la tirada no tiene nada `pendiente` que la despierte. Cada pase empieza
+devolviendo a la cola los `haciendo` de más de 3 minutos, y el pase del cron hace lo mismo con
+las tiradas vivas que llevan más de 5 minutos sin latir.
 
 **Límites del plan Hobby de Vercel** (es el plan del proyecto, y condiciona dos cosas):
 
-- `maxDuration` del worker es **60 s**, así que cada vuelta hace del orden de 10-15 documentos y
-  se re-despierta. Una tirada de ESO entera son unas diez vueltas: unos minutos, no una hora.
+- `maxDuration` es **60 s** (worker, lanzar tirada y «Seguir ahora»), así que cada vuelta hace del
+  orden de 10-15 documentos y pide otra. Una tirada de ESO entera son unas diez vueltas: unos
+  minutos, no una hora.
 - Los crons de Hobby solo pueden ir **una vez al día** (y como máximo dos en todo el proyecto).
   El de rescate está a las 04:00, que es su único papel: recoger una tirada que se quedara a
-  medias de madrugada. Lo que de verdad mueve la cola es el re-despertar del worker; y si algo
-  se atasca mirando el panel, el propio `GET` del progreso le da un toque al worker cuando ve
-  la tirada parada más de dos minutos, y está el botón «Retomar» del historial.
+  medias de madrugada. Lo que de verdad mueve la cola es el `after()` y la vuelta siguiente; y si
+  algo se atasca mirando el panel, el propio `GET` del progreso arranca un pase cuando ve la
+  tirada parada más de dos minutos, además del botón «Seguir ahora».
   Si algún día el proyecto pasa a Pro, subir el cron a `*/5 * * * *` y `maxDuration` a 300 es
   cambiar dos líneas (`vercel.json` y el `route.ts` del worker), no hay nada más atado a eso.
 
@@ -290,8 +320,10 @@ fábrica, sin mapear nada a mano.
 
 ### Fase 4 · Cola
 - [x] Crear tirada + ítems, reclamar ítem, ejecutar, reintentos, cancelar
-- [x] Worker con re-despertar propio y cron de rescate en `vercel.json`
+- [x] Worker en la propia invocación con `after()`, vuelta siguiente por HTTP y cron de rescate
 - [x] Endpoint de estado para el progreso
+- [x] Bitácora (`cuad_eventos`), latido y pases del worker, y rescate de ítems colgados
+- [x] `src/db/sql/cuaderno-observabilidad.sql` aplicado y verificado en Neon (2026-09-06)
 
 ### Fase 5 · Panel
 - [x] Pestaña Plantillas: alta por URL, analizar, mapear etiquetas nuevas, orden y formatos
