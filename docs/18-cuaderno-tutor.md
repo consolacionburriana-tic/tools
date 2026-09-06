@@ -323,7 +323,7 @@ fábrica, sin mapear nada a mano.
 - [x] Worker en la propia invocación con `after()`, vuelta siguiente por HTTP y cron de rescate
 - [x] Endpoint de estado para el progreso
 - [x] Bitácora (`cuad_eventos`), latido y pases del worker, y rescate de ítems colgados
-- [ ] `src/db/sql/cuaderno-observabilidad.sql` aplicado en Neon
+- [x] `src/db/sql/cuaderno-observabilidad.sql` aplicado y verificado en Neon (2026-09-06)
 
 ### Fase 5 · Panel
 - [x] Pestaña Plantillas: alta por URL, analizar, mapear etiquetas nuevas, orden y formatos
