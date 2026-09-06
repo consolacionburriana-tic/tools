@@ -184,6 +184,10 @@ export interface TutorCuaderno {
   corto: string;
   /** Todo lo que trae el export («Carlos Andres Valero Aicart»), por si hace falta. */
   completo: string;
+  /** Los trozos sueltos, para plantillas que los piden por separado. */
+  pila: string;
+  apellido1: string;
+  apellido2: string;
   email: string | null;
 }
 
@@ -332,6 +336,9 @@ export async function getClasesCuaderno(opciones?: {
             nombre: n.usual,
             corto: n.corto,
             completo: n.completo,
+            pila: n.pila,
+            apellido1: mayusculasBellas(p.apellido1),
+            apellido2: mayusculasBellas(p.apellido2),
             email: correoBonito(p.email ?? p.emailOtro) || null,
           };
         })

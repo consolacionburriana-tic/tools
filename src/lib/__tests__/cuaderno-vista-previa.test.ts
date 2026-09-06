@@ -36,7 +36,7 @@ const clase: ClaseCuaderno = {
   etapa: 'ESO',
   clase: '2ºA',
   tutores: [
-    { teacherId: 't1', nombre: 'Carlos Valero Aicart', corto: 'Carlos V', completo: 'Carlos Andres Valero Aicart', email: 'carlos@ejemplo.test' },
+    { teacherId: 't1', nombre: 'Carlos Valero Aicart', corto: 'Carlos V', completo: 'Carlos Andres Valero Aicart', pila: 'Carlos', apellido1: 'Valero', apellido2: 'Aicart', email: 'carlos@ejemplo.test' },
   ],
   alumnos: [alumna],
 };

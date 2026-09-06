@@ -126,6 +126,10 @@ De ahí salen los cuatro nombres que usa el módulo, y cada uno tiene su sitio:
 | `pila` | `Carlos` | `<<nom>>` del alumnado |
 | `completo` | `Carlos Andres Valero Aicart` | `<<tutor_completo>>`, para quien lo quiera entero |
 
+Y los trozos sueltos del tutor, para plantillas que los piden por separado:
+`<<tutor_nombre>>` (`Carlos`), `<<tutor_apellido1>>` (`Valero`), `<<tutor_apellido2>>`
+(`Aicart`) y `<<tutor_1apellido>>` (`Carlos Valero`).
+
 **La heurística se equivoca alguna vez, y por eso hay una válvula de escape**: la tabla
 `cuad_personas` guarda el nombre de quien haga falta escrito a mano (`pila`, y `completo` si ni
 los apellidos valen), y manda sobre todo lo demás. Se edita desde la pestaña «Vista previa», que
