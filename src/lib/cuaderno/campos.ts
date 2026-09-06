@@ -90,6 +90,7 @@ export const CAMPOS: readonly Campo[] = [
   { id: 'tutores', ambito: 'clase', label: 'Todos los tutores de la clase', ejemplo: 'María R + Paola G' },
   { id: 'tutor_email', ambito: 'clase', label: 'Correo del tutor/a', ejemplo: 'mremolar@…' },
   { id: 'num_alumnos', ambito: 'clase', label: 'Nº de alumnos del tutor/a', ejemplo: '15' },
+  { id: 'num_alumnos_clase', ambito: 'clase', label: 'Nº de alumnos de la clase entera', ejemplo: '27' },
   { id: 'num_asignaturas', ambito: 'asignatura', label: 'Nº de asignaturas del curso', ejemplo: '11' },
   // Asignaturas del curso (ver ASIGNATURAS_MAX). El hueco que no tenga asignatura sale
   // vacío, para que una plantilla con doce filas no imprima `<<asignatura12>>` en las clases

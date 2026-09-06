@@ -11,7 +11,8 @@
 //
 // Tres marcas, las mismas que documenta `docs/18-cuaderno-tutor.md`:
 //   <<campo>>        se sustituye por el dato
-//   <<#alumnos>>     en una fila de tabla: repite la fila una vez por alumno
+//   <<#alumnos>>     en una fila de tabla: repite la fila una vez por alumno DEL TUTOR
+//   <<#clase>>       igual, pero con TODA la clase (los dos tutores juntos)
 //   <<?familiar2>>   en un párrafo: si el dato no existe, el párrafo entero se va
 //
 // El gotcha que justifica la mitad de este fichero: Word/Docs parten el texto de un
@@ -21,6 +22,9 @@
 // se busca sobre el texto unido, y se reparte el resultado de vuelta entre los runs.
 
 const MARCA_FILAS = /^\s*#\s*(alumnos?|filas?)\s*$/i;
+// La misma idea, pero con la clase entera: sirve para el listado general que va al final
+// del cuaderno, donde el reparto entre los dos tutores no importa.
+const MARCA_FILAS_CLASE = /^\s*#\s*(clase|classe|todos|tots)\s*$/i;
 const MARCA_CONDICION = /^\s*\?\s*(.+?)\s*$/;
 const ETIQUETA = /<<([^<>]{1,120})>>/g;
 const SALTO_PAGINA = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
@@ -35,6 +39,8 @@ export interface Contexto {
   presentes?: string[];
   /** Contextos de las filas marcadas con `<<#alumnos>>`. Sin esto, la fila se deja tal cual. */
   filas?: Contexto[];
+  /** Lo mismo para `<<#clase>>`: la clase entera, no solo el trozo de este tutor. */
+  filasClase?: Contexto[];
 }
 
 export interface PlanRelleno {
@@ -173,7 +179,7 @@ export function sustituirEnFragmento(
   const ops: Operacion[] = [];
   for (const m of completo.matchAll(ETIQUETA)) {
     const cruda = m[1];
-    if (MARCA_FILAS.test(cruda) || MARCA_CONDICION.test(cruda)) {
+    if (MARCA_FILAS.test(cruda) || MARCA_FILAS_CLASE.test(cruda) || MARCA_CONDICION.test(cruda)) {
       // Las marcas estructurales las procesa quien va antes (filas y condicionales); si
       // llegan hasta aquí es que no aplicaban, y se borran para no imprimirlas.
       ops.push({ ini: m.index, fin: m.index + m[0].length, texto: '' });
@@ -248,7 +254,9 @@ export function etiquetasDeXml(xml: string): string[] {
 
 /** ¿Esta plantilla tiene filas repetibles (`<<#alumnos>>`)? */
 export function tieneFilasRepetibles(xml: string): boolean {
-  return localizarBloques(xml, 'w:tr').some((b) => marcasDe(xml.slice(b.inicio, b.fin)).some((m) => MARCA_FILAS.test(m)));
+  return localizarBloques(xml, 'w:tr').some((b) =>
+    marcasDe(xml.slice(b.inicio, b.fin)).some((m) => MARCA_FILAS.test(m) || MARCA_FILAS_CLASE.test(m)),
+  );
 }
 
 // ─── Aplicar un contexto a un fragmento ───────────────────────────────────────
@@ -296,16 +304,19 @@ export function aplicarContexto(
   // Las filas repetibles se rellenan aparte y se apartan tras un marcador que no puede
   // aparecer en un XML, para que el resto del proceso no las vuelva a tocar.
   const guardadas: string[] = [];
-  if (ctx.filas) {
+  const repetir = (marca: RegExp, contextos: Contexto[] | undefined) => {
+    if (!contextos) return;
     const filas = localizarBloques(salida, 'w:tr').filter((b) =>
-      marcasDe(salida.slice(b.inicio, b.fin)).some((m) => MARCA_FILAS.test(m)),
+      marcasDe(salida.slice(b.inicio, b.fin)).some((m) => marca.test(m)),
     );
     salida = reemplazarBloques(salida, filas, (plantillaFila) => {
-      const clones = (ctx.filas ?? []).map((fila) => aplicarContexto(plantillaFila, fila, normalizar, sinResolver));
+      const clones = contextos.map((fila) => aplicarContexto(plantillaFila, fila, normalizar, sinResolver));
       guardadas.push(clones.join(''));
       return `${HUECO}${guardadas.length - 1}${HUECO}`;
     });
-  }
+  };
+  repetir(MARCA_FILAS, ctx.filas);
+  repetir(MARCA_FILAS_CLASE, ctx.filasClase);
 
   salida = aplicarCondicionales(salida, presente);
   salida = reemplazarBloques(salida, localizarBloques(salida, 'w:p'), (parrafo) =>

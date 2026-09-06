@@ -212,3 +212,28 @@ describe('valoresAsignaturas', () => {
     expect(valores.num_asignaturas).toBe(String(ASIGNATURAS_MAX + 3));
   });
 });
+
+describe('filas de toda la clase', () => {
+  const fila = (marca: string) =>
+    `<w:tr><w:tc><w:p><w:r><w:t>${marca}<<nom>></w:t></w:r></w:p></w:tc></w:tr>`;
+
+  it('<<#clase>> se repite con la clase entera y <<#alumnos>> solo con los del tutor', () => {
+    const xml = `<w:tbl>${fila('<<#alumnos>>')}</w:tbl><w:tbl>${fila('<<#clase>>')}</w:tbl>`;
+    const salida = aplicarContexto(
+      xml,
+      {
+        valores: {},
+        filas: [{ valores: { nom: 'Ana' } }],
+        filasClase: [{ valores: { nom: 'Ana' } }, { valores: { nom: 'Iker' } }, { valores: { nom: 'Lola' } }],
+      },
+      norm,
+    );
+    expect(textoPlano(salida)).toBe('AnaAnaIkerLola');
+    expect(localizarBloques(salida, 'w:tr')).toHaveLength(4);
+    expect(textoPlano(salida)).not.toContain('#');
+  });
+
+  it('la marca de clase también cuenta como fila repetible', () => {
+    expect(tieneFilasRepetibles(`<w:tbl>${fila('<<#clase>>')}</w:tbl>`)).toBe(true);
+  });
+});
