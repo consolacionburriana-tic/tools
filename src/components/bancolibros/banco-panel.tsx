@@ -303,7 +303,17 @@ export function BancoPanel({
       if (!res.ok) throw new Error(d.error);
       // recargar para obtener asignacionId nuevo
       const r2 = await fetch(`/api/bancolibros/admin/clase?${qs()}`);
-      setAlumnado((await r2.json()).alumnado ?? []);
+      const nuevo: AlumnoRow[] = (await r2.json()).alumnado ?? [];
+      setAlumnado(nuevo);
+      // El lote automático se entrega en el momento, así que se marca "entregado" a la vez.
+      if (numero === 'auto') {
+        const fila = nuevo.find((x) => x.eduStudentId === a.eduStudentId);
+        if (fila?.asignacionId && !fila.entregado) {
+          if (await post('/api/bancolibros/admin/checks', { asignacionIds: [fila.asignacionId], campos: { entregado: true } })) {
+            setAlumnado((prev) => prev!.map((x) => (x.eduStudentId === a.eduStudentId ? { ...x, entregado: true } : x)));
+          }
+        }
+      }
       haptic.tap();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo asignar');
@@ -399,6 +409,8 @@ export function BancoPanel({
   }
 
   const enBanco = useMemo(() => alumnado?.filter((a) => a.banco).length ?? 0, [alumnado]);
+  const lotesAsignados = useMemo(() => alumnado?.filter((a) => a.lote != null).length ?? 0, [alumnado]);
+  const lotesEntregados = useMemo(() => alumnado?.filter((a) => a.entregado).length ?? 0, [alumnado]);
 
   // Cursos en el orden en que aparecen en `clases` (ya vienen por etapa → curso), para las
   // filas de subtotal del resumen agregado.
@@ -582,6 +594,14 @@ export function BancoPanel({
           {/* ── Pestaña Alumnado ── */}
           {tab === 'alumnado' && (
             <Tarjeta className="anim-up">
+              <div className="flex flex-wrap items-center gap-4 border-b border-zinc-100 px-4 py-2 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                <span>
+                  Lotes asignados: <strong className="text-zinc-800 tabular-nums dark:text-zinc-200">{lotesAsignados}/{enBanco}</strong>
+                </span>
+                <span>
+                  Entregados: <strong className="text-zinc-800 tabular-nums dark:text-zinc-200">{lotesEntregados}/{lotesAsignados}</strong>
+                </span>
+              </div>
               <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 p-3 dark:border-zinc-800">
                 <span className="mr-1 text-sm text-zinc-500 dark:text-zinc-400">Marcar a toda la clase:</span>
                 <Button variant="outline" size="sm" onClick={() => pedirMasivo({ tipo: 'check', campo: 'entregado' })}>
