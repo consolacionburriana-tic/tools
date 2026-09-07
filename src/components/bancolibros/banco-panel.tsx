@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, BarChart3, BookOpen, Check, ChevronLeft, HeartHandshake, Loader2, NotebookPen, Users, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -120,6 +120,10 @@ export function BancoPanel({
   const [manualAbierto, setManualAbierto] = useState(false);
   const [nuevoManual, setNuevoManual] = useState({ asignatura: '', nombre: '' });
   const [guardandoManual, setGuardandoManual] = useState(false);
+  /** Valor del campo "lote" al entrar en el input: el onChange ya deja `a.lote` igual al
+   *  tecleado, así que en el onBlur no sirve comparar contra el estado (siempre coincidiría
+   *  y nunca se guardaría). Se compara contra esto. */
+  const loteAlEnfocar = useRef(new Map<string, number | null>());
 
   const resumenMap = useMemo(() => new Map(resumen.map((r) => [claseKey(r.curso, r.letra), r])), [resumen]);
 
@@ -622,13 +626,18 @@ export function BancoPanel({
                               min={1}
                               value={a.lote ?? ''}
                               placeholder="lote"
+                              onFocus={() => {
+                                if (!loteAlEnfocar.current.has(a.eduStudentId)) loteAlEnfocar.current.set(a.eduStudentId, a.lote);
+                              }}
                               onChange={(e) => {
                                 const v = e.target.value;
                                 setAlumnado((prev) => prev!.map((x) => (x.eduStudentId === a.eduStudentId ? { ...x, lote: v ? Number(v) : null } : x)));
                               }}
                               onBlur={(e) => {
                                 const v = e.target.value ? Number(e.target.value) : null;
-                                if (v !== a.lote) void ponerLote(a, v);
+                                const antes = loteAlEnfocar.current.get(a.eduStudentId) ?? a.lote;
+                                loteAlEnfocar.current.delete(a.eduStudentId);
+                                if (v !== antes) void ponerLote(a, v);
                               }}
                               className="w-16 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-center text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                             />
