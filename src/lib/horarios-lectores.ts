@@ -103,7 +103,8 @@ function tieneDias(g: Cuadricula): boolean {
   return g.some((f) => f.some((c) => c.trim().toLowerCase() === 'lunes'));
 }
 
-const RE_TITULO_CLASE = /^\d\s*[ºO]?\s*(INF|PRI|ESO|BACH|CFGM|CFGS|PPDC|PDC)[A-Z]?\s*:\s*\S/i;
+// `3º PPDC: 3º ESO-PDC` lleva `º` Y espacio; el resto de códigos van pegados ('1ESOA').
+const RE_TITULO_CLASE = /^\d\s*[ºO]?\s*(INF|PRI|ESO|BACH|CFGM|CFGS|PPDC|PDC)\s*[A-Z]?\s*:\s*\S/i;
 const RE_CABECERA = /^HORARIO DE (CLASE|PROFESOR)/i;
 
 /**

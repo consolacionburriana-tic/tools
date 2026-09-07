@@ -1,8 +1,8 @@
+import { Suspense } from 'react';
 import { CalendarDays } from 'lucide-react';
 
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess } from '@/lib/permissions';
-import { etapaDeCursoHorario } from '@/lib/horarios';
 import {
   getCeldas,
   getOpcionesNavegador,
@@ -53,15 +53,6 @@ export default async function HorariosPage({
         : (opciones.espacios[0]?.id ?? '');
   const clave = sp.clave || porDefecto;
 
-  const celdas = clave ? await getCeldas(periodo.id, vista, clave) : [];
-
-  // En la vista de una clase se pintan también sus recreos y comedores aunque estén vacíos:
-  // sin ellos la mañana parece seguida y no se entiende dónde está el patio.
-  if (vista === 'clase' && clave) {
-    const etapa = etapaDeCursoHorario(clave.split('|')[0]);
-    celdas.push(...(await getTramosNoLectivos(periodo.id, etapa)));
-  }
-
   const titulo =
     vista === 'clase'
       ? (opciones.clases.find((c) => `${c.curso}|${c.letra ?? ''}` === clave)?.etiqueta ?? 'esta clase')
@@ -82,7 +73,47 @@ export default async function HorariosPage({
       </div>
 
       <Selector opciones={opciones} vista={vista} clave={clave} puedeVerProfes={puedeVerProfes} />
-      <Navegador celdas={celdas} titulo={titulo} />
+      {/* El horario va en su propio Suspense: el selector se pinta al momento y la
+          cuadrícula, que es la consulta lenta, enseña su esqueleto mientras llega. La `key`
+          es lo que hace que el esqueleto vuelva a salir al cambiar de clase (si no, React
+          reutiliza el contenido anterior y parece que no ha pasado nada al tocar). */}
+      <Suspense key={`${periodo.id}:${vista}:${clave}`} fallback={<EsqueletoHorario />}>
+        <Horario periodoId={periodo.id} vista={vista} clave={clave} titulo={titulo} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function Horario({
+  periodoId,
+  vista,
+  clave,
+  titulo,
+}: {
+  periodoId: string;
+  vista: VistaHorario;
+  clave: string;
+  titulo: string;
+}) {
+  const celdas = clave ? await getCeldas(periodoId, vista, clave) : [];
+
+  // En la vista de una clase se pintan también sus recreos y comedores aunque estén vacíos:
+  // sin ellos la mañana parece seguida y no se entiende dónde está el patio.
+  if (vista === 'clase' && clave) {
+    const [curso, letra] = clave.split('|');
+    celdas.push(...(await getTramosNoLectivos(periodoId, { curso, letra: letra || null })));
+  }
+
+  return <Navegador celdas={celdas} titulo={titulo} />;
+}
+
+function EsqueletoHorario() {
+  return (
+    <div className="animate-pulse space-y-2" aria-busy="true" aria-label="Cargando el horario">
+      <div className="h-9 rounded-lg bg-zinc-200/70 dark:bg-zinc-800" />
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div key={i} className="h-14 rounded-lg bg-zinc-100 dark:bg-zinc-800/60" />
+      ))}
     </div>
   );
 }

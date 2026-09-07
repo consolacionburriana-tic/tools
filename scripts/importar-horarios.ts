@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 
 import 'dotenv/config';
 
-import { normalizarBloqueClase, type ResultadoBloque } from '../src/lib/horarios-import';
+import { normalizarBloqueClase, unirLeyendas, type ResultadoBloque } from '../src/lib/horarios-import';
 import { leerHorarios } from '../src/lib/horarios-lectores';
 import { importarBloques } from '../src/lib/horarios-server';
 
@@ -38,9 +38,13 @@ async function main() {
   console.log(`Leídos ${bloques.length} bloques (${deClase.length} de clase, ${bloques.length - deClase.length} de profesor).`);
   console.log('Solo se importan los de CLASE: los de profesor son la misma información vista del revés.\n');
 
+  // Dos pasadas: la primera junta las leyendas de todo el fichero, la segunda las usa como
+  // respaldo (los bloques de PDC no traen todas sus materias en su propia leyenda).
+  const comunes = unirLeyendas(deClase.map((b) => normalizarBloqueClase(b.filas).leyendas));
+
   const normalizados: ResultadoBloque[] = [];
   for (const b of deClase) {
-    const r = normalizarBloqueClase(b.filas);
+    const r = normalizarBloqueClase(b.filas, comunes);
     normalizados.push(r);
     const cod = r.clase?.codigo ?? `?? (${b.titulo})`;
     console.log(
