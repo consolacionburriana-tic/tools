@@ -9,6 +9,7 @@ import {
   parsearRangoHoras,
   parsearRejillaDeFila,
   parsearTituloClase,
+  unirLeyendas,
 } from '@/lib/horarios-import';
 
 // Fixtures INVENTADOS que imitan la estructura de los exports de Educamos (nombres y
@@ -53,10 +54,25 @@ describe('rangos de horas y grupos', () => {
     expect(parsearCodigoGrupo('no soy un grupo')).toBeNull();
   });
 
+  // Los bloques de PDC del fichero real de la ESO se titulan '3º PPDC', con `º` y con
+  // espacio. Con la clase de caracteres estricta se caían dos clases enteras del import sin
+  // decir ni pío. Van a '3ESO' + letra 'PDC', como los tiene el resto del repo.
+  it('traduce los códigos de PDC al curso de ESO con letra PDC', () => {
+    expect(parsearCodigoGrupo('3º PPDC')).toEqual({ curso: '3ESO', letra: 'PDC' });
+    expect(parsearCodigoGrupo('4ºPPDC')).toEqual({ curso: '4ESO', letra: 'PDC' });
+    expect(parsearCodigoGrupo('3PDC')).toEqual({ curso: '3ESO', letra: 'PDC' });
+  });
+
   it('lee el título del bloque', () => {
     expect(parsearTituloClase('1PRIA: 1º EP-A')).toEqual({ codigo: '1PRIA', curso: '1PRI', letra: 'A', nombre: '1º EP-A' });
     expect(parsearTituloClase('3INFA: 3 años-A')?.nombre).toBe('3 años-A');
     expect(parsearTituloClase('Colegio Consolación Burriana')).toBeNull();
+    expect(parsearTituloClase('3º PPDC: 3º ESO-PDC')).toEqual({
+      codigo: '3º PPDC',
+      curso: '3ESO',
+      letra: 'PDC',
+      nombre: '3º ESO-PDC',
+    });
   });
 });
 
@@ -238,5 +254,27 @@ describe('los tramos del bloque son la rejilla de esa clase', () => {
 
   it('el orden de la sesión casa con el del tramo', () => {
     expect(r.sesiones.find((s) => s.materiaCodigo === 'MAT1')?.orden).toBe(4);
+  });
+});
+
+describe('unirLeyendas', () => {
+  const a = { materias: new Map([['MAT3', 'Matemáticas']]), profes: new Map(), aulas: new Map() };
+  const b = { materias: new Map([['MAT3', 'Mates'], ['BIO3', 'Biología']]), profes: new Map(), aulas: new Map() };
+
+  it('la primera manda y las demás rellenan lo que falte', () => {
+    const u = unirLeyendas([a, b]);
+    expect(u.materias.get('MAT3')).toBe('Matemáticas');
+    expect(u.materias.get('BIO3')).toBe('Biología');
+  });
+
+  // Es lo que salva a los bloques de PDC: traen la cuadrícula pero no todas sus materias en
+  // la leyenda, y sin respaldo esas celdas se quedaban en texto crudo.
+  it('deja interpretar una celda con un código que solo define otro bloque', () => {
+    const { sesiones, incidencias } = parsearCeldaClase('BIO3 - AAAA0', {
+      ...unirLeyendas([a, b]),
+      profes: new Map([['AAAA0', 'ANA ALVAREZ ALONSO']]),
+    });
+    expect(sesiones[0].materiaCodigo).toBe('BIO3');
+    expect(incidencias).toHaveLength(0);
   });
 });

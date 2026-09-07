@@ -16,6 +16,7 @@ import {
   nombreCorto,
   nombreProfe,
   repartirColores,
+  resumirGrupos,
   situarAhora,
   tramoSiguiente,
   type CeldaHorario,
@@ -487,5 +488,32 @@ describe('espacios que admiten varias clases a la vez', () => {
       { ...base, id: 'b', profeIds: ['ana'], grupos: [{ curso: '3ESO', letra: 'B' }], aula: 'Polideportivo', aulaAdmiteSolapes: true },
     ];
     expect(detectarConflictos(s).some((c) => c.tipo === 'profe')).toBe(true);
+  });
+});
+
+describe('resumirGrupos', () => {
+  // Una optativa que comparten 4º A y 4º B NO son dos clases a la vez: es '4 ESO'.
+  it('resume en el curso cuando todos los grupos son del mismo', () => {
+    expect(
+      resumirGrupos([
+        { curso: '4ESO', letra: 'A' },
+        { curso: '4ESO', letra: 'B' },
+        { curso: '4ESO', letra: 'PDC' },
+      ]),
+    ).toEqual(['4ESO']);
+  });
+
+  it('un solo grupo se queda como está', () => {
+    expect(resumirGrupos([{ curso: '4ESO', letra: 'A' }])).toEqual(['4ESO A']);
+  });
+
+  it('cursos distintos o subgrupos se enumeran: ahí sí hay que verlos todos', () => {
+    expect(resumirGrupos([{ curso: '3ESO', letra: 'A' }, { curso: '4ESO', letra: 'A' }])).toEqual(['3ESO A', '4ESO A']);
+    expect(
+      resumirGrupos([
+        { curso: '4ESO', letra: 'A', subgrupo: '1' },
+        { curso: '4ESO', letra: 'B', subgrupo: null },
+      ]),
+    ).toEqual(['4ESO A · 1', '4ESO B']);
   });
 });

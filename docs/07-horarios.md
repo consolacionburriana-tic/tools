@@ -319,9 +319,17 @@ servir de red de seguridad para comprobar que no falta ningún profe.
 - **La etapa NO se pregunta**: sale del código de cada clase (`3INFA`→EI, `2PRIA`→EP,
   `1ESOA`→ESO). Un mismo fichero puede traer varias y cada una monta su rejilla.
 - **El curso académico SÍ**, aunque viene propuesto (`academicYearActual()`).
-- **El periodo SÍ, pero se sugiere**: el fichero no dice si es el ordinario o el corto de
-  septiembre/junio, pero se nota — el corto no tiene comedor y baja de seis franjas. La
-  pantalla propone y decide la persona.
+- **El periodo SÍ, pero se sugiere**: el fichero no dice si es el ordinario o el corto, pero
+  se nota — el corto no tiene comedor y baja de seis franjas. Lo que el fichero **no puede**
+  decir es si el corto es el de septiembre o el de junio: son el mismo horario en dos
+  momentos del curso, y eso lo elige la persona.
+
+Los tres periodos (`Ordinario`, `Septiembre`, `Junio`) **se solapan a propósito**: el
+ordinario cubre el curso entero (1-sep → 30-jun) y los cortos le recortan por encima con más
+prioridad, así que en cada fecha manda el más específico (`periodoVigente()`). Cambiar
+"este año el horario de junio empieza el 29 de mayo" es mover una fecha, no rehacer el
+calendario. Septiembre y junio son **dos periodos** y no uno porque un periodo tiene una sola
+ventana de fechas y estas son dos.
 
 ### Cómo se importa hoy
 
@@ -358,6 +366,51 @@ Cuando llegue la API de Educamos será **un lector más**, y las otras dos capas
   porque cada clase trae su leyenda en su idioma. No las fusiono a ciegas (fusionar por
   parecido es justo como se cruzan dos fichas); la pantalla de materias de la Fase 1 tendrá
   que ofrecer "fusionar estas dos", que es una decisión de persona.
+
+### Lo que enseñó el fichero de la ESO (2026-09-07) y cambió el código
+
+El `.docx` de secundaria rompió cuatro cosas a la vez. Todas están arregladas, y las cuatro
+son de las que vuelven si no quedan escritas:
+
+1. **Los PDC se caían enteros del import, en silencio.** Sus bloques se titulan
+   `3º PPDC: 3º ESO-PDC`, con `º` y **con espacio**; ningún otro código del centro los lleva,
+   y la clase de caracteres del título los descartaba. El bloque se leía, no encontraba
+   título, y se tiraba. Ahora `parsearCodigoGrupo()` los traduce a `3ESO` + letra `PDC`, que
+   es como los tiene el resto del repo (`cursoBaseEso()`); son 93 sesiones que no estaban.
+2. **Importar la ESO borraba el horario de primaria.** El volcado borraba *el periodo
+   entero* antes de reescribir. Cada etapa viene en su fichero, así que ahora se borra por
+   **grupos del fichero** (y las rejillas, por **etapas del fichero**) y nada más.
+3. **Timeout y "error de json".** Iba asignación por asignación, cuatro viajes a Neon cada
+   una: con la ESO se pasaba de los 60 s de la función, la plataforma devolvía un HTML de
+   error y el `res.json()` del cliente reventaba con un mensaje que no decía nada. Ahora se
+   escribe en INSERTs por lotes con ids generados en el cliente (unos ocho viajes en total),
+   y el cliente traduce una respuesta que no sea JSON a lo que de verdad ha pasado.
+4. **Jornada continua con dos rejillas dentro de la misma etapa.** 1º y 2º de ESO acaban a
+   las 14:00 y 3º y 4º tienen una franja más (14:10-15:05). Con una rejilla por etapa, 1º
+   salía con un patio fantasma a las 14:00. Ahora se crea **una rejilla por conjunto de
+   cursos con los mismos tramos**, atada a sus cursos por ámbito, y `getTramosNoLectivos()`
+   resuelve por `rejillaDeGrupo()` en vez de por etapa.
+
+Y dos que no eran fallos sino modelo incompleto:
+
+- **Las optativas conjuntas.** Cuando 4º A y 4º B hacen la misma optativa a la vez, eso no
+  son dos clases simultáneas: es **una clase que se llama "4 ESO"**. Se detecta con un
+  argumento físico, no con una heurística: *un profe no puede estar en dos sitios a la vez*,
+  así que misma materia + mismo profe + misma hora + mismo curso ⇒ una sola asignación con
+  varios `hor_asignacion_grupos`. En el fichero real son 60 sesiones. `resumirGrupos()` es
+  quien las nombra en la celda.
+- **Leyendas incompletas.** Los bloques de PDC traen la cuadrícula pero no todas sus
+  materias en la leyenda. Se importa en **dos pasadas**: la primera junta las leyendas de
+  todo el fichero, la segunda las usa de respaldo (la del propio bloque sigue mandando). Y
+  si aun así un código no está, se rescata mirando qué materia da ese mismo profe a esa misma
+  hora en otra clase — así entra bien el `NG - MREM0` del fichero, que es un `ING` al que
+  Educamos se comió la I.
+
+⚠️ **Lo que sigue sin resolver del fichero de la ESO**: los bloques de PDC usan `MATE`, `BG`,
+`FQ` y `TECNO` en celdas **sin profe**, y esos códigos no están en la leyenda de *ningún*
+bloque (la leyenda dice `MAT3`, `BIO3`, `FIS3`, `TYD3`). No hay señal para resolverlos sin
+adivinar, así que entran con el texto crudo de la celda y se reportan como incidencia. Es
+justo el caso para el que existe `hor_alias`, y necesita la pantalla de la Fase 1.
 
 ### La leyenda es la que desambigua
 
@@ -480,7 +533,11 @@ necesitar tres joins.
 
 ### Fase 2 · Navegador de horarios — 🟡
 - [x] Cuadrícula por clase, por profesor y por aula, con materia, profe(s) y aula
-- [x] Filtro por curso, buscador y selector de periodo
+- [x] Filtro por **etapa**, buscador y selector de periodo (era por curso; con infantil,
+      primaria y la ESO importadas hay casi treinta clases y lo que se acota primero es la
+      etapa, no el curso)
+- [x] Estado de carga: la cuadrícula va en su propio `Suspense` con esqueleto, y el chip que
+      se toca enseña su spinner mientras Neon responde
 - [x] Indicador de **hoy** y de la **franja en curso** (se calcula en cliente y se refresca
       cada minuto: en servidor, que va en UTC, saldría una hora corrido)
 - [x] Ventana 08:00-18:00, sin fines de semana, recreo y comedor como separadores
@@ -569,7 +626,12 @@ alias, así que una materia arreglada a mano nunca se pierde.
       sin dependencias nuevas
 - [x] Volcado a BBDD idempotente (`horarios-server.ts`) + `pnpm horarios:importar` con `--dry`
 - [x] Infantil y primaria importados y verificados en Neon (18 clases, 597 sesiones)
-- [ ] Importar **secundaria** cuando David tenga el fichero
+- [x] **Secundaria**: adaptador probado contra `Horarios_ESO_2627.docx` (10 clases, PDC
+      incluidos, 406 sesiones, jornada continua con dos rejillas dentro de la etapa)
+- [ ] Reimportar la ESO en Neon desde `/gestion/horarios/importar` con el código nuevo
+      (la anterior se hizo con el volcado que borraba el periodo entero)
+- [ ] `hor_alias` para los códigos que el fichero de PDC usa y no define (`MATE`, `BG`,
+      `FQ`, `TECNO`) — necesita la pantalla de materias de la Fase 1
 - [x] ~~Pantalla de importación (arrastrar el fichero) en vez del script~~ hecha
 - [ ] Resolución de códigos vía `hor_alias`, preguntando solo por los nuevos
 - [ ] Vista previa → confirmar, con bitácora en `hor_import_runs`

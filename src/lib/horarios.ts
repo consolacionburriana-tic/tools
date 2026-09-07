@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 
-import { etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { etapaDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
 
 /** Etapas del centro. Las tres primeras están en uso; el resto, previstas y desactivadas. */
 export const ETAPAS_HORARIO = [
@@ -447,6 +447,24 @@ function capitalizar(t: string): string {
     .split(/(\s+|-)/)
     .map((p) => (/^[a-zà-ÿñ]/.test(p) ? p.charAt(0).toLocaleUpperCase('es') + p.slice(1) : p))
     .join('');
+}
+
+/**
+ * Cómo se nombra el conjunto de grupos de UNA sesión.
+ *
+ * Cuando una optativa la comparten 4º ESO A, B y el PDC, eso **no son tres clases a la vez**:
+ * es una sola clase que se llama '4ESO'. Poner los tres grupos uno detrás de otro se lee
+ * como un choque, que es justo lo que no es. Si todos los grupos son del mismo curso y no
+ * hay subgrupos, se resume en el curso; si no, se enumeran.
+ */
+export function resumirGrupos(
+  grupos: readonly { curso: string; letra: string | null; subgrupo?: string | null }[],
+): string[] {
+  const enumerados = grupos.map((g) => nombreClase(g.curso, g.letra) + (g.subgrupo ? ` · ${g.subgrupo}` : ''));
+  if (grupos.length < 2) return enumerados;
+  const cursos = new Set(grupos.map((g) => g.curso));
+  if (cursos.size > 1 || grupos.some((g) => g.subgrupo)) return enumerados;
+  return [nombreClase(grupos[0].curso, null)];
 }
 
 /**

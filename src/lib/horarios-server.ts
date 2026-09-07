@@ -26,7 +26,15 @@ import {
   horTramos,
 } from '@/db/schema';
 import { compararClases, nombreClase } from '@/lib/cursos';
-import { etapaDeCursoHorario, nombreCorto, nombreProfe, periodoVigente, type CeldaHorario } from '@/lib/horarios';
+import {
+  etapaDeCursoHorario,
+  nombreCorto,
+  nombreProfe,
+  periodoVigente,
+  rejillaDeGrupo,
+  resumirGrupos,
+  type CeldaHorario,
+} from '@/lib/horarios';
 import { normalizarNombreMateria, raizMateria, type Incidencia, type ResultadoBloque } from '@/lib/horarios-import';
 
 export interface ResumenImportacion {
@@ -52,15 +60,38 @@ export interface OpcionesImportacion {
   esOrdinario?: boolean;
 }
 
+/** Filas en trozos: Postgres traga miles por INSERT, pero no conviene abusar del tamaño. */
+function trozos<T>(filas: readonly T[], tam = 400): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < filas.length; i += tam) out.push(filas.slice(i, i + tam));
+  return out;
+}
+
+/** Firma de una rejilla: dos cursos con los mismos tramos comparten rejilla. */
+function firmaTramos(tramos: readonly { orden: number; horaInicio: string; horaFin: string; tipo: string }[]): string {
+  return tramos.map((t) => `${t.orden}:${t.horaInicio}-${t.horaFin}:${t.tipo}`).join('|');
+}
+
 /**
  * Vuelca los bloques ya normalizados de un fichero a la BBDD.
  *
- * Una **rejilla por etapa**, construida con los tramos que trae el propio fichero y
- * replicada de lunes a viernes. Se hace así, y no leyendo las rejillas del "Horario
- * general", a propósito: la fuente de dónde va una sesión tiene que ser el mismo fichero
- * que dice qué es esa sesión, o un desajuste de cinco minutos entre dos ficheros deja
- * sesiones sin hueco. Cuando llegue secundaria, que sí tiene días distintos entre sí, esto
- * seguirá valiendo porque el fichero de cada clase trae sus propias horas.
+ * Tres cosas que no son obvias y han costado un susto cada una:
+ *
+ * 1. **Solo se sustituye lo que trae el fichero.** El horario de la ESO se importa aparte
+ *    del de infantil y primaria, así que borrar "el periodo entero" dejaba a primaria sin
+ *    horario en cuanto se subía el de secundaria. Se borran los grupos y las etapas que
+ *    vienen en ESTE fichero, y nada más.
+ * 2. **Una rejilla por conjunto de cursos con los mismos tramos**, no una por etapa: en la
+ *    ESO, 1º y 2º acaban a las 14:00 y 3º y 4º tienen una franja más. Con una sola rejilla
+ *    por etapa, 1º ESO salía con una fila fantasma a las 14:10.
+ * 3. **Las sesiones se funden entre clases.** Si la misma materia, con el mismo profe, cae
+ *    a la misma hora en 4º ESO A y en 4º ESO B, eso es una optativa conjunta: UNA
+ *    asignación con dos grupos ('4ESO'), no dos clases simultáneas.
+ *
+ * Todo se escribe en INSERTs por lotes con ids generados aquí. Antes iba asignación por
+ * asignación (cuatro viajes a Neon cada una) y con las 10 clases de la ESO se pasaba de los
+ * 60 s de la función: la petición moría, el navegador recibía un HTML de timeout y el
+ * `res.json()` del cliente reventaba con un error que no decía nada.
  */
 export async function importarBloques(
   bloques: readonly ResultadoBloque[],
@@ -118,107 +149,220 @@ export async function importarBloques(
   resumen.materias = materiaPorCodigo.size;
   resumen.espacios = espacioPorCodigo.size;
 
-  // ── Rejilla por etapa, con los tramos del propio fichero ────────────────────
-  const tramoId = new Map<string, string>(); // `${etapa}|${dia}|${orden}` → id
-  const porEtapa = new Map<string, ResultadoBloque[]>();
+  // ── Rejillas: una por conjunto de cursos con los mismos tramos ──────────────
+  // La plantilla de cada CURSO es su bloque con más filas de horas: dos clases del mismo
+  // curso comparten rejilla, y si una trae menos filas es que ese día se le acababa antes.
+  const plantillaPorCurso = new Map<string, ResultadoBloque['tramos']>();
   for (const b of utiles) {
-    const etapa = etapaDeCursoHorario(b.clase!.curso) ?? 'OTRA';
-    porEtapa.set(etapa, [...(porEtapa.get(etapa) ?? []), b]);
+    const previa = plantillaPorCurso.get(b.clase!.curso);
+    if (!previa || b.tramos.length > previa.length) plantillaPorCurso.set(b.clase!.curso, b.tramos);
   }
 
-  for (const [etapa, suyos] of porEtapa) {
-    const nombre = `${opciones.periodoNombre} · ${etapa}`;
-    await borrarRejilla(periodoId, nombre);
-    const [rejilla] = await db.insert(horRejillas).values({ periodoId, nombre }).returning();
-    resumen.rejillas++;
-    await db.insert(horRejillaAmbitos).values({ rejillaId: rejilla.id, etapa });
-
-    // Los tramos son iguales en todas las clases de la etapa; se coge el bloque con más.
-    const plantilla = suyos.reduce((a, b) => (b.tramos.length > a.tramos.length ? b : a)).tramos;
-    const filas = [1, 2, 3, 4, 5].flatMap((dia) =>
-      plantilla.map((t) => ({
-        rejillaId: rejilla.id,
-        diaSemana: dia,
-        orden: t.orden,
-        etiqueta: t.tipo === 'sesion' ? `${t.orden}ª` : t.tipo === 'recreo' ? 'Patio' : 'Comedor',
-        horaInicio: t.horaInicio,
-        horaFin: t.horaFin,
-        tipo: t.tipo,
-      })),
-    );
-    const creados = await db.insert(horTramos).values(filas).returning();
-    resumen.tramos += creados.length;
-    for (const t of creados) tramoId.set(`${etapa}|${t.diaSemana}|${t.orden}`, t.id);
+  const cursosPorEtapa = new Map<string, string[]>();
+  for (const curso of plantillaPorCurso.keys()) {
+    const etapa = etapaDeCursoHorario(curso) ?? 'OTRA';
+    cursosPorEtapa.set(etapa, [...(cursosPorEtapa.get(etapa) ?? []), curso]);
   }
 
-  // ── Asignaciones y sesiones ─────────────────────────────────────────────────
-  await borrarAsignaciones(periodoId);
+  await borrarRejillasDeEtapas(periodoId, [...cursosPorEtapa.keys()]);
 
-  for (const b of utiles) {
-    const clase = b.clase!;
-    const etapa = etapaDeCursoHorario(clase.curso) ?? 'OTRA';
+  const tramoId = new Map<string, string>(); // `${curso}|${dia}|${orden}` → id
+  const filasRejilla: (typeof horRejillas.$inferInsert)[] = [];
+  const filasAmbito: (typeof horRejillaAmbitos.$inferInsert)[] = [];
+  const filasTramo: (typeof horTramos.$inferInsert)[] = [];
 
-    // Una asignación por (materia|actividad + profes + aula) dentro de la clase: las N
-    // sesiones semanales de Matemáticas de 2ESO B son UNA asignación puesta N veces, que
-    // es justo lo que hace falta para que "quitarle Mates a este profe" sea un solo cambio.
-    const clave = (s: (typeof b.sesiones)[number]) =>
-      [s.actividadCodigo, s.materiaCodigo ?? '', [...s.profeCodigos].sort().join('+'), s.aulaCodigo ?? ''].join('|');
+  for (const [etapa, cursos] of cursosPorEtapa) {
+    const porFirma = new Map<string, string[]>();
+    for (const curso of cursos) {
+      const f = firmaTramos(plantillaPorCurso.get(curso)!);
+      porFirma.set(f, [...(porFirma.get(f) ?? []), curso]);
+    }
+    const varias = porFirma.size > 1;
 
-    const grupos = new Map<string, typeof b.sesiones>();
-    for (const s of b.sesiones) grupos.set(clave(s), [...(grupos.get(clave(s)) ?? []), s]);
+    for (const suyos of porFirma.values()) {
+      const cursosOrden = [...suyos].sort((a, b) => compararClases({ curso: a, letra: null }, { curso: b, letra: null }));
+      const rejillaId = crypto.randomUUID();
+      filasRejilla.push({
+        id: rejillaId,
+        periodoId,
+        nombre: varias ? `${opciones.periodoNombre} · ${etapa} · ${cursosOrden.join('/')}` : `${opciones.periodoNombre} · ${etapa}`,
+      });
+      // Con una sola rejilla el ámbito es la etapa (el caso normal); cuando hay varias, cada
+      // una se ata a sus cursos, que es más específico y gana en `rejillaDeGrupo()`.
+      if (varias) for (const curso of cursosOrden) filasAmbito.push({ rejillaId, etapa, curso });
+      else filasAmbito.push({ rejillaId, etapa });
 
-    for (const [, sesiones] of grupos) {
-      const primera = sesiones[0];
-      const actividadId = actividadPorCodigo.get(primera.actividadCodigo) ?? idClase;
-      const [asig] = await db
-        .insert(horAsignaciones)
-        .values({
-          periodoId,
-          academicYear: opciones.academicYear,
-          actividadId,
-          materiaId: primera.materiaCodigo ? (materiaPorCodigo.get(primera.materiaCodigo) ?? null) : null,
-          // La etiqueta guarda el texto de la celda siempre que NO haya materia que pintar,
-          // incluido el caso de una materia que no estaba en la leyenda ('Otros', 'AUX'):
-          // sin esto la celda caía en el nombre de la actividad y ponía 'Clase', perdiendo
-          // lo único que decía el fichero.
-          etiqueta:
-            primera.materiaCodigo && materiaPorCodigo.has(primera.materiaCodigo)
-              ? null
-              : primera.crudo.slice(0, 120),
-          espacioId: primera.aulaCodigo ? (espacioPorCodigo.get(primera.aulaCodigo) ?? null) : null,
-          aula: primera.aulaCodigo,
-          origen: 'importado',
-        })
-        .returning();
-      resumen.asignaciones++;
-
-      await db.insert(horAsignacionGrupos).values({ asignacionId: asig.id, curso: clase.curso, letra: clase.letra });
-
-      const alias = [...new Set(primera.profeCodigos)];
-      const filasProfe = alias
-        .map((a, i) => {
-          const id = profePorAlias.get(a);
-          if (!id) { if (!resumen.profesNoEncontrados.includes(a)) resumen.profesNoEncontrados.push(a); return null; }
-          return { asignacionId: asig.id, eduTeacherId: id, rol: rolDeActividad(primera.actividadCodigo, i), principal: i === 0 };
-        })
-        .filter((f): f is NonNullable<typeof f> => f !== null);
-      if (filasProfe.length) {
-        await db.insert(horAsignacionProfes).values(filasProfe);
-        resumen.profesVinculados += filasProfe.length;
-      }
-
-      const filasSesion = sesiones
-        .map((s) => {
-          const id = tramoId.get(`${etapa}|${s.dia}|${s.orden}`);
-          return id ? { asignacionId: asig.id, tramoId: id, diaSemana: s.dia, orden: s.orden } : null;
-        })
-        .filter((f): f is NonNullable<typeof f> => f !== null);
-      if (filasSesion.length) {
-        await db.insert(horSesiones).values(filasSesion);
-        resumen.sesiones += filasSesion.length;
+      const plantilla = plantillaPorCurso.get(cursosOrden[0])!;
+      for (const dia of [1, 2, 3, 4, 5]) {
+        for (const t of plantilla) {
+          const id = crypto.randomUUID();
+          filasTramo.push({
+            id,
+            rejillaId,
+            diaSemana: dia,
+            orden: t.orden,
+            etiqueta: t.tipo === 'sesion' ? `${t.orden}ª` : t.tipo === 'recreo' ? 'Patio' : 'Comedor',
+            horaInicio: t.horaInicio,
+            horaFin: t.horaFin,
+            tipo: t.tipo,
+          });
+          for (const curso of cursosOrden) tramoId.set(`${curso}|${dia}|${t.orden}`, id);
+        }
       }
     }
   }
+
+  for (const t of trozos(filasRejilla)) await db.insert(horRejillas).values(t);
+  for (const t of trozos(filasAmbito)) await db.insert(horRejillaAmbitos).values(t);
+  for (const t of trozos(filasTramo)) await db.insert(horTramos).values(t);
+  resumen.rejillas = filasRejilla.length;
+  resumen.tramos = filasTramo.length;
+
+  // ── Sesiones reales: lo que de verdad pasa a cada hora ──────────────────────
+  // Misma materia + mismo profe + misma hora en dos clases del mismo curso = UNA sesión con
+  // dos grupos (la optativa que comparten 4º A y 4º B), no dos. La regla es segura porque un
+  // profe no puede estar en dos sitios a la vez: si coincide, es que es la misma clase.
+  // Las que no llevan profe (un 'PT-' suelto) no se funden nunca: no identifican a nadie.
+  interface SesionReal {
+    curso: string;
+    dia: number;
+    orden: number;
+    actividadCodigo: string;
+    materiaCodigo: string | null;
+    materiaId: string | null;
+    aulaCodigo: string | null;
+    profeCodigos: string[];
+    crudo: string;
+    grupos: Map<string, { curso: string; letra: string | null }>;
+  }
+
+  // Rescate de códigos que el fichero usa pero no define: si a esa hora ese mismo profe
+  // está dando una materia conocida en otra clase, es esa. Con esto entra bien el 'NG -
+  // MREM0' del fichero real de la ESO, que es un 'ING' al que Educamos se comió la I.
+  const materiaPorHueco = new Map<string, Set<string>>();
+  for (const b of utiles) {
+    for (const s of b.sesiones) {
+      const id = s.materiaCodigo ? materiaPorCodigo.get(s.materiaCodigo) : undefined;
+      if (!id) continue;
+      for (const p of s.profeCodigos) {
+        const k = `${s.dia}|${s.orden}|${p.toUpperCase()}`;
+        materiaPorHueco.set(k, (materiaPorHueco.get(k) ?? new Set()).add(id));
+      }
+    }
+  }
+  const rescatarMateria = (s: { dia: number; orden: number; profeCodigos: string[] }): string | null => {
+    const candidatas = new Set<string>();
+    for (const p of s.profeCodigos) for (const id of materiaPorHueco.get(`${s.dia}|${s.orden}|${p.toUpperCase()}`) ?? []) candidatas.add(id);
+    return candidatas.size === 1 ? [...candidatas][0] : null; // en la duda, no se inventa
+  };
+
+  const reales = new Map<string, SesionReal>();
+  for (const b of utiles) {
+    const clase = b.clase!;
+    const claveClase = `${clase.curso}|${clase.letra ?? ''}`;
+    for (const s of b.sesiones) {
+      const materiaId = s.materiaCodigo
+        ? (materiaPorCodigo.get(s.materiaCodigo) ?? rescatarMateria(s))
+        : null;
+      const profeCodigos = [...new Set(s.profeCodigos)].sort();
+      const clave = profeCodigos.length
+        ? ['·', clase.curso, s.dia, s.orden, s.actividadCodigo, materiaId ?? s.materiaCodigo ?? '', profeCodigos.join('+')].join('|')
+        : ['×', claveClase, s.dia, s.orden, s.actividadCodigo, s.crudo].join('|');
+      const previa = reales.get(clave);
+      if (previa) {
+        previa.grupos.set(claveClase, { curso: clase.curso, letra: clase.letra });
+        previa.aulaCodigo ??= s.aulaCodigo;
+        continue;
+      }
+      reales.set(clave, {
+        curso: clase.curso,
+        dia: s.dia,
+        orden: s.orden,
+        actividadCodigo: s.actividadCodigo,
+        materiaCodigo: s.materiaCodigo,
+        materiaId,
+        aulaCodigo: s.aulaCodigo,
+        profeCodigos,
+        crudo: s.crudo,
+        grupos: new Map([[claveClase, { curso: clase.curso, letra: clase.letra }]]),
+      });
+    }
+  }
+
+  // ── Asignaciones: las N sesiones semanales de lo mismo, juntas ──────────────
+  // Una asignación por (actividad + materia + profes + aula + grupos). Las cuatro horas de
+  // Mates de 2ESO B son UNA asignación puesta cuatro veces, que es lo que hace falta para
+  // que "quitarle Mates a este profe" sea un solo cambio.
+  interface Asignacion {
+    id: string;
+    real: SesionReal;
+    grupos: { curso: string; letra: string | null }[];
+    sesiones: { dia: number; orden: number }[];
+  }
+  const asignaciones = new Map<string, Asignacion>();
+  for (const r of reales.values()) {
+    const grupos = [...r.grupos.values()].sort(compararClases);
+    const clave = [
+      r.actividadCodigo,
+      r.materiaId ?? r.materiaCodigo ?? '',
+      r.profeCodigos.join('+'),
+      r.aulaCodigo ?? '',
+      grupos.map((g) => `${g.curso}|${g.letra ?? ''}`).join(','),
+      // Sin materia el texto de la celda ES la identidad ('PT- MAPI' y 'AL 5º y 6º' no son
+      // lo mismo aunque las dos sean apoyo sin profe reconocido).
+      r.materiaId ? '' : r.crudo,
+    ].join('#');
+    const previa = asignaciones.get(clave);
+    if (previa) previa.sesiones.push({ dia: r.dia, orden: r.orden });
+    else asignaciones.set(clave, { id: crypto.randomUUID(), real: r, grupos, sesiones: [{ dia: r.dia, orden: r.orden }] });
+  }
+
+  await borrarAsignaciones(periodoId, [...new Set([...reales.values()].flatMap((r) => [...r.grupos.keys()]))]);
+
+  const filasAsig: (typeof horAsignaciones.$inferInsert)[] = [];
+  const filasGrupo: (typeof horAsignacionGrupos.$inferInsert)[] = [];
+  const filasProfe: (typeof horAsignacionProfes.$inferInsert)[] = [];
+  const filasSesion: (typeof horSesiones.$inferInsert)[] = [];
+
+  for (const a of asignaciones.values()) {
+    const r = a.real;
+    filasAsig.push({
+      id: a.id,
+      periodoId,
+      academicYear: opciones.academicYear,
+      actividadId: actividadPorCodigo.get(r.actividadCodigo) ?? idClase,
+      materiaId: r.materiaId,
+      // La etiqueta guarda el texto de la celda siempre que NO haya materia que pintar,
+      // incluido el caso de una materia que no estaba en la leyenda ('Otros', 'AUX'): sin
+      // esto la celda caía en el nombre de la actividad y ponía 'Clase', perdiendo lo único
+      // que decía el fichero.
+      etiqueta: r.materiaId ? null : r.crudo.slice(0, 120),
+      espacioId: r.aulaCodigo ? (espacioPorCodigo.get(r.aulaCodigo) ?? null) : null,
+      aula: r.aulaCodigo,
+      origen: 'importado',
+    });
+    for (const g of a.grupos) filasGrupo.push({ asignacionId: a.id, curso: g.curso, letra: g.letra });
+    r.profeCodigos.forEach((alias, i) => {
+      const id = profePorAlias.get(alias);
+      if (!id) {
+        if (!resumen.profesNoEncontrados.includes(alias)) resumen.profesNoEncontrados.push(alias);
+        return;
+      }
+      filasProfe.push({ asignacionId: a.id, eduTeacherId: id, rol: rolDeActividad(r.actividadCodigo, i), principal: i === 0 });
+    });
+    for (const s of a.sesiones) {
+      const id = tramoId.get(`${r.curso}|${s.dia}|${s.orden}`);
+      if (id) filasSesion.push({ asignacionId: a.id, tramoId: id, diaSemana: s.dia, orden: s.orden });
+    }
+  }
+
+  for (const t of trozos(filasAsig)) await db.insert(horAsignaciones).values(t);
+  for (const t of trozos(filasGrupo)) await db.insert(horAsignacionGrupos).values(t);
+  for (const t of trozos(filasProfe)) await db.insert(horAsignacionProfes).values(t);
+  for (const t of trozos(filasSesion)) await db.insert(horSesiones).values(t);
+  resumen.asignaciones = filasAsig.length;
+  resumen.profesVinculados = filasProfe.length;
+  resumen.sesiones = filasSesion.length;
 
   await limpiarMateriasHuerfanas();
 
@@ -416,11 +560,21 @@ async function asegurarEspacios(bloques: readonly ResultadoBloque[]): Promise<Ma
   return mapa;
 }
 
-async function borrarRejilla(periodoId: string, nombre: string): Promise<void> {
+/**
+ * Borra las rejillas de un periodo que son de LAS ETAPAS que trae el fichero.
+ *
+ * Por etapa y no por nombre: la rejilla de la ESO se llamaba de una forma cuando había una
+ * sola por etapa y de otra desde que 1º/2º y 3º/4º tienen tramos distintos, y una rejilla
+ * vieja que sobreviva al import deja tramos huérfanos por medio. Lo de otras etapas ni se
+ * mira: importar secundaria no puede tocar el horario de primaria.
+ */
+async function borrarRejillasDeEtapas(periodoId: string, etapas: readonly string[]): Promise<void> {
+  if (etapas.length === 0) return;
   const previas = await db
-    .select({ id: horRejillas.id })
+    .selectDistinct({ id: horRejillas.id })
     .from(horRejillas)
-    .where(and(eq(horRejillas.periodoId, periodoId), eq(horRejillas.nombre, nombre)));
+    .innerJoin(horRejillaAmbitos, eq(horRejillaAmbitos.rejillaId, horRejillas.id))
+    .where(and(eq(horRejillas.periodoId, periodoId), inArray(horRejillaAmbitos.etapa, [...etapas])));
   if (previas.length === 0) return;
   const ids = previas.map((r) => r.id);
   const tramos = await db.select({ id: horTramos.id }).from(horTramos).where(inArray(horTramos.rejillaId, ids));
@@ -432,14 +586,24 @@ async function borrarRejilla(periodoId: string, nombre: string): Promise<void> {
   await db.delete(horRejillas).where(inArray(horRejillas.id, ids));
 }
 
-/** Borra lo IMPORTADO de un periodo; lo creado a mano se respeta (origen 'manual'). */
-async function borrarAsignaciones(periodoId: string): Promise<void> {
-  const previas = await db
-    .select({ id: horAsignaciones.id })
+/**
+ * Borra lo IMPORTADO de **los grupos que trae el fichero** dentro de un periodo. Lo creado a
+ * mano se respeta (origen 'manual') y lo de los demás grupos, también: cada etapa se importa
+ * de su propio fichero, y borrar el periodo entero era lo que hacía desaparecer el horario de
+ * primaria en cuanto se subía el de la ESO.
+ */
+async function borrarAsignaciones(periodoId: string, clavesGrupo: readonly string[]): Promise<void> {
+  if (clavesGrupo.length === 0) return;
+  const enFichero = new Set(clavesGrupo);
+  const candidatas = await db
+    .select({ id: horAsignaciones.id, curso: horAsignacionGrupos.curso, letra: horAsignacionGrupos.letra })
     .from(horAsignaciones)
+    .innerJoin(horAsignacionGrupos, eq(horAsignacionGrupos.asignacionId, horAsignaciones.id))
     .where(and(eq(horAsignaciones.periodoId, periodoId), eq(horAsignaciones.origen, 'importado')));
-  if (previas.length === 0) return;
-  const ids = previas.map((a) => a.id);
+  const ids = [
+    ...new Set(candidatas.filter((a) => enFichero.has(`${a.curso}|${a.letra ?? ''}`)).map((a) => a.id)),
+  ];
+  if (ids.length === 0) return;
   await db.delete(horSesiones).where(inArray(horSesiones.asignacionId, ids));
   await db.delete(horAsignacionProfes).where(inArray(horAsignacionProfes.asignacionId, ids));
   await db.delete(horAsignacionGrupos).where(inArray(horAsignacionGrupos.asignacionId, ids));
@@ -650,11 +814,12 @@ export async function getCeldas(
   for (const lista of profesPor.values()) lista.sort((a, b) => Number(b.principal) - Number(a.principal));
 
   const gruposPor = new Map<string, string[]>();
+  const crudosPor = new Map<string, { curso: string; letra: string | null; subgrupo: string | null }[]>();
   for (const g of gruposFilas) {
-    const lista = gruposPor.get(g.asignacionId) ?? [];
-    lista.push(nombreClase(g.curso, g.letra) + (g.subgrupo ? ` · ${g.subgrupo}` : ''));
-    gruposPor.set(g.asignacionId, lista);
+    crudosPor.set(g.asignacionId, [...(crudosPor.get(g.asignacionId) ?? []), { curso: g.curso, letra: g.letra, subgrupo: g.subgrupo }]);
   }
+  // Una optativa de 4º A + 4º B se llama '4ESO', no '4ESO A, 4ESO B' (ver `resumirGrupos`).
+  for (const [id, crudos] of crudosPor) gruposPor.set(id, resumirGrupos([...crudos].sort(compararClases)));
 
   return filas.map((f) => {
     const profes = profesPor.get(f.asignacionId) ?? [];
@@ -690,15 +855,30 @@ export async function getCeldas(
   });
 }
 
-/** Los recreos y comedores de la rejilla de un grupo, para que el hueco se vea aunque esté vacío. */
-export async function getTramosNoLectivos(periodoId: string, etapa: string | null): Promise<CeldaHorario[]> {
-  if (!etapa) return [];
+/**
+ * Los recreos y comedores de la rejilla de un grupo, para que el hueco se vea aunque esté
+ * vacío.
+ *
+ * Se resuelve por **ámbito**, no por etapa a secas: en la ESO, 1º y 2º tienen una rejilla y
+ * 3º y 4º otra con una franja más, y coger las dos ponía a 1º un patio fantasma a las 14:00.
+ */
+export async function getTramosNoLectivos(
+  periodoId: string,
+  grupo: { curso: string | null; letra?: string | null },
+): Promise<CeldaHorario[]> {
+  if (!grupo.curso) return [];
+  const ambitos = await db
+    .select({ rejillaId: horRejillaAmbitos.rejillaId, etapa: horRejillaAmbitos.etapa, curso: horRejillaAmbitos.curso, letra: horRejillaAmbitos.letra })
+    .from(horRejillaAmbitos)
+    .innerJoin(horRejillas, eq(horRejillas.id, horRejillaAmbitos.rejillaId))
+    .where(eq(horRejillas.periodoId, periodoId));
+  const rejillaId = rejillaDeGrupo(ambitos, grupo);
+  if (!rejillaId) return [];
+
   const filas = await db
     .select({ id: horTramos.id, dia: horTramos.diaSemana, horaInicio: horTramos.horaInicio, horaFin: horTramos.horaFin, tipo: horTramos.tipo })
     .from(horTramos)
-    .innerJoin(horRejillas, eq(horRejillas.id, horTramos.rejillaId))
-    .innerJoin(horRejillaAmbitos, eq(horRejillaAmbitos.rejillaId, horRejillas.id))
-    .where(and(eq(horRejillas.periodoId, periodoId), eq(horRejillaAmbitos.etapa, etapa)));
+    .where(eq(horTramos.rejillaId, rejillaId));
   return filas
     .filter((t) => t.tipo !== 'sesion')
     .map((t) => ({

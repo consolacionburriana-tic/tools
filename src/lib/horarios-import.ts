@@ -108,23 +108,36 @@ export function parsearRangoHoras(texto: string): { horaInicio: string; horaFin:
 /**
  * '2PRIA' → curso '2PRI', letra 'A' · '3INFB' → '3INF' + 'B' · '1ESOA' → '1ESO' + 'A'.
  * Los códigos del centro son <nivel><etapa><letra>, con la letra opcional.
+ *
+ * **PDC**: el fichero de la ESO los titula `3º PPDC` (con `º` y con espacio, que ningún
+ * otro código lleva). Se traducen a `3ESO` + letra `PDC`, que es como los tiene el resto
+ * del repo desde `cursoBaseEso()` — Licencias ya se llevó el susto de dar de baja a los
+ * PDC en bloque por no hacer esta traducción.
  */
 export function parsearCodigoGrupo(codigo: string): { curso: string; letra: string | null } | null {
-  const c = (codigo ?? '').trim().toUpperCase();
-  const m = /^(\d+\s*[ºO]?\s*(?:INF|PRI|ESO|BACH|CFGM|CFGS|PPDC|PDC))\s*([A-Z])?$/.exec(c.replace(/\s+/g, ''));
+  const c = (codigo ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  const pdc = /^(\d+)[ºO]?P?PDC$/.exec(c);
+  if (pdc) return { curso: `${pdc[1]}ESO`, letra: 'PDC' };
+  const m = /^(\d+\s*[ºO]?\s*(?:INF|PRI|ESO|BACH|CFGM|CFGS))\s*([A-Z])?$/.exec(c);
   if (!m) return null;
   return { curso: m[1].replace(/[ºO](?=[A-Z])/, ''), letra: m[2] ?? null };
 }
 
-/** '1PRIA: 1º EP-A' → el código, el grupo y el nombre bonito. */
+/**
+ * '1PRIA: 1º EP-A' → el código, el grupo y el nombre bonito.
+ *
+ * El código admite `º` y espacios porque los bloques de PDC se titulan `3º PPDC: 3º ESO-PDC`
+ * y con la clase de caracteres estricta se caían del import enteros (dos clases de menos,
+ * sin ningún aviso: el bloque simplemente no tenía título y se descartaba).
+ */
 export function parsearTituloClase(
   texto: string,
 ): { codigo: string; curso: string; letra: string | null; nombre: string } | null {
-  const m = /^\s*([0-9A-ZÑ]{3,10})\s*:\s*(.+?)\s*$/i.exec(texto ?? '');
+  const m = /^\s*([0-9A-ZÑº°\s]{3,12}?)\s*:\s*(.+?)\s*$/i.exec(texto ?? '');
   if (!m) return null;
   const grupo = parsearCodigoGrupo(m[1]);
   if (!grupo) return null;
-  return { codigo: m[1].toUpperCase(), curso: grupo.curso, letra: grupo.letra, nombre: m[2] };
+  return { codigo: m[1].toUpperCase().replace(/\s+/g, ' '), curso: grupo.curso, letra: grupo.letra, nombre: m[2] };
 }
 
 /**
@@ -307,6 +320,26 @@ function tipoDeFila(celdas: readonly string[]): TipoTramo {
 }
 
 /**
+ * Junta las leyendas de varios bloques en una sola.
+ *
+ * Hace falta porque los bloques de PDC del fichero real de la ESO traen la cuadrícula pero
+ * **no** todas sus materias en la leyenda (`MATE`, `BG`, `FQ`, `TECNO`…, que son las horas
+ * que hacen con su grupo de referencia). Sin esto, esas celdas se quedaban en el texto
+ * crudo: ni nombre de materia, ni color junto a las mismas Matemáticas del grupo de al
+ * lado. El mismo código en el mismo fichero es la misma materia; la leyenda del propio
+ * bloque sigue mandando cuando existe.
+ */
+export function unirLeyendas(todas: readonly Leyendas[]): Leyendas {
+  const union: Leyendas = { materias: new Map(), profes: new Map(), aulas: new Map() };
+  for (const l of todas) {
+    for (const clave of ['materias', 'profes', 'aulas'] as const) {
+      for (const [k, v] of l[clave]) if (!union[clave].has(k)) union[clave].set(k, v);
+    }
+  }
+  return union;
+}
+
+/**
  * Normaliza un bloque "HORARIO DE CLASE" completo a la lista canónica de sesiones.
  *
  * `filas` es la cuadrícula del bloque tal cual la devuelve el lector del formato, sin
@@ -315,7 +348,10 @@ function tipoDeFila(celdas: readonly string[]): TipoTramo {
  * notas — ahí es donde vive el texto suelto tipo "1 sesión mensual", que no cabe en
  * ninguna cuadrícula y se conserva como nota en vez de inventarse una recurrencia.
  */
-export function normalizarBloqueClase(filas: readonly (readonly string[])[]): ResultadoBloque {
+export function normalizarBloqueClase(
+  filas: readonly (readonly string[])[],
+  comunes?: Leyendas,
+): ResultadoBloque {
   const incidencias: Incidencia[] = [];
   const limpias = filas.map((f) => f.map((c) => (c ?? '').toString()));
 
@@ -349,7 +385,8 @@ export function normalizarBloqueClase(filas: readonly (readonly string[])[]): Re
       if (parsearRangoHoras(limpias[i][0] ?? '')) continue;
       pie.push(...limpias[i].filter((c) => c.trim()));
     }
-    const leyendas = parsearLeyendas(pie);
+    // La del propio bloque manda; la del resto del fichero rellena lo que le falte.
+    const leyendas = comunes ? unirLeyendas([parsearLeyendas(pie), comunes]) : parsearLeyendas(pie);
 
     for (let i = filaDias + 1; i < limpias.length; i++) {
       const fila = limpias[i];

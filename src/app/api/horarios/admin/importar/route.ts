@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { getSessionUser } from '@/lib/auth-guards';
 import { puedeEditarHorarios } from '@/lib/permissions';
-import { normalizarBloqueClase, type ResultadoBloque } from '@/lib/horarios-import';
+import { normalizarBloqueClase, unirLeyendas, type ResultadoBloque } from '@/lib/horarios-import';
 import { leerHorarios } from '@/lib/horarios-lectores';
 import { importarBloques } from '@/lib/horarios-server';
 import { etapaDeCursoHorario } from '@/lib/horarios';
@@ -44,7 +44,10 @@ export async function POST(req: Request) {
   }
 
   const deClase = bloques.filter((b) => b.tipo === 'clase');
-  const normalizados: ResultadoBloque[] = deClase.map((b) => normalizarBloqueClase(b.filas));
+  // Dos pasadas: la primera junta las leyendas de todo el fichero, la segunda las usa como
+  // respaldo. Los bloques de PDC no traen todas sus materias en su propia leyenda.
+  const comunes = unirLeyendas(deClase.map((b) => normalizarBloqueClase(b.filas).leyendas));
+  const normalizados: ResultadoBloque[] = deClase.map((b) => normalizarBloqueClase(b.filas, comunes));
   const utiles = normalizados.filter((r) => r.clase && r.sesiones.length > 0);
 
   const previa = {
@@ -69,15 +72,20 @@ export async function POST(req: Request) {
 
   if (form.get('confirmar') !== 'true') return NextResponse.json({ previa });
 
-  const resumen = await importarBloques(utiles, {
-    academicYear: String(form.get('academicYear') ?? ''),
-    periodoNombre: String(form.get('periodo') ?? 'Ordinario'),
-    fechaInicio: String(form.get('desde') ?? ''),
-    fechaFin: String(form.get('hasta') ?? ''),
-    prioridad: Number(form.get('prioridad') ?? 0),
-    esOrdinario: form.get('ordinario') === 'true',
-  });
-  return NextResponse.json({ previa, resumen });
+  try {
+    const resumen = await importarBloques(utiles, {
+      academicYear: String(form.get('academicYear') ?? ''),
+      periodoNombre: String(form.get('periodo') ?? 'Ordinario'),
+      fechaInicio: String(form.get('desde') ?? ''),
+      fechaFin: String(form.get('hasta') ?? ''),
+      prioridad: Number(form.get('prioridad') ?? 0),
+      esOrdinario: form.get('ordinario') === 'true',
+    });
+    return NextResponse.json({ previa, resumen });
+  } catch (e) {
+    // El mensaje sí, la traza no: el fichero lleva nombres del profesorado.
+    return NextResponse.json({ error: `La importación ha fallado: ${(e as Error).message}` }, { status: 500 });
+  }
 }
 
 function agrupar(claves: string[]): { clave: string; veces: number }[] {
@@ -86,8 +94,13 @@ function agrupar(claves: string[]): { clave: string; veces: number }[] {
   return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([clave, veces]) => ({ clave, veces }));
 }
 
-function sugerirPeriodo(bloques: ResultadoBloque[]): 'Ordinario' | 'Septiembre/Junio' {
+/**
+ * Ordinario o jornada corta, mirando la forma del horario: el corto no tiene comedor y baja
+ * de seis franjas. **Septiembre y junio no se distinguen entre sí** —son el mismo horario en
+ * dos momentos del curso— así que eso lo elige la persona; el fichero no lo dice.
+ */
+function sugerirPeriodo(bloques: ResultadoBloque[]): 'Ordinario' | 'Jornada corta' {
   const conComedor = bloques.some((b) => b.tramos.some((t) => t.tipo === 'comedor'));
   const franjas = Math.max(0, ...bloques.map((b) => b.tramos.filter((t) => t.tipo === 'sesion').length));
-  return conComedor || franjas >= 6 ? 'Ordinario' : 'Septiembre/Junio';
+  return conComedor || franjas >= 6 ? 'Ordinario' : 'Jornada corta';
 }

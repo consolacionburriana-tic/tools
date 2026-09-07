@@ -4,13 +4,16 @@
 // el filtro de curso solo cuando aporta, y la lista de abajo siempre visible (nada de un
 // desplegable que hay que abrir para ver qué hay).
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronDown, DoorOpen, Filter, MapPin, Users } from 'lucide-react';
+import { ChevronDown, DoorOpen, Filter, Loader2, MapPin, Users } from 'lucide-react';
 
 import { haptic } from '@/lib/haptics';
+import { ETAPAS_HORARIO } from '@/lib/horarios';
 import { cn } from '@/lib/utils';
 import type { OpcionesNavegador, VistaHorario } from '@/lib/horarios-server';
+
+const NOMBRE_ETAPA = new Map(ETAPAS_HORARIO.map((e) => [e.codigo as string, e.nombre]));
 
 const ETIQUETA_LISTA: Record<VistaHorario, string> = {
   clase: 'Clase',
@@ -37,33 +40,41 @@ export function Selector({
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [curso, setCurso] = useState<string>('');
+  const [etapa, setEtapa] = useState<string>('');
   const [busca, setBusca] = useState('');
   const [desplegado, setDesplegado] = useState(false);
+  const [yendo, setYendo] = useState<string | null>(null);
+  const [pendiente, empezar] = useTransition();
 
   const vistas = puedeVerProfes ? VISTAS : VISTAS.filter((v) => v.id !== 'profe');
 
   const ir = (v: VistaHorario, k: string) => {
     haptic.tap();
+    setYendo(`${v}:${k}`);
     const p = new URLSearchParams(params.toString());
     p.set('vista', v);
     p.set('clave', k);
-    router.push(`/gestion/horarios?${p.toString()}`);
+    // En transición: mientras Neon responde, el chip que se ha tocado enseña su spinner en
+    // vez de quedarse la pantalla igual y parecer que el toque no ha entrado.
+    empezar(() => router.push(`/gestion/horarios?${p.toString()}`));
   };
 
-  // Cursos disponibles ('2PRI', '3INF'…) para el filtro rápido de la vista de clases.
-  const cursos = useMemo(
-    () => [...new Set(opciones.clases.map((c) => c.curso))],
-    [opciones.clases],
-  );
+  // Filtro por ETAPA, no por curso: con infantil, primaria y la ESO importadas hay casi
+  // treinta clases, y lo que se quiere acotar primero es "enséñame las de secundaria".
+  const etapas = useMemo(() => {
+    const orden = ETAPAS_HORARIO.map((e) => e.codigo as string);
+    return [...new Set(opciones.clases.map((c) => c.etapa).filter((e): e is string => !!e))].sort(
+      (a, b) => orden.indexOf(a) - orden.indexOf(b),
+    );
+  }, [opciones.clases]);
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     if (vista === 'clase') {
       return opciones.clases
-        .filter((c) => !curso || c.curso === curso)
+        .filter((c) => !etapa || c.etapa === etapa)
         .filter((c) => !q || c.etiqueta.toLowerCase().includes(q))
-        .map((c) => ({ clave: `${c.curso}|${c.letra ?? ''}`, etiqueta: c.etiqueta, pista: c.etapa }));
+        .map((c) => ({ clave: `${c.curso}|${c.letra ?? ''}`, etiqueta: c.etiqueta, pista: etapa ? null : c.etapa }));
     }
     if (vista === 'profe') {
       return opciones.profes
@@ -73,7 +84,7 @@ export function Selector({
     return opciones.espacios
       .filter((e) => !q || e.nombre.toLowerCase().includes(q))
       .map((e) => ({ clave: e.id, etiqueta: e.nombre, pista: e.codigo }));
-  }, [vista, curso, busca, opciones]);
+  }, [vista, etapa, busca, opciones]);
 
   return (
     <div className="space-y-3">
@@ -97,15 +108,15 @@ export function Selector({
       </div>
 
       {/* Estas dos filas hacen cosas distintas y antes se confundían (parecían dos listas de
-          clases). Van etiquetadas: arriba se ACOTA el curso, abajo se ELIGE la clase. */}
-      {vista === 'clase' && cursos.length > 1 && (
+          clases). Van etiquetadas: arriba se ACOTA la etapa, abajo se ELIGE la clase. */}
+      {vista === 'clase' && etapas.length > 1 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="flex items-center gap-1 pr-0.5 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-            <Filter className="h-3.5 w-3.5" /> Curso
+            <Filter className="h-3.5 w-3.5" /> Etapa
           </span>
-          <Filtro activo={!curso} onClick={() => setCurso('')}>Todos</Filtro>
-          {cursos.map((c) => (
-            <Filtro key={c} activo={curso === c} onClick={() => setCurso(c)}>{c}</Filtro>
+          <Filtro activo={!etapa} onClick={() => setEtapa('')}>Todas</Filtro>
+          {etapas.map((e) => (
+            <Filtro key={e} activo={etapa === e} onClick={() => setEtapa(e)}>{NOMBRE_ETAPA.get(e) ?? e}</Filtro>
           ))}
         </div>
       )}
@@ -145,22 +156,28 @@ export function Selector({
             desplegado ? 'flex-wrap sm:mx-0 sm:px-0' : 'overflow-x-auto sm:mx-0 sm:px-0',
           )}
         >
-        {lista.map((o) => (
-          <button
-            key={o.clave}
-            type="button"
-            onClick={() => ir(vista, o.clave)}
-            className={cn(
-              'shrink-0 rounded-lg border px-3 py-1.5 text-sm transition-colors',
-              clave === o.clave
-                ? 'border-indigo-500 bg-indigo-500 text-white'
-                : 'border-zinc-200 bg-white text-zinc-700 hover:border-indigo-300 hover:bg-indigo-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-indigo-500/10',
-            )}
-          >
-            {o.etiqueta}
-            {o.pista && clave !== o.clave && <span className="ml-1.5 text-xs text-zinc-400 dark:text-zinc-500">{o.pista}</span>}
-          </button>
-        ))}
+        {lista.map((o) => {
+          const cargando = pendiente && yendo === `${vista}:${o.clave}`;
+          return (
+            <button
+              key={o.clave}
+              type="button"
+              onClick={() => ir(vista, o.clave)}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors',
+                clave === o.clave || cargando
+                  ? 'border-indigo-500 bg-indigo-500 text-white'
+                  : 'border-zinc-200 bg-white text-zinc-700 hover:border-indigo-300 hover:bg-indigo-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-indigo-500/10',
+              )}
+            >
+              {cargando && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {o.etiqueta}
+              {o.pista && clave !== o.clave && !cargando && (
+                <span className="text-xs text-zinc-400 dark:text-zinc-500">{o.pista}</span>
+              )}
+            </button>
+          );
+        })}
           {lista.length === 0 && <p className="text-sm text-zinc-500 dark:text-zinc-400">Nada que mostrar.</p>}
         </div>
       </div>
