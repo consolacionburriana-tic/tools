@@ -1,6 +1,6 @@
 // Capa de servidor de Salidas y pagos: salidas, responsables, inscripciones y
 // justificantes. Lee alumnado de la BBDD central (edu_students), nunca lista propia.
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { compararClases } from '@/lib/cursos';
 import {
@@ -232,6 +232,8 @@ export interface TripFamilia {
   fecha: string | null;
   importe: string | null;
   estado: 'pendiente' | 'no_va' | 'subido' | 'validado' | 'rechazado';
+  /** Cuándo se subió el justificante actual (para "ya lo enviaste el..."). null si no hay ninguno. */
+  justificanteSubidoAt: string | null;
 }
 
 /** Salidas abiertas de la clase del alumno + estado de su justificante. */
@@ -253,7 +255,15 @@ export async function getActiveTripsForStudent(eduStudentId: string): Promise<Tr
       const s = porTrip.get(t.id);
       const estado: TripFamilia['estado'] =
         s?.estado === 'no_va' ? 'no_va' : (s?.justificanteEstado as TripFamilia['estado']) ?? 'pendiente';
-      return { tripId: t.id, nombre: t.nombre, descripcion: t.descripcion, fecha: t.fecha, importe: t.importe, estado };
+      return {
+        tripId: t.id,
+        nombre: t.nombre,
+        descripcion: t.descripcion,
+        fecha: t.fecha,
+        importe: t.importe,
+        estado,
+        justificanteSubidoAt: s?.justificanteSubidoAt?.toISOString() ?? null,
+      };
     });
 }
 
@@ -315,6 +325,29 @@ export async function registrarJustificanteManual(input: {
     })
     .returning();
   return row;
+}
+
+/** Pathname del justificante ya subido por un alumno identificado, para que la familia
+ *  pueda volver a verlo (el llamador ya ha comprobado con `verifyFamilyStudent` que puede). */
+export async function getJustificantePathname(tripId: string, eduStudentId: string): Promise<string | null> {
+  const [signup] = await db
+    .select({ url: salSignups.justificanteUrl })
+    .from(salSignups)
+    .where(and(eq(salSignups.tripId, tripId), eq(salSignups.studentId, eduStudentId)))
+    .limit(1);
+  return signup?.url ?? null;
+}
+
+/** Idem para una entrada MANUAL: se busca por nombre+clase tal y como los tecleó la familia,
+ *  el mismo nivel de comprobación que se hizo al subirlo (no hay alumno enlazado todavía). */
+export async function getJustificanteManualPathname(tripId: string, nombre: string, clase: string): Promise<string | null> {
+  const [signup] = await db
+    .select({ url: salSignups.justificanteUrl })
+    .from(salSignups)
+    .where(and(eq(salSignups.tripId, tripId), ilike(salSignups.manualNombre, nombre.trim()), ilike(salSignups.manualClase, clase.trim())))
+    .orderBy(desc(salSignups.updatedAt))
+    .limit(1);
+  return signup?.url ?? null;
 }
 
 /** Clases (curso+letra) que tienen alguna salida abierta — para el flujo manual. */
