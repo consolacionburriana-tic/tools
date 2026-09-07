@@ -301,7 +301,17 @@ export function BancoPanel({
       if (!res.ok) throw new Error(d.error);
       // recargar para obtener asignacionId nuevo
       const r2 = await fetch(`/api/bancolibros/admin/clase?${qs()}`);
-      setAlumnado((await r2.json()).alumnado ?? []);
+      const nuevo: AlumnoRow[] = (await r2.json()).alumnado ?? [];
+      setAlumnado(nuevo);
+      // El lote automático se entrega en el momento, así que se marca "entregado" a la vez.
+      if (numero === 'auto') {
+        const fila = nuevo.find((x) => x.eduStudentId === a.eduStudentId);
+        if (fila?.asignacionId && !fila.entregado) {
+          if (await post('/api/bancolibros/admin/checks', { asignacionIds: [fila.asignacionId], campos: { entregado: true } })) {
+            setAlumnado((prev) => prev!.map((x) => (x.eduStudentId === a.eduStudentId ? { ...x, entregado: true } : x)));
+          }
+        }
+      }
       haptic.tap();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo asignar');
@@ -398,6 +408,8 @@ export function BancoPanel({
 
   const enBanco = useMemo(() => alumnado?.filter((a) => a.banco).length ?? 0, [alumnado]);
   const enAmpa = useMemo(() => alumnado?.filter((a) => a.ampa).length ?? 0, [alumnado]);
+  const lotesAsignados = useMemo(() => alumnado?.filter((a) => a.lote != null).length ?? 0, [alumnado]);
+  const lotesEntregados = useMemo(() => alumnado?.filter((a) => a.entregado).length ?? 0, [alumnado]);
 
   // Cursos en el orden en que aparecen en `clases` (ya vienen por etapa → curso), para las
   // filas de subtotal del resumen agregado.
@@ -577,6 +589,14 @@ export function BancoPanel({
           {/* ── Pestaña Alumnado ── */}
           {tab === 'alumnado' && (
             <div className="anim-up rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="flex flex-wrap items-center gap-3 border-b border-zinc-100 px-3.5 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                <span>
+                  Lotes asignados: <strong className="text-zinc-700 dark:text-zinc-200">{lotesAsignados}/{enBanco}</strong>
+                </span>
+                <span>
+                  Entregados: <strong className="text-zinc-700 dark:text-zinc-200">{lotesEntregados}/{lotesAsignados}</strong>
+                </span>
+              </div>
               <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 p-3 text-xs dark:border-zinc-800">
                 <span className="mr-1 text-zinc-400">Marcar a toda la clase:</span>
                 <button type="button" onClick={() => void bulkCheck('entregado')} className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
