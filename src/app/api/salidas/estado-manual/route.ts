@@ -17,6 +17,7 @@ export async function POST(request: Request) {
         fecha: t.fecha,
         importe: t.importe,
         estado: 'pendiente' as const,
+        justificanteSubidoAt: null,
       })),
     });
   } catch (error) {

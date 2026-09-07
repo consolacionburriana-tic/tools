@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   CircleSlash,
   Clock,
+  Eye,
   FileUp,
   Info,
   Link2,
@@ -39,6 +40,7 @@ interface Trip {
   fecha: string | null;
   importe: string | null;
   estado: 'pendiente' | 'no_va' | 'subido' | 'validado' | 'rechazado';
+  justificanteSubidoAt: string | null;
 }
 
 function claseDe(h: Hijo): string {
@@ -49,6 +51,11 @@ function claseDe(h: Hijo): string {
 function fechaBonita(fecha: string | null): string | null {
   if (!fecha) return null;
   return new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function fechaEnvioBonita(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 }
 
 function EstadoChip({ estado }: { estado: Trip['estado'] }) {
@@ -236,6 +243,36 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
       haptic.warning();
     } finally {
       setEnviando(false);
+    }
+  }
+
+  /** Abre en una pestaña nueva el justificante que ya se envió, para verlo sin tener que
+   *  volver a mandar uno a ciegas. Se abre la pestaña ANTES del fetch para que el navegador
+   *  no la bloquee por no venir de un clic directo. */
+  async function verJustificante(h: Hijo, t: Trip) {
+    const ventana = window.open('', '_blank');
+    try {
+      const body: Record<string, string> = { tripId: t.tripId };
+      if (h.manual) {
+        body.manualNombre = h.maskedName;
+        body.manualClase = `${h.curso ?? ''}${h.letra && h.letra !== 'PDC' ? ` ${h.letra}` : ''}`;
+      } else {
+        body.identificador = identificadorActivo;
+        body.eduStudentId = h.eduStudentId;
+      }
+      const res = await fetch('/api/salidas/justificante/ver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'No se pudo abrir el archivo');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (ventana) ventana.location.href = url;
+      else window.open(url, '_blank');
+    } catch (e) {
+      ventana?.close();
+      toast.error(e instanceof Error ? e.message : 'No se pudo abrir el archivo');
     }
   }
 
@@ -478,6 +515,23 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
                   El profesorado ha anotado que no irá a esta salida. Si es un error, subid igualmente el justificante
                   o habladlo con el tutor/a.
                 </p>
+              ) : (trip.estado === 'subido' || trip.estado === 'rechazado') ? (
+                <div className="mt-5 flex flex-wrap items-center gap-2.5 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">
+                  <Check className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    Ya enviaste el justificante{trip.justificanteSubidoAt ? ` el ${fechaEnvioBonita(trip.justificanteSubidoAt)}` : ''}.{' '}
+                    {trip.estado === 'rechazado'
+                      ? 'El equipo pide revisarlo: sube uno nuevo abajo y sustituirá al anterior.'
+                      : 'Si quieres corregirlo, sube uno nuevo abajo y sustituirá al anterior.'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void verJustificante(hijo, trip)}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-white dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/60"
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Ver archivo enviado
+                  </button>
+                </div>
               ) : null}
 
               {trip.estado !== 'validado' && (
@@ -539,18 +593,28 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
                 El equipo responsable de &quot;{trip.nombre}&quot; lo revisará.{' '}
                 {email.trim() ? 'Te hemos enviado una confirmación por email.' : ''}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setHecho(null);
-                  setTrip(null);
-                  setFile(null);
-                  void elegirHijo(hijo);
-                }}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <Bus className="h-4 w-4" /> Ver más salidas
-              </button>
+              {trips && trips.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHecho(null);
+                    setTrip(null);
+                    setFile(null);
+                    void elegirHijo(hijo);
+                  }}
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  <Bus className="h-4 w-4" /> Ver más salidas
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void verJustificante(hijo, trip)}
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  <Eye className="h-4 w-4" /> Ver archivo enviado
+                </button>
+              )}
             </div>
           </motion.div>
         )}
