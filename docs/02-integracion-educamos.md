@@ -267,8 +267,7 @@ salga un profe = llamar a esos helpers, nunca volver a juntar `[nombre, apellido
 - [x] API `POST /api/profes/admin/nombres` (guard de módulo `profes`) y tarjeta «Nombre visible»
       en `/gestion/profes`
 - [x] Enganchado en ASM, cuaderno, Puntualidad, Evaluaciones, ABC, Salidas, Horarios y Usuarios
-- [~] `src/db/sql/profes-nombre-mostrado.sql` *(pendiente de aplicar en Neon: hace falta
-      `DATABASE_URL`; también vale `pnpm db:push` si se mira antes qué hay en Neon)*
+- [~] `src/db/sql/profes-nombre-mostrado.sql` *(pendiente en Neon: `pnpm db:sql --pendientes`)*
 
 ### Tutor personal: reparto del alumnado entre los tutores de una clase (2026-09-03)
 

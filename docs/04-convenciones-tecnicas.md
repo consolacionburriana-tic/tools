@@ -25,7 +25,9 @@ pnpm build        # SIEMPRE antes de dar algo por hecho
 pnpm lint         # eslint
 pnpm typecheck    # tsc --noEmit (más rápido que build para solo tipos)
 pnpm test         # vitest — helpers puros de src/lib/*.ts (sin IO)
-pnpm db:push      # aplicar schema a Neon (drizzle-kit push)
+pnpm db:push      # aplicar schema a Neon (drizzle-kit push) — ⚠️ borra lo que no esté en schema.ts
+pnpm db:sql --pendientes # aplicar en Neon el SQL aditivo que falte (src/db/sql/pendientes.txt)
+pnpm db:sql --lista      # qué ficheros SQL hay y cuáles están pendientes
 pnpm db:studio    # inspeccionar la BBDD
 pnpm db:seed:licencias   # seeds puntuales (tsx + dotenv .env.local)
 pnpm tokens:familias     # genera los magic links de las familias de la campaña de licencias
@@ -72,6 +74,12 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
   `src/db/sql/`, como `horarios.sql` y `cuaderno-tutor.sql`.
 - **Cambios de schema siempre aditivos** vía `pnpm db:push`: añadir tablas/columnas sí; renombrar
   o borrar, solo con decisión explícita de David (hay datos reales de producción).
+- **El SQL aditivo de `src/db/sql/` se aplica con `pnpm db:sql`**, no pegándolo a mano en la
+  consola de Neon. Reglas de la casa: cada fichero es **idempotente** (`IF NOT EXISTS`,
+  `ON CONFLICT DO NOTHING`), y **al crear uno nuevo se apunta en `src/db/sql/pendientes.txt`**
+  — ese fichero es la lista de lo que le falta a Neon, y se vacía a medida que se aplica. Un
+  cambio de schema sin su línea ahí es un cambio que alguien va a dar por hecho sin estarlo
+  (pasó con `autoasm.sql`, tres días de histórico de entregas que no se guardaba).
 - **Nunca borrar filas con significado histórico**: el patrón es `active=false` (así funcionan
   alumnos de Licencias y funcionará `edu_students`). Los borrados de verdad, solo para datos
   claramente erróneos y desde paneles con confirmación.
