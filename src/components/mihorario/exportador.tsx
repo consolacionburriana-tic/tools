@@ -167,7 +167,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
           </label>
         </div>
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Huecos disponibles: <code>{'{emoji} {abrev} {materia} {clase} {clases} {aula} {profes} {actividad}'}</code>. Los que
+          Huecos disponibles: <code>{'{emoji} {abrev} {materia} {detalle} {clase} {clases} {aula} {profes} {actividad}'}</code>. Los que
           queden vacíos se recortan solos, con su separador.
         </p>
       </div>

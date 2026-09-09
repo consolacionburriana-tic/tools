@@ -32,6 +32,7 @@
 // no adivinando. Lo que no esté en ninguna leyenda se reporta como incidencia en vez de
 // colarse mal.
 
+import { compararClases } from '@/lib/cursos';
 import { type TipoTramo } from '@/lib/horarios';
 
 /** Una celda ya interpretada: lo que se convertirá en asignación + sesión. */
@@ -47,6 +48,13 @@ export interface SesionImportada {
   profeCodigos: string[];
   aulaCodigo: string | null;
   actividadCodigo: string; // 'clase' | 'apoyo_pt' | 'apoyo_al'
+  /**
+   * A qué se dedica esa hora concreta dentro de la materia. Hoy solo lo usan los **ámbitos
+   * de PDC** (la materia oficial es 'Ámbito Científico' y cada hora va a Matemáticas, a
+   * Biología o a Física y Química) y el auxiliar de conversación en inglés. Ver
+   * `NOMBRES_DETALLE`.
+   */
+  detalle: string | null;
   /** El texto original de la celda. Se guarda siempre: es lo que se enseña al revisar. */
   crudo: string;
 }
@@ -54,7 +62,7 @@ export interface SesionImportada {
 /** Lo que sale de UNA celda: puede haber más de una cosa a la misma hora. */
 export type CeldaSesion = Pick<
   SesionImportada,
-  'materiaCodigo' | 'profeCodigos' | 'aulaCodigo' | 'actividadCodigo' | 'crudo'
+  'materiaCodigo' | 'profeCodigos' | 'aulaCodigo' | 'actividadCodigo' | 'detalle' | 'crudo'
 >;
 
 export interface Leyendas {
@@ -190,6 +198,63 @@ const RE_RECREO = /^(recreo|patio|esbarjo)$/i;
 const RE_COMEDOR = /^(comedor|menjador)$/i;
 
 /**
+ * Nombres del **detalle de una hora**: lo que la celda dice ADEMÁS de la materia, en una
+ * segunda línea con un solo código.
+ *
+ * El caso gordo son los **ámbitos de PDC** y qué asignatura de verdad se da en cada hora.
+ *
+ * En Diversificación las asignaturas oficiales no son las de siempre: son *ámbitos*, y cada
+ * uno junta varias materias que se reparten las horas de la semana.
+ *
+ *   Ámbito Científico (`ACT` en 3º, `AC` en 4º) → Matemáticas, Biología y Geología, Física y Química
+ *   Ámbito Lingüístico y social (`ALS`, `AL2`) → Lengua Castellana, Valencià, Geografía e Historia
+ *   Ámbito Práctico (`APR1`, `AP`)             → Tecnología, Digitalización, Plástica (antes FOL)
+ *
+ * Por eso una celda de PDC viene en dos líneas: `'ACT - MPER0'` y debajo `'MATE'`. La
+ * primera es la materia oficial y su profe; la segunda dice **a qué se dedica esa hora**.
+ * Sin esto el importador leía dos clases simultáneas donde solo hay una.
+ *
+ * El mapa es solo para PONERLE NOMBRE al código (`MATE` → 'Matemáticas'): un código que no
+ * esté aquí se guarda tal cual, así que si un año cambia el reparto del ámbito práctico
+ * —que es el que se mueve— sigue entrando, solo que con su abreviatura. Nada depende de
+ * que esta tabla esté completa.
+ */
+export const NOMBRES_DETALLE: Record<string, string> = {
+  AUX: 'Con auxiliar de conversación',
+  MATE: 'Matemáticas', MAT: 'Matemáticas',
+  BG: 'Biología y Geología', BIO: 'Biología y Geología',
+  FQ: 'Física y Química', FYQ: 'Física y Química', FIS: 'Física y Química',
+  LEN: 'Lengua Castellana', CAS: 'Lengua Castellana',
+  VAL: 'Valencià', LCO: 'Valencià',
+  GEH: 'Geografía e Historia', GH: 'Geografía e Historia',
+  TECNO: 'Tecnología', TEC: 'Tecnología', TYD: 'Tecnología',
+  DIG: 'Digitalización',
+  EPV: 'Plástica y Visual', PLA: 'Plástica y Visual', EX: 'Plástica y Visual',
+  FOL: 'Formación y Orientación Laboral', FOP: 'Formación y Orientación Laboral',
+};
+
+/**
+ * El código de profe de la leyenda que corresponde a este texto, o `null`.
+ *
+ * Acepta que le falte el dígito del final: el fichero real trae `'ACT - MPAR'` cuando en su
+ * propia leyenda el profe es `MPAR0`. Solo se rescata si **hay un único candidato**; si
+ * conviven `MPAR0` y `MPAR1` no se elige a ninguno, que eso ya sería adivinar quién da la
+ * clase.
+ */
+function esProfeConocido(texto: string, leyendas: Leyendas): string | null {
+  const cod = (texto ?? '').trim().toUpperCase();
+  if (leyendas.profes.has(cod)) return cod;
+  if (!/^[A-ZÑ]{2,}$/.test(cod)) return null;
+  const candidatos = [...leyendas.profes.keys()].filter((k) => k.replace(/\d+$/, '') === cod);
+  return candidatos.length === 1 ? candidatos[0] : null;
+}
+
+/** ¿Esta línea es basura de maquetación? Un número suelto, un guion, un punto. */
+function esRuido(linea: string): boolean {
+  return /^[\d\s.,;:_·\-–]+$/.test(linea);
+}
+
+/**
  * Interpreta una celda del horario de una CLASE.
  *
  * Formas reales vistas en los ficheros del colegio:
@@ -230,6 +295,14 @@ export function parsearCeldaClase(
   const lineas = texto.split(/[\n\r]+/).map((l) => l.trim()).filter(Boolean);
 
   for (const linea of lineas) {
+    // Una línea que es solo un número o un guion es basura de maquetación del .docx (el
+    // fichero de la ESO trae un '0' suelto encima de una celda). Ni se importa ni se pierde:
+    // el crudo de la celda entera sigue guardado.
+    if (esRuido(linea)) {
+      incidencias.push({ tipo: 'celda_ilegible', detalle: 'Línea sin contenido útil, se ignora', crudo: linea });
+      continue;
+    }
+
     const apoyo = /^(PT|AL)\b[\s.\-–]*(.*)$/i.exec(linea);
     if (apoyo) {
       const resto = apoyo[2].trim();
@@ -250,6 +323,7 @@ export function parsearCeldaClase(
         profeCodigos: esProfe ? [codigoProfe] : [],
         aulaCodigo: null,
         actividadCodigo: apoyo[1].toUpperCase() === 'PT' ? 'apoyo_pt' : 'apoyo_al',
+        detalle: null,
         crudo: linea,
       });
       continue;
@@ -259,20 +333,32 @@ export function parsearCeldaClase(
     if (partes.length === 0) continue;
     const primera = partes[0].toUpperCase();
 
-    // Una línea que es SOLO códigos sueltos continúa la entrada anterior: es el segundo
-    // profe que entra a la misma hora ('MAT1 - RMOG0' + salto + 'MVER0'). Si en cambio
-    // empieza por una materia conocida o por PT/AL, es una entrada NUEVA en el mismo hueco
-    // (una clase y un apoyo a la vez), y eso son dos sesiones, no una fusionada.
-    const esContinuacion =
-      sesiones.length > 0 && partes.every((p) => leyendas.profes.has(p.toUpperCase()) || leyendas.aulas.has(p.toUpperCase()));
-    if (esContinuacion) {
-      const ultima = sesiones[sesiones.length - 1];
+    const ultima = sesiones[sesiones.length - 1] as CeldaSesion | undefined;
+
+    // Una línea que es SOLO códigos de profe o aula continúa la entrada anterior: es el
+    // segundo profe que entra a la misma hora ('MAT1 - RMOG0' + salto + 'MVER0').
+    if (ultima && partes.every((p) => esProfeConocido(p, leyendas) || leyendas.aulas.has(p.toUpperCase()))) {
       for (const p of partes) {
-        const cod = p.toUpperCase();
-        if (leyendas.profes.has(cod)) ultima.profeCodigos.push(cod);
-        else ultima.aulaCodigo = cod;
+        const cod = esProfeConocido(p, leyendas);
+        if (cod) ultima.profeCodigos.push(cod);
+        else ultima.aulaCodigo = p.toUpperCase();
       }
       ultima.crudo = `${ultima.crudo}\n${linea}`;
+      continue;
+    }
+
+    // Una línea de UN solo código que no es materia, ni profe, ni aula: es **el detalle de
+    // esa hora**, no otra clase. Así vienen los ámbitos de PDC ('ACT - MPER0' + salto +
+    // 'MATE') y el auxiliar de conversación ('ING2 - EMIR0' + salto + 'AUX'), y leerlo como
+    // una entrada nueva metía una clase fantasma en el hueco. Ver `NOMBRES_DETALLE`.
+    //
+    // Se cuelga de la última entrada CON MATERIA, no de la anterior sin más: en
+    // 'ING6 - CRAL0' + 'AL' + 'AUX' el auxiliar es de la clase de inglés, no del apoyo de AL
+    // que se ha colado entre medias.
+    const conMateria = [...sesiones].reverse().find((x) => x.materiaCodigo && !x.detalle);
+    if (conMateria && partes.length === 1 && !leyendas.materias.has(primera)) {
+      conMateria.detalle = NOMBRES_DETALLE[primera] ?? partes[0];
+      conMateria.crudo = `${conMateria.crudo}\n${linea}`;
       continue;
     }
 
@@ -284,12 +370,13 @@ export function parsearCeldaClase(
       profeCodigos: [],
       aulaCodigo: null,
       actividadCodigo: 'clase',
+      detalle: null,
       crudo: linea,
     };
     for (const p of partes.slice(1)) {
-      const cod = p.toUpperCase();
-      if (leyendas.profes.has(cod)) sesion.profeCodigos.push(cod);
-      else if (leyendas.aulas.has(cod)) sesion.aulaCodigo = cod;
+      const cod = esProfeConocido(p, leyendas);
+      if (cod) sesion.profeCodigos.push(cod);
+      else if (leyendas.aulas.has(p.toUpperCase())) sesion.aulaCodigo = p.toUpperCase();
       else incidencias.push({ tipo: 'codigo_desconocido', detalle: `'${p}' no está ni en profesores ni en aulas de la leyenda`, crudo: linea });
     }
     sesiones.push(sesion);
@@ -479,4 +566,156 @@ export function parsearRejillaDeFila(fila: readonly string[]): RejillaImportada 
     tramos.push({ diaSemana: dia, orden, horaInicio: h.horaInicio, horaFin: h.horaFin });
   }
   return tramos.length ? { nombre, tramos } : null;
+}
+
+// ─── De sesiones sueltas a asignaciones ───────────────────────────────────────
+
+/** Una asignación lista para escribir: qué, quién, a quién y en qué huecos de la semana. */
+export interface AsignacionAgrupada {
+  id: string;
+  actividadCodigo: string;
+  materiaCodigo: string | null;
+  materiaId: string | null;
+  detalle: string | null;
+  aulaCodigo: string | null;
+  profeCodigos: string[];
+  crudo: string;
+  /** El curso del que se saca el tramo. Todos los grupos comparten curso, y por eso rejilla. */
+  curso: string;
+  grupos: { curso: string; letra: string | null }[];
+  sesiones: { dia: number; orden: number }[];
+}
+
+/**
+ * Convierte las sesiones sueltas de todos los bloques en la lista de asignaciones.
+ *
+ * Es la parte con criterio del import, y por eso vive aquí (sin BBDD) y no en el volcado:
+ * se puede probar contra el fichero real del colegio sin Neon delante.
+ *
+ * Dos agrupaciones, en este orden:
+ *
+ * 1. **Sesiones reales.** Misma materia, mismo profe, misma hora y mismo curso en dos clases
+ *    distintas = UNA sesión con dos grupos, no dos clases simultáneas. Es la optativa que
+ *    comparten 4º A y 4º B. La regla se apoya en un hecho físico, no en una heurística: *un
+ *    profe no puede estar en dos sitios a la vez*. Y por eso el profe forma parte de la
+ *    clave: cuando María Tirado da inglés en 3º PDC, en 3º ESO A lo está dando María Remolar
+ *    a la misma hora — profes distintos, dos clases distintas, no se tocan.
+ *    Las celdas sin profe reconocido (un 'PT-' suelto) no se funden nunca: no identifican a
+ *    nadie, y fundirlas sería juntar cosas por parecido.
+ * 2. **Asignaciones.** Las N sesiones semanales de lo mismo (actividad + materia + detalle +
+ *    profes + aula + grupos) son UNA asignación puesta N veces, que es lo que hace falta
+ *    para que "quitarle Mates a este profe" sea un solo cambio.
+ *
+ * `materiaIdDe` traduce el código del fichero al id de la materia ya unificada. Cuando
+ * devuelve `null` para un código que el fichero usa pero no define, se intenta el rescate
+ * por hueco: si a esa hora ese mismo profe da una materia conocida en otra clase, es esa.
+ * Solo con **un único candidato**; en la duda no se inventa.
+ */
+export function agruparSesiones(
+  bloques: readonly ResultadoBloque[],
+  materiaIdDe: (codigo: string) => string | null,
+): AsignacionAgrupada[] {
+  const utiles = bloques.filter((b) => b.clase && b.sesiones.length > 0);
+
+  const materiaPorHueco = new Map<string, Set<string>>();
+  for (const b of utiles) {
+    for (const s of b.sesiones) {
+      const id = s.materiaCodigo ? materiaIdDe(s.materiaCodigo) : null;
+      if (!id) continue;
+      for (const p of s.profeCodigos) {
+        const k = `${s.dia}|${s.orden}|${p.toUpperCase()}`;
+        materiaPorHueco.set(k, (materiaPorHueco.get(k) ?? new Set()).add(id));
+      }
+    }
+  }
+  const rescatar = (s: { dia: number; orden: number; profeCodigos: string[] }): string | null => {
+    const candidatas = new Set<string>();
+    for (const p of s.profeCodigos) {
+      for (const id of materiaPorHueco.get(`${s.dia}|${s.orden}|${p.toUpperCase()}`) ?? []) candidatas.add(id);
+    }
+    return candidatas.size === 1 ? [...candidatas][0] : null;
+  };
+
+  interface Real {
+    curso: string;
+    dia: number;
+    orden: number;
+    actividadCodigo: string;
+    materiaCodigo: string | null;
+    materiaId: string | null;
+    detalle: string | null;
+    aulaCodigo: string | null;
+    profeCodigos: string[];
+    crudo: string;
+    grupos: Map<string, { curso: string; letra: string | null }>;
+  }
+
+  const reales = new Map<string, Real>();
+  for (const b of utiles) {
+    const clase = b.clase!;
+    const claveClase = `${clase.curso}|${clase.letra ?? ''}`;
+    for (const s of b.sesiones) {
+      const materiaId = s.materiaCodigo ? (materiaIdDe(s.materiaCodigo) ?? rescatar(s)) : null;
+      const profeCodigos = [...new Set(s.profeCodigos.map((p) => p.toUpperCase()))].sort();
+      const clave = profeCodigos.length
+        ? ['·', clase.curso, s.dia, s.orden, s.actividadCodigo, materiaId ?? s.materiaCodigo ?? '', s.detalle ?? '', profeCodigos.join('+')].join('|')
+        : ['×', claveClase, s.dia, s.orden, s.actividadCodigo, s.crudo].join('|');
+      const previa = reales.get(clave);
+      if (previa) {
+        previa.grupos.set(claveClase, { curso: clase.curso, letra: clase.letra });
+        previa.aulaCodigo ??= s.aulaCodigo;
+        continue;
+      }
+      reales.set(clave, {
+        curso: clase.curso,
+        dia: s.dia,
+        orden: s.orden,
+        actividadCodigo: s.actividadCodigo,
+        materiaCodigo: s.materiaCodigo,
+        materiaId,
+        detalle: s.detalle,
+        aulaCodigo: s.aulaCodigo,
+        profeCodigos,
+        crudo: s.crudo,
+        grupos: new Map([[claveClase, { curso: clase.curso, letra: clase.letra }]]),
+      });
+    }
+  }
+
+  const asignaciones = new Map<string, AsignacionAgrupada>();
+  for (const r of reales.values()) {
+    const grupos = [...r.grupos.values()].sort(compararClases);
+    const clave = [
+      r.actividadCodigo,
+      r.materiaId ?? r.materiaCodigo ?? '',
+      // Las horas de Matemáticas del Ámbito Científico son una asignación y las de Biología
+      // otra, aunque las dé el mismo profe: son cosas distintas dentro de la misma materia.
+      r.detalle ?? '',
+      r.profeCodigos.join('+'),
+      r.aulaCodigo ?? '',
+      grupos.map((g) => `${g.curso}|${g.letra ?? ''}`).join(','),
+      // Sin materia el texto de la celda ES la identidad ('PT- MAPI' y 'AL 5º y 6º' no son
+      // lo mismo aunque las dos sean apoyo sin profe reconocido).
+      r.materiaId ? '' : r.crudo,
+    ].join('#');
+    const previa = asignaciones.get(clave);
+    if (previa) {
+      previa.sesiones.push({ dia: r.dia, orden: r.orden });
+      continue;
+    }
+    asignaciones.set(clave, {
+      id: crypto.randomUUID(),
+      actividadCodigo: r.actividadCodigo,
+      materiaCodigo: r.materiaCodigo,
+      materiaId: r.materiaId,
+      detalle: r.detalle,
+      aulaCodigo: r.aulaCodigo,
+      profeCodigos: r.profeCodigos,
+      crudo: r.crudo,
+      curso: r.curso,
+      grupos,
+      sesiones: [{ dia: r.dia, orden: r.orden }],
+    });
+  }
+  return [...asignaciones.values()];
 }

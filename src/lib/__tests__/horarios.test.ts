@@ -293,6 +293,7 @@ describe('cuadrícula del navegador', () => {
     tipoTramo: 'sesion',
     titulo: 'Mates',
     subtitulo: null,
+    detalle: null,
     materiaId: null,
     abreviatura: null,
     actividad: 'clase',
@@ -359,8 +360,8 @@ describe('cuadrícula del navegador', () => {
 
 describe('situar "ahora" en la cuadrícula', () => {
   const filas = construirCuadricula([
-    { sesionId: '1', dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45', tipoTramo: 'sesion', titulo: 'A', subtitulo: null, materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
-    { sesionId: '2', dia: 1, tramoId: 't', horaInicio: '09:45', horaFin: '10:30', tipoTramo: 'sesion', titulo: 'B', subtitulo: null, materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
+    { sesionId: '1', dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45', tipoTramo: 'sesion', titulo: 'A', subtitulo: null, detalle: null, materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
+    { sesionId: '2', dia: 1, tramoId: 't', horaInicio: '09:45', horaFin: '10:30', tipoTramo: 'sesion', titulo: 'B', subtitulo: null, detalle: null, materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null, profes: [], grupos: [], notas: null },
   ]);
 
   it('encuentra la franja en curso un día lectivo', () => {
@@ -380,7 +381,7 @@ describe('situar "ahora" en la cuadrícula', () => {
 describe('colores por categoría', () => {
   const c = (grupos: string[], titulo = 'Mates'): CeldaHorario => ({
     sesionId: `${grupos.join()}-${titulo}`, dia: 1, tramoId: 't', horaInicio: '09:00', horaFin: '09:45',
-    tipoTramo: 'sesion', titulo, subtitulo: null, materiaId: null, abreviatura: null,
+    tipoTramo: 'sesion', titulo, subtitulo: null, detalle: null, materiaId: null, abreviatura: null,
     actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null,
     profes: [], grupos, notas: null,
   });
@@ -492,28 +493,54 @@ describe('espacios que admiten varias clases a la vez', () => {
 });
 
 describe('resumirGrupos', () => {
-  // Una optativa que comparten 4º A y 4º B NO son dos clases a la vez: es '4 ESO'.
-  it('resume en el curso cuando todos los grupos son del mismo', () => {
+  // El censo de la ESO tal cual sale del fichero real del colegio.
+  const CENSO = [
+    { curso: '3ESO', letra: 'A' }, { curso: '3ESO', letra: 'B' }, { curso: '3ESO', letra: 'PDC' },
+    { curso: '4ESO', letra: 'A' }, { curso: '4ESO', letra: 'B' }, { curso: '4ESO', letra: 'PDC' },
+  ];
+
+  // Una optativa que comparten 4º A, 4º B y el PDC NO son tres clases a la vez: es '4ESO'.
+  it('resume en el curso cuando están TODAS las clases del curso', () => {
     expect(
-      resumirGrupos([
-        { curso: '4ESO', letra: 'A' },
-        { curso: '4ESO', letra: 'B' },
-        { curso: '4ESO', letra: 'PDC' },
-      ]),
+      resumirGrupos(
+        [
+          { curso: '4ESO', letra: 'A' },
+          { curso: '4ESO', letra: 'B' },
+          { curso: '4ESO', letra: 'PDC' },
+        ],
+        CENSO,
+      ),
     ).toEqual(['4ESO']);
   });
 
+  // El PDC hace Educación Física con 3º ESO A; 3º ESO B está en otra cosa. Decir '3ESO'
+  // sería mentir, así que se enumeran — y el PDC se nombra, que si no salen dos '3ESO'.
+  it('enumera cuando falta alguna clase del curso', () => {
+    expect(
+      resumirGrupos([{ curso: '3ESO', letra: 'A' }, { curso: '3ESO', letra: 'PDC' }], CENSO),
+    ).toEqual(['3ESO A', '3ESO PDC']);
+  });
+
+  it('sin censo no se resume nunca: mejor enumerar de más que mentir', () => {
+    expect(
+      resumirGrupos([{ curso: '4ESO', letra: 'A' }, { curso: '4ESO', letra: 'B' }]),
+    ).toEqual(['4ESO A', '4ESO B']);
+  });
+
   it('un solo grupo se queda como está', () => {
-    expect(resumirGrupos([{ curso: '4ESO', letra: 'A' }])).toEqual(['4ESO A']);
+    expect(resumirGrupos([{ curso: '4ESO', letra: 'A' }], CENSO)).toEqual(['4ESO A']);
   });
 
   it('cursos distintos o subgrupos se enumeran: ahí sí hay que verlos todos', () => {
-    expect(resumirGrupos([{ curso: '3ESO', letra: 'A' }, { curso: '4ESO', letra: 'A' }])).toEqual(['3ESO A', '4ESO A']);
+    expect(resumirGrupos([{ curso: '3ESO', letra: 'A' }, { curso: '4ESO', letra: 'A' }], CENSO)).toEqual(['3ESO A', '4ESO A']);
     expect(
-      resumirGrupos([
-        { curso: '4ESO', letra: 'A', subgrupo: '1' },
-        { curso: '4ESO', letra: 'B', subgrupo: null },
-      ]),
+      resumirGrupos(
+        [
+          { curso: '4ESO', letra: 'A', subgrupo: '1' },
+          { curso: '4ESO', letra: 'B', subgrupo: null },
+        ],
+        CENSO,
+      ),
     ).toEqual(['4ESO A · 1', '4ESO B']);
   });
 });

@@ -397,8 +397,14 @@ Y dos que no eran fallos sino modelo incompleto:
   son dos clases simultáneas: es **una clase que se llama "4 ESO"**. Se detecta con un
   argumento físico, no con una heurística: *un profe no puede estar en dos sitios a la vez*,
   así que misma materia + mismo profe + misma hora + mismo curso ⇒ una sola asignación con
-  varios `hor_asignacion_grupos`. En el fichero real son 60 sesiones. `resumirGrupos()` es
-  quien las nombra en la celda.
+  varios `hor_asignacion_grupos`. En el fichero real son 28 asignaciones compartidas.
+  `resumirGrupos()` es quien las nombra, y solo resume en el curso si están **todas** sus
+  clases: '3ESO A + 3ESO PDC' no es '3ESO' porque falta B, y ahí se enumeran (con el PDC
+  nombrado, que si no salen dos filas llamadas '3ESO').
+
+  Toda esta parte —la que tiene criterio— vive en `agruparSesiones()`, en
+  `horarios-import.ts` y **sin BBDD**, para poder probarla contra los ficheros reales del
+  colegio sin Neon delante. Equivocarse ahí sale caro.
 - **Leyendas incompletas.** Los bloques de PDC traen la cuadrícula pero no todas sus
   materias en la leyenda. Se importa en **dos pasadas**: la primera junta las leyendas de
   todo el fichero, la segunda las usa de respaldo (la del propio bloque sigue mandando). Y
@@ -406,11 +412,47 @@ Y dos que no eran fallos sino modelo incompleto:
   hora en otra clase — así entra bien el `NG - MREM0` del fichero, que es un `ING` al que
   Educamos se comió la I.
 
-⚠️ **Lo que sigue sin resolver del fichero de la ESO**: los bloques de PDC usan `MATE`, `BG`,
-`FQ` y `TECNO` en celdas **sin profe**, y esos códigos no están en la leyenda de *ningún*
-bloque (la leyenda dice `MAT3`, `BIO3`, `FIS3`, `TYD3`). No hay señal para resolverlos sin
-adivinar, así que entran con el texto crudo de la celda y se reportan como incidencia. Es
-justo el caso para el que existe `hor_alias`, y necesita la pantalla de la Fase 1.
+### El PDC: la celda de dos líneas (2026-09-09, con David)
+
+Lo que parecían códigos sueltos sin resolver (`MATE`, `BG`, `FQ`, `TECNO`) resultó ser otra
+cosa, y entenderlo cambió el parser. En **Diversificación las asignaturas oficiales no son
+las de siempre: son ámbitos**, y cada ámbito junta varias materias que se reparten las horas
+de la semana:
+
+| Ámbito | Código (3º / 4º) | Y dentro, cada hora |
+|---|---|---|
+| Ámbito Científico | `ACT` / `AC` | Matemáticas · Biología y Geología · Física y Química |
+| Ámbito Lingüístico y social | `ALS` / `AL2` | Lengua Castellana · Valencià · Geografía e Historia |
+| Ámbito Práctico | `APR1` / `AP` | Tecnología · Digitalización · Plástica (antes FOL) |
+
+Por eso la celda viene en **dos líneas**: `'ACT - MPER0'` y debajo `'MATE'`. La primera es la
+materia oficial con su profe; la segunda dice **a qué se dedica esa hora concreta**. El
+importador las leía como dos entradas y metía una clase fantasma en el mismo hueco.
+
+La regla nueva es general, no un parche para PDC: *una línea con un solo código que no es ni
+materia, ni profe, ni aula, es el **detalle** de la última entrada que sí tiene materia*. Con
+eso entra también el **auxiliar de conversación** de primaria (`'ING2 - EMIR0'` + `'AUX'`),
+que llevaba diez horas colándose como una clase inventada llamada "AUX". El detalle se
+guarda en `hor_asignaciones.etiqueta`, sale en la celda debajo del nombre de la materia (que
+es lo que distingue una hora de otra cuando todas se llaman "Ámbito Científico") y es un
+hueco más de la plantilla de Mi horario (`{detalle}`).
+
+`NOMBRES_DETALLE` solo le pone nombre bonito al código (`MATE` → 'Matemáticas'). **Nada
+depende de que esa tabla esté completa**: un código que no esté se guarda tal cual, así que
+si un año cambia el reparto del ámbito práctico —que es el que se mueve— sigue entrando.
+
+Los ámbitos ordenan además dos cosas que ya estaban:
+
+- **Sí se funden** las horas que el PDC hace con su grupo de referencia: Educación Física,
+  Música, Religión o el Proyecto interdisciplinar aparecen con **la misma celda literal** en
+  3º ESO A y en 3º ESO PDC. Son una clase, y así se guardan.
+- **No se funde el inglés**, aunque caiga a la misma hora, porque el profesorado es distinto
+  (en 3º, `MPER1+MTIR0` en A y PDC; `MREM0+JGAR0` en B). El profe es la mitad de la clave de
+  fusión justamente para esto.
+
+Comprobado contra el fichero real: **0 choques de profesorado** después de agrupar, y las 2
+incidencias que quedan son un `0` de maquetación (se ignora) y un `NG - MREM0` al que
+Educamos se comió la I (se rescata por profe y hora).
 
 ### La leyenda es la que desambigua
 
@@ -630,8 +672,8 @@ alias, así que una materia arreglada a mano nunca se pierde.
       incluidos, 406 sesiones, jornada continua con dos rejillas dentro de la etapa)
 - [ ] Reimportar la ESO en Neon desde `/gestion/horarios/importar` con el código nuevo
       (la anterior se hizo con el volcado que borraba el periodo entero)
-- [ ] `hor_alias` para los códigos que el fichero de PDC usa y no define (`MATE`, `BG`,
-      `FQ`, `TECNO`) — necesita la pantalla de materias de la Fase 1
+- [x] **PDC**: ámbitos con el detalle de cada hora, y el auxiliar de conversación de primaria
+      (ver "El PDC: la celda de dos líneas")
 - [x] ~~Pantalla de importación (arrastrar el fichero) en vez del script~~ hecha
 - [ ] Resolución de códigos vía `hor_alias`, preguntando solo por los nuevos
 - [ ] Vista previa → confirmar, con bitácora en `hor_import_runs`

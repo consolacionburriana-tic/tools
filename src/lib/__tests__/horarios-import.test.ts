@@ -10,6 +10,8 @@ import {
   parsearRejillaDeFila,
   parsearTituloClase,
   unirLeyendas,
+  agruparSesiones,
+  type ResultadoBloque,
 } from '@/lib/horarios-import';
 
 // Fixtures INVENTADOS que imitan la estructura de los exports de Educamos (nombres y
@@ -276,5 +278,128 @@ describe('unirLeyendas', () => {
     });
     expect(sesiones[0].materiaCodigo).toBe('BIO3');
     expect(incidencias).toHaveLength(0);
+  });
+});
+
+
+// ─── PDC: la celda de dos líneas ──────────────────────────────────────────────
+// En Diversificación la asignatura oficial es el ÁMBITO y cada hora se dedica a una de las
+// materias que lo componen. Educamos lo escribe en dos líneas: 'ACT - MPER0' y debajo
+// 'MATE'. Leerlo como dos entradas metía una clase fantasma en el mismo hueco.
+describe('detalle de la hora (ámbitos de PDC y auxiliar de conversación)', () => {
+  const leyendas = {
+    materias: new Map([['ACT', 'Ámbito Científico'], ['ING6', 'Inglés']]),
+    profes: new Map([['MPER0', 'UNA PROFE'], ['MPAR0', 'OTRA PROFE'], ['CRAL0', 'OTRA MÁS']]),
+    aulas: new Map<string, string>(),
+  };
+
+  it('una segunda línea con un código suelto es el detalle, no otra clase', () => {
+    const { sesiones, incidencias } = parsearCeldaClase('ACT - MPER0\nMATE', leyendas);
+    expect(sesiones).toHaveLength(1);
+    expect(sesiones[0]).toMatchObject({ materiaCodigo: 'ACT', detalle: 'Matemáticas', profeCodigos: ['MPER0'] });
+    expect(incidencias).toHaveLength(0);
+  });
+
+  it('rescata el código de profe al que le falta el dígito final, si no hay duda', () => {
+    // El fichero real trae 'ACT - MPAR' cuando en su propia leyenda el profe es 'MPAR0'.
+    const { sesiones, incidencias } = parsearCeldaClase('ACT - MPAR\nFQ', leyendas);
+    expect(sesiones[0]).toMatchObject({ profeCodigos: ['MPAR0'], detalle: 'Física y Química' });
+    expect(incidencias).toHaveLength(0);
+  });
+
+  it('no rescata al profe si hay más de un candidato: ahí ya sería adivinar', () => {
+    const dosCandidatos = { ...leyendas, profes: new Map([['MPAR0', 'UNA'], ['MPAR1', 'OTRA']]) };
+    const { sesiones } = parsearCeldaClase('ACT - MPAR', dosCandidatos);
+    expect(sesiones[0].profeCodigos).toEqual([]);
+  });
+
+  it('el auxiliar de conversación se cuelga de la clase, no del apoyo que se cuela en medio', () => {
+    // Celda real de 6º de primaria: inglés, un apoyo de AL, y el auxiliar.
+    const { sesiones } = parsearCeldaClase('ING6 - CRAL0\nAL\nAUX', leyendas);
+    expect(sesiones).toHaveLength(2);
+    expect(sesiones[0]).toMatchObject({ materiaCodigo: 'ING6', detalle: 'Con auxiliar de conversación' });
+    expect(sesiones[1]).toMatchObject({ actividadCodigo: 'apoyo_al', detalle: null });
+  });
+
+  it('una línea que es solo un número es maquetación y se ignora', () => {
+    const { sesiones, incidencias } = parsearCeldaClase('0\nACT - MPER0\nMATE', leyendas);
+    expect(sesiones).toHaveLength(1);
+    expect(sesiones[0].detalle).toBe('Matemáticas');
+    expect(incidencias.map((i) => i.tipo)).toEqual(['celda_ilegible']);
+  });
+});
+
+// ─── Fusión de sesiones entre clases ──────────────────────────────────────────
+describe('agruparSesiones', () => {
+  const bloque = (curso: string, letra: string | null, celdas: [number, number, string][]): ResultadoBloque => ({
+    clase: { codigo: `${curso}${letra ?? ''}`, curso, letra, nombre: `${curso} ${letra ?? ''}` },
+    tramos: [{ orden: 1, horaInicio: '08:00', horaFin: '08:55', tipo: 'sesion' }],
+    sesiones: celdas.map(([dia, orden, texto]) => {
+      const [materia, ...profes] = texto.split(' ');
+      return {
+        dia, orden, horaInicio: '08:00', horaFin: '08:55', tipoTramo: 'sesion' as const,
+        grupos: [{ curso, letra }],
+        materiaCodigo: materia, profeCodigos: profes, aulaCodigo: null,
+        actividadCodigo: 'clase', detalle: null, crudo: texto,
+      };
+    }),
+    leyendas: { materias: new Map(), profes: new Map(), aulas: new Map() },
+    incidencias: [], notas: [],
+  });
+  const idDe = (c: string) => `m-${c}`;
+
+  it('la misma materia con el mismo profe a la misma hora en dos clases es UNA clase', () => {
+    const asigs = agruparSesiones(
+      [bloque('4ESO', 'A', [[1, 1, 'SLF MPER1']]), bloque('4ESO', 'B', [[1, 1, 'SLF MPER1']])],
+      idDe,
+    );
+    expect(asigs).toHaveLength(1);
+    expect(asigs[0].grupos).toEqual([{ curso: '4ESO', letra: 'A' }, { curso: '4ESO', letra: 'B' }]);
+    expect(asigs[0].sesiones).toHaveLength(1);
+  });
+
+  // El aviso de David: cuando María Tirado da inglés en 3º PDC, en 3º ESO B lo está dando
+  // María Remolar a la misma hora. Profes distintos ⇒ dos clases, y no se tocan.
+  it('NO funde si el profe es distinto, aunque coincidan materia, hora y curso', () => {
+    const asigs = agruparSesiones(
+      [bloque('3ESO', 'PDC', [[1, 2, 'ING MTIR0']]), bloque('3ESO', 'B', [[1, 2, 'ING MREM0']])],
+      idDe,
+    );
+    expect(asigs).toHaveLength(2);
+    expect(asigs.every((a) => a.grupos.length === 1)).toBe(true);
+  });
+
+  it('no funde entre cursos distintos: cada curso tiene su rejilla', () => {
+    const asigs = agruparSesiones(
+      [bloque('3ESO', 'A', [[1, 1, 'EFI VTAR0']]), bloque('4ESO', 'A', [[1, 1, 'EFI VTAR0']])],
+      idDe,
+    );
+    expect(asigs).toHaveLength(2);
+  });
+
+  it('junta las N horas semanales de lo mismo en UNA asignación', () => {
+    const asigs = agruparSesiones([bloque('2ESO', 'A', [[1, 1, 'MAT AAAA0'], [3, 1, 'MAT AAAA0']])], idDe);
+    expect(asigs).toHaveLength(1);
+    expect(asigs[0].sesiones).toEqual([{ dia: 1, orden: 1 }, { dia: 3, orden: 1 }]);
+  });
+
+  it('separa las horas de un ámbito por su detalle: Mates y Biología no son lo mismo', () => {
+    const b = bloque('3ESO', 'PDC', [[1, 1, 'ACT MPER0'], [2, 1, 'ACT MPER0']]);
+    b.sesiones[0].detalle = 'Matemáticas';
+    b.sesiones[1].detalle = 'Biología y Geología';
+    const asigs = agruparSesiones([b], idDe);
+    expect(asigs).toHaveLength(2);
+    expect(asigs.map((a) => a.detalle).sort()).toEqual(['Biología y Geología', 'Matemáticas']);
+  });
+
+  it('rescata la materia de un código que el fichero no define, por profe y hora', () => {
+    // 'NG - MREM0' es el 'ING' del fichero real al que Educamos se comió la I: ese profe, a
+    // esa hora, está dando inglés en la clase de al lado.
+    const conocida = bloque('4ESO', 'B', [[4, 1, 'ING MREM0']]);
+    const rota = bloque('4ESO', 'PDC', [[4, 1, 'NG MREM0']]);
+    const asigs = agruparSesiones([conocida, rota], (c) => (c === 'ING' ? 'm-ING' : null));
+    expect(asigs).toHaveLength(1);
+    expect(asigs[0].materiaId).toBe('m-ING');
+    expect(asigs[0].grupos).toHaveLength(2);
   });
 });

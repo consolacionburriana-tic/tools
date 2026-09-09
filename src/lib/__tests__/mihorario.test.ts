@@ -24,6 +24,7 @@ function celda(o: Partial<CeldaHorario>): CeldaHorario {
     tipoTramo: 'sesion',
     titulo: 'Matemáticas',
     subtitulo: null,
+    detalle: null,
     materiaId: 'mat-1',
     abreviatura: 'MAT',
     actividad: 'clase',
@@ -95,7 +96,7 @@ describe('motor de la plantilla', () => {
   });
 
   it('una plantilla con dos huecos vacíos seguidos no dobla el separador', () => {
-    const datos = { emoji: '', abrev: '', materia: '', clase: 'Guardia', clases: '', aula: '', profes: '', actividad: '' };
+    const datos = { emoji: '', abrev: '', materia: '', clase: 'Guardia', clases: '', aula: '', profes: '', actividad: '', detalle: '' };
     expect(renderizarPlantilla('{emoji} {abrev} · {clase}', datos)).toBe('Guardia');
   });
 
@@ -107,7 +108,7 @@ describe('motor de la plantilla', () => {
   it('un literal con texto (no solo separador) NUNCA se recorta, aunque el hueco esté vacío', () => {
     // Es la otra cara de la regla: el recorte automático solo se come separadores puros
     // (espacios, '·', '-'…). Un texto como '(aula: )' es cosa de quien edita la plantilla.
-    const datos = { emoji: '🔢', abrev: 'MAT', materia: '', clase: '3PRI A', clases: '', aula: '', profes: '', actividad: '' };
+    const datos = { emoji: '🔢', abrev: 'MAT', materia: '', clase: '3PRI A', clases: '', aula: '', profes: '', actividad: '', detalle: '' };
     expect(renderizarPlantilla('{clase} (aula: {aula})', datos)).toBe('3PRI A (aula: )');
   });
 
