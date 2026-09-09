@@ -143,6 +143,8 @@ export interface DatosPlantilla {
   aula: string;
   profes: string; // nombres cortos, separados por coma
   actividad: string;
+  /** A qué va la hora dentro de la materia: 'Matemáticas' en un Ámbito Científico de PDC. */
+  detalle: string;
 }
 
 export const PLANTILLA_TITULO_DEFECTO = '{emoji} {abrev} · {clase}';
@@ -210,6 +212,7 @@ export function datosPlantillaDeCelda(celda: CeldaHorario, emoji: string): Datos
     aula: celda.espacio ?? '',
     profes: celda.profes.map((p) => p.corto).join(', '),
     actividad: celda.actividadNombre,
+    detalle: celda.detalle ?? '',
   };
 }
 

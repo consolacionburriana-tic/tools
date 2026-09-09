@@ -339,6 +339,14 @@ function Celda({
       >
         {celda.titulo}
       </p>
+      {/* El detalle va ANTES que el profe y con más peso: en un ámbito de PDC todas las
+          horas se llaman igual ('Ámbito Científico') y lo que distingue una de otra es
+          justo esto — si esa hora toca Mates, Biología o Física y Química. */}
+      {celda.detalle && (
+        <p className={cn('font-medium leading-tight text-zinc-600 dark:text-zinc-300', grande ? 'text-xs' : 'line-clamp-1 text-[10px]')}>
+          {celda.detalle}
+        </p>
+      )}
       {celda.subtitulo && (
         <p className={cn('leading-tight text-zinc-500 dark:text-zinc-400', grande ? 'text-xs' : 'line-clamp-2 text-[10px]')}>
           {celda.subtitulo}
@@ -367,6 +375,9 @@ function Detalle({ celda, onCerrar }: { celda: CeldaHorario; onCerrar: () => voi
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{celda.titulo}</h3>
+            {celda.detalle && (
+              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Esta hora: {celda.detalle}</p>
+            )}
             <p className="mt-0.5 text-sm capitalize text-zinc-500 dark:text-zinc-400">
               {DIAS[celda.dia - 1]} · {celda.horaInicio}–{celda.horaFin}
             </p>

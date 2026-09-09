@@ -369,6 +369,12 @@ export interface CeldaHorario {
   tipoTramo: TipoTramo;
   titulo: string; // materia, o el nombre de la actividad si no hay materia
   subtitulo: string | null; // el grupo, el profe o el aula, según la vista
+  /**
+   * A qué se dedica esta hora dentro de la materia. Hoy son los **ámbitos de PDC**: la
+   * materia es 'Ámbito Científico' y la hora va a Matemáticas, a Biología o a Física y
+   * Química. Null en todo lo demás, que es lo normal.
+   */
+  detalle: string | null;
   materiaId: string | null; // para el emoji por materia de "Mi horario"
   abreviatura: string | null; // la de hor_materias, o null si no hay materia
   actividad: string; // código de hor_actividades ('clase', 'guardia', 'reunion'…)
@@ -454,16 +460,33 @@ function capitalizar(t: string): string {
  *
  * Cuando una optativa la comparten 4º ESO A, B y el PDC, eso **no son tres clases a la vez**:
  * es una sola clase que se llama '4ESO'. Poner los tres grupos uno detrás de otro se lee
- * como un choque, que es justo lo que no es. Si todos los grupos son del mismo curso y no
- * hay subgrupos, se resume en el curso; si no, se enumeran.
+ * como un choque, que es justo lo que no es.
+ *
+ * Pero resumir solo vale si están **todas** las clases del curso, y por eso hace falta el
+ * censo: cuando el PDC hace Educación Física con 3º ESO A (y B no está), la celda dice
+ * '3ESO A, 3ESO PDC', no '3ESO'.
  */
 export function resumirGrupos(
   grupos: readonly { curso: string; letra: string | null; subgrupo?: string | null }[],
+  censo: readonly { curso: string; letra: string | null }[] = [],
 ): string[] {
-  const enumerados = grupos.map((g) => nombreClase(g.curso, g.letra) + (g.subgrupo ? ` · ${g.subgrupo}` : ''));
-  if (grupos.length < 2) return enumerados;
+  // En un horario el PDC se nombra: '3ESO PDC'. `nombreClase()` se lo come a propósito
+  // (en Licencias un alumno de PDC es "de 3º ESO" y punto), pero aquí es un grupo con su
+  // propia cuadrícula y esconderlo dejaría dos filas llamadas '3ESO' que no son la misma.
+  const etiquetaDe = (g: { curso: string; letra: string | null; subgrupo?: string | null }) =>
+    (g.letra === 'PDC' ? `${g.curso} PDC` : nombreClase(g.curso, g.letra)) + (g.subgrupo ? ` · ${g.subgrupo}` : '');
+  const enumerados = grupos.map(etiquetaDe);
+  if (grupos.length < 2 || grupos.some((g) => g.subgrupo)) return enumerados;
   const cursos = new Set(grupos.map((g) => g.curso));
-  if (cursos.size > 1 || grupos.some((g) => g.subgrupo)) return enumerados;
+  if (cursos.size > 1) return enumerados;
+
+  // Solo se resume si están TODAS las clases del curso. '3ESO A + 3ESO PDC' no es '3ESO':
+  // faltaría 3ESO B y la celda estaría diciendo una cosa que no es. Sin censo (o si el curso
+  // no aparece en él) no se resume: mejor enumerar de más que mentir.
+  const delCurso = censo.filter((c) => c.curso === grupos[0].curso);
+  if (delCurso.length < 2) return enumerados;
+  const presentes = new Set(grupos.map((g) => g.letra ?? ''));
+  if (!delCurso.every((c) => presentes.has(c.letra ?? ''))) return enumerados;
   return [nombreClase(grupos[0].curso, null)];
 }
 

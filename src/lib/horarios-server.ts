@@ -35,7 +35,13 @@ import {
   resumirGrupos,
   type CeldaHorario,
 } from '@/lib/horarios';
-import { normalizarNombreMateria, raizMateria, type Incidencia, type ResultadoBloque } from '@/lib/horarios-import';
+import {
+  agruparSesiones,
+  normalizarNombreMateria,
+  raizMateria,
+  type Incidencia,
+  type ResultadoBloque,
+} from '@/lib/horarios-import';
 
 export interface ResumenImportacion {
   periodo: string;
@@ -218,125 +224,35 @@ export async function importarBloques(
   resumen.rejillas = filasRejilla.length;
   resumen.tramos = filasTramo.length;
 
-  // ── Sesiones reales: lo que de verdad pasa a cada hora ──────────────────────
-  // Misma materia + mismo profe + misma hora en dos clases del mismo curso = UNA sesión con
-  // dos grupos (la optativa que comparten 4º A y 4º B), no dos. La regla es segura porque un
-  // profe no puede estar en dos sitios a la vez: si coincide, es que es la misma clase.
-  // Las que no llevan profe (un 'PT-' suelto) no se funden nunca: no identifican a nadie.
-  interface SesionReal {
-    curso: string;
-    dia: number;
-    orden: number;
-    actividadCodigo: string;
-    materiaCodigo: string | null;
-    materiaId: string | null;
-    aulaCodigo: string | null;
-    profeCodigos: string[];
-    crudo: string;
-    grupos: Map<string, { curso: string; letra: string | null }>;
-  }
+  // ── Sesiones y asignaciones: la parte con criterio, y sin BBDD ──────────────
+  // Vive en `horarios-import.ts` para poder probarla contra el fichero real sin Neon
+  // delante: es donde se decide qué se funde con qué, y equivocarse ahí sale caro.
+  const asignaciones = agruparSesiones(utiles, (codigo) => materiaPorCodigo.get(codigo) ?? null);
 
-  // Rescate de códigos que el fichero usa pero no define: si a esa hora ese mismo profe
-  // está dando una materia conocida en otra clase, es esa. Con esto entra bien el 'NG -
-  // MREM0' del fichero real de la ESO, que es un 'ING' al que Educamos se comió la I.
-  const materiaPorHueco = new Map<string, Set<string>>();
-  for (const b of utiles) {
-    for (const s of b.sesiones) {
-      const id = s.materiaCodigo ? materiaPorCodigo.get(s.materiaCodigo) : undefined;
-      if (!id) continue;
-      for (const p of s.profeCodigos) {
-        const k = `${s.dia}|${s.orden}|${p.toUpperCase()}`;
-        materiaPorHueco.set(k, (materiaPorHueco.get(k) ?? new Set()).add(id));
-      }
-    }
-  }
-  const rescatarMateria = (s: { dia: number; orden: number; profeCodigos: string[] }): string | null => {
-    const candidatas = new Set<string>();
-    for (const p of s.profeCodigos) for (const id of materiaPorHueco.get(`${s.dia}|${s.orden}|${p.toUpperCase()}`) ?? []) candidatas.add(id);
-    return candidatas.size === 1 ? [...candidatas][0] : null; // en la duda, no se inventa
-  };
-
-  const reales = new Map<string, SesionReal>();
-  for (const b of utiles) {
-    const clase = b.clase!;
-    const claveClase = `${clase.curso}|${clase.letra ?? ''}`;
-    for (const s of b.sesiones) {
-      const materiaId = s.materiaCodigo
-        ? (materiaPorCodigo.get(s.materiaCodigo) ?? rescatarMateria(s))
-        : null;
-      const profeCodigos = [...new Set(s.profeCodigos)].sort();
-      const clave = profeCodigos.length
-        ? ['·', clase.curso, s.dia, s.orden, s.actividadCodigo, materiaId ?? s.materiaCodigo ?? '', profeCodigos.join('+')].join('|')
-        : ['×', claveClase, s.dia, s.orden, s.actividadCodigo, s.crudo].join('|');
-      const previa = reales.get(clave);
-      if (previa) {
-        previa.grupos.set(claveClase, { curso: clase.curso, letra: clase.letra });
-        previa.aulaCodigo ??= s.aulaCodigo;
-        continue;
-      }
-      reales.set(clave, {
-        curso: clase.curso,
-        dia: s.dia,
-        orden: s.orden,
-        actividadCodigo: s.actividadCodigo,
-        materiaCodigo: s.materiaCodigo,
-        materiaId,
-        aulaCodigo: s.aulaCodigo,
-        profeCodigos,
-        crudo: s.crudo,
-        grupos: new Map([[claveClase, { curso: clase.curso, letra: clase.letra }]]),
-      });
-    }
-  }
-
-  // ── Asignaciones: las N sesiones semanales de lo mismo, juntas ──────────────
-  // Una asignación por (actividad + materia + profes + aula + grupos). Las cuatro horas de
-  // Mates de 2ESO B son UNA asignación puesta cuatro veces, que es lo que hace falta para
-  // que "quitarle Mates a este profe" sea un solo cambio.
-  interface Asignacion {
-    id: string;
-    real: SesionReal;
-    grupos: { curso: string; letra: string | null }[];
-    sesiones: { dia: number; orden: number }[];
-  }
-  const asignaciones = new Map<string, Asignacion>();
-  for (const r of reales.values()) {
-    const grupos = [...r.grupos.values()].sort(compararClases);
-    const clave = [
-      r.actividadCodigo,
-      r.materiaId ?? r.materiaCodigo ?? '',
-      r.profeCodigos.join('+'),
-      r.aulaCodigo ?? '',
-      grupos.map((g) => `${g.curso}|${g.letra ?? ''}`).join(','),
-      // Sin materia el texto de la celda ES la identidad ('PT- MAPI' y 'AL 5º y 6º' no son
-      // lo mismo aunque las dos sean apoyo sin profe reconocido).
-      r.materiaId ? '' : r.crudo,
-    ].join('#');
-    const previa = asignaciones.get(clave);
-    if (previa) previa.sesiones.push({ dia: r.dia, orden: r.orden });
-    else asignaciones.set(clave, { id: crypto.randomUUID(), real: r, grupos, sesiones: [{ dia: r.dia, orden: r.orden }] });
-  }
-
-  await borrarAsignaciones(periodoId, [...new Set([...reales.values()].flatMap((r) => [...r.grupos.keys()]))]);
+  await borrarAsignaciones(
+    periodoId,
+    [...new Set(asignaciones.flatMap((a) => a.grupos.map((g) => `${g.curso}|${g.letra ?? ''}`)))],
+  );
 
   const filasAsig: (typeof horAsignaciones.$inferInsert)[] = [];
   const filasGrupo: (typeof horAsignacionGrupos.$inferInsert)[] = [];
   const filasProfe: (typeof horAsignacionProfes.$inferInsert)[] = [];
   const filasSesion: (typeof horSesiones.$inferInsert)[] = [];
 
-  for (const a of asignaciones.values()) {
-    const r = a.real;
+  for (const a of asignaciones) {
+    const r = a;
     filasAsig.push({
       id: a.id,
       periodoId,
       academicYear: opciones.academicYear,
       actividadId: actividadPorCodigo.get(r.actividadCodigo) ?? idClase,
       materiaId: r.materiaId,
-      // La etiqueta guarda el texto de la celda siempre que NO haya materia que pintar,
-      // incluido el caso de una materia que no estaba en la leyenda ('Otros', 'AUX'): sin
-      // esto la celda caía en el nombre de la actividad y ponía 'Clase', perdiendo lo único
-      // que decía el fichero.
-      etiqueta: r.materiaId ? null : r.crudo.slice(0, 120),
+      // La etiqueta es «lo que dice la celda además de —o en vez de— la materia»:
+      //  · con materia, el detalle de la hora ('Matemáticas' dentro del Ámbito Científico);
+      //  · sin materia, el texto crudo, incluido el caso de una materia que no estaba en la
+      //    leyenda ('Otros', 'AUX'): sin esto la celda caía en el nombre de la actividad y
+      //    ponía 'Clase', perdiendo lo único que decía el fichero.
+      etiqueta: r.materiaId ? r.detalle : r.crudo.slice(0, 120),
       espacioId: r.aulaCodigo ? (espacioPorCodigo.get(r.aulaCodigo) ?? null) : null,
       aula: r.aulaCodigo,
       origen: 'importado',
@@ -701,6 +617,16 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
   return { clases, profes, espacios: conEspacios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) };
 }
 
+/** Las clases que tienen horario en un periodo. Es el censo que necesita `resumirGrupos()`. */
+export async function getClasesDelPeriodo(periodoId: string): Promise<{ curso: string; letra: string | null }[]> {
+  const filas = await db
+    .selectDistinct({ curso: horAsignacionGrupos.curso, letra: horAsignacionGrupos.letra })
+    .from(horAsignacionGrupos)
+    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionGrupos.asignacionId))
+    .where(eq(horAsignaciones.periodoId, periodoId));
+  return filas;
+}
+
 export type VistaHorario = 'clase' | 'profe' | 'aula';
 
 /**
@@ -818,8 +744,11 @@ export async function getCeldas(
   for (const g of gruposFilas) {
     crudosPor.set(g.asignacionId, [...(crudosPor.get(g.asignacionId) ?? []), { curso: g.curso, letra: g.letra, subgrupo: g.subgrupo }]);
   }
-  // Una optativa de 4º A + 4º B se llama '4ESO', no '4ESO A, 4ESO B' (ver `resumirGrupos`).
-  for (const [id, crudos] of crudosPor) gruposPor.set(id, resumirGrupos([...crudos].sort(compararClases)));
+  // Una optativa de 4º A + 4º B + PDC se llama '4ESO', no '4ESO A, 4ESO B, 4ESO PDC'. Hace
+  // falta el censo de clases del periodo para saber si están TODAS: cuando el PDC hace
+  // Educación Física con 3º ESO A y B no está, la celda tiene que enumerarlas.
+  const censo = await getClasesDelPeriodo(periodoId);
+  for (const [id, crudos] of crudosPor) gruposPor.set(id, resumirGrupos([...crudos].sort(compararClases), censo));
 
   return filas.map((f) => {
     const profes = profesPor.get(f.asignacionId) ?? [];
@@ -842,6 +771,9 @@ export async function getCeldas(
       tipoTramo: (f.tipoTramo ?? 'sesion') as CeldaHorario['tipoTramo'],
       titulo: f.materia ?? f.etiqueta ?? f.actividadNombre,
       subtitulo,
+      // Con materia, la etiqueta es el detalle de la hora ('Matemáticas' dentro del Ámbito
+      // Científico); sin materia ya se ha usado como título y aquí sobraría.
+      detalle: f.materia ? f.etiqueta : null,
       materiaId: f.materiaId,
       abreviatura: f.materiaAbreviatura,
       actividad: f.actividad,
@@ -890,6 +822,7 @@ export async function getTramosNoLectivos(
       tipoTramo: t.tipo as CeldaHorario['tipoTramo'],
       titulo: t.tipo === 'recreo' ? 'Patio' : 'Comedor',
       subtitulo: null,
+      detalle: null,
       materiaId: null,
       abreviatura: null,
       actividad: t.tipo,
