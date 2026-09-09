@@ -18,6 +18,8 @@ import {
   type FilaCsv,
 } from '@/lib/autoasm';
 import {
+  aplicarAjustes,
+  crearFila,
   cursoDeCourseNumber,
   darDeBaja,
   editarFila,
@@ -517,5 +519,75 @@ describe('editarFila', () => {
     const ada = proyecto.archivos.students.find((f) => f.person_id === '111');
     expect([ada?.first_name, ada?.grade_level]).toEqual(['Ada Augusta', 'ESO 1B']);
     expect(editarFila(proyectoCon(), 'students', 'noexiste', { first_name: 'X' }).error).toMatch(/ya no está/);
+  });
+});
+
+describe('crearFila', () => {
+  const proyectoCon = (archivos = proyectoDePrueba()) => ({ ...proyectoVacio(), archivos });
+
+  it('da de alta la cuenta institucional que no está en ninguna base de datos', () => {
+    const p = proyectoCon();
+    const { proyecto, error, clave } = crearFila(p, 'staff', {
+      person_id: 'cuentadesupervision',
+      first_name: 'Cuenta',
+      last_name: 'De Supervisión',
+      email_address: 'Supervision@EJ.com',
+    });
+    expect([error, clave]).toEqual([null, 'cuentadesupervision']);
+    const nueva = proyecto.archivos.staff.find((f) => f.person_id === 'cuentadesupervision');
+    expect(nueva?.email_address).toBe('supervision@ej.com'); // normalizado
+    expect(nueva?.location_id).toBe(p.opciones.locationId); // el centro se rellena solo
+    // Cabeceras completas: un CSV con filas de distinto ancho no lo traga ASM.
+    expect(Object.keys(nueva ?? {})).toEqual(cabecerasDe('staff'));
+    expect(proyecto.historial.at(-1)?.texto).toContain('Alta a mano en staff.csv');
+  });
+
+  it('exige identificador, y que no lo tenga ya nadie de toda la organización', () => {
+    const p = proyectoCon();
+    expect(crearFila(p, 'staff', { first_name: 'Sin', last_name: 'Id' }).error).toMatch(/Hace falta el person_id/);
+    // El person_id de un alumno tampoco vale para un profe: es único en TODA la organización.
+    expect(crearFila(p, 'staff', { person_id: '111', first_name: 'A', last_name: 'B' }).error).toMatch(/students.csv/);
+    expect(crearFila(p, 'staff', { person_id: 'gracehopper', first_name: 'A', last_name: 'B' }).error).toMatch(/staff.csv/);
+  });
+
+  it('no deja una fila a medias ni una referencia huérfana', () => {
+    const p = proyectoCon();
+    expect(crearFila(p, 'staff', { person_id: 'x' }).error).toMatch(/obligatorio/);
+    expect(crearFila(p, 'classes', { class_id: 'Cls-X', class_number: 'Plástica', course_id: 'Curso-Fantasma' }).error).toMatch(/quedaría huérfana/);
+    // Y los profes de una clase van en su ficha, no aquí.
+    expect(crearFila(p, 'classes', { class_id: 'Cls-X', class_number: 'X', course_id: 'Curso-1A', instructor_id: 'gracehopper' }).error).toMatch(/ficha de la clase/);
+  });
+
+  it('las matrículas no se crean a mano: se rehacen solas', () => {
+    expect(crearFila(proyectoCon(), 'rosters', { roster_id: 'rst09999' }).error).toMatch(/no se crean a mano/);
+  });
+});
+
+describe('aplicarAjustes', () => {
+  const proyectoCon = (archivos = proyectoDePrueba()) => ({ ...proyectoVacio(), archivos });
+
+  it('vuelve a poner lo escrito a mano después de traer del centro', () => {
+    const { proyecto, aplicados, huerfanos } = aplicarAjustes(proyectoCon(), [
+      { archivo: 'staff', clave: 'gracehopper', campo: 'email_address', valor: ' GRACE.H@ej.com ' },
+    ]);
+    expect([aplicados, huerfanos]).toEqual([1, []]);
+    expect(proyecto.archivos.staff[0].email_address).toBe('grace.h@ej.com');
+  });
+
+  it('lo que ya está igual no cuenta como cambio', () => {
+    const r = aplicarAjustes(proyectoCon(), [
+      { archivo: 'staff', clave: 'gracehopper', campo: 'email_address', valor: 'grace@ej.com' },
+    ]);
+    expect(r.aplicados).toBe(0);
+  });
+
+  it('un ajuste sin fila (o de un campo que no se toca) es huérfano, no un error', () => {
+    const ajustes = [
+      { archivo: 'staff' as const, clave: 'yanoesta', campo: 'email_address', valor: 'x@ej.com' },
+      { archivo: 'students' as const, clave: '111', campo: 'person_id', valor: '999' },
+    ];
+    const r = aplicarAjustes(proyectoCon(), ajustes);
+    expect([r.aplicados, r.huerfanos.length]).toEqual([0, 2]);
+    expect(r.proyecto.archivos.students[0].person_id).toBe('111'); // la clave, intacta
   });
 });

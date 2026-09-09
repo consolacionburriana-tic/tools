@@ -102,14 +102,6 @@ normalización SQL que el documento del tutor.
   `src/db/sql/cuaderno-plantillas-etapas.sql` y se quita de `schema.ts` y de
   `etapasDePlantilla()`.
 
-### AUTOASM: crear filas a mano (sin decidir)
-Desde 2026-09-09 se pueden **editar** los campos de una fila en su ficha (para las cuentas
-de servicio y supervisión de Apple, que no están en Educamos). Lo que sigue sin poderse es
-**crear una fila nueva** a mano: si algún día hace falta otra cuenta institucional, hoy hay
-que meterla en el ZIP a mano o duplicarla fuera. `editarFila()` ya tiene las validaciones
-(clave, únicos, obligatorios), así que un `crearFila()` al lado sería poca cosa. No urge:
-esas cuentas se crean una vez cada muchos años.
-
 ### Salidas: flecos
 - Export CSV del seguimiento de una salida (los recordatorios de pago y el enlace de
   entradas manuales ya están, 2026-07-11).
@@ -153,11 +145,12 @@ Recopilados de las fichas, para verlos de un vistazo:
   vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`).
   No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
-- **Aplicar dos SQL aditivos en Neon** (sesión 2026-09-09, hechos en código y probados con
+- **Aplicar tres SQL aditivos en Neon** (sesión 2026-09-09, hechos en código y probados con
   `pnpm test`/`build`, pero sin `DATABASE_URL` en la sesión): `cuaderno-plantillas-etapas.sql`
-  (plantilla para varias etapas) y `profes-nombre-mostrado.sql` (nombre visible del
-  profesorado). Los dos son idempotentes; también valdría `pnpm db:push` mirando antes qué hay
-  en Neon.
+  (plantilla para varias etapas), `profes-nombre-mostrado.sql` (nombre visible del
+  profesorado) y `autoasm.sql` (que ya estaba pendiente y ahora trae también `asm_ajustes`,
+  lo escrito a mano en los ficheros de ASM). Todos idempotentes; también valdría
+  `pnpm db:push` mirando antes qué hay en Neon.
 - **Mi horario** (ficha `20`): en la consola de administración de Google Workspace, añadir
   el scope `https://www.googleapis.com/auth/calendar` al Client ID que ya tiene delegación
   de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin

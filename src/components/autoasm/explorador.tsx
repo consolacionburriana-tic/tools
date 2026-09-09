@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Pin,
   Plus,
   Search,
   Tablet,
@@ -38,7 +39,14 @@ import {
   type CampoAsm,
   type FilaCsv,
 } from '@/lib/autoasm';
-import { darDeBaja, editarFila, type ProyectoAsm } from '@/lib/autoasm-construir';
+import {
+  ARCHIVOS_CREABLES,
+  crearFila,
+  darDeBaja,
+  editarFila,
+  type AjusteAsm,
+  type ProyectoAsm,
+} from '@/lib/autoasm-construir';
 import { ESTILO, num } from '@/components/autoasm/paleta';
 import { useProyecto } from '@/components/autoasm/proyecto-store';
 import { descargarCsv } from '@/components/autoasm/descargas';
@@ -70,6 +78,7 @@ export function ExploradorAsm({
   const [abierta, setAbierta] = useState<string | null>(abrirInicial ?? null); // clave de la fila abierta
   const [verVacias, setVerVacias] = useState(false);
   const [verArchivados, setVerArchivados] = useState(false);
+  const [creando, setCreando] = useState(false);
 
   const espec = ESPEC[archivo];
   const estilo = ESTILO[archivo];
@@ -152,6 +161,16 @@ export function ExploradorAsm({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {ARCHIVOS_CREABLES.includes(archivo) && (
+                <button
+                  type="button"
+                  onClick={() => { setCreando(true); haptic.tap(); }}
+                  disabled={!proyecto}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nueva fila</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -338,6 +357,16 @@ export function ExploradorAsm({
           </>
         )}
       </main>
+
+      {proyecto && creando && (
+        <NuevaFila
+          archivo={archivo}
+          proyecto={proyecto}
+          onCerrar={() => setCreando(false)}
+          onGuardar={(p) => guardar(p)}
+          onCreada={(nueva) => { setCreando(false); setAbierta(nueva); }}
+        />
+      )}
 
       {proyecto && filaAbierta && indice && (
         <Ficha
@@ -546,11 +575,22 @@ function Ficha({
             ))}
           </dl>
           <p className="text-[11px] text-zinc-500">
-            Los campos en blanco se escriben aquí mismo y se guardan al salir del recuadro. El identificador y las
-            referencias a otros ficheros no se tocan: cambiar un <code>person_id</code> no renombra a nadie en ASM, crea
-            una cuenta nueva.
-            {(archivo === 'students' || archivo === 'staff') &&
-              ' Si esta persona está en Educamos, el siguiente «traer del centro» volverá a pisar lo que escribas; las cuentas que no salen de Educamos (servicio, supervisión, iPads compartidos) no se tocan nunca.'}
+            Los campos se escriben aquí mismo y se guardan al salir del recuadro. Lo que escribas queda{' '}
+            <strong>fijado</strong> (el candado verde): se guarda en la base de datos del colegio y se vuelve a poner
+            después de cada «traer del centro», así que ya no se pierde ni al cambiar de dispositivo. El identificador y
+            las referencias a otros ficheros no se tocan: cambiar un <code>person_id</code> no renombra a nadie en ASM,
+            crea una cuenta nueva.
+            {archivo === 'staff' && (
+              <>
+                {' '}
+                Si lo que quieres es cambiarle el nombre a un profe <em>en todas partes</em> (correos, cuaderno,
+                paneles), hazlo en{' '}
+                <Link href="/gestion/profes" className="underline">
+                  Profesorado → Nombre visible
+                </Link>
+                .
+              </>
+            )}
           </p>
 
           {(archivo === 'students' || archivo === 'staff') && (
@@ -606,10 +646,130 @@ function Ficha({
 }
 
 /**
+ * Dar de alta una fila a mano. Para lo que no sale de ninguna base de datos del colegio:
+ * la cuenta de servicio o de supervisión que pide Apple, un curso o una clase que no está
+ * en ningún horario.
+ *
+ * Al crear sí se pide el identificador —es lo que ASM usa para siempre para reconocer la
+ * fila— y se admiten las referencias a otro fichero, comprobando que existan. Lo que no se
+ * rellene sale vacío, y `crearFila` se queja antes de guardar si falta algo obligatorio.
+ */
+function NuevaFila({
+  archivo,
+  proyecto,
+  onCerrar,
+  onGuardar,
+  onCreada,
+}: {
+  archivo: ArchivoAsm;
+  proyecto: ProyectoAsm;
+  onCerrar: () => void;
+  onGuardar: (p: ProyectoAsm) => { ok: boolean; error?: string };
+  onCreada: (clave: string) => void;
+}) {
+  const espec = ESPEC[archivo];
+  // Los instructores de una clase se ponen luego en su ficha, con nombres en vez de ids.
+  const campos = espec.campos.filter((c) => !c.nombre.startsWith('instructor_id'));
+  // El centro ya viene puesto: es el mismo para todas las filas del proyecto.
+  const [valores, setValores] = useState<Record<string, string>>(() => {
+    const inicial: Record<string, string> = {};
+    if (espec.campos.some((c) => c.nombre === 'location_id')) inicial.location_id = proyecto.opciones.locationId;
+    return inicial;
+  });
+
+  function crear() {
+    const { proyecto: siguiente, error, clave } = crearFila(proyecto, archivo, valores);
+    if (error || !clave) {
+      toast.error(error ?? 'No se ha podido crear');
+      haptic.warning();
+      return;
+    }
+    const r = onGuardar(siguiente);
+    if (!r.ok && r.error) toast.warning(r.error);
+    toast.success(`Alta en ${espec.fichero}: ${clave}.`);
+    haptic.success();
+    onCreada(clave);
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal>
+      <button type="button" aria-label="Cerrar" onClick={onCerrar} className="absolute inset-0 bg-zinc-900/40 backdrop-blur-[1px]" />
+      <div className="relative flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-zinc-200 bg-white/95 p-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-wide text-zinc-400">Nueva fila</p>
+            <p className="truncate font-semibold text-zinc-900 dark:text-zinc-100">{espec.titulo}</p>
+            <p className="text-xs text-zinc-500">{espec.descripcion}</p>
+          </div>
+          <button type="button" onClick={onCerrar} className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <dl className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+            {campos.map((campo) => (
+              <div key={campo.nombre} className="px-3 py-2">
+                <dt className="flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-[11px] text-zinc-400">{campo.nombre}</span>
+                  <span className="text-[11px] text-zinc-400">
+                    {campo.nombre === espec.clave ? 'identificador' : campo.obligatorio ? 'obligatorio' : 'opcional'}
+                  </span>
+                </dt>
+                <dd className="mt-0.5">
+                  <input
+                    value={valores[campo.nombre] ?? ''}
+                    onChange={(e) => setValores((v) => ({ ...v, [campo.nombre]: e.target.value }))}
+                    spellCheck={false}
+                    autoCapitalize={campo.nombre === 'email_address' || campo.nombre === 'sis_username' ? 'none' : undefined}
+                    placeholder={campo.obligatorio ? 'Hace falta un valor' : 'En blanco'}
+                    aria-label={campo.etiqueta}
+                    className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  />
+                </dd>
+                <p className="mt-0.5 text-[11px] text-zinc-500">{campo.ayuda}</p>
+              </div>
+            ))}
+          </dl>
+
+          <p className="text-[11px] text-zinc-500">
+            El identificador no se puede cambiar después: en ASM, cambiarlo no renombra nada, crea una fila nueva. Esta
+            alta vive en el borrador de este dispositivo; para que aguante el próximo «traer del centro», rellena luego
+            sus campos en la ficha (quedan fijados con el candado verde).
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={crear}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+            >
+              <Plus className="h-4 w-4" /> Crear la fila
+            </button>
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="inline-flex min-h-11 items-center rounded-xl border border-zinc-200 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Un campo de una fila, escribible en el sitio. Guarda al salir del recuadro (Enter
  * también, Esc deshace) y solo si de verdad ha cambiado; si `editarFila` lo rechaza —un
  * correo repetido, un obligatorio en blanco— se dice por qué y el recuadro vuelve a lo
  * que había, que es lo que está en el fichero.
+ *
+ * Y se guarda en dos sitios, que es lo importante: en el borrador del navegador (efecto
+ * inmediato) y **en Neon** como ajuste fijado, para que el siguiente «traer del centro»
+ * —que rehace las filas de quien está en `edu_*`— no se lo lleve por delante. El candado
+ * de al lado suelta el ajuste cuando ya no haga falta.
  */
 function CampoEscribible({
   archivo,
@@ -627,8 +787,12 @@ function CampoEscribible({
   onGuardar: (p: ProyectoAsm) => { ok: boolean; error?: string };
 }) {
   const [texto, setTexto] = useState(valor);
+  const [ocupado, setOcupado] = useState(false);
+  const ajustes = proyecto.ajustes ?? [];
+  const esteAjuste = (a: AjusteAsm) => a.archivo === archivo && a.clave === clave && a.campo === campo.nombre;
+  const fijado = ajustes.some(esteAjuste);
 
-  function guardar(nuevo: string) {
+  async function guardar(nuevo: string) {
     if (nuevo.trim() === valor.trim()) return;
     const { proyecto: siguiente, error } = editarFila(proyecto, archivo, clave, { [campo.nombre]: nuevo });
     if (error) {
@@ -640,39 +804,103 @@ function CampoEscribible({
     const r = onGuardar(siguiente);
     if (!r.ok && r.error) toast.warning(r.error);
     else haptic.success();
+
+    // Que se quede: el borrador es de este dispositivo y lo pisa el próximo sync.
+    setOcupado(true);
+    try {
+      const guardadoValor = siguiente.archivos[archivo].find((f) => f[ESPEC[archivo].clave] === clave)?.[campo.nombre] ?? '';
+      const res = await fetch('/api/autoasm/admin/ajustes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archivo, clave, campo: campo.nombre, valor: guardadoValor }),
+      });
+      const datos = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(datos.error ?? 'No se ha podido guardar en Neon');
+      onGuardar({
+        ...siguiente,
+        ajustes: [...ajustes.filter((a) => !esteAjuste(a)), { archivo, clave, campo: campo.nombre, valor: guardadoValor }],
+      });
+    } catch (e) {
+      toast.warning(
+        `${e instanceof Error ? e.message : 'No se ha podido guardar en Neon'} — el cambio está en este dispositivo, pero el próximo «traer del centro» lo pisará.`,
+        { duration: 10000 },
+      );
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function soltar() {
+    setOcupado(true);
+    try {
+      const res = await fetch('/api/autoasm/admin/ajustes', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archivo, clave, campo: campo.nombre }),
+      });
+      const datos = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(datos.error ?? 'No se ha podido soltar');
+      onGuardar({ ...proyecto, ajustes: ajustes.filter((a) => !esteAjuste(a)) });
+      toast.success('Suelto: el valor se queda como está, pero el próximo «traer del centro» pondrá lo que diga el centro.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se ha podido soltar');
+    } finally {
+      setOcupado(false);
+    }
   }
 
   const clases =
-    'min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
+    'min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
 
   // La política de contraseña es un enum de ASM (4, 6 u 8): un desplegable evita el 5.
-  if (campo.nombre === 'password_policy') {
-    return (
-      <select value={texto} onChange={(e) => { setTexto(e.target.value); guardar(e.target.value); }} className={clases}>
+  const control =
+    campo.nombre === 'password_policy' ? (
+      <select
+        value={texto}
+        disabled={ocupado}
+        onChange={(e) => { setTexto(e.target.value); void guardar(e.target.value); }}
+        className={clases}
+      >
         <option value="">— sin política —</option>
         {POLITICAS_PASSWORD.map((p) => (
           <option key={p} value={p}>{p}</option>
         ))}
       </select>
+    ) : (
+      <input
+        value={texto}
+        disabled={ocupado}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={(e) => void guardar(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') { setTexto(valor); e.currentTarget.blur(); }
+        }}
+        inputMode={campo.nombre === 'email_address' ? 'email' : undefined}
+        autoCapitalize={campo.nombre === 'email_address' || campo.nombre === 'sis_username' ? 'none' : undefined}
+        spellCheck={false}
+        placeholder={campo.obligatorio ? 'Hace falta un valor' : 'En blanco'}
+        aria-label={campo.etiqueta}
+        className={clases}
+      />
     );
-  }
 
   return (
-    <input
-      value={texto}
-      onChange={(e) => setTexto(e.target.value)}
-      onBlur={(e) => guardar(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-        if (e.key === 'Escape') { setTexto(valor); e.currentTarget.blur(); }
-      }}
-      inputMode={campo.nombre === 'email_address' ? 'email' : undefined}
-      autoCapitalize={campo.nombre === 'email_address' || campo.nombre === 'sis_username' ? 'none' : undefined}
-      spellCheck={false}
-      placeholder={campo.obligatorio ? 'Hace falta un valor' : 'En blanco'}
-      aria-label={campo.etiqueta}
-      className={clases}
-    />
+    <div className="flex items-center gap-1.5">
+      {control}
+      {fijado && (
+        <button
+          type="button"
+          onClick={() => void soltar()}
+          disabled={ocupado}
+          title="Fijado a mano: aguanta el próximo «traer del centro». Toca para soltarlo."
+          aria-label="Soltar el valor fijado a mano"
+          className="shrink-0 rounded-lg border border-emerald-200 p-2 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+        >
+          <Pin className="h-4 w-4" />
+        </button>
+      )}
+    </div>
   );
 }
 

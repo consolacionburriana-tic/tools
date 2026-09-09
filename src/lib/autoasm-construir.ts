@@ -81,6 +81,12 @@ export interface ProyectoAsm {
   compartidas: string[];
   /** Pequeño historial de lo que se ha hecho, para saber de dónde sale el proyecto. */
   historial: { fecha: string; texto: string }[];
+  /**
+   * Copia de los campos fijados a mano que hay en Neon (`asm_ajustes`). La de verdad es la
+   * de Neon; esta está aquí para que la ficha pueda marcar qué campo está fijado sin
+   * preguntar por cada fila. Se refresca al traer del centro.
+   */
+  ajustes?: AjusteAsm[];
 }
 
 /** Cursos del centro de menor a mayor, para el selector "alumnado desde". */
@@ -679,16 +685,53 @@ function tutoresDelNivel(equipos: EquiposCentro, courseNumber: string): string[]
   return (equipos?.tutorias ?? []).filter((t) => t.curso === nivel.curso).map((t) => t.email);
 }
 
-// ─── Editar una fila a mano ───────────────────────────────────────────────────
+// ─── Editar y crear filas a mano ──────────────────────────────────────────────
+//
+// Casi todo lo que hay en estos ficheros se trae de la BBDD central o se sube en el ZIP
+// del año pasado, y así debe seguir. Pero hay filas que **no están en ninguna base de
+// datos del colegio**: las cuentas de servicio y de supervisión que pide Apple, los iPads
+// compartidos, alguna cuenta de dirección. A esas, si les falta el correo o no existen
+// todavía, no hay de dónde traerlas: se escriben aquí.
+
+/**
+ * Lo que ASM comprobaría de todas formas, dicho antes de guardar. Devuelve el motivo del
+ * rechazo, o `null` si el valor vale. `clave` es la fila que se está tocando (se excluye
+ * de las comprobaciones de unicidad; al crear, es la clave nueva).
+ */
+function motivoDeRechazo(
+  archivo: ArchivoAsm,
+  archivos: Archivos,
+  clave: string,
+  campo: string,
+  valor: string,
+): string | null {
+  const espCampo = ESPEC[archivo].campos.find((c) => c.nombre === campo);
+  if (!espCampo) return `«${campo}» no es un campo de ${ESPEC[archivo].fichero}.`;
+  if (valor === '' && espCampo.obligatorio) {
+    return `«${espCampo.etiqueta}» es obligatorio en ASM: no puede quedar en blanco.`;
+  }
+  if (campo === 'email_address' && valor !== '' && !emailValido(valor)) {
+    return `«${valor}» no tiene forma de correo. ASM rechazaría el fichero.`;
+  }
+  // Correo y usuario SIS son únicos en TODA la organización: alumnado y profesorado juntos.
+  if ((campo === 'email_address' || campo === 'sis_username') && valor !== '') {
+    const duena = [...archivos.students, ...archivos.staff].find(
+      (f) => f.person_id !== clave && (f[campo] ?? '').trim().toLowerCase() === valor.toLowerCase(),
+    );
+    if (duena) {
+      const quien = `${duena.first_name ?? ''} ${duena.last_name ?? ''}`.trim() || duena.person_id;
+      return `Ese ${campo === 'email_address' ? 'correo' : 'usuario'} ya lo tiene ${quien} (${duena.person_id}). En ASM tiene que ser único.`;
+    }
+  }
+  return null;
+}
+
+/** Los campos se guardan como van a salir en el CSV: sin espacios y el correo en minúscula. */
+const normalizarValor = (campo: string, crudo: string): string =>
+  campo === 'email_address' ? crudo.trim().toLowerCase() : crudo.trim();
 
 /**
  * Cambia campos de una fila del proyecto.
- *
- * Casi todo lo que hay en estos ficheros se trae de la BBDD central o se sube en el ZIP
- * del año pasado, y así debe seguir. Pero hay filas que **no están en ninguna base de
- * datos del colegio** —las cuentas de servicio y de supervisión que Apple pide, los iPads
- * compartidos, alguna cuenta de dirección— y a esas, si les falta el correo, no había
- * forma de arreglarlas: solo archivar o dar de baja. Esto es esa forma.
  *
  * Lo que NO deja hacer, porque rompería algo de verdad:
  *   - tocar la clave de la fila o una referencia a otro fichero (ver `campoEditable`);
@@ -697,8 +740,8 @@ function tutoresDelNivel(equipos: EquiposCentro, courseNumber: string): string[]
  *   - repetir un `sis_username`, que también es único en toda la organización.
  *
  * Devuelve el proyecto ya normalizado (`limpiarArchivos`), o el de entrada intacto y el
- * motivo en `error`. Aviso para quien lo llame: lo editado a mano en una persona que SÍ
- * está en Educamos se vuelve a pisar en el siguiente "traer del centro".
+ * motivo en `error`. Para que lo editado sobreviva al siguiente "traer del centro" hay que
+ * guardarlo además como ajuste en Neon (`asm_ajustes`, ver `aplicarAjustes`).
  */
 export function editarFila(
   proyecto: ProyectoAsm,
@@ -714,25 +757,11 @@ export function editarFila(
 
   const fila = { ...filas[indice] };
   for (const [campo, crudo] of Object.entries(cambios)) {
-    const espCampo = espec.campos.find((c) => c.nombre === campo);
-    if (!espCampo) return fallo(`«${campo}» no es un campo de ${espec.fichero}.`);
+    if (!espec.campos.some((c) => c.nombre === campo)) return fallo(`«${campo}» no es un campo de ${espec.fichero}.`);
     if (!campoEditable(archivo, campo)) return fallo(`«${campo}» no se puede cambiar a mano.`);
-
-    const valor = campo === 'email_address' ? crudo.trim().toLowerCase() : crudo.trim();
-    if (valor === '' && espCampo.obligatorio) return fallo(`«${espCampo.etiqueta}» es obligatorio en ASM: no puede quedar en blanco.`);
-    if (campo === 'email_address' && valor !== '' && !emailValido(valor)) {
-      return fallo(`«${valor}» no tiene forma de correo. ASM rechazaría el fichero.`);
-    }
-    // Correo y usuario SIS son únicos en TODA la organización: alumnado y profesorado juntos.
-    if ((campo === 'email_address' || campo === 'sis_username') && valor !== '') {
-      const duena = [...proyecto.archivos.students, ...proyecto.archivos.staff].find(
-        (f) => f.person_id !== clave && (f[campo] ?? '').trim().toLowerCase() === valor.toLowerCase(),
-      );
-      if (duena) {
-        const quien = `${duena.first_name ?? ''} ${duena.last_name ?? ''}`.trim() || duena.person_id;
-        return fallo(`Ese ${campo === 'email_address' ? 'correo' : 'usuario'} ya lo tiene ${quien} (${duena.person_id}). En ASM tiene que ser único.`);
-      }
-    }
+    const valor = normalizarValor(campo, crudo);
+    const motivo = motivoDeRechazo(archivo, proyecto.archivos, clave, campo, valor);
+    if (motivo) return fallo(motivo);
     fila[campo] = valor;
   }
 
@@ -745,6 +774,145 @@ export function editarFila(
       actualizado: new Date().toISOString(),
     },
     error: null,
+  };
+}
+
+/** Ficheros en los que se puede dar de alta una fila a mano. */
+export const ARCHIVOS_CREABLES: readonly ArchivoAsm[] = ['students', 'staff', 'courses', 'classes', 'locations'];
+
+/**
+ * Da de alta una fila a mano: la cuenta institucional que Apple pide y que no existe en
+ * ningún sitio del colegio, un curso o una clase que no sale del horario.
+ *
+ * Las matrículas (`rosters.csv`) no se crean así a propósito: se rehacen solas a partir de
+ * los grupos de cada clase, y una fila suelta ahí desaparecería en la siguiente limpieza.
+ *
+ * Al crear sí se pide la clave (es lo que la identifica en ASM para siempre) y se admiten
+ * las referencias a otro fichero, comprobando que existan. Lo que no se da, sale vacío;
+ * `location_id` se rellena solo con el centro del proyecto.
+ */
+export function crearFila(
+  proyecto: ProyectoAsm,
+  archivo: ArchivoAsm,
+  valores: Record<string, string>,
+): { proyecto: ProyectoAsm; error: string | null; clave: string | null } {
+  const fallo = (error: string) => ({ proyecto, error, clave: null });
+  const espec = ESPEC[archivo];
+  if (!ARCHIVOS_CREABLES.includes(archivo)) {
+    return fallo(`Las filas de ${espec.fichero} no se crean a mano: salen de los grupos de cada clase.`);
+  }
+
+  const fila: FilaCsv = {};
+  for (const cabecera of cabecerasDe(archivo)) fila[cabecera] = '';
+  if ('location_id' in fila) fila.location_id = proyecto.opciones.locationId;
+
+  const clave = normalizarValor(espec.clave, valores[espec.clave] ?? '');
+  if (clave === '') return fallo(`Hace falta el ${espec.clave}: es lo que identifica la fila en ASM para siempre.`);
+  // El person_id es único en TODA la organización, no solo en su fichero.
+  const dondeMirar: ArchivoAsm[] = archivo === 'students' || archivo === 'staff' ? ['students', 'staff'] : [archivo];
+  for (const otro of dondeMirar) {
+    if (proyecto.archivos[otro].some((f) => f[ESPEC[otro].clave] === clave)) {
+      return fallo(`Ya hay una fila con ese ${espec.clave} en ${ESPEC[otro].fichero}. En ASM los identificadores no se repiten.`);
+    }
+  }
+  fila[espec.clave] = clave;
+
+  for (const [campo, crudo] of Object.entries(valores)) {
+    if (campo === espec.clave) continue;
+    const espCampo = espec.campos.find((c) => c.nombre === campo);
+    if (!espCampo) return fallo(`«${campo}» no es un campo de ${espec.fichero}.`);
+    if (campo.startsWith('instructor_id')) {
+      return fallo('Los profes de una clase se ponen en la ficha de la clase, con sus nombres.');
+    }
+    const valor = normalizarValor(campo, crudo);
+    // Una referencia tiene que apuntar a algo que exista, o la fila nace huérfana.
+    if (espCampo.enlace && valor !== '') {
+      const especDestino = ESPEC[espCampo.enlace];
+      if (!proyecto.archivos[espCampo.enlace].some((f) => f[especDestino.clave] === valor)) {
+        return fallo(`No hay ningún «${valor}» en ${especDestino.fichero}, así que la fila quedaría huérfana.`);
+      }
+    }
+    fila[campo] = valor;
+  }
+
+  for (const espCampo of espec.campos) {
+    const motivo = motivoDeRechazo(archivo, proyecto.archivos, clave, espCampo.nombre, fila[espCampo.nombre] ?? '');
+    if (motivo) return fallo(motivo);
+  }
+
+  return {
+    proyecto: {
+      ...proyecto,
+      archivos: limpiarArchivos(
+        { ...proyecto.archivos, [archivo]: [...proyecto.archivos[archivo], fila] },
+        proyecto.archivados,
+      ),
+      actualizado: new Date().toISOString(),
+      historial: [
+        ...proyecto.historial,
+        { fecha: new Date().toISOString(), texto: `Alta a mano en ${espec.fichero}: ${clave}` },
+      ],
+    },
+    error: null,
+    clave,
+  };
+}
+
+// ─── Ajustes: lo escrito a mano, guardado en Neon ─────────────────────────────
+
+/**
+ * Un campo de una fila fijado a mano. Vive en Neon (`asm_ajustes`) y no en el borrador del
+ * navegador, porque su razón de ser es justo sobrevivir a lo que lo pisaría: el siguiente
+ * "traer del centro" (que rehace las filas de quien está en `edu_*`) y el cambio de
+ * dispositivo. Se re-aplica **después** del sync, así que gana siempre.
+ */
+export interface AjusteAsm {
+  archivo: ArchivoAsm;
+  clave: string;
+  campo: string;
+  valor: string;
+}
+
+/**
+ * Vuelve a poner en su sitio lo que se fijó a mano. Se llama después de traer del centro.
+ *
+ * Un ajuste que ya no tiene a quién aplicarse (la persona se dio de baja, la clase
+ * desapareció) no es un error: se cuenta como `huerfanos` para poder decirlo y soltarlo,
+ * pero no se toca nada. Igual con los campos que dejaron de ser editables.
+ */
+export function aplicarAjustes(
+  proyecto: ProyectoAsm,
+  ajustes: readonly AjusteAsm[],
+): { proyecto: ProyectoAsm; aplicados: number; huerfanos: AjusteAsm[] } {
+  const huerfanos: AjusteAsm[] = [];
+  let aplicados = 0;
+  const archivos: Archivos = { ...proyecto.archivos };
+
+  for (const ajuste of ajustes) {
+    const espec = ESPEC[ajuste.archivo];
+    if (!espec || !campoEditable(ajuste.archivo, ajuste.campo)) {
+      huerfanos.push(ajuste);
+      continue;
+    }
+    const filas = archivos[ajuste.archivo];
+    const indice = filas.findIndex((f) => f[espec.clave] === ajuste.clave);
+    if (indice === -1) {
+      huerfanos.push(ajuste);
+      continue;
+    }
+    const valor = normalizarValor(ajuste.campo, ajuste.valor);
+    if ((filas[indice][ajuste.campo] ?? '') === valor) continue; // ya estaba así
+    const copia = [...filas];
+    copia[indice] = { ...filas[indice], [ajuste.campo]: valor };
+    archivos[ajuste.archivo] = copia;
+    aplicados++;
+  }
+
+  if (aplicados === 0) return { proyecto, aplicados, huerfanos };
+  return {
+    proyecto: { ...proyecto, archivos: limpiarArchivos(archivos, proyecto.archivados), actualizado: new Date().toISOString() },
+    aplicados,
+    huerfanos,
   };
 }
 

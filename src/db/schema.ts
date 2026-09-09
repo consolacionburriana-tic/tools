@@ -1548,6 +1548,25 @@ export const asmFtpConfig = pgTable('asm_ftp_config', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Lo que se ha escrito A MANO en un fichero de ASM y tiene que sobrevivir al siguiente
+// "traer del centro". Está en Neon y no en el borrador del navegador justo por eso: el
+// sync rehace las filas de quien está en `edu_*`, y estos ajustes se re-aplican después
+// (ver `aplicarAjustes`). Una fila por campo tocado; `valor` vacío = "déjalo en blanco".
+// Nada personal que no esté ya en la BBDD central: es el mismo dato, corregido.
+export const asmAjustes = pgTable('asm_ajustes', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  archivo: text('archivo').notNull(), // 'students' | 'staff' | 'classes' | 'courses' | 'locations'
+  clave: text('clave').notNull(), // person_id | class_id | course_id | location_id
+  campo: text('campo').notNull(), // 'email_address', 'first_name'…
+  valor: text('valor').notNull().default(''),
+  quien: text('quien'), // correo de quien lo fijó
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('asm_ajustes_uq').on(t.archivo, t.clave, t.campo),
+]);
+
 export type AsmEntrega = typeof asmEntregas.$inferSelect;
 export type NewAsmEntrega = typeof asmEntregas.$inferInsert;
 export type AsmFtpConfig = typeof asmFtpConfig.$inferSelect;
+export type AsmAjuste = typeof asmAjustes.$inferSelect;

@@ -14,8 +14,9 @@ Acceso: **TIC, SuperTIC, Dirección y Jefatura** (`autoasm` en `src/lib/permissi
 
 Depende de la BBDD central (`edu_students`, `edu_teachers`) para las personas, de
 `edu_tutorias` y `auth_users` para saber quién entra solo en cada clase, y de `hor_*` para
-las clases y sus profes. No crea tablas nuevas: el proyecto de trabajo vive en el
-navegador (ver decisiones).
+las clases y sus profes. El proyecto de trabajo vive en el navegador (ver
+decisiones); en Neon solo hay el diario de entregas, el FTP y los campos escritos a mano
+(`asm_entregas`, `asm_ftp_config`, `asm_ajustes`).
 
 ---
 
@@ -173,10 +174,14 @@ correlativos. Lo que se ve en el explorador es exactamente lo que se va a subir.
 ### El proyecto vive en el navegador, no en Neon
 Lo que se manipula aquí es el alumnado entero del centro en su forma más exportable. Entra
 una vez desde `/api/autoasm/admin/centro`, se trabaja, se descarga el ZIP y se olvida:
-**ninguna tabla nueva, ningún export guardado en la base de datos**. El borrador (con los
-profes ya asignados) se guarda en `localStorage` del dispositivo de quien lo prepara.
+**ningún export guardado en la base de datos**. El borrador (con los profes ya asignados)
+se guarda en `localStorage` del dispositivo de quien lo prepara.
 El precio, asumido: cambiar de dispositivo obliga a empezar de nuevo — o a subir el ZIP que
 uno mismo se descargó, que el módulo sabe leer.
+
+Matiz de 2026-09-09: lo que **se escribe a mano** en una ficha sí va a Neon
+(`asm_ajustes`), porque su razón de ser es sobrevivir precisamente a eso — al sync y al
+cambio de dispositivo. Son excepciones campo a campo, no el export.
 
 ### La estructura académica sí está en el repo, las personas no
 `src/lib/autoasm-plantilla.ts` tiene los cursos, las clases y a qué grupos corresponde cada
@@ -226,13 +231,37 @@ con forma de correo, correo y `sis_username` únicos en toda la organización (a
 profesorado juntos) y nada obligatorio en blanco. Si algo no cuela, se dice por qué y el
 recuadro vuelve a lo que hay en el fichero.
 
-La letra pequeña, que sale en la propia ficha: lo escrito a mano en una persona que **sí**
-está en Educamos se vuelve a pisar en el siguiente "traer del centro" (ahí el arreglo va en
-Educamos o en `/gestion/profes`); las cuentas que no salen de Educamos no las toca nadie,
-que es justo el caso para el que existe esto.
-
 Además, los avisos del validador enlazan ya **a la ficha abierta** de la fila que se queja
 (`?q=…&abrir=…`), no a la búsqueda: del aviso al arreglo, un clic.
+
+### Lo escrito a mano se queda en Neon (2026-09-09)
+Primera versión de lo de arriba: se escribía en el borrador del navegador y **el siguiente
+"traer del centro" se lo llevaba por delante** (el sync rehace las filas de todo el que
+esté en `edu_*`) — y cambiar de iPad, también.
+
+Así que lo escrito a mano ya no vive en el borrador: vive en **`asm_ajustes`** (Neon), una
+fila por campo tocado, y se **re-aplica DESPUÉS del sync** (`aplicarAjustes`). El orden es
+la clave: primero manda el colegio, y encima va la excepción escrita a mano. En la ficha
+cada campo fijado lleva un **candado verde** que lo suelta cuando ya no haga falta (soltar
+no cambia el valor de ahora: solo deja de defenderlo del próximo sync), y al traer del
+centro se dice cuántos ajustes se han vuelto a aplicar y cuántos se han quedado sin fila
+(la persona ya no está) para poder soltarlos.
+
+Esto **no convierte al ASM en otra fuente de verdad**: la tabla guarda excepciones, no
+datos. Si lo que hay que arreglar es el nombre de un profe *en todas partes*, el sitio
+sigue siendo `/gestion/profes` → «Nombre visible» (`edu_teachers.nombre_mostrado`), y la
+propia ficha de `staff.csv` lo enlaza para no tener la misma corrección en dos sitios.
+
+### Crear filas a mano (2026-09-09)
+Se pueden dar de alta filas en `students`, `staff`, `courses`, `classes` y `locations`:
+para la cuenta institucional que Apple pide y que no existe en ningún sitio del colegio, o
+para un curso o una clase que no sale de ningún horario. Al crear **sí** se escribe el
+identificador (es lo que ASM usa para reconocer la fila para siempre, y luego ya no se
+cambia) y se admiten las referencias a otro fichero, comprobando que existan: una fila
+huérfana no se crea.
+
+`rosters.csv` se queda fuera a propósito: las matrículas se rehacen solas a partir de los
+grupos de cada clase, y una fila suelta ahí desaparecería en la siguiente limpieza.
 
 ## Plan técnico
 
@@ -243,6 +272,7 @@ src/lib/autoasm-construir.ts    # BBDD central → filas: sync, archivado, matr�
 src/lib/autoasm-horario.ts      # asignaciones docentes → clases de ASM (propuesta y aplicación)
 src/lib/autoasm-server.ts       # las tres lecturas: personas, equipos (tutorías + roles) y horario
 src/lib/autoasm-entregas.ts     # histórico en Neon, estado del módulo y configuración del FTP
+src/lib/autoasm-ajustes.ts      # lo escrito a mano en una ficha, guardado en Neon (asm_ajustes)
 src/lib/autoasm-ftp.ts          # subida por FTP / FTPS / SFTP
 src/lib/cripto.ts               # AES-256-GCM para la contraseña del FTP (transversal)
 src/app/api/autoasm/admin/centro/route.ts    # GET protegido con hasModule('autoasm')
@@ -351,12 +381,21 @@ Tres tipos de clase existen por otros motivos, y por eso se mantienen a mano o p
 - [x] Ficha con los campos escribibles (Enter guarda, Esc deshace) y desplegable para la
       política de contraseña, que en ASM es 4, 6 u 8 y nada más
 - [x] Los avisos del validador enlazan a la ficha abierta de la fila (`&abrir=`)
+- [x] Lo escrito a mano se guarda en Neon (`asm_ajustes`) y se re-aplica después de traer
+      del centro: `aplicarAjustes()` puro con tests, `src/lib/autoasm-ajustes.ts`, API
+      `/api/autoasm/admin/ajustes` (GET/POST/DELETE) y candado para soltarlo en la ficha
+- [x] Alta de filas a mano en students/staff/courses/classes/locations (`crearFila()`, con
+      tests): identificador único en toda la organización y referencias que existan
+- [x] Si falta la tabla `asm_ajustes` en Neon, el módulo sigue funcionando: lo dice y
+      guarda solo en el dispositivo
 - [ ] Probado por David en el proyecto de verdad: ponerles el correo a
-      `usuario1institucional` y `supervisorbi` y ver el aviso desaparecer
+      `usuario1institucional` y `supervisorbi`, ver el aviso desaparecer y comprobar que
+      tras «traer del centro» siguen con su correo
 
 ### Fase 6 · Pendiente de David
-- [ ] **Ejecutar `src/db/sql/autoasm.sql` en Neon** (dos tablas, aditivo): sin él, el
-      histórico y el FTP no van — el resto del módulo funciona igual
+- [ ] **Ejecutar `src/db/sql/autoasm.sql` en Neon** (tres tablas, aditivo): sin él, el
+      histórico y el FTP no van, y lo que se escriba a mano en una ficha se queda solo en
+      el dispositivo (el módulo lo avisa) — el resto funciona igual
 - [ ] Meter los datos del FTP de ASM en el módulo (una vez; la contraseña queda cifrada)
 - [ ] Subir un ZIP generado por el módulo y confirmar que ASM lo traga sin quejarse
 - [ ] Importar el horario de **secundaria** en `hor_*`: hasta entonces, las clases de ESO
