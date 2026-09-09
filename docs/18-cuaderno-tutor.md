@@ -268,6 +268,71 @@ detalles que ahorran tiempo:
   entienden fuera del horario — `MYD` es Music, `EPV` es Arts, `LC03` es Lectura. Imprimir eso
   en la hoja de una tutoría sería peor que el nombre largo. Quien decide es la persona.
 
+## La lista de clase en Google Sheets (pestaña «Listas»)
+
+Además de los documentos de tutoría, el módulo genera **la lista de clase de siempre** como hoja
+de cálculo: la que el colegio venía haciendo a mano cada septiembre y de la que cuelgan los
+combinados de correspondencia (autoCrat) que el claustro ya tiene montados.
+
+El modelo es literal — el Sheet «# 1 ESO - 25/26 Lista en Excel» de David — y eso es una
+decisión, no una casualidad:
+
+- **Las 18 columnas y sus títulos son contrato.** `N · Nombre · Apellido 1 · Apellido 2 ·
+  Apellidos · Nombre apellido · Nombre apellido Lista · Clase · Tutor · Mail · NIA ·
+  Nacimiento · Familiar 1 · TLF Fam 1 · Mail Familiar 1 · Familiar 2 · TLF Fam 2 · Mail Fam 2`.
+  Los merges buscan la columna **por su título**, así que renombrar una rompe el trabajo de
+  quien la esté usando.
+- **Las tres columnas derivadas van como fórmula**, no como valor (`CONCATENATE(C2," ",D2)`…).
+  Si el tutor corrige un apellido en su copia, las otras se enteran solas — como en el original.
+- **El nº de lista es el congelado del cuaderno** (`cuad_numeracion`): el 14 de la lista es el 14
+  del dossier impreso, o la lista no sirve para pasar lista.
+- **El NIA se escribe como texto.** Es un identificador, no una cantidad: como número perdería
+  los ceros a la izquierda al primer guardado.
+- Cabecera de color con el texto en blanco, nº de lista en amarillo, fila 1 y columnas A-B
+  congeladas, autofiltro y un color de pestaña por clase.
+
+### Cómo se hace (y por qué no con la API de Sheets)
+
+El fichero se escribe a mano como `.xlsx` (`src/lib/xlsx-escribir.ts`, con JSZip) y se sube a
+Drive **con conversión** a Google Sheet nativa, exactamente el mismo truco que el motor de
+documentos usa con `.docx` → Google Doc. Dos razones:
+
+1. **La API de Sheets no está habilitada** en el proyecto de la cuenta de servicio del cuaderno
+   (`tools-consolacionburriana`), y aunque lo estuviera serían N llamadas de formato por hoja
+   en vez de un único `files.create`.
+2. **SheetJS, que ya está en el repo, no escribe estilos** en su versión community: hace datos,
+   anchos y paneles, pero ni rellenos ni tipografías ni colores de pestaña — justo lo que hace
+   que la lista se parezca a la de David.
+
+Comprobado de punta a punta contra la unidad compartida real (9-sep-2026): al reexportar la
+hoja ya convertida vuelven intactos los colores de cabecera y pestaña, el amarillo del nº de
+lista, PT Sans, el panel congelado en `C2`, el autofiltro, los anchos, el alto de la cabecera,
+las fórmulas vivas y las fechas con formato `dd/mm/yyyy`.
+
+### Dónde cae y con quién se comparte
+
+- **Un archivo por clase** (lo normal): va a la **misma carpeta de Drive que sus dossieres**
+  (`Cuaderno de tutor 2026-2027/(etapa)/2ºA — María R`). Si esa carpeta ya estaba compartida con
+  sus tutores, la lista aparece sin tocar ningún permiso.
+- **Un único archivo con todas las clases** (opcional): una pestaña por clase, en la carpeta del
+  curso escolar, y **no se comparte con nadie automáticamente**. Un archivo con el alumnado de
+  varias clases no puede caer en el Drive de un tutor que solo lleva una: lo reparte quien lo
+  pidió, a mano y sabiendo lo que hace.
+- **Regenerar reescribe el archivo, no crea un segundo.** Si ya hay una hoja con ese nombre en la
+  carpeta se sustituye su contenido (`files.update`), así que el enlace que el tutor tenga
+  guardado y los permisos que ya llevara siguen valiendo.
+- El correo de aviso (opcional) es el hermano del del cuaderno: clase, cuántos son y el enlace.
+  Ningún dato de alumnado dentro.
+
+A diferencia de una tirada, esto **no tiene cola ni worker**: cada clase es una sola subida a
+Drive (~1-2 s), así que se hace entero dentro del `POST`. Que una clase falle no tira abajo las
+demás — se devuelven sus errores por separado.
+
+> Lo que viene después: la sección de **Alumnado** (navegador de fichas) reutilizará
+> `xlsx-escribir.ts` + `lista-clase.ts` tal cual para que un tutor se exporte su tutoría
+> completa al vuelo. Por eso el escritor de `.xlsx` es transversal (`src/lib/`) y no vive
+> dentro de `cuaderno/`.
+
 ## Quitar una plantilla
 
 `DELETE` de la plantilla arrastra en cascada sus ítems de tirada (`cuad_items`) y las hojas
@@ -307,6 +372,9 @@ src/lib/cuaderno/campos.ts     # catálogo, normalización de etiquetas, alias p
 src/lib/cuaderno/nombres.ts    # nombres de carpetas y archivos (puro, con tests)
 src/lib/cuaderno/drive.ts      # Drive + Docs: exportar, subir con conversión, PDF, carpetas, permisos
 src/lib/cuaderno/generar.ts    # ejecutar un ítem de la cola de punta a punta
+src/lib/cuaderno/lista-clase.ts # las 18 columnas de la lista de clase y su estilo (puro, con tests)
+src/lib/cuaderno/listas.ts     # generar las listas, dejarlas en Drive y compartirlas
+src/lib/xlsx-escribir.ts       # escritor de .xlsx con estilos, transversal (puro, con tests)
 src/lib/cuaderno-server.ts     # queries Drizzle: datos de clase, tiradas, cola, numeración, hojas
 src/app/gestion/cuaderno/      # panel (plantillas · generar · historial)
 src/app/api/cuaderno/…         # endpoints de gestión + worker
@@ -490,6 +558,24 @@ fábrica, sin mapear nada a mano.
 - [x] Pestaña «Asignaturas»: asignaturas por curso, alumnos por asignatura y la etiqueta a la vista
 - [x] Semilla real: 84 asignaturas de los 9 cursos de Infantil y Primaria que tienen horario
 - [x] Probado de punta a punta contra Neon: 3ºPRI llena 11 huecos y deja el 12 vacío; 3ºINF, 8
+
+### Fase 8 · Lista de clase en Google Sheets
+- [x] `src/lib/xlsx-escribir.ts`: escritor de .xlsx con estilos (fuentes, rellenos, anchos,
+      columnas ocultas, panel congelado, autofiltro, color de pestaña, fechas y fórmulas), sin
+      dependencias nuevas y con tests
+- [x] `src/lib/cuaderno/lista-clase.ts`: las 18 columnas del modelo, sus fórmulas, el nº de lista
+      congelado y un color por clase (puro, con tests)
+- [x] `subirComoGoogleSheet` en `drive.ts`: sube con conversión y **reescribe** la hoja que ya
+      hubiera con ese nombre, para no romper enlaces ni permisos
+- [x] `POST /api/cuaderno/admin/listas` y pestaña «Listas» del panel: clases, un archivo o uno
+      por clase, compartir y avisar
+- [x] Correo `avisarTutorDeLaLista` (perfil `cuaderno`, sin datos de alumnado)
+- [x] Verificado contra Drive real: la conversión conserva colores, fuentes, congelado,
+      autofiltro, anchos, fórmulas y fechas (9-sep-2026)
+- [x] `borrarArchivo` ya no se traga el 404 enmascarado de una unidad compartida: la cuenta de
+      servicio es Administrador de contenido y **no puede borrar del todo**, así que ahora cae a
+      mandarlo a la papelera en vez de decir que lo hizo
+- [ ] Estrenarlo con una clase real y ver si el claustro echa en falta alguna columna
 
 ### Fase 7 · Estreno real
 - [x] Prueba del motor con las plantillas .docx reales: 3 copias por alumno, saltos de página,

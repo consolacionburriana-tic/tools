@@ -17,7 +17,9 @@ import type { drive_v3 } from 'googleapis';
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
 export const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+export const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 export const MIME_GDOC = 'application/vnd.google-apps.document';
+export const MIME_GSHEET = 'application/vnd.google-apps.spreadsheet';
 export const MIME_CARPETA = 'application/vnd.google-apps.folder';
 export const MIME_PDF = 'application/pdf';
 
@@ -78,6 +80,7 @@ export function extraerIdDrive(entrada: string): string | null {
 }
 
 export const urlDocumento = (id: string) => `https://docs.google.com/document/d/${id}/edit`;
+export const urlHojaDeCalculo = (id: string) => `https://docs.google.com/spreadsheets/d/${id}/edit`;
 export const urlCarpeta = (id: string) => `https://drive.google.com/drive/folders/${id}`;
 export const urlArchivo = (id: string) => `https://drive.google.com/file/d/${id}/view`;
 
@@ -186,6 +189,45 @@ export async function subirComoGoogleDoc(opciones: {
   return { id, url: urlDocumento(id) };
 }
 
+/**
+ * Sube un .xlsx **convirtiéndolo** a Google Sheet, el mismo truco que `subirComoGoogleDoc`.
+ * Si ya existe un archivo con ese nombre en la carpeta se **sustituye su contenido**
+ * (`files.update`) en vez de crear un segundo: el enlace que el tutor tenga guardado (y los
+ * permisos que ya lleve el archivo) siguen valiendo después de regenerar la lista.
+ */
+export async function subirComoGoogleSheet(opciones: {
+  nombre: string;
+  carpetaId: string;
+  xlsx: Buffer;
+  /** `false` para crear siempre uno nuevo en vez de reescribir el que hubiera. */
+  reemplazar?: boolean;
+}): Promise<{ id: string; url: string; reemplazado: boolean }> {
+  const drive = getDrive();
+  const media = { mimeType: MIME_XLSX, body: Readable.from(opciones.xlsx) };
+
+  if (opciones.reemplazar !== false) {
+    const existente = await buscarEnCarpeta(opciones.nombre, opciones.carpetaId, MIME_GSHEET);
+    if (existente) {
+      await conReintentos(() =>
+        drive.files.update({ fileId: existente.id, media, fields: 'id', ...EN_UNIDADES_COMPARTIDAS }),
+      );
+      return { id: existente.id, url: urlHojaDeCalculo(existente.id), reemplazado: true };
+    }
+  }
+
+  const res = await conReintentos(() =>
+    drive.files.create({
+      requestBody: { name: opciones.nombre, parents: [opciones.carpetaId], mimeType: MIME_GSHEET },
+      media,
+      fields: 'id',
+      ...EN_UNIDADES_COMPARTIDAS,
+    }),
+  );
+  const id = res.data.id;
+  if (!id) throw new Error('Drive no devolvió el id de la hoja de cálculo creada');
+  return { id, url: urlHojaDeCalculo(id), reemplazado: false };
+}
+
 /** Sube un PDF tal cual (sin conversión). */
 export async function subirPdf(opciones: {
   nombre: string;
@@ -278,13 +320,31 @@ export async function copiarArchivo(
   return { id, url: urlDocumento(id) };
 }
 
-/** Borra de verdad (no a la papelera). Se usa al reintentar un ítem que dejó basura. */
+/**
+ * Quita un archivo de en medio. Se usa al reintentar un ítem que dejó basura.
+ *
+ * Ojo con el 404: en una unidad compartida, la cuenta de servicio entra como
+ * **Administrador de contenido**, y ese rol puede crear y mover pero NO borrar del todo
+ * (`capabilities.canDelete: false`). Drive no contesta 403 a eso: enmascara el permiso que
+ * falta como un 404 «File not found» sobre un archivo que se lee perfectamente. Así que un
+ * 404 no se puede dar por «ya no estaba»: primero se intenta mandarlo a la papelera, que sí
+ * está permitido, y solo si eso también falla se acepta que el archivo no existe.
+ * (Comprobado el 9-sep-2026 contra la unidad del cuaderno.)
+ */
 export async function borrarArchivo(fileId: string): Promise<void> {
   const drive = getDrive();
   try {
     await conReintentos(() => drive.files.delete({ fileId, ...EN_UNIDADES_COMPARTIDAS }));
+    return;
   } catch (error) {
-    // Que no exista es el estado deseado: no es un fallo.
+    if (codigoDe(error) !== 404) throw error;
+  }
+  try {
+    await conReintentos(() =>
+      drive.files.update({ fileId, requestBody: { trashed: true }, fields: 'id', ...EN_UNIDADES_COMPARTIDAS }),
+    );
+  } catch (error) {
+    // Ahora sí: si tampoco se puede tirar a la papelera, es que de verdad no está.
     if (codigoDe(error) !== 404) throw error;
   }
 }

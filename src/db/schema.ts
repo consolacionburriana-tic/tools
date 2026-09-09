@@ -1008,7 +1008,7 @@ export const cuadEventos = pgTable('cuad_eventos', {
   tiradaId: uuid('tirada_id').references(() => cuadTiradas.id, { onDelete: 'cascade' }),
   itemId: uuid('item_id'), // sin FK: el evento sobrevive al borrado de un ítem
   nivel: text('nivel').notNull().default('info'), // info | aviso | error
-  fase: text('fase').notNull(), // lanzar | worker | drive | documento | cierre | correo | toque
+  fase: text('fase').notNull(), // lanzar | worker | drive | documento | cierre | correo | toque | listas
   mensaje: text('mensaje').notNull(),
   datos: jsonb('datos').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
