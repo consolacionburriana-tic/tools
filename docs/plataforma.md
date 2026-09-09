@@ -58,7 +58,7 @@ Cuando David diga "sigue haciendo" (o equivalente) sin más contexto, este es el
 
 ---
 
-## ⚠️ Schema pendiente de aplicar en Neon
+## Schema en Neon
 
 `src/db/sql/pendientes.txt` es la lista de ficheros SQL que el repo tiene escritos y **Neon
 todavía no**. Mientras no esté vacío, hay código en producción esperando su tabla o su
@@ -69,16 +69,12 @@ pnpm db:sql --pendientes --dry   # qué haría
 pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotentes)
 ```
 
-Ahora mismo faltan tres (sesión del 9-sep-2026, que no tenía acceso a la BBDD):
+Al aplicarlos: quitarlos de `pendientes.txt` y marcar las casillas `[~]` → `[x]` de la ficha
+del módulo, en el mismo commit.
 
-| Fichero | Sin él… |
-|---|---|
-| `cuaderno-plantillas-etapas.sql` | una plantilla del cuaderno no puede marcarse para varias etapas (se lee la etapa única de antes) |
-| `profes-nombre-mostrado.sql` | el «Nombre visible» de `/gestion/profes` no se puede guardar |
-| `autoasm.sql` | el ASM no guarda el histórico de entregas, ni el FTP, ni lo que se escribe a mano en una ficha |
-
-Al aplicarlos: quitarlos de `pendientes.txt`, marcar las casillas `[~]` → `[x]` de la ficha
-del módulo y borrar esta sección, todo en el mismo commit.
+**Ahora mismo no queda nada pendiente** (los tres de la sesión del 9-sep-2026 —
+`cuaderno-plantillas-etapas.sql`, `profes-nombre-mostrado.sql` y `autoasm.sql` — se aplicaron
+y verificaron ese mismo día).
 
 ---
 
