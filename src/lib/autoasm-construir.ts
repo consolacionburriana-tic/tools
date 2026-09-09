@@ -11,6 +11,8 @@ import {
   ORDEN_ARCHIVOS,
   ESPEC,
   cabecerasDe,
+  campoEditable,
+  emailValido,
   gradeLevelDe,
   rosterId,
   slugPersona,
@@ -675,6 +677,75 @@ function tutoresDelNivel(equipos: EquiposCentro, courseNumber: string): string[]
   const nivel = cursoDeCourseNumber(courseNumber);
   if (!nivel) return [];
   return (equipos?.tutorias ?? []).filter((t) => t.curso === nivel.curso).map((t) => t.email);
+}
+
+// ─── Editar una fila a mano ───────────────────────────────────────────────────
+
+/**
+ * Cambia campos de una fila del proyecto.
+ *
+ * Casi todo lo que hay en estos ficheros se trae de la BBDD central o se sube en el ZIP
+ * del año pasado, y así debe seguir. Pero hay filas que **no están en ninguna base de
+ * datos del colegio** —las cuentas de servicio y de supervisión que Apple pide, los iPads
+ * compartidos, alguna cuenta de dirección— y a esas, si les falta el correo, no había
+ * forma de arreglarlas: solo archivar o dar de baja. Esto es esa forma.
+ *
+ * Lo que NO deja hacer, porque rompería algo de verdad:
+ *   - tocar la clave de la fila o una referencia a otro fichero (ver `campoEditable`);
+ *   - dejar en blanco un campo obligatorio;
+ *   - poner un correo que no lo es, o uno que ya tiene otra persona (ASM lo rechazaría);
+ *   - repetir un `sis_username`, que también es único en toda la organización.
+ *
+ * Devuelve el proyecto ya normalizado (`limpiarArchivos`), o el de entrada intacto y el
+ * motivo en `error`. Aviso para quien lo llame: lo editado a mano en una persona que SÍ
+ * está en Educamos se vuelve a pisar en el siguiente "traer del centro".
+ */
+export function editarFila(
+  proyecto: ProyectoAsm,
+  archivo: ArchivoAsm,
+  clave: string,
+  cambios: Record<string, string>,
+): { proyecto: ProyectoAsm; error: string | null } {
+  const fallo = (error: string) => ({ proyecto, error });
+  const espec = ESPEC[archivo];
+  const filas = proyecto.archivos[archivo];
+  const indice = filas.findIndex((f) => f[espec.clave] === clave);
+  if (indice === -1) return fallo('Esa fila ya no está en el proyecto.');
+
+  const fila = { ...filas[indice] };
+  for (const [campo, crudo] of Object.entries(cambios)) {
+    const espCampo = espec.campos.find((c) => c.nombre === campo);
+    if (!espCampo) return fallo(`«${campo}» no es un campo de ${espec.fichero}.`);
+    if (!campoEditable(archivo, campo)) return fallo(`«${campo}» no se puede cambiar a mano.`);
+
+    const valor = campo === 'email_address' ? crudo.trim().toLowerCase() : crudo.trim();
+    if (valor === '' && espCampo.obligatorio) return fallo(`«${espCampo.etiqueta}» es obligatorio en ASM: no puede quedar en blanco.`);
+    if (campo === 'email_address' && valor !== '' && !emailValido(valor)) {
+      return fallo(`«${valor}» no tiene forma de correo. ASM rechazaría el fichero.`);
+    }
+    // Correo y usuario SIS son únicos en TODA la organización: alumnado y profesorado juntos.
+    if ((campo === 'email_address' || campo === 'sis_username') && valor !== '') {
+      const duena = [...proyecto.archivos.students, ...proyecto.archivos.staff].find(
+        (f) => f.person_id !== clave && (f[campo] ?? '').trim().toLowerCase() === valor.toLowerCase(),
+      );
+      if (duena) {
+        const quien = `${duena.first_name ?? ''} ${duena.last_name ?? ''}`.trim() || duena.person_id;
+        return fallo(`Ese ${campo === 'email_address' ? 'correo' : 'usuario'} ya lo tiene ${quien} (${duena.person_id}). En ASM tiene que ser único.`);
+      }
+    }
+    fila[campo] = valor;
+  }
+
+  const nuevas = [...filas];
+  nuevas[indice] = fila;
+  return {
+    proyecto: {
+      ...proyecto,
+      archivos: limpiarArchivos({ ...proyecto.archivos, [archivo]: nuevas }, proyecto.archivados),
+      actualizado: new Date().toISOString(),
+    },
+    error: null,
+  };
 }
 
 // ─── Bajas ────────────────────────────────────────────────────────────────────

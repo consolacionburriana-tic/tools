@@ -10,7 +10,7 @@ Acceso: **TIC, SuperTIC, Dirección y Jefatura** (`autoasm` en `src/lib/permissi
 
 ---
 
-## Estado: plan funcional ✅ · plan técnico ✅ · implementado ✅ (2026-09-05 · ampliado 2026-09-06)
+## Estado: plan funcional ✅ · plan técnico ✅ · implementado ✅ (2026-09-05 · ampliado 2026-09-06 y 2026-09-09)
 
 Depende de la BBDD central (`edu_students`, `edu_teachers`) para las personas, de
 `edu_tutorias` y `auth_users` para saber quién entra solo en cada clase, y de `hor_*` para
@@ -203,6 +203,37 @@ Del módulo solo se editan **los profes de cada clase** y **qué grupos se matri
 ella**, porque son las dos únicas cosas que no están en ninguna base de datos del colegio.
 Todo lo demás se trae o se sube.
 
+### …y los campos de una fila, a mano (2026-09-09)
+Lo de arriba se queda como norma, pero le faltaba una salida. Hay filas que **no están en
+ninguna base de datos del colegio y tampoco se pueden arreglar desde Educamos**: las
+cuentas de servicio y de supervisión que pide Apple (`usuario1institucional`,
+`supervisorbi`…), alguna cuenta de dirección, los iPads compartidos. Cuando el validador
+decía «el profesorado necesita correo para tener Managed Apple ID», lo único que se podía
+hacer con esa cuenta era archivarla o darla de baja — y ninguna de las dos arregla el
+aviso.
+
+Ahora **la ficha de cualquier fila es escribible**: se escribe encima del campo y se guarda
+al salir del recuadro. Con tres cosas fuera del alcance, cada una por su motivo:
+
+- **la clave** (`person_id`, `class_id`…): en ASM cambiar un id no renombra nada, **crea un
+  registro nuevo**, y la persona pierde su cuenta y su iCloud;
+- **las referencias a otro fichero** (`location_id`, `course_id`, `student_id`): son la
+  navegación entre ficheros, y tocarlas a ciegas deja filas huérfanas;
+- **los `instructor_id`** de una clase, que ya tienen su editor con nombres.
+
+Y con las validaciones que ASM aplicaría de todas formas, dichas antes de guardar: correo
+con forma de correo, correo y `sis_username` únicos en toda la organización (alumnado y
+profesorado juntos) y nada obligatorio en blanco. Si algo no cuela, se dice por qué y el
+recuadro vuelve a lo que hay en el fichero.
+
+La letra pequeña, que sale en la propia ficha: lo escrito a mano en una persona que **sí**
+está en Educamos se vuelve a pisar en el siguiente "traer del centro" (ahí el arreglo va en
+Educamos o en `/gestion/profes`); las cuentas que no salen de Educamos no las toca nadie,
+que es justo el caso para el que existe esto.
+
+Además, los avisos del validador enlazan ya **a la ficha abierta** de la fila que se queja
+(`?q=…&abrir=…`), no a la búsqueda: del aviso al arreglo, un clic.
+
 ## Plan técnico
 
 ```
@@ -313,6 +344,15 @@ Tres tipos de clase existen por otros motivos, y por eso se mantienen a mano o p
 - [x] El módulo sube al principio del escritorio en julio-septiembre y cuando hay alumnado
       nuevo sin cuenta; con la lista de quiénes son al entrar
 - [x] Cuentas de iPad compartido: panel propio para crearlas en serie y quitarlas
+
+### Fase 6b · Escribir en la ficha ✅ (2026-09-09)
+- [x] `editarFila()` puro en `autoasm-construir.ts`: campos permitidos (`campoEditable`),
+      correo y usuario únicos, obligatorios no vacíos, salida normalizada. Con tests
+- [x] Ficha con los campos escribibles (Enter guarda, Esc deshace) y desplegable para la
+      política de contraseña, que en ASM es 4, 6 u 8 y nada más
+- [x] Los avisos del validador enlazan a la ficha abierta de la fila (`&abrir=`)
+- [ ] Probado por David en el proyecto de verdad: ponerles el correo a
+      `usuario1institucional` y `supervisorbi` y ver el aviso desaparecer
 
 ### Fase 6 · Pendiente de David
 - [ ] **Ejecutar `src/db/sql/autoasm.sql` en Neon** (dos tablas, aditivo): sin él, el

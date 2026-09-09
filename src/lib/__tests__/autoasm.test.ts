@@ -20,6 +20,7 @@ import {
 import {
   cursoDeCourseNumber,
   darDeBaja,
+  editarFila,
   entraEnAlcance,
   inferirReglas,
   inferirTipos,
@@ -463,5 +464,58 @@ describe('profesAutomaticos', () => {
     archivos.classes = [fila('classes', { class_id: 'Mat', class_number: 'Matemáticas', course_id: 'Curso-1A', location_id: 'Centro' })];
     const { archivos: salida } = profesAutomaticos(archivos, { Mat: 'asignatura' }, equipos);
     expect(salida.classes[0].instructor_id).toBe('');
+  });
+});
+
+describe('editarFila', () => {
+  const proyectoCon = (archivos = proyectoDePrueba()) => ({ ...proyectoVacio(), archivos });
+
+  it('escribe el correo que le falta a una cuenta de servicio', () => {
+    const archivos = proyectoDePrueba();
+    archivos.staff.push(fila('staff', { person_id: 'usuariodeservicio', first_name: 'Cuenta', last_name: 'De Servicio', location_id: 'Centro' }));
+    const { proyecto, error } = editarFila(proyectoCon(archivos), 'staff', 'usuariodeservicio', {
+      email_address: '  Servicio@Ej.COM ',
+    });
+    expect(error).toBeNull();
+    // Sale ya normalizado, como todo en este módulo.
+    expect(proyecto.archivos.staff.find((f) => f.person_id === 'usuariodeservicio')?.email_address).toBe('servicio@ej.com');
+    // Y deja de ser un error del validador, que era de lo que se quejaba.
+    expect(validarProyecto(proyecto.archivos).some((i) => i.tipo === 'staff-sin-email')).toBe(false);
+  });
+
+  it('no deja tocar el identificador ni las referencias a otro fichero', () => {
+    const p = proyectoCon();
+    expect(editarFila(p, 'staff', 'gracehopper', { person_id: 'otro' }).error).toMatch(/no se puede cambiar/);
+    expect(editarFila(p, 'students', '111', { location_id: 'Otro' }).error).toMatch(/no se puede cambiar/);
+    expect(editarFila(p, 'classes', 'Cls-Mat1A', { instructor_id: 'gracehopper' }).error).toMatch(/no se puede cambiar/);
+    // Y no se cuela un campo que no existe en el fichero.
+    expect(editarFila(p, 'staff', 'gracehopper', { telefono: '600' }).error).toMatch(/no es un campo/);
+  });
+
+  it('rechaza un correo que no lo es y uno que ya tiene otra persona', () => {
+    const p = proyectoCon();
+    expect(editarFila(p, 'staff', 'gracehopper', { email_address: 'grace arroba ej' }).error).toMatch(/forma de correo/);
+    // El correo es único en toda la organización: alumnado y profesorado juntos.
+    const repe = editarFila(p, 'staff', 'gracehopper', { email_address: 'ADA@ej.com' });
+    expect(repe.error).toMatch(/ya lo tiene Ada Lovelace Byron/);
+    expect(repe.proyecto).toBe(p); // en un rechazo el proyecto no se toca
+    expect(editarFila(p, 'students', '222', { sis_username: 'ada' }).error).toMatch(/ya lo tiene/);
+  });
+
+  it('deja vaciar lo opcional pero no lo obligatorio', () => {
+    const p = proyectoCon();
+    expect(editarFila(p, 'students', '111', { sis_username: '' }).error).toBeNull();
+    expect(editarFila(p, 'students', '111', { first_name: '  ' }).error).toMatch(/obligatorio/);
+  });
+
+  it('cambia varios campos de golpe y avisa si la fila ya no está', () => {
+    const { proyecto, error } = editarFila(proyectoCon(), 'students', '111', {
+      first_name: 'Ada Augusta',
+      grade_level: 'ESO 1B',
+    });
+    expect(error).toBeNull();
+    const ada = proyecto.archivos.students.find((f) => f.person_id === '111');
+    expect([ada?.first_name, ada?.grade_level]).toEqual(['Ada Augusta', 'ESO 1B']);
+    expect(editarFila(proyectoCon(), 'students', 'noexiste', { first_name: 'X' }).error).toMatch(/ya no está/);
   });
 });

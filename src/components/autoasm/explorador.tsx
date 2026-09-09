@@ -30,12 +30,15 @@ import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import {
   CAMPOS_INSTRUCTOR,
+  campoEditable,
   ESPEC,
   ORDEN_ARCHIVOS,
+  POLITICAS_PASSWORD,
   type ArchivoAsm,
+  type CampoAsm,
   type FilaCsv,
 } from '@/lib/autoasm';
-import { darDeBaja, type ProyectoAsm } from '@/lib/autoasm-construir';
+import { darDeBaja, editarFila, type ProyectoAsm } from '@/lib/autoasm-construir';
 import { ESTILO, num } from '@/components/autoasm/paleta';
 import { useProyecto } from '@/components/autoasm/proyecto-store';
 import { descargarCsv } from '@/components/autoasm/descargas';
@@ -49,13 +52,22 @@ const FACETAS: Partial<Record<ArchivoAsm, string[]>> = {
   rosters: ['class_id'],
 };
 
-export function ExploradorAsm({ archivo, consultaInicial }: { archivo: ArchivoAsm; consultaInicial: string }) {
+export function ExploradorAsm({
+  archivo,
+  consultaInicial,
+  abrirInicial,
+}: {
+  archivo: ArchivoAsm;
+  consultaInicial: string;
+  /** Clave de la fila cuya ficha se abre de entrada (los avisos enlazan así, para ir directo). */
+  abrirInicial?: string;
+}) {
   const { proyecto, cargando, guardar } = useProyecto();
   const [q, setQ] = useState(consultaInicial);
   const [faceta, setFaceta] = useState<{ campo: string; valor: string } | null>(null);
   const [orden, setOrden] = useState<{ campo: string; desc: boolean } | null>(null);
   const [pagina, setPagina] = useState(0);
-  const [abierta, setAbierta] = useState<string | null>(null); // clave de la fila abierta
+  const [abierta, setAbierta] = useState<string | null>(abrirInicial ?? null); // clave de la fila abierta
   const [verVacias, setVerVacias] = useState(false);
   const [verArchivados, setVerArchivados] = useState(false);
 
@@ -515,12 +527,31 @@ function Ficha({
                   <span className="text-[11px] text-zinc-400">{campo.obligatorio ? 'obligatorio' : 'opcional'}</span>
                 </dt>
                 <dd className="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">
-                  <Celda archivo={archivo} fila={fila} campo={campo.nombre} indice={indice} />
+                  {campoEditable(archivo, campo.nombre) ? (
+                    <CampoEscribible
+                      key={fila[campo.nombre] ?? ''}
+                      archivo={archivo}
+                      clave={clave}
+                      campo={campo}
+                      valor={fila[campo.nombre] ?? ''}
+                      proyecto={proyecto}
+                      onGuardar={onGuardar}
+                    />
+                  ) : (
+                    <Celda archivo={archivo} fila={fila} campo={campo.nombre} indice={indice} />
+                  )}
                 </dd>
                 <p className="mt-0.5 text-[11px] text-zinc-500">{campo.ayuda}</p>
               </div>
             ))}
           </dl>
+          <p className="text-[11px] text-zinc-500">
+            Los campos en blanco se escriben aquí mismo y se guardan al salir del recuadro. El identificador y las
+            referencias a otros ficheros no se tocan: cambiar un <code>person_id</code> no renombra a nadie en ASM, crea
+            una cuenta nueva.
+            {(archivo === 'students' || archivo === 'staff') &&
+              ' Si esta persona está en Educamos, el siguiente «traer del centro» volverá a pisar lo que escribas; las cuentas que no salen de Educamos (servicio, supervisión, iPads compartidos) no se tocan nunca.'}
+          </p>
 
           {(archivo === 'students' || archivo === 'staff') && (
             <AccionesPersona archivo={archivo} personId={clave} proyecto={proyecto} onGuardar={onGuardar} onCerrar={onCerrar} />
@@ -571,6 +602,77 @@ function Ficha({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Un campo de una fila, escribible en el sitio. Guarda al salir del recuadro (Enter
+ * también, Esc deshace) y solo si de verdad ha cambiado; si `editarFila` lo rechaza —un
+ * correo repetido, un obligatorio en blanco— se dice por qué y el recuadro vuelve a lo
+ * que había, que es lo que está en el fichero.
+ */
+function CampoEscribible({
+  archivo,
+  clave,
+  campo,
+  valor,
+  proyecto,
+  onGuardar,
+}: {
+  archivo: ArchivoAsm;
+  clave: string;
+  campo: CampoAsm;
+  valor: string;
+  proyecto: ProyectoAsm;
+  onGuardar: (p: ProyectoAsm) => { ok: boolean; error?: string };
+}) {
+  const [texto, setTexto] = useState(valor);
+
+  function guardar(nuevo: string) {
+    if (nuevo.trim() === valor.trim()) return;
+    const { proyecto: siguiente, error } = editarFila(proyecto, archivo, clave, { [campo.nombre]: nuevo });
+    if (error) {
+      setTexto(valor);
+      toast.error(error);
+      haptic.warning();
+      return;
+    }
+    const r = onGuardar(siguiente);
+    if (!r.ok && r.error) toast.warning(r.error);
+    else haptic.success();
+  }
+
+  const clases =
+    'min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
+
+  // La política de contraseña es un enum de ASM (4, 6 u 8): un desplegable evita el 5.
+  if (campo.nombre === 'password_policy') {
+    return (
+      <select value={texto} onChange={(e) => { setTexto(e.target.value); guardar(e.target.value); }} className={clases}>
+        <option value="">— sin política —</option>
+        {POLITICAS_PASSWORD.map((p) => (
+          <option key={p} value={p}>{p}</option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      value={texto}
+      onChange={(e) => setTexto(e.target.value)}
+      onBlur={(e) => guardar(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+        if (e.key === 'Escape') { setTexto(valor); e.currentTarget.blur(); }
+      }}
+      inputMode={campo.nombre === 'email_address' ? 'email' : undefined}
+      autoCapitalize={campo.nombre === 'email_address' || campo.nombre === 'sis_username' ? 'none' : undefined}
+      spellCheck={false}
+      placeholder={campo.obligatorio ? 'Hace falta un valor' : 'En blanco'}
+      aria-label={campo.etiqueta}
+      className={clases}
+    />
   );
 }
 

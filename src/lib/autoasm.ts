@@ -148,6 +148,24 @@ export const CAMPOS_INSTRUCTOR = ESPEC.classes.campos.filter((c) => c.nombre.sta
 
 export const POLITICAS_PASSWORD = ['4', '6', '8'] as const;
 
+/**
+ * ¿Este campo se puede escribir a mano en la ficha de una fila?
+ *
+ * Todo menos tres cosas, y cada una por un motivo distinto:
+ *   - **la clave** (`person_id`, `class_id`…): cambiarla en ASM no renombra nada, crea un
+ *     registro NUEVO y la persona pierde su cuenta y su iCloud. Se conserva siempre;
+ *   - **las referencias a otro fichero** (`location_id`, `course_id`, `student_id`…): son
+ *     navegación, y tocarlas a ciegas deja filas huérfanas. Se cambian desde donde toca
+ *     (los grupos de una clase, por ejemplo, en el editor de la clase);
+ *   - **los `instructor_id`** de una clase, que tienen su propio editor con nombres.
+ */
+export function campoEditable(archivo: ArchivoAsm, campo: string): boolean {
+  const espec = ESPEC[archivo];
+  if (campo === espec.clave) return false;
+  if (campo.startsWith('instructor_id')) return false;
+  return !espec.campos.find((c) => c.nombre === campo)?.enlace;
+}
+
 // ─── CSV: leer y escribir ─────────────────────────────────────────────────────
 
 export interface OpcionesCsv {

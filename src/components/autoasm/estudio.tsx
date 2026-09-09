@@ -709,7 +709,11 @@ function PanelIncidencias({ incidencias }: { incidencias: Incidencia[] }) {
                 </p>
               </div>
               <Link
-                href={`/gestion/autoasm/${g.ejemplo.archivo}${g.ejemplo.clave ? `?q=${encodeURIComponent(g.ejemplo.clave)}` : ''}`}
+                href={`/gestion/autoasm/${g.ejemplo.archivo}${
+                  g.ejemplo.clave
+                    ? `?q=${encodeURIComponent(g.ejemplo.clave)}&abrir=${encodeURIComponent(g.ejemplo.clave)}`
+                    : ''
+                }`}
                 className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
               >
                 Ver

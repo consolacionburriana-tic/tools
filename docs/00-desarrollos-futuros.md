@@ -102,6 +102,14 @@ normalización SQL que el documento del tutor.
   `src/db/sql/cuaderno-plantillas-etapas.sql` y se quita de `schema.ts` y de
   `etapasDePlantilla()`.
 
+### AUTOASM: crear filas a mano (sin decidir)
+Desde 2026-09-09 se pueden **editar** los campos de una fila en su ficha (para las cuentas
+de servicio y supervisión de Apple, que no están en Educamos). Lo que sigue sin poderse es
+**crear una fila nueva** a mano: si algún día hace falta otra cuenta institucional, hoy hay
+que meterla en el ZIP a mano o duplicarla fuera. `editarFila()` ya tiene las validaciones
+(clave, únicos, obligatorios), así que un `crearFila()` al lado sería poca cosa. No urge:
+esas cuentas se crean una vez cada muchos años.
+
 ### Salidas: flecos
 - Export CSV del seguimiento de una salida (los recordatorios de pago y el enlace de
   entradas manuales ya están, 2026-07-11).
