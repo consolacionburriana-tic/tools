@@ -11,6 +11,7 @@ import { abcStudents, authUsers, eduStudents, eduTeachers, eduTutorias, type Abc
 import { claseDeAlumno, normalizaNia, siglasDeAlumno } from '@/lib/abc';
 import { academicYearActual } from '@/lib/constants';
 import { getTeacherByEmail } from '@/lib/educamos-server';
+import { nombreProfe } from '@/lib/profes';
 
 /** Alumno tal y como sale en el formulario: dos iniciales y su clase, nada más. */
 export interface AlumnoSeguimiento {
@@ -250,7 +251,7 @@ export async function getDirectorioDestinatarios(abcStudentId: string): Promise<
     const esTutorDelAlumno = tutoresDelAlumno.has(p.id);
     claustro.push({
       email,
-      nombre: [p.nombre, p.apellido1, p.apellido2].filter(Boolean).join(' ') || email,
+      nombre: nombreProfe(p) || email,
       etiqueta: esOrientacion
         ? 'Orientación'
         : esTutorDelAlumno

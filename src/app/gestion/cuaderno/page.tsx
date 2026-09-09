@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { CuadernoPanel } from '@/components/cuaderno/cuaderno-panel';
 import { cuentaDeServicio, driveConfigurado } from '@/lib/cuaderno/drive';
-import { analizarEtiqueta } from '@/lib/cuaderno/campos';
+import { analizarEtiqueta, etapasDePlantilla } from '@/lib/cuaderno/campos';
 import { cursoEscolarLargo } from '@/lib/cuaderno/nombres';
 import {
   academicYearActual,
@@ -38,7 +38,7 @@ export default async function CuadernoPage() {
     nombre: p.nombre,
     googleDocId: p.googleDocId,
     repeticion: p.repeticion,
-    etapa: p.etapa,
+    etapas: etapasDePlantilla(p),
     orden: p.orden,
     generaPdf: p.generaPdf,
     saltoDePagina: p.saltoDePagina,

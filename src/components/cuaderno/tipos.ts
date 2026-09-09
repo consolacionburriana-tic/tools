@@ -1,6 +1,6 @@
 // Tipos compartidos entre las pantallas del Cuaderno de tutor. Son la forma en la que el
 // server component pasa los datos al panel (fechas ya en string, nada de objetos Drizzle).
-import type { EtiquetaAnalizada } from '@/lib/cuaderno/campos';
+import { ETAPA_LABELS, ETAPAS, type EtiquetaAnalizada } from '@/lib/cuaderno/campos';
 
 export interface AjustesUI {
   carpetaBaseId: string | null;
@@ -19,7 +19,8 @@ export interface PlantillaUI {
   nombre: string;
   googleDocId: string;
   repeticion: string;
-  etapa: string | null;
+  /** Etapas a las que aplica. Vacío = todas (ver `etapasDePlantilla`). */
+  etapas: ('EI' | 'EP' | 'ESO')[];
   orden: number;
   generaPdf: boolean;
   saltoDePagina: boolean;
@@ -89,13 +90,9 @@ export interface ItemUI {
 
 export const claseKey = (curso: string, letra: string | null): string => `${curso}|${letra ?? ''}`;
 
-export const ETAPA_LABEL: Record<'EI' | 'EP' | 'ESO', string> = {
-  EI: 'Infantil',
-  EP: 'Primaria',
-  ESO: 'Secundaria',
-};
-
-export const ETAPA_ORDEN: ('EI' | 'EP' | 'ESO')[] = ['EI', 'EP', 'ESO'];
+// Las etapas y sus nombres viven en `campos.ts` (una sola lista para todo el módulo);
+// aquí se reexportan con los nombres que ya usaban las pantallas.
+export { ETAPA_LABELS as ETAPA_LABEL, ETAPAS as ETAPA_ORDEN };
 
 /** ¿Le falta a esta plantilla algo para poder generar? */
 export function plantillaLista(p: PlantillaUI): boolean {

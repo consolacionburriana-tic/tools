@@ -3,6 +3,7 @@
 import { and, desc, eq, ilike, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { compararClases } from '@/lib/cursos';
+import { nombreProfeBreve } from '@/lib/profes';
 import {
   eduGuardians,
   eduStudentGuardians,
@@ -109,7 +110,7 @@ export async function getTripsForUser(user: SessionUser): Promise<TripConStats[]
         .filter((m) => m.tripId === t.id)
         .map((m) => profePorId.get(m.eduTeacherId))
         .filter((p): p is EduTeacher => !!p)
-        .map((p) => ({ id: p.id, nombre: [p.nombre, p.apellido1].filter(Boolean).join(' ') })),
+        .map((p) => ({ id: p.id, nombre: nombreProfeBreve(p) })),
       stats: await statsDe(t, signupsAll.filter((s) => s.tripId === t.id)),
     })),
   );

@@ -22,6 +22,7 @@ import {
   OPCIONES_CSV_ASM,
 } from '@/lib/autoasm';
 import { cursoBaseEso, ordenCurso } from '@/lib/cursos';
+import { pilaProfe } from '@/lib/profes';
 import {
   CENTRO_PLANTILLA,
   CLASES_PLANTILLA,
@@ -191,6 +192,8 @@ export interface ProfeCentro {
   nombre: string | null;
   apellido1: string | null;
   apellido2: string | null;
+  /** El nombre visible del profe (`edu_teachers.nombre_mostrado`), si se ha escrito. */
+  nombreMostrado?: string | null;
   email: string | null;
 }
 
@@ -292,7 +295,9 @@ export function sincronizarConCentro(
     const nueva = fila('staff', {
       person_id: personId,
       person_number: existente?.person_number ?? '',
-      first_name: (profe.nombre ?? '').trim(),
+      // Lo que ve el profe en su iPad: su nombre de verdad, no los dos nombres de pila en
+      // mayúsculas del export. Lo decide `pilaProfe()` (ver el given name en profes.ts).
+      first_name: pilaProfe(profe),
       middle_name: existente?.middle_name ?? '',
       last_name: apellidos(profe.apellido1, profe.apellido2),
       email_address: email,

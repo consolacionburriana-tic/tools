@@ -8,7 +8,7 @@ import { after } from 'next/server';
 import type { CuadItem, CuadPlantilla, CuadTirada } from '@/db/schema';
 import { appBaseUrl } from '@/lib/constants';
 import { etapaDeCurso, type Etapa } from '@/lib/cursos';
-import { analizarEtiqueta, avisosDePlantilla, type Repeticion } from '@/lib/cuaderno/campos';
+import { analizarEtiqueta, aplicaAEtapa, avisosDePlantilla, type Repeticion } from '@/lib/cuaderno/campos';
 import {
   asegurarCarpeta,
   compartirCarpeta,
@@ -107,9 +107,6 @@ export interface PlanTirada {
   etapas: Etapa[];
 }
 
-/** ¿Esta plantilla aplica a esta etapa? Sin etapa, vale para todas. */
-const aplicaEtapa = (plantilla: CuadPlantilla, etapa: Etapa | null) => !plantilla.etapa || plantilla.etapa === etapa;
-
 /**
  * Planifica una tirada: qué documentos saldrían y qué impide lanzarla. Se usa para la
  * vista previa del panel y para crear los ítems, con el mismo código en los dos casos.
@@ -163,7 +160,7 @@ export async function planificarTirada(opciones: {
     }
     for (const grupo of grupos) {
       for (const plantilla of plantillas) {
-        if (!aplicaEtapa(plantilla, clase.etapa)) continue;
+        if (!aplicaAEtapa(plantilla, clase.etapa)) continue;
         const faltan = opciones.faltanPorPlantilla?.[plantilla.id];
         const alumnos = opciones.soloSinHoja && faltan ? grupo.alumnos.filter((a) => faltan.includes(a.id)) : grupo.alumnos;
         if (alumnos.length === 0) continue;

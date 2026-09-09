@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { notFound } from 'next/navigation';
 import { getClasesDisponibles, claseLabel, getTripSeguimiento } from '@/lib/salidas-server';
 import { getTeachers } from '@/lib/educamos-server';
+import { nombreProfeBreve } from '@/lib/profes';
 import { TripForm } from '@/components/salidas/trip-form';
 
 export const metadata = { title: 'Editar salida · Gestión' };
@@ -16,7 +17,7 @@ export default async function EditarSalidaPage({ params }: { params: Promise<{ i
       clases={clases.map((c) => ({ ...c, label: claseLabel(c) }))}
       profes={profes.map((p) => ({
         id: p.id,
-        nombre: [p.nombre, p.apellido1].filter(Boolean).join(' '),
+        nombre: nombreProfeBreve(p),
         etapa: p.etapa,
         esTutor: p.esTutor,
         claseTutor: p.claseTutor,

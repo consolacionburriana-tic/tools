@@ -8,6 +8,8 @@
 //
 // Todo es puro y testeado en `src/lib/__tests__/cuaderno-campos.test.ts`.
 
+import { type Etapa } from '@/lib/cursos';
+
 export const AMBITOS = ['alumno', 'clase', 'asignatura', 'familiar', 'centro', 'trimestre'] as const;
 export type Ambito = (typeof AMBITOS)[number];
 
@@ -272,6 +274,50 @@ export const REPETICION_AYUDA: Record<Repeticion, string> = {
   trimestre: 'La plantilla es una hoja; el documento sale con las tres evaluaciones (Registro de entrevistas).',
   unica: 'La plantilla sale una vez tal cual; el alumnado va en una tabla con «#alumnos» (Reunión de familias).',
 };
+
+// ─── Etapas de una plantilla ─────────────────────────────────────────────────
+//
+// Una plantilla puede valer para una etapa, para varias o para todas. La lista vacía
+// significa TODAS (es lo que hay en la mayoría) y así una etapa nueva no obliga a repasar
+// las plantillas de una en una.
+
+export const ETAPAS: readonly Etapa[] = ['EI', 'EP', 'ESO'];
+
+export const ETAPA_LABELS: Record<Etapa, string> = {
+  EI: 'Infantil',
+  EP: 'Primaria',
+  ESO: 'Secundaria',
+};
+
+/** Lo que hace falta para saber a qué etapas aplica una plantilla (fila o UI). */
+export interface PlantillaConEtapas {
+  etapas?: readonly string[] | null;
+  /** LEGACY: la etapa única de antes de que esto fuera una lista. */
+  etapa?: string | null;
+}
+
+/**
+ * Etapas a las que aplica una plantilla, normalizadas y en el orden del colegio.
+ * **Lista vacía = vale para todas.** Si la fila es antigua y solo tiene `etapa`, se lee
+ * esa (así el cambio de columna no necesita que nadie vuelva a guardar las plantillas).
+ */
+export function etapasDePlantilla(plantilla: PlantillaConEtapas): Etapa[] {
+  const crudas = plantilla.etapas?.length ? plantilla.etapas : plantilla.etapa ? [plantilla.etapa] : [];
+  return ETAPAS.filter((e) => crudas.includes(e));
+}
+
+/** ¿Esta plantilla aplica a esta etapa? Sin etapas, vale para todas. */
+export function aplicaAEtapa(plantilla: PlantillaConEtapas, etapa: Etapa | null): boolean {
+  const etapas = etapasDePlantilla(plantilla);
+  return etapas.length === 0 || (etapa !== null && etapas.includes(etapa));
+}
+
+/** Cómo se cuenta en el panel: «todas las etapas» · «Primaria» · «Primaria + Secundaria». */
+export function etiquetaEtapas(plantilla: PlantillaConEtapas): string {
+  const etapas = etapasDePlantilla(plantilla);
+  if (etapas.length === 0 || etapas.length === ETAPAS.length) return 'todas las etapas';
+  return etapas.map((e) => ETAPA_LABELS[e]).join(' + ');
+}
 
 export const TRIMESTRES = [
   { num: '1', corto: '1ª', nombre: 'Primera evaluación' },

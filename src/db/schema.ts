@@ -271,6 +271,12 @@ export const eduTeachers = pgTable('edu_teachers', {
   nombre: text('nombre'),
   apellido1: text('apellido1'),
   apellido2: text('apellido2'),
+  // El nombre por el que se le llama de verdad ("given name"): «Pepe» donde el export dice
+  // «JOSE MANUEL», «Mª Carmen» donde dice «MARIA DEL CARMEN». Se escribe A MANO una vez en
+  // /gestion/profes y manda en TODAS las salidas (ASM, cuaderno, correos, paneles). El sync
+  // de Educamos no lo toca nunca (no está en `campos` de `aplicarSyncProfesores`). null =
+  // úsese la heurística de `nombreDePila()`.
+  nombreMostrado: text('nombre_mostrado'),
   dni: text('dni'),
   sexo: text('sexo'),
   fechaNacimiento: date('fecha_nacimiento'),
@@ -924,7 +930,14 @@ export const cuadPlantillas = pgTable('cuad_plantillas', {
   googleDocId: text('google_doc_id').notNull(), // id del Google Doc plantilla
   // 'alumno' = una copia por alumno · 'trimestre' = una por trimestre · 'unica' = una sola.
   repeticion: text('repeticion').notNull().default('alumno'),
-  etapa: text('etapa'), // 'EI' | 'EP' | 'ESO' · null = vale para todas
+  // Etapas a las que aplica la plantilla: `['EP','ESO']`. Vacío o null = vale para todas.
+  // Es una lista porque la misma hoja sirve a menudo para más de una etapa (y no queremos
+  // duplicar la plantilla en Docs solo para eso). Se lee siempre con `etapasDePlantilla()`.
+  etapas: jsonb('etapas').$type<('EI' | 'EP' | 'ESO')[]>(),
+  // LEGACY: la etapa única de antes. Ya no se escribe; `etapasDePlantilla()` la lee como
+  // respaldo para las filas que existían antes de `etapas`. Se podrá borrar la columna
+  // cuando David dé el ok (ver src/db/sql/cuaderno-plantillas-etapas.sql).
+  etapa: text('etapa'),
   orden: integer('orden').notNull().default(1), // el `x` de "1.x" en el nombre del archivo
   saltoDePagina: boolean('salto_de_pagina').notNull().default(true),
   generaPdf: boolean('genera_pdf').notNull().default(true),

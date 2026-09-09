@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { students, eduStudents, eduTeachers, behaviorReports } from '@/db/schema';
 import { eq, count, desc, gte } from 'drizzle-orm';
 import { siglasDeAlumno } from '@/lib/abc';
+import { nombreProfeBreve } from '@/lib/profes';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Users, GraduationCap, FileText, TrendingUp } from 'lucide-react';
@@ -37,6 +38,7 @@ export default async function AdminPage() {
         eduApellido1: eduStudents.apellido1,
         teacherFirstName: eduTeachers.nombre,
         teacherLastName: eduTeachers.apellido1,
+        teacherNombreMostrado: eduTeachers.nombreMostrado,
       })
       .from(behaviorReports)
       .leftJoin(students, eq(behaviorReports.studentId, students.id))
@@ -109,7 +111,12 @@ export default async function AdminPage() {
                   </div>
                   {r.teacherFirstName && (
                     <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                      {r.teacherFirstName} {r.teacherLastName}
+                      {nombreProfeBreve({
+                        nombre: r.teacherFirstName,
+                        apellido1: r.teacherLastName,
+                        apellido2: null,
+                        nombreMostrado: r.teacherNombreMostrado,
+                      })}
                     </p>
                   )}
                 </div>

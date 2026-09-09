@@ -1,4 +1,7 @@
-// Cómo se escriben las personas en el cuaderno. Puro y testeado.
+// Cómo se escriben las personas en toda la plataforma. Puro y testeado.
+//
+// Nació en el cuaderno de tutor y se quedó aquí, transversal, en cuanto el nombre visible
+// del profesorado tuvo que salir también en el ASM, en los correos y en los paneles.
 //
 // De Educamos todo llega A GRITOS: «CARLOS ANDRES VALERO AICART», «MARIA@…». En una hoja
 // que va a leer una familia eso queda fatal, así que aquí se arregla una sola vez, en el
@@ -104,6 +107,12 @@ export interface PersonaBruta {
   nombre: string | null;
   apellido1: string | null;
   apellido2: string | null;
+  /**
+   * El "given name" escrito a mano en la ficha de la persona: el nombre por el que se la
+   * llama de verdad. En el profesorado es `edu_teachers.nombre_mostrado`, y se ajusta en
+   * /gestion/profes. Cuando está, gana a la heurística de `nombreDePila()`.
+   */
+  nombreMostrado?: string | null;
 }
 
 /** Cómo se decidió llamar a alguien a mano, si es que se hizo (tabla `cuad_personas`). */
@@ -133,13 +142,18 @@ export interface NombrePersona {
  * mano por delante. `usual` es el que va en las hojas: nombre de pila + apellidos, porque
  * «CARLOS ANDRES VALERO AICART» en la cabecera de una entrevista con la familia no lo
  * quiere nadie.
+ *
+ * Quién manda sobre el nombre de pila, de más a menos: `aMano.pila` (lo que se haya fijado
+ * para un módulo concreto, `cuad_personas`) → `persona.nombreMostrado` (el given name de la
+ * ficha, que vale para toda la plataforma) → la heurística.
  */
 export function nombresDe(persona: PersonaBruta | null, aMano?: NombreAMano | null): NombrePersona {
   const apellidos = [mayusculasBellas(persona?.apellido1), mayusculasBellas(persona?.apellido2)]
     .filter(Boolean)
     .join(' ');
   const nombreExport = mayusculasBellas(persona?.nombre);
-  const pila = (aMano?.pila ?? '').trim() || nombreDePila(nombreExport);
+  const pila =
+    (aMano?.pila ?? '').trim() || (persona?.nombreMostrado ?? '').trim() || nombreDePila(nombreExport);
   const completo = [nombreExport, apellidos].filter(Boolean).join(' ');
   const usual = (aMano?.completo ?? '').trim() || [pila, apellidos].filter(Boolean).join(' ');
   const inicial = mayusculasBellas(persona?.apellido1).charAt(0);

@@ -33,9 +33,9 @@ import {
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
 import { compararClases, etapaDeCurso, type Etapa } from '@/lib/cursos';
-import { construirMapeo, normalizarEtiqueta, type Repeticion } from '@/lib/cuaderno/campos';
+import { aplicaAEtapa, construirMapeo, normalizarEtiqueta, type Repeticion } from '@/lib/cuaderno/campos';
 import { claseCorta } from '@/lib/cuaderno/nombres';
-import { correoBonito, mayusculasBellas, nombresDe, type NombreAMano } from '@/lib/cuaderno/personas';
+import { correoBonito, mayusculasBellas, nombresDe, type NombreAMano } from '@/lib/personas';
 
 export { academicYearActual };
 
@@ -86,7 +86,8 @@ export async function crearPlantilla(datos: {
   nombre: string;
   googleDocId: string;
   repeticion: Repeticion;
-  etapa: Etapa | null;
+  /** Etapas a las que aplica. Lista vacía = todas. */
+  etapas: Etapa[];
   orden?: number;
   generaPdf?: boolean;
   saltoDePagina?: boolean;
@@ -110,7 +111,7 @@ export async function actualizarPlantilla(
     nombre: string;
     googleDocId: string;
     repeticion: string;
-    etapa: string | null;
+    etapas: Etapa[];
     orden: number;
     generaPdf: boolean;
     saltoDePagina: boolean;
@@ -1215,7 +1216,9 @@ export interface AlumnoSinHoja {
  * hacerle su Dossier y sus entrevistas sin rehacer las de los otros 29.
  */
 export async function alumnosSinHoja(academicYear: string, etapas?: Etapa[]): Promise<AlumnoSinHoja[]> {
-  const plantillas = (await getPlantillas(true)).filter((p) => !etapas || !p.etapa || etapas.includes(p.etapa as Etapa));
+  const plantillas = (await getPlantillas(true)).filter(
+    (p) => !etapas || etapas.some((e) => aplicaAEtapa(p, e)),
+  );
   if (plantillas.length === 0) return [];
   const [alumnado, hojas] = await Promise.all([
     db

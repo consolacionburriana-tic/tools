@@ -21,6 +21,7 @@ import {
 import { academicYearActual } from '@/lib/constants';
 import { nombreClase } from '@/lib/cursos';
 import { vePuntualidadCompleta, type Role } from '@/lib/permissions';
+import { nombreProfe, nombreProfeBreve } from '@/lib/profes';
 import { tutorPersonalDeAlumno } from '@/lib/tutorias-server';
 import {
   HORA_LIMITE,
@@ -204,6 +205,7 @@ async function filasDeRetrasos(where: SQL | undefined): Promise<RetrasoFila[]> {
       asignatura: punSubjects.nombre,
       profeNombre: eduTeachers.nombre,
       profeApellido: eduTeachers.apellido1,
+      profeMostrado: eduTeachers.nombreMostrado,
       consequenceId: conConsequenceRecords.consequenceId,
     })
     .from(punRecords)
@@ -213,7 +215,7 @@ async function filasDeRetrasos(where: SQL | undefined): Promise<RetrasoFila[]> {
     .where(where)
     .orderBy(desc(punRecords.fecha), desc(punRecords.hora));
 
-  return rows.map(({ r, asignatura, profeNombre, profeApellido, consequenceId }) => ({
+  return rows.map(({ r, asignatura, profeNombre, profeApellido, profeMostrado, consequenceId }) => ({
     id: r.id,
     fecha: r.fecha,
     hora: r.hora,
@@ -225,7 +227,7 @@ async function filasDeRetrasos(where: SQL | undefined): Promise<RetrasoFila[]> {
     observaciones: r.observaciones,
     asignatura,
     clase: nombreClase(r.curso, r.letra),
-    profe: profeNombre ? `${profeNombre} ${profeApellido ?? ''}`.trim() : null,
+    profe: profeNombre ? nombreProfe({ nombre: profeNombre, apellido1: profeApellido, apellido2: null, nombreMostrado: profeMostrado }) : null,
     registradoPorEmail: r.registradoPorEmail,
     consumido: consequenceId !== null,
   }));
@@ -299,7 +301,7 @@ export async function tutoresDeClase(
     );
   return rows.map(({ t }) => ({
     eduTeacherId: t.id,
-    nombre: [t.nombre, t.apellido1].filter(Boolean).join(' '),
+    nombre: nombreProfeBreve(t),
     email: t.email,
   }));
 }
@@ -615,6 +617,7 @@ export async function listarRetrasos(filtro: FiltroRetrasos, limite = 500): Prom
       asignatura: punSubjects.nombre,
       profeNombre: eduTeachers.nombre,
       profeApellido: eduTeachers.apellido1,
+      profeMostrado: eduTeachers.nombreMostrado,
       alumnoNombre: eduStudents.nombre,
       alumnoAp1: eduStudents.apellido1,
       alumnoAp2: eduStudents.apellido2,
@@ -643,7 +646,14 @@ export async function listarRetrasos(filtro: FiltroRetrasos, limite = 500): Prom
     observaciones: row.r.observaciones,
     asignatura: row.asignatura,
     clase: nombreClase(row.r.curso, row.r.letra),
-    profe: row.profeNombre ? `${row.profeNombre} ${row.profeApellido ?? ''}`.trim() : null,
+    profe: row.profeNombre
+      ? nombreProfe({
+          nombre: row.profeNombre,
+          apellido1: row.profeApellido,
+          apellido2: null,
+          nombreMostrado: row.profeMostrado,
+        })
+      : null,
     registradoPorEmail: row.r.registradoPorEmail,
     consumido: row.consequenceId !== null,
   }));
@@ -908,7 +918,7 @@ export async function resumenSemanalPorTutor(desde: string, hasta: string): Prom
     const clase = nombreClase(curso, letra);
     const actual = porTutor.get(t.email) ?? {
       email: t.email,
-      nombre: [t.nombre, t.apellido1].filter(Boolean).join(' '),
+      nombre: nombreProfeBreve(t),
       clases: [],
       filas: [],
     };

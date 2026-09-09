@@ -5,8 +5,9 @@ import {
   nombreDePila,
   nombresDe,
   pareceMalEscrito,
-} from '@/lib/cuaderno/personas';
+} from '@/lib/personas';
 import { limpiarAbreviatura } from '@/lib/cuaderno-server';
+import { nombreProfe, nombreProfeBreve, pilaProfe } from '@/lib/profes';
 
 // Los nombres de estas pruebas son inventados salvo el patrón que los motiva (el export de
 // Educamos llega todo en mayúsculas). Nunca datos reales de alumnado.
@@ -132,5 +133,36 @@ describe('limpiarAbreviatura', () => {
   it('aguanta lo vacío', () => {
     expect(limpiarAbreviatura(null)).toBeNull();
     expect(limpiarAbreviatura('  ')).toBeNull();
+  });
+});
+
+describe('el nombre visible del profesorado (given name)', () => {
+  const pepe = { nombre: 'JOSE MANUEL', apellido1: 'SANCHEZ', apellido2: 'GIL', nombreMostrado: 'Pepe' };
+
+  it('el nombre escrito a mano manda sobre lo que diga Educamos', () => {
+    expect(pilaProfe(pepe)).toBe('Pepe');
+    expect(nombreProfe(pepe)).toBe('Pepe Sanchez Gil');
+    expect(nombreProfeBreve(pepe)).toBe('Pepe Sanchez');
+    // Los apellidos no se tocan: solo se arregla el nombre de pila.
+    expect(nombresDe(pepe).completo).toBe('Jose Manuel Sanchez Gil');
+  });
+
+  it('sin nombre a mano se usa la heurística de siempre', () => {
+    // «Jose Manuel» es justo el caso que motiva el given name: la heurística respeta el
+    // compuesto (no puede saber que a esta persona la llaman «Pepe»).
+    const sinMano = { ...pepe, nombreMostrado: null };
+    expect(pilaProfe(sinMano)).toBe('Jose Manuel');
+    expect(nombreProfe(sinMano)).toBe('Jose Manuel Sanchez Gil');
+    expect(nombreProfe({ ...sinMano, nombreMostrado: '   ' })).toBe('Jose Manuel Sanchez Gil');
+    expect(pilaProfe({ nombre: 'CARLOS ANDRES', apellido1: 'VALERO', apellido2: null })).toBe('Carlos');
+  });
+
+  it('lo que se fija para un módulo (cuad_personas) sigue ganando al de la ficha', () => {
+    expect(nombresDe(pepe, { pila: 'Josep' }).usual).toBe('Josep Sanchez Gil');
+  });
+
+  it('aguanta a quien no está', () => {
+    expect(nombreProfe(null)).toBe('');
+    expect(pilaProfe(undefined)).toBe('');
   });
 });

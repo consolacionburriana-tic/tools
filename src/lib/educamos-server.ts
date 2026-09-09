@@ -377,6 +377,21 @@ export async function getTeachers(filters: { active?: boolean } = {}): Promise<E
     .orderBy(asc(eduTeachers.apellido1), asc(eduTeachers.apellido2), asc(eduTeachers.nombre));
 }
 
+/**
+ * Fija (o borra) el nombre visible de un profe: el "given name" que sale en TODAS partes
+ * (ASM, cuaderno, correos, paneles). En blanco = se vuelve a la heurística de
+ * `nombreDePila()` sobre lo que diga Educamos. El sync no lo toca nunca.
+ */
+export async function fijarNombreMostrado(teacherId: string, nombre: string | null): Promise<EduTeacher | null> {
+  const limpio = nombre?.replace(/\s+/g, ' ').trim() || null;
+  const [fila] = await db
+    .update(eduTeachers)
+    .set({ nombreMostrado: limpio, updatedAt: new Date() })
+    .where(eq(eduTeachers.id, teacherId))
+    .returning();
+  return fila ?? null;
+}
+
 export async function getTeacherByEmail(email: string): Promise<EduTeacher | null> {
   const [row] = await db
     .select()
