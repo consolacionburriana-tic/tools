@@ -1,0 +1,11 @@
+# SQL de src/db/sql/ que TODAVÍA NO está aplicado en Neon, en el orden en que hay que
+# aplicarlo. Se ejecuta con:
+#
+#     pnpm db:sql --pendientes          (añade --dry para ver qué haría)
+#
+# Todos son idempotentes, así que volver a lanzarlo no rompe nada. Cuando se apliquen, se
+# quitan de aquí en el mismo commit y se marcan las casillas de la ficha del módulo.
+
+cuaderno-plantillas-etapas.sql   # una plantilla del cuaderno puede valer para varias etapas
+profes-nombre-mostrado.sql       # nombre visible del profesorado (el "given name")
+autoasm.sql                      # ASM: histórico de entregas, FTP y lo escrito a mano (asm_ajustes)

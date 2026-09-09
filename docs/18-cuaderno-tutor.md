@@ -471,10 +471,10 @@ fábrica, sin mapear nada a mano.
 - [x] La columna vieja `etapa` se sigue leyendo como respaldo, así que las plantillas que ya
       existen no hay que volver a guardarlas
 - [~] SQL aditivo `src/db/sql/cuaderno-plantillas-etapas.sql` (añade `etapas` y hace el
-      backfill) *(pendiente de aplicar en Neon: hace falta `DATABASE_URL`)*
+      backfill) *(pendiente en Neon: `pnpm db:sql --pendientes`)*
 - [x] El nombre visible del profe («given name») sale de su ficha (`edu_teachers.nombre_mostrado`)
       y manda en el cuaderno cuando no hay nada escrito en `cuad_personas`
-- [~] SQL aditivo `src/db/sql/profes-nombre-mostrado.sql` *(pendiente de aplicar en Neon)*
+- [~] SQL aditivo `src/db/sql/profes-nombre-mostrado.sql` *(pendiente en Neon: `pnpm db:sql --pendientes`)*
 
 ### Fase 6c · Nombres y vista previa
 - [x] `personas.ts`: mayúsculas bellas, correos en minúscula y nombre de pila (`nombresDe`)

@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:sql": "tsx scripts/aplicar-sql.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "npx dotenv-cli -e .env.local tsx src/db/seed.ts",
     "db:seed:licencias": "npx dotenv-cli -e .env.local tsx src/db/seed-licencias.ts",

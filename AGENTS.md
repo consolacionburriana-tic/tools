@@ -44,4 +44,10 @@ alumnado `edu_*` y login por roles `auth_*`).
   y marcar `[x]` en el mismo commit).
 - **Las checklists de `docs/` son el estado real del proyecto.** Marca `[x]` solo lo verificado;
   actualiza la tabla maestra cuando un estado cambie.
+- **Si `src/db/sql/pendientes.txt` no está vacío, hay schema sin aplicar en Neon.** Con
+  `DATABASE_URL` en el entorno (o en `.env.local`), aplícalo tú:
+  `pnpm db:sql --pendientes` (`--dry` para ver antes qué haría). Son ficheros idempotentes.
+  Al aplicarlos, quítalos de `pendientes.txt` y marca las casillas `[~]` → `[x]` de la
+  ficha del módulo en el mismo commit. Si no tienes `DATABASE_URL`, dilo al terminar en vez
+  de dar el trabajo por acabado.
 - No tomes decisiones de alcance en silencio: apúntalas en `docs/00-desarrollos-futuros.md`.

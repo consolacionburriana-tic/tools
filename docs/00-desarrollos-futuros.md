@@ -145,12 +145,11 @@ Recopilados de las fichas, para verlos de un vistazo:
   vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`).
   No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
-- **Aplicar tres SQL aditivos en Neon** (sesión 2026-09-09, hechos en código y probados con
-  `pnpm test`/`build`, pero sin `DATABASE_URL` en la sesión): `cuaderno-plantillas-etapas.sql`
-  (plantilla para varias etapas), `profes-nombre-mostrado.sql` (nombre visible del
-  profesorado) y `autoasm.sql` (que ya estaba pendiente y ahora trae también `asm_ajustes`,
-  lo escrito a mano en los ficheros de ASM). Todos idempotentes; también valdría
-  `pnpm db:push` mirando antes qué hay en Neon.
+- **Aplicar el SQL pendiente en Neon**: `pnpm db:sql --pendientes` (la lista está en
+  `src/db/sql/pendientes.txt` y en la cabecera de `plataforma.md`). Son tres, de la sesión
+  del 2026-09-09, que no tenía `DATABASE_URL`: plantilla del cuaderno para varias etapas,
+  nombre visible del profesorado y `autoasm.sql` (histórico, FTP y `asm_ajustes`). Basta con
+  lanzarlo desde un entorno que tenga la conexión.
 - **Mi horario** (ficha `20`): en la consola de administración de Google Workspace, añadir
   el scope `https://www.googleapis.com/auth/calendar` al Client ID que ya tiene delegación
   de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin

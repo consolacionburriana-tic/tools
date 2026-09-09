@@ -58,6 +58,30 @@ Cuando David diga "sigue haciendo" (o equivalente) sin más contexto, este es el
 
 ---
 
+## ⚠️ Schema pendiente de aplicar en Neon
+
+`src/db/sql/pendientes.txt` es la lista de ficheros SQL que el repo tiene escritos y **Neon
+todavía no**. Mientras no esté vacío, hay código en producción esperando su tabla o su
+columna. Se aplica de una vez, con `DATABASE_URL` en el entorno o en `.env.local`:
+
+```bash
+pnpm db:sql --pendientes --dry   # qué haría
+pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotentes)
+```
+
+Ahora mismo faltan tres (sesión del 9-sep-2026, que no tenía acceso a la BBDD):
+
+| Fichero | Sin él… |
+|---|---|
+| `cuaderno-plantillas-etapas.sql` | una plantilla del cuaderno no puede marcarse para varias etapas (se lee la etapa única de antes) |
+| `profes-nombre-mostrado.sql` | el «Nombre visible» de `/gestion/profes` no se puede guardar |
+| `autoasm.sql` | el ASM no guarda el histórico de entregas, ni el FTP, ni lo que se escribe a mano en una ficha |
+
+Al aplicarlos: quitarlos de `pendientes.txt`, marcar las casillas `[~]` → `[x]` de la ficha
+del módulo y borrar esta sección, todo en el mismo commit.
+
+---
+
 ## Tabla maestra de estado
 
 Esta tabla es el check-list general: para cada módulo o pieza transversal, si está **planificado
