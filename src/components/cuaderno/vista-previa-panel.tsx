@@ -191,6 +191,10 @@ function Campos({ campos }: { campos: CampoPrevisto[] }) {
  * Educamos manda «CARLOS ANDRES VALERO AICART»; el cuaderno escribe «Carlos Valero Aicart»
  * quitando el segundo nombre de pila. Acierta casi siempre, y aquí se arregla el resto —
  * son dos tutores por clase, no hay que revisar un listado de trescientos.
+ *
+ * Esto retoca el nombre SOLO en el cuaderno (`cuad_personas`). Para cambiarle el nombre a un
+ * profe en todas partes (ASM, correos, paneles) está el «Nombre visible» de /gestion/profes,
+ * que es lo que se usa aquí si nadie ha escrito nada.
  */
 function Tutores({
   tutores,
@@ -204,7 +208,8 @@ function Tutores({
     <Tarjeta>
       <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Cómo se llaman los tutores en las hojas</h3>
       <p className="mt-1 text-xs text-zinc-500">
-        De Educamos llegan con todos sus nombres de pila y en mayúsculas. Si alguno no queda bien, escríbelo aquí.
+        De Educamos llegan con todos sus nombres de pila y en mayúsculas. Si alguno no queda bien, escríbelo aquí
+        —solo para el cuaderno—; para cambiarlo en todas partes, el «Nombre visible» de Profesorado.
       </p>
       <div className="mt-3 space-y-2">
         {tutores.map((t) => (

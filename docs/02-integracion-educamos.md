@@ -242,6 +242,34 @@ consultan `edu_*` a pelo desde sus rutas.
 - [x] Botón "promocionar +1 curso" y "limpiar tutorías" (todas o por etapa), con vista previa
       antes de aplicar. Reglas de ciclo en `cursoSiguiente()`, ver `00-desarrollos-futuros.md`.
 
+### Nombre visible del profesorado · el "given name" (2026-09-09)
+
+Educamos manda «JOSE MANUEL SANCHEZ GIL» y a esa persona todo el mundo la llama «Pepe». La
+heurística de `nombreDePila()` (`src/lib/personas.ts`) acierta casi siempre, pero cuando no,
+hace falta poder decirlo **una vez y para todas partes** — sobre todo para las salidas que ve
+gente de fuera del claustro.
+
+Decisión (David, sep-2026): el nombre visible vive en la **ficha del profe**, no en la de un
+módulo. Columna `edu_teachers.nombre_mostrado` (solo el nombre; los apellidos salen del export),
+que el sync de Educamos **no toca nunca**, y un único sitio donde se escribe:
+`/gestion/profes` → tarjeta «Nombre visible». Se ve de un vistazo cómo va a salir cada profe y
+solo se escriben las excepciones; en blanco = vuelve la heurística.
+
+De ahí lo leen, con los helpers de `src/lib/profes.ts` (`nombresDeProfe`, `nombreProfe`,
+`nombreProfeBreve`, `pilaProfe`), todos los sitios donde se nombra a un profe: el `first_name`
+del `staff.csv` del ASM, el cuaderno de tutor, los correos y avisos de Puntualidad, las
+evaluaciones, el ABC, Salidas, Horarios, Usuarios y las propias tutorías. **Un sitio nuevo donde
+salga un profe = llamar a esos helpers, nunca volver a juntar `[nombre, apellido1]` a mano.**
+
+- [x] Columna `edu_teachers.nombre_mostrado` en `schema.ts` (el sync no la pisa)
+- [x] Helpers puros en `src/lib/profes.ts` sobre `src/lib/personas.ts` (antes en `cuaderno/`,
+      ahora transversal), con tests
+- [x] API `POST /api/profes/admin/nombres` (guard de módulo `profes`) y tarjeta «Nombre visible»
+      en `/gestion/profes`
+- [x] Enganchado en ASM, cuaderno, Puntualidad, Evaluaciones, ABC, Salidas, Horarios y Usuarios
+- [~] `src/db/sql/profes-nombre-mostrado.sql` *(pendiente de aplicar en Neon: hace falta
+      `DATABASE_URL`; también vale `pnpm db:push` si se mira antes qué hay en Neon)*
+
 ### Tutor personal: reparto del alumnado entre los tutores de una clase (2026-09-03)
 
 En Infantil y Primaria lo normal es un tutor por clase, pero **a veces son dos** (y como mucho

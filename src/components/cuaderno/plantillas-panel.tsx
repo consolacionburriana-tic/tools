@@ -28,19 +28,16 @@ import {
   AMBITO_LABELS,
   AMBITOS,
   CAMPOS,
+  ETAPA_LABELS,
+  ETAPAS,
+  etiquetaEtapas,
   REPETICION_AYUDA,
   REPETICION_LABELS,
   REPETICIONES,
   type Ambito,
 } from '@/lib/cuaderno/campos';
+import { type Etapa } from '@/lib/cursos';
 import { haptic } from '@/lib/haptics';
-
-const ETAPAS = [
-  { v: '', label: 'Todas' },
-  { v: 'ESO', label: 'Secundaria' },
-  { v: 'EP', label: 'Primaria' },
-  { v: 'EI', label: 'Infantil' },
-];
 
 export function PlantillasPanel({ plantillas, cuenta }: { plantillas: PlantillaUI[]; cuenta: string | null }) {
   return (
@@ -256,7 +253,7 @@ function FilaPlantilla({ plantilla }: { plantilla: PlantillaUI }) {
           </div>
           <p className="mt-1 text-xs text-zinc-500">
             {REPETICION_LABELS[plantilla.repeticion as keyof typeof REPETICION_LABELS] ?? plantilla.repeticion}
-            {plantilla.etapa ? ` · ${plantilla.etapa}` : ' · todas las etapas'}
+            {` · ${etiquetaEtapas(plantilla)}`}
             {plantilla.tieneFilas ? ' · con tabla de alumnos' : ''}
             {plantilla.generaPdf ? ' · también en PDF' : ' · solo Google Doc'}
             {plantilla.hojasHechas > 0 ? ` · ${plantilla.hojasHechas} hojas hechas este curso` : ''}
@@ -327,18 +324,8 @@ function FilaPlantilla({ plantilla }: { plantilla: PlantillaUI }) {
                 {REPETICION_AYUDA[plantilla.repeticion as keyof typeof REPETICION_AYUDA]}
               </p>
             </Campo>
-            <Campo label="Etapa">
-              <select
-                defaultValue={plantilla.etapa ?? ''}
-                onChange={(e) => cambiar({ etapa: e.target.value === '' ? null : e.target.value })}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-950"
-              >
-                {ETAPAS.map((e) => (
-                  <option key={e.v} value={e.v}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
+            <Campo label="Etapas a las que vale">
+              <SelectorEtapas etapas={plantilla.etapas} onCambio={(etapas) => cambiar({ etapas })} />
             </Campo>
           </div>
 
@@ -439,6 +426,31 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/**
+ * Qué etapas usan una plantilla. Se marcan las que sean —una, dos o las tres—, y «Todas»
+ * es la lista vacía: así una plantilla que valga para todo el colegio no hay que repasarla
+ * si algún día aparece una etapa nueva.
+ */
+function SelectorEtapas({ etapas, onCambio }: { etapas: Etapa[]; onCambio: (etapas: Etapa[]) => void }) {
+  const alternar = (etapa: Etapa) => {
+    const siguiente = etapas.includes(etapa) ? etapas.filter((e) => e !== etapa) : [...etapas, etapa];
+    // Con las tres marcadas, «todas» es lo mismo y se lee mejor.
+    onCambio(siguiente.length === ETAPAS.length ? [] : ETAPAS.filter((e) => siguiente.includes(e)));
+  };
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <Interruptor activo={etapas.length === 0} onClick={() => onCambio([])}>
+        Todas
+      </Interruptor>
+      {ETAPAS.map((etapa) => (
+        <Interruptor key={etapa} activo={etapas.includes(etapa)} onClick={() => alternar(etapa)}>
+          {ETAPA_LABELS[etapa]}
+        </Interruptor>
+      ))}
+    </div>
+  );
+}
+
 function Interruptor({
   activo,
   onClick,
@@ -469,7 +481,7 @@ function NuevaPlantilla({ cuenta }: { cuenta: string | null }) {
   const [url, setUrl] = useState('');
   const [nombre, setNombre] = useState('');
   const [repeticion, setRepeticion] = useState<string>('alumno');
-  const [etapa, setEtapa] = useState('ESO');
+  const [etapas, setEtapas] = useState<Etapa[]>(['ESO']);
   const [guardando, setGuardando] = useState(false);
 
   async function anadir() {
@@ -482,7 +494,7 @@ function NuevaPlantilla({ cuenta }: { cuenta: string | null }) {
           url: url.trim(),
           nombre: nombre.trim() || undefined,
           repeticion,
-          etapa: etapa === '' ? null : etapa,
+          etapas,
         }),
       });
       const datos = await res.json();
@@ -515,7 +527,7 @@ function NuevaPlantilla({ cuenta }: { cuenta: string | null }) {
           placeholder="https://docs.google.com/document/d/…"
           className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
         />
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -533,17 +545,10 @@ function NuevaPlantilla({ cuenta }: { cuenta: string | null }) {
               </option>
             ))}
           </select>
-          <select
-            value={etapa}
-            onChange={(e) => setEtapa(e.target.value)}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-950"
-          >
-            {ETAPAS.map((e) => (
-              <option key={e.v} value={e.v}>
-                {e.label}
-              </option>
-            ))}
-          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Etapas a las que vale</label>
+          <SelectorEtapas etapas={etapas} onCambio={setEtapas} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button

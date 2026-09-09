@@ -7,6 +7,7 @@ import { authUsers } from '@/db/schema';
 import { getSessionUser } from '@/lib/auth-guards';
 import { getTeachers } from '@/lib/educamos-server';
 import type { Module, Role } from '@/lib/permissions';
+import { nombreProfe } from '@/lib/profes';
 import { RolesGrid, type FilaUsuario } from '@/components/usuarios/roles-grid';
 
 export const metadata = { title: 'Usuarios y roles · Tools Consolación' };
@@ -22,7 +23,7 @@ export default async function UsuariosPage() {
       const u = porEmail.get(p.email!);
       return {
         email: p.email!,
-        nombre: [p.nombre, p.apellido1, p.apellido2].filter(Boolean).join(' ') || null,
+        nombre: nombreProfe(p) || null,
         rolExplicito: (u?.active ? (u.role as Role) : null) ?? null,
         esProfe: true,
         bloqueado: !!u && !u.active, // fila en auth con active=false → sin acceso

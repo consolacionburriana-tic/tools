@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { REPETICIONES } from '@/lib/cuaderno/campos';
+import { ETAPAS, REPETICIONES } from '@/lib/cuaderno/campos';
 import { extraerIdDrive, infoArchivo, MIME_GDOC } from '@/lib/cuaderno/drive';
 import { crearPlantilla, getPlantillas } from '@/lib/cuaderno-server';
 
@@ -27,7 +27,8 @@ export async function POST(request: Request) {
         url: z.string().trim().min(10).max(500),
         nombre: z.string().trim().max(120).optional(),
         repeticion: z.enum(REPETICIONES).default('alumno'),
-        etapa: z.enum(['EI', 'EP', 'ESO']).nullable().default(null),
+        // Lista vacía = vale para todas las etapas.
+        etapas: z.array(z.enum(['EI', 'EP', 'ESO'])).max(ETAPAS.length).default([]),
         generaPdf: z.boolean().default(true),
         saltoDePagina: z.boolean().default(true),
       })
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
       nombre: nombre || 'Plantilla sin nombre',
       googleDocId,
       repeticion: datos.repeticion,
-      etapa: datos.etapa,
+      etapas: datos.etapas,
       generaPdf: datos.generaPdf,
       saltoDePagina: datos.saltoDePagina,
     });

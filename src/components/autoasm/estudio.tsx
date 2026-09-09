@@ -36,6 +36,7 @@ import {
   CURSOS_CENTRO,
   OPCIONES_POR_DEFECTO,
   OPCIONES_SYNC_POR_DEFECTO,
+  aplicarAjustes,
   inferirReglas,
   inferirTipos,
   labelCurso,
@@ -45,6 +46,7 @@ import {
   proyectoVacio,
   regenerarMatriculas,
   sincronizarConCentro,
+  type AjusteAsm,
   type OpcionesSync,
   type ProyectoAsm,
   type SnapshotCentro,
@@ -150,15 +152,38 @@ export function EstudioAsm() {
   async function traerDelCentro() {
     setTrabajando('centro');
     try {
-      const res = await fetch('/api/autoasm/admin/centro');
+      // Los dos a la vez: las personas del centro y lo que se haya escrito a mano (que se
+      // vuelve a poner DESPUÉS del sync, que es de lo que se trata).
+      const [res, resAjustes] = await Promise.all([
+        fetch('/api/autoasm/admin/centro'),
+        fetch('/api/autoasm/admin/ajustes'),
+      ]);
       if (!res.ok) throw new Error(String(res.status));
       const snapshot = (await res.json()) as SnapshotCentro;
+      const guardados = resAjustes.ok
+        ? ((await resAjustes.json()) as { ajustes: AjusteAsm[]; aviso: string | null })
+        : { ajustes: [] as AjusteAsm[], aviso: null };
       const base = proyecto ?? proyectoDesdePlantilla(opcionesNuevas);
-      const { proyecto: actualizado, resumen } = sincronizarConCentro(base, snapshot, sync);
+      const { proyecto: sincronizado, resumen } = sincronizarConCentro(base, snapshot, sync);
+      const conAjustes = aplicarAjustes({ ...sincronizado, ajustes: guardados.ajustes }, guardados.ajustes);
+      const actualizado = conAjustes.proyecto;
       aplicar(
         actualizado,
         `Alumnado: ${resumen.alumnos.altas} altas y ${resumen.alumnos.actualizados} cambios · Profesorado: ${resumen.profes.altas} altas · Matrículas: +${resumen.matriculas.altas} / −${resumen.matriculas.bajas}${resumen.profesAutomaticos ? ` · Profes automáticos en ${resumen.profesAutomaticos.clasesTocadas} clases` : ''}`,
       );
+      if (conAjustes.aplicados > 0) {
+        toast.info(
+          `${conAjustes.aplicados} campos que habías escrito a mano se han vuelto a poner encima de lo que dice el centro.`,
+          { duration: 8000 },
+        );
+      }
+      if (conAjustes.huerfanos.length > 0) {
+        toast.info(
+          `${conAjustes.huerfanos.length} campos fijados a mano ya no tienen a quién aplicarse (la fila no está): puedes soltarlos desde su ficha.`,
+          { duration: 9000 },
+        );
+      }
+      if (guardados.aviso) toast.warning(guardados.aviso, { duration: 12000 });
       if (resumen.fueraDeAlcance.length > 0) {
         const total = resumen.fueraDeAlcance.reduce((n, f) => n + f.n, 0);
         toast.info(`Fuera del alcance (${labelCurso(desdeCurso)} para arriba): ${total} alumnos de ${resumen.fueraDeAlcance.map((f) => f.curso).join(', ')}.`, { duration: 9000 });
@@ -709,7 +734,11 @@ function PanelIncidencias({ incidencias }: { incidencias: Incidencia[] }) {
                 </p>
               </div>
               <Link
-                href={`/gestion/autoasm/${g.ejemplo.archivo}${g.ejemplo.clave ? `?q=${encodeURIComponent(g.ejemplo.clave)}` : ''}`}
+                href={`/gestion/autoasm/${g.ejemplo.archivo}${
+                  g.ejemplo.clave
+                    ? `?q=${encodeURIComponent(g.ejemplo.clave)}&abrir=${encodeURIComponent(g.ejemplo.clave)}`
+                    : ''
+                }`}
                 className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
               >
                 Ver

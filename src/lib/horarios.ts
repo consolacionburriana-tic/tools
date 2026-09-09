@@ -472,17 +472,28 @@ export function resumirGrupos(
  * Cabe en una celda estrecha y basta para reconocer a alguien de tu claustro; el nombre
  * completo está a un toque, en el detalle. En la BBDD los nombres vienen en mayúsculas,
  * así que se recapitalizan (gritar en una celda pequeña se lee peor).
+ *
+ * `nombreMostrado`, si está, es el nombre visible del profe y se usa tal cual.
  */
-export function nombreCorto(nombre: string | null, apellido1: string | null): string {
-  const n = capitalizar((nombre ?? '').trim().split(/\s+/)[0] ?? '');
+export function nombreCorto(nombre: string | null, apellido1: string | null, nombreMostrado?: string | null): string {
+  const dado = (nombreMostrado ?? '').trim();
+  const n = dado || capitalizar((nombre ?? '').trim().split(/\s+/)[0] ?? '');
   const a = (apellido1 ?? '').trim();
   if (!n) return capitalizar(a);
   return a ? `${n} ${a.charAt(0).toLocaleUpperCase('es')}.` : n;
 }
 
-/** Nombre para listas y selectores: 'Alejandro Sánchez'. Un solo apellido, que basta. */
-export function nombreProfe(nombre: string | null, apellido1: string | null): string {
-  return [capitalizar((nombre ?? '').trim()), capitalizar((apellido1 ?? '').trim())].filter(Boolean).join(' ');
+/**
+ * Nombre para listas y selectores: 'Alejandro Sánchez'. Un solo apellido, que basta.
+ *
+ * `nombreMostrado` es el nombre visible del profe (`edu_teachers.nombre_mostrado`, ver
+ * `src/lib/profes.ts`): cuando está escrito, manda sobre lo que diga Educamos.
+ */
+export function nombreProfe(nombre: string | null, apellido1: string | null, nombreMostrado?: string | null): string {
+  const dado = (nombreMostrado ?? '').trim();
+  return [dado || capitalizar((nombre ?? '').trim()), capitalizar((apellido1 ?? '').trim())]
+    .filter(Boolean)
+    .join(' ');
 }
 
 // ─── Colores por categoría (opcional) ─────────────────────────────────────────

@@ -22,6 +22,7 @@ import {
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
 import { compararClasesMayoresPrimero, etapaDeCurso } from '@/lib/cursos';
+import { nombreProfe } from '@/lib/profes';
 import {
   AVISO_ANONIMATO,
   INTRO_FORM,
@@ -771,7 +772,7 @@ export async function getDestinatariosProfes(etapas: string[] = []): Promise<Des
     .filter((p) => (etapas.length === 0 ? true : etapas.includes(p.etapa ?? '')))
     .map((p) => ({
       id: p.id,
-      nombre: [p.nombre, p.apellido1].filter(Boolean).join(' '),
+      nombre: nombreProfe(p),
       email: p.email,
       etapa: p.etapa,
     }));

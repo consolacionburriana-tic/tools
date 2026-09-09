@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   analizarEtiqueta,
+  aplicaAEtapa,
   ASIGNATURAS_MAX,
   avisosDePlantilla,
   CAMPOS,
   construirMapeo,
   esCampo,
+  etapasDePlantilla,
+  etiquetaEtapas,
   normalizarEtiqueta,
   ALIAS_POR_DEFECTO,
 } from '@/lib/cuaderno/campos';
@@ -156,5 +159,42 @@ describe('nombres', () => {
 
   it('limpia los nombres que Drive no admite', () => {
     expect(limpiarNombre('2ºA / B\n  con   espacios ')).toBe('2ºA B con espacios');
+  });
+});
+
+describe('etapas de una plantilla', () => {
+  it('una plantilla puede valer para varias etapas', () => {
+    expect(etapasDePlantilla({ etapas: ['ESO', 'EP'] })).toEqual(['EP', 'ESO']); // en orden del colegio
+    expect(aplicaAEtapa({ etapas: ['EP', 'ESO'] }, 'EP')).toBe(true);
+    expect(aplicaAEtapa({ etapas: ['EP', 'ESO'] }, 'EI')).toBe(false);
+  });
+
+  it('sin etapas vale para todas, incluida una clase sin etapa reconocida', () => {
+    expect(etapasDePlantilla({ etapas: [] })).toEqual([]);
+    expect(etapasDePlantilla({})).toEqual([]);
+    expect(aplicaAEtapa({ etapas: [] }, 'EI')).toBe(true);
+    expect(aplicaAEtapa({ etapas: null }, null)).toBe(true);
+    // Con una etapa concreta, una clase sin etapa no entra.
+    expect(aplicaAEtapa({ etapas: ['ESO'] }, null)).toBe(false);
+  });
+
+  it('lee la etapa única de las filas de antes (columna `etapa`)', () => {
+    expect(etapasDePlantilla({ etapa: 'ESO' })).toEqual(['ESO']);
+    expect(aplicaAEtapa({ etapa: 'ESO' }, 'ESO')).toBe(true);
+    expect(aplicaAEtapa({ etapa: 'ESO' }, 'EP')).toBe(false);
+    // Si ya tiene lista, la lista manda y la columna vieja se ignora.
+    expect(etapasDePlantilla({ etapas: ['EI'], etapa: 'ESO' })).toEqual(['EI']);
+  });
+
+  it('ignora lo que no sea una etapa del colegio', () => {
+    expect(etapasDePlantilla({ etapas: ['ESO', 'BACH'] })).toEqual(['ESO']);
+    expect(etapasDePlantilla({ etapa: 'BACH' })).toEqual([]);
+  });
+
+  it('lo cuenta en el panel de forma legible', () => {
+    expect(etiquetaEtapas({ etapas: [] })).toBe('todas las etapas');
+    expect(etiquetaEtapas({ etapas: ['EI', 'EP', 'ESO'] })).toBe('todas las etapas');
+    expect(etiquetaEtapas({ etapas: ['EP'] })).toBe('Primaria');
+    expect(etiquetaEtapas({ etapas: ['ESO', 'EP'] })).toBe('Primaria + Secundaria');
   });
 });

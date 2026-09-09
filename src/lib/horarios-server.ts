@@ -673,6 +673,7 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
       nombre: eduTeachers.nombre,
       apellido1: eduTeachers.apellido1,
       apellido2: eduTeachers.apellido2,
+      nombreMostrado: eduTeachers.nombreMostrado,
       alias: eduTeachers.alias,
       etapa: eduTeachers.etapa,
     })
@@ -686,7 +687,7 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
       id: p.id,
       // Un solo apellido: en un selector 'Alejandro Sánchez' identifica igual que
       // 'ALEJANDRO SÁNCHEZ GIL' y cabe el triple de gente en pantalla.
-      nombre: nombreProfe(p.nombre, p.apellido1),
+      nombre: nombreProfe(p.nombre, p.apellido1, p.nombreMostrado),
       alias: p.alias,
       etapa: p.etapa,
     }))
@@ -788,6 +789,7 @@ export async function getCeldas(
       id: eduTeachers.id,
       nombre: eduTeachers.nombre,
       apellido1: eduTeachers.apellido1,
+      nombreMostrado: eduTeachers.nombreMostrado,
       rol: horAsignacionProfes.rol,
       principal: horAsignacionProfes.principal,
     })
@@ -804,8 +806,8 @@ export async function getCeldas(
     const lista = profesPor.get(p.asignacionId) ?? [];
     lista.push({
       id: p.id,
-      nombre: nombreProfe(p.nombre, p.apellido1),
-      corto: nombreCorto(p.nombre, p.apellido1),
+      nombre: nombreProfe(p.nombre, p.apellido1, p.nombreMostrado),
+      corto: nombreCorto(p.nombre, p.apellido1, p.nombreMostrado),
       rol: p.rol,
       principal: p.principal,
     });

@@ -14,6 +14,7 @@ import {
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
 import { compararClases, etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { nombreProfe } from '@/lib/profes';
 import { planPromocion, type Reparto, resumenPlan } from '@/lib/tutorias';
 
 export interface ClaseConTutores {
@@ -27,8 +28,9 @@ export interface ClaseConTutores {
   repartoConfirmadoAt: Date | null;
 }
 
-const nombreCompleto = (p: Pick<EduTeacher, 'nombre' | 'apellido1' | 'apellido2'>) =>
-  [p.nombre, p.apellido1, p.apellido2].filter(Boolean).join(' ');
+// El nombre con el que sale el tutor en los paneles: el visible (ver `nombreProfe`).
+const nombreCompleto = (p: Pick<EduTeacher, 'nombre' | 'apellido1' | 'apellido2' | 'nombreMostrado'>) =>
+  nombreProfe(p);
 
 /** Todas las clases reales (con alumnado activo) y sus tutores del curso académico actual. */
 export async function getClasesConTutores(): Promise<ClaseConTutores[]> {

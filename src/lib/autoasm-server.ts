@@ -46,6 +46,8 @@ export async function getSnapshotCentro(): Promise<SnapshotCentro> {
         nombre: eduTeachers.nombre,
         apellido1: eduTeachers.apellido1,
         apellido2: eduTeachers.apellido2,
+        // El nombre con el que se le llama: es el que va al ASM (ver `nombreMostrado`).
+        nombreMostrado: eduTeachers.nombreMostrado,
         email: eduTeachers.email,
       })
       .from(eduTeachers)

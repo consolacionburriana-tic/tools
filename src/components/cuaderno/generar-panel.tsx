@@ -37,6 +37,7 @@ import {
   type ItemUI,
   type PlantillaUI,
 } from '@/components/cuaderno/tipos';
+import { etiquetaEtapas } from '@/lib/cuaderno/campos';
 import { haptic } from '@/lib/haptics';
 
 interface DocumentoPrevisto {
@@ -380,7 +381,7 @@ export function GenerarPanel({
                     {plantilla.orden} · {plantilla.nombre}
                   </span>
                   <span className={`block text-xs ${elegida ? 'opacity-70' : 'text-zinc-500'}`}>
-                    {plantilla.etapa ?? 'todas las etapas'}
+                    {etiquetaEtapas(plantilla)}
                     {!lista && ' · le faltan etiquetas por mapear'}
                   </span>
                 </span>

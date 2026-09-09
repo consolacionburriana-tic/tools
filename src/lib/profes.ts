@@ -4,6 +4,7 @@
 // dentro de cada etapa los TUTORES por orden de su clase y luego el resto de profes
 // ("otros") alfabéticos por nombre. Los profes sin etapa caen en una sección "General".
 import { ordenCurso, type Etapa } from '@/lib/cursos';
+import { nombresDe, type NombrePersona } from '@/lib/personas';
 
 export interface ProfeItem {
   id: string;
@@ -13,13 +14,13 @@ export interface ProfeItem {
   claseTutor: string | null;
 }
 
-export interface ProfeGrupo {
+export interface ProfeGrupo<T extends ProfeItem = ProfeItem> {
   clave: Etapa | 'General';
   label: string;
-  tutores: ProfeItem[];
-  otros: ProfeItem[];
+  tutores: T[];
+  otros: T[];
   /** Todos (tutores primero, luego otros) para pintar como lista plana. */
-  items: ProfeItem[];
+  items: T[];
 }
 
 const GRUPOS: { clave: Etapa | 'General'; label: string }[] = [
@@ -52,7 +53,7 @@ export function claseTutorAKey(claseTutor: string | null): string | null {
 }
 
 /** Agrupa el profesorado por etapa siguiendo el criterio del repo. */
-export function agruparProfes(profes: ProfeItem[]): ProfeGrupo[] {
+export function agruparProfes<T extends ProfeItem>(profes: T[]): ProfeGrupo<T>[] {
   return GRUPOS.map(({ clave, label }) => {
     const delGrupo = profes.filter((p) => (p.etapa ?? 'General') === clave);
     const tutores = delGrupo
@@ -63,4 +64,46 @@ export function agruparProfes(profes: ProfeItem[]): ProfeGrupo[] {
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     return { clave, label, tutores, otros, items: [...tutores, ...otros] };
   }).filter((g) => g.items.length > 0);
+}
+
+// ─── El nombre visible del profesorado ("given name") ─────────────────────────
+//
+// UN solo sitio decide cómo se escribe el nombre de un profe en TODAS las salidas: el
+// ASM (`staff.csv`), el cuaderno de tutor, los correos y los paneles. Lo que hay en
+// Educamos («JOSE MANUEL SANCHEZ GIL») no vale para eso, así que:
+//
+//   1. si en su ficha hay un nombre puesto a mano (`edu_teachers.nombre_mostrado`,
+//      editable en /gestion/profes), ese manda;
+//   2. si no, se usa la heurística de `nombreDePila()` («Carlos Andrés» → «Carlos»).
+//
+// Añadir un sitio nuevo donde salga un profe = llamar aquí, nunca volver a juntar
+// `[nombre, apellido1]` a mano.
+
+/** Lo mínimo que hace falta de un profe para escribir su nombre (una fila de `edu_teachers`). */
+export interface ProfeNombrable {
+  nombre: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
+  nombreMostrado?: string | null;
+}
+
+/** Los cuatro nombres de un profe: `completo`, `usual`, `corto`, `pila` y `apellidos`. */
+export function nombresDeProfe(profe: ProfeNombrable | null | undefined): NombrePersona {
+  return nombresDe(profe ?? null);
+}
+
+/** `Carlos Valero Aicart` — el nombre de un profe para cualquier sitio donde se le nombre. */
+export function nombreProfe(profe: ProfeNombrable | null | undefined): string {
+  return nombresDeProfe(profe).usual;
+}
+
+/** `Carlos Valero` — nombre y un apellido, para listas y desplegables. */
+export function nombreProfeBreve(profe: ProfeNombrable | null | undefined): string {
+  const n = nombresDeProfe(profe);
+  return [n.pila, n.apellidos.split(' ')[0] ?? ''].filter(Boolean).join(' ');
+}
+
+/** `Carlos` — solo el nombre de pila: el `first_name` del ASM y el saludo de un correo. */
+export function pilaProfe(profe: ProfeNombrable | null | undefined): string {
+  return nombresDeProfe(profe).pila;
 }

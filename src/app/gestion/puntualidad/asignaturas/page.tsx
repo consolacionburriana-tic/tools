@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth-guards';
 import { vePuntualidadCompleta } from '@/lib/permissions';
 import { ensureSubjects } from '@/lib/puntualidad-server';
 import { getTeachers } from '@/lib/educamos-server';
+import { nombreProfeBreve } from '@/lib/profes';
 import { AsignaturasPanel } from '@/components/puntualidad/asignaturas-panel';
 
 export const metadata = { title: 'Asignaturas · Puntualidad · Tools Consolación' };
@@ -29,7 +30,7 @@ export default async function AsignaturasPage() {
       }))}
       profes={profes.map((p) => ({
         id: p.id,
-        nombre: [p.nombre, p.apellido1].filter(Boolean).join(' '),
+        nombre: nombreProfeBreve(p),
       }))}
     />
   );

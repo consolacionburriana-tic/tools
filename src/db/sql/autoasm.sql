@@ -35,3 +35,18 @@ CREATE TABLE IF NOT EXISTS asm_ftp_config (
   created_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now()
 );
+
+-- Lo escrito a mano en un fichero de ASM, para que sobreviva al siguiente "traer del
+-- centro" (que rehace las filas de quien está en edu_*) y al cambio de dispositivo.
+-- Añadido 2026-09-09.
+CREATE TABLE IF NOT EXISTS asm_ajustes (
+  id uuid PRIMARY KEY,
+  archivo text NOT NULL,                      -- 'students' | 'staff' | 'classes' | 'courses' | 'locations'
+  clave text NOT NULL,                        -- person_id | class_id | course_id | location_id
+  campo text NOT NULL,                        -- 'email_address', 'first_name'…
+  valor text NOT NULL DEFAULT '',             -- vacío = "déjalo en blanco"
+  quien text,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS asm_ajustes_uq ON asm_ajustes (archivo, clave, campo);

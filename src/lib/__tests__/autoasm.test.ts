@@ -18,8 +18,11 @@ import {
   type FilaCsv,
 } from '@/lib/autoasm';
 import {
+  aplicarAjustes,
+  crearFila,
   cursoDeCourseNumber,
   darDeBaja,
+  editarFila,
   entraEnAlcance,
   inferirReglas,
   inferirTipos,
@@ -463,5 +466,128 @@ describe('profesAutomaticos', () => {
     archivos.classes = [fila('classes', { class_id: 'Mat', class_number: 'Matemáticas', course_id: 'Curso-1A', location_id: 'Centro' })];
     const { archivos: salida } = profesAutomaticos(archivos, { Mat: 'asignatura' }, equipos);
     expect(salida.classes[0].instructor_id).toBe('');
+  });
+});
+
+describe('editarFila', () => {
+  const proyectoCon = (archivos = proyectoDePrueba()) => ({ ...proyectoVacio(), archivos });
+
+  it('escribe el correo que le falta a una cuenta de servicio', () => {
+    const archivos = proyectoDePrueba();
+    archivos.staff.push(fila('staff', { person_id: 'usuariodeservicio', first_name: 'Cuenta', last_name: 'De Servicio', location_id: 'Centro' }));
+    const { proyecto, error } = editarFila(proyectoCon(archivos), 'staff', 'usuariodeservicio', {
+      email_address: '  Servicio@Ej.COM ',
+    });
+    expect(error).toBeNull();
+    // Sale ya normalizado, como todo en este módulo.
+    expect(proyecto.archivos.staff.find((f) => f.person_id === 'usuariodeservicio')?.email_address).toBe('servicio@ej.com');
+    // Y deja de ser un error del validador, que era de lo que se quejaba.
+    expect(validarProyecto(proyecto.archivos).some((i) => i.tipo === 'staff-sin-email')).toBe(false);
+  });
+
+  it('no deja tocar el identificador ni las referencias a otro fichero', () => {
+    const p = proyectoCon();
+    expect(editarFila(p, 'staff', 'gracehopper', { person_id: 'otro' }).error).toMatch(/no se puede cambiar/);
+    expect(editarFila(p, 'students', '111', { location_id: 'Otro' }).error).toMatch(/no se puede cambiar/);
+    expect(editarFila(p, 'classes', 'Cls-Mat1A', { instructor_id: 'gracehopper' }).error).toMatch(/no se puede cambiar/);
+    // Y no se cuela un campo que no existe en el fichero.
+    expect(editarFila(p, 'staff', 'gracehopper', { telefono: '600' }).error).toMatch(/no es un campo/);
+  });
+
+  it('rechaza un correo que no lo es y uno que ya tiene otra persona', () => {
+    const p = proyectoCon();
+    expect(editarFila(p, 'staff', 'gracehopper', { email_address: 'grace arroba ej' }).error).toMatch(/forma de correo/);
+    // El correo es único en toda la organización: alumnado y profesorado juntos.
+    const repe = editarFila(p, 'staff', 'gracehopper', { email_address: 'ADA@ej.com' });
+    expect(repe.error).toMatch(/ya lo tiene Ada Lovelace Byron/);
+    expect(repe.proyecto).toBe(p); // en un rechazo el proyecto no se toca
+    expect(editarFila(p, 'students', '222', { sis_username: 'ada' }).error).toMatch(/ya lo tiene/);
+  });
+
+  it('deja vaciar lo opcional pero no lo obligatorio', () => {
+    const p = proyectoCon();
+    expect(editarFila(p, 'students', '111', { sis_username: '' }).error).toBeNull();
+    expect(editarFila(p, 'students', '111', { first_name: '  ' }).error).toMatch(/obligatorio/);
+  });
+
+  it('cambia varios campos de golpe y avisa si la fila ya no está', () => {
+    const { proyecto, error } = editarFila(proyectoCon(), 'students', '111', {
+      first_name: 'Ada Augusta',
+      grade_level: 'ESO 1B',
+    });
+    expect(error).toBeNull();
+    const ada = proyecto.archivos.students.find((f) => f.person_id === '111');
+    expect([ada?.first_name, ada?.grade_level]).toEqual(['Ada Augusta', 'ESO 1B']);
+    expect(editarFila(proyectoCon(), 'students', 'noexiste', { first_name: 'X' }).error).toMatch(/ya no está/);
+  });
+});
+
+describe('crearFila', () => {
+  const proyectoCon = (archivos = proyectoDePrueba()) => ({ ...proyectoVacio(), archivos });
+
+  it('da de alta la cuenta institucional que no está en ninguna base de datos', () => {
+    const p = proyectoCon();
+    const { proyecto, error, clave } = crearFila(p, 'staff', {
+      person_id: 'cuentadesupervision',
+      first_name: 'Cuenta',
+      last_name: 'De Supervisión',
+      email_address: 'Supervision@EJ.com',
+    });
+    expect([error, clave]).toEqual([null, 'cuentadesupervision']);
+    const nueva = proyecto.archivos.staff.find((f) => f.person_id === 'cuentadesupervision');
+    expect(nueva?.email_address).toBe('supervision@ej.com'); // normalizado
+    expect(nueva?.location_id).toBe(p.opciones.locationId); // el centro se rellena solo
+    // Cabeceras completas: un CSV con filas de distinto ancho no lo traga ASM.
+    expect(Object.keys(nueva ?? {})).toEqual(cabecerasDe('staff'));
+    expect(proyecto.historial.at(-1)?.texto).toContain('Alta a mano en staff.csv');
+  });
+
+  it('exige identificador, y que no lo tenga ya nadie de toda la organización', () => {
+    const p = proyectoCon();
+    expect(crearFila(p, 'staff', { first_name: 'Sin', last_name: 'Id' }).error).toMatch(/Hace falta el person_id/);
+    // El person_id de un alumno tampoco vale para un profe: es único en TODA la organización.
+    expect(crearFila(p, 'staff', { person_id: '111', first_name: 'A', last_name: 'B' }).error).toMatch(/students.csv/);
+    expect(crearFila(p, 'staff', { person_id: 'gracehopper', first_name: 'A', last_name: 'B' }).error).toMatch(/staff.csv/);
+  });
+
+  it('no deja una fila a medias ni una referencia huérfana', () => {
+    const p = proyectoCon();
+    expect(crearFila(p, 'staff', { person_id: 'x' }).error).toMatch(/obligatorio/);
+    expect(crearFila(p, 'classes', { class_id: 'Cls-X', class_number: 'Plástica', course_id: 'Curso-Fantasma' }).error).toMatch(/quedaría huérfana/);
+    // Y los profes de una clase van en su ficha, no aquí.
+    expect(crearFila(p, 'classes', { class_id: 'Cls-X', class_number: 'X', course_id: 'Curso-1A', instructor_id: 'gracehopper' }).error).toMatch(/ficha de la clase/);
+  });
+
+  it('las matrículas no se crean a mano: se rehacen solas', () => {
+    expect(crearFila(proyectoCon(), 'rosters', { roster_id: 'rst09999' }).error).toMatch(/no se crean a mano/);
+  });
+});
+
+describe('aplicarAjustes', () => {
+  const proyectoCon = (archivos = proyectoDePrueba()) => ({ ...proyectoVacio(), archivos });
+
+  it('vuelve a poner lo escrito a mano después de traer del centro', () => {
+    const { proyecto, aplicados, huerfanos } = aplicarAjustes(proyectoCon(), [
+      { archivo: 'staff', clave: 'gracehopper', campo: 'email_address', valor: ' GRACE.H@ej.com ' },
+    ]);
+    expect([aplicados, huerfanos]).toEqual([1, []]);
+    expect(proyecto.archivos.staff[0].email_address).toBe('grace.h@ej.com');
+  });
+
+  it('lo que ya está igual no cuenta como cambio', () => {
+    const r = aplicarAjustes(proyectoCon(), [
+      { archivo: 'staff', clave: 'gracehopper', campo: 'email_address', valor: 'grace@ej.com' },
+    ]);
+    expect(r.aplicados).toBe(0);
+  });
+
+  it('un ajuste sin fila (o de un campo que no se toca) es huérfano, no un error', () => {
+    const ajustes = [
+      { archivo: 'staff' as const, clave: 'yanoesta', campo: 'email_address', valor: 'x@ej.com' },
+      { archivo: 'students' as const, clave: '111', campo: 'person_id', valor: '999' },
+    ];
+    const r = aplicarAjustes(proyectoCon(), ajustes);
+    expect([r.aplicados, r.huerfanos.length]).toEqual([0, 2]);
+    expect(r.proyecto.archivos.students[0].person_id).toBe('111'); // la clave, intacta
   });
 });

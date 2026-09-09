@@ -46,8 +46,10 @@ mano los nombres, la clase y los datos de las familias, 30 veces por clase.
 9. **El trabajo lo hace el servidor, no el navegador de David.** Una tirada es una cola de
    ítems en Neon que consume un worker; la pantalla solo enseña el progreso. Se puede cerrar el
    portátil.
-10. **Plantillas por etapa.** Hoy solo ESO. Una plantilla puede ser de una etapa concreta o de
-    todas; si una tirada abarca varias etapas, se crea una subcarpeta por etapa.
+10. **Plantillas por etapa, y una plantilla puede ser de VARIAS.** Se marcan las etapas a las
+    que vale (una, dos o las tres); sin marcar ninguna vale para todas. La misma hoja sirve a
+    menudo para primaria y secundaria, y duplicar la plantilla en Docs solo para eso no tiene
+    sentido. Si una tirada abarca varias etapas, se crea una subcarpeta por etapa.
 
 Pendiente de decidir: nada bloqueante. Ver `00-desarrollos-futuros.md` para las ideas que
 quedaron fuera.
@@ -104,7 +106,7 @@ una etiqueta sin mapear, **la tirada no arranca**: mejor pararla que sacar 125 d
 
 De Educamos todo llega **a gritos y con todos los nombres de pila**: `CARLOS ANDRES VALERO
 AICART`, correos en mayúsculas. En una hoja que va a leer una familia eso queda fatal, así que
-se arregla una sola vez, en `src/lib/cuaderno/personas.ts`, por donde pasan todos los nombres
+se arregla una sola vez, en `src/lib/personas.ts`, por donde pasan todos los nombres
 antes de llegar a ninguna plantilla:
 
 - **Mayúsculas bellas**: `CARLOS ANDRES VALERO AICART` → `Carlos Andres Valero Aicart`, con las
@@ -132,11 +134,24 @@ Y los trozos sueltos del tutor, para plantillas que los piden por separado:
 `<<tutor_nombre>>` (`Carlos`), `<<tutor_apellido1>>` (`Valero`), `<<tutor_apellido2>>`
 (`Aicart`) y `<<tutor_1apellido>>` (`Carlos Valero`).
 
-**La heurística se equivoca alguna vez, y por eso hay una válvula de escape**: la tabla
-`cuad_personas` guarda el nombre de quien haga falta escrito a mano (`pila`, y `completo` si ni
-los apellidos valen), y manda sobre todo lo demás. Se edita desde la pestaña «Vista previa», que
-enseña los tutores de la clase — son dos, no trescientos — y no obliga a inventarse un campo
-"nombre por el que le llamamos" en `edu_teachers`, que es de otro módulo.
+**La heurística se equivoca alguna vez, y por eso hay dos válvulas de escape.** Quién manda
+sobre el nombre de pila, de más a menos:
+
+1. `cuad_personas` — el nombre escrito a mano **solo para el cuaderno** (`pila`, y `completo` si
+   ni los apellidos valen). Se edita en la pestaña «Vista previa», que enseña los tutores de la
+   clase — son dos, no trescientos. Es la válvula para alumnado y familias, que no tienen ficha
+   editable en ningún otro sitio.
+2. `edu_teachers.nombre_mostrado` — el **nombre visible** del profe («given name»), que vale
+   para toda la plataforma y se ajusta en `/gestion/profes` → «Nombre visible». Es lo que sale
+   también en el ASM, en los correos y en los paneles.
+3. La heurística de `nombreDePila()`.
+
+> Esto cambia una decisión anterior de esta ficha, que decía que no había que "inventarse un
+> campo «nombre por el que le llamamos» en `edu_teachers` porque es de otro módulo". Se ha
+> invertido a petición de David (sep-2026): el nombre de un profe tiene que salir igual en
+> todas partes, y sobre todo en las salidas externas, así que vive en su ficha y no en la de un
+> módulo. El respaldo del cuaderno se queda porque sigue haciendo falta para alumnado y
+> familias.
 
 ## Vista previa
 
@@ -271,7 +286,7 @@ en el aviso.
 
 | Tabla | Para qué |
 |---|---|
-| `cuad_plantillas` | Una fila por plantilla: nombre, `googleDocId`, `repeticion`, etapa, orden, formatos, activa |
+| `cuad_plantillas` | Una fila por plantilla: nombre, `googleDocId`, `repeticion`, `etapas` (lista; vacía = todas), orden, formatos, activa |
 | `cuad_alias` | Etiqueta normalizada → campo del catálogo. El aprendizaje del panel |
 | `cuad_ajustes` | Fila única: carpeta base de Drive, nombre del centro |
 | `cuad_tiradas` | Una ejecución: curso escolar, opciones, estado, carpeta raíz, quién y cuándo |
@@ -448,6 +463,18 @@ fábrica, sin mapear nada a mano.
       arrastra (`src/db/sql/cuaderno-borrado-plantillas.sql`, aplicado en Neon)
 - [x] El nombre corto de una asignatura se reparte entre los cursos que la tienen igual
 - [x] La abreviatura del horario se ofrece como sugerencia, limpia del dígito de nivel
+
+### Fase 6e · Etapas múltiples y nombre visible del profesorado
+- [x] Una plantilla puede marcarse para varias etapas: columna `etapas` (lista; vacía = todas),
+      helpers puros `etapasDePlantilla`/`aplicaAEtapa`/`etiquetaEtapas` y selector de etapas en
+      la pestaña «Plantillas» (y en el alta)
+- [x] La columna vieja `etapa` se sigue leyendo como respaldo, así que las plantillas que ya
+      existen no hay que volver a guardarlas
+- [~] SQL aditivo `src/db/sql/cuaderno-plantillas-etapas.sql` (añade `etapas` y hace el
+      backfill) *(pendiente de aplicar en Neon: hace falta `DATABASE_URL`)*
+- [x] El nombre visible del profe («given name») sale de su ficha (`edu_teachers.nombre_mostrado`)
+      y manda en el cuaderno cuando no hay nada escrito en `cuad_personas`
+- [~] SQL aditivo `src/db/sql/profes-nombre-mostrado.sql` *(pendiente de aplicar en Neon)*
 
 ### Fase 6c · Nombres y vista previa
 - [x] `personas.ts`: mayúsculas bellas, correos en minúscula y nombre de pila (`nombresDe`)

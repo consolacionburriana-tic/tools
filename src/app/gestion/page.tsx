@@ -219,8 +219,8 @@ export default async function EscritorioPage() {
               <ModuleCard
                 href="/gestion/profes"
                 icon={<GraduationCap className="h-6 w-6" />}
-                title="Tutorías"
-                desc="Asignar rápido qué profe tutoriza cada clase"
+                title="Profesorado"
+                desc="Quién tutoriza cada clase y cómo se llama cada profe"
               />
             )}
             {puede('usuarios') && (

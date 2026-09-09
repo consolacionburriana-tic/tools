@@ -96,6 +96,11 @@ normalización SQL que el documento del tutor.
 - Aliases `students`/`behaviorReports` en `src/db/schema.ts` (apuntan a `abc_*`): renombrar
   imports y quitarlos en una pasada mecánica.
 - Columna `lic_students.educamos_id` (texto) duplicada por el enlace `edu_student_id`.
+- Columna `cuad_plantillas.etapa` (la etapa única de antes de que una plantilla pudiera valer
+  para varias): ya no se escribe, solo se lee como respaldo de las filas que nadie ha vuelto a
+  guardar. Cuando David dé el ok, se borra con la última línea (comentada) de
+  `src/db/sql/cuaderno-plantillas-etapas.sql` y se quita de `schema.ts` y de
+  `etapasDePlantilla()`.
 
 ### Salidas: flecos
 - Export CSV del seguimiento de una salida (los recordatorios de pago y el enlace de
@@ -140,6 +145,12 @@ Recopilados de las fichas, para verlos de un vistazo:
   vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`).
   No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
+- **Aplicar tres SQL aditivos en Neon** (sesión 2026-09-09, hechos en código y probados con
+  `pnpm test`/`build`, pero sin `DATABASE_URL` en la sesión): `cuaderno-plantillas-etapas.sql`
+  (plantilla para varias etapas), `profes-nombre-mostrado.sql` (nombre visible del
+  profesorado) y `autoasm.sql` (que ya estaba pendiente y ahora trae también `asm_ajustes`,
+  lo escrito a mano en los ficheros de ASM). Todos idempotentes; también valdría
+  `pnpm db:push` mirando antes qué hay en Neon.
 - **Mi horario** (ficha `20`): en la consola de administración de Google Workspace, añadir
   el scope `https://www.googleapis.com/auth/calendar` al Client ID que ya tiene delegación
   de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin
