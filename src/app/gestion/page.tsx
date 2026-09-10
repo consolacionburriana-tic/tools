@@ -18,6 +18,7 @@ import {
   LogOut,
   NotebookPen,
   Settings2,
+  Users,
 } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -151,6 +152,14 @@ export default async function EscritorioPage() {
 
         {/* ── 3. El resto de la gestión ──────────────────────────────────── */}
         <section className="anim-stagger space-y-3">
+          {puede('alumnado') && (
+            <ModuleCard
+              href="/gestion/alumnado"
+              icon={<Users className="h-6 w-6" />}
+              title="Alumnado"
+              desc="La ficha de cada alumno: contacto de la familia, NIA, banco de libros y licencias"
+            />
+          )}
           {puede('licencias') && !licenciasArriba && (
             <ModuleCard
               href="/gestion/licencias"

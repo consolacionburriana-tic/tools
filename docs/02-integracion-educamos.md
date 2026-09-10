@@ -269,6 +269,19 @@ salga un profe = llamar a esos helpers, nunca volver a juntar `[nombre, apellido
 - [x] Enganchado en ASM, cuaderno, Puntualidad, Evaluaciones, ABC, Salidas, Horarios y Usuarios
 - [x] `src/db/sql/profes-nombre-mostrado.sql` *(aplicado en Neon el 9-sep-2026)*
 
+### Dos campos que el sync deja solo en `extra` (visto el 10-sep-2026)
+
+Salió al montar la ficha de alumnado (`docs/21-alumnado.md`), inventariando los datos reales:
+
+- **`edu_students.tel_emergencia` está a null en las 639 filas activas**, pero
+  `extra['TEL EMERGENCIA ALUMNO']` lo trae en 511. La columna existe y `campos` no la mapea.
+- **`edu_guardians.direccion` está a null en las 977 filas.** La dirección viene repartida en
+  `TIPO VÍA` / `CALLE` / `NÚMERO` / `BLOQUE` / `ESCALERA` / `PISO` / `PUERTA` del `extra`.
+
+- [ ] Mapear los dos en `aplicarSync*` (aditivo, sin tocar lo ya guardado). Mientras no esté,
+      quien los necesite usa `delExtra()` / `domicilio()` de `src/lib/alumnado.ts`, que es lo
+      que hace la ficha.
+
 ### Tutor personal: reparto del alumnado entre los tutores de una clase (2026-09-03)
 
 En Infantil y Primaria lo normal es un tutor por clase, pero **a veces son dos** (y como mucho
