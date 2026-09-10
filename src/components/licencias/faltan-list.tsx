@@ -81,8 +81,8 @@ export function FaltanList({ data }: { data: MissingStudent[] }) {
   }
 
   function descargarCsv() {
-    const head = ['Curso', 'Apellidos', 'Nombre', 'NIA', 'Correo', 'Completado a mano'];
-    const rows = filtered.map((s) => [s.curso, s.apellidos, s.nombre, s.nia ?? '', s.email ?? '', s.manualCompletedAt ? 'Sí' : '']);
+    const head = ['Curso', 'Clase', 'Apellidos', 'Nombre', 'NIA', 'Correo', 'Completado a mano'];
+    const rows = filtered.map((s) => [s.curso, s.letra ?? '', s.apellidos, s.nombre, s.nia ?? '', s.email ?? '', s.manualCompletedAt ? 'Sí' : '']);
     const csv = [head, ...rows]
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';'))
       .join('\n');
@@ -146,6 +146,7 @@ export function FaltanList({ data }: { data: MissingStudent[] }) {
           <thead className="bg-zinc-50 text-zinc-500 dark:bg-zinc-800/50">
             <tr>
               <th className="px-4 py-2 text-left font-medium">Curso</th>
+              <th className="px-4 py-2 text-left font-medium">Clase</th>
               <th className="px-4 py-2 text-left font-medium">Apellidos</th>
               <th className="px-4 py-2 text-left font-medium">Nombre</th>
               <th className="px-4 py-2 text-left font-medium">NIA</th>
@@ -156,7 +157,7 @@ export function FaltanList({ data }: { data: MissingStudent[] }) {
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-4 text-center text-zinc-400">
+                <td colSpan={7} className="px-4 py-4 text-center text-zinc-400">
                   ¡Nadie falta aquí! 🎉
                 </td>
               </tr>
@@ -164,6 +165,15 @@ export function FaltanList({ data }: { data: MissingStudent[] }) {
             {filtered.map((s) => (
               <tr key={s.id} className={s.manualCompletedAt ? 'bg-zinc-50/60 text-zinc-400 dark:bg-zinc-800/20' : 'bg-white dark:bg-zinc-900'}>
                 <td className="px-4 py-2 text-zinc-500">{s.curso}</td>
+                <td className="px-4 py-2">
+                  {s.letra ? (
+                    <span className="inline-flex min-w-6 items-center justify-center rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                      {s.letra}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-2 font-medium text-zinc-900 dark:text-zinc-100">
                   {s.apellidos}
                   {s.manualCompletedAt && <span className="ml-1.5 text-xs text-emerald-600 dark:text-emerald-400">(completado a mano)</span>}
