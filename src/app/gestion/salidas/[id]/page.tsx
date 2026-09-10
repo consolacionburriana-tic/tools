@@ -2,12 +2,13 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CalendarDays, Download, LinkIcon, Pencil, Users } from 'lucide-react';
+import { CalendarDays, ChevronLeft, Download, LinkIcon, Pencil, Users } from 'lucide-react';
 import { claseLabel, getTripSeguimiento } from '@/lib/salidas-server';
 import { appBaseUrl } from '@/lib/constants';
 import { TripSeguimiento } from '@/components/salidas/trip-seguimiento';
 import { TripEstadoToggle } from '@/components/salidas/trip-estado-toggle';
 import { RecordatorioPanel } from '@/components/salidas/recordatorio-panel';
+import { TripDeleteButton } from '@/components/salidas/trip-delete-button';
 
 export const metadata = { title: 'Salida · Gestión' };
 
@@ -19,6 +20,13 @@ export default async function SalidaDetallePage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-4">
+      <Link
+        href="/gestion/salidas"
+        className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400"
+      >
+        <ChevronLeft className="h-4 w-4" /> Salidas
+      </Link>
+
       <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -68,6 +76,7 @@ export default async function SalidaDetallePage({ params }: { params: Promise<{ 
             >
               <Pencil className="h-4 w-4" /> Editar
             </Link>
+            <TripDeleteButton tripId={trip.id} nombre={trip.nombre} />
           </div>
         </div>
         <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-800/60">

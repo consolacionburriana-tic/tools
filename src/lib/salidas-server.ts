@@ -2,8 +2,10 @@
 // justificantes. Lee alumnado de la BBDD central (edu_students), nunca lista propia.
 import { and, desc, eq, ilike, inArray } from 'drizzle-orm';
 import { db } from '@/db';
+import { borrarPrivado } from '@/lib/blob';
 import { compararClases } from '@/lib/cursos';
 import { nombreProfeBreve } from '@/lib/profes';
+import { claseLabel, type Clase } from '@/lib/salidas';
 import {
   eduGuardians,
   eduStudentGuardians,
@@ -18,14 +20,10 @@ import {
 } from '@/db/schema';
 import type { SessionUser } from '@/lib/auth-guards';
 
-export interface Clase {
-  curso: string;
-  letra: string | null;
-}
-
-export function claseLabel(c: Clase): string {
-  return c.letra && c.letra !== 'PDC' ? `${c.curso} ${c.letra}` : c.curso;
-}
+// Re-exportados desde el helper puro (@/lib/salidas) para no romper a quien ya
+// importaba `Clase`/`claseLabel` de aquí — este archivo sigue siendo el sitio de
+// siempre para todo lo de Salidas, solo que lo que no toca la BBDD vive aparte.
+export { claseLabel, type Clase };
 
 function claseKey(curso: string | null, letra: string | null): string {
   return `${curso ?? ''}|${letra ?? ''}`;
@@ -158,6 +156,22 @@ export async function updateTrip(
       await db.insert(salTripManagers).values(responsables.map((id) => ({ tripId, eduTeacherId: id })));
     }
   }
+}
+
+/** Borra la salida entera: inscripciones, responsables, justificantes en Blob y la
+ *  propia salida. Es un borrado real (a petición, con confirmación en el panel), no el
+ *  patrón `active=false` — aquí no queda ningún alumno "dado de baja" a medias. */
+export async function deleteTrip(tripId: string): Promise<void> {
+  const signups = await db.select({ url: salSignups.justificanteUrl }).from(salSignups).where(eq(salSignups.tripId, tripId));
+  await db.delete(salSignups).where(eq(salSignups.tripId, tripId));
+  await db.delete(salTripManagers).where(eq(salTripManagers.tripId, tripId));
+  await db.delete(salTrips).where(eq(salTrips.id, tripId));
+  await Promise.all(
+    signups
+      .map((s) => s.url)
+      .filter((url): url is string => !!url)
+      .map((url) => borrarPrivado(url).catch(() => {})),
+  );
 }
 
 // ─── Detalle: listas de seguimiento ───────────────────────────────────────────
