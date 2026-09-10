@@ -9,7 +9,7 @@
 // Dos consultas y ya: `listaAlumnado()` trae el centro entero en plan ligero (639 filas, lo
 // que cabe de sobra en el navegador y hace que buscar sea instantáneo y sin red), y
 // `fichaAlumno()` trae TODO lo de una persona en un solo viaje.
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   abcBehaviorReports,
@@ -55,20 +55,70 @@ export { academicYearActual };
 
 // ─── Alcance (quién ve a quién) ───────────────────────────────────────────────
 
-/** Roles que ven el centro entero. Un tutor ve **solo sus tutorías**. */
+/** Roles que ven el centro entero, sin mirar de qué etapa son. */
 const VE_TODO: readonly Role[] = ['direccion', 'jefe', 'orientacion', 'secretaria', 'tic', 'supertic'];
 
+export interface AlcanceAlumnado {
+  /** Clases que puede consultar, o `null` = todo el centro. */
+  clases: { curso: string; letra: string | null }[] | null;
+  /** Sus tutorías: es lo que la pantalla trae preseleccionado al entrar. */
+  propias: { curso: string; letra: string | null }[];
+  /** Etapas que alcanza. Vacío con `clases: null` (las alcanza todas). */
+  etapas: Etapa[];
+}
+
 /**
- * Clases que esta persona puede consultar, o `null` si ve todo el centro. Mismo criterio
- * (y mismo helper `clasesDeTutor`) que Puntualidad, para que no haya dos reglas distintas
- * de «quién ve qué alumno» conviviendo en la app.
+ * Quién ve a quién. El criterio es **la etapa**, no la tutoría (decisión de David,
+ * 10-sep-2026): un tutor de 1º de ESO puede consultar a cualquier alumno de Secundaria,
+ * porque a diario le hacen falta datos de alumnado que no es el suyo —una guardia, una
+ * salida, un correo a una familia de otra clase—, y tener que pedírselo a otro tutor no
+ * protege nada. Lo que **no** cruza es la etapa: quien lleva Infantil no tiene por qué ver
+ * las fichas de la ESO.
+ *
+ * Ojo: esto es MÁS ancho que el alcance de Puntualidad (que sigue siendo por tutoría), y es
+ * a propósito. Allí se registran y se corrigen datos de un alumno; aquí solo se consultan.
+ *
+ * La etapa sale de `edu_teachers.etapa` y, si está en blanco, de las etapas de sus tutorías
+ * de este curso (hoy hay 10 profes activos sin etapa asignada, y uno de ellos con tutoría).
+ * Sin ninguna de las dos cosas no se ve nada: es la respuesta segura, y la pantalla lo dice.
  */
 export async function alcanceAlumnado(user: {
   email: string;
   role: Role | null;
-}): Promise<{ curso: string; letra: string | null }[] | null> {
-  if (user.role && VE_TODO.includes(user.role)) return null;
-  return clasesDeTutor(user.email);
+}): Promise<AlcanceAlumnado> {
+  const propias = await clasesDeTutor(user.email);
+  if (user.role && VE_TODO.includes(user.role)) return { clases: null, propias, etapas: [] };
+
+  const [profe] = await db
+    .select({ etapa: eduTeachers.etapa })
+    .from(eduTeachers)
+    .where(ilike(eduTeachers.email, user.email))
+    .limit(1);
+
+  const etapas = [
+    ...new Set(
+      [profe?.etapa, ...propias.map((c) => etapaDeCurso(c.curso))].filter((e): e is Etapa =>
+        e === 'EI' || e === 'EP' || e === 'ESO',
+      ),
+    ),
+  ];
+  if (etapas.length === 0) return { clases: [], propias, etapas };
+
+  const clases = await db
+    .selectDistinct({ curso: eduStudents.curso, letra: eduStudents.letra })
+    .from(eduStudents)
+    .where(eq(eduStudents.active, true));
+
+  return {
+    clases: clases
+      .filter((c): c is { curso: string; letra: string | null } => Boolean(c.curso))
+      .filter((c) => {
+        const etapa = etapaDeCurso(c.curso);
+        return etapa !== null && etapas.includes(etapa);
+      }),
+    propias,
+    etapas,
+  };
 }
 
 const mismaClase = (a: { curso: string | null; letra: string | null }, b: { curso: string; letra: string | null }) =>
@@ -76,11 +126,11 @@ const mismaClase = (a: { curso: string | null; letra: string | null }, b: { curs
 
 /** ¿Puede ver la ficha de este alumno? */
 export function puedeConAlumno(
-  alcance: { curso: string; letra: string | null }[] | null,
+  clases: { curso: string; letra: string | null }[] | null,
   alumno: { curso: string | null; letra: string | null },
 ): boolean {
-  if (alcance === null) return true;
-  return alcance.some((c) => mismaClase(alumno, c));
+  if (clases === null) return true;
+  return clases.some((c) => mismaClase(alumno, c));
 }
 
 // ─── El listado ───────────────────────────────────────────────────────────────

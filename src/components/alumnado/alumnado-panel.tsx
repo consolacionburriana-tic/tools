@@ -35,12 +35,16 @@ const claveClase = (c: { curso: string; letra: string | null }) => `${c.curso}|$
 export function AlumnadoPanel({
   alumnos,
   clases,
-  soloMisClases,
+  etapas,
+  propias,
   fichaInicial,
 }: {
   alumnos: AlumnoLista[];
   clases: ClaseListado[];
-  soloMisClases: boolean;
+  /** Etapas que alcanza quien mira. Vacío = todo el centro. */
+  etapas: readonly ('EI' | 'EP' | 'ESO')[];
+  /** Sus tutorías: se entra directamente en la primera. */
+  propias: readonly { curso: string; letra: string | null }[];
   /** La ficha de `?alumno=…`, ya resuelta en el servidor. Ver el comentario de arriba. */
   fichaInicial: FichaAlumno | null;
 }) {
@@ -48,9 +52,14 @@ export function AlumnadoPanel({
   const params = useSearchParams();
   const abiertoId = params.get('alumno');
 
-  // Con una sola clase (un tutor) no hay nada que elegir: se entra ya dentro de la suya.
-  // Con varias, `null` = todas, que es una lista útil y no una pantalla en blanco.
-  const [clase, setClase] = useState<string | null>(clases.length === 1 ? claveClase(clases[0]) : null);
+  // Se entra **en la tutoría propia**, que es lo que un tutor quiere el 90% de las veces;
+  // el resto de su etapa está a un toque. Quien no tutoriza nada (o ve el centro entero)
+  // entra en la lista completa, que es útil y no una pantalla en blanco.
+  const [clase, setClase] = useState<string | null>(() => {
+    const suya = propias.find((p) => clases.some((c) => claveClase(c) === claveClase(p)));
+    if (suya) return claveClase(suya);
+    return clases.length === 1 ? claveClase(clases[0]) : null;
+  });
   const [termino, setTermino] = useState('');
   // La caché arranca con la ficha que ya trae el servidor, si se ha entrado por enlace.
   const [fichas, setFichas] = useState<Record<string, FichaAlumno>>(() =>
@@ -298,8 +307,11 @@ export function AlumnadoPanel({
           )}
         </div>
 
-        {soloMisClases && (
-          <p className="px-1 text-xs text-zinc-400">Ves solo el alumnado de las clases que tutorizas.</p>
+        {etapas.length > 0 && clases.length === 0 && (
+          <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+            No tienes ninguna etapa asignada en tu ficha de profesorado, así que no se puede saber qué alumnado te
+            toca. Pídeselo al equipo TIC.
+          </p>
         )}
       </div>
 
@@ -314,12 +326,32 @@ export function AlumnadoPanel({
   );
 }
 
-/** Cabecera con el recuento, para la página. */
-export function ResumenAlumnado({ total, clases }: { total: number; clases: number }) {
+/** «Secundaria», «Infantil y Primaria»… tal y como se dice en voz alta. */
+export function listaEtapas(etapas: readonly ('EI' | 'EP' | 'ESO')[]): string {
+  const nombres = ETAPA_ORDEN.filter((e) => etapas.includes(e)).map((e) => ETAPA_LABEL[e]);
+  if (nombres.length <= 1) return nombres[0] ?? 'tu etapa';
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+}
+
+/**
+ * Cabecera con el recuento. Lleva la etapa dentro («…en 10 clases de Secundaria») porque es
+ * la respuesta a «¿por qué no me sale tal alumno?» y tiene que estar siempre a la vista, no
+ * en una nota al pie de una lista de 200 filas.
+ */
+export function ResumenAlumnado({
+  total,
+  clases,
+  etapas,
+}: {
+  total: number;
+  clases: number;
+  etapas: readonly ('EI' | 'EP' | 'ESO')[];
+}) {
   return (
     <p className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
       <Users className="h-3.5 w-3.5" /> {total} {total === 1 ? 'alumno' : 'alumnos'} activos en {clases}{' '}
       {clases === 1 ? 'clase' : 'clases'}
+      {etapas.length > 0 && <span className="text-zinc-400">de {listaEtapas(etapas)}</span>}
     </p>
   );
 }

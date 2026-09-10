@@ -21,20 +21,21 @@ export default async function AlumnadoPage({
   if (!user) redirect('/gestion/login');
 
   const [{ alumno: pedido }, alcance] = await Promise.all([searchParams, alcanceAlumnado(user)]);
-  const { alumnos, clases } = await listaAlumnado(alcance);
+  const { alumnos, clases } = await listaAlumnado(alcance.clases);
 
-  // El alcance se comprueba también aquí: un enlace a un alumno de otra clase no puede
+  // El alcance se comprueba también aquí: un enlace a un alumno de otra etapa no puede
   // colar su ficha en el HTML por venir en la URL.
   const candidata = pedido && /^[0-9a-f-]{36}$/i.test(pedido) ? await fichaAlumno(pedido) : null;
-  const fichaInicial = candidata && puedeConAlumno(alcance, candidata) ? candidata : null;
+  const fichaInicial = candidata && puedeConAlumno(alcance.clases, candidata) ? candidata : null;
 
   return (
     <div className="space-y-3">
-      <ResumenAlumnado total={alumnos.length} clases={clases.length} />
+      <ResumenAlumnado total={alumnos.length} clases={clases.length} etapas={alcance.etapas} />
       <AlumnadoPanel
         alumnos={alumnos}
         clases={clases}
-        soloMisClases={alcance !== null}
+        etapas={alcance.etapas}
+        propias={alcance.propias}
         fichaInicial={fichaInicial}
       />
     </div>

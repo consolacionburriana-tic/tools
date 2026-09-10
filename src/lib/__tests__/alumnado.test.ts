@@ -17,6 +17,8 @@ import {
   telefono,
   whatsapp,
 } from '@/lib/alumnado';
+import { listaEtapas } from '@/components/alumnado/alumnado-panel';
+import { puedeConAlumno } from '@/lib/alumnado-server';
 
 describe('normalizar', () => {
   it('quita acentos, mayúsculas y signos', () => {
@@ -208,5 +210,50 @@ describe('clase y avatar', () => {
   it('saca iniciales y un color estable', () => {
     expect(iniciales('Aitana', 'Pitarch')).toBe('AP');
     expect(colorAvatar('abc')).toBe(colorAvatar('abc'));
+  });
+});
+
+describe('etapas, tal y como se dicen', () => {
+  it('las escribe en el orden del colegio y con «y» al final', () => {
+    expect(listaEtapas(['ESO'])).toBe('Secundaria');
+    expect(listaEtapas(['EP', 'EI'])).toBe('Infantil y Primaria');
+    expect(listaEtapas(['ESO', 'EI', 'EP'])).toBe('Infantil, Primaria y Secundaria');
+  });
+
+  it('sin etapas no inventa un nombre', () => {
+    expect(listaEtapas([])).toBe('tu etapa');
+  });
+});
+
+describe('quién puede con qué alumno', () => {
+  const infantil = { curso: '3INF', letra: 'A' };
+  const eso2b = { curso: '2ESO', letra: 'B' };
+  const eso4a = { curso: '4ESO', letra: 'A' };
+  const pdc = { curso: '3ºPPDC', letra: 'PDC' };
+
+  it('con alcance null (dirección, TIC…) puede con todos', () => {
+    for (const a of [infantil, eso2b, pdc]) expect(puedeConAlumno(null, a)).toBe(true);
+  });
+
+  it('un tutor de ESO puede con toda su etapa, no solo con su clase', () => {
+    // Es el cambio de criterio del 10-sep-2026: el alcance es la ETAPA.
+    const suEtapa = [eso2b, eso4a, pdc];
+    expect(puedeConAlumno(suEtapa, eso2b)).toBe(true);
+    expect(puedeConAlumno(suEtapa, eso4a)).toBe(true);
+    expect(puedeConAlumno(suEtapa, pdc)).toBe(true);
+  });
+
+  it('…pero no cruza a otra etapa', () => {
+    expect(puedeConAlumno([eso2b, eso4a], infantil)).toBe(false);
+  });
+
+  it('con alcance vacío (sin etapa asignada) no puede con nadie', () => {
+    expect(puedeConAlumno([], eso2b)).toBe(false);
+    expect(puedeConAlumno([], infantil)).toBe(false);
+  });
+
+  it('distingue la letra, y trata null y ausente igual', () => {
+    expect(puedeConAlumno([{ curso: '2ESO', letra: 'A' }], eso2b)).toBe(false);
+    expect(puedeConAlumno([{ curso: '2ESO', letra: null }], { curso: '2ESO', letra: null })).toBe(true);
   });
 });

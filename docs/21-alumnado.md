@@ -49,9 +49,21 @@ datos mutables es exactamente la deuda que documenta
    recibe el HTML con la ficha dentro: sin parpadeo y sin petición extra. El botón «atrás» se
    atiende con un `popstate`, no con un efecto que dispare `fetch` en cada render.
 
-6. **Un tutor ve solo sus tutorías.** Mismo criterio y mismo helper (`clasesDeTutor`) que
-   Puntualidad, para no tener dos reglas distintas de «quién ve a qué alumno» conviviendo en la
-   app. Dirección, jefatura, orientación, secretaría y TIC ven el centro entero. El alcance se
+6. **El alcance es la ETAPA, no la tutoría** (David, 10-sep-2026). Un tutor de 1º de ESO
+   puede consultar a cualquier alumno de Secundaria, y **entra ya en su propia tutoría**, que es
+   lo que quiere el 90% de las veces. El motivo: a diario hacen falta datos de alumnado que no
+   es el tuyo —una guardia, una salida, un correo a una familia de otra clase— y tener que
+   pedírselo a otro tutor no protege nada. Lo que **no** cruza es la etapa: quien lleva Infantil
+   no tiene por qué ver las fichas de la ESO.
+
+   La etapa sale de `edu_teachers.etapa` y, si está en blanco, de las etapas de sus tutorías de
+   este curso. Sin ninguna de las dos cosas no se ve nada, y la pantalla lo dice con un aviso
+   que manda a hablar con TIC (hoy hay 10 profes activos sin etapa asignada).
+
+   > Ojo: esto es **más ancho que el alcance de Puntualidad**, que sigue siendo por tutoría, y es
+   > a propósito. Allí se registran y se corrigen datos de un alumno; aquí solo se consultan.
+
+   Dirección, jefatura, orientación, secretaría y TIC ven el centro entero. El alcance se
    comprueba **tres veces**: al montar el listado, al pintar `?alumno=` en el servidor y en la
    ruta API — y en la API un alumno fuera de alcance devuelve **404, no 403**: quién está en cada
    clase tampoco es información que deba dar esa ruta a quien no le toca.
@@ -77,6 +89,7 @@ Inventariado contra los **639 alumnos activos** de Neon (10-sep-2026), no contra
 | Nombre, apellidos, sexo, nacimiento | `edu_students` (+ `nombresDe` de `personas.ts`) | 639 / 635 con fecha |
 | Clase, nº de lista | `edu_students` + `cuad_numeracion` | 352 con número congelado |
 | Tutores de la clase y tutor personal | `edu_tutorias` + `edu_tutor_personal` | 28 clases, 101 con tutor personal |
+| Etapa de quien consulta (para el alcance) | `edu_teachers.etapa`, o la de sus tutorías | 44 de 54 profes activos con etapa |
 | NIA · DNI · código · matrícula | `edu_students` | 636 · 337 · 635 · 639 |
 | Tarjeta sanitaria | `extra` → `TARJETA SANITARIA` | 231 |
 | **Teléfono de emergencia** | `extra` → `TEL EMERGENCIA ALUMNO` | 511 — ver el aviso de abajo |
@@ -156,8 +169,10 @@ Sin tablas nuevas: **no hay SQL que aplicar**.
 ### Permisos
 
 Módulo nuevo `alumnado` en `src/lib/permissions.ts`. Lo trae el rol de dirección, jefatura,
-orientación, secretaría, TIC y **tutor** (que ve solo lo suyo). `profe` no lo trae: se le puede
-dar a mano desde `/gestion/usuarios` como cualquier otro módulo.
+orientación, secretaría, TIC y **tutor** (que ve su etapa). `profe` **no** lo trae por defecto:
+se le puede dar a mano desde `/gestion/usuarios` como cualquier otro módulo, y con el criterio
+de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cambiar una línea de
+`ROLE_MODULES`, pero es una decisión de David, no un detalle de implementación.
 
 ---
 
@@ -173,7 +188,10 @@ dar a mano desde `/gestion/usuarios` como cualquier otro módulo.
 - [x] `?alumno=` resuelto en el servidor; «atrás» por `popstate`; `Esc` cierra
 - [x] Módulo `alumnado` en permisos y tarjeta en el escritorio
 - [x] Probado en claro y oscuro, a 1180 px y en iPad vertical
-- [x] Probado el alcance de verdad: un tutor ve sus 23 y la API le da 404 con un alumno de otra clase
+- [x] Probado el alcance de verdad contra la app: un tutor de 2º ESO B entra en su clase, alcanza
+      las 10 de Secundaria (230 alumnos), abre sin problema a una alumna de 4º ESO A, y la API le
+      devuelve 404 con un alumno de Infantil. Un tutor de Primaria alcanza sus 12 clases (275) y
+      ninguna de ESO; quien no tiene etapa ni tutoría no ve a nadie
 - [ ] Exportar a Google Sheets la tutoría entera desde aquí (reutilizando `lista-clase.ts`)
 - [ ] Foto del alumno, si algún día se saca de Educamos
 - [ ] Lo que salga de usarlo dos semanas
