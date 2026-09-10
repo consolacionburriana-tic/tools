@@ -49,6 +49,14 @@ Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-r
 - **Modelo preparado para la API de Educamos**: `sal_trips.educamos_actividad_id` + `extra`
   jsonb y `sal_signups.educamos_autorizado`/`educamos_synced_at`, por si en el futuro la
   salida y sus autorizaciones se consultan directamente de Educamos.
+- **Borrar una salida (2026-09-10)**: borrado real (no `active=false`), a petición desde el
+  detalle con confirmación en dos pasos — se lleva por delante inscripciones, responsables y
+  los justificantes en Blob. No hay guarda de "solo quien la creó": igual que editar (PATCH),
+  cualquiera con el módulo puede borrar cualquier salida.
+- **Archivado automático por fecha (2026-09-10)**: sin campo nuevo en BBDD — una salida se da
+  por "pasada" a partir del cuarto día tras su `fecha` (calculado en `src/lib/salidas.ts`,
+  `tripArchivada`), nunca si no tiene fecha. El listado separa Activas/Pasadas con un filtro y,
+  dentro de cada una, agrupa por curso escolar (`cursoDeSalida`) con un separador minimalista.
 
 ## Plan técnico
 
@@ -123,6 +131,11 @@ sal_signups (
 ### Fase 1 · Alta de salidas (gestión)
 - [x] Crear/editar salida (nombre, descripción, fecha, importe, clases reales de edu_students, responsables, abrir/cerrar)
 - [x] Listado con filtro por rol (profe/tutor → solo suyas o de las que son responsables; resto → todas) + barra de progreso
+- [x] Borrar salida (confirmación en dos pasos, arrastra inscripciones/responsables/justificantes)
+- [x] Volver del formulario de edición lleva a la propia salida (no al escritorio general);
+      el detalle y "nueva salida" también enlazan de vuelta al listado
+- [x] Listado agrupado por curso escolar (separador minimalista) con archivado automático a
+      partir del 4º día tras la fecha de la salida y filtro Activas/Pasadas
 
 ### Fase 2 · Formulario público (familias)
 - [x] Identificación por DNI/NIA (lib común de familias); las salidas ya vienen filtradas por la clase del alumno
