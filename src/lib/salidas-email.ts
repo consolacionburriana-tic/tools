@@ -48,7 +48,7 @@ function barra(pct: number): string {
  */
 export async function sendJustificanteAlert(input: {
   trip: SalTrip;
-  alumnoLabel: string; // "Nombre Apellidos (2ESO B)" — los responsables son claustro
+  alumnoLabel: string; // "Nombre Apellido (2ESO B)" — nombre REAL, los responsables son claustro
   stats: TripStats;
   destinatarios: string[];
 }): Promise<void> {
@@ -84,12 +84,12 @@ export async function sendJustificanteAlert(input: {
         </p>
       </div>
       <p style="margin:16px 0 0;font-size:13px;color:#71717a;">
-        Revísalo y valídalo en el panel: <a href="${appBaseUrl()}/gestion/salidas/${trip.id}" style="color:#2563eb;">gestión de la salida</a>.
+        <a href="${appBaseUrl()}/gestion/salidas/${trip.id}" style="color:#2563eb;">Acceder al panel</a> para ver más.
       </p>
     </div>
 
     <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:16px 32px;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#9ca3af;">${footerAleatorio()}</p>
+      <p style="margin:0;font-size:10px;color:#9ca3af;">${footerAleatorio()}</p>
     </div>
 
   </div>

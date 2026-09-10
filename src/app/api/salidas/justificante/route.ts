@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { salTrips } from '@/db/schema';
+import { eduStudents, salTrips } from '@/db/schema';
 import { verifyFamilyStudent } from '@/lib/familias-server';
 import { subirPrivado } from '@/lib/blob';
 import {
@@ -34,15 +34,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
     }
 
-    let alumnoLabel: string;
-    let maskedName: string;
+    let alumnoLabel: string; // nombre REAL — va al aviso de responsables (claustro, no público)
+    let maskedName: string; // enmascarado — va a la propia familia (confirmación)
     if (esManual) {
       alumnoLabel = `${manualNombre} (${manualClase}) — ⚠️ ENTRADA MANUAL, hay que enlazarla`;
       maskedName = manualNombre;
     } else {
       const hijo = await verifyFamilyStudent(identificador, eduStudentId);
       if (!hijo) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-      alumnoLabel = `${hijo.maskedName} (${hijo.curso ?? ''}${hijo.letra && hijo.letra !== 'PDC' ? ` ${hijo.letra}` : ''})`;
+      const clase = `${hijo.curso ?? ''}${hijo.letra && hijo.letra !== 'PDC' ? ` ${hijo.letra}` : ''}`;
+      // `verifyFamilyStudent` solo da el nombre enmascarado (correcto para lo público: quien
+      // teclea un DNI no ha probado ser de esa familia). El aviso de responsables sí puede
+      // llevar el nombre real — es claustro, ya autenticado — así que se busca aparte.
+      const [real] = await db
+        .select({ nombre: eduStudents.nombre, apellido1: eduStudents.apellido1 })
+        .from(eduStudents)
+        .where(eq(eduStudents.id, eduStudentId))
+        .limit(1);
+      const nombreCompleto = [real?.nombre, real?.apellido1].filter(Boolean).join(' ') || hijo.maskedName;
+      alumnoLabel = `${nombreCompleto} (${clase})`;
       maskedName = hijo.maskedName;
     }
 
