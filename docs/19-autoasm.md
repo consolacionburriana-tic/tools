@@ -393,10 +393,8 @@ Tres tipos de clase existen por otros motivos, y por eso se mantienen a mano o p
       tras «traer del centro» siguen con su correo
 
 ### Fase 6 · Pendiente de David
-- [ ] **Aplicar `src/db/sql/autoasm.sql` en Neon** (tres tablas, aditivo) con
-      `pnpm db:sql --pendientes`: sin él, el histórico y el FTP no van, y lo que se escriba
-      a mano en una ficha se queda solo en el dispositivo (el módulo lo avisa) — el resto
-      funciona igual
+- [x] **Aplicar `src/db/sql/autoasm.sql` en Neon** (tres tablas, aditivo) — hecho el
+      9-sep-2026: `asm_entregas`, `asm_ftp_config` y `asm_ajustes` ya existen
 - [ ] Meter los datos del FTP de ASM en el módulo (una vez; la contraseña queda cifrada)
 - [ ] Subir un ZIP generado por el módulo y confirmar que ASM lo traga sin quejarse
 - [ ] Importar el horario de **secundaria** en `hor_*`: hasta entonces, las clases de ESO

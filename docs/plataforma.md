@@ -58,7 +58,7 @@ Cuando David diga "sigue haciendo" (o equivalente) sin más contexto, este es el
 
 ---
 
-## ⚠️ Schema pendiente de aplicar en Neon
+## Schema en Neon
 
 `src/db/sql/pendientes.txt` es la lista de ficheros SQL que el repo tiene escritos y **Neon
 todavía no**. Mientras no esté vacío, hay código en producción esperando su tabla o su
@@ -69,16 +69,12 @@ pnpm db:sql --pendientes --dry   # qué haría
 pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotentes)
 ```
 
-Ahora mismo faltan tres (sesión del 9-sep-2026, que no tenía acceso a la BBDD):
+Al aplicarlos: quitarlos de `pendientes.txt` y marcar las casillas `[~]` → `[x]` de la ficha
+del módulo, en el mismo commit.
 
-| Fichero | Sin él… |
-|---|---|
-| `cuaderno-plantillas-etapas.sql` | una plantilla del cuaderno no puede marcarse para varias etapas (se lee la etapa única de antes) |
-| `profes-nombre-mostrado.sql` | el «Nombre visible» de `/gestion/profes` no se puede guardar |
-| `autoasm.sql` | el ASM no guarda el histórico de entregas, ni el FTP, ni lo que se escribe a mano en una ficha |
-
-Al aplicarlos: quitarlos de `pendientes.txt`, marcar las casillas `[~]` → `[x]` de la ficha
-del módulo y borrar esta sección, todo en el mismo commit.
+**Ahora mismo no queda nada pendiente** (los tres de la sesión del 9-sep-2026 —
+`cuaderno-plantillas-etapas.sql`, `profes-nombre-mostrado.sql` y `autoasm.sql` — se aplicaron
+y verificaron ese mismo día).
 
 ---
 
@@ -99,7 +95,8 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro, resumen agregado y conector Excel→catálogo; schema al día en Neon) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; tutorías de 2026-27 asignadas en las 28 clases, así que los avisos ya salen) | [`17-puntualidad.md`](./17-puntualidad.md) |
-| Cuaderno de tutor | ✅ | ✅ | 🟡 (motor, cola, panel, asignaturas por curso y compartir listos y probados con datos reales; tablas ya en Neon. Falta la carpeta de la unidad compartida de David) | [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md) |
+| Alumnado (ficha por alumno) | ✅ | ✅ | 🟡 (navegador por clase, buscador y ficha completa con los 8 módulos, todo copiable de un toque; alcance por etapa verificado contra la app. Sin tablas propias) | [`21-alumnado.md`](./21-alumnado.md) |
+| Cuaderno de tutor | ✅ | ✅ | 🟡 (motor, cola, panel, asignaturas por curso, compartir y **lista de clase en Google Sheets** listos y probados con datos reales; tablas ya en Neon. Falta la tirada real de documentos con las plantillas definitivas) | [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
 | Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (infantil y primaria importados y navegables en `/gestion/horarios`: vistas por clase, profesor y aula, con importación desde el `.docx` de Educamos; falta secundaria) | [`07-horarios.md`](./07-horarios.md) |
 | AUTOASM (Apple School Manager) | ✅ | ✅ | ✅ (los seis CSV de ASM: se generan de la BBDD central o del ZIP del curso pasado, se validan, se navegan y se descargan; falta la subida real a ASM de David) | [`19-autoasm.md`](./19-autoasm.md) |

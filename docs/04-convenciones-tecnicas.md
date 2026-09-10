@@ -186,6 +186,13 @@ src/components/<modulo>/          # componentes propios del módulo
   dirección de sus tutores); el enmascarado es obligatorio en **pantalla**.
 - Parseo de excels: **SheetJS (`xlsx`)** para `.csv/.xls/.xlsx`, detección de columnas por
   cabecera normalizada (mayúsculas sin acentos), nunca por posición.
+- **Escribir** un `.xlsx` con estilos: `src/lib/xlsx-escribir.ts` (OOXML a mano sobre JSZip), no
+  SheetJS — su versión community escribe datos, anchos y paneles, pero ni rellenos ni
+  tipografías ni colores de pestaña. Sabe de fuentes, rellenos, alineado, anchos, columnas
+  ocultas, panel congelado, autofiltro, color de pestaña, fechas y fórmulas, y con eso basta.
+  Para dejarlo como **Google Sheet nativa**, se sube a Drive con conversión
+  (`subirComoGoogleSheet`), igual que el cuaderno hace `.docx` → Google Doc: la API de Sheets no
+  está habilitada en el proyecto de la cuenta de servicio.
 - Parseo de **.docx**: también con SheetJS, sin dependencias nuevas — `XLSX.CFB.read()` abre
   el ZIP y `word/document.xml` se recorre con el árbol mínimo de `src/lib/horarios-lectores.ts`.
   No añadas `mammoth` ni `jszip` para esto.

@@ -1,6 +1,6 @@
 'use client';
 
-// Panel del Cuaderno de tutor: cinco pestañas (Generar · Vista previa · Plantillas ·
+// Panel del Cuaderno de tutor: seis pestañas (Generar · Listas · Vista previa · Plantillas ·
 // Asignaturas · Historial) y, arriba,
 // la carpeta base de Drive. Si la carpeta base falta, el aviso va primero y bien grande:
 // sin ella no se puede generar nada, y es lo único que hay que configurar una vez.
@@ -17,6 +17,7 @@ import {
   Loader2,
   Play,
   Settings2,
+  Table2,
   Wand2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,12 +25,14 @@ import { AsignaturasPanel } from '@/components/cuaderno/asignaturas-panel';
 import { GenerarPanel } from '@/components/cuaderno/generar-panel';
 import { PlantillasPanel } from '@/components/cuaderno/plantillas-panel';
 import { HistorialPanel } from '@/components/cuaderno/historial-panel';
+import { ListasPanel } from '@/components/cuaderno/listas-panel';
 import { VistaPreviaPanel } from '@/components/cuaderno/vista-previa-panel';
 import type { AjustesUI, ClaseUI, DriveUI, FaltaUI, PlantillaUI, TiradaUI } from '@/components/cuaderno/tipos';
 import { haptic } from '@/lib/haptics';
 
 const TABS = [
   { k: 'generar' as const, label: 'Generar', icon: Play },
+  { k: 'listas' as const, label: 'Listas', icon: Table2 },
   { k: 'vista' as const, label: 'Vista previa', icon: Eye },
   { k: 'plantillas' as const, label: 'Plantillas', icon: Wand2 },
   { k: 'asignaturas' as const, label: 'Asignaturas', icon: BookOpen },
@@ -48,7 +51,7 @@ interface Props {
 }
 
 export function CuadernoPanel(props: Props) {
-  const [tab, setTab] = useState<'generar' | 'vista' | 'plantillas' | 'asignaturas' | 'historial'>('generar');
+  const [tab, setTab] = useState<'generar' | 'listas' | 'vista' | 'plantillas' | 'asignaturas' | 'historial'>('generar');
   const [ajustes, setAjustes] = useState(props.ajustes);
   const [abiertoAjustes, setAbiertoAjustes] = useState(!props.ajustes.carpetaBaseId);
 
@@ -96,6 +99,13 @@ export function CuadernoPanel(props: Props) {
           clases={props.clases}
           faltas={props.faltas}
           listoParaGenerar={props.drive.configurado && Boolean(ajustes.carpetaBaseId)}
+        />
+      )}
+      {tab === 'listas' && (
+        <ListasPanel
+          clases={props.clases}
+          cursoEscolar={props.cursoEscolar}
+          carpetaBaseLista={Boolean(ajustes.carpetaBaseId)}
         />
       )}
       {tab === 'vista' && <VistaPreviaPanel plantillas={props.plantillas} clases={props.clases} />}

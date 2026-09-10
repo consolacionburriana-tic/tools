@@ -72,3 +72,47 @@ export async function avisarTutorDelCuaderno(aviso: AvisoCuaderno): Promise<bool
   });
   return true;
 }
+
+export interface AvisoLista {
+  email: string;
+  nombre: string;
+  clase: string;
+  academicYear: string;
+  hojaUrl: string;
+  alumnos: number;
+}
+
+/**
+ * Aviso de «ya tienes la lista de tu clase en Excel». Igual que el del cuaderno, no lleva
+ * ningún dato de alumnado: solo la clase, cuántos son y el enlace, que ya está protegido
+ * por el permiso de Drive.
+ */
+export async function avisarTutorDeLaLista(aviso: AvisoLista): Promise<boolean> {
+  if (!emailConfigurado()) return false;
+  const pila = aviso.nombre.split(' ')[0] || 'hola';
+  const cuerpo = `
+    <p style="margin:0 0 12px;font-size:14px;line-height:1.55;">
+      Hola ${escapar(pila)}: ya tienes la <strong>lista de ${escapar(aviso.clase)}</strong> como hoja
+      de cálculo, con los ${aviso.alumnos} alumnos numerados y los datos de contacto de sus familias.
+    </p>
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.55;">
+      Es una Google Sheet normal y corriente: puedes ordenarla, filtrarla, añadir columnas tuyas
+      (notas, asistencia, lo que necesites) o usarla como origen de un combinado de correspondencia.
+      Los números de lista son los mismos que los del cuaderno impreso.
+    </p>
+    <p style="margin:0 0 20px;">
+      <a href="${escapar(aviso.hojaUrl)}"
+         style="display:inline-block;background:${AZUL};color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;">
+        Abrir la lista
+      </a>
+    </p>
+    <p style="margin:0;font-size:12px;line-height:1.5;color:#71717a;">
+      Lleva datos personales de alumnado y familias: no la compartas fuera del claustro.
+    </p>`;
+  await enviar('cuaderno', {
+    to: aviso.email,
+    subject: `La lista de ${aviso.clase} ya está en tu Drive`,
+    html: envoltorio(`Lista de clase · ${aviso.clase}`, cuerpo),
+  });
+  return true;
+}

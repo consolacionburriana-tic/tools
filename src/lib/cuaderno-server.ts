@@ -1007,7 +1007,7 @@ export interface EventoNuevo {
   tiradaId?: string | null;
   itemId?: string | null;
   nivel?: 'info' | 'aviso' | 'error';
-  fase: 'lanzar' | 'worker' | 'drive' | 'documento' | 'cierre' | 'correo' | 'toque';
+  fase: 'lanzar' | 'worker' | 'drive' | 'documento' | 'cierre' | 'correo' | 'toque' | 'listas';
   mensaje: string;
   datos?: Record<string, unknown>;
 }
