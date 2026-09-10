@@ -142,8 +142,8 @@ Recopilados de las fichas, para verlos de un vistazo:
   columnas fijado en `02-integracion-educamos.md`. El fichero NO se commitea (`.gitignore`).
 - **Logo vectorial del colegio (SVG o AI)**: los iconos de la PWA ya llevan el emblema real,
   extraído del PNG del lockup, así que el de 192 sale nítido y el de 512 algo suave. Con el
-  vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`).
-  No urge.
+  vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`)
+  y relanzando `scripts/icono-app.py`. No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
 - **Aplicar el SQL pendiente en Neon**: `pnpm db:sql --pendientes` (la lista está en
   `src/db/sql/pendientes.txt` y en la cabecera de `plataforma.md`). Son tres, de la sesión
