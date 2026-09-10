@@ -14,10 +14,10 @@ Lo que hay hoy en el repo:
   `orientation: portrait`, `start_url: '/gestion'`, `scope: '/'`, `theme_color: '#2563eb'`,
   iconos `any` y `maskable` de 192 y 512, y **atajos** (pulsación larga en el icono):
   "Registrar retraso", "Registrar conducta (ABC)" y "Escritorio".
-- **Iconos con el emblema real del colegio** (ya no son placeholders): `public/icons/`
-  (`icon-192`, `icon-512`, `icon-maskable-192`, `icon-maskable-512`, `apple-touch-icon-180`)
-  más el favicon y el apple-icon de `src/app/`. Se generan con
-  `python3 scripts/iconos-pwa.py` (ver "El icono" más abajo).
+- **Iconos con el emblema real del colegio + insignia de herramientas** (ya no son
+  placeholders): `public/icons/` (`icon-192`, `icon-512`, `icon-maskable-192`,
+  `icon-maskable-512`, `apple-touch-icon-180`) más el favicon y el apple-icon de
+  `src/app/`. Se generan con `python3 scripts/icono-app.py` (ver "El icono" más abajo).
 - **Barra de estado que se funde con la app**: el `themeColor` del `viewport` va por esquema
   de color (blanco en claro, `#09090b` en oscuro), así que en standalone no queda una franja
   azul sobre una cabecera blanca. El azul de marca sigue en el manifest, que es lo que se ve
@@ -26,14 +26,15 @@ Lo que hay hoy en el repo:
   **cinta de "sin conexión"** en toda la app (`src/components/pwa/registro-sw.tsx`).
 - Los haptics ya funcionan en PWA de iOS ≥17.4.
 
-## El icono (decidido y hecho, 2026-09-02)
+## El icono (decidido y hecho, 2026-09-02; rediseño con insignia, 2026-09-10)
 
 El emblema del colegio **no existía suelto**: `public/logobur.png` es el lockup horizontal
 (emblema + "Consolación" + bajada). Y no se puede recortar sin más porque la palabra es
 caligráfica: al etiquetar los componentes conexos de tinta, **"Consolación" entera es un
 único trazo**, así que la C no se puede separar por color ni por componente.
 
-Lo que se hace en `scripts/iconos-pwa.py` (herramienta de un solo uso, con Pillow):
+Lo que se hace en `scripts/iconos-pwa.py` (herramienta de un solo uso, con Pillow) para
+sacar el emblema en sí:
 
 1. Componentes conexos del PNG → los trazos del emblema (la marca con la cruz) son
    componentes propios; el lettering es uno gigante.
@@ -47,15 +48,28 @@ Por qué fondo claro y no azul de marca: para pintar el emblema sobre azul habr�
 recolorear dos tintas antialiaseadas sobre blanco, y eso deja halos. Con fondo claro el
 emblema va tal cual salió de imprenta.
 
+**2026-09-10 — se probó un icono nuevo (ilustración de portapapeles + lápiz) y no
+funcionaba de favicon**: a 16-32 px, con tantos elementos, se convertía en una mancha —
+el emblema, por su trazo grueso y simple, sí aguanta ese tamaño (por eso llevaba años
+siendo el icono). Solución: **las dos cosas a la vez**, no una u otra — `scripts/icono-app.py`
+(que importa `emblema()`/`fondo()` de `iconos-pwa.py` en vez de duplicar la extracción)
+compone el emblema arriba a la izquierda + una insignia (círculo azul con un engranaje
+sencillo, dibujado con formas, sin PNG suelto) abajo a la derecha, pequeña para no competir
+con el emblema. Es el script que genera de verdad `public/icons/*`, `src/app/icon.png` y
+`src/app/apple-icon.png` — `iconos-pwa.py` queda como la pieza que sabe extraer el emblema.
+
 Resolución: el emblema mide 129x176 px en el origen, así que el icono de **192 sale casi
 1:1 (nítido)** y el de 512 se amplía 1,7x (bordes algo suaves; ese tamaño solo se usa en la
 instalación y el splash). **Si algún día aparece el logo vectorial (SVG/AI), es cambiar
-`ORIGEN` en el script y volver a lanzarlo** — todo lo demás (tamaños, márgenes, maskable)
-ya está resuelto.
+`ORIGEN` en `iconos-pwa.py` y volver a lanzar `icono-app.py`** — todo lo demás (composición,
+tamaños, márgenes, maskable) ya está resuelto.
 
-Márgenes: `any` 11 % (con esquinas redondeadas propias), `maskable` 21 % (a sangre, para que
-el recorte circular de Android no coma nada), apple-touch 11 % y opaco (iOS no admite
-transparencia y ya redondea él).
+Márgenes: `any` 11 % en el lado más apretado (con esquinas redondeadas propias), apple-touch
+igual y opaco (iOS no admite transparencia y ya redondea él). `maskable` va a sangre con la
+misma composición encogida hacia el centro hasta que el dibujo (emblema + insignia) quede al
+33 % del radio respecto al centro — el límite de la zona segura de Android es 40 % (círculo
+de diámetro 80 % del icono), así que queda con margen de sobra; `icono-app.py` lo comprueba
+solo cada vez que se ejecuta y para en seco si algún ajuste futuro se saliera del límite.
 
 ## Decisiones cerradas
 
@@ -82,8 +96,9 @@ transparencia y ya redondea él).
 ### Fase 1 · Manifest y marca — ✅
 - [x] `start_url: '/gestion'` + `scope: '/'` (verificado: redirige a login sin sesión, sin bucle)
 - [x] Colores de marca en manifest y viewport (`#2563eb` azul, antes teal `#0d9488`)
-- [x] **Iconos con el emblema real** en los cinco tamaños + favicon, generados con
-      `scripts/iconos-pwa.py`, con margen de seguridad maskable y variante opaca para iOS
+- [x] **Iconos con el emblema real + insignia de herramientas** en los cinco tamaños +
+      favicon, generados con `scripts/icono-app.py`, con margen de seguridad maskable
+      (verificado por script) y variante opaca para iOS
 - [x] `apple-touch-icon` explícito de 180 en el `<head>` (iOS ignora el manifest para esto)
 - [x] Barra de estado por esquema de color (claro/oscuro) para que se funda con la cabecera
 - [x] Atajos del manifest: Puntualidad, Registro ABC y Escritorio
