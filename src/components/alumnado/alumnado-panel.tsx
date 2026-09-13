@@ -16,10 +16,16 @@
 //     hermanos, o volver a un alumno que acabas de mirar, es instantáneo.
 //
 // El alumno abierto vive en la URL (`?alumno=<id>`), así que la pantalla se puede recargar,
-// compartir o volver atrás con el botón del navegador y sigue donde estaba.
+// compartir o volver atrás con el botón del navegador y sigue donde estaba. Para moverlo se
+// usa `window.history.replaceState`, **no** `router.replace`: esta página es
+// `force-dynamic` y lee `searchParams`, así que un `router.replace` re-renderizaba la página
+// ENTERA en el servidor a cada clic —el listado de 639 y la ficha, otra vez— y volvía a
+// mandar ~90 KB por la red. Era la causa gorda de que «fuera lentillo». Next integra el
+// history nativo con `useSearchParams` justo para esto (guía «Shallow routing on the
+// client» en `node_modules/next/dist/docs/01-app/02-guides/single-page-applications.md`).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { BookMarked, Library, Search, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FichaAlumnoPanel, useEscape } from '@/components/alumnado/ficha-alumno';
@@ -48,7 +54,6 @@ export function AlumnadoPanel({
   /** La ficha de `?alumno=…`, ya resuelta en el servidor. Ver el comentario de arriba. */
   fichaInicial: FichaAlumno | null;
 }) {
-  const router = useRouter();
   const params = useSearchParams();
   const abiertoId = params.get('alumno');
 
@@ -113,17 +118,19 @@ export function AlumnadoPanel({
       haptic.tap();
       const url = new URL(window.location.href);
       url.searchParams.set('alumno', id);
-      router.replace(`${url.pathname}${url.search}`, { scroll: false });
+      // `pushState`, no `replaceState`: así el botón «atrás» del navegador (y el gesto de
+      // deslizar en el iPad) vuelve al alumno anterior, que es lo que uno espera.
+      window.history.pushState(null, '', `${url.pathname}${url.search}`);
       void cargarFicha(id);
     },
-    [cargarFicha, router],
+    [cargarFicha],
   );
 
   const cerrar = useCallback(() => {
     const url = new URL(window.location.href);
     url.searchParams.delete('alumno');
-    router.replace(`${url.pathname}${url.search}`, { scroll: false });
-  }, [router]);
+    window.history.pushState(null, '', `${url.pathname}${url.search}`);
+  }, []);
 
   // La ficha de la primera carga viene del servidor, así que aquí NO se busca nada al
   // montar. Lo único que hay que atender es el botón «atrás»/«adelante» del navegador:

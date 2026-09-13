@@ -59,6 +59,9 @@ export function Selector({
     empezar(() => router.push(`/gestion/horarios?${p.toString()}`));
   };
 
+  // `yendo` se queda escrito tras navegar, y da igual: SIEMPRE se lee junto a `pendiente`, y
+  // `ir()` lo reescribe antes de arrancar cada transición. No hace falta limpiarlo.
+
   // Filtro por ETAPA, no por curso: con infantil, primaria y la ESO importadas hay casi
   // treinta clases, y lo que se quiere acotar primero es "enséñame las de secundaria".
   const etapas = useMemo(() => {
@@ -89,22 +92,28 @@ export function Selector({
   return (
     <div className="space-y-3">
       <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-        {vistas.map((v) => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => ir(v.id, '')}
-            className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              vista === v.id
-                ? 'bg-white text-indigo-700 shadow-sm dark:bg-zinc-900 dark:text-indigo-300'
-                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
-            )}
-          >
-            <v.icono className="h-4 w-4" />
-            {v.label}
-          </button>
-        ))}
+        {vistas.map((v) => {
+          // Cambiar de vista es la navegación MÁS lenta (se rehace el selector entero) y era
+          // la única sin señal al tocarla: parecía que el toque no había entrado.
+          const yendoAqui = pendiente && yendo === `${v.id}:`;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => ir(v.id, '')}
+              aria-busy={yendoAqui}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                vista === v.id || yendoAqui
+                  ? 'bg-white text-indigo-700 shadow-sm dark:bg-zinc-900 dark:text-indigo-300'
+                  : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
+              )}
+            >
+              {yendoAqui ? <Loader2 className="h-4 w-4 animate-spin" /> : <v.icono className="h-4 w-4" />}
+              {v.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Estas dos filas hacen cosas distintas y antes se confundían (parecían dos listas de

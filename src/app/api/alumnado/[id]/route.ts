@@ -20,10 +20,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Identificador no válido' }, { status: 400 });
   }
 
-  const ficha = await fichaAlumno(id);
+  // En paralelo: la ficha no depende del alcance ni al revés, y encadenarlas costaba dos
+  // viajes a Neon de más justo en la petición que se nota al tocar un alumno.
+  const [ficha, { clases }] = await Promise.all([
+    fichaAlumno(id),
+    // `conPropias: false`: aquí solo se comprueba el permiso, las tutorías no hacen falta.
+    alcanceAlumnado(guard, { conPropias: false }),
+  ]);
   if (!ficha) return NextResponse.json({ error: 'Ese alumno no existe' }, { status: 404 });
-
-  const { clases } = await alcanceAlumnado(guard);
   if (!puedeConAlumno(clases, ficha)) {
     // Mismo mensaje que si no existiera: quién está en cada clase tampoco es información
     // que tenga que dar esta ruta a quien no le toca.

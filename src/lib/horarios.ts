@@ -113,6 +113,18 @@ export function periodoVigente<T extends PeriodoVigencia>(periodos: readonly T[]
   });
 }
 
+/**
+ * El periodo que manda, con los respaldos de siempre: el vigente por fecha, si no el
+ * ordinario más reciente, y si no el primero. Separado de `getPeriodoVigente` para que
+ * quien YA tiene la lista no gaste otro viaje a Neon en pedirla de nuevo.
+ */
+export function elegirPeriodoVigente<T extends PeriodoVigencia & { esOrdinario?: boolean }>(
+  periodos: readonly T[],
+  iso: string,
+): T | null {
+  return periodoVigente(periodos, iso) ?? periodos.find((p) => p.esOrdinario) ?? periodos[0] ?? null;
+}
+
 function duracionDias(p: PeriodoVigencia): number {
   const a = Date.parse(`${p.fechaInicio}T00:00:00Z`);
   const b = Date.parse(`${p.fechaFin}T00:00:00Z`);

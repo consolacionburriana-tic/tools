@@ -158,13 +158,38 @@ src/components/alumnado/copiable.tsx       # Copiable, Dato y CopiarLista
 
 Sin tablas nuevas: **no hay SQL que aplicar**.
 
-### Rendimiento medido (Neon, 639 alumnos)
+### Rendimiento: lo que importa es el número de TANDAS, no las consultas
 
-- `listaAlumnado()`: ~400-500 ms en caliente. Son **dos** viajes a Neon, no seis: la campaña de
-  licencias se pide primero (la necesita `estadoPedidos`) y el resto va en un `Promise.all`. La
-  primera versión, en cadena, tardaba 2 s.
-- `fichaAlumno()`: ~550 ms, 13 consultas en paralelo.
-- Buscar y cambiar de clase: 0 peticiones.
+Medido contra Neon: **un viaje cuesta ~127 ms**, pase lo que pase. Con eso, optimizar una
+consulta no sirve de nada si el código encadena cuatro. Todo lo de esta pantalla está montado
+para ir en **una sola tanda** (13 consultas en paralelo cuestan lo que una).
+
+| | Antes | Ahora | Qué era |
+|---|---|---|---|
+| `fichaAlumno()` | 515 ms | **144 ms** | 4 tandas encadenadas (alumno → …→ campaña → pedido → líneas) y un `select *` de los 97 profes que él solo valía 357 ms por arrastrar su `extra` |
+| `GET /api/alumnado/[id]` | 432 ms | **296 ms** | la ficha y el alcance iban en cadena, y `alcanceAlumnado` hacía dos viajes más |
+| `listaAlumnado()` | ~400 ms | ~260 ms | la campaña activa se pedía antes; ahora es una subconsulta |
+| Clic en un alumno | **2 peticiones** | **1** | ver abajo |
+| Volver a uno ya abierto | — | 0 peticiones | la caché del cliente |
+
+**La causa gorda era la navegación, no las consultas.** `router.replace` para mover
+`?alumno=` re-renderizaba en el servidor la página ENTERA a cada clic —`force-dynamic` + lee
+`searchParams`—, así que cada toque costaba el listado de 639 otra vez (~90 KB) *más* la
+llamada a la API, en paralelo. Ahora se usa `window.history.pushState`, que Next integra con
+`useSearchParams` justo para esto (guía «Shallow routing on the client» en
+`node_modules/next/dist/docs/01-app/02-guides/single-page-applications.md`). Un clic = una
+petición a la API y nada más.
+
+Las subconsultas son la herramienta para esto: lo que dependía del alumno (sus hermanos, las
+tutorías de su curso, la campaña activa) se resuelve dentro de la misma consulta en vez de
+esperar a un viaje previo.
+
+### Estados de carga
+
+Abrir una ficha enseña un **esqueleto con la forma de la ficha**, no un spinner centrado: así
+lo que llega no da un salto. Al saltar de una ficha a otra se deja la anterior a la vista con
+un «Cargando» arriba a la derecha, que es menos brusco que vaciar la pantalla. La fila tocada
+se marca en el mismo frame, sin esperar a la red.
 
 ### Permisos
 
@@ -188,6 +213,8 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
 - [x] `?alumno=` resuelto en el servidor; «atrás» por `popstate`; `Esc` cierra
 - [x] Módulo `alumnado` en permisos y tarjeta en el escritorio
 - [x] Probado en claro y oscuro, a 1180 px y en iPad vertical
+- [x] Rendimiento: una sola tanda de consultas y un clic = una petición (13-sep-2026)
+- [x] Esqueleto de carga con la forma de la ficha
 - [x] Probado el alcance de verdad contra la app: un tutor de 2º ESO B entra en su clase, alcanza
       las 10 de Secundaria (230 alumnos), abre sin problema a una alumna de 4º ESO A, y la API le
       devuelve 404 con un alumno de Infantil. Un tutor de Primaria alcanza sus 12 clases (275) y

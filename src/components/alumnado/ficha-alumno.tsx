@@ -60,13 +60,9 @@ export function FichaAlumnoPanel({
   onCerrar: () => void;
   onIrA: (id: string) => void;
 }) {
-  if (cargando && !ficha) {
-    return (
-      <div className="flex h-64 items-center justify-center text-sm text-zinc-400">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Abriendo la ficha…
-      </div>
-    );
-  }
+  // Esqueleto con la FORMA de la ficha, no un spinner centrado: así lo que aparece no da un
+  // salto al llegar los datos, y se lee «esto está viniendo» sin tener que leer nada.
+  if (cargando && !ficha) return <FichaEsqueleto />;
   if (!ficha) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2 px-6 text-center">
@@ -81,7 +77,14 @@ export function FichaAlumnoPanel({
   const correosFamilia = ficha.familiares.filter((f) => !f.fallecido).flatMap((f) => f.correos);
 
   return (
-    <div className={`space-y-3 ${cargando ? 'opacity-60 transition-opacity' : ''}`}>
+    <div className="relative space-y-3">
+      {/* Al saltar de una ficha a otra se deja la anterior a la vista y se avisa arriba: es
+          menos brusco que vaciar la pantalla, y con ~150 ms apenas se llega a ver. */}
+      {cargando && (
+        <div className="pointer-events-none absolute right-0 top-0 z-10 inline-flex items-center gap-1.5 rounded-full bg-zinc-900/90 px-2.5 py-1 text-[11px] font-medium text-white dark:bg-zinc-100/90 dark:text-zinc-900">
+          <Loader2 className="h-3 w-3 animate-spin" /> Cargando
+        </div>
+      )}
       {/* ── 1 · Quién es ─────────────────────────────────────────────── */}
       <div className="flex items-start gap-3">
         <div
@@ -305,6 +308,39 @@ function Chip({
       {texto}
       {detalle && <span className="font-normal opacity-70">· {detalle}</span>}
     </span>
+  );
+}
+
+/** El hueco de la ficha mientras viene. Mismas alturas que la de verdad. */
+function FichaEsqueleto() {
+  return (
+    <div className="animate-pulse space-y-3" aria-busy="true" aria-label="Abriendo la ficha">
+      <div className="flex items-start gap-3">
+        <div className="h-14 w-14 shrink-0 rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
+        <div className="min-w-0 flex-1 space-y-2 pt-1">
+          <div className="h-4 w-52 rounded bg-zinc-200 dark:bg-zinc-800" />
+          <div className="h-3 w-36 rounded bg-zinc-100 dark:bg-zinc-800/60" />
+          <div className="h-3 w-64 rounded bg-zinc-100 dark:bg-zinc-800/60" />
+        </div>
+      </div>
+      <div className="flex gap-1.5">
+        <div className="h-7 w-36 rounded-xl bg-zinc-200 dark:bg-zinc-800" />
+        <div className="h-7 w-44 rounded-xl bg-zinc-200 dark:bg-zinc-800" />
+      </div>
+      {[0, 1].map((i) => (
+        <div key={i} className="rounded-2xl bg-white p-3.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+          <div className="mb-3 h-3.5 w-40 rounded bg-zinc-200 dark:bg-zinc-800" />
+          <div className="space-y-2">
+            {[0, 1, 2].map((j) => (
+              <div key={j} className="flex justify-between gap-4">
+                <div className="h-3 w-24 rounded bg-zinc-100 dark:bg-zinc-800/60" />
+                <div className="h-3 w-40 rounded bg-zinc-100 dark:bg-zinc-800/60" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

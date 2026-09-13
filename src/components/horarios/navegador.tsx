@@ -54,7 +54,7 @@ export function Navegador({ celdas, titulo }: { celdas: CeldaHorario[]; titulo: 
   // un setState dentro del efecto, que dispara renders en cascada), y en fin de semana cae
   // al lunes solo.
   const [diaElegido, setDiaElegido] = useState<number | null>(null);
-  const [colorear, setColorear] = useState<ColorearPor>('nada');
+  const [colorear, setColorear] = useState<ColorearPor>('materia');
   const reparto = useMemo(() => repartirColores(celdas, colorear), [celdas, colorear]);
   const dia = diaElegido ?? ahora?.dia ?? 1;
   const [detalle, setDetalle] = useState<CeldaHorario | null>(null);
@@ -253,9 +253,12 @@ function FilaSemana({
 }
 
 /**
- * Colorear es OPCIONAL y por defecto está apagado: en el horario de una clase el color no
- * añade nada (todo es la misma clase) y en el de un profe es justo lo que hace falta para
- * ver de un vistazo cuántas veces entra en cada grupo.
+ * Por defecto se colorea **por materia**: es el tipo de clase lo que uno busca de un vistazo
+ * («¿cuándo tengo Mates?»), no el aula en la que cae. Decisión de David (13-sep-2026); antes
+ * arrancaba apagado y había que ir a encenderlo.
+ *
+ * «Por clase» (el grupo) sigue a un toque: en el horario de un profe es lo que enseña cuántas
+ * veces entra en cada grupo.
  */
 function InterruptorColor({ valor, onCambio }: { valor: ColorearPor; onCambio: (v: ColorearPor) => void }) {
   const opciones: { id: ColorearPor; label: string }[] = [

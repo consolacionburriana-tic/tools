@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, ChevronRight, Users } from 'lucide-react';
-import { claseLabel, cursoDeSalida, tripArchivada } from '@/lib/salidas';
+import { agruparPorNivel, claseLabel, cursoDeSalida, tripArchivada } from '@/lib/salidas';
 import { NavPending } from '@/components/ui/nav-pending';
 import type { TripConStats } from '@/lib/salidas-server';
 
@@ -61,11 +61,22 @@ export function SalidasList({ trips, soloMias }: { trips: TripConStats[]; soloMi
                 Curso {g.curso}
                 <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
               </div>
-              <div className="space-y-2.5">
-                {g.trips.map((t) => (
-                  <TripCard key={t.id} trip={t} />
-                ))}
-              </div>
+              {/* Y dentro, por NIVEL y de menos a más. Sin esto, las diez salidas del curso
+                  eran una lista seguida donde no se veía que hay dos de 1º, dos de 2º y así. */}
+              {agruparPorNivel(g.trips).map((n) => (
+                <div key={n.nivel || 'sin-clase'} className="space-y-2.5">
+                  <div className="flex items-center gap-2 pl-0.5">
+                    <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">{n.etiqueta}</span>
+                    <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/60" />
+                    <span className="shrink-0 text-xs text-zinc-400">
+                      {n.salidas.length} {n.salidas.length === 1 ? 'salida' : 'salidas'}
+                    </span>
+                  </div>
+                  {n.salidas.map((t) => (
+                    <TripCard key={t.id} trip={t} />
+                  ))}
+                </div>
+              ))}
             </div>
           ))}
         </div>

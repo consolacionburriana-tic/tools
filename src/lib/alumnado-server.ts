@@ -82,22 +82,29 @@ export interface AlcanceAlumnado {
  * de este curso (hoy hay 10 profes activos sin etapa asignada, y uno de ellos con tutoría).
  * Sin ninguna de las dos cosas no se ve nada: es la respuesta segura, y la pantalla lo dice.
  */
-export async function alcanceAlumnado(user: {
-  email: string;
-  role: Role | null;
-}): Promise<AlcanceAlumnado> {
-  const propias = await clasesDeTutor(user.email);
-  if (user.role && VE_TODO.includes(user.role)) return { clases: null, propias, etapas: [] };
+export async function alcanceAlumnado(
+  user: { email: string; role: Role | null },
+  opciones: { conPropias?: boolean } = {},
+): Promise<AlcanceAlumnado> {
+  const conPropias = opciones.conPropias !== false;
+  const veTodo = Boolean(user.role && VE_TODO.includes(user.role));
 
-  const [profe] = await db
-    .select({ etapa: eduTeachers.etapa })
-    .from(eduTeachers)
-    .where(ilike(eduTeachers.email, user.email))
-    .limit(1);
+  // Quien lo ve todo y no necesita saber sus tutorías (la ruta API, que solo comprueba
+  // permiso) se ahorra las dos consultas enteras.
+  if (veTodo && !conPropias) return { clases: null, propias: [], etapas: [] };
+
+  // Las tutorías y la etapa de su ficha son independientes: van a la vez, no encadenadas.
+  const [propias, profes] = await Promise.all([
+    conPropias || !veTodo ? clasesDeTutor(user.email) : Promise.resolve([]),
+    veTodo
+      ? Promise.resolve([])
+      : db.select({ etapa: eduTeachers.etapa }).from(eduTeachers).where(ilike(eduTeachers.email, user.email)).limit(1),
+  ]);
+  if (veTodo) return { clases: null, propias, etapas: [] };
 
   const etapas = [
     ...new Set(
-      [profe?.etapa, ...propias.map((c) => etapaDeCurso(c.curso))].filter((e): e is Etapa =>
+      [profes[0]?.etapa, ...propias.map((c) => etapaDeCurso(c.curso))].filter((e): e is Etapa =>
         e === 'EI' || e === 'EP' || e === 'ESO',
       ),
     ),
@@ -174,10 +181,9 @@ export async function listaAlumnado(
   alcance: { curso: string; letra: string | null }[] | null,
   academicYear = academicYearActual(),
 ): Promise<{ alumnos: AlumnoLista[]; clases: ClaseListado[] }> {
-  // La campaña se pide primero porque `estadoPedidos` la necesita; el resto va en paralelo,
-  // así que son DOS viajes a Neon en vez de una cadena de seis. Con 639 alumnos la
-  // diferencia son ~2 s → ~0,6 s, que es lo que separa «va rápido» de «se nota».
-  const campana = await campanaActiva();
+  // UNA sola tanda: `estadoPedidos` ya no espera a saber cuál es la campaña activa, la
+  // resuelve con una subconsulta. Con ~127 ms por viaje a Neon, quitar la espera previa vale
+  // tanto como optimizar cualquiera de las consultas.
   const [filas, numeros, pedidos, tutorias, profes] = await Promise.all([
     db
       .select({
@@ -199,7 +205,7 @@ export async function listaAlumnado(
       .select({ eduStudentId: cuadNumeracion.eduStudentId, numero: cuadNumeracion.numero })
       .from(cuadNumeracion)
       .where(eq(cuadNumeracion.academicYear, academicYear)),
-    campana ? estadoPedidos(campana.id) : Promise.resolve(new Map<string, boolean>()),
+    estadoPedidos(),
     db.select().from(eduTutorias).where(eq(eduTutorias.academicYear, academicYear)),
     // Solo lo que hace falta para el nombre corto del tutor: `select()` entero traía las 26
     // columnas de cada profe (con su `extra`) para pintar «María R».
@@ -289,22 +295,22 @@ export async function listaAlumnado(
 
 // ─── Licencias: ¿tiene el pedido hecho? ───────────────────────────────────────
 
-async function campanaActiva() {
-  const [fila] = await db
-    .select({ id: licCampaigns.id, name: licCampaigns.name, academicYear: licCampaigns.academicYear, status: licCampaigns.status })
-    .from(licCampaigns)
-    .orderBy(desc(licCampaigns.createdAt))
-    .limit(1);
-  return fila ?? null;
-}
 
 /**
  * `edu_student_id` → ¿tiene pedido confirmado? Solo entran los alumnos que **participan en
  * la campaña** (`lic_students`): a quien no le toca pedir licencias no se le puede pintar un
  * «pendiente» que no significa nada. Un alumno marcado a mano como completado (PDC, p. ej.)
  * cuenta como hecho, igual que en el panel de Licencias.
+ *
+ * La campaña activa va como subconsulta para no gastar un viaje a Neon en averiguarla.
  */
-async function estadoPedidos(campaignId: string): Promise<Map<string, boolean>> {
+async function estadoPedidos(): Promise<Map<string, boolean>> {
+  const campanaId = db
+    .select({ id: licCampaigns.id })
+    .from(licCampaigns)
+    .orderBy(desc(licCampaigns.createdAt))
+    .limit(1);
+
   const filas = await db
     .select({
       eduStudentId: licStudents.eduStudentId,
@@ -312,11 +318,8 @@ async function estadoPedidos(campaignId: string): Promise<Map<string, boolean>> 
       orderId: licOrders.id,
     })
     .from(licStudents)
-    .leftJoin(
-      licOrders,
-      and(eq(licOrders.studentId, licStudents.id), eq(licOrders.archived, false)),
-    )
-    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
+    .leftJoin(licOrders, and(eq(licOrders.studentId, licStudents.id), eq(licOrders.archived, false)))
+    .where(and(inArray(licStudents.campaignId, campanaId), eq(licStudents.active, true)));
 
   const mapa = new Map<string, boolean>();
   for (const f of filas) {
@@ -466,10 +469,14 @@ const EXTRA_YA_COLOCADO = [
  * lo dice en una línea en vez de pintar una tarjeta vacía.
  */
 export async function fichaAlumno(id: string, academicYear = academicYearActual()): Promise<FichaAlumno | null> {
-  const [alumno] = await db.select().from(eduStudents).where(eq(eduStudents.id, id)).limit(1);
-  if (!alumno) return null;
+  // TODO en una sola tanda de viajes a Neon. Lo que dependía del alumno (sus hermanos, las
+  // tutorías de su curso) se resuelve con una SUBCONSULTA en vez de esperar a tenerlo: cada
+  // viaje cuesta ~127 ms, así que cada tanda encadenada se nota en el dedo.
+  const suCurso = db.select({ curso: eduStudents.curso }).from(eduStudents).where(eq(eduStudents.id, id));
+  const suFamilia = db.select({ familiaId: eduStudents.familiaId }).from(eduStudents).where(eq(eduStudents.id, id));
 
   const [
+    alumnoFila,
     vinculos,
     numero,
     tutorias,
@@ -484,6 +491,7 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
     abc,
     apoyos,
   ] = await Promise.all([
+    db.select().from(eduStudents).where(eq(eduStudents.id, id)).limit(1),
     db
       .select({ rel: eduStudentGuardians, familiar: eduGuardians })
       .from(eduStudentGuardians)
@@ -494,33 +502,41 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
       .from(cuadNumeracion)
       .where(and(eq(cuadNumeracion.eduStudentId, id), eq(cuadNumeracion.academicYear, academicYear)))
       .limit(1),
-    alumno.curso
-      ? db
-          .select()
-          .from(eduTutorias)
-          .where(and(eq(eduTutorias.academicYear, academicYear), eq(eduTutorias.curso, alumno.curso)))
-      : Promise.resolve([]),
-    db.select().from(eduTeachers),
+    db
+      .select()
+      .from(eduTutorias)
+      .where(and(eq(eduTutorias.academicYear, academicYear), inArray(eduTutorias.curso, suCurso))),
+    // Solo las columnas del nombre y el correo. `select()` entero traía el `extra` de los 97
+    // profes y costaba 357 ms él solo, contra 128 ms así: era la mitad del tiempo de la ficha.
+    db
+      .select({
+        id: eduTeachers.id,
+        nombre: eduTeachers.nombre,
+        nombreMostrado: eduTeachers.nombreMostrado,
+        apellido1: eduTeachers.apellido1,
+        apellido2: eduTeachers.apellido2,
+        email: eduTeachers.email,
+        emailOtro: eduTeachers.emailOtro,
+      })
+      .from(eduTeachers),
     db
       .select({ eduTeacherId: eduTutorPersonal.eduTeacherId })
       .from(eduTutorPersonal)
       .where(and(eq(eduTutorPersonal.eduStudentId, id), eq(eduTutorPersonal.academicYear, academicYear)))
       .limit(1),
-    alumno.familiaId
-      ? db
-          .select({
-            id: eduStudents.id,
-            nombre: eduStudents.nombre,
-            apellido1: eduStudents.apellido1,
-            apellido2: eduStudents.apellido2,
-            curso: eduStudents.curso,
-            letra: eduStudents.letra,
-          })
-          .from(eduStudents)
-          .where(and(eq(eduStudents.familiaId, alumno.familiaId), eq(eduStudents.active, true)))
-      : Promise.resolve([]),
+    db
+      .select({
+        id: eduStudents.id,
+        nombre: eduStudents.nombre,
+        apellido1: eduStudents.apellido1,
+        apellido2: eduStudents.apellido2,
+        curso: eduStudents.curso,
+        letra: eduStudents.letra,
+      })
+      .from(eduStudents)
+      .where(and(inArray(eduStudents.familiaId, suFamilia), eq(eduStudents.active, true))),
     licenciasDeAlumno(id),
-    bancoDeAlumno(id, academicYear, alumno.curso),
+    bancoDeAlumno(id, academicYear),
     db
       .select({
         fecha: punRecords.fecha,
@@ -555,6 +571,9 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
       .from(horApoyos)
       .where(and(eq(horApoyos.eduStudentId, id), eq(horApoyos.active, true))),
   ]);
+
+  const alumno = alumnoFila[0];
+  if (!alumno) return null;
 
   const suyo = nombresDe(alumno);
   const profePorId = new Map(profes.map((p) => [p.id, p]));
@@ -681,91 +700,132 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
 
 // ─── Bloques de módulo ────────────────────────────────────────────────────────
 
+/**
+ * Licencias del alumno en la campaña activa, **en una sola consulta**.
+ *
+ * Antes eran tres encadenadas (campaña → fila del alumno → líneas del pedido) y cada viaje a
+ * Neon cuesta ~127 ms, así que la cadena sola valía ~380 ms de los ~515 de la ficha entera.
+ * Ahora la campaña es una subconsulta y las líneas entran por `left join`: una fila por libro
+ * del pedido, o una fila con el pedido vacío si aún no ha pedido, o ninguna si no participa.
+ */
 async function licenciasDeAlumno(id: string): Promise<FichaAlumno['licencias']> {
-  const campana = await campanaActiva();
-  if (!campana) return null;
-
-  const [fila] = await db
-    .select({ student: licStudents, order: licOrders })
-    .from(licStudents)
-    .leftJoin(licOrders, and(eq(licOrders.studentId, licStudents.id), eq(licOrders.archived, false)))
-    .where(and(eq(licStudents.campaignId, campana.id), eq(licStudents.eduStudentId, id)))
+  const campanaId = db
+    .select({ id: licCampaigns.id })
+    .from(licCampaigns)
+    .orderBy(desc(licCampaigns.createdAt))
     .limit(1);
 
-  const nombreCampana = campana.name ?? campana.academicYear ?? 'Campaña';
-  if (!fila) return { campana: nombreCampana, participa: false, pedidoHecho: false, manual: null, confirmadoAt: null, total: null, pagadoAt: null, libros: [] };
+  const filas = await db
+    .select({
+      campanaNombre: licCampaigns.name,
+      campanaYear: licCampaigns.academicYear,
+      manualAt: licStudents.manualCompletedAt,
+      manualMotivo: licStudents.manualCompletedReason,
+      ordenId: licOrders.id,
+      confirmadoAt: licOrders.confirmedAt,
+      total: licOrders.totalPrice,
+      pagadoAt: licOrders.paidAt,
+      cod: licOrderItems.bookCod,
+      asignatura: licOrderItems.asignatura,
+      banco: licOrderItems.isBancoLibros,
+      nombreLibro: licBooks.nombreLibro,
+    })
+    .from(licStudents)
+    .innerJoin(licCampaigns, eq(licCampaigns.id, licStudents.campaignId))
+    .leftJoin(licOrders, and(eq(licOrders.studentId, licStudents.id), eq(licOrders.archived, false)))
+    .leftJoin(licOrderItems, eq(licOrderItems.orderId, licOrders.id))
+    .leftJoin(licBooks, and(eq(licBooks.cod, licOrderItems.bookCod), eq(licBooks.campaignId, licStudents.campaignId)))
+    .where(and(eq(licStudents.eduStudentId, id), inArray(licStudents.campaignId, campanaId)));
 
-  const orden = fila.order;
-  const libros = orden
-    ? await db
-        .select({
-          cod: licOrderItems.bookCod,
-          asignatura: licOrderItems.asignatura,
-          banco: licOrderItems.isBancoLibros,
-          nombre: licBooks.nombreLibro,
-        })
-        .from(licOrderItems)
-        .leftJoin(
-          licBooks,
-          and(eq(licBooks.cod, licOrderItems.bookCod), eq(licBooks.campaignId, campana.id)),
-        )
-        .where(eq(licOrderItems.orderId, orden.id))
-    : [];
+  if (filas.length === 0) {
+    // Puede ser que no participe en la campaña, o que no haya campaña ninguna. Para la ficha
+    // es lo mismo: no se pinta el distintivo de licencias.
+    const [campana] = await db
+      .select({ name: licCampaigns.name, academicYear: licCampaigns.academicYear })
+      .from(licCampaigns)
+      .orderBy(desc(licCampaigns.createdAt))
+      .limit(1);
+    if (!campana) return null;
+    return {
+      campana: campana.name ?? campana.academicYear ?? 'Campaña',
+      participa: false,
+      pedidoHecho: false,
+      manual: null,
+      confirmadoAt: null,
+      total: null,
+      pagadoAt: null,
+      libros: [],
+    };
+  }
 
+  const cabecera = filas[0];
   return {
-    campana: nombreCampana,
+    campana: cabecera.campanaNombre ?? cabecera.campanaYear ?? 'Campaña',
     participa: true,
-    pedidoHecho: Boolean(orden) || Boolean(fila.student.manualCompletedAt),
-    manual: fila.student.manualCompletedAt ? (fila.student.manualCompletedReason ?? 'Marcado como completado a mano') : null,
-    confirmadoAt: orden?.confirmedAt ? orden.confirmedAt.toISOString() : null,
-    total: orden?.totalPrice ?? null,
-    pagadoAt: orden?.paidAt ? orden.paidAt.toISOString() : null,
-    // `libros` puede traer el mismo COD dos veces si el catálogo tiene duplicados: se deja
-    // tal cual, porque el pedido es el pedido y esconder una línea sería mentir.
-    libros: libros.map((l) => ({ cod: l.cod, nombre: l.nombre, asignatura: l.asignatura, banco: l.banco })),
+    pedidoHecho: Boolean(cabecera.ordenId) || Boolean(cabecera.manualAt),
+    manual: cabecera.manualAt ? (cabecera.manualMotivo ?? 'Marcado como completado a mano') : null,
+    confirmadoAt: cabecera.confirmadoAt ? cabecera.confirmadoAt.toISOString() : null,
+    total: cabecera.total,
+    pagadoAt: cabecera.pagadoAt ? cabecera.pagadoAt.toISOString() : null,
+    // Si no hay pedido, el `left join` deja una fila con `cod` a null: no es un libro.
+    // Un mismo COD repetido SÍ se deja: el pedido es el pedido, y esconder una línea sería
+    // mentir sobre lo que se pidió.
+    libros: filas
+      .filter((f) => f.cod !== null)
+      .map((f) => ({ cod: f.cod!, nombre: f.nombreLibro, asignatura: f.asignatura, banco: f.banco ?? false })),
   };
 }
 
-async function bancoDeAlumno(
-  id: string,
-  academicYear: string,
-  curso: string | null,
-): Promise<FichaAlumno['banco']> {
-  const [fila] = await db
-    .select({ asignacion: blAsignaciones, lote: blLotes })
+/**
+ * El lote del banco de libros y su valoración, también **en una sola consulta**.
+ *
+ * El `book_cod` de cada registro puede ser un COD del catálogo de Licencias o un
+ * `manual:<uuid>` de los libros dados de alta a mano en el banco (ver `bl_libros_curso`), así
+ * que el nombre sale de dos `left join` distintos y se coge el que haya.
+ */
+async function bancoDeAlumno(id: string, academicYear: string): Promise<FichaAlumno['banco']> {
+  const filas = await db
+    .select({
+      asignacionId: blAsignaciones.id,
+      entregado: blAsignaciones.entregado,
+      docInicio: blAsignaciones.docInicio,
+      docFin: blAsignaciones.docFin,
+      notasLote: blAsignaciones.notas,
+      numero: blLotes.numero,
+      bookCod: blLibroRegistros.bookCod,
+      estado: blLibroRegistros.estado,
+      borrado: blLibroRegistros.borrado,
+      forrado: blLibroRegistros.forrado,
+      notasLibro: blLibroRegistros.notas,
+      nombreLic: licBooks.nombreLibro,
+      nombreManual: blLibrosCurso.nombre,
+    })
     .from(blAsignaciones)
     .innerJoin(blLotes, eq(blAsignaciones.loteId, blLotes.id))
-    .where(and(eq(blAsignaciones.studentId, id), eq(blAsignaciones.academicYear, academicYear)))
-    .limit(1);
-  if (!fila) return null;
+    .leftJoin(blLibroRegistros, eq(blLibroRegistros.asignacionId, blAsignaciones.id))
+    .leftJoin(licBooks, eq(licBooks.cod, blLibroRegistros.bookCod))
+    .leftJoin(
+      blLibrosCurso,
+      sql`'manual:' || ${blLibrosCurso.id}::text = ${blLibroRegistros.bookCod}`,
+    )
+    .where(and(eq(blAsignaciones.studentId, id), eq(blAsignaciones.academicYear, academicYear)));
 
-  const [registros, catalogo] = await Promise.all([
-    db.select().from(blLibroRegistros).where(eq(blLibroRegistros.asignacionId, fila.asignacion.id)),
-    curso
-      ? db.select().from(blLibrosCurso).where(and(eq(blLibrosCurso.curso, curso), eq(blLibrosCurso.activo, true)))
-      : Promise.resolve([]),
-  ]);
-  // El `book_cod` puede ser un COD del catálogo de Licencias o un `manual:<id>` de los libros
-  // que se dieron de alta a mano en el banco (ver `bl_libros_curso`).
-  const codsLic = registros.map((r) => r.bookCod).filter((c) => !c.startsWith('manual:'));
-  const libros = codsLic.length > 0 ? await db.select().from(licBooks).where(inArray(licBooks.cod, codsLic)) : [];
-  const nombrePorCod = new Map<string, string>();
-  for (const l of libros) if (l.nombreLibro) nombrePorCod.set(l.cod, l.nombreLibro);
-  for (const l of catalogo) nombrePorCod.set(`manual:${l.id}`, l.nombre);
-
+  if (filas.length === 0) return null;
+  const cabecera = filas[0];
   return {
-    lote: `${fila.lote.numero}`,
-    entregado: fila.asignacion.entregado,
-    docInicio: fila.asignacion.docInicio,
-    docFin: fila.asignacion.docFin,
-    notas: fila.asignacion.notas,
-    libros: registros
-      .map((r) => ({
-        nombre: nombrePorCod.get(r.bookCod) ?? r.bookCod,
-        estado: r.estado,
-        borrado: r.borrado,
-        forrado: r.forrado,
-        notas: r.notas,
+    lote: `${cabecera.numero}`,
+    entregado: cabecera.entregado,
+    docInicio: cabecera.docInicio,
+    docFin: cabecera.docFin,
+    notas: cabecera.notasLote,
+    libros: filas
+      .filter((f) => f.bookCod !== null)
+      .map((f) => ({
+        nombre: f.nombreLic ?? f.nombreManual ?? f.bookCod!,
+        estado: f.estado,
+        borrado: f.borrado ?? true,
+        forrado: f.forrado ?? true,
+        notas: f.notasLibro,
       }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
   };

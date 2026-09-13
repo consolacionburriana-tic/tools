@@ -7,6 +7,26 @@ módulo que nace ya sobre `edu_students` y el login por roles.
 
 ---
 
+
+## El listado: curso escolar fuera, NIVEL dentro (13-sep-2026)
+
+Cuidado con la palabra «curso», que en este módulo significa dos cosas:
+
+- `cursoDeSalida(fecha, createdAt)` → el **curso escolar**: `'2026-27'`.
+- `nivelDeSalida(clases)` → el **nivel**: `'1ESO'`, `'4ESO'`.
+
+El listado agrupa por los dos: primero por curso escolar (con la pestaña Activas/Pasadas
+delante) y, **dentro de cada uno, por nivel y de menos a más**, con un separador que dice el
+nivel y cuántas salidas tiene. Sin ese segundo nivel, las diez salidas de un curso eran una
+lista seguida donde no se veía que hay dos de 1º, dos de 2º y así.
+
+- Una salida de varios niveles cae en el **más bajo**, que es donde la busca quien la busca.
+- Dentro de cada grupo, por fecha y luego por nombre: entre «… — 1ESO A» y «… — 1ESO B» sale
+  antes la A.
+- Ojo con el PDC: `3ESO` y `3ºPPDC` tienen el **mismo** `ordenCurso` (misma etapa, mismo
+  nivel), así que hay un desempate por código; sin él salían en el orden en que llegaran de la
+  BBDD. El helper es `agruparPorNivel()` en `src/lib/salidas.ts`, con tests.
+
 ## Estado: implementado ✅ (2026-07-11) — pendiente activar Blob (David) y correos masivos a pendientes
 
 Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-roles.md`).
