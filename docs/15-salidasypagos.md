@@ -8,20 +8,24 @@ módulo que nace ya sobre `edu_students` y el login por roles.
 ---
 
 
-## El listado, agrupado por curso (13-sep-2026)
+## El listado: curso escolar fuera, NIVEL dentro (13-sep-2026)
 
-Con una salida por clase, la lista por fecha de creación era una sopa: no se veía que hay dos
-de 1º, dos de 2º y así. Ahora se agrupa **por curso y de menos a más**, con un separador que
-dice el curso y cuántas salidas tiene.
+Cuidado con la palabra «curso», que en este módulo significa dos cosas:
 
-- Una salida de varios cursos cae en el **más bajo**, que es donde la busca quien la busca.
+- `cursoDeSalida(fecha, createdAt)` → el **curso escolar**: `'2026-27'`.
+- `nivelDeSalida(clases)` → el **nivel**: `'1ESO'`, `'4ESO'`.
+
+El listado agrupa por los dos: primero por curso escolar (con la pestaña Activas/Pasadas
+delante) y, **dentro de cada uno, por nivel y de menos a más**, con un separador que dice el
+nivel y cuántas salidas tiene. Sin ese segundo nivel, las diez salidas de un curso eran una
+lista seguida donde no se veía que hay dos de 1º, dos de 2º y así.
+
+- Una salida de varios niveles cae en el **más bajo**, que es donde la busca quien la busca.
 - Dentro de cada grupo, por fecha y luego por nombre: entre «… — 1ESO A» y «… — 1ESO B» sale
   antes la A.
-- El separador solo aparece si hay más de un grupo: con una sola salida, un rótulo «1º ESO»
-  encima es ruido.
 - Ojo con el PDC: `3ESO` y `3ºPPDC` tienen el **mismo** `ordenCurso` (misma etapa, mismo
   nivel), así que hay un desempate por código; sin él salían en el orden en que llegaran de la
-  BBDD. El helper es `agruparSalidasPorCurso()` en `src/lib/salidas.ts`, con tests.
+  BBDD. El helper es `agruparPorNivel()` en `src/lib/salidas.ts`, con tests.
 
 ## Estado: implementado ✅ (2026-07-11) — pendiente activar Blob (David) y correos masivos a pendientes
 
