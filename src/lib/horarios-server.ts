@@ -30,7 +30,7 @@ import {
   etapaDeCursoHorario,
   nombreCorto,
   nombreProfe,
-  periodoVigente,
+  elegirPeriodoVigente,
   rejillaDeGrupo,
   resumirGrupos,
   type CeldaHorario,
@@ -555,9 +555,7 @@ export async function getPeriodos(): Promise<PeriodoListado[]> {
 
 /** El periodo que manda una fecha; si no hay ninguno, el ordinario más reciente. */
 export async function getPeriodoVigente(iso = new Date().toISOString().slice(0, 10)): Promise<PeriodoListado | null> {
-  const todos = await getPeriodos();
-  const vigente = periodoVigente(todos, iso);
-  return vigente ?? todos.find((p) => p.esOrdinario) ?? todos[0] ?? null;
+  return elegirPeriodoVigente(await getPeriodos(), iso);
 }
 
 export interface OpcionesNavegador {
@@ -568,35 +566,43 @@ export interface OpcionesNavegador {
 
 /** Lo que se puede elegir en el navegador, sacado de lo que REALMENTE tiene horario. */
 export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesNavegador> {
-  const filas = await db
-    .select({
-      curso: horAsignacionGrupos.curso,
-      letra: horAsignacionGrupos.letra,
-    })
-    .from(horAsignacionGrupos)
-    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionGrupos.asignacionId))
-    .where(eq(horAsignaciones.periodoId, periodoId));
+  // Las dos consultas son independientes: encadenadas costaban dos viajes a Neon (~250 ms)
+  // y el navegador no se pinta hasta tenerlas. Van juntas.
+  const [filas, conProfes, conEspacios] = await Promise.all([
+    db
+      .select({
+        curso: horAsignacionGrupos.curso,
+        letra: horAsignacionGrupos.letra,
+      })
+      .from(horAsignacionGrupos)
+      .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionGrupos.asignacionId))
+      .where(eq(horAsignaciones.periodoId, periodoId)),
+    db
+      .selectDistinct({
+        id: eduTeachers.id,
+        nombre: eduTeachers.nombre,
+        apellido1: eduTeachers.apellido1,
+        apellido2: eduTeachers.apellido2,
+        nombreMostrado: eduTeachers.nombreMostrado,
+        alias: eduTeachers.alias,
+        etapa: eduTeachers.etapa,
+      })
+      .from(horAsignacionProfes)
+      .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionProfes.asignacionId))
+      .innerJoin(eduTeachers, eq(eduTeachers.id, horAsignacionProfes.eduTeacherId))
+      .where(eq(horAsignaciones.periodoId, periodoId)),
+    db
+      .selectDistinct({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre })
+      .from(horEspacios)
+      .innerJoin(horAsignaciones, eq(horAsignaciones.espacioId, horEspacios.id))
+      .where(eq(horAsignaciones.periodoId, periodoId)),
+  ]);
 
   const vistas = new Map<string, { curso: string; letra: string | null }>();
   for (const f of filas) vistas.set(`${f.curso}|${f.letra ?? ''}`, { curso: f.curso, letra: f.letra });
   const clases = [...vistas.values()]
     .sort(compararClases)
     .map((c) => ({ ...c, etiqueta: nombreClase(c.curso, c.letra), etapa: etapaDeCursoHorario(c.curso) }));
-
-  const conProfes = await db
-    .selectDistinct({
-      id: eduTeachers.id,
-      nombre: eduTeachers.nombre,
-      apellido1: eduTeachers.apellido1,
-      apellido2: eduTeachers.apellido2,
-      nombreMostrado: eduTeachers.nombreMostrado,
-      alias: eduTeachers.alias,
-      etapa: eduTeachers.etapa,
-    })
-    .from(horAsignacionProfes)
-    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionProfes.asignacionId))
-    .innerJoin(eduTeachers, eq(eduTeachers.id, horAsignacionProfes.eduTeacherId))
-    .where(eq(horAsignaciones.periodoId, periodoId));
 
   const profes = conProfes
     .map((p) => ({
@@ -609,13 +615,7 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
     }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
-  const conEspacios = await db
-    .selectDistinct({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre })
-    .from(horEspacios)
-    .innerJoin(horAsignaciones, eq(horAsignaciones.espacioId, horEspacios.id))
-    .where(eq(horAsignaciones.periodoId, periodoId));
-
-  return { clases, profes, espacios: conEspacios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) };
+  return { clases, profes, espacios: [...conEspacios].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) };
 }
 
 /** Las clases que tienen horario en un periodo. Es el censo que necesita `resumirGrupos()`. */
@@ -709,23 +709,27 @@ export async function getCeldas(
   // Profes y grupos de cada asignación, en dos consultas más (no en el join ancho: un
   // producto cartesiano de profes × grupos duplicaría las sesiones).
   const asignacionIds = [...new Set(filas.map((f) => f.asignacionId))];
-  const profesFilas = await db
-    .select({
-      asignacionId: horAsignacionProfes.asignacionId,
-      id: eduTeachers.id,
-      nombre: eduTeachers.nombre,
-      apellido1: eduTeachers.apellido1,
-      nombreMostrado: eduTeachers.nombreMostrado,
-      rol: horAsignacionProfes.rol,
-      principal: horAsignacionProfes.principal,
-    })
-    .from(horAsignacionProfes)
-    .innerJoin(eduTeachers, eq(eduTeachers.id, horAsignacionProfes.eduTeacherId))
-    .where(inArray(horAsignacionProfes.asignacionId, asignacionIds));
-  const gruposFilas = await db
-    .select({ asignacionId: horAsignacionGrupos.asignacionId, curso: horAsignacionGrupos.curso, letra: horAsignacionGrupos.letra, subgrupo: horAsignacionGrupos.subgrupo })
-    .from(horAsignacionGrupos)
-    .where(inArray(horAsignacionGrupos.asignacionId, asignacionIds));
+  // Profes y grupos solo dependen de `asignacionIds`, no el uno del otro: encadenados
+  // eran dos viajes a Neon (~250 ms) para pintar la misma cuadrícula.
+  const [profesFilas, gruposFilas] = await Promise.all([
+    db
+      .select({
+        asignacionId: horAsignacionProfes.asignacionId,
+        id: eduTeachers.id,
+        nombre: eduTeachers.nombre,
+        apellido1: eduTeachers.apellido1,
+        nombreMostrado: eduTeachers.nombreMostrado,
+        rol: horAsignacionProfes.rol,
+        principal: horAsignacionProfes.principal,
+      })
+      .from(horAsignacionProfes)
+      .innerJoin(eduTeachers, eq(eduTeachers.id, horAsignacionProfes.eduTeacherId))
+      .where(inArray(horAsignacionProfes.asignacionId, asignacionIds)),
+    db
+      .select({ asignacionId: horAsignacionGrupos.asignacionId, curso: horAsignacionGrupos.curso, letra: horAsignacionGrupos.letra, subgrupo: horAsignacionGrupos.subgrupo })
+      .from(horAsignacionGrupos)
+      .where(inArray(horAsignacionGrupos.asignacionId, asignacionIds)),
+  ]);
 
   const profesPor = new Map<string, CeldaHorario['profes']>();
   for (const p of profesFilas) {

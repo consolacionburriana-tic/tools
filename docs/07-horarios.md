@@ -17,6 +17,29 @@ futura que necesite saber qué pasa en un aula un martes a las 10:15.
 
 ---
 
+
+## Color y rendimiento del navegador (13-sep-2026)
+
+**Por defecto se colorea por MATERIA.** Es el tipo de clase lo que se busca de un vistazo
+(«¿cuándo tengo Mates?»), no el aula en la que cae. Antes arrancaba en «Sin color» y había que
+ir a encenderlo. «Por clase» (el grupo) sigue a un toque: en el horario de un profe es lo que
+enseña cuántas veces entra en cada grupo. Los tonos se reparten sobre el conjunto completo de
+categorías ordenado alfabéticamente, así que cada materia conserva su color mientras mires el
+mismo horario.
+
+**Las tandas encadenadas eran el problema de velocidad**, no las consultas: un viaje a Neon
+cuesta ~127 ms.
+
+| | Antes | Ahora |
+|---|---|---|
+| `getCeldas()` | ~370 ms | **~260 ms** (profes y grupos ya no van en cadena) |
+| `getOpcionesNavegador()` | ~400 ms | **~130 ms** (sus tres consultas, en paralelo) |
+| Cabecera de la página | 3 tandas | 2 (`getPeriodoVigente()` volvía a pedir los periodos que ya teníamos: ahora se eligen con `elegirPeriodoVigente()`) |
+| Celdas + tramos no lectivos | en cadena | en paralelo |
+
+Y las pestañas **Clase / Profesor / Aula** eran la navegación más lenta y la única sin señal al
+tocarla: ahora enseñan su spinner mientras llega la página, igual que los chips de clase.
+
 ## Estado: 🟡 Fase 0 hecha (schema + permisos + helpers), sin pantallas
 
 - **Modelo de datos diseñado y razonado** (este documento) y **13 tablas `hor_*` en

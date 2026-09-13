@@ -7,10 +7,10 @@ import {
   getCeldas,
   getOpcionesNavegador,
   getPeriodos,
-  getPeriodoVigente,
   getTramosNoLectivos,
   type VistaHorario,
 } from '@/lib/horarios-server';
+import { elegirPeriodoVigente } from '@/lib/horarios';
 import { Navegador } from '@/components/horarios/navegador';
 import { Selector } from '@/components/horarios/selector';
 import { SelectorPeriodo } from '@/components/horarios/selector-periodo';
@@ -26,9 +26,11 @@ export default async function HorariosPage({
   const user = await getSessionUser();
   const puedeVerProfes = canAccess(user, 'horarios-profes');
 
+  // El vigente se ELIGE de la lista que ya tenemos: `getPeriodoVigente()` volvía a pedir los
+  // periodos a Neon, así que eran dos viajes (~300 ms) para la misma fila.
   const periodos = await getPeriodos();
-  const vigente = await getPeriodoVigente();
-  const periodo = periodos.find((p) => p.id === sp.periodo) ?? vigente;
+  const periodo =
+    periodos.find((p) => p.id === sp.periodo) ?? elegirPeriodoVigente(periodos, new Date().toISOString().slice(0, 10));
 
   if (!periodo) {
     return (
@@ -95,16 +97,18 @@ async function Horario({
   clave: string;
   titulo: string;
 }) {
-  const celdas = clave ? await getCeldas(periodoId, vista, clave) : [];
-
   // En la vista de una clase se pintan también sus recreos y comedores aunque estén vacíos:
-  // sin ellos la mañana parece seguida y no se entiende dónde está el patio.
-  if (vista === 'clase' && clave) {
-    const [curso, letra] = clave.split('|');
-    celdas.push(...(await getTramosNoLectivos(periodoId, { curso, letra: letra || null })));
-  }
+  // sin ellos la mañana parece seguida y no se entiende dónde está el patio. Las dos
+  // consultas son independientes, así que van a la vez: encadenadas costaban ~650 ms.
+  const [curso, letra] = clave.split('|');
+  const [celdas, noLectivos] = await Promise.all([
+    clave ? getCeldas(periodoId, vista, clave) : Promise.resolve([]),
+    vista === 'clase' && clave
+      ? getTramosNoLectivos(periodoId, { curso, letra: letra || null })
+      : Promise.resolve([]),
+  ]);
 
-  return <Navegador celdas={celdas} titulo={titulo} />;
+  return <Navegador celdas={[...celdas, ...noLectivos]} titulo={titulo} />;
 }
 
 function EsqueletoHorario() {

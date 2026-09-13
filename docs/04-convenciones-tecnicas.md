@@ -86,6 +86,20 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
 - La conexión se inicializa **lazy** en `src/db/index.ts` para que el build no explote sin
   `DATABASE_URL`. No cambiar ese patrón.
 - Páginas server component que leen la BBDD llevan `export const dynamic = 'force-dynamic'`.
+- **Lo que cuesta es el VIAJE, no la consulta.** Medido contra Neon: cada consulta cuesta
+  ~127 ms de latencia, gane lo que gane el planificador. Así que 13 consultas en `Promise.all`
+  valen lo mismo que una, y dos encadenadas valen el doble. Antes de optimizar una consulta,
+  cuenta las **tandas**: lo que depende de un dato anterior casi siempre se puede resolver con
+  una **subconsulta** (`inArray(tabla.col, db.select(...))`) en vez de esperar a un viaje
+  previo. Ejemplos trabajados en `alumnado-server.ts` (`fichaAlumno`, 4 tandas → 1) y
+  `horarios-server.ts`.
+- **Nunca `db.select()` entero de una tabla con `extra`.** `select * from edu_teachers` (97
+  filas) tarda 357 ms contra 128 ms pidiendo solo las cinco columnas del nombre: el `jsonb` del
+  export se lleva el resto. Pide siempre las columnas que vas a usar.
+- **Para mover un `?parametro=` de la URL sin recargar, `window.history.pushState`, no
+  `router.replace`.** En una página `force-dynamic` que lee `searchParams`, `router.replace`
+  re-renderiza la página ENTERA en el servidor a cada clic. Next integra el history nativo con
+  `useSearchParams` justo para esto (guía «Shallow routing on the client»).
 - IDs: `uuid` con default aleatorio. Fechas: `timestamp` con `defaultNow()` para `created_at`;
   `updated_at` se actualiza en el código de escritura.
 
