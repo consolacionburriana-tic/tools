@@ -8,13 +8,14 @@ import { NavArrow } from '@/components/ui/nav-pending';
 
 export const metadata = { title: 'Panel · Licencias' };
 
-function Kpi({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function Kpi({ label, value, nota, accent }: { label: string; value: string; nota?: string; accent?: boolean }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <p className="text-xs text-zinc-500">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${accent ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
         {value}
       </p>
+      {nota && <p className="mt-0.5 text-[11px] leading-tight text-zinc-400">{nota}</p>}
     </div>
   );
 }
@@ -133,7 +134,12 @@ export default async function GestionPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Kpi label="Alumnos" value={String(stats.totalStudents)} />
               <Kpi label="Con pedido" value={`${stats.conPedido} · ${pct}%`} />
-              <Kpi label="Faltan" value={String(stats.sinPedido)} accent />
+              <Kpi
+                label="Faltan"
+                value={String(stats.sinPedido)}
+                nota={stats.noHaranPedido > 0 ? `+${stats.noHaranPedido} no harán pedido` : undefined}
+                accent
+              />
               <Kpi label="Licencias" value={String(stats.totalLicencias)} />
             </div>
 
@@ -224,6 +230,7 @@ export default async function GestionPage() {
                       <th className="px-4 py-2 text-right font-medium">Alumnos</th>
                       <th className="px-4 py-2 text-right font-medium">Con pedido</th>
                       <th className="px-4 py-2 text-right font-medium">Faltan</th>
+                      <th className="px-4 py-2 text-right font-medium">No pedirán</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -238,6 +245,9 @@ export default async function GestionPage() {
                           <td className="px-4 py-2.5 text-right text-zinc-600 dark:text-zinc-300">{c.conPedido}</td>
                           <td className={`px-4 py-2.5 text-right font-medium ${c.sinPedido > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400'}`}>
                             {c.sinPedido}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-zinc-400">
+                            {c.noHaranPedido > 0 ? c.noHaranPedido : '—'}
                           </td>
                         </tr>
                       );
