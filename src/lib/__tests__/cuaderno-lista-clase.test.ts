@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { AlumnoCuaderno, ClaseCuaderno } from '@/lib/cuaderno-server';
 import {
   COLUMNAS,
+  COLUMNA_TUTOR,
+  chipsDeTutor,
   colorDeClase,
   fechaNacimiento,
   filaAlumno,
@@ -192,6 +194,37 @@ describe('el tutor de cada fila', () => {
   it('solo el nombre de pila, nunca los apellidos', () => {
     const hoja = hojaDeClase(clase());
     expect((hoja.filas[1][8] as { valor: string }).valor).toBe('María');
+  });
+});
+
+describe('los chips de la columna Tutor', () => {
+  it('apunta a la columna «Tutor» y salta la cabecera', () => {
+    const chips = chipsDeTutor(clase());
+    expect(COLUMNA_TUTOR).toBe(8);
+    expect(chips).toMatchObject({ hoja: '1º ESO B', columna: 8, primeraFila: 1 });
+  });
+
+  it('da un correo por alumno, el de SU tutor', () => {
+    const base = clase();
+    const dos = {
+      ...base,
+      tutores: [
+        { ...base.tutores[0], teacherId: 't1', email: 'maria@ejemplo.com' },
+        { ...base.tutores[0], teacherId: 't2', email: 'paola@ejemplo.com' },
+      ],
+      alumnos: [
+        alumna({ id: 'a1', tutorPersonalId: 't2' }),
+        alumna({ id: 'a2', tutorPersonalId: 't1' }),
+        alumna({ id: 'a3', tutorPersonalId: null }),
+      ],
+    };
+    // El tercero, sin reparto, se queda sin chip: mejor el texto en blanco que un tutor inventado.
+    expect(chipsDeTutor(dos).correos).toEqual(['paola@ejemplo.com', 'maria@ejemplo.com', null]);
+  });
+
+  it('sin correo del tutor no hay chip, aunque el nombre sí salga', () => {
+    const sinMail = clase({ tutores: [{ ...clase().tutores[0], email: '' }] });
+    expect(chipsDeTutor(sinMail).correos).toEqual([null]);
   });
 });
 

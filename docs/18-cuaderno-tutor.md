@@ -330,8 +330,35 @@ Esto es el límite real del método, y decide qué haría falta una plantilla:
 | Formato condicional, validación de datos, rangos protegidos, bandas, notas | ❌ (el escritor no los escribe, y algunos no sobreviven) |
 
 Un chip no se puede meter en un .xlsx **ni creando ni duplicando**: vive por celda, así que ni
-siquiera una plantilla con chips se los pondría a las 30 filas que se generan. Para tener
-chips hace falta **la API de Sheets habilitada** y escribirlos después de crear la hoja.
+siquiera una plantilla con chips se los pondría a las 30 filas que se generan. Hace falta la
+API de Sheets y escribirlos **después** de crear la hoja, que es justo lo que se hace ahora
+(ver abajo). Por eso **no hace falta plantilla**: ni para los grupos plegados ni para los chips.
+
+### Los chips de persona de la columna «Tutor»
+
+Habilitada la API de Sheets (14-sep-2026), la lista lleva una **pasada final** que convierte la
+columna «Tutor» en chips de persona: `src/lib/cuaderno/sheets.ts`, un solo `batchUpdate` por
+archivo. Cómo se escribe un chip, que la documentación no lo dice con estas palabras:
+
+- el `stringValue` de la celda tiene que ser un **carácter placeholder**: `'@'`;
+- el `chipRun` va con `startIndex: 0` apuntando a ese `@`;
+- la API sustituye ella sola el placeholder por el correo y deja el `chipRun` encima.
+
+Los errores de los otros caminos, por si alguien lo vuelve a intentar: sin texto, «Can only set
+chip runs on non-computed, non-empty string values»; con el correo ya puesto como texto, «The
+chip run start index must be a placeholder character» (y si cuela, el correo sale **duplicado**
+detrás del chip).
+
+> **`displayFormat` solo admite `DEFAULT`.** No hay forma de pedirle al chip que enseñe solo el
+> nombre de pila: lo enseña como lo tenga el directorio de Workspace. Es el precio del chip
+> frente al texto plano, que sí era solo el nombre. Si el nombre completo molesta, se quitan los
+> chips y vuelve el texto — el xlsx ya lo escribe.
+
+La pasada es **decorativa**: si falla (API caída, un permiso), la lista ya está subida con el
+nombre del tutor en texto, se anota el aviso y se sigue. Un alumno sin reparto de tutoría se
+queda sin chip, con la celda en blanco, igual que antes.
+
+Comprobado de punta a punta con 2º ESO A: 30 de 30 filas con chip, cabecera intacta.
 
 ### Cómo se hace (y por qué no con la API de Sheets)
 
@@ -619,9 +646,10 @@ fábrica, sin mapear nada a mano.
       mandarlo a la papelera en vez de decir que lo hizo
 - [x] La columna «Tutor» es el tutor personal de cada alumno, solo el nombre de pila
 - [x] Las tres columnas derivadas, en un grupo plegado (comprobado que sobrevive a la conversión)
-- [ ] **Chips inteligentes**: hace falta habilitar la API de Sheets en el proyecto
-      `tools-consolacionburriana` y comprobar qué se puede escribir por API. Sin eso no hay
-      chips, se cree la hoja o se duplique una plantilla
+- [x] **Chips de persona** en la columna «Tutor»: API de Sheets habilitada y pasada final en
+      `cuaderno/sheets.ts`, con el truco del carácter placeholder `'@'`. Probado sobre 2º ESO A
+      (30/30). El chip enseña el nombre del directorio, no solo el de pila: `displayFormat` no
+      admite otra cosa
 - [ ] Estrenarlo con una clase real y ver si el claustro echa en falta alguna columna
 
 ### Fase 7 · Estreno real

@@ -15,6 +15,8 @@
 import type { AlumnoCuaderno, ClaseCuaderno, TutorCuaderno } from '@/lib/cuaderno-server';
 import { claseCorta, cursoEscolarLargo } from '@/lib/cuaderno/nombres';
 import type { EntradaCelda, EstiloCelda, Hoja, Libro } from '@/lib/xlsx-escribir';
+// Solo el tipo: `sheets.ts` sí toca la red, y este fichero tiene que seguir siendo puro.
+import type { ChipsDeHoja } from '@/lib/cuaderno/sheets';
 
 /**
  * Las 18 columnas del modelo, en su orden. Los títulos son contrato: no se tocan.
@@ -122,6 +124,28 @@ export function tutorDelAlumno(alumno: AlumnoCuaderno, tutores: readonly TutorCu
   if (tutores.length === 1) return tutores[0].pila;
   const suyo = tutores.find((t) => t.teacherId === alumno.tutorPersonalId);
   return suyo ? suyo.pila : '';
+}
+
+/** El correo del tutor personal de un alumno, para colgarle el chip. `null` = sin chip. */
+export function correoDelTutor(alumno: AlumnoCuaderno, tutores: readonly TutorCuaderno[]): string | null {
+  const suyo = tutores.length === 1 ? tutores[0] : tutores.find((t) => t.teacherId === alumno.tutorPersonalId);
+  return suyo?.email || null;
+}
+
+/** Índice (0 = A) de la columna «Tutor»: lo busca por título, que es el contrato de la hoja. */
+export const COLUMNA_TUTOR = COLUMNAS.findIndex((c) => c.titulo === 'Tutor');
+
+/**
+ * Los correos de la columna «Tutor» de una clase, fila a fila y en el mismo orden que
+ * `hojaDeClase`, para la pasada de chips de después de subirla (`cuaderno/sheets.ts`).
+ */
+export function chipsDeTutor(clase: ClaseCuaderno, nombreHoja?: string): ChipsDeHoja {
+  return {
+    hoja: nombreHoja ?? nombreLargoClase(clase),
+    columna: COLUMNA_TUTOR,
+    primeraFila: 1, // la 0 es la cabecera
+    correos: clase.alumnos.map((a) => correoDelTutor(a, clase.tutores)),
+  };
 }
 
 /** La fila de un alumno. `tutor` es el nombre de pila de SU tutor personal. */
