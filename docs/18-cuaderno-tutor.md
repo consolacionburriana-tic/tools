@@ -334,31 +334,36 @@ siquiera una plantilla con chips se los pondría a las 30 filas que se generan. 
 API de Sheets y escribirlos **después** de crear la hoja, que es justo lo que se hace ahora
 (ver abajo). Por eso **no hace falta plantilla**: ni para los grupos plegados ni para los chips.
 
-### Los chips de persona de la columna «Tutor»
+### El chip de la columna «Tutor»
 
 Habilitada la API de Sheets (14-sep-2026), la lista lleva una **pasada final** que convierte la
-columna «Tutor» en chips de persona: `src/lib/cuaderno/sheets.ts`, un solo `batchUpdate` por
-archivo. Cómo se escribe un chip, que la documentación no lo dice con estas palabras:
+columna «Tutor» en chips: `src/lib/cuaderno/sheets.ts`, un solo `batchUpdate` por archivo.
 
-- el `stringValue` de la celda tiene que ser un **carácter placeholder**: `'@'`;
-- el `chipRun` va con `startIndex: 0` apuntando a ese `@`;
-- la API sustituye ella sola el placeholder por el correo y deja el `chipRun` encima.
+Es un chip de **desplegable** (validación de datos `ONE_OF_LIST` con `showCustomUi: true`), con
+los nombres de pila de los tutores de esa clase como opciones. El xlsx ya escribe «María» en la
+celda, así que al llegar la validación cada celda se pinta sola como píldora.
 
-Los errores de los otros caminos, por si alguien lo vuelve a intentar: sin texto, «Can only set
-chip runs on non-computed, non-empty string values»; con el correo ya puesto como texto, «The
-chip run start index must be a placeholder character» (y si cuela, el correo sale **duplicado**
-detrás del chip).
+> **Y no un chip de persona, que era lo primero que se probó.** Se escribe poniendo `'@'` como
+> carácter placeholder en la celda y el `chipRun` encima con `startIndex: 0` (la API sustituye
+> sola el placeholder por el correo; con el correo ya escrito responde «The chip run start index
+> must be a placeholder character»). Funciona, pero enseña el nombre **como lo tenga el
+> directorio de Workspace** —«María Teresa Tomás Gil»— y `displayFormat` solo admite `DEFAULT`,
+> así que no hay manera de pedirle el nombre de pila a secas. Con el desplegable la celda dice
+> «María» y además **se le puede poner color a mano**, opción por opción, desde Datos ›
+> Validación de datos. Con el chip de persona no se puede.
 
-> **`displayFormat` solo admite `DEFAULT`.** No hay forma de pedirle al chip que enseñe solo el
-> nombre de pila: lo enseña como lo tenga el directorio de Workspace. Es el precio del chip
-> frente al texto plano, que sí era solo el nombre. Si el nombre completo molesta, se quitan los
-> chips y vuelve el texto — el xlsx ya lo escribe.
+Detalles:
 
-La pasada es **decorativa**: si falla (API caída, un permiso), la lista ya está subida con el
-nombre del tutor en texto, se anota el aviso y se sigue. Un alumno sin reparto de tutoría se
-queda sin chip, con la celda en blanco, igual que antes.
-
-Comprobado de punta a punta con 2º ESO A: 30 de 30 filas con chip, cabecera intacta.
+- `strict: false`: si un tutor cambia a mitad de curso y alguien escribe un nombre que no está
+  en la lista, Sheets lo marca con una esquinita y sigue, en vez de no dejar escribir. Es una
+  lista de clase, no un formulario.
+- La pasada es **decorativa**: si falla (API caída, un permiso), la lista ya está subida con el
+  nombre del tutor en texto, se anota el aviso y se sigue.
+- Un alumno sin reparto de tutoría se queda con la celda en blanco, igual que antes; el
+  desplegable sigue ahí para ponérselo a mano.
+- **Ojo con los colores puestos a mano:** volver a generar la lista **reescribe el archivo**
+  (mismo id, mismos permisos y enlaces, pero contenido nuevo), así que se pierden. Si se acaban
+  queriendo colores fijos, hay que escribirlos aquí y no a mano.
 
 ### Cómo se hace (y por qué no con la API de Sheets)
 
@@ -646,10 +651,10 @@ fábrica, sin mapear nada a mano.
       mandarlo a la papelera en vez de decir que lo hizo
 - [x] La columna «Tutor» es el tutor personal de cada alumno, solo el nombre de pila
 - [x] Las tres columnas derivadas, en un grupo plegado (comprobado que sobrevive a la conversión)
-- [x] **Chips de persona** en la columna «Tutor»: API de Sheets habilitada y pasada final en
-      `cuaderno/sheets.ts`, con el truco del carácter placeholder `'@'`. Probado sobre 2º ESO A
-      (30/30). El chip enseña el nombre del directorio, no solo el de pila: `displayFormat` no
-      admite otra cosa
+- [x] **Chip en la columna «Tutor»**: API de Sheets habilitada y pasada final en
+      `cuaderno/sheets.ts`. Es un chip de **desplegable**, no de persona: así la celda enseña
+      solo «María» y se le puede poner color a mano. El de persona se probó antes (30/30 sobre
+      2º ESO A) y se descartó porque enseña el nombre entero del directorio
 - [ ] Estrenarlo con una clase real y ver si el claustro echa en falta alguna columna
 
 ### Fase 7 · Estreno real
