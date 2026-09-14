@@ -98,7 +98,7 @@ const claseKey = (c: ClaseOpt) => `${c.curso}|${c.letra ?? ''}`;
 interface CountFamilias {
   count: number;
   alumnos: number;
-  hijosAlcanzados: number;
+  alumnosAlcanzados: number;
   sinCorreo: { nombre: string; apellidos: string; curso: string }[];
   sinEnlaceCentral: number;
 }
@@ -432,9 +432,18 @@ export function CorreosForm({ clases, deadline, academicYear, baseUrl }: Props) 
             ) : (
               <div className="space-y-1">
                 <p className="text-zinc-700 dark:text-zinc-200">
-                  <strong>{detalle.count} familias</strong> · {detalle.hijosAlcanzados} alumnos alcanzados de{' '}
+                  <strong>
+                    {detalle.count} correo{detalle.count === 1 ? '' : 's'}
+                  </strong>{' '}
+                  para {detalle.alumnosAlcanzados} alumno{detalle.alumnosAlcanzados === 1 ? '' : 's'} de{' '}
                   {detalle.alumnos} en la selección
                 </p>
+                {detalle.count > detalle.alumnosAlcanzados && (
+                  <p className="text-xs text-zinc-400">
+                    Salen más correos que alumnos porque se escribe a cada tutor con correo propio (padre y
+                    madre).
+                  </p>
+                )}
                 {detalle.sinCorreo.length > 0 && (
                   <button
                     type="button"
@@ -651,13 +660,13 @@ export function CorreosForm({ clases, deadline, academicYear, baseUrl }: Props) 
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-40 cursor-pointer"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Enviar a {count ?? 0} {modo === 'familias' ? 'familias' : 'destinatarios'}
+          Enviar a {count ?? 0} {modo === 'familias' ? 'correos de familias' : 'destinatarios'}
         </button>
       ) : (
         <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-500/10">
           <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600" />
           <span className="flex-1 text-sm text-amber-800 dark:text-amber-200">
-            ¿Enviar de verdad a {count} {modo === 'familias' ? 'familias' : 'correos'}?
+            ¿Enviar de verdad a {count} correos?
           </span>
           <button type="button" onClick={() => setConfirming(false)} className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 cursor-pointer">
             Cancelar
