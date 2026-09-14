@@ -30,12 +30,11 @@ async function main() {
   }
   console.log(`Campaña: ${campaign.name} (${campaign.academicYear}) · estado ${campaign.status}`);
 
-  const { familias, alumnosObjetivo, alumnosSinCorreo, alumnosSinEnlaceCentral } = await getFamiliaRecipients(
+  const { familias, alumnosObjetivo, alumnosAlcanzados, alumnosSinCorreo, alumnosSinEnlaceCentral } = await getFamiliaRecipients(
     campaign.id,
   );
-  const hijosAlcanzados = familias.reduce((n, f) => n + f.hijos.length, 0);
   console.log(
-    `Alumnos activos: ${alumnosObjetivo} · familias con correo: ${familias.length} · alumnos alcanzados: ${hijosAlcanzados}`,
+    `Alumnos activos: ${alumnosObjetivo} · correos de tutores: ${familias.length} · alumnos alcanzados: ${alumnosAlcanzados}`,
   );
   if (alumnosSinCorreo.length > 0) {
     console.log(`⚠️  ${alumnosSinCorreo.length} alumnos sin correo de tutor (no reciben enlace):`);

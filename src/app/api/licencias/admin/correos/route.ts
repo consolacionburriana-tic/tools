@@ -50,9 +50,11 @@ export async function POST(request: Request) {
 
     if (p.accion === 'count') {
       return NextResponse.json({
+        // `count` son CORREOS, no unidades familiares: una familia con dos direcciones
+        // (padre y madre) recibe dos. Ver FamiliasResumen.
         count: resumen.familias.length,
         alumnos: resumen.alumnosObjetivo,
-        hijosAlcanzados: resumen.familias.reduce((n, f) => n + f.hijos.length, 0),
+        alumnosAlcanzados: resumen.alumnosAlcanzados,
         sinCorreo: resumen.alumnosSinCorreo,
         sinEnlaceCentral: resumen.alumnosSinEnlaceCentral,
       });

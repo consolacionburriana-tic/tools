@@ -456,8 +456,14 @@ export interface FamiliaRecipient extends FamiliaDestino {
 }
 
 export interface FamiliasResumen {
+  /**
+   * Una por DIRECCIÓN de correo, no por unidad familiar: si el padre y la madre tienen
+   * correos distintos, son dos entradas (y dos correos) para los mismos hijos.
+   */
   familias: FamiliaRecipient[];
   alumnosObjetivo: number;
+  /** Alumnos del objetivo que sí reciben el enlace (los que tienen algún tutor con correo). */
+  alumnosAlcanzados: number;
   /** Alumnos del grupo elegido sin ningún tutor con correo: no reciben enlace. */
   alumnosSinCorreo: { nombre: string; apellidos: string; curso: string }[];
   /** Alumnos sin enlace a la BBDD central (no se les puede localizar el tutor). */
@@ -540,6 +546,7 @@ export async function getFamiliaRecipients(
   return {
     familias: conHijos,
     alumnosObjetivo: objetivo.length,
+    alumnosAlcanzados: objetivo.length - sinCorreo.length,
     alumnosSinCorreo: sinCorreo,
     alumnosSinEnlaceCentral: alumnos.length - conEdu.length,
   };
