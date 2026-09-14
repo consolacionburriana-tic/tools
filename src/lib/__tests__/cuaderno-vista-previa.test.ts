@@ -58,7 +58,7 @@ describe('construirVistaPrevia', () => {
     const vista = construirVistaPrevia({ ...base, etiquetas: ['nom', 'tutoria', 'tutor', 'asignatura1'] });
     const valor = (etiqueta: string) => vista.campos.find((c) => c.etiqueta === etiqueta)?.valor;
     expect(valor('nom')).toBe('Aitana');
-    expect(valor('tutoria')).toBe('2ºA');
+    expect(valor('tutoria')).toBe('2º ESO A');
     expect(valor('tutor')).toBe('Carlos Valero Aicart');
     expect(valor('asignatura1')).toBe('Mates');
   });
@@ -93,6 +93,6 @@ describe('construirVistaPrevia', () => {
     const unica = { ...plantilla, repeticion: 'unica' } as CuadPlantilla;
     const vista = construirVistaPrevia({ ...base, plantilla: unica, etiquetas: ['nom', 'tutoria'] });
     expect(vista.campos.find((c) => c.etiqueta === 'nom')?.valor).toBe('Aitana');
-    expect(vista.campos.find((c) => c.etiqueta === 'tutoria')?.valor).toBe('2ºA');
+    expect(vista.campos.find((c) => c.etiqueta === 'tutoria')?.valor).toBe('2º ESO A');
   });
 });

@@ -10,6 +10,7 @@ import { PDFDocument } from 'pdf-lib';
 import type { CuadAjustes, CuadPlantilla } from '@/db/schema';
 import { ASIGNATURAS_MAX, normalizarEtiqueta, TRIMESTRES, type Repeticion } from '@/lib/cuaderno/campos';
 import { limpiarNombre, nombreDocumento, numeroListaTexto } from '@/lib/cuaderno/nombres';
+import { nombreLargoClase } from '@/lib/cuaderno/lista-clase';
 import {
   etiquetasDeXml,
   rellenarDocumentXml,
@@ -50,8 +51,10 @@ export function valoresCentro(ajustes: Pick<CuadAjustes, 'nombreCentro'>, cursoE
 
 export function valoresClase(clase: ClaseCuaderno, tutor: TutorCuaderno | null, numAlumnos: number): Valores {
   // `num_alumnos` es el trozo de este tutor; `num_alumnos_clase`, la clase entera.
+  // `<<clase>>` va con el nombre largo («1º ESO A»), como en la columna «Clase» del Sheet:
+  // la etiqueta corta (`clase.clase`, «1ºA») no aporta nada dentro de un documento.
   return {
-    clase: clase.clase,
+    clase: nombreLargoClase(clase),
     curso: clase.curso,
     letra: clase.letra ?? '',
     etapa: clase.etapa ?? '',
