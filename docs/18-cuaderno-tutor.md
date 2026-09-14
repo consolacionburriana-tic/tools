@@ -291,6 +291,48 @@ decisión, no una casualidad:
 - Cabecera de color con el texto en blanco, nº de lista en amarillo, fila 1 y columnas A-B
   congeladas, autofiltro y un color de pestaña por clase.
 
+### La columna «Tutor» es el tutor PERSONAL, no los de la clase
+
+En una clase con dos tutores, poner «María / David» en las 30 filas no dice nada. Cada alumno
+tiene **un** tutor personal (`edu_tutor_personal`, el mismo reparto que usa el cuaderno) y es
+el que hay que llamar, así que va solo su nombre de pila.
+
+- Con **un solo tutor** en la clase, ese es el de todos aunque no haya reparto explícito (el
+  caso de Infantil y Primaria): dejar la columna vacía sería absurdo.
+- Con **dos tutores y un alumno sin repartir**, la celda va **en blanco** a propósito, en vez
+  de adivinar. Es el aviso de que falta hacer ese reparto en `/gestion/profes`.
+- Estado a 14-sep-2026: de las 8 clases con dos tutores, 7 tienen el reparto hecho. Falta
+  **4º PRI A** (0 de 25) y un alumno de 4º ESO A.
+
+### Las columnas derivadas van en un grupo plegado
+
+`Apellidos`, `Nombre apellido` y `Nombre apellido Lista` son fontanería para los merges:
+repiten lo que ya está en Nombre y Apellidos, solo que pegado de otra manera. Van en un
+**grupo de columnas plegado**, así que la hoja se abre enseñando lo que se mira y el `+` de
+arriba las saca cuando hacen falta. Siguen ahí y siguen siendo fórmulas, que es lo que
+necesitan los merges.
+
+> **Los grupos de columnas SÍ sobreviven a la conversión de Drive**, comprobado el 14-sep-2026
+> subiendo un .xlsx con `outlineLevel` y reexportando la hoja ya convertida: vuelve con
+> `outlineLevel="1"` y `hidden="1"` intactos, y `outlineLevelCol` en la hoja. Por eso los
+> grupos **no** obligan a duplicar una plantilla. El botón de plegar va a la izquierda del
+> bloque (`summaryRight="0"`), que es donde lo pone Google Sheets.
+
+### Lo que NO se puede hacer subiendo un .xlsx
+
+Esto es el límite real del método, y decide qué haría falta una plantilla:
+
+| | ¿Sobrevive al .xlsx → Sheet? |
+|---|---|
+| Colores, fuentes, anchos, congelado, autofiltro, fórmulas, fechas | ✅ comprobado |
+| **Grupos de columnas plegados** | ✅ comprobado |
+| **Chips inteligentes** (persona, fecha, desplegable) | ❌ **imposible**: no existen en el formato .xlsx |
+| Formato condicional, validación de datos, rangos protegidos, bandas, notas | ❌ (el escritor no los escribe, y algunos no sobreviven) |
+
+Un chip no se puede meter en un .xlsx **ni creando ni duplicando**: vive por celda, así que ni
+siquiera una plantilla con chips se los pondría a las 30 filas que se generan. Para tener
+chips hace falta **la API de Sheets habilitada** y escribirlos después de crear la hoja.
+
 ### Cómo se hace (y por qué no con la API de Sheets)
 
 El fichero se escribe a mano como `.xlsx` (`src/lib/xlsx-escribir.ts`, con JSZip) y se sube a
@@ -575,6 +617,11 @@ fábrica, sin mapear nada a mano.
 - [x] `borrarArchivo` ya no se traga el 404 enmascarado de una unidad compartida: la cuenta de
       servicio es Administrador de contenido y **no puede borrar del todo**, así que ahora cae a
       mandarlo a la papelera en vez de decir que lo hizo
+- [x] La columna «Tutor» es el tutor personal de cada alumno, solo el nombre de pila
+- [x] Las tres columnas derivadas, en un grupo plegado (comprobado que sobrevive a la conversión)
+- [ ] **Chips inteligentes**: hace falta habilitar la API de Sheets en el proyecto
+      `tools-consolacionburriana` y comprobar qué se puede escribir por API. Sin eso no hay
+      chips, se cree la hoja o se duplique una plantilla
 - [ ] Estrenarlo con una clase real y ver si el claustro echa en falta alguna columna
 
 ### Fase 7 · Estreno real

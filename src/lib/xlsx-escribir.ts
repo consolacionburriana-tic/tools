@@ -13,7 +13,7 @@
 //   · texto, número, fecha (`dd/mm/yyyy`), booleano y fórmula
 //   · una tipografía por celda (familia, negrita, color) y un relleno de fondo
 //   · alineado horizontal/vertical, anchos de columna, columnas ocultas, alto de la fila 1
-//   · panel congelado, autofiltro y color de pestaña
+//   · panel congelado, autofiltro, color de pestaña y **grupos de columnas plegables**
 //
 // Testeado en `src/lib/__tests__/xlsx-escribir.test.ts`.
 import JSZip from 'jszip';
@@ -50,6 +50,17 @@ export interface Columna {
   /** Ancho en caracteres, como el de Excel/Sheets (el de la lista de clase va de 4 a 34). */
   ancho?: number;
   oculta?: boolean;
+  /**
+   * Nivel de agrupación (1 = dentro de un grupo). Las columnas seguidas con el mismo nivel
+   * forman un grupo que se puede plegar con el `−` de arriba.
+   *
+   * **Sobrevive a la conversión de Drive a Google Sheet**, comprobado el 14-sep-2026: la hoja
+   * ya convertida devuelve `outlineLevel="1"` y `hidden="1"` intactos. Por eso los grupos NO
+   * obligan a duplicar una plantilla.
+   */
+  nivelGrupo?: number;
+  /** Arranca plegado (el grupo se ve cerrado al abrir la hoja). Implica `oculta`. */
+  plegada?: boolean;
 }
 
 export interface Hoja {
@@ -305,15 +316,22 @@ export function hojaXml(hoja: Hoja, catalogo: Catalogo): string {
   const anchoMax = filas.reduce((max, f) => Math.max(max, f.length), hoja.columnas?.length ?? 0);
   const rangoCompleto = filas.length > 0 && anchoMax > 0 ? `A1:${referencia(filas.length - 1, anchoMax - 1)}` : 'A1';
 
-  const cols = (hoja.columnas ?? [])
-    .map((c, i) =>
-      c.ancho || c.oculta
-        ? `<col min="${i + 1}" max="${i + 1}"${c.ancho ? ` width="${c.ancho}" customWidth="1"` : ''}${
-            c.oculta ? ' hidden="1"' : ''
-          }/>`
-        : '',
-    )
+  const columnas = hoja.columnas ?? [];
+  const cols = columnas
+    .map((c, i) => {
+      // Una columna plegada está, por definición, oculta: si no, el `−` de arriba sale
+      // cerrado pero las columnas siguen a la vista y nadie entiende nada.
+      const oculta = c.oculta || c.plegada;
+      if (!c.ancho && !oculta && !c.nivelGrupo) return '';
+      return (
+        `<col min="${i + 1}" max="${i + 1}"` +
+        `${c.ancho ? ` width="${c.ancho}" customWidth="1"` : ''}` +
+        `${oculta ? ' hidden="1"' : ''}` +
+        `${c.nivelGrupo ? ` outlineLevel="${c.nivelGrupo}"` : ''}/>`
+      );
+    })
     .join('');
+  const nivelMaximo = columnas.reduce((max, c) => Math.max(max, c.nivelGrupo ?? 0), 0);
 
   const cuerpo = filas
     .map((fila, i) => {
@@ -344,10 +362,17 @@ export function hojaXml(hoja: Hoja, catalogo: Catalogo): string {
   // esquema, y Drive rechaza el fichero si se altera.
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${
-    hoja.colorPestana ? `<sheetPr><tabColor rgb="${rgb(hoja.colorPestana)}"/></sheetPr>` : ''
-  }<dimension ref="${rangoCompleto}"/><sheetViews><sheetView workbookViewId="0">${congelar}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${
-    cols ? `<cols>${cols}</cols>` : ''
-  }<sheetData>${cuerpo}</sheetData>${filtro}</worksheet>`;
+    hoja.colorPestana || nivelMaximo
+      ? `<sheetPr>${hoja.colorPestana ? `<tabColor rgb="${rgb(hoja.colorPestana)}"/>` : ''}${
+          // `summaryRight="0"`: el botón de plegar va a la IZQUIERDA del bloque, que es
+          // donde lo pone Google Sheets. Sin esto, Excel lo pinta a la derecha y al
+          // convertir queda descolocado respecto a lo que agrupa.
+          nivelMaximo ? '<outlinePr summaryRight="0"/>' : ''
+        }</sheetPr>`
+      : ''
+  }<dimension ref="${rangoCompleto}"/><sheetViews><sheetView workbookViewId="0">${congelar}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"${
+    nivelMaximo ? ` outlineLevelCol="${nivelMaximo}"` : ''
+  }/>${cols ? `<cols>${cols}</cols>` : ''}<sheetData>${cuerpo}</sheetData>${filtro}</worksheet>`;
 }
 
 // ─── Libro ────────────────────────────────────────────────────────────────────

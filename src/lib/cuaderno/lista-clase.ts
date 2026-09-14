@@ -12,19 +12,26 @@
 // Aquí no hay red ni BBDD: entra una `ClaseCuaderno` (lo que ya sabe `cuaderno-server`) y
 // sale el modelo de libro que `src/lib/xlsx-escribir.ts` convierte en fichero.
 // Testeado en `src/lib/__tests__/cuaderno-lista-clase.test.ts`.
-import type { AlumnoCuaderno, ClaseCuaderno } from '@/lib/cuaderno-server';
+import type { AlumnoCuaderno, ClaseCuaderno, TutorCuaderno } from '@/lib/cuaderno-server';
 import { claseCorta, cursoEscolarLargo } from '@/lib/cuaderno/nombres';
 import type { EntradaCelda, EstiloCelda, Hoja, Libro } from '@/lib/xlsx-escribir';
 
-/** Las 18 columnas del modelo, en su orden. Los títulos son contrato: no se tocan. */
+/**
+ * Las 18 columnas del modelo, en su orden. Los títulos son contrato: no se tocan.
+ *
+ * `derivada` marca las tres que son **fontanería para los merges**, no para leer: repiten lo
+ * que ya está en Nombre y Apellidos, solo que pegado de otra manera. Van en un grupo plegado,
+ * así que la hoja se abre enseñando lo que se mira y el `+` de arriba las saca cuando hacen
+ * falta. Siguen ahí (y siguen siendo fórmulas), que es lo que necesitan los merges.
+ */
 export const COLUMNAS = [
   { titulo: 'N', ancho: 4.38 },
   { titulo: 'Nombre', ancho: 8.75 },
   { titulo: 'Apellido 1', ancho: 18.88 },
   { titulo: 'Apellido 2', ancho: 14.5 },
-  { titulo: 'Apellidos', ancho: 18.88 },
-  { titulo: 'Nombre apellido', ancho: 14.5 },
-  { titulo: 'Nombre apellido Lista', ancho: 33.38 },
+  { titulo: 'Apellidos', ancho: 18.88, derivada: true },
+  { titulo: 'Nombre apellido', ancho: 14.5, derivada: true },
+  { titulo: 'Nombre apellido Lista', ancho: 33.38, derivada: true },
   { titulo: 'Clase', ancho: 12.88 },
   { titulo: 'Tutor', ancho: 14.5 },
   { titulo: 'Mail', ancho: 33.38 },
@@ -99,7 +106,25 @@ export function fechaNacimiento(iso: string | null): Date | null {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
 
-/** La fila de un alumno. `tutor` es el nombre corto del tutor/a de su clase. */
+/**
+ * El tutor que va en la fila de un alumno: **el suyo**, no los de la clase.
+ *
+ * En una clase con dos tutores, poner «María / David» en las 30 filas no dice nada — el
+ * alumno tiene UN tutor personal (`edu_tutor_personal`, el mismo reparto que usa el cuaderno)
+ * y es el que hay que llamar. Solo el nombre de pila, que es como se les nombra aquí.
+ *
+ * Si la clase tiene un único tutor, ese es el de todos aunque no haya reparto explícito: es
+ * el caso de Infantil y Primaria y sería absurdo dejar la columna vacía. Con dos tutores y
+ * un alumno sin repartir, la celda va **en blanco** en vez de inventarse uno: es justo el
+ * aviso de que falta hacer ese reparto.
+ */
+export function tutorDelAlumno(alumno: AlumnoCuaderno, tutores: readonly TutorCuaderno[]): string {
+  if (tutores.length === 1) return tutores[0].pila;
+  const suyo = tutores.find((t) => t.teacherId === alumno.tutorPersonalId);
+  return suyo ? suyo.pila : '';
+}
+
+/** La fila de un alumno. `tutor` es el nombre de pila de SU tutor personal. */
 export function filaAlumno(alumno: AlumnoCuaderno, opciones: { numero: number; clase: string; tutor: string; indice: number }): EntradaCelda[] {
   const f = filaDe(opciones.indice);
   const [familiar1, familiar2] = [alumno.familiares[0], alumno.familiares[1]];
@@ -144,7 +169,6 @@ export function hojaDeClase(clase: ClaseCuaderno, opciones: OpcionesLista = {}):
   const color = opciones.color ?? COLORES[0];
   const cabecera = estiloCabecera(color.cabecera);
   const claseLarga = nombreLargoClase(clase);
-  const tutor = clase.tutores.map((t) => t.nombre.split(' ')[0]).join(' / ');
 
   const filas: EntradaCelda[][] = [
     COLUMNAS.map((c) => ({ valor: c.titulo, estilo: cabecera })),
@@ -152,7 +176,7 @@ export function hojaDeClase(clase: ClaseCuaderno, opciones: OpcionesLista = {}):
       filaAlumno(alumno, {
         numero: opciones.numeros?.get(alumno.id) ?? i + 1,
         clase: claseLarga,
-        tutor,
+        tutor: tutorDelAlumno(alumno, clase.tutores),
         indice: i,
       }),
     ),
@@ -161,7 +185,10 @@ export function hojaDeClase(clase: ClaseCuaderno, opciones: OpcionesLista = {}):
   return {
     nombre: opciones.nombreHoja ?? claseLarga,
     filas,
-    columnas: COLUMNAS.map((c) => ({ ancho: c.ancho })),
+    columnas: COLUMNAS.map((c) => ({
+      ancho: c.ancho,
+      ...('derivada' in c && c.derivada ? { nivelGrupo: 1, plegada: true } : {}),
+    })),
     colorPestana: color.pestana,
     // Congelar la fila 1 y las dos primeras columnas: con 18 columnas, sin esto se pierde
     // de vista de quién es la fila en cuanto miras el correo del segundo familiar.
