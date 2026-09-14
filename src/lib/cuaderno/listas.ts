@@ -19,6 +19,7 @@ import {
   type RolDrive,
 } from '@/lib/cuaderno/drive';
 import {
+  chipsDeTutor,
   claveClase,
   libroDeListas,
   nombreArchivoLista,
@@ -33,6 +34,7 @@ import {
 } from '@/lib/cuaderno-server';
 import { avisarTutorDeLaLista } from '@/lib/cuaderno-email';
 import { escribirXlsx } from '@/lib/xlsx-escribir';
+import { ponerChipsDePersona } from '@/lib/cuaderno/sheets';
 
 export interface OpcionesListas {
   academicYear: string;
@@ -101,7 +103,7 @@ export async function generarListas(opciones: OpcionesListas): Promise<Resultado
   const rol = (ajustes.permisoTutores === 'reader' ? 'reader' : 'writer') as RolDrive;
 
   if (opciones.unSoloArchivo) {
-    const lista = await archivoUnico({ clases, numerosPorClase, carpetaCursoId: carpetaCurso.id, opciones });
+    const lista = await archivoUnico({ clases, numerosPorClase, carpetaCursoId: carpetaCurso.id, opciones, avisos });
     return { listas: [lista], avisos, errores };
   }
 
@@ -133,6 +135,7 @@ export async function generarListas(opciones: OpcionesListas): Promise<Resultado
         nombreArchivoLista(clase, clase.tutores.map((t) => t.corto), opciones.academicYear),
       );
       const subida = await subirComoGoogleSheet({ nombre, carpetaId: carpeta.id, xlsx });
+      await chipsODaIgual(subida.id, [chipsDeTutor(clase)], clase.clase, avisos);
 
       const compartidoCon: string[] = [];
       const avisados: string[] = [];
@@ -184,11 +187,13 @@ async function archivoUnico(datos: {
   numerosPorClase: Map<string, Map<string, number>>;
   carpetaCursoId: string;
   opciones: OpcionesListas;
+  avisos: string[];
 }): Promise<ListaGenerada> {
-  const { clases, numerosPorClase, carpetaCursoId, opciones } = datos;
+  const { clases, numerosPorClase, carpetaCursoId, opciones, avisos } = datos;
   const xlsx = await escribirXlsx(libroDeListas(clases, { numerosPorClase }));
   const nombre = limpiarNombre(nombreArchivoVarias(clases, opciones.academicYear));
   const subida = await subirComoGoogleSheet({ nombre, carpetaId: carpetaCursoId, xlsx });
+  await chipsODaIgual(subida.id, clases.map((c) => chipsDeTutor(c)), nombre, avisos);
   return {
     clase: clases.map((c) => c.clase).join(' + '),
     clases: clases.map((c) => c.clase),
@@ -199,6 +204,24 @@ async function archivoUnico(datos: {
     compartidoCon: [],
     avisados: [],
   };
+}
+
+/**
+ * La pasada de chips de la columna «Tutor», que es **decorativa**: si la API de Sheets no
+ * está habilitada o falla, la lista ya está subida y con el nombre del tutor en texto, así
+ * que se anota el aviso y se sigue. Tirar la generación entera por un chip sería absurdo.
+ */
+async function chipsODaIgual(
+  spreadsheetId: string,
+  hojas: ReturnType<typeof chipsDeTutor>[],
+  quien: string,
+  avisos: string[],
+): Promise<void> {
+  try {
+    await ponerChipsDePersona(spreadsheetId, hojas);
+  } catch (error) {
+    avisos.push(`${quien}: la lista está subida, pero no se pudieron poner los chips de tutor (${mensajeDeError(error)}).`);
+  }
 }
 
 /** Las clases que tienen alumnado activo, para la vista previa del panel. */

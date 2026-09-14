@@ -26,7 +26,7 @@ export const MIME_PDF = 'application/pdf';
 /** Común a todas las llamadas: sin esto, las unidades compartidas no existen para la API. */
 const EN_UNIDADES_COMPARTIDAS = { supportsAllDrives: true } as const;
 
-function credenciales(): { clientEmail: string; privateKey: string } | null {
+export function credenciales(): { clientEmail: string; privateKey: string } | null {
   const clientEmail = process.env.GOOGLE_SA_CLIENT_EMAIL ?? process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
   const privateKey = (process.env.GOOGLE_SA_PRIVATE_KEY ?? process.env.GOOGLE_SHEETS_PRIVATE_KEY)?.replace(
     /\\n/g,

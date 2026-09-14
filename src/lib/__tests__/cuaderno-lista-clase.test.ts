@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { AlumnoCuaderno, ClaseCuaderno } from '@/lib/cuaderno-server';
 import {
   COLUMNAS,
+  COLUMNA_TUTOR,
+  chipsDeTutor,
   colorDeClase,
   fechaNacimiento,
   filaAlumno,
@@ -140,16 +142,89 @@ describe('la hoja de una clase', () => {
     expect((conNumeros.filas[2][0] as { valor: number }).valor).toBe(31); // el que llegó tarde
   });
 
-  it('escribe la clase larga en la columna «Clase» y la junta de tutores en «Tutor»', () => {
-    const dos = clase({
-      tutores: [
-        { ...clase().tutores[0] },
-        { ...clase().tutores[0], teacherId: 't2', nombre: 'Paola Gómez Ros', corto: 'Paola G' },
-      ],
-    });
-    const hoja = hojaDeClase(dos);
+  it('escribe la clase larga en la columna «Clase»', () => {
+    const hoja = hojaDeClase(clase());
     expect((hoja.filas[1][7] as { valor: string }).valor).toBe('1º ESO B');
-    expect((hoja.filas[1][8] as { valor: string }).valor).toBe('María / Paola');
+  });
+
+  it('agrupa y pliega las tres columnas derivadas, y solo esas', () => {
+    const hoja = hojaDeClase(clase());
+    const plegadas = (hoja.columnas ?? [])
+      .map((c, i) => (c.plegada ? COLUMNAS[i].titulo : null))
+      .filter(Boolean);
+    expect(plegadas).toEqual(['Apellidos', 'Nombre apellido', 'Nombre apellido Lista']);
+    // Plegadas pero agrupadas: sin `nivelGrupo` estarían ocultas sin forma de sacarlas.
+    expect((hoja.columnas ?? []).filter((c) => c.nivelGrupo === 1)).toHaveLength(3);
+  });
+});
+
+describe('el tutor de cada fila', () => {
+  const dosTutores = (): ClaseCuaderno => {
+    const base = clase();
+    return {
+      ...base,
+      tutores: [
+        { ...base.tutores[0], teacherId: 't1', pila: 'María' },
+        { ...base.tutores[0], teacherId: 't2', nombre: 'Paola Gómez Ros', pila: 'Paola' },
+      ],
+    };
+  };
+
+  it('con dos tutores pone el SUYO, no la lista de los dos', () => {
+    const hoja = hojaDeClase(
+      { ...dosTutores(), alumnos: [alumna({ id: 'a1', tutorPersonalId: 't2' }), alumna({ id: 'a2', tutorPersonalId: 't1' })] },
+    );
+    expect((hoja.filas[1][8] as { valor: string }).valor).toBe('Paola');
+    expect((hoja.filas[2][8] as { valor: string }).valor).toBe('María');
+  });
+
+  it('con un solo tutor, ese es el de todos aunque no haya reparto', () => {
+    // El caso de Infantil y Primaria: dejar la columna vacía sería absurdo.
+    const hoja = hojaDeClase(clase({ alumnos: [alumna({ tutorPersonalId: null })] }));
+    expect((hoja.filas[1][8] as { valor: string }).valor).toBe('María');
+  });
+
+  it('con dos tutores y un alumno sin repartir, la celda va en blanco', () => {
+    // En blanco a propósito: es el aviso de que falta hacer ese reparto, y es mejor que
+    // adivinar un tutor que quizá no es el suyo.
+    const hoja = hojaDeClase({ ...dosTutores(), alumnos: [alumna({ tutorPersonalId: null })] });
+    expect((hoja.filas[1][8] as { valor: string }).valor).toBe('');
+  });
+
+  it('solo el nombre de pila, nunca los apellidos', () => {
+    const hoja = hojaDeClase(clase());
+    expect((hoja.filas[1][8] as { valor: string }).valor).toBe('María');
+  });
+});
+
+describe('los chips de la columna Tutor', () => {
+  it('apunta a la columna «Tutor» y salta la cabecera', () => {
+    const chips = chipsDeTutor(clase());
+    expect(COLUMNA_TUTOR).toBe(8);
+    expect(chips).toMatchObject({ hoja: '1º ESO B', columna: 8, primeraFila: 1 });
+  });
+
+  it('da un correo por alumno, el de SU tutor', () => {
+    const base = clase();
+    const dos = {
+      ...base,
+      tutores: [
+        { ...base.tutores[0], teacherId: 't1', email: 'maria@ejemplo.com' },
+        { ...base.tutores[0], teacherId: 't2', email: 'paola@ejemplo.com' },
+      ],
+      alumnos: [
+        alumna({ id: 'a1', tutorPersonalId: 't2' }),
+        alumna({ id: 'a2', tutorPersonalId: 't1' }),
+        alumna({ id: 'a3', tutorPersonalId: null }),
+      ],
+    };
+    // El tercero, sin reparto, se queda sin chip: mejor el texto en blanco que un tutor inventado.
+    expect(chipsDeTutor(dos).correos).toEqual(['paola@ejemplo.com', 'maria@ejemplo.com', null]);
+  });
+
+  it('sin correo del tutor no hay chip, aunque el nombre sí salga', () => {
+    const sinMail = clase({ tutores: [{ ...clase().tutores[0], email: '' }] });
+    expect(chipsDeTutor(sinMail).correos).toEqual([null]);
   });
 });
 
