@@ -93,6 +93,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 640 alumnos y 54 profes activos —97 fichas contando bajas—; faltan pantallas de gestión. Tutor personal por alumno en uso: 56 alumnos repartidos; nombre visible del profesorado editable en `/gestion/profes`) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
+| Portada pública (`/`) | ✅ | ✅ | ✅ (dinámica: enseña los trámites abiertos —campaña de licencias, salidas cobrando— y el acceso del claustro si no hay ninguno) | [`22-portada.md`](./22-portada.md) |
 | Salidas y pagos | ✅ | ✅ | ✅ (Blob activo, correos de recordatorio activos; falta export CSV) | [`15-salidasypagos.md`](./15-salidasypagos.md) |
 | Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro, resumen agregado y conector Excel→catálogo; schema al día en Neon) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
@@ -171,6 +172,12 @@ conexión). Auditoría de cambios y dashboard de dirección siguen como ideas en
 - **Login único con Google, permisos por rol.** Un login central con Google (cuentas del dominio
   para gestión) y una matriz rol→módulos. Sustituye al `/admin` sin auth y al password fijo de
   Licencias. Ver `01-auth-roles.md`.
+- **Dos puertas, y las dos son dinámicas.** `/gestion` (escritorio del claustro) enseña
+  módulos según tu **rol**; `/` (portada pública) enseña trámites según el **momento del
+  curso**: la campaña de licencias mientras está abierta, las salidas mientras cobran, y si
+  no hay nada, lo dice y ofrece la entrada del profesorado. Un módulo con pantalla pública
+  y auto-explicativa se asoma a la portada declarándose en `src/lib/portada.ts`; ver
+  [`22-portada.md`](./22-portada.md). Ningún módulo se enlaza "a pelo" desde la portada.
 - **Identificación pública de familias SIN datos personales**: los formularios de familias
   nunca buscan por nombre/apellidos ni muestran datos sin enmascarar. Patrón común en
   `src/lib/familias{,-server}.ts`: DNI/NIE del tutor → sus hijos como "Fra. M. Luc." · NIA →

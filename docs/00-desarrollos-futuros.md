@@ -126,6 +126,18 @@ normalización SQL que el documento del tutor.
   entradas manuales ya están, 2026-07-11).
 
 
+### Portada pública: lo que quedó anotado al hacerla dinámica (2026-09-13)
+La portada ya enseña lo que hay abierto (ver [`22-portada.md`](./22-portada.md)). Ideas que
+surgieron y **no** se implementaron, por si interesan:
+- **Reconocer el magic link en la portada**: hoy `?t=tok_…` solo lo leen `/licencias` y
+  `/salidas`. Si la portada lo leyera, podría saludar por familia y enseñar solo sus
+  trámites. Tiene pinta de buena idea, pero es un enlace público circulando por WhatsApp:
+  antes de hacerlo hay que decidir cuánto se puede enseñar sin identificar a nadie.
+- **Aviso de plazo a punto de cerrar** (quedan ≤ 2 días) con otro color en la tarjeta de
+  Licencias. `diasHastaCierre()` ya existe en `src/lib/licencias.ts`.
+- **Qué se hace si algún día hay cuatro trámites abiertos a la vez**: hoy la portada los
+  apila y no se ha pensado el orden más allá de "Licencias primero".
+
 ### Cabos sueltos de la sesión 2026-07-10 (revisar con David)
 - **4 alumnos sin código interno** por venir sin fecha de nacimiento en el export de Educamos
   (Ncogo Roca, Perdomo Montenegro, Rodríguez Lamilla, Pastor Monsonis): o se les añade la fecha
