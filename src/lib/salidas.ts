@@ -15,6 +15,18 @@ export function claseLabel(c: Clase): string {
   return c.letra && c.letra !== 'PDC' ? `${c.curso} ${c.letra}` : c.curso;
 }
 
+/**
+ * ¿Esta salida la ve una familia en `/salidas`? Abierta y con pago por transferencia: las
+ * de pago «en mano» las cobra el profe y no tienen justificante que subir.
+ *
+ * Ojo, **no mira si la salida ya pasó** a propósito: mientras esté abierta sigue
+ * admitiendo justificantes de las familias rezagadas, y la portada tiene que llevar
+ * a la misma lista que ve la familia, no a una más corta.
+ */
+export function salidaParaFamilias(trip: { estado: string; tipoPago: string }): boolean {
+  return trip.estado === 'abierta' && trip.tipoPago !== 'mano';
+}
+
 /** Días de margen tras la fecha de la salida antes de darla por pasada (da tiempo a
  *  que las familias rezagadas suban el justificante). */
 export const DIAS_GRACIA_ARCHIVO = 3;

@@ -5,7 +5,7 @@ import { db } from '@/db';
 import { borrarPrivado } from '@/lib/blob';
 import { compararClases } from '@/lib/cursos';
 import { nombreProfeBreve } from '@/lib/profes';
-import { claseLabel, type Clase } from '@/lib/salidas';
+import { claseLabel, salidaParaFamilias, type Clase } from '@/lib/salidas';
 import {
   eduGuardians,
   eduStudentGuardians,
@@ -256,7 +256,7 @@ export async function getActiveTripsForStudent(eduStudentId: string): Promise<Tr
   const [alumno] = await db.select().from(eduStudents).where(eq(eduStudents.id, eduStudentId)).limit(1);
   if (!alumno) return [];
   const abiertas = (await db.select().from(salTrips).where(eq(salTrips.estado, 'abierta'))).filter(
-    (t) => t.tipoPago !== 'mano' && tripIncluye(t, alumno.curso, alumno.letra),
+    (t) => salidaParaFamilias(t) && tripIncluye(t, alumno.curso, alumno.letra),
   );
   if (abiertas.length === 0) return [];
   const signups = await db
@@ -363,6 +363,27 @@ export async function getJustificanteManualPathname(tripId: string, nombre: stri
     .orderBy(desc(salSignups.updatedAt))
     .limit(1);
   return signup?.url ?? null;
+}
+
+/**
+ * Salidas que hoy vería una familia en `/salidas`, sin filtrar por clase: es lo que la
+ * portada necesita para saber si enseña o no la entrada de Salidas (ver `portada.ts`).
+ * Solo el nombre y la fecha — `clases` y `extra` son `jsonb` y aquí no pintan nada.
+ */
+export async function getSalidasParaFamilias(): Promise<{ nombre: string; fecha: string | null }[]> {
+  const filas = await db
+    .select({
+      nombre: salTrips.nombre,
+      fecha: salTrips.fecha,
+      estado: salTrips.estado,
+      tipoPago: salTrips.tipoPago,
+    })
+    .from(salTrips)
+    .where(eq(salTrips.estado, 'abierta'));
+  return filas
+    .filter(salidaParaFamilias)
+    .sort((a, b) => (a.fecha ?? '').localeCompare(b.fecha ?? ''))
+    .map(({ nombre, fecha }) => ({ nombre, fecha }));
 }
 
 /** Clases (curso+letra) que tienen alguna salida abierta — para el flujo manual. */

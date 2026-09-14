@@ -116,6 +116,11 @@ src/lib/<modulo>-email.ts         # plantillas/envíos si el módulo manda corre
 src/components/<modulo>/          # componentes propios del módulo
 ```
 
+- **Un módulo con pantalla pública se asoma a la portada**: `/` no es un menú fijo, enseña
+  los trámites abiertos en ese momento (campaña de licencias, salidas cobrando…). Si el
+  módulo nuevo tiene una pantalla pública auto-explicativa, se declara en
+  `src/lib/portada.ts` con su `accesoX()` puro — receta en [`22-portada.md`](./22-portada.md).
+  Y si su panel interno también toca, su tarjeta va en `escritorio-cards.tsx`.
 - **Guard de auth**: `src/lib/auth-guards.ts` — `requireModule('<modulo>')` /
   `hasModule('<modulo>')` en route handlers de gestión, `requireSession()` para endpoints que
   solo exigen claustro (formulario ABC), y `canAccess(user, modulo)` —el usuario entero, NO
