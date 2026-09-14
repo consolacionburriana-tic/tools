@@ -162,6 +162,11 @@ Verificado visualmente en claro y oscuro.
 - [x] Subpanel de gestión económica (`/gestion/economia`) con los ingresos (fuera del dashboard)
 - [x] Login rediseñado con logo
 - [x] Listado de "quién falta" (alumnos sin pedido) — `/gestion/faltan`, filtro por curso + CSV
+- [x] "Quién falta": orden natural (etapa → curso → letra A/B) y **todas las cabeceras ordenables**
+      (curso, clase, apellidos, nombre, NIA, correo, estado), filtro por clase además de por curso,
+      y **selección por casillas** (individual o todos los visibles) para marcar en bloque a quienes
+      **NO van a hacer el pedido** — endpoint `POST /api/licencias/admin/students/complete` (una
+      sola consulta para todos los ids)
 - [x] Editor de packs/itinerarios por curso — `/gestion/packs`: crea packs (nombre, modo
       `todos`/`elige uno`/`elige uno o ninguno`/`libre`, libros). El formulario agrupa el
       catálogo por pack con su pista (display, no bloqueante). Casado por código base (CAS/VAL).

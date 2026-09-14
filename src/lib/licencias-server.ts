@@ -27,7 +27,7 @@ import {
   toPdcCurso,
   totalPedido,
 } from '@/lib/licencias';
-import { cursoBaseEso } from '@/lib/cursos';
+import { compararClases, cursoBaseEso } from '@/lib/cursos';
 import { identifyFamily } from '@/lib/familias-server';
 import { getFamiliasDeAlumnos, getTokensVigentes, type FamiliaDestino } from '@/lib/fam-tokens-server';
 
@@ -310,7 +310,7 @@ export async function getMissingStudents(campaignId: string): Promise<MissingStu
       manualCompletedAt: s.manualCompletedAt ? s.manualCompletedAt.toISOString() : null,
       manualCompletedReason: s.manualCompletedReason,
     }))
-    .sort((a, b) => a.curso.localeCompare(b.curso) || a.apellidos.localeCompare(b.apellidos, 'es'));
+    .sort((a, b) => compararClases(a, b) || a.apellidos.localeCompare(b.apellidos, 'es'));
 }
 
 /**
@@ -318,13 +318,23 @@ export async function getMissingStudents(campaignId: string): Promise<MissingStu
  * lic_orders real — p. ej. cursos que no tienen que hacer pedido (PDC). No toca lic_orders.
  */
 export async function setStudentManualCompleted(studentId: string, completed: boolean, reason?: string) {
+  await setStudentsManualCompleted([studentId], completed, reason);
+}
+
+/**
+ * Igual que `setStudentManualCompleted` pero para varios alumnos de un golpe: una sola
+ * consulta en vez de una por alumno (cada viaje a Neon cuesta ~127 ms, y desde "Quién falta"
+ * se marcan clases enteras).
+ */
+export async function setStudentsManualCompleted(studentIds: string[], completed: boolean, reason?: string) {
+  if (studentIds.length === 0) return;
   await db
     .update(licStudents)
     .set({
       manualCompletedAt: completed ? new Date() : null,
       manualCompletedReason: completed ? (reason ?? null) : null,
     })
-    .where(eq(licStudents.id, studentId));
+    .where(inArray(licStudents.id, studentIds));
 }
 
 export interface Recipient {
