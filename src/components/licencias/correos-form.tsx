@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { BookmarkPlus, ChevronDown, Link2, Loader2, Send, Trash2, TriangleAlert, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { cursoLabel, varsDeFamilia, VARIABLES_FAMILIA } from '@/lib/licencias';
+import { ordenCurso } from '@/lib/cursos';
 
 type Modo = 'familias' | 'alumnos';
 type Grupo = 'faltan' | 'tienen';
@@ -126,7 +127,12 @@ export function CorreosForm({ clases, deadline, academicYear, baseUrl }: Props) 
     () => clases.filter((c) => seleccion.has(claseKey(c))).map(({ curso, letra }) => ({ curso, letra })),
     [clases, seleccion],
   );
-  const cursos = useMemo(() => [...new Set(clases.map((c) => c.curso))].sort(), [clases]);
+  // Orden natural (infantil → primaria → ESO), no alfabético: si no, 1ESO se cuela entre los PRI.
+  const cursos = useMemo(
+    () => [...new Set(clases.map((c) => c.curso))].sort((a, b) => ordenCurso(a) - ordenCurso(b) || a.localeCompare(b, 'es')),
+    [clases],
+  );
+  const todasLasClases = clases.length > 0 && clases.every((c) => seleccion.has(claseKey(c)));
 
   // Vista previa con datos de ejemplo: mismas variables y mismo formato que el envío real.
   const varsPreview = useMemo<Record<string, string>>(
@@ -362,10 +368,15 @@ export function CorreosForm({ clases, deadline, academicYear, baseUrl }: Props) 
               <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Cursos y clases</p>
               <button
                 type="button"
-                onClick={() => setSeleccion(new Set())}
-                className="text-xs text-zinc-400 underline hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer"
+                onClick={() => setSeleccion(todasLasClases ? new Set() : new Set(clases.map(claseKey)))}
+                title={todasLasClases ? 'Quitar la selección' : 'Marcar las ' + clases.length + ' clases'}
+                className={`rounded-lg border px-2.5 py-1 text-xs cursor-pointer ${
+                  todasLasClases
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
+                    : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800'
+                }`}
               >
-                Todas ({clases.length} clases)
+                {todasLasClases ? 'Quitar selección' : `Todas (${clases.length} clases)`}
               </button>
             </div>
             <div className="space-y-2">
@@ -409,7 +420,8 @@ export function CorreosForm({ clases, deadline, academicYear, baseUrl }: Props) 
               onChange={(e) => setSoloFaltan(e.target.checked)}
               className="mt-0.5"
             />
-            Solo familias con algún hijo/a <strong>sin pedido</strong>
+            Solo familias con algún hijo/a <strong>pendiente</strong> (sin pedido y sin marcar como que
+            no lo hará, igual que en Quién falta)
           </label>
 
           <div className="rounded-lg bg-zinc-50 p-2.5 text-sm dark:bg-zinc-800/50">
@@ -458,7 +470,7 @@ export function CorreosForm({ clases, deadline, academicYear, baseUrl }: Props) 
           <p className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Destinatarios</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setGrupo('faltan')} className={chip(grupo === 'faltan')}>
-              Quienes faltan (sin pedido)
+              Quienes faltan (pendientes)
             </button>
             <button type="button" onClick={() => setGrupo('tienen')} className={chip(grupo === 'tienen')}>
               Quienes ya tienen pedido

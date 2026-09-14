@@ -162,6 +162,11 @@ Verificado visualmente en claro y oscuro.
 - [x] Subpanel de gestión económica (`/gestion/economia`) con los ingresos (fuera del dashboard)
 - [x] Login rediseñado con logo
 - [x] Listado de "quién falta" (alumnos sin pedido) — `/gestion/faltan`, filtro por curso + CSV
+- [x] **Un solo criterio de "falta"**: los correos masivos (modo alumnos "quienes faltan" y modo
+      familias "solo con algún hijo pendiente") excluyen a los marcados a mano como que no harán
+      pedido, igual que la pantalla de Quién falta. Antes salían 60 destinatarios donde la
+      pantalla mostraba 16. El botón "Todas" de cursos y clases ahora marca de verdad las clases
+      (y "Quitar selección" las desmarca) en vez de solo limpiar la selección.
 - [x] "Quién falta": orden natural (etapa → curso → letra A/B) y **todas las cabeceras ordenables**
       (curso, clase, apellidos, nombre, NIA, correo, estado), filtro por clase además de por curso,
       y **selección por casillas** (individual o todos los visibles) para marcar en bloque a quienes
