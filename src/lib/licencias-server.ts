@@ -27,7 +27,7 @@ import {
   toPdcCurso,
   totalPedido,
 } from '@/lib/licencias';
-import { compararClases, cursoBaseEso } from '@/lib/cursos';
+import { compararClases, cursoBaseEso, ordenCurso } from '@/lib/cursos';
 import { identifyFamily } from '@/lib/familias-server';
 import { getFamiliasDeAlumnos, getTokensVigentes, type FamiliaDestino } from '@/lib/fam-tokens-server';
 
@@ -156,16 +156,29 @@ export async function getOrderForStudent(campaignId: string, studentId: string) 
 export interface DashboardStats {
   totalStudents: number;
   conPedido: number;
+  /**
+   * Los que faltan DE VERDAD: sin pedido y sin marcar a mano como que no lo harán — el mismo
+   * criterio que la pantalla de Quién falta y que los correos masivos. Ojo: por eso
+   * `conPedido + sinPedido` no tiene por qué dar `totalStudents` (la diferencia es
+   * `noHaranPedido`).
+   */
   sinPedido: number;
+  /** Marcados a mano como que no van a hacer pedido (ya resueltos, no cuentan como que faltan). */
+  noHaranPedido: number;
   totalLicencias: number;
   ingresos: number;
-  porCurso: { curso: string; total: number; conPedido: number; sinPedido: number; ingresos: number }[];
+  porCurso: { curso: string; total: number; conPedido: number; sinPedido: number; noHaranPedido: number; ingresos: number }[];
 }
 
 export async function getDashboardStats(campaignId: string): Promise<DashboardStats> {
   const [students, orders, [{ n }]] = await Promise.all([
     db
-      .select({ id: licStudents.id, curso: licStudents.curso, letra: licStudents.letra })
+      .select({
+        id: licStudents.id,
+        curso: licStudents.curso,
+        letra: licStudents.letra,
+        manualCompletedAt: licStudents.manualCompletedAt,
+      })
       .from(licStudents)
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
@@ -184,28 +197,40 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
 
   // Agrupamos por curso "efectivo": el del pedido (que distingue PDC) o el base si no ha pedido.
   // Sembramos todos los cursos del formulario (incl. 3PDC/4PDC) para que siempre salgan como fila.
-  const groups = new Map<string, { total: number; conPedido: number; ingresos: number }>();
-  for (const c of CURSOS_FORM) groups.set(c.value, { total: 0, conPedido: 0, ingresos: 0 });
+  const vacio = () => ({ total: 0, conPedido: 0, noHaranPedido: 0, ingresos: 0 });
+  const groups = new Map<string, ReturnType<typeof vacio>>();
+  for (const c of CURSOS_FORM) groups.set(c.value, vacio());
   for (const s of students) {
     const ord = orderByStudent.get(s.id);
     // PDC (letra) manda; si no, el curso del pedido; si no, el base
     const eff = isPdcLetra(s.letra) ? toPdcCurso(s.curso) : ord?.curso?.trim() ? ord.curso : s.curso;
-    const g = groups.get(eff) ?? { total: 0, conPedido: 0, ingresos: 0 };
+    const g = groups.get(eff) ?? vacio();
     g.total++;
     if (ord) {
       g.conPedido++;
       g.ingresos += parseFloat(ord.total || '0');
+    } else if (s.manualCompletedAt) {
+      g.noHaranPedido++;
     }
     groups.set(eff, g);
   }
   const porCurso = [...groups.entries()]
-    .map(([curso, g]) => ({ curso, total: g.total, conPedido: g.conPedido, sinPedido: g.total - g.conPedido, ingresos: g.ingresos }))
-    .sort((a, b) => a.curso.localeCompare(b.curso));
+    .map(([curso, g]) => ({
+      curso,
+      total: g.total,
+      conPedido: g.conPedido,
+      sinPedido: g.total - g.conPedido - g.noHaranPedido,
+      noHaranPedido: g.noHaranPedido,
+      ingresos: g.ingresos,
+    }))
+    .sort((a, b) => ordenCurso(a.curso) - ordenCurso(b.curso) || a.curso.localeCompare(b.curso, 'es'));
 
   return {
     totalStudents: students.length,
     conPedido: students.filter((s) => orderByStudent.has(s.id)).length,
-    sinPedido: students.filter((s) => !orderByStudent.has(s.id)).length,
+    // "Faltan" = pendientes de verdad, igual que Quién falta y que los correos masivos.
+    sinPedido: students.filter((s) => !orderByStudent.has(s.id) && !s.manualCompletedAt).length,
+    noHaranPedido: students.filter((s) => !orderByStudent.has(s.id) && !!s.manualCompletedAt).length,
     totalLicencias: n ?? 0,
     ingresos,
     porCurso,

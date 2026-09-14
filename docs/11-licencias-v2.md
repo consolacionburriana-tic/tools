@@ -167,6 +167,8 @@ Verificado visualmente en claro y oscuro.
       pedido, igual que la pantalla de Quién falta. Antes salían 60 destinatarios donde la
       pantalla mostraba 16. El botón "Todas" de cursos y clases ahora marca de verdad las clases
       (y "Quitar selección" las desmarca) en vez de solo limpiar la selección.
+- [x] El KPI **"Faltan"** del panel (y la columna por curso) cuenta también pendientes de verdad,
+      con "No pedirán" aparte, así que panel, Quién falta y correos dicen el mismo número
 - [x] "Quién falta": orden natural (etapa → curso → letra A/B) y **todas las cabeceras ordenables**
       (curso, clase, apellidos, nombre, NIA, correo, estado), filtro por clase además de por curso,
       y **selección por casillas** (individual o todos los visibles) para marcar en bloque a quienes
