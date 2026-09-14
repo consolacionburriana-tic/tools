@@ -344,7 +344,8 @@ export interface Recipient {
   curso: string;
 }
 
-// Destinatarios para correos masivos: 'faltan' (sin pedido, correo del alumno) o 'tienen' (correo del pedido)
+// Destinatarios para correos masivos: 'faltan' (pendientes de verdad — sin pedido y sin marcar
+// a mano como que no lo harán, igual que Quién falta) o 'tienen' (correo del pedido)
 export async function getRecipients(campaignId: string, grupo: 'faltan' | 'tienen'): Promise<Recipient[]> {
   const [students, orders] = await Promise.all([
     db
@@ -355,6 +356,7 @@ export async function getRecipients(campaignId: string, grupo: 'faltan' | 'tiene
         curso: licStudents.curso,
         letra: licStudents.letra,
         email: licStudents.email,
+        manualCompletedAt: licStudents.manualCompletedAt,
       })
       .from(licStudents)
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
@@ -369,7 +371,9 @@ export async function getRecipients(campaignId: string, grupo: 'faltan' | 'tiene
   const out: Recipient[] = [];
   if (grupo === 'faltan') {
     for (const s of students) {
-      if (orderByStudent.has(s.id) || !s.email) continue;
+      // "Falta" es exactamente lo mismo que en la pantalla de Quién falta: sin pedido Y sin
+      // marcar a mano como que no lo hará. Si no, se escribe a familias ya resueltas.
+      if (orderByStudent.has(s.id) || s.manualCompletedAt || !s.email) continue;
       out.push({ email: s.email, nombre: s.nombre, apellidos: s.apellidos, curso: eff(s) });
     }
   } else {
@@ -406,7 +410,7 @@ export async function getClasesCampaign(campaignId: string): Promise<ClaseLic[]>
     .selectDistinct({ curso: licStudents.curso, letra: licStudents.letra })
     .from(licStudents)
     .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
-  return rows.sort((a, b) => a.curso.localeCompare(b.curso) || (a.letra ?? '').localeCompare(b.letra ?? ''));
+  return rows.sort(compararClases);
 }
 
 export interface HijoDeFamilia {
@@ -414,6 +418,11 @@ export interface HijoDeFamilia {
   apellido1: string;
   curso: string; // curso efectivo (PDC incluido)
   conPedido: boolean;
+  /**
+   * Le falta el pedido de verdad: ni lo ha hecho ni está marcado a mano como que no lo hará.
+   * Es el mismo criterio que la pantalla de Quién falta — `conPedido` solo mira `lic_orders`.
+   */
+  pendiente: boolean;
 }
 
 export interface FamiliaRecipient extends FamiliaDestino {
@@ -451,6 +460,7 @@ export async function getFamiliaRecipients(
         apellido1: licStudents.apellido1,
         curso: licStudents.curso,
         letra: licStudents.letra,
+        manualCompletedAt: licStudents.manualCompletedAt,
       })
       .from(licStudents)
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
@@ -463,8 +473,14 @@ export async function getFamiliaRecipients(
 
   const conEdu = alumnos.filter((a) => a.eduStudentId);
   const porEdu = new Map(conEdu.map((a) => [a.eduStudentId!, a]));
+  const pendiente = (a: { id: string; manualCompletedAt: Date | null }) =>
+    !conPedido.has(a.id) && !a.manualCompletedAt;
   const claves = new Set((opts.clases ?? []).map(claseLicKey));
-  const objetivo = claves.size > 0 ? conEdu.filter((a) => claves.has(claseLicKey(a))) : conEdu;
+  const enClases = claves.size > 0 ? conEdu.filter((a) => claves.has(claseLicKey(a))) : conEdu;
+  // Con `soloFaltan`, el objetivo son los alumnos que siguen pendientes (los marcados a mano
+  // como "no hará pedido" ya están resueltos): así el recuento, los "sin correo" y las
+  // familias destinatarias cuadran con la pantalla de Quién falta.
+  const objetivo = opts.soloFaltan ? enClases.filter(pendiente) : enClases;
 
   const { familias, alumnosSinCorreo } = await getFamiliasDeAlumnos(objetivo.map((a) => a.eduStudentId!));
 
@@ -479,11 +495,12 @@ export async function getFamiliaRecipients(
           apellido1: a.apellido1 ?? a.apellidos,
           curso: isPdcLetra(a.letra) ? toPdcCurso(a.curso) : a.curso,
           conPedido: conPedido.has(a.id),
+          pendiente: pendiente(a),
         }))
         .sort((x, y) => x.curso.localeCompare(y.curso) || x.nombre.localeCompare(y.nombre, 'es')),
     }))
     .filter((f) => f.hijos.length > 0)
-    .filter((f) => !opts.soloFaltan || f.hijos.some((h) => !h.conPedido));
+    .filter((f) => !opts.soloFaltan || f.hijos.some((h) => h.pendiente));
 
   const sinCorreo = alumnosSinCorreo
     .map((id) => porEdu.get(id))

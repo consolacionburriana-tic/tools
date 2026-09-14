@@ -29,7 +29,7 @@ export async function GET() {
       f.email,
       f.tutorNombre ?? '',
       f.hijos.map((h) => `${h.nombre} (${cursoLabel(h.curso)})`).join(' · '),
-      f.hijos.filter((h) => !h.conPedido).length,
+      f.hijos.filter((h) => h.pendiente).length,
       t ? urlAccesoFamilia(base, 'licencias', t.token) : '(sin enlace: genéralos primero)',
       t?.useCount ?? 0,
       t?.sentAt ? t.sentAt.toISOString().slice(0, 10) : '',
