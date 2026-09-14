@@ -1,33 +1,26 @@
 // Retoques que SOLO se pueden hacer con la API de Sheets, una vez el xlsx ya está subido y
-// convertido a hoja nativa. Hoy solo hay uno: los **chips de persona** de la columna «Tutor».
+// convertido a hoja nativa. Hoy solo hay uno: los **chips de la columna «Tutor»**.
 //
-// Por qué un segundo paso y no viene ya en el xlsx: un chip de persona no es formato, es un
-// objeto vivo de Google (foto, correo, tarjeta al pasar el ratón) que el formato OOXML no
-// sabe representar. Así que el xlsx sigue siendo la fuente de la hoja entera y esto es una
-// pasada final de una sola llamada por archivo.
+// Por qué un segundo paso y no viene ya en el xlsx: un chip no es formato, es un objeto vivo
+// de Google que el formato OOXML no sabe representar. El xlsx sigue siendo la fuente de la
+// hoja entera y esto es una pasada final de una sola llamada por archivo.
 //
-// Cómo se escribe un chip (comprobado contra la API el 14-sep-2026, porque la documentación
-// no lo dice con estas palabras):
-//   · el `stringValue` de la celda tiene que ser un **carácter placeholder**: `'@'`.
-//   · el `chipRun` va con `startIndex: 0` apuntando a ese `@`.
-//   · la API sustituye sola el placeholder por el correo y deja el `chipRun` encima; la hoja
-//     pinta el chip con el nombre del directorio.
-// Errores que da si te sales de ahí: sin texto, «Can only set chip runs on non-computed,
-// non-empty string values»; con el correo como texto, «The chip run start index must be a
-// placeholder character» (y si cuela, el correo sale además duplicado detrás del chip).
+// ── Por qué un desplegable y no un chip de persona ────────────────────────────
+// Un chip de persona (`chipRuns` + `personProperties`) también funciona —se escribe poniendo
+// `'@'` como carácter placeholder en la celda y el `chipRun` encima, con `startIndex: 0`—
+// pero enseña el nombre **como lo tenga el directorio de Workspace**: «María Teresa Tomás
+// Gil». `displayFormat` solo admite `DEFAULT`, así que no hay forma de pedirle el nombre de
+// pila a secas, que es lo que se quiere en la lista.
 //
-// `displayFormat` solo admite `DEFAULT`: no hay forma de pedirle al chip que enseñe únicamente
-// el nombre de pila, lo enseña como lo tenga el directorio de Workspace. Es el precio del chip
-// frente al texto plano; queda apuntado en docs/18-cuaderno-tutor.md.
+// El chip de desplegable (validación de datos `ONE_OF_LIST` con `showCustomUi`) sí: la celda
+// dice «María» y se pinta como píldora. Y además se le puede **poner color a mano** desde
+// Datos › Validación de datos, opción por opción, que con el chip de persona no se puede.
 // Ficha: docs/18-cuaderno-tutor.md
 import { google } from 'googleapis';
 import type { sheets_v4 } from 'googleapis';
 import { credenciales } from '@/lib/cuaderno/drive';
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-
-/** El carácter que la API exige en la celda para poder colgarle un chip encima. */
-const PLACEHOLDER = '@';
 
 let cliente: sheets_v4.Sheets | null = null;
 
@@ -40,31 +33,37 @@ export function getSheets(): sheets_v4.Sheets {
   return cliente;
 }
 
-export interface ChipsDeHoja {
+export interface DesplegableDeHoja {
   /** Nombre de la pestaña, tal cual se llamó al crear el libro («1º ESO B»). */
   hoja: string;
-  /** Índice de la columna (0 = A) donde van los chips. */
+  /** Índice de la columna (0 = A) que lleva el desplegable. */
   columna: number;
   /** Fila de la primera celda con datos (0 = la 1 de la hoja; con cabecera, 1). */
   primeraFila: number;
-  /** Un correo por fila, en el mismo orden que las filas de la hoja. `null` = celda en blanco. */
-  correos: readonly (string | null)[];
+  /** Cuántas filas de datos tiene la clase. */
+  filas: number;
+  /** Las opciones del desplegable: los nombres de pila de los tutores de esa clase. */
+  opciones: readonly string[];
 }
 
 /**
- * Convierte en chips de persona las celdas indicadas. Devuelve cuántas escribió.
+ * Pone el desplegable de la columna «Tutor» en cada pestaña. Devuelve cuántas hojas retocó.
  *
- * Se manda todo en un único `batchUpdate` (una celda = una petición dentro del lote): son 25
- * filas por clase, no hay ningún motivo para ir de una en una. Las filas sin correo se dejan
- * como están: el texto que ya venía del xlsx —vacío cuando falta el reparto de tutorías— es
- * mejor que un chip roto.
+ * Todo en un único `batchUpdate` (una hoja = una petición dentro del lote): el rango va
+ * entero de una vez, no celda a celda.
  *
- * No lanza si una pestaña no aparece en el libro: se la salta. Que el chip decorativo tumbe
- * la generación de la lista entera sería absurdo.
+ * `strict: false` a propósito: si un tutor cambia a mitad de curso y alguien escribe un
+ * nombre que no está en la lista, Sheets lo marca con una esquinita y sigue, en vez de
+ * plantarse y no dejar escribir. Es una lista de clase, no un formulario.
+ *
+ * No lanza si una pestaña no aparece en el libro: se la salta.
  */
-export async function ponerChipsDePersona(spreadsheetId: string, hojas: readonly ChipsDeHoja[]): Promise<number> {
-  const conCorreos = hojas.filter((h) => h.correos.some(Boolean));
-  if (conCorreos.length === 0) return 0;
+export async function ponerDesplegableDeTutor(
+  spreadsheetId: string,
+  hojas: readonly DesplegableDeHoja[],
+): Promise<number> {
+  const utiles = hojas.filter((h) => h.filas > 0 && h.opciones.length > 0);
+  if (utiles.length === 0) return 0;
 
   const sheets = getSheets();
   const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties(sheetId,title)' });
@@ -73,34 +72,29 @@ export async function ponerChipsDePersona(spreadsheetId: string, hojas: readonly
   );
 
   const requests: sheets_v4.Schema$Request[] = [];
-  for (const hoja of conCorreos) {
+  for (const hoja of utiles) {
     const sheetId = idsPorNombre.get(hoja.hoja);
     if (sheetId === undefined || sheetId < 0) continue;
-    hoja.correos.forEach((email, i) => {
-      if (!email) return;
-      const fila = hoja.primeraFila + i;
-      requests.push({
-        updateCells: {
-          range: {
-            sheetId,
-            startRowIndex: fila,
-            endRowIndex: fila + 1,
-            startColumnIndex: hoja.columna,
-            endColumnIndex: hoja.columna + 1,
-          },
-          rows: [
-            {
-              values: [
-                {
-                  userEnteredValue: { stringValue: PLACEHOLDER },
-                  chipRuns: [{ startIndex: 0, chip: { personProperties: { email, displayFormat: 'DEFAULT' } } }],
-                },
-              ],
-            },
-          ],
-          fields: 'userEnteredValue,chipRuns',
+    requests.push({
+      setDataValidation: {
+        range: {
+          sheetId,
+          startRowIndex: hoja.primeraFila,
+          endRowIndex: hoja.primeraFila + hoja.filas,
+          startColumnIndex: hoja.columna,
+          endColumnIndex: hoja.columna + 1,
         },
-      });
+        rule: {
+          condition: {
+            type: 'ONE_OF_LIST',
+            values: hoja.opciones.map((v) => ({ userEnteredValue: v })),
+          },
+          // `showCustomUi` es lo que convierte el desplegable en píldora en vez de en un
+          // triangulito: sin esto no hay chip, solo una flechita al lado de la celda.
+          showCustomUi: true,
+          strict: false,
+        },
+      },
     });
   }
 

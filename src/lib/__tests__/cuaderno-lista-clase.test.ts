@@ -3,7 +3,7 @@ import type { AlumnoCuaderno, ClaseCuaderno } from '@/lib/cuaderno-server';
 import {
   COLUMNAS,
   COLUMNA_TUTOR,
-  chipsDeTutor,
+  desplegableDeTutor,
   colorDeClase,
   fechaNacimiento,
   filaAlumno,
@@ -197,34 +197,36 @@ describe('el tutor de cada fila', () => {
   });
 });
 
-describe('los chips de la columna Tutor', () => {
-  it('apunta a la columna «Tutor» y salta la cabecera', () => {
-    const chips = chipsDeTutor(clase());
+describe('el chip de la columna Tutor', () => {
+  it('apunta a la columna «Tutor», salta la cabecera y cubre a toda la clase', () => {
+    const chip = desplegableDeTutor(clase({ alumnos: [alumna({ id: 'a1' }), alumna({ id: 'a2' })] }));
     expect(COLUMNA_TUTOR).toBe(8);
-    expect(chips).toMatchObject({ hoja: '1º ESO B', columna: 8, primeraFila: 1 });
+    expect(chip).toMatchObject({ hoja: '1º ESO B', columna: 8, primeraFila: 1, filas: 2 });
   });
 
-  it('da un correo por alumno, el de SU tutor', () => {
+  it('las opciones son los nombres de pila de SUS tutores, ordenados', () => {
     const base = clase();
     const dos = {
       ...base,
       tutores: [
-        { ...base.tutores[0], teacherId: 't1', email: 'maria@ejemplo.com' },
-        { ...base.tutores[0], teacherId: 't2', email: 'paola@ejemplo.com' },
-      ],
-      alumnos: [
-        alumna({ id: 'a1', tutorPersonalId: 't2' }),
-        alumna({ id: 'a2', tutorPersonalId: 't1' }),
-        alumna({ id: 'a3', tutorPersonalId: null }),
+        { ...base.tutores[0], teacherId: 't1', pila: 'María' },
+        { ...base.tutores[0], teacherId: 't2', pila: 'David' },
       ],
     };
-    // El tercero, sin reparto, se queda sin chip: mejor el texto en blanco que un tutor inventado.
-    expect(chipsDeTutor(dos).correos).toEqual(['paola@ejemplo.com', 'maria@ejemplo.com', null]);
+    expect(desplegableDeTutor(dos).opciones).toEqual(['David', 'María']);
   });
 
-  it('sin correo del tutor no hay chip, aunque el nombre sí salga', () => {
-    const sinMail = clase({ tutores: [{ ...clase().tutores[0], email: '' }] });
-    expect(chipsDeTutor(sinMail).correos).toEqual([null]);
+  it('no repite el mismo nombre dos veces', () => {
+    // Dos tutores que se llaman igual dejarían «María, María» en el desplegable.
+    const base = clase();
+    const dos = {
+      ...base,
+      tutores: [
+        { ...base.tutores[0], teacherId: 't1', pila: 'María' },
+        { ...base.tutores[0], teacherId: 't2', pila: 'María' },
+      ],
+    };
+    expect(desplegableDeTutor(dos).opciones).toEqual(['María']);
   });
 });
 
