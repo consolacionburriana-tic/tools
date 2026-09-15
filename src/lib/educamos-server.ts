@@ -9,6 +9,7 @@ import {
   eduStudents,
   eduSyncRuns,
   eduTeachers,
+  licCampaigns,
   type EduGuardian,
   type EduStudent,
   type EduTeacher,
@@ -101,14 +102,20 @@ async function getStudentsForSync(): Promise<StudentLike[]> {
   return rows.map((s) => ({ ...s, extra: s.extra ?? null }));
 }
 
+/** ¿Hay alguna campaña de Licencias abierta ahora mismo? Para avisar de altas en su rango. */
+async function hayLicenciasAbierta(): Promise<boolean> {
+  const [abierta] = await db.select({ id: licCampaigns.id }).from(licCampaigns).where(eq(licCampaigns.status, 'open')).limit(1);
+  return !!abierta;
+}
+
 /** Vista previa: parsea nada, recibe filas ya parseadas y calcula el plan contra la BBDD. */
 export async function buildSyncPlan(
   rows: ParsedStudentRow[],
   opciones: SyncOpciones,
   parseWarnings: string[] = [],
 ): Promise<SyncPlan> {
-  const existentes = await getStudentsForSync();
-  return computeSyncPlan(rows, existentes, opciones, parseWarnings);
+  const [existentes, licenciasAbierta] = await Promise.all([getStudentsForSync(), hayLicenciasAbierta()]);
+  return computeSyncPlan(rows, existentes, opciones, parseWarnings, licenciasAbierta);
 }
 
 export interface SyncDecisiones {
@@ -145,8 +152,8 @@ export async function aplicarSync(input: {
   parseWarnings?: string[];
 }): Promise<AplicarResultado> {
   const { rows, opciones, decisiones, filename, formato } = input;
-  const existentes = await getStudentsForSync();
-  const plan = computeSyncPlan(rows, existentes, opciones, input.parseWarnings ?? []);
+  const [existentes, licenciasAbierta] = await Promise.all([getStudentsForSync(), hayLicenciasAbierta()]);
+  const plan = computeSyncPlan(rows, existentes, opciones, input.parseWarnings ?? [], licenciasAbierta);
   const errores = [...plan.warnings];
   const ahora = new Date();
 

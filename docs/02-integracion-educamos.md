@@ -225,6 +225,12 @@ consultan `edu_*` a pelo desde sus rutas.
 - [x] Licencias pobla su campaña desde `edu_students` (enlace `lic_students.edu_student_id`;
       backfill 2026-07-10: 329/338, 0 pedidos sin enlace)
 - [x] Registro ABC busca sobre `edu_students` (destacados + buscador; profes por sesión)
+- [x] **Avisos en el sync de alumnado (2026-09-15):** el plan de vista previa avisa por cada
+      **alta sin NIA** (aparecía en silencio: caso real, Yanet Vergara Ríos entró sin NIA/DNI/
+      código y se quedó fuera de Licencias sin que nadie lo viera) y por cada **alta que entra en
+      el rango de Licencias (6PRI-4ESO) mientras la campaña está abierta**, para acordarse de
+      sincronizarla. `computeSyncPlan()` en `src/lib/educamos.ts`; los avisos salen en la vista
+      previa del wizard y quedan guardados en `edu_sync_runs.resumen.errores` (historial).
 
 ### Profesorado (añadido 2026-07-10)
 - [x] Tabla `edu_teachers`: **ALIAS** como código, correo del dominio priorizado para casar
