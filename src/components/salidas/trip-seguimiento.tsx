@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, CircleSlash, ExternalLink, Link2, Loader2, RotateCcw, X } from 'lucide-react';
+import { CircleSlash, ExternalLink, Link2, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { type Cubo, cuboDe } from '@/lib/salidas-exports';
@@ -20,7 +20,8 @@ export interface AlumnoRow {
   manualIdentificador: string | null;
 }
 
-// Seguimiento del detalle de salida: filtros por estado + acciones de validación.
+// Seguimiento del detalle de salida: filtros por estado (pendiente/entregado/no va). No hay
+// validación manual del justificante — está enviado o no lo está.
 // El "no va" lo marca el PROFESORADO desde aquí (las familias no pueden).
 export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transferencia' }: { alumnos: AlumnoRow[]; tripId: string; tipoPago?: string }) {
   const router = useRouter();
@@ -66,7 +67,7 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
       setAlumnos((prev) =>
         prev.map((x) =>
           x.eduStudentId === a.eduStudentId
-            ? { ...x, estado: 'apuntado', justificanteEstado: pagado ? 'validado' : null, signupId: data.signupId ?? x.signupId }
+            ? { ...x, estado: 'apuntado', justificanteEstado: pagado ? 'subido' : null, signupId: data.signupId ?? x.signupId }
             : x,
         ),
       );
@@ -103,14 +104,14 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
   }
 
   const cuentas = useMemo(() => {
-    const c: Record<Cubo, number> = { pendientes: 0, entregados: 0, validados: 0, no_van: 0 };
+    const c: Record<Cubo, number> = { pendientes: 0, entregados: 0, no_van: 0 };
     alumnos.forEach((a) => c[cuboDe(a)]++);
     return c;
   }, [alumnos]);
 
   const visibles = alumnos.filter((a) => cuboDe(a) === filtro);
 
-  async function patch(a: AlumnoRow, cambios: { justificanteEstado?: string; estado?: string }, optimista: Partial<AlumnoRow>) {
+  async function patch(a: AlumnoRow, cambios: { estado?: string }, optimista: Partial<AlumnoRow>) {
     if (!a.signupId) return;
     setOcupado(a.signupId);
     const previo = alumnos;
@@ -135,8 +136,7 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
   const enMano = tipoPago === 'mano';
   const chips: { key: Cubo; label: string; tono: string }[] = [
     { key: 'pendientes', label: 'Pendientes', tono: 'text-amber-600 dark:text-amber-400' },
-    ...(enMano ? [] : [{ key: 'entregados' as Cubo, label: 'Entregados', tono: 'text-blue-600 dark:text-blue-400' }]),
-    { key: 'validados', label: enMano ? 'Pagados' : 'Validados', tono: 'text-emerald-600 dark:text-emerald-400' },
+    { key: 'entregados', label: enMano ? 'Pagados' : 'Entregados', tono: 'text-emerald-600 dark:text-emerald-400' },
     { key: 'no_van', label: 'No van', tono: 'text-zinc-500' },
   ];
 
@@ -177,11 +177,6 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
                   {a.manual && (
                     <span className="ml-2 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-amber-950">
                       ⚠️ ENTRADA MANUAL — enlazar alumno
-                    </span>
-                  )}
-                  {a.justificanteEstado === 'rechazado' && (
-                    <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-300">
-                      rechazado
                     </span>
                   )}
                 </p>
@@ -268,35 +263,13 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
                     <CircleSlash className="h-3.5 w-3.5" /> No va
                   </button>
                 )}
-                {filtro === 'entregados' && a.justificanteEstado === 'subido' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => void patch(a, { justificanteEstado: 'validado' }, { justificanteEstado: 'validado' })}
-                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                    >
-                      <Check className="h-3.5 w-3.5" /> Validar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void patch(a, { justificanteEstado: 'rechazado' }, { justificanteEstado: 'rechazado' })}
-                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
-                    >
-                      <X className="h-3.5 w-3.5" /> Rechazar
-                    </button>
-                  </>
-                )}
-                {filtro === 'validados' && (
+                {filtro === 'entregados' && enMano && (
                   <button
                     type="button"
-                    onClick={() =>
-                      enMano
-                        ? void marcarPagado(a, false)
-                        : void patch(a, { justificanteEstado: 'subido' }, { justificanteEstado: 'subido' })
-                    }
+                    onClick={() => void marcarPagado(a, false)}
                     className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                   >
-                    <RotateCcw className="h-3.5 w-3.5" /> {enMano ? 'No pagado' : 'Quitar validación'}
+                    <RotateCcw className="h-3.5 w-3.5" /> No pagado
                   </button>
                 )}
                 {filtro === 'no_van' && a.signupId && (
@@ -316,7 +289,9 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
       <p className="border-t border-zinc-100 px-4 py-2.5 text-xs text-zinc-400 dark:border-zinc-800">
         <CircleSlash className="mr-1 inline h-3.5 w-3.5" />
         &quot;No va&quot; se marca aquí (lo decide el profesorado).{' '}
-        {enMano ? 'Pago en mano: las familias no suben nada; marca 💶 al recoger.' : '\u201CRechazar\u201D reclama otro justificante a la familia.'}
+        {enMano
+          ? 'Pago en mano: las familias no suben nada; marca 💶 al recoger.'
+          : 'No hay validación: el justificante está enviado o no lo está.'}
       </p>
     </div>
   );

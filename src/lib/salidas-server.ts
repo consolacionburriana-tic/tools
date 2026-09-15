@@ -53,8 +53,7 @@ export interface TripConStats extends SalTrip {
 export interface TripStats {
   objetivo: number; // alumnado de las clases de la salida
   noVan: number;
-  entregados: number; // justificante subido o validado
-  validados: number;
+  entregados: number; // justificante enviado (no hay validación manual)
   pendientes: number; // objetivo - noVan - entregados
   manuales: number; // entradas manuales (familia no encontrada): revisar y enlazar
 }
@@ -68,9 +67,8 @@ async function statsDe(trip: SalTrip, signups: SalSignup[]): Promise<TripStats> 
   const conAlumno = signups.filter((s) => s.studentId !== null);
   const manuales = signups.length - conAlumno.length;
   const noVan = conAlumno.filter((s) => s.estado === 'no_va').length;
-  const entregados = conAlumno.filter((s) => s.estado !== 'no_va' && s.justificanteEstado !== null && s.justificanteEstado !== 'rechazado').length;
-  const validados = signups.filter((s) => s.justificanteEstado === 'validado').length;
-  return { objetivo, noVan, entregados, validados, pendientes: Math.max(0, objetivo - noVan - entregados), manuales };
+  const entregados = conAlumno.filter((s) => s.estado !== 'no_va' && s.justificanteEstado === 'subido').length;
+  return { objetivo, noVan, entregados, pendientes: Math.max(0, objetivo - noVan - entregados), manuales };
 }
 
 export async function getTripStats(tripId: string): Promise<TripStats | null> {
@@ -246,7 +244,7 @@ export interface TripFamilia {
   descripcion: string | null;
   fecha: string | null;
   importe: string | null;
-  estado: 'pendiente' | 'no_va' | 'subido' | 'validado' | 'rechazado';
+  estado: 'pendiente' | 'no_va' | 'subido';
   /** Cuándo se subió el justificante actual (para "ya lo enviaste el..."). null si no hay ninguno. */
   justificanteSubidoAt: string | null;
 }
@@ -401,14 +399,14 @@ export async function marcarPagado(tripId: string, eduStudentId: string, pagado:
       tripId,
       studentId: eduStudentId,
       estado: 'apuntado',
-      justificanteEstado: pagado ? 'validado' : null,
+      justificanteEstado: pagado ? 'subido' : null,
       justificanteSubidoAt: pagado ? new Date() : null,
     })
     .onConflictDoUpdate({
       target: [salSignups.tripId, salSignups.studentId],
       set: {
         estado: 'apuntado',
-        justificanteEstado: pagado ? 'validado' : null,
+        justificanteEstado: pagado ? 'subido' : null,
         ...(pagado ? { justificanteSubidoAt: new Date() } : {}),
         updatedAt: new Date(),
       },
@@ -431,9 +429,7 @@ export interface PendientePago {
 export async function getPendientesPago(tripId: string): Promise<PendientePago[]> {
   const detalle = await getTripSeguimiento(tripId);
   if (!detalle) return [];
-  const pendientes = detalle.alumnos.filter(
-    (a) => !a.manual && a.estado !== 'no_va' && (a.justificanteEstado === null || a.justificanteEstado === 'rechazado'),
-  );
+  const pendientes = detalle.alumnos.filter((a) => !a.manual && a.estado !== 'no_va' && a.justificanteEstado === null);
   if (pendientes.length === 0) return [];
   const ids = pendientes.map((p) => p.eduStudentId!);
   const tutores = await db

@@ -37,8 +37,12 @@ Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-r
   resto de roles con acceso al módulo (dirección, jefe, secretaría, tic…) ven las de todos.
 - **La salida se restringe por clase** usando `curso` + `letra` de `edu_students` (se pueden
   marcar varias clases: p. ej. todo 2ºESO = 2ESO A + 2ESO B + PDC).
-- **El justificante se sube como archivo** (foto/PDF) y un gestor puede marcarlo como
-  **revisado/validado**.
+- **El justificante se sube como archivo** (foto/PDF). **No hay validación manual
+  (2026-09-15)**: el estado es solo "enviado" o "no enviado", no existe un paso de
+  gestor que lo marque como revisado/validado/rechazado. Se quitaron los botones
+  Validar/Rechazar del panel y se migraron en Neon los `justificante_estado` que
+  estaban en `'validado'`/`'rechazado'` a `'subido'` (`src/db/sql/salidas-quita-validacion.sql`,
+  ya aplicado).
 - **"No va" lo marca el PROFESORADO desde el panel** (cambio 2026-07-11: antes podía la
   familia). El alumno deja de contar como pendiente; la familia lo ve como estado informativo.
 - **Sin recordatorios automáticos**, pero sí **envío manual de correos masivos** a las familias
@@ -48,7 +52,7 @@ Depende de: BBDD central (`02-integracion-educamos.md`) y auth/roles (`01-auth-r
   en vez de justificante subido.
 - **Responsables por salida** (2026-07-11): a cada salida se le marcan profes responsables
   (`sal_trip_managers`) que reciben por Resend un aviso minimalista con cada justificante:
-  mini-report (progreso, entregados/pendientes/validados/no van) y un footer con un dato
+  mini-report (progreso, entregados/pendientes/no van) y un footer con un dato
   curioso rotatorio para alegrar la gestión.
 - **Entrada MANUAL de respaldo (2026-07-11)**: si la identificación por DNI/NIA no encuentra
   a la familia, puede teclear clase (solo las que tienen salidas abiertas) + nombre del alumno
@@ -100,7 +104,7 @@ sal_signups (
   student_id -> edu_students,
   estado text not null,               // 'apuntado' | 'no_va'   (sin fila = pendiente)
   justificante_url text,              // Vercel Blob
-  justificante_estado text,           // null | 'subido' | 'validado' | 'rechazado'
+  justificante_estado text,           // null (no enviado) | 'subido' (enviado) — sin validación
   email_contacto text,                // email de la familia que confirmó
   created_at, updated_at,
   unique(trip_id, student_id)
@@ -108,7 +112,7 @@ sal_signups (
 ```
 
 "Quién falta" = alumnado de las clases de la salida (desde `edu_students`) sin fila en
-`sal_signups`, más los `'apuntado'` sin justificante validado. Los `'no_va'` se excluyen.
+`sal_signups`, más los `'apuntado'` sin justificante enviado. Los `'no_va'` se excluyen.
 
 ### Subida de archivos: Vercel Blob (primera vez en el repo)
 
@@ -164,8 +168,9 @@ sal_signups (
 - [x] Email de confirmación a la familia (Resend, opcional) + alerta con report a los responsables
 
 ### Fase 3 · Panel de seguimiento
-- [x] Detalle de salida: pendientes / entregados / validados / no van, con estado de justificante
-- [x] Validar/rechazar justificante (visor del archivo servido por API con permisos)
+- [x] Detalle de salida: pendientes / entregados / no van, con estado de justificante
+- [x] ~~Validar/rechazar justificante~~ — quitado (2026-09-15): no hay validación, solo
+      enviado/no enviado. El visor del archivo (servido por API con permisos) se mantiene.
 - [x] Correos de recordatorio de pago a pendientes (personalizables, con prueba)
 - [x] Export CSV del seguimiento (`/api/salidas/admin/export?trip=…`, botón "CSV" en la cabecera
       del detalle): una fila por alumno con clase, estado, justificante, fecha, correo de contacto

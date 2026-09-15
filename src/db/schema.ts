@@ -479,7 +479,7 @@ export const salSignups = pgTable('sal_signups', {
   manualIdentificador: text('manual_identificador'), // lo que tecleó y no casó, para depurar
   estado: text('estado').notNull().default('apuntado'), // 'apuntado' | 'no_va' (sin fila = pendiente)
   justificanteUrl: text('justificante_url'), // Vercel Blob (privado)
-  justificanteEstado: text('justificante_estado'), // null | 'subido' | 'validado' | 'rechazado'
+  justificanteEstado: text('justificante_estado'), // null (no enviado) | 'subido' (enviado) — no hay validación manual
   justificanteSubidoAt: timestamp('justificante_subido_at'),
   emailContacto: text('email_contacto'),
   // Previsto para la futura API de Educamos: autorización firmada allí.

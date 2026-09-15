@@ -142,7 +142,7 @@ function TripCard({ trip: t }: { trip: TripConStats }) {
         </div>
         <p className="mt-1.5 text-xs text-zinc-500">
           {t.stats.entregados}/{entregables} justificantes ({pct} %) · {t.stats.pendientes} pendientes ·{' '}
-          {t.stats.validados} validados · {t.stats.noVan} no van
+          {t.stats.noVan} no van
         </p>
       </div>
     </Link>

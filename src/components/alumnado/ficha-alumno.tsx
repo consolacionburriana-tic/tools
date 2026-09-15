@@ -545,7 +545,7 @@ function Historial({ ficha }: { ficha: FichaAlumno }) {
                 <span className={s.estado === 'no_va' ? 'text-zinc-400' : 'text-emerald-600 dark:text-emerald-400'}>
                   {s.estado === 'no_va' ? 'no va' : 'apuntado'}
                 </span>
-                {s.justificante && <span className="text-zinc-500">{s.justificante}</span>}
+                {s.justificante === 'subido' && <span className="text-zinc-500">justificante enviado</span>}
               </li>
             ))}
           </ul>

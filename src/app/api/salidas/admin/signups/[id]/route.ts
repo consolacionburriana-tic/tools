@@ -6,11 +6,11 @@ import { salSignups } from '@/db/schema';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 
 const patchSchema = z.object({
-  justificanteEstado: z.enum(['subido', 'validado', 'rechazado']).optional(),
   estado: z.enum(['apuntado', 'no_va']).optional(),
 });
 
-// Validar/rechazar justificante o marcar no_va desde el panel.
+// Marcar no_va (o revertirlo) desde el panel. No hay validación de justificante: está
+// enviado o no lo está.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireModule('salidas');
   if (isGuardResponse(guard)) return guard;

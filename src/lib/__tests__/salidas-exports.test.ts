@@ -23,13 +23,11 @@ const alumno = (extra: Partial<AlumnoSeguimientoExport> = {}): AlumnoSeguimiento
 
 describe('cuboDe', () => {
   it('el "no va" manda sobre el justificante', () => {
-    expect(cuboDe(alumno({ estado: 'no_va', justificanteEstado: 'validado' }))).toBe('no_van');
+    expect(cuboDe(alumno({ estado: 'no_va', justificanteEstado: 'subido' }))).toBe('no_van');
   });
 
-  it('separa validado de subido/rechazado', () => {
-    expect(cuboDe(alumno({ justificanteEstado: 'validado' }))).toBe('validados');
+  it('no hay validación: enviado es enviado', () => {
     expect(cuboDe(alumno({ justificanteEstado: 'subido' }))).toBe('entregados');
-    expect(cuboDe(alumno({ justificanteEstado: 'rechazado' }))).toBe('entregados');
   });
 
   it('sin justificante es pendiente, aunque esté apuntado', () => {
@@ -38,9 +36,9 @@ describe('cuboDe', () => {
 });
 
 describe('estadoLabel', () => {
-  it('en pago en mano, validado se lee pagado', () => {
-    expect(estadoLabel('validados', 'mano')).toBe('Pagado');
-    expect(estadoLabel('validados', 'transferencia')).toBe('Validado');
+  it('en pago en mano, entregado se lee pagado', () => {
+    expect(estadoLabel('entregados', 'mano')).toBe('Pagado');
+    expect(estadoLabel('entregados', 'transferencia')).toBe('Entregado');
   });
 });
 
@@ -48,13 +46,13 @@ describe('filasSeguimiento', () => {
   it('saca una fila por alumno con su estado resuelto', () => {
     const filas = filasSeguimiento(
       [
-        alumno({ justificanteEstado: 'validado', emailContacto: 'a@b.com' }),
+        alumno({ justificanteEstado: 'subido', emailContacto: 'a@b.com' }),
         alumno({ nombre: 'Sin Casar, Luis', manual: true, manualIdentificador: '12345678Z' }),
       ],
       'transferencia',
     );
-    expect(filas[0][2]).toBe('Validado');
-    expect(filas[0][3]).toBe('Validado');
+    expect(filas[0][2]).toBe('Entregado');
+    expect(filas[0][3]).toBe('Enviado');
     expect(filas[0][5]).toBe('a@b.com');
     expect(filas[1][2]).toBe('Pendiente');
     expect(filas[1][6]).toBe('Sí');

@@ -39,7 +39,7 @@ interface Trip {
   descripcion: string | null;
   fecha: string | null;
   importe: string | null;
-  estado: 'pendiente' | 'no_va' | 'subido' | 'validado' | 'rechazado';
+  estado: 'pendiente' | 'no_va' | 'subido';
   justificanteSubidoAt: string | null;
 }
 
@@ -61,9 +61,7 @@ function fechaEnvioBonita(iso: string | null): string | null {
 function EstadoChip({ estado }: { estado: Trip['estado'] }) {
   const map = {
     pendiente: { icon: Clock, texto: 'Justificante pendiente', clase: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' },
-    subido: { icon: Check, texto: 'Justificante enviado', clase: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' },
-    validado: { icon: CheckCircle2, texto: 'Justificante validado', clase: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
-    rechazado: { icon: TriangleAlert, texto: 'Revisa el justificante', clase: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' },
+    subido: { icon: CheckCircle2, texto: 'Justificante enviado', clase: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
     no_va: { icon: CircleSlash, texto: 'No irá', clase: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300' },
   }[estado];
   const Icon = map.icon;
@@ -448,7 +446,7 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
               </button>
               {hijo.manual && (
                 <p className="mt-2 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-                  Datos introducidos a mano: el equipo del cole los revisará al validar el justificante.
+                  Datos introducidos a mano: el equipo del cole los revisará al enlazar el justificante.
                 </p>
               )}
               <h2 className="mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
@@ -506,78 +504,67 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
               </div>
               {trip.descripcion && <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{trip.descripcion}</p>}
 
-              {trip.estado === 'validado' ? (
-                <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                  El justificante ya está validado. No hace falta nada más. 💚
-                </p>
-              ) : trip.estado === 'no_va' ? (
+              {trip.estado === 'no_va' ? (
                 <p className="mt-5 rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                   El profesorado ha anotado que no irá a esta salida. Si es un error, subid igualmente el justificante
                   o habladlo con el tutor/a.
                 </p>
-              ) : (trip.estado === 'subido' || trip.estado === 'rechazado') ? (
-                <div className="mt-5 flex flex-wrap items-center gap-2.5 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">
+              ) : trip.estado === 'subido' ? (
+                <div className="mt-5 flex flex-wrap items-center gap-2.5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
                   <Check className="h-4 w-4 shrink-0" />
                   <span className="min-w-0 flex-1">
                     Ya enviaste el justificante{trip.justificanteSubidoAt ? ` el ${fechaEnvioBonita(trip.justificanteSubidoAt)}` : ''}.{' '}
-                    {trip.estado === 'rechazado'
-                      ? 'El equipo pide revisarlo: sube uno nuevo abajo y sustituirá al anterior.'
-                      : 'Si quieres corregirlo, sube uno nuevo abajo y sustituirá al anterior.'}
+                    Si quieres corregirlo, sube uno nuevo abajo y sustituirá al anterior.
                   </span>
                   <button
                     type="button"
                     onClick={() => void verJustificante(hijo, trip)}
-                    className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-white dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/60"
+                    className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-white dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
                   >
                     <Eye className="h-3.5 w-3.5" /> Ver archivo enviado
                   </button>
                 </div>
               ) : null}
 
-              {trip.estado !== 'validado' && (
-                <>
-                  <label
-                    htmlFor="justificante"
-                    className="mt-5 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 px-4 py-7 text-center hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:hover:border-blue-500 dark:hover:bg-blue-500/5"
-                  >
-                    <FileUp className={`h-7 w-7 ${file ? 'text-emerald-500' : 'text-zinc-400'}`} />
-                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      {file ? file.name : trip.estado === 'subido' || trip.estado === 'rechazado' ? 'Sustituir justificante' : 'Foto o PDF del justificante de pago'}
-                    </span>
-                    <span className="text-xs text-zinc-400">jpg, png, heic o pdf · máx. 10 MB</span>
-                  </label>
-                  <input
-                    ref={fileRef}
-                    id="justificante"
-                    type="file"
-                    accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"
-                    className="hidden"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  />
+              <label
+                htmlFor="justificante"
+                className="mt-5 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 px-4 py-7 text-center hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:hover:border-blue-500 dark:hover:bg-blue-500/5"
+              >
+                <FileUp className={`h-7 w-7 ${file ? 'text-emerald-500' : 'text-zinc-400'}`} />
+                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {file ? file.name : trip.estado === 'subido' ? 'Sustituir justificante' : 'Foto o PDF del justificante de pago'}
+                </span>
+                <span className="text-xs text-zinc-400">jpg, png, heic o pdf · máx. 10 MB</span>
+              </label>
+              <input
+                ref={fileRef}
+                id="justificante"
+                type="file"
+                accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"
+                className="hidden"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
 
-                  <label className="mt-4 mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Tu email (opcional, para confirmarte la entrega)
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tucorreo@ejemplo.com"
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-                  />
+              <label className="mt-4 mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Tu email (opcional, para confirmarte la entrega)
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tucorreo@ejemplo.com"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+              />
 
-                  <button
-                    type="button"
-                    onClick={() => void subir()}
-                    disabled={!file || enviando}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-                    Enviar justificante
-                  </button>
-
-                </>
-              )}
+              <button
+                type="button"
+                onClick={() => void subir()}
+                disabled={!file || enviando}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+                Enviar justificante
+              </button>
             </div>
           </motion.div>
         )}
