@@ -308,10 +308,26 @@ entre medias sale en la tirada siguiente, que es lo correcto.
 
 Detalles que costaron ratos y conviene no volver a pensar:
 
-- **El .xlsx se escribe a mano** (`licencias-pedidos.ts` sobre `xlsx-escribir.ts`) y se sube a
-  Drive **con conversión** a Google Sheet, el mismo truco que el cuaderno de tutor con .docx.
-  No se copia la plantilla de Drive: son diez columnas y una fila de cabecera, y así el
-  generador no depende de que nadie toque el fichero plantilla.
+- **Se parte de la plantilla del colegio** («# Plantilla Pedido Licencias»): se copia el Google
+  Sheet con `files.copy` y se escriben los datos dentro con la API de Sheets. El primer intento
+  generaba el fichero desde cero con `xlsx-escribir.ts` y **estuvo mal**: perdía el formato real
+  (PT Sans 11, la cabecera con fondo, los anchos por columna, el congelado, el autofiltro, el
+  amarillo de la columna A y los formatos de número) y encima añadía un total de importe que la
+  plantilla no lleva. Copiando, el pedido sale con el formato de siempre y, si algún día se
+  retoca la plantilla, los pedidos salen retocados sin tocar código.
+- **El formato de las filas se arrastra desde la fila 2** de la plantilla con un copiar/pegar de
+  solo formato, en vez de darlo celda a celda: manda la plantilla. Antes hay que ampliar la
+  cuadrícula (la plantilla trae 15 filas y el pedido del banco de Anaya tiene 27 libros) y
+  **vaciar lo que haya bajo la cabecera**, porque la plantilla arrastra restos de ejemplo (un
+  `FALSE` suelto en la última fila) que si no se quedan colgando al final del pedido.
+- **El total es solo de unidades** (`=SUM(D2:Dn)`), como la plantilla del colegio. No lleva
+  total de importe.
+- **Reintentos también en las llamadas de Sheets**: generando ocho pedidos seguidos, Sheets
+  contesta **403 «User rate limit exceeded»** —no 429— y el último de la tanda se quedaba sin
+  generar (le pasó a SM). El `conReintentos` de Drive no cubría estas llamadas.
+- La columna «Fecha informe editorial» lleva el sello con la pinta del script viejo del Excel
+  (`✅ 26-09-16 13:16`), como texto: escrito como fecha, Sheets lo convertía y se veía
+  `2026-09-16 00:00:00`.
 - **El ISBN va como texto**: en número, Sheets redondea los 13 dígitos a notación científica y
   se pierde el último. En el pedido de agosto de 2025 se ve el estropicio.
 - **Reutiliza el motor de Drive del cuaderno** (`src/lib/cuaderno/drive.ts`): subida con

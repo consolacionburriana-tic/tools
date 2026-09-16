@@ -5,13 +5,18 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { licPedidosEditorial, type LicPedidoEditorial } from '@/db/schema';
 import {
+  buscarEnCarpeta,
+  borrarArchivo,
+  copiarArchivo,
   exportarPdf,
-  subirComoGoogleSheet,
   subirPdf,
   comprobarCarpetaBase,
+  infoArchivo,
   driveConfigurado,
   cuentaDeServicio,
   mensajeDeError,
+  urlHojaDeCalculo,
+  MIME_GSHEET,
 } from '@/lib/cuaderno/drive';
 import {
   getBancoLibrosReport,
@@ -19,7 +24,14 @@ import {
   markEditorialProcessed,
   type EditorialReportRow,
 } from '@/lib/licencias-server';
-import { importeTotal, nombreFichero, porEditorial, xlsxPedido, type TipoPedido } from '@/lib/licencias-pedidos';
+import {
+  escribirPedidoEnCopia,
+  importeTotal,
+  nombreFichero,
+  plantillaPedido,
+  porEditorial,
+  type TipoPedido,
+} from '@/lib/licencias-pedidos';
 
 /** Carpeta de Drive donde se dejan los pedidos. Configurable por entorno. */
 export const CARPETA_PEDIDOS_POR_DEFECTO = '1JRD4q8n7vZxK7QTAnWVUqdWPViuD4dn2';
@@ -43,14 +55,23 @@ export async function estadoDrive(): Promise<EstadoDrive> {
     return { configurado: false, cuenta: null, carpetaId, ok: false, error: 'Faltan las credenciales de Google' };
   }
   const check = await comprobarCarpetaBase(carpetaId);
-  return {
-    configurado: true,
-    cuenta: cuentaDeServicio(),
-    carpetaId,
-    carpetaNombre: check.nombre,
-    ok: check.ok,
-    error: check.error,
-  };
+  if (!check.ok) {
+    return { configurado: true, cuenta: cuentaDeServicio(), carpetaId, carpetaNombre: check.nombre, ok: false, error: check.error };
+  }
+  // La plantilla también tiene que estar a mano: sin ella no se puede generar nada.
+  try {
+    await infoArchivo(plantillaPedido());
+  } catch (error) {
+    return {
+      configurado: true,
+      cuenta: cuentaDeServicio(),
+      carpetaId,
+      carpetaNombre: check.nombre,
+      ok: false,
+      error: `No se puede leer la plantilla del pedido (${mensajeDeError(error)}). Compártela con la cuenta de servicio.`,
+    };
+  }
+  return { configurado: true, cuenta: cuentaDeServicio(), carpetaId, carpetaNombre: check.nombre, ok: true };
 }
 
 /** Lo que se generaría al pulsar el botón, sin tocar nada: para enseñarlo antes. */
@@ -109,8 +130,15 @@ export async function generarPedidos(
     for (const grupo of porEditorial(fuente.filas)) {
       const nombre = nombreFichero(campaña, grupo.editorial, fuente.tipo);
       try {
-        const xlsx = await xlsxPedido(grupo.filas, fuente.tipo, fecha);
-        const subido = await subirComoGoogleSheet({ nombre, carpetaId, xlsx });
+        // Repetir la tirada no debe dejar dos ficheros con el mismo nombre: el anterior se
+        // quita antes de copiar. Se hace aquí y no con un "reemplazar" como en el cuaderno
+        // porque la copia de la plantilla crea siempre un archivo nuevo.
+        const previo = await buscarEnCarpeta(nombre, carpetaId, MIME_GSHEET);
+        if (previo) await borrarArchivo(previo.id);
+
+        const copia = await copiarArchivo(plantillaPedido(), nombre, carpetaId);
+        await escribirPedidoEnCopia(copia.id, grupo.filas, fuente.tipo, grupo.editorial, fecha);
+        const subido = { id: copia.id, url: urlHojaDeCalculo(copia.id) };
         const [fila] = await db
           .insert(licPedidosEditorial)
           .values({
