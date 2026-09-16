@@ -70,9 +70,31 @@ async function loadBase(campaignId: string) {
       .where(eq(licOrders.campaignId, campaignId)),
   ]);
   const studentById = new Map(students.map((s) => [s.id, s]));
-  const bookByCod = new Map(books.map((b) => [b.cod, b]));
   const orderById = new Map(orders.map((o) => [o.id, o]));
-  return { students, books, orders, items, studentById, bookByCod, orderById };
+  return { students, books, orders, items, studentById, bookAt: indexarLibros(books), orderById };
+}
+
+/**
+ * Un código de libro NO identifica un libro: la unicidad de `lic_books` es `(curso, cod)`,
+ * porque el mismo código se repite en cursos distintos (`3ESO-REL` está en 3ESO y en 3PDC).
+ * Indexar solo por `cod` fusionaba los dos cursos en una fila —y con el curso del último que
+ * entrara en el mapa—, así que el informe a la editorial pedía 57 de 3PDC en vez de 46 de 3ESO
+ * y 11 de 3PDC.
+ *
+ * Devuelve un buscador por `(curso, cod)` que cae a `cod` suelto cuando el curso no cuadra
+ * (pedidos viejos sin curso), donde el riesgo de confusión es el que había antes y nunca peor.
+ */
+export function indexarLibros<T extends { cod: string; curso: string }>(books: T[]) {
+  const porCursoCod = new Map(books.map((b) => [`${b.curso}|${b.cod}`, b]));
+  const porCod = new Map<string, T>();
+  for (const b of books) if (!porCod.has(b.cod)) porCod.set(b.cod, b);
+  return (curso: string | null | undefined, cod: string): T | undefined =>
+    porCursoCod.get(`${curso ?? ''}|${cod}`) ?? porCod.get(cod);
+}
+
+/** Clave de agrupación de un libro en los informes: su identidad real, curso + código. */
+export function claveLibro(curso: string | null | undefined, cod: string): string {
+  return `${curso ?? ''}|${cod}`;
 }
 
 function fmtDate(d: Date | null) {
@@ -81,18 +103,19 @@ function fmtDate(d: Date | null) {
 
 // Plantillas ENVIAR (una fila por licencia de pago). grupo SI = alumno BdL, NO = no BdL.
 export async function getEnviarRows(campaignId: string): Promise<EnviarRow[]> {
-  const { items, studentById, bookByCod, orderById } = await loadBase(campaignId);
+  const { items, studentById, bookAt, orderById } = await loadBase(campaignId);
   const rows: EnviarRow[] = [];
   for (const it of items) {
     const order = orderById.get(it.orderId);
     if (!order) continue;
     const s = studentById.get(order.studentId);
-    const b = bookByCod.get(it.bookCod);
+    const curso = order.curso ?? s?.curso ?? '';
+    const b = bookAt(curso, it.bookCod);
     rows.push({
       grupo: order.bancoLibros ? 'SI' : 'NO',
       codAlu: s?.studentCode ?? '',
       codLibro: it.bookCod,
-      curso: order.curso ?? s?.curso ?? '',
+      curso,
       asignatura: b?.asignatura ?? '',
       editorial: b?.editorial ?? '',
       plataforma: b?.plataforma ?? '',
@@ -120,7 +143,10 @@ export async function getBancoLibrosCenso(campaignId: string) {
   const { students, books } = await loadBase(campaignId);
   const booksByCurso = new Map<string, typeof books>();
   for (const b of books) {
-    if (!b.bancoLibros) continue;
+    // `active` importa: un libro que ya no está en el Excel se desactiva en vez de borrarse
+    // (para no romper los pedidos que lo referencian), pero pedirlo a la editorial sería tirar
+    // el dinero. Sin este filtro se colaban Mates A/B y Valores de 4ESO y Tecnología de 3ESO.
+    if (!b.bancoLibros || !b.active) continue;
     const arr = booksByCurso.get(b.curso) ?? [];
     arr.push(b);
     booksByCurso.set(b.curso, arr);
@@ -240,20 +266,29 @@ export async function getSheetSyncData(campaignId: string): Promise<{ si: SheetS
 }
 
 export async function getPagosPorLibro(campaignId: string): Promise<LibroRow[]> {
-  const { items, bookByCod } = await loadBase(campaignId);
-  const counts = new Map<string, number>();
-  for (const it of items) counts.set(it.bookCod, (counts.get(it.bookCod) ?? 0) + 1);
-  return [...counts.entries()]
-    .map(([cod, unidades]) => {
-      const b = bookByCod.get(cod);
+  const { items, studentById, bookAt, orderById } = await loadBase(campaignId);
+  // Agrupado por (curso, cod): el mismo código en dos cursos son dos libros distintos.
+  const counts = new Map<string, { cod: string; curso: string; unidades: number }>();
+  for (const it of items) {
+    const order = orderById.get(it.orderId);
+    if (!order) continue;
+    const curso = order.curso ?? studentById.get(order.studentId)?.curso ?? '';
+    const k = claveLibro(curso, it.bookCod);
+    const prev = counts.get(k);
+    if (prev) prev.unidades += 1;
+    else counts.set(k, { cod: it.bookCod, curso, unidades: 1 });
+  }
+  return [...counts.values()]
+    .map(({ cod, curso, unidades }) => {
+      const b = bookAt(curso, cod);
       return {
         cod,
         editorial: b?.editorial ?? '',
-        curso: b?.curso ?? '',
+        curso: b?.curso ?? curso,
         asignatura: b?.asignatura ?? '',
         precio: b?.precio ?? '',
         unidades,
       };
     })
-    .sort((a, b) => a.editorial.localeCompare(b.editorial) || a.cod.localeCompare(b.cod));
+    .sort((a, b) => a.editorial.localeCompare(b.editorial) || a.curso.localeCompare(b.curso) || a.cod.localeCompare(b.cod));
 }

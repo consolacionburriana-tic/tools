@@ -151,17 +151,17 @@ const FASES: Fase[] = [
   {
     id: 'editoriales',
     titulo: 'Pedir a las editoriales',
-    resumen: 'Dos informes distintos: las de pago y las gratis del banco de libros.',
+    resumen: 'Dos pedidos separados: las de pago por un lado, las del banco de libros por otro.',
     icono: <BookMarked className="h-4 w-4" />,
     color: MORADO,
     pasos: [
       {
         n: 9,
-        titulo: 'Ver el total a pedir por editorial',
+        titulo: 'Son DOS pedidos separados, no uno',
         donde: 'Editoriales',
         href: '/gestion/licencias/editoriales',
-        que: 'La tabla de arriba suma, para cada editorial, las licencias de pago pendientes MÁS las gratis del banco. Ese es el número que se le manda.',
-        ojo: 'Son dos informes separados porque funcionan distinto. Si solo mandas el de pago, te faltan todas las del banco de libros.',
+        que: 'Las licencias de pago y las gratis del banco de libros se piden por vías distintas: dos informes, dos envíos y dos facturas. No se suman nunca.',
+        ojo: 'Si solo mandas el de pago, te faltan todas las del banco de libros. Es el error que cuesta dinero y tiempo.',
       },
       {
         n: 10,
@@ -178,7 +178,7 @@ const FASES: Fase[] = [
         donde: 'Editoriales',
         boton: 'Descargar informe del banco',
         href: '/gestion/licencias/editoriales',
-        que: 'CSV de las licencias que el alumnado del banco recibe sin pagar. No salen de los pedidos: son «alumnos del banco × libros del banco de su curso», resueltos por idioma.',
+        que: 'El censo: cuántas licencias hacen falta de cada libro y de cada curso («48 de Lengua de Anaya de 1ESO, 46 de 3ESO…»). No sale de los pedidos: son «alumnos del banco × libros del banco de su curso», resueltos por idioma.',
         ojo: 'Este SÍ sale entero cada vez (es un censo, no un pendiente). Se pide una vez por campaña; si luego entra alumnado nuevo, pide a la editorial solo la diferencia. La pantalla te recuerda cuándo lo descargaste.',
       },
     ],
@@ -366,9 +366,9 @@ export function ProcesoEsquema() {
             <Download className="h-4 w-4" /> De pago ≠ del banco
           </p>
           <p className="mt-1 text-xs text-purple-900/80 dark:text-purple-200/80">
-            A la editorial se le piden las dos. Las <strong>de pago</strong> salen de los pedidos de las familias y se
-            piden a trozos según van llegando. Las <strong>del banco</strong> no salen de ningún pedido: son todo el
-            alumnado del banco por los libros de su curso, y se piden de una vez.
+            Son <strong>dos pedidos independientes</strong>, nunca se suman. Las <strong>de pago</strong> salen de los
+            pedidos de las familias y se piden a trozos según van llegando. Las <strong>del banco</strong> no salen de
+            ningún pedido: son todo el alumnado del banco por los libros de su curso, y se piden de una vez.
           </p>
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">

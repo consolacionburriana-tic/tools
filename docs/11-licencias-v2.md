@@ -250,6 +250,11 @@ le pedían a la editorial**. El CSV «ENVIAR · GRATIS» de `/exportar` sí las 
 fichero es para *mandárselas a las familias*, no para *pedírselas a la editorial*: quien
 mirara solo la pantalla de Editoriales pedía de menos.
 
+**Son dos pedidos independientes** (David, 2026-09-16): las de pago y las del banco se piden
+por vías distintas —dos informes, dos envíos, dos facturas— y **no se suman nunca**. Un primer
+intento puso encima una tabla de "total por editorial" que las sumaba; se quitó, porque ese
+número no se le manda a nadie.
+
 **Cómo queda**, con los dos informes separados a propósito porque funcionan distinto:
 
 - **De pago** → incremental. Al descargarlo marca 🧾 y esos pedidos ya no vuelven a salir; si
@@ -259,12 +264,40 @@ mirara solo la pantalla de Editoriales pedía de menos.
   pedidos; solo guarda en la campaña **cuándo se descargó** (`lic_campaigns.banco_report_at`) y
   la pantalla avisa al repetirlo, que es lo que evita pedir dos veces lo mismo. Si entra
   alumnado nuevo del banco a mitad de curso, se pide a la editorial solo la diferencia.
-- Encima de los dos, una tabla **«Total a pedir por editorial»** que los suma: ese es el número
-  que se manda. Es la respuesta a "¿cuántas le pido a esta editorial?" sin cruzar dos CSV.
-
 **Fuente única del banco** (`getBancoLibrosCenso()` en `licencias-exports.ts`): la comparten el
 CSV «ENVIAR · GRATIS» y este informe. Si se calcularan por separado, los dos números acabarían
-divergiendo y nadie se enteraría hasta que la editorial mandara de menos.
+divergiendo y nadie se enteraría hasta que la editorial mandara de menos. Comprobado contra
+producción el 16-sep-2026: los dos dan **1.603**.
+
+### Tres fallos que encontró la comprobación contra Neon (2026-09-16)
+
+Los tres inflaban o desviaban el pedido a la editorial. Los dos primeros venían de antes.
+
+1. **Un código de libro no identifica un libro.** La unicidad de `lic_books` es `(curso, cod)`
+   —está escrito en la nota de modelado de la Fase 0— pero los informes agrupaban por `cod`
+   suelto. `3ESO-REL` existe en 3ESO y en 3PDC: salía **una** fila de 57 licencias, etiquetada
+   con el curso del último que entrara en el mapa (3PDC), en vez de 46 de 3ESO y 11 de 3PDC.
+   Arreglado con `indexarLibros()`/`claveLibro()` (`licencias-exports.ts`, con tests) en el
+   informe de editoriales, el del banco, `getPagosPorLibro` y `getEnviarRows`.
+2. **El censo contaba libros desactivados.** `getBancoLibrosCenso` filtraba por `banco_libros`
+   pero no por `active`. Se colaban 5 libros retirados del Excel (Mates A/B y Valores de 4ESO,
+   Tecnología de 3ESO en sus dos idiomas): **135 licencias de más**, 1.738 en vez de 1.603.
+   Un libro se desactiva en vez de borrarse para no romper los pedidos que lo referencian, pero
+   pedirlo a la editorial es tirar el dinero.
+3. **Sin lengua base, todo se pide en castellano.** `resolveBilingual` reparte los libros
+   CAS/VAL con `lic_students.lengua_base`, que sale de `edu_students.modelo_linguistico` — y ese
+   campo está **NULL en los 643 alumnos activos** de la central. El mapeo del sync es correcto
+   (`MODELO_TO_LENGUA`); lo que falta es el dato en Educamos. Mientras siga así, los libros con
+   par CAS/VAL activo (1ESO Tecnología, 6PRI Religión) se piden **enteros en castellano**.
+   No se puede arreglar desde aquí, así que la pantalla **avisa en rojo** cuando hay alumnado
+   del banco sin lengua base y el censo incluye bilingües (`alumnosSinLengua`/`hayBilingues`).
+
+> **Ojo con las optativas** (sin resolver, no es un fallo del código): el censo da a cada alumno
+> del banco **todos** los libros del banco de su curso. En 4ºESO eso significa pedir 45 de Latín
+> *y* 45 de Economía *y* 45 de Biología *y* 45 de Física y Química, cuando cada alumno cursa solo
+> algunas. La app no sabe qué optativas lleva cada uno —no está en `lic_students` ni en
+> `edu_students`—, así que esas líneas **hay que ajustarlas a mano** antes de mandar el pedido.
+> Si algún día se quiere automático, hace falta la matrícula por materia de Educamos.
 
 > **CSV como salvavidas, a propósito** (David, 2026-09-16): todo lo que hace la app se puede
 > seguir haciendo a mano en el Excel de siempre. Los CSV **no se retiran** aunque la escritura

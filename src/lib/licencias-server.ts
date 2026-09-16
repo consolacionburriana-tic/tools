@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from '@/db';
 import { getBooksFromSheet, type SheetBookRow, type SheetStudentRow } from '@/lib/google-sheets';
-import { getBancoLibrosCenso } from '@/lib/licencias-exports';
+import { claveLibro, getBancoLibrosCenso, indexarLibros } from '@/lib/licencias-exports';
 import { getStudents as getEduStudents } from '@/lib/educamos-server';
 import {
   eduStudents,
@@ -847,7 +847,7 @@ export async function getEditorialReport(
   campaignId: string,
 ): Promise<{ rows: EditorialReportRow[]; orderIds: string[] }> {
   const items = await db
-    .select({ orderId: licOrderItems.orderId, bookCod: licOrderItems.bookCod })
+    .select({ orderId: licOrderItems.orderId, bookCod: licOrderItems.bookCod, curso: licOrders.curso })
     .from(licOrderItems)
     .innerJoin(licOrders, eq(licOrderItems.orderId, licOrders.id))
     .where(
@@ -862,19 +862,25 @@ export async function getEditorialReport(
   if (items.length === 0) return { rows: [], orderIds: [] };
 
   const books = await db.select().from(licBooks).where(eq(licBooks.campaignId, campaignId));
-  const bookByCod = new Map(books.map((b) => [b.cod, b]));
+  const bookAt = indexarLibros(books);
 
-  const counts = new Map<string, number>();
-  for (const it of items) counts.set(it.bookCod, (counts.get(it.bookCod) ?? 0) + 1);
+  // Por (curso, cod), no por cod: el mismo código en dos cursos son dos libros distintos.
+  const counts = new Map<string, { cod: string; curso: string; unidades: number }>();
+  for (const it of items) {
+    const k = claveLibro(it.curso, it.bookCod);
+    const prev = counts.get(k);
+    if (prev) prev.unidades += 1;
+    else counts.set(k, { cod: it.bookCod, curso: it.curso ?? '', unidades: 1 });
+  }
 
-  const rows = [...counts.entries()]
-    .map(([cod, unidades]) => {
-      const b = bookByCod.get(cod);
+  const rows = [...counts.values()]
+    .map(({ cod, curso, unidades }) => {
+      const b = bookAt(curso, cod);
       return {
         cod,
         editorial: b?.editorial ?? '',
         isbn: b?.isbn ?? '',
-        curso: b?.curso ?? '',
+        curso: b?.curso ?? curso,
         asignatura: b?.asignatura ?? '',
         nombreLibro: b?.nombreLibro ?? '',
         bancoLibros: b?.bancoLibros ?? false,
@@ -882,7 +888,10 @@ export async function getEditorialReport(
         unidades,
       };
     })
-    .sort((a, b) => a.editorial.localeCompare(b.editorial) || a.cod.localeCompare(b.cod));
+    .sort(
+      (a, b) =>
+        a.editorial.localeCompare(b.editorial) || a.curso.localeCompare(b.curso) || a.cod.localeCompare(b.cod),
+    );
 
   return { rows, orderIds };
 }
@@ -930,15 +939,30 @@ export async function markSentToTemplate(orderIds: string[]): Promise<number> {
 // Por eso este informe NO es incremental como el de pago: siempre sale el censo completo.
 // Guardamos en la campaña cuándo se descargó (`bancoReportAt`) solo para poder avisar en
 // pantalla y que nadie lo mande dos veces a la editorial.
-export async function getBancoLibrosReport(campaignId: string): Promise<EditorialReportRow[]> {
+export interface BancoLibrosReport {
+  rows: EditorialReportRow[];
+  /**
+   * Alumnado del censo sin lengua base. Los libros bilingües se resuelven por ese campo y, si
+   * falta, `resolveBilingual` devuelve la versión en castellano: se pedirían todas en castellano
+   * y quien va en valenciano se quedaría sin libro. El dato viene de
+   * `edu_students.modelo_linguistico`, así que esto se arregla en Educamos, no aquí.
+   */
+  alumnosSinLengua: number;
+  /** Si el censo incluye algún libro con versión CAS/VAL, que es cuando lo anterior importa. */
+  hayBilingues: boolean;
+}
+
+export async function getBancoLibrosReport(campaignId: string): Promise<BancoLibrosReport> {
   const censo = await getBancoLibrosCenso(campaignId);
-  const porCod = new Map<string, { book: (typeof censo)[number]['book']; unidades: number }>();
+  // Por (curso, cod), no por cod: `3ESO-REL` existe en 3ESO y en 3PDC y son dos libros.
+  const porLibro = new Map<string, { book: (typeof censo)[number]['book']; unidades: number }>();
   for (const { book } of censo) {
-    const prev = porCod.get(book.cod);
+    const k = claveLibro(book.curso, book.cod);
+    const prev = porLibro.get(k);
     if (prev) prev.unidades += 1;
-    else porCod.set(book.cod, { book, unidades: 1 });
+    else porLibro.set(k, { book, unidades: 1 });
   }
-  return [...porCod.values()]
+  const rows = [...porLibro.values()]
     .map(({ book: b, unidades }) => ({
       cod: b.cod,
       editorial: b.editorial ?? '',
@@ -950,7 +974,19 @@ export async function getBancoLibrosReport(campaignId: string): Promise<Editoria
       precio: b.precio ?? '',
       unidades,
     }))
-    .sort((a, b) => a.editorial.localeCompare(b.editorial) || a.cod.localeCompare(b.cod));
+    .sort(
+      (a, b) =>
+        a.editorial.localeCompare(b.editorial) || a.curso.localeCompare(b.curso) || a.cod.localeCompare(b.cod),
+    );
+
+  const sinLengua = new Set<string>();
+  for (const { student } of censo) if (!student.lenguaBase) sinLengua.add(student.id);
+
+  return {
+    rows,
+    alumnosSinLengua: sinLengua.size,
+    hayBilingues: rows.some((r) => /-(CAS|VAL)$/.test(r.cod)),
+  };
 }
 
 export async function markBancoReportDownloaded(campaignId: string): Promise<void> {

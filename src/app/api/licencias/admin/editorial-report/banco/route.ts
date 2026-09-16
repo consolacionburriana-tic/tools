@@ -13,7 +13,7 @@ export async function POST() {
   const campaign = await getCurrentCampaign();
   if (!campaign) return new Response('Sin campaña', { status: 404 });
 
-  const rows = await getBancoLibrosReport(campaign.id);
+  const { rows } = await getBancoLibrosReport(campaign.id);
   if (rows.length === 0) return new Response('No hay licencias del banco de libros que pedir', { status: 400 });
 
   await markBancoReportDownloaded(campaign.id);

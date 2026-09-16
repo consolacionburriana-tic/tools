@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookMarked, Check, Download, Gift, Loader2, Send, TriangleAlert } from 'lucide-react';
 import { euros } from '@/lib/licencias';
 
@@ -32,7 +32,8 @@ function TablaLibros({ rows, gratis }: { rows: Row[]; gratis?: boolean }) {
         </thead>
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {rows.map((r) => (
-            <tr key={r.cod} className="bg-white dark:bg-zinc-900">
+            // La identidad de un libro es curso + código: `3ESO-REL` está en 3ESO y en 3PDC.
+            <tr key={`${r.curso}|${r.cod}`} className="bg-white dark:bg-zinc-900">
               <td className="px-3 py-2.5 font-medium text-zinc-800 dark:text-zinc-100">{r.editorial || '—'}</td>
               <td className="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">
                 {r.asignatura} <span className="text-xs text-zinc-400">{r.nombreLibro}</span>
@@ -61,6 +62,8 @@ export function EditorialReport() {
   const [rows, setRows] = useState<Row[]>([]);
   const [bancoRows, setBancoRows] = useState<Row[]>([]);
   const [bancoReportAt, setBancoReportAt] = useState<string | null>(null);
+  const [sinLengua, setSinLengua] = useState(0);
+  const [hayBilingues, setHayBilingues] = useState(false);
   const [pedidosCount, setPedidosCount] = useState(0);
   const [pendingTemplateCount, setPendingTemplateCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -77,6 +80,8 @@ export function EditorialReport() {
       setRows(data.rows ?? []);
       setBancoRows(data.bancoRows ?? []);
       setBancoReportAt(data.bancoReportAt ?? null);
+      setSinLengua(data.bancoAlumnosSinLengua ?? 0);
+      setHayBilingues(!!data.bancoHayBilingues);
       setPedidosCount(data.pedidosCount ?? 0);
       setPendingTemplateCount(data.pendingTemplateCount ?? 0);
     } finally {
@@ -152,22 +157,6 @@ export function EditorialReport() {
     }
   }
 
-  // Total real a pedir a cada editorial: de pago + banco de libros. Es el número que se manda.
-  const porEditorial = useMemo(() => {
-    const acc = new Map<string, { editorial: string; pago: number; banco: number }>();
-    for (const r of rows) {
-      const e = acc.get(r.editorial) ?? { editorial: r.editorial, pago: 0, banco: 0 };
-      e.pago += r.unidades;
-      acc.set(r.editorial, e);
-    }
-    for (const r of bancoRows) {
-      const e = acc.get(r.editorial) ?? { editorial: r.editorial, pago: 0, banco: 0 };
-      e.banco += r.unidades;
-      acc.set(r.editorial, e);
-    }
-    return [...acc.values()].sort((a, b) => a.editorial.localeCompare(b.editorial));
-  }, [rows, bancoRows]);
-
   const totalPago = rows.reduce((s, r) => s + r.unidades, 0);
   const totalBanco = bancoRows.reduce((s, r) => s + r.unidades, 0);
 
@@ -187,45 +176,13 @@ export function EditorialReport() {
         </p>
       )}
 
-      {/* Resumen: lo que hay que pedir a cada editorial, sumando pago + banco */}
-      <section>
-        <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Total a pedir por editorial</h2>
-        <p className="mb-3 text-xs text-zinc-500">
-          Lo que hay que pedirle a cada editorial: las licencias <strong>de pago pendientes</strong> más las{' '}
-          <strong>gratis del banco de libros</strong>. Los dos informes se descargan por separado abajo.
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Dos pedidos distintos, nunca uno</p>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+          Las licencias <strong>de pago</strong> y las <strong>gratis del banco de libros</strong> se piden por vías
+          separadas y no se suman: son dos informes, dos envíos y dos facturas. Cada uno tiene su botón aquí abajo.
         </p>
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-zinc-500 dark:bg-zinc-800/50">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">Editorial</th>
-                <th className="px-3 py-2 text-right font-medium">De pago</th>
-                <th className="px-3 py-2 text-right font-medium">Banco (gratis)</th>
-                <th className="px-3 py-2 text-right font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {porEditorial.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-3 text-center text-zinc-400">
-                    Nada pendiente de pedir. ✅
-                  </td>
-                </tr>
-              )}
-              {porEditorial.map((e) => (
-                <tr key={e.editorial} className="bg-white dark:bg-zinc-900">
-                  <td className="px-3 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">{e.editorial || '—'}</td>
-                  <td className="px-3 py-2.5 text-right text-zinc-600 dark:text-zinc-300">{e.pago || '—'}</td>
-                  <td className="px-3 py-2.5 text-right text-zinc-600 dark:text-zinc-300">{e.banco || '—'}</td>
-                  <td className="px-3 py-2.5 text-right font-bold text-zinc-900 dark:text-zinc-100">
-                    {e.pago + e.banco}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </div>
 
       {/* 1 · De pago */}
       <section>
@@ -275,10 +232,9 @@ export function EditorialReport() {
         </h2>
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            Licencias que el alumnado del banco de libros recibe <strong>sin pagar</strong>. No salen de los pedidos
-            (un alumno del banco las tiene aunque no entre nunca en el formulario): son{' '}
-            <strong>alumnos BdL × libros del banco de su curso</strong>, resueltos por idioma. A la editorial hay que
-            pedírselas igual.
+            Censo de lo que hace falta pedir para el banco de libros: cuántas licencias de cada libro y de cada
+            curso. No sale de los pedidos (un alumno del banco las tiene aunque no entre nunca en el formulario):
+            son <strong>alumnos BdL × libros del banco de su curso</strong>, resueltos por idioma.
           </p>
           <p className="mt-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
             <TriangleAlert className="mr-1 inline h-3.5 w-3.5" />
@@ -286,6 +242,15 @@ export function EditorialReport() {
             vez por campaña y vuelve a hacerlo solo si entra alumnado nuevo del banco (pidiendo entonces a la editorial
             únicamente la diferencia).
           </p>
+          {hayBilingues && sinLengua > 0 && (
+            <p className="mt-2 rounded-xl bg-red-50 p-3 text-xs text-red-800 dark:bg-red-500/10 dark:text-red-200">
+              <TriangleAlert className="mr-1 inline h-3.5 w-3.5" />
+              <strong>Repasa los libros en valenciano antes de mandarlo.</strong> Hay {sinLengua} alumno(s) del banco
+              sin lengua base, y los libros con versión castellano/valencià se reparten con ese dato: sin él salen
+              todos <strong>en castellano</strong>. El dato viene del modelo lingüístico de Educamos, así que se
+              arregla allí y se vuelve a sincronizar el alumnado.
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               type="button"

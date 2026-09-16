@@ -14,7 +14,7 @@ export async function GET() {
   if (!(await isAdmin())) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   const campaign = await getCurrentCampaign();
   if (!campaign) return NextResponse.json({ error: 'Sin campaña' }, { status: 404 });
-  const [{ rows, orderIds }, pendingTemplateIds, bancoRows] = await Promise.all([
+  const [{ rows, orderIds }, pendingTemplateIds, banco] = await Promise.all([
     getEditorialReport(campaign.id),
     getPendingTemplateOrderIds(campaign.id),
     getBancoLibrosReport(campaign.id),
@@ -23,7 +23,9 @@ export async function GET() {
     rows,
     pedidosCount: orderIds.length,
     pendingTemplateCount: pendingTemplateIds.length,
-    bancoRows,
+    bancoRows: banco.rows,
+    bancoAlumnosSinLengua: banco.alumnosSinLengua,
+    bancoHayBilingues: banco.hayBilingues,
     bancoReportAt: campaign.bancoReportAt,
   });
 }
