@@ -12,6 +12,7 @@ import {
   licOrders,
   licPacks,
   licStudents,
+  licAjustesPedido,
   type LicBook,
   type LicOrder,
   type LicOrderItem,
@@ -839,7 +840,67 @@ export interface EditorialReportRow {
   nombreLibro: string;
   bancoLibros: boolean;
   precio: string;
+  /** Lo que se pide: el cálculo, o el retoque a mano si lo hay. */
   unidades: number;
+  /** Lo que salía del cálculo, para poder enseñar de dónde viene el retoque y deshacerlo. */
+  unidadesCalculadas: number;
+  ajuste?: { unidades: number; nota: string | null };
+}
+
+// ── Retoques a mano de las unidades ───────────────────────────────────────────
+export type TipoInforme = 'pago' | 'banco';
+
+async function getAjustes(campaignId: string, tipo: TipoInforme) {
+  const filas = await db
+    .select()
+    .from(licAjustesPedido)
+    .where(and(eq(licAjustesPedido.campaignId, campaignId), eq(licAjustesPedido.tipo, tipo)));
+  return new Map(filas.map((a) => [claveLibro(a.curso, a.cod), a]));
+}
+
+/** Pone el número retocado donde lo haya, dejando a la vista el calculado. */
+function aplicarAjustes(
+  rows: Omit<EditorialReportRow, 'unidadesCalculadas' | 'ajuste'>[],
+  ajustes: Map<string, { unidades: number; nota: string | null }>,
+): EditorialReportRow[] {
+  return rows.map((r) => {
+    const a = ajustes.get(claveLibro(r.curso, r.cod));
+    return {
+      ...r,
+      unidadesCalculadas: r.unidades,
+      unidades: a ? a.unidades : r.unidades,
+      ajuste: a ? { unidades: a.unidades, nota: a.nota } : undefined,
+    };
+  });
+}
+
+/** `unidades = null` borra el retoque y devuelve el número calculado. */
+export async function setAjustePedido(
+  campaignId: string,
+  tipo: TipoInforme,
+  curso: string,
+  cod: string,
+  unidades: number | null,
+  nota: string | null,
+  email: string | null,
+): Promise<void> {
+  const donde = and(
+    eq(licAjustesPedido.campaignId, campaignId),
+    eq(licAjustesPedido.tipo, tipo),
+    eq(licAjustesPedido.curso, curso),
+    eq(licAjustesPedido.cod, cod),
+  );
+  if (unidades === null) {
+    await db.delete(licAjustesPedido).where(donde);
+    return;
+  }
+  await db
+    .insert(licAjustesPedido)
+    .values({ campaignId, tipo, curso, cod, unidades, nota, updatedByEmail: email })
+    .onConflictDoUpdate({
+      target: [licAjustesPedido.campaignId, licAjustesPedido.tipo, licAjustesPedido.curso, licAjustesPedido.cod],
+      set: { unidades, nota, updatedByEmail: email, updatedAt: new Date() },
+    });
 }
 
 // Pedidos no archivados y aún no marcados como "pedidos a la editorial" (Q del Excel)
@@ -893,7 +954,7 @@ export async function getEditorialReport(
         a.editorial.localeCompare(b.editorial) || a.curso.localeCompare(b.curso) || a.cod.localeCompare(b.cod),
     );
 
-  return { rows, orderIds };
+  return { rows: aplicarAjustes(rows, await getAjustes(campaignId, 'pago')), orderIds };
 }
 
 // Marca los pedidos del informe pendiente como "pedidos a la editorial" (Q)
@@ -983,7 +1044,7 @@ export async function getBancoLibrosReport(campaignId: string): Promise<BancoLib
   for (const { student } of censo) if (!student.lenguaBase) sinLengua.add(student.id);
 
   return {
-    rows,
+    rows: aplicarAjustes(rows, await getAjustes(campaignId, 'banco')),
     alumnosSinLengua: sinLengua.size,
     hayBilingues: rows.some((r) => /-(CAS|VAL)$/.test(r.cod)),
   };

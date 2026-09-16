@@ -351,12 +351,37 @@ Comprobado en producción: 1ºESO pasó de **48 castellano / 0 valencià** a **2
 La pantalla de Editoriales avisa si quedan clases sin idioma (`alumnosSinLengua`/`hayBilingues`),
 porque sin poner equivale a castellano y eso no se distingue a simple vista de una decisión.
 
-> **Ojo con las optativas** (sin resolver, no es un fallo del código): el censo da a cada alumno
-> del banco **todos** los libros del banco de su curso. En 4ºESO eso significa pedir 45 de Latín
-> *y* 45 de Economía *y* 45 de Biología *y* 45 de Física y Química, cuando cada alumno cursa solo
-> algunas. La app no sabe qué optativas lleva cada uno —no está en `lic_students` ni en
-> `edu_students`—, así que esas líneas **hay que ajustarlas a mano** antes de mandar el pedido.
-> Si algún día se quiere automático, hace falta la matrícula por materia de Educamos.
+### Retocar las unidades a mano (2026-09-16)
+
+Las optativas fueron el motivo: el censo da a cada alumno del banco **todos** los libros del
+banco de su curso, y en 4ºESO eso es pedir 45 de Latín *y* 45 de Economía *y* 45 de Biología *y*
+45 de Física y Química, cuando cada alumno cursa solo algunas. La matrícula por materia no está
+en `lic_students` ni en `edu_students`, así que no hay de dónde sacarla.
+
+En vez de un apaño solo para las optativas, **las unidades se escriben a mano en las dos
+tablas** (`lic_ajustes_pedido`): es «lo calculado dice X, pero pide Y», y vale para cualquier
+fila. El número retocado se queda en ámbar con el calculado al lado, que es además el botón para
+deshacer; borrar el retoque devuelve el cálculo. Los Google Sheets y los CSV salen con lo
+retocado.
+
+Se guarda por `(campaña, tipo, curso, cod)`, con `nota` y quién lo tocó, para que el año que
+viene se entienda de dónde salía el número.
+
+### Repaso del catálogo contra producción (2026-09-16)
+
+Precios, ISBN y editoriales están completos y en rango en los 57 libros activos. Lo que sí
+apareció, para mirarlo en el Excel `BBDD Libros`:
+
+- **4ºPDC tiene dos libros del banco y 3ºPDC tres.** A 4ºPDC le falta uno: `4ESO-PDC-LING`
+  está en el catálogo como «Religión» y con el **ISBN de `4ESO-REL`** (978-84-683-6462-9), en
+  vez de ser el Ámbito Lingüístico y Social II que sería su pareja de `4ESO-PDC-CIEN`. En 3ºPDC
+  sí están los tres (`CIEN`, `LING` y la religión compartida con 3ºESO).
+- **13 pedidos confirmados sin ninguna licencia** (total 0 €), sobre todo de PDC y 6ºEP. Cuentan
+  como «ya han pedido» en el panel y en Quién falta, así que nadie les reclama, pero no van a
+  recibir nada. Puede ser correcto («no quiero licencias») o que la familia se atascara en el
+  formulario; conviene mirarlo antes de dar la campaña por cerrada.
+- El otro ISBN repetido (978-84-683-5778-2 en `3ESO-REL` de 3ºESO y de 3ºPDC) **es correcto**:
+  es el mismo libro, porque en religión los de PDC se juntan con 3ºESO A.
 
 > **CSV como salvavidas, a propósito** (David, 2026-09-16): todo lo que hace la app se puede
 > seguir haciendo a mano en el Excel de siempre. Los CSV **no se retiran** aunque la escritura
