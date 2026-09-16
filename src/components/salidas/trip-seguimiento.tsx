@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CircleSlash, ExternalLink, Link2, Loader2, RotateCcw } from 'lucide-react';
+import { CircleSlash, Clock, ExternalLink, Link2, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { type Cubo, cuboDe } from '@/lib/salidas-exports';
@@ -220,7 +220,11 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
                 )}
               </div>
               <div className="flex items-center gap-1.5">
-                {(ocupado === a.signupId || ocupado === a.eduStudentId) && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
+                {ocupado !== null && (ocupado === a.signupId || ocupado === a.eduStudentId) ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                ) : (
+                  filtro === 'pendientes' && <Clock className="h-4 w-4 text-amber-500" />
+                )}
                 {a.manual && a.signupId && (
                   <button
                     type="button"
@@ -243,14 +247,15 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
                     <ExternalLink className="h-3.5 w-3.5" /> Ver
                   </a>
                 )}
-                {filtro === 'pendientes' && a.eduStudentId && enMano && (
+                {filtro === 'pendientes' && a.eduStudentId && (
                   <button
                     type="button"
                     onClick={() => void marcarPagado(a, true)}
                     disabled={ocupado === a.eduStudentId}
                     className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                    title="Marca como entregado a mano (mail, secretaría, etc.)"
                   >
-                    💶 Pagado
+                    {enMano ? '💶 Pagado' : '✅ Entregado'}
                   </button>
                 )}
                 {filtro === 'pendientes' && a.eduStudentId && (
@@ -263,13 +268,14 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
                     <CircleSlash className="h-3.5 w-3.5" /> No va
                   </button>
                 )}
-                {filtro === 'entregados' && enMano && (
+                {filtro === 'entregados' && a.eduStudentId && (
                   <button
                     type="button"
                     onClick={() => void marcarPagado(a, false)}
+                    disabled={ocupado === a.eduStudentId}
                     className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                   >
-                    <RotateCcw className="h-3.5 w-3.5" /> No pagado
+                    <RotateCcw className="h-3.5 w-3.5" /> {enMano ? 'No pagado' : 'No entregado'}
                   </button>
                 )}
                 {filtro === 'no_van' && a.signupId && (
@@ -291,7 +297,7 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
         &quot;No va&quot; se marca aquí (lo decide el profesorado).{' '}
         {enMano
           ? 'Pago en mano: las familias no suben nada; marca 💶 al recoger.'
-          : 'No hay validación: el justificante está enviado o no lo está.'}
+          : 'El justificante se sube desde casa, pero si se ha entregado a mano (mail, secretaría…) márcalo con ✅ Entregado.'}
       </p>
     </div>
   );
