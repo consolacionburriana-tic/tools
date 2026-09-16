@@ -2,6 +2,12 @@
 // mapeo de cabeceras, cascada de matching y generación de código interno.
 // Sin IO: las queries Drizzle viven en educamos-server.ts.
 import * as XLSX from 'xlsx';
+import { cursoBaseEso } from './cursos';
+import { CURSOS_FORM } from './licencias';
+
+// Cursos que cubre la campaña de Licencias (6PRI-4ESO/PDC, ver CURSOS_FORM). Se usa solo para
+// avisar en el sync de Educamos — este fichero no depende de nada de Licencias más allá de esto.
+const CURSOS_LICENCIAS = new Set<string>(CURSOS_FORM.map((c) => c.base));
 
 // ─── Normalización ────────────────────────────────────────────────────────────
 
@@ -721,6 +727,8 @@ export function computeSyncPlan(
   existentes: StudentLike[],
   opciones: SyncOpciones,
   parseWarnings: string[] = [],
+  /** Si la campaña de Licencias está abierta ahora mismo (para avisar de altas en su rango). */
+  licenciasAbierta = false,
 ): SyncPlan {
   const warnings = [...parseWarnings];
   const targets: MatchTarget[] = existentes.map((e) => ({
@@ -749,6 +757,16 @@ export function computeSyncPlan(
         : asignarCodigoAlta(row, codigosOcupados);
       if (row.codigo && asignado.codigo) codigosOcupados.add(asignado.codigo);
       altas.push({ fila: row.fila, codigo: asignado.codigo, colision: asignado.colision, row });
+      if (!row.nia) {
+        warnings.push(
+          `Fila ${row.fila}: alta de ${nombreCompleto(row)} sin NIA — revísalo en Educamos, lo usan Licencias y el resto de módulos para identificar al alumno.`,
+        );
+      }
+      if (licenciasAbierta && CURSOS_LICENCIAS.has(cursoBaseEso(row.curso) ?? '')) {
+        warnings.push(
+          `Fila ${row.fila}: ${nombreCompleto(row)} (${row.curso}) entra en el rango de Licencias y la campaña está abierta — sincroniza la campaña de Licencias para que le llegue el formulario.`,
+        );
+      }
       continue;
     }
     if (matcheados.has(target.id)) {
