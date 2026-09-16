@@ -611,6 +611,26 @@ export const licPedidosEditorial = pgTable(
 );
 export type LicPedidoEditorial = typeof licPedidosEditorial.$inferSelect;
 
+// Retoques a mano de las unidades de un informe. Nace de las optativas de 4ºESO, que el censo
+// del banco da a todo el alumnado porque la matrícula por materia no está en ninguna tabla.
+// Ver licencias-ajustes-pedido.sql
+export const licAjustesPedido = pgTable(
+  'lic_ajustes_pedido',
+  {
+    id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id, { onDelete: 'cascade' }),
+    tipo: text('tipo').notNull(), // 'pago' | 'banco'
+    curso: text('curso').notNull(),
+    cod: text('cod').notNull(),
+    unidades: integer('unidades').notNull(),
+    nota: text('nota'),
+    updatedByEmail: text('updated_by_email'),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('lic_ajustes_pedido_uq').on(t.campaignId, t.tipo, t.curso, t.cod)],
+);
+export type LicAjustePedido = typeof licAjustesPedido.$inferSelect;
+
 // ─── Types Licencias ──────────────────────────────────────────────────────────
 export type LicCampaign = typeof licCampaigns.$inferSelect;
 export type NewLicCampaign = typeof licCampaigns.$inferInsert;

@@ -15,9 +15,82 @@ interface Row {
   bancoLibros: boolean;
   precio: string;
   unidades: number;
+  unidadesCalculadas: number;
+  ajuste?: { unidades: number; nota: string | null };
 }
 
-function TablaLibros({ rows, gratis }: { rows: Row[]; gratis?: boolean }) {
+/** Celda de unidades editable: se escribe el número que se quiere pedir de verdad. */
+function Unidades({ row, tipo, onCambio }: { row: Row; tipo: 'pago' | 'banco'; onCambio: () => void }) {
+  const [valor, setValor] = useState(String(row.unidades));
+  const [guardando, setGuardando] = useState(false);
+  const retocada = row.ajuste != null;
+
+  async function guardar(unidades: number | null) {
+    setGuardando(true);
+    try {
+      await fetch('/api/licencias/admin/editorial-report/ajuste', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, curso: row.curso, cod: row.cod, unidades }),
+      });
+      onCambio();
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center justify-end gap-1.5">
+      {retocada && (
+        <button
+          type="button"
+          title={`Calculado: ${row.unidadesCalculadas}. Volver a ese número.`}
+          onClick={() => {
+            setValor(String(row.unidadesCalculadas));
+            guardar(null);
+          }}
+          className="text-xs text-zinc-400 line-through hover:text-zinc-600 cursor-pointer dark:hover:text-zinc-200"
+        >
+          {row.unidadesCalculadas}
+        </button>
+      )}
+      <input
+        type="number"
+        min={0}
+        value={valor}
+        disabled={guardando}
+        onChange={(e) => setValor(e.target.value)}
+        onBlur={() => {
+          const n = parseInt(valor, 10);
+          if (!Number.isFinite(n) || n < 0) {
+            setValor(String(row.unidades));
+            return;
+          }
+          if (n === row.unidades) return;
+          if (n === row.unidadesCalculadas) guardar(null);
+          else guardar(n);
+        }}
+        className={`w-16 rounded-md border px-1.5 py-0.5 text-right text-sm tabular-nums ${
+          retocada
+            ? 'border-amber-300 bg-amber-50 font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200'
+            : 'border-transparent bg-transparent font-medium text-zinc-800 hover:border-zinc-200 dark:text-zinc-100 dark:hover:border-zinc-700'
+        }`}
+      />
+    </span>
+  );
+}
+
+function TablaLibros({
+  rows,
+  gratis,
+  tipo,
+  onCambio,
+}: {
+  rows: Row[];
+  gratis?: boolean;
+  tipo: 'pago' | 'banco';
+  onCambio: () => void;
+}) {
   const totalUds = rows.reduce((s, r) => s + r.unidades, 0);
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
@@ -40,7 +113,9 @@ function TablaLibros({ rows, gratis }: { rows: Row[]; gratis?: boolean }) {
                 {r.asignatura} <span className="text-xs text-zinc-400">{r.nombreLibro}</span>
               </td>
               <td className="px-3 py-2.5 text-zinc-500">{r.curso}</td>
-              <td className="px-3 py-2.5 text-right font-medium text-zinc-800 dark:text-zinc-100">{r.unidades}</td>
+              <td className="px-3 py-2.5 text-right">
+                <Unidades row={r} tipo={tipo} onCambio={onCambio} />
+              </td>
               <td className="px-3 py-2.5 text-right text-zinc-500">{euros(parseFloat(r.precio || '0'))}</td>
             </tr>
           ))}
@@ -183,6 +258,11 @@ export function EditorialReport() {
           Las licencias <strong>de pago</strong> y las <strong>gratis del banco de libros</strong> se piden por vías
           separadas y no se suman: son dos pedidos, dos envíos y dos facturas.
         </p>
+        <p className="mt-2 text-xs text-zinc-500">
+          Las <strong>unidades se pueden escribir a mano</strong> en las dos tablas: útil en las optativas de 4ºESO,
+          donde el cálculo da el curso entero porque no sabemos quién cursa qué. El número retocado se queda en ámbar
+          con el calculado al lado; se pulsa ese para volver atrás. Los pedidos y los CSV salen con lo retocado.
+        </p>
       </div>
 
       {/* 1 · De pago */}
@@ -212,7 +292,7 @@ export function EditorialReport() {
           <p className="mt-3 text-sm text-zinc-500">No hay pedidos pendientes de procesar. ✅</p>
         ) : (
           <div className="mt-3">
-            <TablaLibros rows={rows} />
+            <TablaLibros rows={rows} tipo="pago" onCambio={load} />
           </div>
         )}
       </section>
@@ -258,7 +338,7 @@ export function EditorialReport() {
           </p>
         ) : (
           <div className="mt-3">
-            <TablaLibros rows={bancoRows} gratis />
+            <TablaLibros rows={bancoRows} gratis tipo="banco" onCambio={load} />
           </div>
         )}
       </section>
