@@ -86,6 +86,9 @@ export const licCampaigns = pgTable('lic_campaigns', {
   status: text('status').notNull().default('draft'), // draft | open | closed
   orderDeadline: date('order_deadline'),
   noteText: text('note_text'),
+  // Último informe de licencias gratis del banco de libros descargado (censo completo, sin
+  // ciclo por pedido): solo para avisar y no pedirlas dos veces. Ver licencias-banco-report.sql
+  bancoReportAt: timestamp('banco_report_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

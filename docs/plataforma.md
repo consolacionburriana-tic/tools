@@ -72,9 +72,11 @@ pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotente
 Al aplicarlos: quitarlos de `pendientes.txt` y marcar las casillas `[~]` → `[x]` de la ficha
 del módulo, en el mismo commit.
 
-**Ahora mismo no queda nada pendiente** (los tres de la sesión del 9-sep-2026 —
-`cuaderno-plantillas-etapas.sql`, `profes-nombre-mostrado.sql` y `autoasm.sql` — se aplicaron
-y verificaron ese mismo día).
+**Pendiente ahora mismo: `licencias-banco-report.sql`** (16-sep-2026) — una columna aditiva
+(`lic_campaigns.banco_report_at`) para recordar cuándo se descargó el informe de licencias
+gratis del banco de libros. Sin ella, la pantalla de Editoriales falla al leer la campaña. Se
+aplicó todo lo anterior: los tres de la sesión del 9-sep-2026 (`cuaderno-plantillas-etapas.sql`,
+`profes-nombre-mostrado.sql` y `autoasm.sql`) se verificaron ese mismo día.
 
 ---
 
@@ -87,7 +89,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Módulo / pieza | Plan funcional | Plan técnico | Implementado | Ficha |
 |---|---|---|---|---|
 | Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (login del claustro; alumnado enlazado por NIA y en siglas; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
-| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-2b; 137 pedidos y 413 magic links de familias ya en Neon; quedan códigos de activación) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
+| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-3: campaña completa de punta a punta — pedido a editoriales de pago **y** del banco de libros, seguimiento 🧾/📤/💰, cobro y esquema del proceso. Queda `licencias-banco-report.sql` por aplicar y los códigos de activación línea a línea) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 640 alumnos y 54 profes activos —97 fichas contando bajas—; faltan pantallas de gestión. Tutor personal por alumno en uso: 56 alumnos repartidos; nombre visible del profesorado editable en `/gestion/profes`) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
@@ -106,7 +108,8 @@ a construir) y si está **implementado** (ya funciona en el repo).
 Leyenda: ✅ hecho y verificado · 🟡 empezado y en uso, pero le falta algo (lo que falta va entre
 paréntesis) · ⬜ sin empezar.
 
-> **Última revisión de esta tabla contra Neon: 5-sep-2026.** Los estados se van quedando viejos
+> **Última revisión de esta tabla contra Neon: 5-sep-2026** (la fila de Licencias, revisada
+> contra el código el 16-sep-2026; sin acceso a Neon en esa sesión). Los estados se van quedando viejos
 > solos; cuando toques un módulo, comprueba su fila y actualiza esta fecha.
 
 > 🔴 **Lo primero a partir del 1 de noviembre de 2026** es la **fuente única de alumnado**
@@ -218,5 +221,8 @@ Formulario público donde las familias se identifican (DNI del tutor o NIA del a
 identificación común de `src/lib/familias-server.ts`), eligen sus
 libros digitales con precios en vivo y confirman el pedido; panel de gestión (`/gestion`) con
 dashboard "quién falta", exportaciones CSV, packs, correos masivos y sincronización con Google
-Sheets. Funcionalmente completa (Fases 0-2); quedan códigos de activación (Fase 3) y el enganche
-a la BBDD central (Fase 4). Detalle completo en [`11-licencias-v2.md`](./11-licencias-v2.md).
+Sheets. Cubre la campaña entera (Fases 0-3): recoger pedidos, **pedir a las editoriales** (dos
+informes: las de pago, incremental, y las gratis del banco de libros, censo completo), enviar
+las licencias por FormMule y cobrar con el CSV de Educamos, con seguimiento 🧾/📤/💰 por pedido.
+Quien se pierda tiene el **esquema del proceso** en `/gestion/licencias/proceso`. Queda el
+enganche a la BBDD central (Fase 4). Detalle completo en [`11-licencias-v2.md`](./11-licencias-v2.md).

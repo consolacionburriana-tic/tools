@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from '@/db';
 import { getBooksFromSheet, type SheetBookRow, type SheetStudentRow } from '@/lib/google-sheets';
+import { getBancoLibrosCenso } from '@/lib/licencias-exports';
 import { getStudents as getEduStudents } from '@/lib/educamos-server';
 import {
   eduStudents,
@@ -167,7 +168,17 @@ export interface DashboardStats {
   noHaranPedido: number;
   totalLicencias: number;
   ingresos: number;
-  porCurso: { curso: string; total: number; conPedido: number; sinPedido: number; noHaranPedido: number; ingresos: number }[];
+  /** De `ingresos`, lo que ya está marcado como pagado (💰) en los pedidos. */
+  cobrado: number;
+  porCurso: {
+    curso: string;
+    total: number;
+    conPedido: number;
+    sinPedido: number;
+    noHaranPedido: number;
+    ingresos: number;
+    cobrado: number;
+  }[];
 }
 
 export async function getDashboardStats(campaignId: string): Promise<DashboardStats> {
@@ -182,7 +193,12 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
       .from(licStudents)
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
-      .select({ studentId: licOrders.studentId, total: licOrders.totalPrice, curso: licOrders.curso })
+      .select({
+        studentId: licOrders.studentId,
+        total: licOrders.totalPrice,
+        curso: licOrders.curso,
+        paidAt: licOrders.paidAt,
+      })
       .from(licOrders)
       .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
     db
@@ -194,10 +210,11 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
 
   const orderByStudent = new Map(orders.map((o) => [o.studentId, o]));
   const ingresos = orders.reduce((s, o) => s + parseFloat(o.total || '0'), 0);
+  const cobrado = orders.reduce((s, o) => s + (o.paidAt ? parseFloat(o.total || '0') : 0), 0);
 
   // Agrupamos por curso "efectivo": el del pedido (que distingue PDC) o el base si no ha pedido.
   // Sembramos todos los cursos del formulario (incl. 3PDC/4PDC) para que siempre salgan como fila.
-  const vacio = () => ({ total: 0, conPedido: 0, noHaranPedido: 0, ingresos: 0 });
+  const vacio = () => ({ total: 0, conPedido: 0, noHaranPedido: 0, ingresos: 0, cobrado: 0 });
   const groups = new Map<string, ReturnType<typeof vacio>>();
   for (const c of CURSOS_FORM) groups.set(c.value, vacio());
   for (const s of students) {
@@ -209,6 +226,7 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
     if (ord) {
       g.conPedido++;
       g.ingresos += parseFloat(ord.total || '0');
+      if (ord.paidAt) g.cobrado += parseFloat(ord.total || '0');
     } else if (s.manualCompletedAt) {
       g.noHaranPedido++;
     }
@@ -222,6 +240,7 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
       sinPedido: g.total - g.conPedido - g.noHaranPedido,
       noHaranPedido: g.noHaranPedido,
       ingresos: g.ingresos,
+      cobrado: g.cobrado,
     }))
     .sort((a, b) => ordenCurso(a.curso) - ordenCurso(b.curso) || a.curso.localeCompare(b.curso, 'es'));
 
@@ -233,6 +252,7 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
     noHaranPedido: students.filter((s) => !orderByStudent.has(s.id) && !!s.manualCompletedAt).length,
     totalLicencias: n ?? 0,
     ingresos,
+    cobrado,
     porCurso,
   };
 }
@@ -900,6 +920,41 @@ export async function markSentToTemplate(orderIds: string[]): Promise<number> {
     .set({ sentToTemplateAt: new Date(), updatedAt: new Date() })
     .where(inArray(licOrders.id, orderIds));
   return orderIds.length;
+}
+
+// ── Informe de licencias GRATIS del banco de libros ───────────────────────────
+// A la editorial hay que pedirle TODAS las licencias, también las que la familia no paga.
+// Las del banco no salen de `lic_order_items` (no nacen de un pedido), así que no entran en
+// getEditorialReport: son un censo de "alumno BdL × libros del banco de su curso".
+//
+// Por eso este informe NO es incremental como el de pago: siempre sale el censo completo.
+// Guardamos en la campaña cuándo se descargó (`bancoReportAt`) solo para poder avisar en
+// pantalla y que nadie lo mande dos veces a la editorial.
+export async function getBancoLibrosReport(campaignId: string): Promise<EditorialReportRow[]> {
+  const censo = await getBancoLibrosCenso(campaignId);
+  const porCod = new Map<string, { book: (typeof censo)[number]['book']; unidades: number }>();
+  for (const { book } of censo) {
+    const prev = porCod.get(book.cod);
+    if (prev) prev.unidades += 1;
+    else porCod.set(book.cod, { book, unidades: 1 });
+  }
+  return [...porCod.values()]
+    .map(({ book: b, unidades }) => ({
+      cod: b.cod,
+      editorial: b.editorial ?? '',
+      isbn: b.isbn ?? '',
+      curso: b.curso,
+      asignatura: b.asignatura ?? '',
+      nombreLibro: b.nombreLibro ?? '',
+      bancoLibros: true,
+      precio: b.precio ?? '',
+      unidades,
+    }))
+    .sort((a, b) => a.editorial.localeCompare(b.editorial) || a.cod.localeCompare(b.cod));
+}
+
+export async function markBancoReportDownloaded(campaignId: string): Promise<void> {
+  await db.update(licCampaigns).set({ bancoReportAt: new Date() }).where(eq(licCampaigns.id, campaignId));
 }
 
 // ── Vista previa y aplicación de sincronizaciones desde Google Sheets ──────────────────

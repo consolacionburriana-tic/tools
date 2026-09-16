@@ -109,9 +109,14 @@ export async function getEnviarRows(campaignId: string): Promise<EnviarRow[]> {
   return rows.sort((a, b) => a.curso.localeCompare(b.curso) || a.apellidos.localeCompare(b.apellidos, 'es'));
 }
 
-// Licencias GRATIS del Banco de Libros: para cada alumno BdL activo, los libros del banco
-// de su curso efectivo (resueltos por idioma). Independiente de si ha hecho pedido.
-export async function getGratisRows(campaignId: string): Promise<EnviarRow[]> {
+// Censo de licencias GRATIS del Banco de Libros: para cada alumno BdL activo, los libros del
+// banco de su curso efectivo (resueltos por idioma). Independiente de si ha hecho pedido: un
+// alumno del banco recibe sus libros del banco aunque no entre nunca en el formulario.
+//
+// Fuente ÚNICA del banco de libros: la usan tanto el CSV "ENVIAR · GRATIS" (una fila por
+// alumno y libro, para FormMule) como el informe de editoriales (agrupado por libro, para
+// pedirlas). Si se calcularan por separado, los dos números acabarían divergiendo.
+export async function getBancoLibrosCenso(campaignId: string) {
   const { students, books } = await loadBase(campaignId);
   const booksByCurso = new Map<string, typeof books>();
   for (const b of books) {
@@ -120,32 +125,38 @@ export async function getGratisRows(campaignId: string): Promise<EnviarRow[]> {
     arr.push(b);
     booksByCurso.set(b.curso, arr);
   }
-  const rows: EnviarRow[] = [];
+  const censo: { student: (typeof students)[number]; book: (typeof books)[number]; curso: string }[] = [];
   for (const s of students) {
     if (!s.active || !s.bancoLibros) continue;
     const curso = cursoEfectivo(s.curso, s.letra);
-    const bancoBooks = resolveBilingual(booksByCurso.get(curso) ?? [], s.lenguaBase);
-    for (const b of bancoBooks) {
-      rows.push({
-        grupo: 'SI',
-        codAlu: s.studentCode,
-        codLibro: b.cod,
-        curso,
-        asignatura: b.asignatura ?? '',
-        editorial: b.editorial ?? '',
-        plataforma: b.plataforma ?? '',
-        nombre: s.nombre,
-        apellidos: s.apellidos,
-        mail: s.email ?? '',
-        isbn: b.isbn ?? '',
-        nombreLibro: b.nombreLibro ?? '',
-        bancoLibros: 'Sí',
-        precio: '0',
-        fecha: '',
-      });
+    for (const b of resolveBilingual(booksByCurso.get(curso) ?? [], s.lenguaBase)) {
+      censo.push({ student: s, book: b, curso });
     }
   }
-  return rows.sort((a, b) => a.curso.localeCompare(b.curso) || a.apellidos.localeCompare(b.apellidos, 'es'));
+  return censo;
+}
+
+export async function getGratisRows(campaignId: string): Promise<EnviarRow[]> {
+  const censo = await getBancoLibrosCenso(campaignId);
+  return censo
+    .map(({ student: s, book: b, curso }) => ({
+      grupo: 'SI' as const,
+      codAlu: s.studentCode,
+      codLibro: b.cod,
+      curso,
+      asignatura: b.asignatura ?? '',
+      editorial: b.editorial ?? '',
+      plataforma: b.plataforma ?? '',
+      nombre: s.nombre,
+      apellidos: s.apellidos,
+      mail: s.email ?? '',
+      isbn: b.isbn ?? '',
+      nombreLibro: b.nombreLibro ?? '',
+      bancoLibros: 'Sí',
+      precio: '0',
+      fecha: '',
+    }))
+    .sort((a, b) => a.curso.localeCompare(b.curso) || a.apellidos.localeCompare(b.apellidos, 'es'));
 }
 
 export async function getPagosConsolidado(campaignId: string): Promise<PagoRow[]> {
