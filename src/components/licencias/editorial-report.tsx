@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { BookMarked, Check, Download, Gift, Loader2, Send, TriangleAlert } from 'lucide-react';
 import { euros } from '@/lib/licencias';
 
@@ -133,8 +134,8 @@ export function EditorialReport() {
 
   async function procesarBanco() {
     const aviso = bancoReportAt
-      ? `⚠️ Este informe ya se descargó el ${new Date(bancoReportAt).toLocaleString('es-ES')}.\n\nEs el censo COMPLETO del banco de libros, no solo lo nuevo: si lo vuelves a mandar a la editorial, pedirás otra vez licencias que ya pediste.\n\n¿Descargar de todas formas?`
-      : 'Se descargará el censo completo de licencias gratis del banco de libros para pedírselas a la editorial. ¿Continuar?';
+      ? `Este informe ya se descargó el ${new Date(bancoReportAt).toLocaleString('es-ES')}.\n\nSale el censo entero, no solo lo nuevo. ¿Descargar de todas formas?`
+      : 'Se descargará el censo del banco de libros para pedírselo a la editorial. ¿Continuar?';
     if (!confirm(aviso)) return;
     await descargar(
       '/api/licencias/admin/editorial-report/banco',
@@ -245,10 +246,12 @@ export function EditorialReport() {
           {hayBilingues && sinLengua > 0 && (
             <p className="mt-2 rounded-xl bg-red-50 p-3 text-xs text-red-800 dark:bg-red-500/10 dark:text-red-200">
               <TriangleAlert className="mr-1 inline h-3.5 w-3.5" />
-              <strong>Repasa los libros en valenciano antes de mandarlo.</strong> Hay {sinLengua} alumno(s) del banco
-              sin lengua base, y los libros con versión castellano/valencià se reparten con ese dato: sin él salen
-              todos <strong>en castellano</strong>. El dato viene del modelo lingüístico de Educamos, así que se
-              arregla allí y se vuelve a sincronizar el alumnado.
+              Hay {sinLengua} alumno(s) sin idioma asignado, y los libros que tienen las dos versiones se reparten
+              con ese dato: sin él salen todos <strong>en castellano</strong>. Se pone clase a clase en{' '}
+              <Link href="/gestion/licencias/lenguas" className="font-semibold underline">
+                Idioma por clase
+              </Link>
+              .
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-3">

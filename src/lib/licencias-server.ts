@@ -989,6 +989,76 @@ export async function getBancoLibrosReport(campaignId: string): Promise<BancoLib
   };
 }
 
+// ── Idioma por clase ──────────────────────────────────────────────────────────
+// La línea lingüística es de la CLASE, no de cada alumno (1ºESO A en castellano y B en
+// valenciano, 3º y 4º las dos en castellano…) y cambia cada curso. Educamos lo tendría en
+// `modelo_linguistico`, pero ese campo está vacío, así que se pone aquí a mano y se guarda en
+// `lic_students.lengua_base`, que es lo que ya leen el catálogo del formulario y los informes.
+export interface ClaseLengua {
+  curso: string;
+  letra: string;
+  alumnos: number;
+  /** 'CAS' | 'VAL' si toda la clase tiene la misma; null si está sin poner o mezclada. */
+  lengua: string | null;
+  mezclada: boolean;
+}
+
+export async function getLenguasPorClase(campaignId: string): Promise<ClaseLengua[]> {
+  const rows = await db
+    .select({
+      curso: licStudents.curso,
+      letra: licStudents.letra,
+      lengua: licStudents.lenguaBase,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(licStudents)
+    .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)))
+    .groupBy(licStudents.curso, licStudents.letra, licStudents.lenguaBase);
+
+  const porClase = new Map<string, { curso: string; letra: string; lenguas: Map<string | null, number> }>();
+  for (const r of rows) {
+    const letra = r.letra ?? '';
+    const k = `${r.curso}|${letra}`;
+    const c = porClase.get(k) ?? { curso: r.curso, letra, lenguas: new Map() };
+    c.lenguas.set(r.lengua, (c.lenguas.get(r.lengua) ?? 0) + r.n);
+    porClase.set(k, c);
+  }
+
+  return [...porClase.values()]
+    .map((c) => {
+      const distintas = [...c.lenguas.keys()];
+      return {
+        curso: c.curso,
+        letra: c.letra,
+        alumnos: [...c.lenguas.values()].reduce((s, n) => s + n, 0),
+        lengua: distintas.length === 1 ? distintas[0] : null,
+        mezclada: distintas.length > 1,
+      };
+    })
+    .sort((a, b) => ordenCurso(a.curso) - ordenCurso(b.curso) || a.letra.localeCompare(b.letra));
+}
+
+export async function setLenguaClase(
+  campaignId: string,
+  curso: string,
+  letra: string,
+  lengua: 'CAS' | 'VAL' | null,
+): Promise<number> {
+  const res = await db
+    .update(licStudents)
+    .set({ lenguaBase: lengua })
+    .where(
+      and(
+        eq(licStudents.campaignId, campaignId),
+        eq(licStudents.active, true),
+        eq(licStudents.curso, curso),
+        letra === '' ? isNull(licStudents.letra) : eq(licStudents.letra, letra),
+      ),
+    )
+    .returning({ id: licStudents.id });
+  return res.length;
+}
+
 export async function markBancoReportDownloaded(campaignId: string): Promise<void> {
   await db.update(licCampaigns).set({ bancoReportAt: new Date() }).where(eq(licCampaigns.id, campaignId));
 }
@@ -1181,7 +1251,8 @@ function diffStudent(r: SheetStudentRow, dbRow: LicStudent): FieldChange[] {
     ['Año nacimiento', dbRow.birthYear != null ? String(dbRow.birthYear) : '', r.birthYear != null ? String(r.birthYear) : ''],
     ['Email', dbRow.email ?? '', r.email ?? ''],
     ['Banco Libros', dbRow.bancoLibros ? 'Sí' : 'No', r.bancoLibros ? 'Sí' : 'No'],
-    ['Lengua base', dbRow.lenguaBase ?? '', r.lenguaBase ?? ''],
+    // Solo si la central trae dato: sin él no se pisa, así que tampoco es un cambio que enseñar.
+    ['Lengua base', dbRow.lenguaBase ?? '', r.lenguaBase ?? dbRow.lenguaBase ?? ''],
     // Ya no es clave, pero se enseña: es la pista de por qué antes salía como baja + alta.
     ['Código', dbRow.studentCode, r.studentCode],
   ]);
@@ -1365,7 +1436,11 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
           letra: r.letra,
           email: r.email,
           bancoLibros: r.bancoLibros,
-          lenguaBase: r.lenguaBase,
+          // Igual que `educamosId`: si la central no trae modelo lingüístico (hoy lo tiene a
+          // NULL en todo el alumnado), no se incluye en el update. Si no, cada sync borraba la
+          // lengua puesta a mano en «Idioma por clase» y los libros CAS/VAL volvían a salir
+          // todos en castellano.
+          ...(r.lenguaBase ? { lenguaBase: r.lenguaBase } : {}),
           active: true,
         },
       }),

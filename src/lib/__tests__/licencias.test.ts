@@ -46,6 +46,18 @@ describe('resolveBilingual', () => {
   it('un libro sin sufijo de idioma no se toca', () => {
     expect(resolveBilingual([{ cod: 'REL3' }], 'Valencià')).toEqual([{ cod: 'REL3' }]);
   });
+
+  // El dato real que guardan el sync de Educamos y la pantalla de Idioma por clase es el
+  // código 'VAL'/'CAS', no la palabra. Comparando contra 'valen', 'VAL' no colaba y toda la
+  // campaña recibía los libros en castellano; los tests de arriba no lo veían porque solo
+  // probaban con la palabra escrita entera.
+  it.each(['VAL', 'val', 'Valencià', 'Valenciano', 'valencia'])('reconoce «%s» como valenciano', (lengua) => {
+    expect(resolveBilingual(par, lengua)).toEqual([{ cod: 'MAT3-VAL' }]);
+  });
+
+  it.each(['CAS', 'cas', 'Castellano', 'castellà', ''])('reconoce «%s» como castellano', (lengua) => {
+    expect(resolveBilingual(par, lengua)).toEqual([{ cod: 'MAT3-CAS' }]);
+  });
 });
 
 describe('baseCod', () => {

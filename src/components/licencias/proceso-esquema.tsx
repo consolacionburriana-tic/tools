@@ -93,13 +93,21 @@ const FASES: Fase[] = [
       },
       {
         n: 3,
+        titulo: 'Poner el idioma de cada clase',
+        donde: 'Idioma por clase',
+        href: '/gestion/licencias/lenguas',
+        que: 'Castellano o valencià, clase a clase. Decide qué versión le toca a cada alumno en los libros que tienen las dos.',
+        ojo: 'Cambia cada curso (este año 1º y 2º ESO tienen la A en castellano y la B en valencià, y 3º y 4º las dos en castellano). Si está sin poner, esos libros salen en castellano.',
+      },
+      {
+        n: 4,
         titulo: 'Repasar packs y fecha de cierre',
         donde: 'Packs / itinerarios · cabecera del panel',
         href: '/gestion/licencias/packs',
         que: 'Los packs agrupan los libros en el formulario para que la familia se aclare. La fecha de cierre cierra la campaña sola a las 23:59 de ese día.',
       },
       {
-        n: 4,
+        n: 5,
         titulo: 'Generar los enlaces de las familias',
         donde: 'Enlaces de familias',
         boton: 'Generar los que falten',
@@ -117,30 +125,30 @@ const FASES: Fase[] = [
     color: AMBAR,
     pasos: [
       {
-        n: 5,
+        n: 6,
         titulo: 'Abrir la campaña y avisar',
         donde: 'Cabecera del panel · Correos',
         boton: 'Abrir · Correos (modo familias)',
         href: '/gestion/licencias/correos',
         que: 'Se abre el formulario público y se manda el correo de estreno con el enlace personal de cada familia, filtrando por cursos y clases.',
-        ojo: 'Antes del envío masivo, manda una prueba a ti y un envío real a UNA familia. Lo que sale ya no vuelve.',
+        ojo: 'Antes del envío masivo, manda una prueba a ti y un envío real a UNA familia.',
       },
       {
-        n: 6,
+        n: 7,
         titulo: 'Las familias hacen su pedido',
         donde: 'Formulario público',
         que: 'La familia entra por su enlace (o tecleando el DNI del tutor o el NIA), elige libros con el precio en vivo y confirma. Recibe correo de confirmación y puede volver a editarlo.',
         ojo: 'Al alumnado del banco de libros solo se le ofrecen los libros que NO cubre el banco (inglés, francés optativa…). El resto los recibe gratis.',
       },
       {
-        n: 7,
+        n: 8,
         titulo: 'Perseguir a quien falta',
         donde: 'Quién falta · Correos',
         href: '/gestion/licencias/faltan',
         que: 'Listado de quién no ha pedido, por curso y clase, con recordatorio por correo. A quien no vaya a pedir, se le marca y deja de contar como pendiente.',
       },
       {
-        n: 8,
+        n: 9,
         titulo: 'Cerrar el plazo',
         donde: 'Cabecera del panel',
         boton: 'Cerrar',
@@ -156,15 +164,15 @@ const FASES: Fase[] = [
     color: MORADO,
     pasos: [
       {
-        n: 9,
+        n: 10,
         titulo: 'Son DOS pedidos separados, no uno',
         donde: 'Editoriales',
         href: '/gestion/licencias/editoriales',
-        que: 'Las licencias de pago y las gratis del banco de libros se piden por vías distintas: dos informes, dos envíos y dos facturas. No se suman nunca.',
-        ojo: 'Si solo mandas el de pago, te faltan todas las del banco de libros. Es el error que cuesta dinero y tiempo.',
+        que: 'Las licencias de pago y las gratis del banco de libros se piden por vías distintas: dos informes, dos envíos y dos facturas. No se suman.',
+        ojo: 'El informe de pago no incluye las del banco de libros. Hay que mandar los dos.',
       },
       {
-        n: 10,
+        n: 11,
         titulo: 'Informe de las licencias DE PAGO',
         donde: 'Editoriales',
         boton: 'Descargar informe y marcar',
@@ -173,7 +181,7 @@ const FASES: Fase[] = [
         ojo: 'Es incremental: si luego llegan pedidos nuevos, el siguiente informe traerá solo esos. Por eso no se puede deshacer desde la pantalla.',
       },
       {
-        n: 11,
+        n: 12,
         titulo: 'Informe de las licencias GRATIS del banco',
         donde: 'Editoriales',
         boton: 'Descargar informe del banco',
@@ -191,7 +199,7 @@ const FASES: Fase[] = [
     color: AZUL,
     pasos: [
       {
-        n: 12,
+        n: 13,
         titulo: 'Descargar las plantillas de envío',
         donde: 'Exportar',
         boton: 'ENVIAR · NO / SÍ / GRATIS',
@@ -200,19 +208,19 @@ const FASES: Fase[] = [
         ojo: 'Son tres porque son tres envíos distintos: los de pago sin banco, los de pago con banco, y los gratis del banco.',
       },
       {
-        n: 13,
+        n: 14,
         titulo: 'Pegar en el Excel y poner los códigos',
         donde: 'Google Sheet · hojas ENVIAR',
         que: 'Se pegan las filas y se rellenan los códigos de activación que ha mandado la editorial.',
       },
       {
-        n: 14,
+        n: 15,
         titulo: 'Mandar los correos con FormMule',
         donde: 'Google Sheet · FormMule',
         que: 'FormMule (ya configurado con la «Plantilla NEW») manda a cada familia su correo con los códigos.',
       },
       {
-        n: 15,
+        n: 16,
         titulo: 'Marcar los pedidos como enviados',
         donde: 'Editoriales',
         boton: 'Marcar pasados a plantillas',
@@ -229,7 +237,7 @@ const FASES: Fase[] = [
     color: VERDE,
     pasos: [
       {
-        n: 16,
+        n: 17,
         titulo: 'Sacar el fichero para Educamos',
         donde: 'Económica',
         boton: 'Educamos',
@@ -238,7 +246,7 @@ const FASES: Fase[] = [
         ojo: 'Solo salen los alumnos con importe mayor que cero. Quien solo tenga licencias del banco no paga nada y no aparece.',
       },
       {
-        n: 17,
+        n: 18,
         titulo: 'Marcar quién ha pagado',
         donde: 'Pedidos',
         boton: 'Columna 💰',
@@ -246,7 +254,7 @@ const FASES: Fase[] = [
         que: 'Se marca pedido a pedido. Sirve para saber quién queda por cobrar.',
       },
       {
-        n: 18,
+        n: 19,
         titulo: 'Seguir el cobro',
         donde: 'Económica',
         href: '/gestion/licencias/economia',
@@ -388,8 +396,8 @@ export function ProcesoEsquema() {
 
       <p className="flex items-start gap-1.5 text-xs text-zinc-400">
         <Gift className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Todo lo que aquí sale como CSV se puede seguir haciendo a mano en el Excel de siempre: los ficheros son el
-        mismo formato de las hojas del Sheet. La app no quita el Excel, lo rellena.
+        Los CSV tienen el mismo formato que las hojas del Sheet, así que todo esto se puede seguir haciendo a mano
+        en el Excel de siempre.
       </p>
       <p className="flex items-start gap-1.5 text-xs text-zinc-400">
         <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />

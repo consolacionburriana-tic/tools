@@ -88,7 +88,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Módulo / pieza | Plan funcional | Plan técnico | Implementado | Ficha |
 |---|---|---|---|---|
 | Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (login del claustro; alumnado enlazado por NIA y en siglas; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
-| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-3: campaña completa de punta a punta — pedido a editoriales de pago **y** del banco de libros (dos pedidos separados), seguimiento 🧾/📤/💰, cobro y esquema del proceso; informes verificados contra Neon. Quedan los códigos de activación línea a línea, y en Educamos falta el modelo lingüístico) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
+| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-3: campaña completa de punta a punta — pedido a editoriales de pago **y** del banco de libros (dos pedidos separados), seguimiento 🧾/📤/💰, cobro y esquema del proceso; informes verificados contra Neon. Quedan los códigos de activación línea a línea) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 640 alumnos y 54 profes activos —97 fichas contando bajas—; faltan pantallas de gestión. Tutor personal por alumno en uso: 56 alumnos repartidos; nombre visible del profesorado editable en `/gestion/profes`) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
