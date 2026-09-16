@@ -159,6 +159,14 @@ Recopilados de las fichas, para verlos de un vistazo:
   disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
+- 🔴 **Modelo lingüístico en Educamos** (afecta al pedido a las editoriales, descubierto el
+  16-sep-2026): `edu_students.modelo_linguistico` está **NULL en los 643 alumnos activos**, así
+  que `lic_students.lengua_base` también, y los libros con versión castellano/valencià se piden
+  **todos en castellano** (hoy: 1ºESO Tecnología y 6ºEP Religión). El código está bien —el sync
+  ya mapea `modelo_linguistico` → `lengua_base` con `MODELO_TO_LENGUA`—, lo que falta es el dato
+  en el export de Educamos. Hay que traerlo y resincronizar el alumnado de la campaña; mientras
+  tanto la pantalla de Editoriales avisa en rojo. **No mandes el pedido de esos libros sin
+  repasarlo a mano.**
 - **AUTOASM** (ficha `19`): (a) **ejecutar `src/db/sql/autoasm.sql` en Neon** — dos tablas
   aditivas para el histórico de entregas y el FTP; sin ellas el módulo va, pero sin memoria
   de qué se subió; (b) meter **los datos del FTP** de ASM en el módulo (una vez: la

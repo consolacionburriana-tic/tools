@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { BookMarked, CalendarClock, ChevronDown, ChevronLeft, Download, KeyRound, Layers, ListOrdered, Mail, PiggyBank, RefreshCw, Users } from 'lucide-react';
+import { BookMarked, CalendarClock, ChevronDown, ChevronLeft, Download, KeyRound, Layers, ListOrdered, Mail, Map, PiggyBank, RefreshCw, Users } from 'lucide-react';
 import { campaignAbierta, cierreAutomaticoResumen, diasHastaCierre, fechaLimiteLabel } from '@/lib/licencias';
 import { getCurrentCampaign, getDashboardStats } from '@/lib/licencias-server';
 import { NavArrow } from '@/components/ui/nav-pending';
@@ -143,6 +143,20 @@ export default async function GestionPage() {
               <Kpi label="Licencias" value={String(stats.totalLicencias)} />
             </div>
 
+            <Link
+              href="/gestion/licencias/proceso"
+              className="mt-3 flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/15"
+            >
+              <Map className="h-4 w-4 shrink-0" />
+              <span className="min-w-0">
+                Esquema del proceso
+                <span className="block text-xs font-normal text-blue-700/70 dark:text-blue-200/70">
+                  Las cinco fases de la campaña, paso a paso y con qué botón
+                </span>
+              </span>
+              <NavArrow className="ml-auto" />
+            </Link>
+
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Link
                 href="/gestion/licencias/pedidos"
@@ -258,8 +272,9 @@ export default async function GestionPage() {
             </section>
 
             <p className="mt-6 text-xs text-zinc-400">
-              Pendiente (requiere credenciales externas): escritura directa en el Google Sheet (cuenta de
-              servicio de Google) y sincronización con la API de Educamos.{' '}
+              La escritura directa en el Google Sheet está en «Sincronizar» (a falta de comprobarla de punta a punta
+              con la cuenta de servicio). La sincronización con la API de Educamos sigue pendiente de acceso: hoy el
+              cobro se pasa con el CSV de «Económica».{' '}
               <Link href="/" className="underline">Inicio</Link>
             </p>
           </>

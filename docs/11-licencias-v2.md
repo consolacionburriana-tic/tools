@@ -19,6 +19,9 @@ Todo lo definido está construido, verificado y desplegado en `main`:
 - **Panel** (`/gestion`, login simple): dashboard "quién falta" por curso (PDC separado),
   abrir/cerrar campaña, listado descargable, exportaciones CSV (ENVIAR/GRATIS/pagos/Educamos/
   por libro), gestión económica, editor de packs y envío de correos masivos.
+- **Ciclo completo de la campaña** (Fase 3): informe a editoriales de las licencias de pago
+  **y** de las gratis del banco de libros, seguimiento 🧾/📤/💰 por pedido, cobro con el CSV de
+  Educamos, y un **esquema del proceso** en `/gestion/licencias/proceso` para el equipo.
 - **Magic links de familias** (Fase 2b): enlaces personales por familia (`/licencias?t=tok_…`)
   y correo masivo por cursos y clases con esos enlaces. Queda generar los de la campaña real
   en Neon (ver "Inputs pendientes de David").
@@ -219,10 +222,98 @@ plazo, tenéis hasta el X") con un enlace propio que la identifica y le lista a 
 > Ojo: los enlaces son **credenciales**. El CSV de `/gestion/licencias/accesos` da acceso a los
 > pedidos de cada familia: se usa y se borra, no se sube a Drive ni se comparte.
 
-## Fase 3 · Códigos de activación + seguimiento
+## Fase 3 · Pedido a editoriales, seguimiento y códigos de activación
 
-- [ ] Pegar/subir códigos de activación y casarlos con las líneas de pedido
-- [ ] Estado por línea (pendiente / enviado / error)
+El ciclo de vida de un pedido vive en tres sellos de `lic_orders`, que son las columnas
+Q🧾/R📤/S💰 del Google Sheet histórico traídas a la app:
+
+| Sello | Columna | Qué significa | Quién lo pone |
+|---|---|---|---|
+| 🧾 | `editorial_processed_at` | pedido a la editorial | «Descargar informe y marcar» de `/gestion/licencias/editoriales` |
+| 📤 | `sent_to_template_at` | pasado a plantillas de envío (la familia ya tiene su código) | «Marcar pasados a plantillas» |
+| 💰 | `paid_at` | pagado | a mano, pedido a pedido, en `/gestion/licencias/pedidos` |
+
+- [x] Informe de editoriales de las licencias **de pago**, agrupado por editorial/libro, que
+      marca 🧾 al descargarlo. **Incremental**: solo salen los pedidos aún sin pedir.
+- [x] Informe de editoriales de las licencias **gratis del banco de libros** (2026-09-16)
+- [x] Seguimiento por pedido (🧾/📤/💰) visible en la lista y en la ficha de cada pedido
+- [ ] Pegar/subir códigos de activación y casarlos con las líneas de pedido — sigue en
+      FormMule sobre las plantillas ENVIAR exportadas, a propósito
+- [ ] Estado por línea (pendiente / enviado / error) — hoy el estado es por pedido, no por línea
+
+### Las gratis del banco de libros no estaban en el informe (2026-09-16)
+
+**El fallo:** `getEditorialReport()` cuenta `lic_order_items`, o sea **solo lo que la familia
+pide y paga**. Las licencias del banco de libros no nacen de un pedido — un alumno del banco
+las tiene aunque no entre nunca en el formulario — así que **no salían en el informe y no se
+le pedían a la editorial**. El CSV «ENVIAR · GRATIS» de `/exportar` sí las listaba, pero ese
+fichero es para *mandárselas a las familias*, no para *pedírselas a la editorial*: quien
+mirara solo la pantalla de Editoriales pedía de menos.
+
+**Son dos pedidos independientes** (David, 2026-09-16): las de pago y las del banco se piden
+por vías distintas —dos informes, dos envíos, dos facturas— y **no se suman nunca**. Un primer
+intento puso encima una tabla de "total por editorial" que las sumaba; se quitó, porque ese
+número no se le manda a nadie.
+
+**Cómo queda**, con los dos informes separados a propósito porque funcionan distinto:
+
+- **De pago** → incremental. Al descargarlo marca 🧾 y esos pedidos ya no vuelven a salir; si
+  luego llegan pedidos nuevos, el siguiente informe trae solo esos.
+- **Del banco** → **censo completo**, siempre entero: es `alumnos BdL × libros del banco de su
+  curso` (resuelto por idioma), no hay "pendiente" que descontar. Por eso no marca nada en los
+  pedidos; solo guarda en la campaña **cuándo se descargó** (`lic_campaigns.banco_report_at`) y
+  la pantalla avisa al repetirlo, que es lo que evita pedir dos veces lo mismo. Si entra
+  alumnado nuevo del banco a mitad de curso, se pide a la editorial solo la diferencia.
+**Fuente única del banco** (`getBancoLibrosCenso()` en `licencias-exports.ts`): la comparten el
+CSV «ENVIAR · GRATIS» y este informe. Si se calcularan por separado, los dos números acabarían
+divergiendo y nadie se enteraría hasta que la editorial mandara de menos. Comprobado contra
+producción el 16-sep-2026: los dos dan **1.603**.
+
+### Tres fallos que encontró la comprobación contra Neon (2026-09-16)
+
+Los tres inflaban o desviaban el pedido a la editorial. Los dos primeros venían de antes.
+
+1. **Un código de libro no identifica un libro.** La unicidad de `lic_books` es `(curso, cod)`
+   —está escrito en la nota de modelado de la Fase 0— pero los informes agrupaban por `cod`
+   suelto. `3ESO-REL` existe en 3ESO y en 3PDC: salía **una** fila de 57 licencias, etiquetada
+   con el curso del último que entrara en el mapa (3PDC), en vez de 46 de 3ESO y 11 de 3PDC.
+   Arreglado con `indexarLibros()`/`claveLibro()` (`licencias-exports.ts`, con tests) en el
+   informe de editoriales, el del banco, `getPagosPorLibro` y `getEnviarRows`.
+2. **El censo contaba libros desactivados.** `getBancoLibrosCenso` filtraba por `banco_libros`
+   pero no por `active`. Se colaban 5 libros retirados del Excel (Mates A/B y Valores de 4ESO,
+   Tecnología de 3ESO en sus dos idiomas): **135 licencias de más**, 1.738 en vez de 1.603.
+   Un libro se desactiva en vez de borrarse para no romper los pedidos que lo referencian, pero
+   pedirlo a la editorial es tirar el dinero.
+3. **Sin lengua base, todo se pide en castellano.** `resolveBilingual` reparte los libros
+   CAS/VAL con `lic_students.lengua_base`, que sale de `edu_students.modelo_linguistico` — y ese
+   campo está **NULL en los 643 alumnos activos** de la central. El mapeo del sync es correcto
+   (`MODELO_TO_LENGUA`); lo que falta es el dato en Educamos. Mientras siga así, los libros con
+   par CAS/VAL activo (1ESO Tecnología, 6PRI Religión) se piden **enteros en castellano**.
+   No se puede arreglar desde aquí, así que la pantalla **avisa en rojo** cuando hay alumnado
+   del banco sin lengua base y el censo incluye bilingües (`alumnosSinLengua`/`hayBilingues`).
+
+> **Ojo con las optativas** (sin resolver, no es un fallo del código): el censo da a cada alumno
+> del banco **todos** los libros del banco de su curso. En 4ºESO eso significa pedir 45 de Latín
+> *y* 45 de Economía *y* 45 de Biología *y* 45 de Física y Química, cuando cada alumno cursa solo
+> algunas. La app no sabe qué optativas lleva cada uno —no está en `lic_students` ni en
+> `edu_students`—, así que esas líneas **hay que ajustarlas a mano** antes de mandar el pedido.
+> Si algún día se quiere automático, hace falta la matrícula por materia de Educamos.
+
+> **CSV como salvavidas, a propósito** (David, 2026-09-16): todo lo que hace la app se puede
+> seguir haciendo a mano en el Excel de siempre. Los CSV **no se retiran** aunque la escritura
+> directa en el Sheet acabe verificada: son el mismo formato de las hojas del Sheet, así que
+> siempre se puede pegar a mano si algo falla.
+
+## Esquema del proceso (para el equipo)
+
+`/gestion/licencias/proceso` — las **cinco fases** de una campaña (preparar · recoger · pedir a
+editoriales · enviar · cobrar) con sus 18 pasos, cada uno diciendo en qué pantalla está, qué
+botón se pulsa y con qué hay que tener ojo. Enlazado desde arriba del panel.
+
+Nace de que el módulo tiene ya bastantes pantallas como para que quien no lo montó se pierda, y
+de dos confusiones concretas y caras: creer que el informe de editoriales lo pide todo (ver
+arriba), y no saber que «Exportar» y «Editoriales» sirven para cosas distintas. Cuando cambie un
+flujo, se actualiza ahí: `src/components/licencias/proceso-esquema.tsx`, un array de fases.
 
 ## Fase 4 · Enganche a la BBDD central Educamos (= hito 3 del roadmap)
 
