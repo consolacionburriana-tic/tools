@@ -53,8 +53,20 @@ export function normalize(s: string): string {
 
 // Colapsa pares bilingües -CAS/-VAL según la lengua base del alumno
 const SUFFIX = /-(CAS|VAL)$/;
+
+/**
+ * La lengua base llega escrita de tres maneras distintas: `VAL`/`CAS` (lo que guarda el sync
+ * desde el modelo lingüístico de Educamos y la pantalla de Idioma por clase) y `Valencià` o
+ * `Valenciano` (lo que venía del Excel histórico). Comparar contra `valen` dejaba fuera `VAL`,
+ * así que todo el mundo recibía la versión en castellano aunque tuviera lengua puesta.
+ * Con `val` entran las tres formas, y ninguna variante de castellano empieza así.
+ */
+export function esValenciano(lengua: string | null | undefined): boolean {
+  return normalize(lengua ?? '').startsWith('val');
+}
+
 export function resolveBilingual<T extends { cod: string }>(books: T[], lengua: string | null): T[] {
-  const wantVal = normalize(lengua ?? '').startsWith('valen');
+  const wantVal = esValenciano(lengua);
   const groups = new Map<string, T[]>();
   for (const b of books) {
     const base = b.cod.replace(SUFFIX, '');

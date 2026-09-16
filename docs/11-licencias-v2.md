@@ -284,13 +284,34 @@ Los tres inflaban o desviaban el pedido a la editorial. Los dos primeros venían
    Tecnología de 3ESO en sus dos idiomas): **135 licencias de más**, 1.738 en vez de 1.603.
    Un libro se desactiva en vez de borrarse para no romper los pedidos que lo referencian, pero
    pedirlo a la editorial es tirar el dinero.
-3. **Sin lengua base, todo se pide en castellano.** `resolveBilingual` reparte los libros
-   CAS/VAL con `lic_students.lengua_base`, que sale de `edu_students.modelo_linguistico` — y ese
-   campo está **NULL en los 643 alumnos activos** de la central. El mapeo del sync es correcto
-   (`MODELO_TO_LENGUA`); lo que falta es el dato en Educamos. Mientras siga así, los libros con
-   par CAS/VAL activo (1ESO Tecnología, 6PRI Religión) se piden **enteros en castellano**.
-   No se puede arreglar desde aquí, así que la pantalla **avisa en rojo** cuando hay alumnado
-   del banco sin lengua base y el censo incluye bilingües (`alumnosSinLengua`/`hayBilingues`).
+3. **Todo se pedía en castellano.** Ver el apartado siguiente: eran dos fallos encadenados.
+
+### Idioma por clase (2026-09-16)
+
+La línea lingüística **es de la clase, no del alumno**, y cambia cada curso: este año 1º y 2º de
+ESO tienen la A en castellano y la B en valencià, y 3º y 4º las dos en castellano (David). Se
+pone en **`/gestion/licencias/lenguas`**, clase a clase, y se guarda en
+`lic_students.lengua_base`, que es lo que ya leían el catálogo del formulario y los informes.
+
+Se llegó aquí porque **toda la campaña se estaba pidiendo en castellano**, por dos fallos
+encadenados que se tapaban el uno al otro:
+
+- **El dato no estaba.** `lengua_base` salía del Sheet mientras el alumnado se importaba de ahí;
+  al pasar la fuente a `edu_students` quedó colgando de `modelo_linguistico`, que está **NULL en
+  los 643 alumnos activos** de la central. Y cada sync volvía a escribir ese NULL encima, así
+  que ponerlo a mano tampoco habría durado: ahora el upsert **no toca `lengua_base` si la central
+  no trae dato**, igual que ya se hacía con `educamos_id`.
+- **Y aunque hubiera estado, no se habría usado.** `resolveBilingual` decidía con
+  `startsWith('valen')`, pero lo que se guarda es el código **`VAL`** (lo que produce
+  `MODELO_TO_LENGUA`, y ahora también esta pantalla). `'val'` no empieza por `'valen'`, así que
+  daba castellano siempre. Los tests no lo pillaron porque solo probaban con la palabra escrita
+  entera (`'Valencià'`), que sí colaba. Hoy la comparación es `startsWith('val')` —vía
+  `esValenciano()`, con tests de las dos formas— y ninguna variante de castellano empieza así.
+
+Comprobado en producción: 1ºESO pasó de **48 castellano / 0 valencià** a **24 y 24**.
+
+La pantalla de Editoriales avisa si quedan clases sin idioma (`alumnosSinLengua`/`hayBilingues`),
+porque sin poner equivale a castellano y eso no se distingue a simple vista de una decisión.
 
 > **Ojo con las optativas** (sin resolver, no es un fallo del código): el censo da a cada alumno
 > del banco **todos** los libros del banco de su curso. En 4ºESO eso significa pedir 45 de Latín
@@ -307,7 +328,7 @@ Los tres inflaban o desviaban el pedido a la editorial. Los dos primeros venían
 ## Esquema del proceso (para el equipo)
 
 `/gestion/licencias/proceso` — las **cinco fases** de una campaña (preparar · recoger · pedir a
-editoriales · enviar · cobrar) con sus 18 pasos, cada uno diciendo en qué pantalla está, qué
+editoriales · enviar · cobrar) con sus 19 pasos, cada uno diciendo en qué pantalla está, qué
 botón se pulsa y con qué hay que tener ojo. Enlazado desde arriba del panel.
 
 Nace de que el módulo tiene ya bastantes pantallas como para que quien no lo montó se pierda, y
