@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BookMarked, Check, Download, Gift, Loader2, Send, TriangleAlert } from 'lucide-react';
+import { BookMarked, Check, Download, Gift, Loader2, MoreHorizontal, Send, TriangleAlert } from 'lucide-react';
 import { euros } from '@/lib/licencias';
 
 interface Row {
@@ -181,7 +181,7 @@ export function EditorialReport() {
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Dos pedidos distintos, nunca uno</p>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
           Las licencias <strong>de pago</strong> y las <strong>gratis del banco de libros</strong> se piden por vías
-          separadas y no se suman: son dos informes, dos envíos y dos facturas. Cada uno tiene su botón aquí abajo.
+          separadas y no se suman: son dos pedidos, dos envíos y dos facturas.
         </p>
       </div>
 
@@ -196,16 +196,7 @@ export function EditorialReport() {
             El informe es <strong>incremental</strong>: al descargarlo, esos pedidos quedan marcados y ya no vuelven a
             salir. Si luego llegan pedidos nuevos, solo saldrán esos.
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={procesarPago}
-              disabled={processing || rows.length === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 cursor-pointer"
-            >
-              {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Descargar informe y marcar {pedidosCount > 0 ? `(${pedidosCount} pedidos)` : ''}
-            </button>
+          <div className="mt-3">
             <button
               type="button"
               onClick={marcarEnviados}
@@ -254,22 +245,11 @@ export function EditorialReport() {
               .
             </p>
           )}
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={procesarBanco}
-              disabled={bancoProcessing || bancoRows.length === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40 cursor-pointer"
-            >
-              {bancoProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Descargar informe del banco {totalBanco > 0 ? `(${totalBanco} licencias)` : ''}
-            </button>
-            {bancoReportAt && (
-              <span className="text-xs text-zinc-500">
-                Última descarga: {new Date(bancoReportAt).toLocaleString('es-ES')}
-              </span>
-            )}
-          </div>
+          {bancoReportAt && (
+            <p className="mt-3 text-xs text-zinc-500">
+              Último CSV descargado: {new Date(bancoReportAt).toLocaleString('es-ES')}
+            </p>
+          )}
         </div>
         {bancoRows.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-500">
@@ -282,6 +262,40 @@ export function EditorialReport() {
           </div>
         )}
       </section>
+
+      {/* Lo de antes de los Google Sheets, por si hace falta el fichero suelto */}
+      <details className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-zinc-600 dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
+          <MoreHorizontal className="h-4 w-4" /> Otras opciones · descargar el CSV
+        </summary>
+        <div className="space-y-3 border-t border-zinc-100 px-4 py-3 dark:border-zinc-800">
+          <p className="text-xs text-zinc-500">
+            Los mismos datos en CSV, con el formato de las hojas del Excel de siempre. El de pago{' '}
+            <strong>marca los pedidos</strong> al descargarlo, igual que el paso 3 de arriba: no hace falta usar los
+            dos.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={procesarPago}
+              disabled={processing || rows.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+            >
+              {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              CSV de pago y marcar {pedidosCount > 0 ? `(${pedidosCount} pedidos)` : ''}
+            </button>
+            <button
+              type="button"
+              onClick={procesarBanco}
+              disabled={bancoProcessing || bancoRows.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+            >
+              {bancoProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              CSV del banco {totalBanco > 0 ? `(${totalBanco} licencias)` : ''}
+            </button>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
