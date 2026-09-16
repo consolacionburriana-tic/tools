@@ -367,6 +367,27 @@ Comprobado en producción: 1ºESO pasó de **48 castellano / 0 valencià** a **2
 La pantalla de Editoriales avisa si quedan clases sin idioma (`alumnosSinLengua`/`hayBilingues`),
 porque sin poner equivale a castellano y eso no se distingue a simple vista de una decisión.
 
+### Códigos repetidos en el Excel: el libro que desaparecía (2026-09-16)
+
+David añadió al Excel el «Ámbito Lingüístico y Social II» de 4ºPDC, sincronizó, el panel dijo
+que se había actualizado… y el libro **seguía sin salirle a su alumnado en el formulario**.
+
+La causa: en `BBDD Libros` había **dos filas con el mismo curso y el mismo código**
+(`4PDC` · `4ESO-PDC-LING`) — el Ámbito nuevo y la Religión de antes. Como la identidad de un
+libro es `(curso, cod)`, el upsert procesa las dos y **la última gana**: quedaba la Religión y
+el Ámbito no llegaba nunca a existir. El sync no mentía (sí había un cambio que aplicar), pero
+tampoco contaba lo importante.
+
+- **En el Excel**, la Religión de 4ºPDC necesita su propio código. Lo natural es `4ESO-REL`,
+  que es justo lo que hace 3ºPDC: `3ESO-PDC-CIEN` + `3ESO-PDC-LING` + `3ESO-REL`.
+- **En la app**, `getBooksSyncPlan` detecta ahora los códigos repetidos y la vista previa los
+  enseña en rojo antes de aplicar («solo se guardará el último de cada uno»). Un dato que se
+  pierde en silencio es peor que un error.
+
+> Ojo con quién ve el libro: al alumnado **del banco** no se le ofrecen los libros del banco
+> (los recibe gratis), así que este solo lo verían como marcable los de 4ºPDC que **no** están
+> en el banco — que es el caso de Álex Peris.
+
 ### Retocar las unidades a mano (2026-09-16)
 
 Las optativas fueron el motivo: el censo da a cada alumno del banco **todos** los libros del
@@ -388,10 +409,8 @@ viene se entienda de dónde salía el número.
 Precios, ISBN y editoriales están completos y en rango en los 57 libros activos. Lo que sí
 apareció, para mirarlo en el Excel `BBDD Libros`:
 
-- **4ºPDC tiene dos libros del banco y 3ºPDC tres.** A 4ºPDC le falta uno: `4ESO-PDC-LING`
-  está en el catálogo como «Religión» y con el **ISBN de `4ESO-REL`** (978-84-683-6462-9), en
-  vez de ser el Ámbito Lingüístico y Social II que sería su pareja de `4ESO-PDC-CIEN`. En 3ºPDC
-  sí están los tres (`CIEN`, `LING` y la religión compartida con 3ºESO).
+- **4ºPDC tiene dos libros del banco y 3ºPDC tres** → causa encontrada el 16-sep-2026, ver
+  «Códigos repetidos» abajo.
 - **13 pedidos confirmados sin ninguna licencia** (total 0 €), sobre todo de PDC y 6ºEP. Cuentan
   como «ya han pedido» en el panel y en Quién falta, así que nadie les reclama, pero no van a
   recibir nada. Puede ser correcto («no quiero licencias») o que la familia se atascara en el

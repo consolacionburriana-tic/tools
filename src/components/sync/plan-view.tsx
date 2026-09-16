@@ -28,6 +28,8 @@ export interface Plan {
   toDeactivate: DeactivateItem[];
   unchanged: number;
   outOfScope?: number;
+  /** Filas del origen que comparten identidad: solo se guardará la última de cada grupo. */
+  duplicados?: { key: string; curso: string; cod: string; labels: string[] }[];
 }
 
 function Changes({ changes }: { changes: FieldChange[] }) {
@@ -63,6 +65,25 @@ export function PlanView({ plan }: { plan: Plan }) {
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           {warnings.length} elemento(s) con aviso — revisa antes de confirmar.
         </p>
+      )}
+      {plan.duplicados != null && plan.duplicados.length > 0 && (
+        <div className="rounded-lg bg-red-50 p-2 text-xs text-red-800 dark:bg-red-500/10 dark:text-red-200">
+          <p className="flex items-start gap-1.5 font-medium">
+            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {plan.duplicados.length} código(s) repetidos en el mismo curso: solo se guardará el último de cada uno.
+          </p>
+          <ul className="mt-1 space-y-0.5 pl-5">
+            {plan.duplicados.map((d) => (
+              <li key={d.key}>
+                <strong>
+                  {d.curso} · {d.cod}
+                </strong>
+                : {d.labels.join(' / ')}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 pl-5">Ponles códigos distintos en el Excel o uno de los dos no existirá.</p>
+        </div>
       )}
 
       <button type="button" onClick={() => setOpen(open === 'insert' ? null : 'insert')} className="flex w-full items-center justify-between text-left font-medium text-zinc-700 disabled:opacity-30 dark:text-zinc-200" disabled={plan.toInsert.length === 0}>

@@ -1165,6 +1165,30 @@ export interface BookSyncPlan {
   toUpdate: BookPlanItem[];
   toDeactivate: { key: string; cod: string; curso: string; label: string }[];
   unchanged: number;
+  /**
+   * Filas del Excel que comparten curso y código: como la identidad de un libro es
+   * `(curso, cod)`, el upsert se queda con la última y las demás desaparecen sin avisar.
+   * Le pasó al Ámbito Lingüístico de 4ºPDC, que se añadió al Excel con el mismo código que la
+   * Religión y quedó pisado, así que su alumnado no lo veía en el formulario.
+   */
+  duplicados: { key: string; curso: string; cod: string; labels: string[] }[];
+}
+
+/** Agrupa por `(curso, cod)` y devuelve los grupos con más de una fila. */
+function duplicadosDelSheet(rows: SheetBookRow[]): BookSyncPlan['duplicados'] {
+  const porClave = new Map<string, SheetBookRow[]>();
+  for (const r of rows) {
+    const k = `${r.curso}::${r.cod}`;
+    porClave.set(k, [...(porClave.get(k) ?? []), r]);
+  }
+  return [...porClave.entries()]
+    .filter(([, filas]) => filas.length > 1)
+    .map(([key, filas]) => ({
+      key,
+      curso: filas[0].curso,
+      cod: filas[0].cod,
+      labels: filas.map((f) => f.asignatura || f.nombreLibro || '(sin asignatura)'),
+    }));
 }
 
 function bookLabel(r: { editorial: string | null; asignatura: string | null; curso: string }) {
@@ -1214,7 +1238,7 @@ export async function getBooksSyncPlan(campaignId: string): Promise<BookSyncPlan
     .filter((b) => !sheetKeys.has(`${b.curso}::${b.cod}`))
     .map((b) => ({ key: `${b.curso}::${b.cod}`, cod: b.cod, curso: b.curso, label: bookLabel(b) }));
 
-  return { toInsert, toUpdate, toDeactivate, unchanged };
+  return { toInsert, toUpdate, toDeactivate, unchanged, duplicados: duplicadosDelSheet(rows) };
 }
 
 // ── Sincronizar catálogo de libros desde la pestaña "BBDD Libros" del Google Sheet ─────
