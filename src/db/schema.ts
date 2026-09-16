@@ -580,6 +580,37 @@ export const licEmailTemplates = pgTable('lic_email_templates', {
 });
 export type LicEmailTemplate = typeof licEmailTemplates.$inferSelect;
 
+// Una fila por fichero de pedido generado en Drive. `tiradaId` agrupa los de una misma
+// pulsación del botón: los pasos siguientes (PDF y marcar como hechos) actúan sobre lo que se
+// generó, no sobre lo que haya pendiente después. Ver licencias-pedidos-editorial.sql
+export const licPedidosEditorial = pgTable(
+  'lic_pedidos_editorial',
+  {
+    id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id, { onDelete: 'cascade' }),
+    tiradaId: uuid('tirada_id').notNull(),
+    tipo: text('tipo').notNull(), // 'pago' | 'banco'
+    editorial: text('editorial').notNull(),
+    nombre: text('nombre').notNull(),
+    sheetId: text('sheet_id'),
+    sheetUrl: text('sheet_url'),
+    pdfId: text('pdf_id'),
+    pdfUrl: text('pdf_url'),
+    unidades: integer('unidades').notNull().default(0),
+    libros: integer('libros').notNull().default(0),
+    importe: numeric('importe', { precision: 10, scale: 2 }).notNull().default('0'),
+    /** Solo en las tiradas de pago: los pedidos que entraron en el fichero. */
+    orderIds: jsonb('order_ids').$type<string[]>(),
+    marcadoAt: timestamp('marcado_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('lic_pedidos_editorial_campaign_idx').on(t.campaignId, t.createdAt),
+    index('lic_pedidos_editorial_tirada_idx').on(t.tiradaId),
+  ],
+);
+export type LicPedidoEditorial = typeof licPedidosEditorial.$inferSelect;
+
 // ─── Types Licencias ──────────────────────────────────────────────────────────
 export type LicCampaign = typeof licCampaigns.$inferSelect;
 export type NewLicCampaign = typeof licCampaigns.$inferInsert;

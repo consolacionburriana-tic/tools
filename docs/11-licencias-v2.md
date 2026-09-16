@@ -286,6 +286,44 @@ Los tres inflaban o desviaban el pedido a la editorial. Los dos primeros venían
    pedirlo a la editorial es tirar el dinero.
 3. **Todo se pedía en castellano.** Ver el apartado siguiente: eran dos fallos encadenados.
 
+### Los pedidos, en Google Sheets por editorial (2026-09-16)
+
+David: «los gratuitos por un lado y los de pago por otro, de manera que por editorial haya dos
+Google Sheets». Tres botones en `/gestion/licencias/editoriales`, que se dan por separado a
+propósito — se puede generar, ir a Drive a mirar cómo ha quedado, y solo entonces confirmar:
+
+1. **Generar los pedidos** → un Sheet por editorial y tipo en la carpeta «# Licencias 2026 -
+   SALIDA», con las columnas de la plantilla del colegio (`COD · Editorial · ISBN · UDs · Curso ·
+   Asignatura · Proyecto - Nombre Libro · Banco Libros · Precio · Fecha informe editorial`) y
+   una fila de totales. Solo se genera el fichero que tenga datos: Cambridge no tiene banco y
+   Bromera casi no tiene pago.
+2. **Pasar a PDF** → el PDF se deja al lado de su Sheet, en la misma carpeta.
+3. **Marcar como pedidos** → pone el 🧾 a los pedidos que entraron en esos ficheros.
+
+**Por qué una tabla (`lic_pedidos_editorial`) y no marcar directamente:** entre generar y
+confirmar puede entrar un pedido nuevo, y ese no iba en el Sheet que se mandó a la editorial.
+`tirada_id` agrupa los ficheros de una pulsación y guarda sus `order_ids`, así que el paso 3
+marca **lo que se generó**, no lo que hubiera pendiente en ese momento. El pedido que llegue
+entre medias sale en la tirada siguiente, que es lo correcto.
+
+Detalles que costaron ratos y conviene no volver a pensar:
+
+- **El .xlsx se escribe a mano** (`licencias-pedidos.ts` sobre `xlsx-escribir.ts`) y se sube a
+  Drive **con conversión** a Google Sheet, el mismo truco que el cuaderno de tutor con .docx.
+  No se copia la plantilla de Drive: son diez columnas y una fila de cabecera, y así el
+  generador no depende de que nadie toque el fichero plantilla.
+- **El ISBN va como texto**: en número, Sheets redondea los 13 dígitos a notación científica y
+  se pierde el último. En el pedido de agosto de 2025 se ve el estropicio.
+- **Reutiliza el motor de Drive del cuaderno** (`src/lib/cuaderno/drive.ts`): subida con
+  conversión, exportación a PDF, reintentos con espera y la comprobación de que la carpeta está
+  en una unidad compartida y se puede escribir. Ahí está también el aprendizaje de por qué no
+  vale «Mi unidad» (la cuenta de servicio no tiene cuota propia).
+- **Los CSV siguen estando**, en un `<details>` de «Otras opciones» al final de la pantalla, por
+  decisión expresa de David: si algún día Drive falla, el fichero suelto sigue saliendo.
+
+Probado de punta a punta contra la carpeta real el 16-sep-2026: 8 Sheets y 8 PDF (5 de pago,
+3 del banco), con los ISBN enteros y los totales cuadrando.
+
 ### Idioma por clase (2026-09-16)
 
 La línea lingüística **es de la clase, no del alumno**, y cambia cada curso: este año 1º y 2º de
