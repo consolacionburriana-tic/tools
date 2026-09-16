@@ -2,7 +2,7 @@
 // testearlos, y para que la pantalla de seguimiento y el CSV compartan EL MISMO criterio
 // de estado (antes `cuboDe` vivía suelto en el componente).
 
-export type Cubo = 'pendientes' | 'entregados' | 'validados' | 'no_van';
+export type Cubo = 'pendientes' | 'entregados' | 'no_van';
 
 /** Lo mínimo que necesita el export de cada fila del seguimiento. */
 export interface AlumnoSeguimientoExport {
@@ -16,26 +16,23 @@ export interface AlumnoSeguimientoExport {
   manualIdentificador: string | null;
 }
 
-/** En qué cubo cae un alumno del seguimiento. */
+/** En qué cubo cae un alumno del seguimiento. No hay validación: un justificante está
+ *  enviado o no lo está. */
 export function cuboDe(a: Pick<AlumnoSeguimientoExport, 'estado' | 'justificanteEstado'>): Cubo {
   if (a.estado === 'no_va') return 'no_van';
-  if (a.justificanteEstado === 'validado') return 'validados';
-  if (a.justificanteEstado === 'subido' || a.justificanteEstado === 'rechazado') return 'entregados';
+  if (a.justificanteEstado === 'subido') return 'entregados';
   return 'pendientes';
 }
 
-/** Etiqueta del estado. En las salidas de pago en mano, "validado" se lee "pagado". */
+/** Etiqueta del estado. En las salidas de pago en mano, "entregado" se lee "pagado". */
 export function estadoLabel(cubo: Cubo, tipoPago: string): string {
   if (cubo === 'no_van') return 'No va';
-  if (cubo === 'validados') return tipoPago === 'mano' ? 'Pagado' : 'Validado';
-  if (cubo === 'entregados') return 'Entregado';
+  if (cubo === 'entregados') return tipoPago === 'mano' ? 'Pagado' : 'Entregado';
   return 'Pendiente';
 }
 
 const JUSTIFICANTE_LABEL: Record<string, string> = {
-  subido: 'Subido, sin validar',
-  validado: 'Validado',
-  rechazado: 'Rechazado',
+  subido: 'Enviado',
 };
 
 const fmtFecha = (f: Date | string | null): string => (f ? new Date(f).toLocaleDateString('es-ES') : '');

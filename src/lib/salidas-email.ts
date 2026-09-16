@@ -80,11 +80,11 @@ export async function sendJustificanteAlert(input: {
           <strong>${stats.entregados}</strong> de <strong>${entregables}</strong> justificantes entregados (${pct} %)
         </p>
         <p style="margin:4px 0 0;font-size:13px;color:#71717a;">
-          ${stats.pendientes} pendientes · ${stats.validados} ya validados · ${stats.noVan} no van${stats.manuales > 0 ? ` · <strong style="color:#b45309">⚠️ ${stats.manuales} entrada(s) manual(es) por enlazar</strong>` : ''}
+          ${stats.pendientes} pendientes · ${stats.noVan} no van${stats.manuales > 0 ? ` · <strong style="color:#b45309">⚠️ ${stats.manuales} entrada(s) manual(es) por enlazar</strong>` : ''}
         </p>
       </div>
       <p style="margin:16px 0 0;font-size:13px;color:#71717a;">
-        Revísalo y valídalo en el panel: <a href="${appBaseUrl()}/gestion/salidas/${trip.id}" style="color:#2563eb;">gestión de la salida</a>.
+        Míralo en el panel: <a href="${appBaseUrl()}/gestion/salidas/${trip.id}" style="color:#2563eb;">gestión de la salida</a>.
       </p>
     </div>
 
