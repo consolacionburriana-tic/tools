@@ -243,14 +243,25 @@ export interface AlumnoLista {
   bancoLibros: boolean;
   ampa: boolean;
   /**
-   * `true` = la familia ha dicho que NO a la imagen, y por eso la fila lleva la cámara
-   * tachada. `null` = no consta, o la protección de datos de ese alumno no le toca a quien
-   * mira (un tutor solo ve la de su tutoría): en los dos casos no se pinta nada, porque una
-   * fila no puede distinguir «no lo sé» de «no te lo digo» sin contar lo segundo.
+   * La protección de datos, resumida, para la fila de la lista y para la tabla por clase.
+   * `null` = la de ese alumno no le toca a quien mira (un tutor solo ve la de su tutoría),
+   * y entonces ni se pinta nada ni se manda por la red.
+   *
+   * Viaja en el HTML con el listado a propósito: son cinco booleanos por alumno, y a cambio
+   * la tabla de la clase entera se pinta y se corrige sin una sola petición extra.
    */
-  sinImagen: boolean | null;
+  proteccion: ProteccionLista | null;
   /** `true` = tiene el pedido de licencias hecho; `false` = le toca y no lo tiene; null = no le toca. */
   pedidoHecho: boolean | null;
+}
+
+/** Lo mínimo de la protección de datos para pintar una fila o una celda de la tabla. */
+export interface ProteccionLista {
+  imagen: boolean | null;
+  redes: boolean | null;
+  ampa: boolean | null;
+  ong: boolean | null;
+  firmada: boolean;
 }
 
 export interface ClaseListado {
@@ -290,6 +301,10 @@ export async function listaAlumnado(
         bancoLibros: eduStudents.bancoLibros,
         ampa: eduStudents.ampa,
         pdImagen: eduStudents.pdImagen,
+        pdRedes: eduStudents.pdRedes,
+        pdAmpa: eduStudents.pdAmpa,
+        pdOng: eduStudents.pdOng,
+        pdFirmada: eduStudents.pdFirmada,
       })
       .from(eduStudents)
       .where(eq(eduStudents.active, true)),
@@ -343,7 +358,10 @@ export async function listaAlumnado(
       }),
       bancoLibros: f.bancoLibros,
       ampa: f.ampa,
-      sinImagen: proteccion && veProteccionDe(proteccion, f) ? f.pdImagen === false : null,
+      proteccion:
+        proteccion && veProteccionDe(proteccion, f)
+          ? { imagen: f.pdImagen, redes: f.pdRedes, ampa: f.pdAmpa, ong: f.pdOng, firmada: f.pdFirmada }
+          : null,
       pedidoHecho: pedidos.has(f.id) ? pedidos.get(f.id)! : null,
     });
   }
@@ -1011,4 +1029,55 @@ export async function claseDeAlumno(id: string): Promise<{ curso: string | null;
     .where(eq(eduStudents.id, id))
     .limit(1);
   return fila ?? null;
+}
+
+/**
+ * Lo mismo, pero para una clase entera: es la única forma de que esto se llene algún día.
+ * Poner «sí a todo» en 2º ESO B son 25 alumnos × 5 casillas, y a mano eso no lo hace nadie.
+ *
+ * El alcance NO se da por bueno porque venga en el cuerpo de la petición: se leen las clases
+ * de esos ids en la BBDD y se descarta lo que quede fuera, así que quien manda una lista con
+ * un alumno que no le toca se queda sin ese alumno, no con un 403 y el resto sin guardar.
+ * Devuelve los que de verdad se han tocado, que es lo que la pantalla repinta.
+ */
+export async function guardarProteccionMasiva(
+  ids: readonly string[],
+  cambios: CambioProteccion,
+  porEmail: string,
+  alcance: { general: { curso: string; letra: string | null }[] | null; proteccion: AlcanceProteccion },
+): Promise<{ filas: (ProteccionLista & { id: string })[] }> {
+  const filas = await db
+    .select({ id: eduStudents.id, curso: eduStudents.curso, letra: eduStudents.letra })
+    .from(eduStudents)
+    .where(and(inArray(eduStudents.id, [...ids]), eq(eduStudents.active, true)));
+
+  const permitidos = filas
+    .filter((f) => puedeConAlumno(alcance.general, f) && veProteccionDe(alcance.proteccion, f))
+    .map((f) => f.id);
+  if (permitidos.length === 0) return { filas: [] };
+
+  const set: Record<string, unknown> = { pdActualizadoAt: new Date(), pdActualizadoPor: porEmail, updatedAt: new Date() };
+  for (const campo of CAMPOS_PROTECCION) {
+    if (cambios[campo] !== undefined) set[COLUMNA_PD[campo]] = cambios[campo];
+  }
+  if (cambios.firmada !== undefined) set.pdFirmada = cambios.firmada;
+  if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
+
+  const tocadas = await db
+    .update(eduStudents)
+    .set(set)
+    .where(inArray(eduStudents.id, permitidos))
+    .returning({
+      id: eduStudents.id,
+      imagen: eduStudents.pdImagen,
+      redes: eduStudents.pdRedes,
+      ampa: eduStudents.pdAmpa,
+      ong: eduStudents.pdOng,
+      firmada: eduStudents.pdFirmada,
+    });
+
+  // Se devuelven TODAS, no una de muestra: el cambio es el mismo para todas, pero las demás
+  // columnas no lo son, y la tabla tiene que repintar la fila entera con lo que hay en la
+  // BBDD, no con lo que ella creía.
+  return { filas: tocadas };
 }

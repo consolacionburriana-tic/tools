@@ -91,11 +91,16 @@ exactamente la deuda que documenta
    | **AMPA** | Que el AMPA publique fotos suyas en sus canales |
    | **ONG** | Cesión a la ONG (MCM) para sus materiales y campañas |
 
-   Cada uno vale **sí · no · no consta**, y ese tercer estado es la decisión importante: hoy
-   no consta ninguno, porque el papel se queda en secretaría y Educamos no lo exporta. Un
-   `false` por defecto diría «esta familia ha dicho que no» —y nadie publicaría una foto en
-   todo el curso—; un `true` por defecto publicaría fotos de quien dijo que no. Las dos
-   cosas son mentira y una de ellas acaba en internet.
+   Cada uno vale **sí · no · no consta**. El **punto de partida es «sí a todo»** (David,
+   17-sep-2026): el SQL de estreno pone los cuatro a `true` en el alumnado activo, las altas
+   nuevas entran igual (`DEFAULT true`) y a partir de ahí **se marcan los noes según
+   llegan**, que es como trabaja el colegio de verdad. El `null` no desaparece: se queda
+   para lo que alguien desmarque a mano, y la pantalla lo pinta como «sin constar».
+
+   `pd_firmada` se queda aparte y en `false`: el punto de partida de trabajo no es un papel
+   firmado, y ponerlo a `true` sería decir que hay 639 firmas que no existen. Por eso el
+   chip de la ficha, cuando todo está autorizado pero sin firmar, sale **verde con un «sin
+   firmar» al lado** y no en ámbar: un aviso que sale en las 639 fichas no lo lee nadie.
 
    Van como columnas `pd_*` de `edu_students`, no en una tabla nueva: es un dato por alumno
    que no tiene histórico ni pertenece a ningún módulo, igual que `banco_libros` y `ampa`.
@@ -127,6 +132,21 @@ exactamente la deuda que documenta
     dirección/TIC **con** el módulo del banco). Quien no lo tenga, los ve como chips y no
     ve interruptores.
 
+12. **La pantalla tiene dos vistas: fichas y tabla de protección de datos** (David,
+    17-sep-2026). La ficha responde por una persona; llenar esto son 639 alumnos × 5
+    casillas, y eso no se hace ficha a ficha. La pestaña «Protección de datos» enseña la
+    clase elegida como tabla —una fila por alumno, una columna por permiso— con:
+
+    - **un toque por celda**, que cicla sí → no → sin constar;
+    - **«todos sí» y «todos no» en la cabecera de cada columna**, que es lo que se pidió por
+      columna: entra una autorización nueva y se resuelve sin bajar por las 25 filas;
+    - **«Poner todo a SÍ»** para la clase entera, y «Marcar firmadas».
+
+    Todo lo masivo pide **un segundo toque** y en él dice a cuántos va a afectar: cambiar 25
+    fichas sin querer es un mal rato, y el segundo toque cuesta medio segundo. Y el alcance
+    no se cree lo que venga en la petición: la ruta masiva lee en la BBDD las clases de esos
+    ids y descarta lo que no le toque a quien pulsa.
+
 ---
 
 ## Lo que se enseña, y de dónde sale
@@ -150,7 +170,7 @@ Inventariado contra los **639 alumnos activos** de Neon (10-sep-2026), no contra
 | Banco de libros (sí/no, lote, entregado, libros valorados) | `edu_students.banco_libros` + `bl_*` | 492 participan; 21 lotes asignados |
 | Licencias (participa, pedido hecho, importe, pagado, libros) | `lic_students` + `lic_orders` + `lic_order_items` | 348 participan, 206 con pedido |
 | AMPA (familia socia) | `edu_students.ampa` | 15 |
-| **Protección de datos** (imagen y voz, redes, AMPA, ONG + firmada) | `edu_students.pd_*` | 0 de momento: se llenan a mano desde la ficha |
+| **Protección de datos** (imagen y voz, redes, AMPA, ONG + firmada) | `edu_students.pd_*` | todos a «sí» de salida; los noes se marcan desde la ficha o la tabla |
 | Puntualidad (retrasos, minutos, justificados, consecuencias) | `pun_records` + `con_consequences` | 0 (curso recién empezado) |
 | Salidas (apuntado, justificante) | `sal_signups` + `sal_trips` | 3 |
 | ABC (nº de informes, último) | `abc_students` + `abc_behavior_reports` | 7 informes, 1 alumno |
@@ -202,6 +222,7 @@ src/lib/alumnado-server.ts                 # listaAlumnado() y fichaAlumno(): la
 src/app/api/alumnado/[id]/route.ts         # la ficha completa, con guard y alcance
 src/app/api/alumnado/[id]/proteccion/...   # cambiar los 4 permisos + firmada + notas
 src/app/api/alumnado/[id]/participacion/…  # banco de libros y AMPA (llama a bancolibros-server)
+src/app/api/alumnado/proteccion/route.ts   # masivo: una columna, o la clase entera
 src/app/gestion/alumnado/                  # layout (guard de módulo) + página + loading
 src/components/alumnado/alumnado-panel.tsx # clases, buscador, lista y orquestación
 src/components/alumnado/ficha-alumno.tsx   # la ficha, en el orden de la tabla de arriba
@@ -297,14 +318,21 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
 - [x] Chip arriba del todo: **rojo** si la familia ha dicho que no a la imagen, ámbar si falta
       la firma o hay algún no, verde si está todo autorizado
 - [x] Cámara tachada en la fila de la lista, solo para alumnado cuya protección de datos te toca
+- [x] Vista «Protección de datos»: la clase entera en tabla, un toque por celda, «todos sí /
+      todos no» por columna y «Poner todo a SÍ» para la clase, todo con segundo toque de
+      confirmación (17-sep-2026)
+- [x] Botón «Todo sí» también en la ficha individual
+- [x] Punto de partida «sí a todo» en el SQL de estreno (`UPDATE … WHERE pd_x IS NULL`, así que
+      relanzarlo no pisa ningún «no» ya marcado) y `DEFAULT true` para las altas nuevas
 - [x] `pnpm test`, `pnpm lint`, `pnpm build` en verde
 - [~] **Aplicar `src/db/sql/proteccion-datos.sql` en Neon** — escrito y probado en seco
       (`pnpm db:sql --pendientes --dry`), pero el contenedor de esta sesión no tiene el host de
       Neon en su allowlist de red. **Hasta que se aplique, `/gestion/alumnado` da error**:
       `pnpm db:sql --pendientes` desde el portátil y listo
 - [ ] Probado contra la app con datos reales (pendiente de lo anterior)
-- [ ] Repasar con secretaría cómo van a cargar las ~639 fichas: a mano una a una es un mes de
-      trabajo. Ver `00-desarrollos-futuros.md`
+- [ ] Ver cómo va la carga real con secretaría: con el arranque en «sí» y los masivos por
+      clase, lo que queda es marcar los noes. Si aparece un Excel con las autorizaciones,
+      un importador por NIA sigue siendo la opción rápida (`00-desarrollos-futuros.md`)
 
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la

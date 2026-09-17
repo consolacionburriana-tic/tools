@@ -48,6 +48,7 @@ export default async function AlumnadoPage({
         etapas={alcance.etapas}
         propias={alcance.propias}
         fichaInicial={fichaInicial}
+        puedeEditarProteccion={pd.edita}
       />
     </div>
   );

@@ -26,19 +26,21 @@ perder ideas por el camino.
 ### Protección de datos: ¿cómo se cargan las 639 fichas? (17-sep-2026)
 
 La ficha de Alumnado ya tiene los cuatro permisos (imagen y voz, redes, AMPA, ONG), tri-estado,
-editables por secretaría/dirección/TIC, y hoy **están todos en «no consta»**: Educamos no
-exporta este dato y el papel firmado se queda en secretaría. A mano son 639 fichas × 5
-interruptores. Tres caminos, y es decisión de David:
+editables por secretaría/dirección/TIC. **Decidido el 17-sep-2026: se arranca con todos en
+«sí»** (el SQL de estreno los pone, y las altas nuevas entran igual) y se van marcando los
+noes; en la pantalla hay tabla por clase con masivos por columna. Lo que sigue sin decidir es
+de dónde salen los noes reales, porque Educamos no exporta este dato y el papel se queda en
+secretaría. Tres caminos:
 
 1. **Importar de una hoja**, si secretaría ya lleva la lista en un Excel: un importador como
    el de horarios (lee por cabecera, casa por NIA) y en una tarde está.
 2. **Preguntárselo a las familias** con un formulario público y magic link, como Salidas: se
    quedaría firmado por ellas y actualizado solo, pero es una campaña de correo que hay que
    querer mandar.
-3. **A mano, según vaya haciendo falta**: cero trabajo hoy, pero el dato tarda un curso en
-   estar completo y mientras tanto casi todo sigue en «no consta».
-
-Mientras no se decida, la pantalla es honesta: dice «no consta», que es la verdad.
+3. **A mano, según vaya haciendo falta**: cero trabajo hoy y es lo que hay montado, pero
+   hasta que alguien marque un «no», la app dice que ese alumno puede salir en fotos porque
+   así se decidió arrancar, no porque conste una firma. Por eso `pd_firmada` va aparte y
+   sigue en `false` en las 639: lo uno no se puede confundir con lo otro.
 
 ### ¿Qué más avisos van al tutor personal, aparte del tercer retraso?
 Desde el 2026-09-03 cada alumno puede tener **tutor personal** (uno de los dos o tres tutores de

@@ -289,12 +289,7 @@ describe('protección de datos', () => {
     expect(aviso.texto).toBe('Sin permiso de redes, AMPA');
   });
 
-  it('sin el papel firmado avisa, aunque no haya ningún no', () => {
-    expect(avisoProteccion(pd()).tono).toBe('ambar');
-    expect(avisoProteccion(pd()).texto).toBe('Protección de datos sin firmar');
-  });
-
-  it('firmada pero con huecos: gris, y dice cuáles faltan', () => {
+  it('con huecos sin marcar: gris, y dice cuáles faltan', () => {
     const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: true }));
     expect(aviso.tono).toBe('gris');
     expect(aviso.detalle).toBe('sin marcar: AMPA, ONG');
@@ -303,6 +298,12 @@ describe('protección de datos', () => {
   it('todo autorizado y firmado: verde y en una línea', () => {
     const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: true, ampa: true, ong: true }));
     expect(aviso).toEqual({ tono: 'verde', texto: 'Imagen autorizada' });
+  });
+
+  it('todo autorizado sin firma: sigue siendo verde, y lo dice al lado', () => {
+    // Desde que se arranca con «sí a todo», un ámbar aquí saldría en las 639 fichas.
+    const aviso = avisoProteccion(pd({ imagen: true, redes: true, ampa: true, ong: true }));
+    expect(aviso).toEqual({ tono: 'verde', texto: 'Imagen autorizada', detalle: 'sin firmar' });
   });
 
   it('«no consta» no es «ha dicho que no»', () => {

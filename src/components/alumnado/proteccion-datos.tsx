@@ -78,7 +78,24 @@ export function TarjetaProteccion({
   }
 
   return (
-    <Tarjeta titulo="Protección de datos">
+    <Tarjeta
+      titulo="Protección de datos"
+      accion={
+        proteccion && puedeEditar ? (
+          // El atajo del caso normal: la familia autoriza las cuatro cosas, y lo raro es el
+          // «no». Para una clase entera está la tabla de la pestaña de al lado.
+          <button
+            type="button"
+            disabled={guardando === 'todo'}
+            onClick={() => guardar('todo', { imagen: true, redes: true, ampa: true, ong: true }, 'proteccion')}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {guardando === 'todo' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            Todo sí
+          </button>
+        ) : undefined
+      }
+    >
       {proteccion ? (
         <>
           <div className="space-y-1">

@@ -320,8 +320,8 @@ export type TonoProteccion = 'rojo' | 'ambar' | 'verde' | 'gris';
  *
  *  1. Un NO a la imagen manda sobre todo lo demás y sale en ROJO: es el error caro.
  *  2. Un no a cualquiera de las otras tres, en ámbar y diciendo a cuál.
- *  3. Sin papel firmado, ámbar también: no consta nada, así que no hay permiso de nada.
- *  4. Todo autorizado, verde y en una línea.
+ *  3. Con huecos sin marcar, gris: ni sí ni no, y se dice cuáles.
+ *  4. Todo autorizado, verde; y si encima falta la firma, se dice al lado sin dar la nota.
  */
 export function avisoProteccion(pd: ProteccionDatos): { tono: TonoProteccion; texto: string; detalle?: string } {
   const noes = noAutorizados(pd);
@@ -338,17 +338,13 @@ export function avisoProteccion(pd: ProteccionDatos): { tono: TonoProteccion; te
   if (noes.length > 0) {
     return { tono: 'ambar', texto: `Sin permiso de ${noes.join(', ')}`, detalle: pd.firmada ? undefined : 'sin firmar' };
   }
-  if (!pd.firmada) {
-    return {
-      tono: 'ambar',
-      texto: 'Protección de datos sin firmar',
-      detalle: faltan.length < CAMPOS_PROTECCION.length ? 'con permisos anotados a mano' : undefined,
-    };
-  }
   if (faltan.length > 0) {
-    return { tono: 'gris', texto: 'Protección de datos firmada', detalle: `sin marcar: ${faltan.join(', ')}` };
+    return { tono: 'gris', texto: 'Protección de datos a medias', detalle: `sin marcar: ${faltan.join(', ')}` };
   }
-  return { tono: 'verde', texto: 'Imagen autorizada' };
+  // Todo autorizado. Que falte la firma se dice, pero en verde y de refilón: desde que el
+  // punto de partida es «sí a todo», un ámbar aquí saldría en las 639 fichas, y una alarma
+  // que sale siempre es una alarma que nadie lee.
+  return { tono: 'verde', texto: 'Imagen autorizada', detalle: pd.firmada ? undefined : 'sin firmar' };
 }
 
 /** ¿Hay algo aquí que no sea «todo en blanco»? Sirve para no pintar filas vacías. */

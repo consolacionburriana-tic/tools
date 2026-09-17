@@ -225,14 +225,15 @@ export const eduStudents = pgTable('edu_students', {
   bancoLibros: boolean('banco_libros').notNull().default(true),
   ampa: boolean('ampa').notNull().default(false),
   // ─ Protección de datos ─ Las cuatro autorizaciones que firma la familia al matricular.
-  // Son TRI-ESTADO a propósito: `true` autoriza, `false` NO autoriza y `null` = no consta.
-  // Un `false` por defecto diría "esta familia ha dicho que no", que es mentira y lleva a
-  // no publicar fotos de medio colegio; un `true` por defecto es peor todavía. Educamos no
-  // exporta estos campos (el papel se queda en secretaría), así que se llevan aquí a mano.
-  pdImagen: boolean('pd_imagen'), // imagen y voz: fotos y vídeos del colegio
-  pdRedes: boolean('pd_redes'), // publicarlas en web y redes del colegio
-  pdAmpa: boolean('pd_ampa'), // que el AMPA publique fotos suyas
-  pdOng: boolean('pd_ong'), // cesión a la ONG (MCM) para sus materiales
+  // Son TRI-ESTADO: `true` autoriza, `false` NO autoriza y `null` = no consta. El punto de
+  // partida es «sí a todo» (decisión de David, 17-sep-2026: se marcan los noes según
+  // llegan), y por eso las altas nuevas entran en `true`; el `null` se queda para lo que
+  // alguien desmarque a mano. Educamos no exporta estos campos —el papel se queda en
+  // secretaría—, así que se llevan desde la ficha de Alumnado.
+  pdImagen: boolean('pd_imagen').default(true), // imagen y voz: fotos y vídeos del colegio
+  pdRedes: boolean('pd_redes').default(true), // publicarlas en web y redes del colegio
+  pdAmpa: boolean('pd_ampa').default(true), // que el AMPA publique fotos suyas
+  pdOng: boolean('pd_ong').default(true), // cesión a la ONG (MCM) para sus materiales
   pdFirmada: boolean('pd_firmada').notNull().default(false), // el documento está firmado
   pdNotas: text('pd_notas'), // matices del papel («solo fotos de grupo»)
   pdActualizadoAt: timestamp('pd_actualizado_at'),
