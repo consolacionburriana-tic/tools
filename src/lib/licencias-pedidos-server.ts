@@ -1,7 +1,7 @@
 // Los tres pasos del pedido a editoriales: generar los Google Sheets, pasarlos a PDF y
 // marcarlos como pedidos. Cada uno es un botón, y se pueden dar por separado a propósito:
 // así se puede generar, mirar cómo ha quedado en Drive, y solo entonces confirmar.
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { licPedidosEditorial, type LicPedidoEditorial } from '@/db/schema';
 import {
@@ -9,7 +9,9 @@ import {
   borrarArchivo,
   copiarArchivo,
   exportarPdf,
+  reemplazarPdf,
   subirPdf,
+  urlArchivo,
   comprobarCarpetaBase,
   infoArchivo,
   driveConfigurado,
@@ -165,7 +167,15 @@ export async function generarPedidos(
   return { tiradaId, ficheros, errores };
 }
 
-/** Pasa a PDF los Sheets de una tirada y los deja al lado, en la misma carpeta. */
+/**
+ * Pasa a PDF los Sheets de una tirada y los deja al lado, en la misma carpeta.
+ *
+ * El PDF sale del Google Sheet **tal como esté en ese momento**, así que recoge lo que se haya
+ * retocado a mano en él. Por eso rehace SIEMPRE los de la tirada, también los que ya tenían
+ * PDF: antes solo hacía los que faltaban, y quien editaba el Sheet después de pasarlo a PDF se
+ * quedaba con el PDF viejo y sin forma de rehacerlo desde el panel. Se reemplaza el contenido
+ * del PDF que ya existía para no dejar dos con el mismo nombre en Drive ni romper su enlace.
+ */
 export async function generarPdfs(tiradaId: string): Promise<{
   hechos: LicPedidoEditorial[];
   errores: { nombre: string; error: string }[];
@@ -174,7 +184,7 @@ export async function generarPdfs(tiradaId: string): Promise<{
   const filas = await db
     .select()
     .from(licPedidosEditorial)
-    .where(and(eq(licPedidosEditorial.tiradaId, tiradaId), isNull(licPedidosEditorial.pdfId)));
+    .where(eq(licPedidosEditorial.tiradaId, tiradaId));
 
   const hechos: LicPedidoEditorial[] = [];
   const errores: { nombre: string; error: string }[] = [];
@@ -183,7 +193,12 @@ export async function generarPdfs(tiradaId: string): Promise<{
     if (!f.sheetId) continue;
     try {
       const pdf = await exportarPdf(f.sheetId);
-      const subido = await subirPdf({ nombre: f.nombre, carpetaId, pdf });
+      // Si ya había PDF se reemplaza su contenido (mismo enlace); si alguien lo borró a mano,
+      // `reemplazarPdf` devuelve false y se crea uno nuevo.
+      const reemplazado = f.pdfId ? await reemplazarPdf(f.pdfId, pdf) : false;
+      const subido = reemplazado
+        ? { id: f.pdfId!, url: f.pdfUrl ?? urlArchivo(f.pdfId!) }
+        : await subirPdf({ nombre: f.nombre, carpetaId, pdf });
       const [actualizada] = await db
         .update(licPedidosEditorial)
         .set({ pdfId: subido.id, pdfUrl: subido.url })

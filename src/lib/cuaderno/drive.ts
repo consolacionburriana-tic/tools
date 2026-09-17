@@ -248,6 +248,29 @@ export async function subirPdf(opciones: {
   return { id, url: urlArchivo(id) };
 }
 
+/**
+ * Reemplaza el contenido de un PDF que ya existe, conservando su id y su enlace: quien lo
+ * tuviera guardado sigue viendo el bueno. Si el archivo ya no está (borrado a mano), avisa con
+ * `false` para que quien llama lo cree de nuevo en vez de romperse.
+ */
+export async function reemplazarPdf(fileId: string, pdf: Buffer): Promise<boolean> {
+  const drive = getDrive();
+  try {
+    await conReintentos(() =>
+      drive.files.update({
+        fileId,
+        media: { mimeType: MIME_PDF, body: Readable.from(pdf) },
+        fields: 'id',
+        ...EN_UNIDADES_COMPARTIDAS,
+      }),
+    );
+    return true;
+  } catch (error) {
+    if (codigoDe(error) === 404) return false;
+    throw error;
+  }
+}
+
 const escaparConsulta = (texto: string) => texto.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
 /** Busca un archivo por nombre exacto dentro de una carpeta. */

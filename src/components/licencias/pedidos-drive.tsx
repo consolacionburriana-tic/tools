@@ -78,7 +78,8 @@ export function PedidosDrive({ drive, previa, tirada: tiradaInicial }: PedidosDr
 
   const totalFicheros = previa.pago.length + previa.banco.length;
   const hayTirada = tirada.length > 0;
-  const faltanPdf = tirada.some((f) => !f.pdfUrl);
+  // El PDF se puede rehacer siempre: sale del Sheet tal como esté, así que después de retocarlo
+  // a mano hay que poder volver a pasarlo.
   const sinMarcar = tirada.some((f) => !f.marcadoAt);
 
   async function accion(nombre: 'generar' | 'pdf' | 'marcar', confirmacion?: string) {
@@ -155,7 +156,8 @@ export function PedidosDrive({ drive, previa, tirada: tiradaInicial }: PedidosDr
         </p>
         <p className="mt-1 text-xs text-zinc-500">
           Ahora mismo saldrían <strong>{totalFicheros}</strong> ficheros: {previa.pago.length} de pago y{' '}
-          {previa.banco.length} del banco.
+          {previa.banco.length} del banco. El PDF sale del Sheet tal como esté, así que si retocas alguno a mano,
+          vuelve a pulsar el paso 2 y se rehace con tus cambios.
         </p>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -174,12 +176,12 @@ export function PedidosDrive({ drive, previa, tirada: tiradaInicial }: PedidosDr
           />
           <Paso
             n={2}
-            texto="Pasar a PDF"
+            texto={tirada.some((f) => f.pdfUrl) ? 'Rehacer los PDF' : 'Pasar a PDF'}
             icono={<FileText className="h-4 w-4" />}
             tono="gris"
             onClick={() => accion('pdf')}
             cargando={ocupado === 'pdf'}
-            disabled={!hayTirada || !faltanPdf || ocupado !== null}
+            disabled={!hayTirada || ocupado !== null}
           />
           <Paso
             n={3}
