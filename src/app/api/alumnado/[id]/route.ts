@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { alcanceAlumnado, fichaAlumno, puedeConAlumno } from '@/lib/alumnado-server';
+import {
+  alcanceAlumnado,
+  alcanceProteccion,
+  fichaAlumno,
+  fichaVisible,
+  puedeConAlumno,
+} from '@/lib/alumnado-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,9 +28,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   // En paralelo: la ficha no depende del alcance ni al revés, y encadenarlas costaba dos
   // viajes a Neon de más justo en la petición que se nota al tocar un alumno.
-  const [ficha, { clases }] = await Promise.all([
+  const [ficha, { clases, propias }] = await Promise.all([
     fichaAlumno(id),
-    // `conPropias: false`: aquí solo se comprueba el permiso, las tutorías no hacen falta.
+    // `conPropias: false` solo ahorra la consulta a quien lo ve todo; a un tutor se le
+    // traen igual, porque sus tutorías SON el alcance de la protección de datos.
     alcanceAlumnado(guard, { conPropias: false }),
   ]);
   if (!ficha) return NextResponse.json({ error: 'Ese alumno no existe' }, { status: 404 });
@@ -34,5 +41,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Ese alumno no existe' }, { status: 404 });
   }
 
-  return NextResponse.json({ ficha });
+  // La protección de datos va más cerrada que el resto de la ficha (un tutor solo la de su
+  // tutoría), así que la que no toca ni siquiera se manda por la red.
+  return NextResponse.json({ ficha: fichaVisible(ficha, guard, alcanceProteccion(guard, propias)) });
 }

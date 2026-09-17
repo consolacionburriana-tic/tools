@@ -23,6 +23,23 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Protección de datos: ¿cómo se cargan las 639 fichas? (17-sep-2026)
+
+La ficha de Alumnado ya tiene los cuatro permisos (imagen y voz, redes, AMPA, ONG), tri-estado,
+editables por secretaría/dirección/TIC, y hoy **están todos en «no consta»**: Educamos no
+exporta este dato y el papel firmado se queda en secretaría. A mano son 639 fichas × 5
+interruptores. Tres caminos, y es decisión de David:
+
+1. **Importar de una hoja**, si secretaría ya lleva la lista en un Excel: un importador como
+   el de horarios (lee por cabecera, casa por NIA) y en una tarde está.
+2. **Preguntárselo a las familias** con un formulario público y magic link, como Salidas: se
+   quedaría firmado por ellas y actualizado solo, pero es una campaña de correo que hay que
+   querer mandar.
+3. **A mano, según vaya haciendo falta**: cero trabajo hoy, pero el dato tarda un curso en
+   estar completo y mientras tanto casi todo sigue en «no consta».
+
+Mientras no se decida, la pantalla es honesta: dice «no consta», que es la verdad.
+
 ### ¿Qué más avisos van al tutor personal, aparte del tercer retraso?
 Desde el 2026-09-03 cada alumno puede tener **tutor personal** (uno de los dos o tres tutores de
 su clase; tabla `edu_tutor_personal`, reparto en `/gestion/profes`), y el **aviso del tercer
@@ -145,6 +162,11 @@ Recopilados de las fichas, para verlos de un vistazo:
   vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`)
   y relanzando `scripts/icono-app.py`. No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
+- **Aplicar el SQL pendiente en Neon** (17-sep-2026): `proteccion-datos.sql` —las 8 columnas
+  `pd_*` de `edu_students`— está escrito, es idempotente y pasa el `--dry`, pero el contenedor
+  de esa sesión no tenía el host de Neon en su allowlist de red. **Hasta que se aplique,
+  `/gestion/alumnado` da error** porque la ficha ya pide esas columnas. Un `pnpm db:sql
+  --pendientes` desde el portátil lo arregla.
 - **Aplicar el SQL pendiente en Neon**: `pnpm db:sql --pendientes` (la lista está en
   `src/db/sql/pendientes.txt` y en la cabecera de `plataforma.md`). Son tres, de la sesión
   del 2026-09-09, que no tenía `DATABASE_URL`: plantilla del cuaderno para varias etapas,

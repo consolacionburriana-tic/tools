@@ -46,6 +46,10 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   `puedeGestionarParticipantesBanco()` (`src/lib/permissions.ts`), con guard en las rutas
   `admin/banco` y `admin/ampa` y UI de solo lectura (switch deshabilitado, pestaña AMPA oculta)
   para quien no cumple.
+  Desde el 17-sep-2026, el banco y el AMPA de un alumno **también se pueden tocar desde su
+  ficha de Alumnado** (`POST /api/alumnado/[id]/participacion`), pero llamando a estos mismos
+  `setBanco`/`setAmpa` y exigiendo este mismo permiso: es otra puerta al mismo dato, no una
+  autoridad nueva ni una copia. Quien no cumpla, allí los ve como chips y sin interruptor.
 - **Resumen agregado** (por clase, sumado por curso, estilo "Por curso" de Licencias): `<details>`
   plegable encima de los chips de clase — cerrado enseña los totales de un vistazo (X/Y en
   banco, Z AMPA), abierto despliega la tabla por clase con subtotal por curso. Los chips de clase

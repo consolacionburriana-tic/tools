@@ -26,7 +26,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BookMarked, Library, Search, Users, X } from 'lucide-react';
+import { BookMarked, CameraOff, Library, Search, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FichaAlumnoPanel, useEscape } from '@/components/alumnado/ficha-alumno';
 import { casaBusqueda, colorAvatar, iniciales } from '@/lib/alumnado';
@@ -71,6 +71,10 @@ export function AlumnadoPanel({
     fichaInicial ? { [fichaInicial.id]: fichaInicial } : {},
   );
   const [fallidas, setFallidas] = useState<Record<string, true>>({});
+  // Lo que se cambia desde la ficha (protección de datos, banco, AMPA) no vuelve a pedir el
+  // listado entero: el listado viaja en el HTML y recargarlo por un interruptor costaría los
+  // ~90 KB de los 639. Se guarda aquí la corrección y la lista la aplica al pintar.
+  const [retoques, setRetoques] = useState<Record<string, Partial<AlumnoLista>>>({});
   // Ids ya pedidos (o en vuelo), para no pedir dos veces lo mismo. Solo se toca dentro de
   // manejadores y efectos, nunca durante el render.
   const pedidas = useRef<Set<string>>(new Set(fichaInicial ? [fichaInicial.id] : []));
@@ -89,10 +93,13 @@ export function AlumnadoPanel({
   // donde esté, no que te digan que en 2ºA no hay ningún Roldán.
   const buscando = termino.trim().length >= 2;
   const visibles = useMemo(() => {
-    if (buscando) return alumnos.filter((a) => casaBusqueda(a.busca, termino)).slice(0, 60);
-    if (!clase) return alumnos;
-    return alumnos.filter((a) => claveClase(a) === clase);
-  }, [alumnos, buscando, termino, clase]);
+    const base = buscando
+      ? alumnos.filter((a) => casaBusqueda(a.busca, termino)).slice(0, 60)
+      : clase
+        ? alumnos.filter((a) => claveClase(a) === clase)
+        : alumnos;
+    return base.map((a) => (retoques[a.id] ? { ...a, ...retoques[a.id] } : a));
+  }, [alumnos, buscando, termino, clase, retoques]);
 
   /** Trae la ficha y la guarda en la caché. Idempotente: un id solo se pide una vez. */
   const cargarFicha = useCallback(async (id: string) => {
@@ -110,6 +117,18 @@ export function AlumnadoPanel({
       setFallidas((f) => ({ ...f, [id]: true }));
       haptic.warning();
       toast.error(error instanceof Error ? error.message : 'No se pudo abrir la ficha');
+    }
+  }, []);
+
+  /** Lo que cambia la ficha vuelve a la caché y, si se ve en la fila, también a la lista. */
+  const actualizar = useCallback((id: string, cambio: Partial<FichaAlumno>) => {
+    setFichas((f) => (f[id] ? { ...f, [id]: { ...f[id], ...cambio } } : f));
+    const enLaFila: Partial<AlumnoLista> = {};
+    if (cambio.bancoLibros !== undefined) enLaFila.bancoLibros = cambio.bancoLibros;
+    if (cambio.ampa !== undefined) enLaFila.ampa = cambio.ampa;
+    if (cambio.proteccion) enLaFila.sinImagen = cambio.proteccion.imagen === false;
+    if (Object.keys(enLaFila).length > 0) {
+      setRetoques((r) => ({ ...r, [id]: { ...r[id], ...enLaFila } }));
     }
   }, []);
 
@@ -301,6 +320,11 @@ export function AlumnadoPanel({
                           <Library className="h-3.5 w-3.5 text-emerald-500" />
                         </span>
                       )}
+                      {a.sinImagen && (
+                        <span title="NO puede salir en fotos" aria-label="No puede salir en fotos">
+                          <CameraOff className="h-3.5 w-3.5 text-red-500" />
+                        </span>
+                      )}
                       {a.pedidoHecho === false && (
                         <span title="Licencias pendientes" aria-label="Licencias pendientes">
                           <BookMarked className="h-3.5 w-3.5 text-amber-500" />
@@ -325,7 +349,13 @@ export function AlumnadoPanel({
       {/* ── Columna derecha: la ficha ────────────────────────────────── */}
       <div className={abiertoId ? 'block' : 'hidden lg:block'}>
         <div className="lg:sticky lg:top-20">
-          <FichaAlumnoPanel ficha={ficha} cargando={cargando} onCerrar={cerrar} onIrA={abrir} />
+          <FichaAlumnoPanel
+            ficha={ficha}
+            cargando={cargando}
+            onCerrar={cerrar}
+            onIrA={abrir}
+            onActualizar={actualizar}
+          />
         </div>
       </div>
       </div>

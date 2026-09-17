@@ -224,6 +224,19 @@ export const eduStudents = pgTable('edu_students', {
   familiaId: text('familia_id'), // GUID ID FAMILIA
   bancoLibros: boolean('banco_libros').notNull().default(true),
   ampa: boolean('ampa').notNull().default(false),
+  // ─ Protección de datos ─ Las cuatro autorizaciones que firma la familia al matricular.
+  // Son TRI-ESTADO a propósito: `true` autoriza, `false` NO autoriza y `null` = no consta.
+  // Un `false` por defecto diría "esta familia ha dicho que no", que es mentira y lleva a
+  // no publicar fotos de medio colegio; un `true` por defecto es peor todavía. Educamos no
+  // exporta estos campos (el papel se queda en secretaría), así que se llevan aquí a mano.
+  pdImagen: boolean('pd_imagen'), // imagen y voz: fotos y vídeos del colegio
+  pdRedes: boolean('pd_redes'), // publicarlas en web y redes del colegio
+  pdAmpa: boolean('pd_ampa'), // que el AMPA publique fotos suyas
+  pdOng: boolean('pd_ong'), // cesión a la ONG (MCM) para sus materiales
+  pdFirmada: boolean('pd_firmada').notNull().default(false), // el documento está firmado
+  pdNotas: text('pd_notas'), // matices del papel («solo fotos de grupo»)
+  pdActualizadoAt: timestamp('pd_actualizado_at'),
+  pdActualizadoPor: text('pd_actualizado_por'), // correo de quien lo tocó por última vez
   active: boolean('active').notNull().default(true),
   extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN bloque pagadores)
   createdAt: timestamp('created_at').defaultNow().notNull(),

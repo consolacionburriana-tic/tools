@@ -1,16 +1,19 @@
 # Alumnado · la ficha de cada alumno
 
 **Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (navegador y ficha completos y
-probados contra datos reales; falta lo que salga de usarlo un par de semanas)
+probados contra datos reales; la protección de datos está escrita y probada en local, pero su
+SQL sigue pendiente de aplicar en Neon — ver el aviso al final)
 
 Pantalla de consulta de `/gestion/alumnado`: eliges una clase (o buscas), tocas a un alumno y
 tienes **todo lo que la plataforma sabe de él** en una sola vista, con lo importante arriba y
 todo lo copiable a un toque.
 
-No es un CRUD. Es **solo lectura y transversal**: no crea tablas ni duplica campos, lee `edu_*`
-como identidad y va a preguntar a cada módulo por lo suyo. Editar sigue estando donde estaba
-(el banco de libros en su panel, la puntualidad en el suyo), y eso es a propósito: duplicar
-datos mutables es exactamente la deuda que documenta
+Es **transversal y casi todo de solo lectura**: no crea tablas ni duplica campos, lee `edu_*`
+como identidad y va a preguntar a cada módulo por lo suyo. Lo único que se escribe desde aquí
+son cuatro interruptores que ya vivían en `edu_students` (protección de datos, banco de libros
+y AMPA), llamando al mismo código que su módulo y con su mismo permiso: la ficha **condensa la
+información, no se queda con la autoridad**. Nada se copia a una tabla nueva, que es
+exactamente la deuda que documenta
 [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md).
 
 ---
@@ -78,6 +81,52 @@ datos mutables es exactamente la deuda que documenta
    que la app invite a llamar a alguien que ha muerto es el tipo de fallo que no se puede
    permitir.
 
+9. **Protección de datos: cuatro permisos tri-estado, y viven en `edu_students`**
+   (David, 17-sep-2026). Son los cuatro que firma la familia al matricular:
+
+   | Campo | Qué autoriza |
+   |---|---|
+   | **Imagen y voz** | Que se le hagan fotos y vídeos en actividades del colegio |
+   | **Redes y web** | Publicarlas en la web y las redes del colegio |
+   | **AMPA** | Que el AMPA publique fotos suyas en sus canales |
+   | **ONG** | Cesión a la ONG (MCM) para sus materiales y campañas |
+
+   Cada uno vale **sí · no · no consta**, y ese tercer estado es la decisión importante: hoy
+   no consta ninguno, porque el papel se queda en secretaría y Educamos no lo exporta. Un
+   `false` por defecto diría «esta familia ha dicho que no» —y nadie publicaría una foto en
+   todo el curso—; un `true` por defecto publicaría fotos de quien dijo que no. Las dos
+   cosas son mentira y una de ellas acaba en internet.
+
+   Van como columnas `pd_*` de `edu_students`, no en una tabla nueva: es un dato por alumno
+   que no tiene histórico ni pertenece a ningún módulo, igual que `banco_libros` y `ampa`.
+   Se guarda además **quién** lo cambió y **cuándo** (`pd_actualizado_por` / `_at`): esto es
+   la voluntad de una familia, y tiene que poder rastrearse.
+
+   Ojo con el nombre: el permiso `pd_ampa` («que el AMPA publique fotos») **no es**
+   `edu_students.ampa` («la familia es socia del AMPA»). Se llaman igual y son dos cosas
+   distintas; las dos se editan desde esta pantalla, en bloques separados.
+
+10. **La protección de datos se ve más cerrada que el resto de la ficha** (David,
+    17-sep-2026): dirección, jefatura, orientación, secretaría y TIC la ven de todo el
+    centro; **un tutor solo la de su tutoría**, no la de toda su etapa. Sí, es una regla
+    distinta a la de la decisión 6, y es a propósito: lo demás son datos de gestión diaria
+    (a quién llamo, qué NIA tiene) y esto es la voluntad firmada de una familia sobre la
+    imagen de su hijo. Quien la necesita es quien va a publicar la foto de su clase.
+
+    Y **editarla es aún más estrecho**: secretaría, dirección y TIC. Ellos guardan los
+    papeles. Un tutor la ve y no la toca, porque si cada uno pudiera cambiarla el dato
+    dejaría de significar «lo que hay firmado» para significar «lo que le pareció a alguien».
+    Lo que no le toca a quien mira **no se le manda por la red**, no se esconde con CSS: la
+    API la quita de la respuesta (`fichaVisible`).
+
+11. **Banco de libros y AMPA se editan también desde aquí, con el permiso de su módulo.**
+    Era la petición de David: «que se pueda ajustar en su módulo concreto, pero el de
+    alumnos condense toda la información». La ruta de la ficha llama a `setBanco`/`setAmpa`
+    del banco de libros —los mismos, que además propagan el banco al snapshot de la campaña
+    de Licencias— y exige lo mismo que su panel (`puedeGestionarParticipantesBanco`:
+    dirección/TIC **con** el módulo del banco). Quien no lo tenga, los ve como chips y no
+    ve interruptores.
+
 ---
 
 ## Lo que se enseña, y de dónde sale
@@ -100,7 +149,8 @@ Inventariado contra los **639 alumnos activos** de Neon (10-sep-2026), no contra
 | Hermanos en el centro | `edu_students.familia_id` | 133 familias con 2+ |
 | Banco de libros (sí/no, lote, entregado, libros valorados) | `edu_students.banco_libros` + `bl_*` | 492 participan; 21 lotes asignados |
 | Licencias (participa, pedido hecho, importe, pagado, libros) | `lic_students` + `lic_orders` + `lic_order_items` | 348 participan, 206 con pedido |
-| AMPA | `edu_students.ampa` | 15 |
+| AMPA (familia socia) | `edu_students.ampa` | 15 |
+| **Protección de datos** (imagen y voz, redes, AMPA, ONG + firmada) | `edu_students.pd_*` | 0 de momento: se llenan a mano desde la ficha |
 | Puntualidad (retrasos, minutos, justificados, consecuencias) | `pun_records` + `con_consequences` | 0 (curso recién empezado) |
 | Salidas (apuntado, justificante) | `sal_signups` + `sal_trips` | 3 |
 | ABC (nº de informes, último) | `abc_students` + `abc_behavior_reports` | 7 informes, 1 alumno |
@@ -150,13 +200,17 @@ src/lib/alumnado.ts                        # helpers puros: búsqueda normalizad
                                            # banderitas del extra (con tests)
 src/lib/alumnado-server.ts                 # listaAlumnado() y fichaAlumno(): las dos queries
 src/app/api/alumnado/[id]/route.ts         # la ficha completa, con guard y alcance
+src/app/api/alumnado/[id]/proteccion/...   # cambiar los 4 permisos + firmada + notas
+src/app/api/alumnado/[id]/participacion/…  # banco de libros y AMPA (llama a bancolibros-server)
 src/app/gestion/alumnado/                  # layout (guard de módulo) + página + loading
 src/components/alumnado/alumnado-panel.tsx # clases, buscador, lista y orquestación
 src/components/alumnado/ficha-alumno.tsx   # la ficha, en el orden de la tabla de arriba
 src/components/alumnado/copiable.tsx       # Copiable, Dato y CopiarLista
 ```
 
-Sin tablas nuevas: **no hay SQL que aplicar**.
+Sin tablas nuevas. Sí hay **8 columnas nuevas** en `edu_students` (`pd_imagen`, `pd_redes`,
+`pd_ampa`, `pd_ong`, `pd_firmada`, `pd_notas`, `pd_actualizado_at`, `pd_actualizado_por`), en
+`src/db/sql/proteccion-datos.sql`: aditivo e idempotente.
 
 ### Rendimiento: lo que importa es el número de TANDAS, no las consultas
 
@@ -193,7 +247,13 @@ se marca en el mismo frame, sin esperar a la red.
 
 ### Permisos
 
-Módulo nuevo `alumnado` en `src/lib/permissions.ts`. Lo trae el rol de dirección, jefatura,
+Tres capas, no una: el **módulo** (quién entra), el **alcance** (a quién ve dentro) y, para la
+protección de datos, **quién la ve y quién la toca** (`veProteccionDatosCompleta` y
+`puedeEditarProteccionDatos`). Los tres se comprueban en el servidor —listado, HTML de
+`?alumno=` y rutas API—, y las rutas de escritura además vuelven a comprobar el alcance antes
+de tocar nada; fuera de alcance devuelven 404, no 403, por el mismo motivo que la de lectura.
+
+Módulo `alumnado` en `src/lib/permissions.ts`. Lo trae el rol de dirección, jefatura,
 orientación, secretaría, TIC y **tutor** (que ve su etapa). `profe` **no** lo trae por defecto:
 se le puede dar a mano desde `/gestion/usuarios` como cualquier otro módulo, y con el criterio
 de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cambiar una línea de
@@ -222,6 +282,29 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
 - [ ] Exportar a Google Sheets la tutoría entera desde aquí (reutilizando `lista-clase.ts`)
 - [ ] Foto del alumno, si algún día se saca de Educamos
 - [ ] Lo que salga de usarlo dos semanas
+
+### Fase 2 · Protección de datos y ajustes desde la ficha (17-sep-2026)
+- [x] Helpers puros: los cuatro permisos tri-estado, el aviso de la ficha (rojo si no puede
+      salir en fotos) y el reparto sí/no/no consta, con tests (`alumnado.test.ts`)
+- [x] `permissions.ts`: `veProteccionDatosCompleta` (dirección y demás ven el centro; el tutor,
+      su tutoría) y `puedeEditarProteccionDatos` (secretaría, dirección, TIC)
+- [x] `alumnado-server.ts`: alcance propio de la protección de datos, `fichaVisible()` (lo que
+      no te toca no se manda), `guardarProteccion()` firmado con quién y cuándo
+- [x] Rutas `POST /api/alumnado/[id]/proteccion` y `.../participacion`, con Zod, alcance y 404
+      (no 403) para quien está fuera
+- [x] Tarjeta editable en la ficha: los 4 permisos en sí/no/no consta, documento firmado,
+      notas, y los interruptores de banco de libros y AMPA para quien pueda
+- [x] Chip arriba del todo: **rojo** si la familia ha dicho que no a la imagen, ámbar si falta
+      la firma o hay algún no, verde si está todo autorizado
+- [x] Cámara tachada en la fila de la lista, solo para alumnado cuya protección de datos te toca
+- [x] `pnpm test`, `pnpm lint`, `pnpm build` en verde
+- [~] **Aplicar `src/db/sql/proteccion-datos.sql` en Neon** — escrito y probado en seco
+      (`pnpm db:sql --pendientes --dry`), pero el contenedor de esta sesión no tiene el host de
+      Neon en su allowlist de red. **Hasta que se aplique, `/gestion/alumnado` da error**:
+      `pnpm db:sql --pendientes` desde el portátil y listo
+- [ ] Probado contra la app con datos reales (pendiente de lo anterior)
+- [ ] Repasar con secretaría cómo van a cargar las ~639 fichas: a mano una a una es un mes de
+      trabajo. Ver `00-desarrollos-futuros.md`
 
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la

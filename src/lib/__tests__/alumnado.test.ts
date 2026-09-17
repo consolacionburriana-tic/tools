@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   avisoCumple,
+  avisoProteccion,
   casaBusqueda,
   claseLarga,
   colorAvatar,
@@ -12,8 +13,11 @@ import {
   esCorreo,
   indiceDeBusqueda,
   iniciales,
+  noAutorizados,
   normalizar,
   siNo,
+  sinConstar,
+  tieneProteccion,
   telefono,
   whatsapp,
 } from '@/lib/alumnado';
@@ -255,5 +259,62 @@ describe('quién puede con qué alumno', () => {
   it('distingue la letra, y trata null y ausente igual', () => {
     expect(puedeConAlumno([{ curso: '2ESO', letra: 'A' }], eso2b)).toBe(false);
     expect(puedeConAlumno([{ curso: '2ESO', letra: null }], { curso: '2ESO', letra: null })).toBe(true);
+  });
+});
+
+describe('protección de datos', () => {
+  const pd = (campos: Partial<Parameters<typeof avisoProteccion>[0]> = {}) => ({
+    imagen: null,
+    redes: null,
+    ampa: null,
+    ong: null,
+    firmada: false,
+    notas: null,
+    actualizadoAt: null,
+    actualizadoPor: null,
+    ...campos,
+  });
+
+  it('un NO a la imagen manda sobre todo lo demás y sale en rojo', () => {
+    const aviso = avisoProteccion(pd({ firmada: true, imagen: false, redes: false, ampa: true, ong: true }));
+    expect(aviso.tono).toBe('rojo');
+    expect(aviso.texto).toBe('NO puede salir en fotos');
+    // El de imagen no se repite en el detalle: ya lo dice el texto.
+    expect(aviso.detalle).toBe('tampoco redes');
+  });
+
+  it('un no a las otras es ámbar y dice a cuáles', () => {
+    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: false, ampa: false, ong: true }));
+    expect(aviso.tono).toBe('ambar');
+    expect(aviso.texto).toBe('Sin permiso de redes, AMPA');
+  });
+
+  it('sin el papel firmado avisa, aunque no haya ningún no', () => {
+    expect(avisoProteccion(pd()).tono).toBe('ambar');
+    expect(avisoProteccion(pd()).texto).toBe('Protección de datos sin firmar');
+  });
+
+  it('firmada pero con huecos: gris, y dice cuáles faltan', () => {
+    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: true }));
+    expect(aviso.tono).toBe('gris');
+    expect(aviso.detalle).toBe('sin marcar: AMPA, ONG');
+  });
+
+  it('todo autorizado y firmado: verde y en una línea', () => {
+    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: true, ampa: true, ong: true }));
+    expect(aviso).toEqual({ tono: 'verde', texto: 'Imagen autorizada' });
+  });
+
+  it('«no consta» no es «ha dicho que no»', () => {
+    const solo = pd({ imagen: false });
+    expect(noAutorizados(solo)).toEqual(['imagen']);
+    expect(sinConstar(solo)).toEqual(['redes', 'AMPA', 'ONG']);
+  });
+
+  it('tieneProteccion distingue lo vacío de lo anotado', () => {
+    expect(tieneProteccion(pd())).toBe(false);
+    expect(tieneProteccion(pd({ ong: true }))).toBe(true);
+    expect(tieneProteccion(pd({ firmada: true }))).toBe(true);
+    expect(tieneProteccion(pd({ notas: 'solo fotos de grupo' }))).toBe(true);
   });
 });
