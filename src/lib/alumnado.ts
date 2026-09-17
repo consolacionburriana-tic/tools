@@ -246,3 +246,107 @@ export function colorAvatar(id: string): string {
   for (let i = 0; i < id.length; i++) suma = (suma + id.charCodeAt(i)) % 4096;
   return COLORES_AVATAR[suma % COLORES_AVATAR.length];
 }
+
+// ─── Protección de datos ──────────────────────────────────────────────────────
+//
+// Las cuatro autorizaciones que firma la familia al matricular. Son TRI-ESTADO:
+// `true` autoriza · `false` NO autoriza · `null` no consta. Esa tercera posibilidad es la
+// importante: «no consta» no es «ha dicho que no», y tampoco es «se puede publicar». Quien
+// mira la ficha antes de subir una foto necesita ver la diferencia de un vistazo.
+
+export const CAMPOS_PROTECCION = ['imagen', 'redes', 'ampa', 'ong'] as const;
+export type CampoProteccion = (typeof CAMPOS_PROTECCION)[number];
+
+export const PROTECCION_LABELS: Record<CampoProteccion, { titulo: string; corto: string; ayuda: string }> = {
+  imagen: {
+    titulo: 'Imagen y voz',
+    corto: 'imagen',
+    ayuda: 'Fotos y vídeos hechos en actividades del colegio',
+  },
+  redes: {
+    titulo: 'Redes y web',
+    corto: 'redes',
+    ayuda: 'Publicarlas en la web y las redes del colegio',
+  },
+  ampa: {
+    titulo: 'AMPA',
+    corto: 'AMPA',
+    ayuda: 'Que el AMPA publique fotos suyas en sus canales',
+  },
+  ong: {
+    titulo: 'ONG',
+    corto: 'ONG',
+    ayuda: 'Cesión a la ONG (MCM) para sus materiales y campañas',
+  },
+};
+
+export interface ProteccionDatos {
+  imagen: boolean | null;
+  redes: boolean | null;
+  ampa: boolean | null;
+  ong: boolean | null;
+  /** ¿Está el documento firmado y guardado en secretaría? */
+  firmada: boolean;
+  notas: string | null;
+  actualizadoAt: string | null;
+  actualizadoPor: string | null;
+}
+
+/** Los cuatro permisos, sin la metainformación de la firma. */
+export const permisosDe = (pd: ProteccionDatos): Record<CampoProteccion, boolean | null> => ({
+  imagen: pd.imagen,
+  redes: pd.redes,
+  ampa: pd.ampa,
+  ong: pd.ong,
+});
+
+/** Lo que la familia ha dicho que NO, en el orden de siempre y con el nombre corto. */
+export function noAutorizados(pd: ProteccionDatos): string[] {
+  const permisos = permisosDe(pd);
+  return CAMPOS_PROTECCION.filter((c) => permisos[c] === false).map((c) => PROTECCION_LABELS[c].corto);
+}
+
+/** Los que no constan: ni sí ni no. */
+export function sinConstar(pd: ProteccionDatos): string[] {
+  const permisos = permisosDe(pd);
+  return CAMPOS_PROTECCION.filter((c) => permisos[c] === null).map((c) => PROTECCION_LABELS[c].corto);
+}
+
+export type TonoProteccion = 'rojo' | 'ambar' | 'verde' | 'gris';
+
+/**
+ * El chip que se pinta arriba del todo en la ficha, que es donde se mira antes de publicar
+ * una foto. El orden de la decisión no es casual:
+ *
+ *  1. Un NO a la imagen manda sobre todo lo demás y sale en ROJO: es el error caro.
+ *  2. Un no a cualquiera de las otras tres, en ámbar y diciendo a cuál.
+ *  3. Con huecos sin marcar, gris: ni sí ni no, y se dice cuáles.
+ *  4. Todo autorizado, verde; y si encima falta la firma, se dice al lado sin dar la nota.
+ */
+export function avisoProteccion(pd: ProteccionDatos): { tono: TonoProteccion; texto: string; detalle?: string } {
+  const noes = noAutorizados(pd);
+  const faltan = sinConstar(pd);
+
+  if (pd.imagen === false) {
+    const otros = noes.filter((n) => n !== PROTECCION_LABELS.imagen.corto);
+    return {
+      tono: 'rojo',
+      texto: 'NO puede salir en fotos',
+      detalle: otros.length > 0 ? `tampoco ${otros.join(', ')}` : undefined,
+    };
+  }
+  if (noes.length > 0) {
+    return { tono: 'ambar', texto: `Sin permiso de ${noes.join(', ')}`, detalle: pd.firmada ? undefined : 'sin firmar' };
+  }
+  if (faltan.length > 0) {
+    return { tono: 'gris', texto: 'Protección de datos a medias', detalle: `sin marcar: ${faltan.join(', ')}` };
+  }
+  // Todo autorizado. Que falte la firma se dice, pero en verde y de refilón: desde que el
+  // punto de partida es «sí a todo», un ámbar aquí saldría en las 639 fichas, y una alarma
+  // que sale siempre es una alarma que nadie lee.
+  return { tono: 'verde', texto: 'Imagen autorizada', detalle: pd.firmada ? undefined : 'sin firmar' };
+}
+
+/** ¿Hay algo aquí que no sea «todo en blanco»? Sirve para no pintar filas vacías. */
+export const tieneProteccion = (pd: ProteccionDatos): boolean =>
+  pd.firmada || Boolean(pd.notas) || CAMPOS_PROTECCION.some((c) => permisosDe(pd)[c] !== null);

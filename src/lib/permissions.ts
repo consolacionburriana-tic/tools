@@ -189,6 +189,37 @@ export function vePuntualidadCompleta(role: Role | null): boolean {
 }
 
 /**
+ * Dentro del módulo `alumnado`, la **protección de datos** (imagen y voz, redes, AMPA y
+ * ONG) va más cerrada que el resto de la ficha, por decisión de David: quien lleva el
+ * centro la ve entera, y un tutor **solo la de su tutoría**, no la de toda su etapa.
+ *
+ * Es a propósito que sea más estrecho que el alcance general del módulo: el resto de la
+ * ficha son datos de gestión del día a día (a quién llamo, qué NIA tiene), y esto es la
+ * voluntad que ha firmado una familia sobre la imagen de su hijo. Quien la necesita es
+ * quien va a publicar una foto de su propia clase.
+ */
+export function veProteccionDatosCompleta(role: Role | null): boolean {
+  return (
+    role === 'direccion' ||
+    role === 'jefe' ||
+    role === 'orientacion' ||
+    role === 'secretaria' ||
+    role === 'tic' ||
+    role === 'supertic'
+  );
+}
+
+/**
+ * Y EDITARLA es todavía más estrecho: los papeles firmados los guarda secretaría, y
+ * dirección/TIC arreglan lo que haga falta. Un tutor la ve (la suya) pero no la toca: si
+ * cada uno pudiera cambiarla desde la ficha, el dato dejaría de significar «lo que hay
+ * firmado» para significar «lo que le pareció a alguien».
+ */
+export function puedeEditarProteccionDatos(role: Role | null): boolean {
+  return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
+}
+
+/**
  * Los horarios van en DOS módulos a propósito, no en uno:
  *
  *   - `horarios`         → ver el horario de las CLASES. Abierto a todo el claustro: un

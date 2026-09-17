@@ -26,11 +26,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BookMarked, Library, Search, Users, X } from 'lucide-react';
+import { BookMarked, Camera, CameraOff, Library, List, Search, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FichaAlumnoPanel, useEscape } from '@/components/alumnado/ficha-alumno';
+import { TablaProteccion } from '@/components/alumnado/tabla-proteccion';
 import { casaBusqueda, colorAvatar, iniciales } from '@/lib/alumnado';
-import type { AlumnoLista, ClaseListado, FichaAlumno } from '@/lib/alumnado-server';
+import type { AlumnoLista, ClaseListado, FichaAlumno, ProteccionLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
 
 const ETAPA_ORDEN = ['EI', 'EP', 'ESO'] as const;
@@ -44,6 +45,7 @@ export function AlumnadoPanel({
   etapas,
   propias,
   fichaInicial,
+  puedeEditarProteccion,
 }: {
   alumnos: AlumnoLista[];
   clases: ClaseListado[];
@@ -53,6 +55,8 @@ export function AlumnadoPanel({
   propias: readonly { curso: string; letra: string | null }[];
   /** La ficha de `?alumno=…`, ya resuelta en el servidor. Ver el comentario de arriba. */
   fichaInicial: FichaAlumno | null;
+  /** ¿Puede cambiar la protección de datos? (secretaría, dirección, TIC.) */
+  puedeEditarProteccion: boolean;
 }) {
   const params = useSearchParams();
   const abiertoId = params.get('alumno');
@@ -66,11 +70,18 @@ export function AlumnadoPanel({
     return clases.length === 1 ? claveClase(clases[0]) : null;
   });
   const [termino, setTermino] = useState('');
+  // Dos vistas sobre la misma lista: las fichas (lo de siempre) y la tabla de protección de
+  // datos de la clase entera, que es la que hace posible llenarla sin morir en el intento.
+  const [vista, setVista] = useState<'fichas' | 'proteccion'>('fichas');
   // La caché arranca con la ficha que ya trae el servidor, si se ha entrado por enlace.
   const [fichas, setFichas] = useState<Record<string, FichaAlumno>>(() =>
     fichaInicial ? { [fichaInicial.id]: fichaInicial } : {},
   );
   const [fallidas, setFallidas] = useState<Record<string, true>>({});
+  // Lo que se cambia desde la ficha (protección de datos, banco, AMPA) no vuelve a pedir el
+  // listado entero: el listado viaja en el HTML y recargarlo por un interruptor costaría los
+  // ~90 KB de los 639. Se guarda aquí la corrección y la lista la aplica al pintar.
+  const [retoques, setRetoques] = useState<Record<string, Partial<AlumnoLista>>>({});
   // Ids ya pedidos (o en vuelo), para no pedir dos veces lo mismo. Solo se toca dentro de
   // manejadores y efectos, nunca durante el render.
   const pedidas = useRef<Set<string>>(new Set(fichaInicial ? [fichaInicial.id] : []));
@@ -89,10 +100,13 @@ export function AlumnadoPanel({
   // donde esté, no que te digan que en 2ºA no hay ningún Roldán.
   const buscando = termino.trim().length >= 2;
   const visibles = useMemo(() => {
-    if (buscando) return alumnos.filter((a) => casaBusqueda(a.busca, termino)).slice(0, 60);
-    if (!clase) return alumnos;
-    return alumnos.filter((a) => claveClase(a) === clase);
-  }, [alumnos, buscando, termino, clase]);
+    const base = buscando
+      ? alumnos.filter((a) => casaBusqueda(a.busca, termino)).slice(0, 60)
+      : clase
+        ? alumnos.filter((a) => claveClase(a) === clase)
+        : alumnos;
+    return base.map((a) => (retoques[a.id] ? { ...a, ...retoques[a.id] } : a));
+  }, [alumnos, buscando, termino, clase, retoques]);
 
   /** Trae la ficha y la guarda en la caché. Idempotente: un id solo se pide una vez. */
   const cargarFicha = useCallback(async (id: string) => {
@@ -111,6 +125,41 @@ export function AlumnadoPanel({
       haptic.warning();
       toast.error(error instanceof Error ? error.message : 'No se pudo abrir la ficha');
     }
+  }, []);
+
+  /** Lo que cambia la ficha vuelve a la caché y, si se ve en la fila, también a la lista. */
+  const actualizar = useCallback((id: string, cambio: Partial<FichaAlumno>) => {
+    setFichas((f) => (f[id] ? { ...f, [id]: { ...f[id], ...cambio } } : f));
+    const enLaFila: Partial<AlumnoLista> = {};
+    if (cambio.bancoLibros !== undefined) enLaFila.bancoLibros = cambio.bancoLibros;
+    if (cambio.ampa !== undefined) enLaFila.ampa = cambio.ampa;
+    if (cambio.proteccion) {
+      const { imagen, redes, ampa, ong, firmada } = cambio.proteccion;
+      enLaFila.proteccion = { imagen, redes, ampa, ong, firmada };
+    }
+    if (Object.keys(enLaFila).length > 0) {
+      setRetoques((r) => ({ ...r, [id]: { ...r[id], ...enLaFila } }));
+    }
+  }, []);
+
+  /** Lo que devuelve la tabla (una fila o una clase entera) se aplica a la lista y a la caché. */
+  const actualizarProteccion = useCallback((filas: (ProteccionLista & { id: string })[]) => {
+    setRetoques((r) => {
+      const siguiente = { ...r };
+      for (const { id, ...proteccion } of filas) siguiente[id] = { ...siguiente[id], proteccion };
+      return siguiente;
+    });
+    setFichas((f) => {
+      let cambiado = false;
+      const siguiente = { ...f };
+      for (const { id, ...proteccion } of filas) {
+        const ficha = siguiente[id];
+        if (!ficha?.proteccion) continue;
+        siguiente[id] = { ...ficha, proteccion: { ...ficha.proteccion, ...proteccion } };
+        cambiado = true;
+      }
+      return cambiado ? siguiente : f;
+    });
   }, []);
 
   const abrir = useCallback(
@@ -166,6 +215,9 @@ export function AlumnadoPanel({
   // fallado. Una verdad menos que mantener sincronizada a mano.
   const cargando = Boolean(abiertoId) && !ficha && !(abiertoId && fallidas[abiertoId]);
   const claseActual = clases.find((c) => claveClase(c) === clase);
+  // La pestaña de protección de datos solo aparece si hay algo que enseñar en ella: a un
+  // tutor de otra etapa no se le pinta una pestaña que va a estar siempre vacía.
+  const hayProteccion = useMemo(() => alumnos.some((a) => a.proteccion), [alumnos]);
 
   return (
     <div className="space-y-3">
@@ -223,6 +275,42 @@ export function AlumnadoPanel({
         </div>
       )}
 
+      {/* ── Las dos vistas ───────────────────────────────────────────── */}
+      {hayProteccion && (
+        <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
+          {(
+            [
+              { id: 'fichas' as const, texto: 'Fichas', icono: <List className="h-3.5 w-3.5" /> },
+              { id: 'proteccion' as const, texto: 'Protección de datos', icono: <Camera className="h-3.5 w-3.5" /> },
+            ]
+          ).map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => {
+                haptic.tap();
+                setVista(v.id);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                vista === v.id
+                  ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
+                  : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+              }`}
+            >
+              {v.icono} {v.texto}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {vista === 'proteccion' ? (
+        <TablaProteccion
+          alumnos={visibles}
+          ambito={buscando ? `${visibles.length} resultado(s)` : (claseActual?.clase ?? 'Todo el centro')}
+          puedeEditar={puedeEditarProteccion}
+          onCambio={actualizarProteccion}
+        />
+      ) : (
       <div className="lg:grid lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)] lg:gap-5">
       {/* ── Columna izquierda: buscador + lista ─────────────────────── */}
       <div className={`space-y-3 ${abiertoId ? 'hidden lg:block' : ''}`}>
@@ -301,6 +389,11 @@ export function AlumnadoPanel({
                           <Library className="h-3.5 w-3.5 text-emerald-500" />
                         </span>
                       )}
+                      {a.proteccion?.imagen === false && (
+                        <span title="NO puede salir en fotos" aria-label="No puede salir en fotos">
+                          <CameraOff className="h-3.5 w-3.5 text-red-500" />
+                        </span>
+                      )}
                       {a.pedidoHecho === false && (
                         <span title="Licencias pendientes" aria-label="Licencias pendientes">
                           <BookMarked className="h-3.5 w-3.5 text-amber-500" />
@@ -325,10 +418,17 @@ export function AlumnadoPanel({
       {/* ── Columna derecha: la ficha ────────────────────────────────── */}
       <div className={abiertoId ? 'block' : 'hidden lg:block'}>
         <div className="lg:sticky lg:top-20">
-          <FichaAlumnoPanel ficha={ficha} cargando={cargando} onCerrar={cerrar} onIrA={abrir} />
+          <FichaAlumnoPanel
+            ficha={ficha}
+            cargando={cargando}
+            onCerrar={cerrar}
+            onIrA={abrir}
+            onActualizar={actualizar}
+          />
         </div>
       </div>
       </div>
+      )}
     </div>
   );
 }

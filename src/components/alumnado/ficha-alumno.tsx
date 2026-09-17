@@ -25,6 +25,7 @@ import {
   ClipboardList,
   Heart,
   Library,
+  Camera,
   Loader2,
   Mail,
   MapPin,
@@ -34,7 +35,16 @@ import {
   X,
 } from 'lucide-react';
 import { Copiable, CopiarLista, Dato } from '@/components/alumnado/copiable';
-import { avisoCumple, colorAvatar, edadEnAnios, iniciales, telefono, whatsapp } from '@/lib/alumnado';
+import { TarjetaProteccion } from '@/components/alumnado/proteccion-datos';
+import {
+  avisoCumple,
+  avisoProteccion,
+  colorAvatar,
+  edadEnAnios,
+  iniciales,
+  telefono,
+  whatsapp,
+} from '@/lib/alumnado';
 import type { FichaAlumno } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
 
@@ -54,11 +64,14 @@ export function FichaAlumnoPanel({
   cargando,
   onCerrar,
   onIrA,
+  onActualizar,
 }: {
   ficha: FichaAlumno | null;
   cargando: boolean;
   onCerrar: () => void;
   onIrA: (id: string) => void;
+  /** Lo que se cambia desde la ficha (protección de datos, banco, AMPA) vuelve a la caché. */
+  onActualizar: (id: string, cambio: Partial<FichaAlumno>) => void;
 }) {
   // Esqueleto con la FORMA de la ficha, no un spinner centrado: así lo que aparece no da un
   // salto al llegar los datos, y se lee «esto está viniendo» sin tener que leer nada.
@@ -153,6 +166,20 @@ export function FichaAlumnoPanel({
           />
         )}
         {ficha.ampa && <Chip tono="violeta" icono={<Heart className="h-3.5 w-3.5" />} texto="AMPA" />}
+        {/* El de protección de datos va con los primeros a propósito: es lo que se mira
+            antes de publicar una foto, y llegar tarde a ese dato no tiene arreglo. */}
+        {ficha.proteccion &&
+          (() => {
+            const aviso = avisoProteccion(ficha.proteccion);
+            return (
+              <Chip
+                tono={aviso.tono}
+                icono={<Camera className="h-3.5 w-3.5" />}
+                texto={aviso.texto}
+                detalle={aviso.detalle}
+              />
+            );
+          })()}
         {ficha.familiaNumerosa && <Chip tono="violeta" texto="Familia numerosa" />}
         {ficha.hijoDeEmpleado && <Chip tono="violeta" texto="Hijo/a de empleado" />}
         {ficha.puntualidad && (
@@ -206,6 +233,17 @@ export function FichaAlumnoPanel({
           </div>
         )}
       </Tarjeta>
+
+      {/* ── 3.5 · Protección de datos y participación ────────────────── */}
+      <TarjetaProteccion
+        id={ficha.id}
+        proteccion={ficha.proteccion}
+        bancoLibros={ficha.bancoLibros}
+        ampa={ficha.ampa}
+        puedeEditar={ficha.permisos?.proteccion === 'editar'}
+        puedeParticipacion={Boolean(ficha.permisos?.participacion)}
+        onCambio={(cambio) => onActualizar(ficha.id, cambio)}
+      />
 
       {/* ── 4 · Identificadores ──────────────────────────────────────── */}
       <Tarjeta titulo="Identificadores">

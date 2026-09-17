@@ -40,15 +40,24 @@ import { academicYearActual } from '@/lib/constants';
 import { compararClases, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import { correoBonito, mayusculasBellas, nombresDe } from '@/lib/personas';
 import {
+  CAMPOS_PROTECCION,
   claseLarga,
   delExtra,
   domicilio,
   indiceDeBusqueda,
   normalizar,
   siNo,
+  type CampoProteccion,
+  type ProteccionDatos,
   type ValorDomicilio,
 } from '@/lib/alumnado';
-import { canAccess, type Role } from '@/lib/permissions';
+import {
+  canAccess,
+  puedeEditarProteccionDatos,
+  puedeGestionarParticipantesBanco,
+  veProteccionDatosCompleta,
+  type Role,
+} from '@/lib/permissions';
 import { clasesDeTutor } from '@/lib/puntualidad-server';
 
 export { academicYearActual };
@@ -140,6 +149,80 @@ export function puedeConAlumno(
   return clases.some((c) => mismaClase(alumno, c));
 }
 
+// ─── Protección de datos: quién la ve y quién la toca ─────────────────────────
+
+/**
+ * La protección de datos (imagen y voz, redes, AMPA y ONG) va MÁS CERRADA que el resto de
+ * la ficha, por decisión de David (17-sep-2026): dirección y demás la ven entera, y un
+ * tutor **solo la de su tutoría**, no la de toda su etapa.
+ *
+ * Sí, es una regla distinta a la del resto de la pantalla, y es a propósito: lo demás son
+ * datos de gestión diaria (a quién llamo, qué NIA tiene) y esto es la voluntad que ha
+ * firmado una familia sobre la imagen de su hijo. Quien la necesita es quien va a publicar
+ * la foto de su propia clase.
+ */
+export interface AlcanceProteccion {
+  /** `true` = todo el centro. Si no, vale lo que haya en `clases`. */
+  todo: boolean;
+  /** Sus tutorías. Vacío = no ve la protección de datos de nadie. */
+  clases: { curso: string; letra: string | null }[];
+  /** ¿Puede además cambiarla? (secretaría, dirección y TIC.) */
+  edita: boolean;
+}
+
+export function alcanceProteccion(
+  user: { role: Role | null },
+  propias: readonly { curso: string; letra: string | null }[],
+): AlcanceProteccion {
+  return {
+    todo: veProteccionDatosCompleta(user.role),
+    clases: [...propias],
+    edita: puedeEditarProteccionDatos(user.role),
+  };
+}
+
+export function veProteccionDe(
+  alcance: AlcanceProteccion,
+  alumno: { curso: string | null; letra: string | null },
+): boolean {
+  if (alcance.todo) return true;
+  return alcance.clases.some((c) => mismaClase(alumno, c));
+}
+
+/** Qué puede hacer quien mira, sobre la ficha que tiene delante. */
+export interface PermisosFicha {
+  proteccion: 'editar' | 'ver' | 'no';
+  /** Banco de libros y AMPA: el mismo criterio que en su propio panel, ni más ni menos. */
+  participacion: boolean;
+}
+
+export function permisosFicha(
+  user: Parameters<typeof canAccess>[0] & { role: Role | null },
+  alcance: AlcanceProteccion,
+  alumno: { curso: string | null; letra: string | null },
+): PermisosFicha {
+  const ve = veProteccionDe(alcance, alumno);
+  return {
+    proteccion: ve ? (alcance.edita ? 'editar' : 'ver') : 'no',
+    // Marcar quién participa en el banco/AMPA sigue siendo cosa de dirección/TIC **con el
+    // módulo del banco**: desde aquí se edita lo mismo, no se amplía a nadie.
+    participacion: canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role),
+  };
+}
+
+/**
+ * La ficha tal y como puede verla esta persona: si la protección de datos no le toca, no
+ * se le manda (no se «esconde con CSS»), y se le adjunta lo que puede tocar.
+ */
+export function fichaVisible(
+  ficha: FichaAlumno,
+  user: Parameters<typeof canAccess>[0] & { role: Role | null },
+  alcance: AlcanceProteccion,
+): FichaAlumno {
+  const permisos = permisosFicha(user, alcance, ficha);
+  return { ...ficha, proteccion: permisos.proteccion === 'no' ? null : ficha.proteccion, permisos };
+}
+
 // ─── El listado ───────────────────────────────────────────────────────────────
 
 export interface AlumnoLista {
@@ -159,8 +242,26 @@ export interface AlumnoLista {
   /** Lo que se pinta como distintivo en la fila, sin abrir la ficha. */
   bancoLibros: boolean;
   ampa: boolean;
+  /**
+   * La protección de datos, resumida, para la fila de la lista y para la tabla por clase.
+   * `null` = la de ese alumno no le toca a quien mira (un tutor solo ve la de su tutoría),
+   * y entonces ni se pinta nada ni se manda por la red.
+   *
+   * Viaja en el HTML con el listado a propósito: son cinco booleanos por alumno, y a cambio
+   * la tabla de la clase entera se pinta y se corrige sin una sola petición extra.
+   */
+  proteccion: ProteccionLista | null;
   /** `true` = tiene el pedido de licencias hecho; `false` = le toca y no lo tiene; null = no le toca. */
   pedidoHecho: boolean | null;
+}
+
+/** Lo mínimo de la protección de datos para pintar una fila o una celda de la tabla. */
+export interface ProteccionLista {
+  imagen: boolean | null;
+  redes: boolean | null;
+  ampa: boolean | null;
+  ong: boolean | null;
+  firmada: boolean;
 }
 
 export interface ClaseListado {
@@ -180,6 +281,7 @@ export interface ClaseListado {
 export async function listaAlumnado(
   alcance: { curso: string; letra: string | null }[] | null,
   academicYear = academicYearActual(),
+  proteccion?: AlcanceProteccion,
 ): Promise<{ alumnos: AlumnoLista[]; clases: ClaseListado[] }> {
   // UNA sola tanda: `estadoPedidos` ya no espera a saber cuál es la campaña activa, la
   // resuelve con una subconsulta. Con ~127 ms por viaje a Neon, quitar la espera previa vale
@@ -198,6 +300,11 @@ export async function listaAlumnado(
         codigo: eduStudents.codigo,
         bancoLibros: eduStudents.bancoLibros,
         ampa: eduStudents.ampa,
+        pdImagen: eduStudents.pdImagen,
+        pdRedes: eduStudents.pdRedes,
+        pdAmpa: eduStudents.pdAmpa,
+        pdOng: eduStudents.pdOng,
+        pdFirmada: eduStudents.pdFirmada,
       })
       .from(eduStudents)
       .where(eq(eduStudents.active, true)),
@@ -251,6 +358,10 @@ export async function listaAlumnado(
       }),
       bancoLibros: f.bancoLibros,
       ampa: f.ampa,
+      proteccion:
+        proteccion && veProteccionDe(proteccion, f)
+          ? { imagen: f.pdImagen, redes: f.pdRedes, ampa: f.pdAmpa, ong: f.pdOng, firmada: f.pdFirmada }
+          : null,
       pedidoHecho: pedidos.has(f.id) ? pedidos.get(f.id)! : null,
     });
   }
@@ -394,6 +505,10 @@ export interface FichaAlumno {
   // Banderitas
   bancoLibros: boolean;
   ampa: boolean;
+  /** Las cuatro autorizaciones. `null` = a quien mira no le toca verlas (ver `fichaVisible`). */
+  proteccion: ProteccionDatos | null;
+  /** Qué puede tocar de esta ficha quien la está mirando. Lo pone `fichaVisible()`. */
+  permisos?: PermisosFicha;
   familiaNumerosa: boolean | null;
   hijoDeEmpleado: boolean | null;
   // Familia
@@ -653,6 +768,16 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
     nacionalidad: delExtra(extra, 'nacionalidad alumno'),
     bancoLibros: alumno.bancoLibros,
     ampa: alumno.ampa,
+    proteccion: {
+      imagen: alumno.pdImagen,
+      redes: alumno.pdRedes,
+      ampa: alumno.pdAmpa,
+      ong: alumno.pdOng,
+      firmada: alumno.pdFirmada,
+      notas: alumno.pdNotas,
+      actualizadoAt: alumno.pdActualizadoAt ? alumno.pdActualizadoAt.toISOString() : null,
+      actualizadoPor: alumno.pdActualizadoPor,
+    },
     familiaNumerosa: siNo(delExtra(extra, 'fam numerosa')),
     hijoDeEmpleado: siNo(delExtra(extra, 'eshijodeempleado')),
     familiares,
@@ -833,3 +958,126 @@ async function bancoDeAlumno(id: string, academicYear: string): Promise<FichaAlu
 
 /** ¿Tiene esta persona acceso al módulo? Envoltorio para el layout de la sección. */
 export const puedeVerAlumnado = (user: Parameters<typeof canAccess>[0]) => canAccess(user, 'alumnado');
+
+// ─── Escribir: protección de datos ────────────────────────────────────────────
+
+/**
+ * Lo que se puede cambiar de la protección de datos desde la ficha. Todo opcional: la
+ * pantalla manda **solo el interruptor que se ha tocado**, no la tarjeta entera, así que
+ * dos personas a la vez en fichas distintas (o en la misma) no se pisan los demás campos.
+ *
+ * Ojo con el `ampa` de aquí: es el permiso de que **el AMPA publique fotos** suyas, y NO
+ * tiene nada que ver con `edu_students.ampa`, que dice si la familia es socia del AMPA.
+ * Son dos cosas distintas que se llaman igual, y se editan las dos desde esta pantalla.
+ */
+export interface CambioProteccion {
+  imagen?: boolean | null;
+  redes?: boolean | null;
+  ampa?: boolean | null;
+  ong?: boolean | null;
+  firmada?: boolean;
+  notas?: string | null;
+}
+
+const COLUMNA_PD: Record<CampoProteccion, 'pdImagen' | 'pdRedes' | 'pdAmpa' | 'pdOng'> = {
+  imagen: 'pdImagen',
+  redes: 'pdRedes',
+  ampa: 'pdAmpa',
+  ong: 'pdOng',
+};
+
+/**
+ * Guarda los campos que vengan y devuelve cómo queda la cosa, para que la pantalla pinte lo
+ * que hay en la BBDD y no lo que ella creía. Queda firmado con el correo de quien lo toca:
+ * esto es la voluntad de una familia, y tiene que saberse quién la cambió y cuándo.
+ */
+export async function guardarProteccion(
+  id: string,
+  cambios: CambioProteccion,
+  porEmail: string,
+): Promise<ProteccionDatos | null> {
+  const set: Record<string, unknown> = { pdActualizadoAt: new Date(), pdActualizadoPor: porEmail, updatedAt: new Date() };
+  for (const campo of CAMPOS_PROTECCION) {
+    if (cambios[campo] !== undefined) set[COLUMNA_PD[campo]] = cambios[campo];
+  }
+  if (cambios.firmada !== undefined) set.pdFirmada = cambios.firmada;
+  if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
+
+  const [fila] = await db
+    .update(eduStudents)
+    .set(set)
+    .where(eq(eduStudents.id, id))
+    .returning({
+      imagen: eduStudents.pdImagen,
+      redes: eduStudents.pdRedes,
+      ampa: eduStudents.pdAmpa,
+      ong: eduStudents.pdOng,
+      firmada: eduStudents.pdFirmada,
+      notas: eduStudents.pdNotas,
+      actualizadoAt: eduStudents.pdActualizadoAt,
+      actualizadoPor: eduStudents.pdActualizadoPor,
+    });
+  if (!fila) return null;
+  return { ...fila, actualizadoAt: fila.actualizadoAt ? fila.actualizadoAt.toISOString() : null };
+}
+
+/** La clase de un alumno, que es lo que hace falta para comprobar el alcance al escribir. */
+export async function claseDeAlumno(id: string): Promise<{ curso: string | null; letra: string | null } | null> {
+  const [fila] = await db
+    .select({ curso: eduStudents.curso, letra: eduStudents.letra })
+    .from(eduStudents)
+    .where(eq(eduStudents.id, id))
+    .limit(1);
+  return fila ?? null;
+}
+
+/**
+ * Lo mismo, pero para una clase entera: es la única forma de que esto se llene algún día.
+ * Poner «sí a todo» en 2º ESO B son 25 alumnos × 5 casillas, y a mano eso no lo hace nadie.
+ *
+ * El alcance NO se da por bueno porque venga en el cuerpo de la petición: se leen las clases
+ * de esos ids en la BBDD y se descarta lo que quede fuera, así que quien manda una lista con
+ * un alumno que no le toca se queda sin ese alumno, no con un 403 y el resto sin guardar.
+ * Devuelve los que de verdad se han tocado, que es lo que la pantalla repinta.
+ */
+export async function guardarProteccionMasiva(
+  ids: readonly string[],
+  cambios: CambioProteccion,
+  porEmail: string,
+  alcance: { general: { curso: string; letra: string | null }[] | null; proteccion: AlcanceProteccion },
+): Promise<{ filas: (ProteccionLista & { id: string })[] }> {
+  const filas = await db
+    .select({ id: eduStudents.id, curso: eduStudents.curso, letra: eduStudents.letra })
+    .from(eduStudents)
+    .where(and(inArray(eduStudents.id, [...ids]), eq(eduStudents.active, true)));
+
+  const permitidos = filas
+    .filter((f) => puedeConAlumno(alcance.general, f) && veProteccionDe(alcance.proteccion, f))
+    .map((f) => f.id);
+  if (permitidos.length === 0) return { filas: [] };
+
+  const set: Record<string, unknown> = { pdActualizadoAt: new Date(), pdActualizadoPor: porEmail, updatedAt: new Date() };
+  for (const campo of CAMPOS_PROTECCION) {
+    if (cambios[campo] !== undefined) set[COLUMNA_PD[campo]] = cambios[campo];
+  }
+  if (cambios.firmada !== undefined) set.pdFirmada = cambios.firmada;
+  if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
+
+  const tocadas = await db
+    .update(eduStudents)
+    .set(set)
+    .where(inArray(eduStudents.id, permitidos))
+    .returning({
+      id: eduStudents.id,
+      imagen: eduStudents.pdImagen,
+      redes: eduStudents.pdRedes,
+      ampa: eduStudents.pdAmpa,
+      ong: eduStudents.pdOng,
+      firmada: eduStudents.pdFirmada,
+    });
+
+  // Se devuelven TODAS, no una de muestra: el cambio es el mismo para todas, pero las demás
+  // columnas no lo son, y la tabla tiene que repintar la fila entera con lo que hay en la
+  // BBDD, no con lo que ella creía.
+  return { filas: tocadas };
+}
