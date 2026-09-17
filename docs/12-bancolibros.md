@@ -50,6 +50,8 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   ficha de Alumnado** (`POST /api/alumnado/[id]/participacion`), pero llamando a estos mismos
   `setBanco`/`setAmpa` y exigiendo este mismo permiso: es otra puerta al mismo dato, no una
   autoridad nueva ni una copia. Quien no cumpla, allí los ve como chips y sin interruptor.
+  (El permiso «que el AMPA publique fotos» llegó a existir un rato ese mismo día y se retiró:
+  la protección de datos quedó en fotos sí/no y documento Prodat.)
 - **Resumen agregado** (por clase, sumado por curso, estilo "Por curso" de Licencias): `<details>`
   plegable encima de los chips de clase — cerrado enseña los totales de un vistazo (X/Y en
   banco, Z AMPA), abierto despliega la tabla por clase con subtotal por curso. Los chips de clase

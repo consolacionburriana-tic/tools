@@ -12,19 +12,13 @@ const cuerpo = z.object({
   // BBDD, no porque haga falta más.
   eduStudentIds: z.array(z.string().uuid()).min(1).max(800),
   cambios: z
-    .object({
-      imagen: permiso.optional(),
-      redes: permiso.optional(),
-      ampa: permiso.optional(),
-      ong: permiso.optional(),
-      firmada: z.boolean().optional(),
-    })
+    .object({ imagen: permiso.optional(), prodat: permiso.optional() })
     .refine((c) => Object.keys(c).length > 0, { message: 'No hay nada que cambiar' }),
 });
 
 /**
- * Protección de datos de MUCHOS alumnos a la vez: «sí a todo en 2º ESO B», o una columna
- * entera de la tabla. Es la única forma de que esto se llene: a mano son 639 fichas × 5.
+ * Protección de datos de MUCHOS alumnos a la vez: una columna entera de la tabla, o toda
+ * una clase. Sin esto, cada cambio de criterio serían 639 toques.
  *
  * El alcance no se comprueba aquí alumno por alumno sino dentro de `guardarProteccionMasiva`,
  * que lee sus clases de la BBDD y descarta lo que no toque: lo que viene en el cuerpo de una

@@ -258,10 +258,7 @@ export interface AlumnoLista {
 /** Lo mínimo de la protección de datos para pintar una fila o una celda de la tabla. */
 export interface ProteccionLista {
   imagen: boolean | null;
-  redes: boolean | null;
-  ampa: boolean | null;
-  ong: boolean | null;
-  firmada: boolean;
+  prodat: boolean | null;
 }
 
 export interface ClaseListado {
@@ -301,10 +298,7 @@ export async function listaAlumnado(
         bancoLibros: eduStudents.bancoLibros,
         ampa: eduStudents.ampa,
         pdImagen: eduStudents.pdImagen,
-        pdRedes: eduStudents.pdRedes,
-        pdAmpa: eduStudents.pdAmpa,
-        pdOng: eduStudents.pdOng,
-        pdFirmada: eduStudents.pdFirmada,
+        pdProdat: eduStudents.pdProdat,
       })
       .from(eduStudents)
       .where(eq(eduStudents.active, true)),
@@ -358,10 +352,7 @@ export async function listaAlumnado(
       }),
       bancoLibros: f.bancoLibros,
       ampa: f.ampa,
-      proteccion:
-        proteccion && veProteccionDe(proteccion, f)
-          ? { imagen: f.pdImagen, redes: f.pdRedes, ampa: f.pdAmpa, ong: f.pdOng, firmada: f.pdFirmada }
-          : null,
+      proteccion: proteccion && veProteccionDe(proteccion, f) ? { imagen: f.pdImagen, prodat: f.pdProdat } : null,
       pedidoHecho: pedidos.has(f.id) ? pedidos.get(f.id)! : null,
     });
   }
@@ -770,10 +761,7 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
     ampa: alumno.ampa,
     proteccion: {
       imagen: alumno.pdImagen,
-      redes: alumno.pdRedes,
-      ampa: alumno.pdAmpa,
-      ong: alumno.pdOng,
-      firmada: alumno.pdFirmada,
+      prodat: alumno.pdProdat,
       notas: alumno.pdNotas,
       actualizadoAt: alumno.pdActualizadoAt ? alumno.pdActualizadoAt.toISOString() : null,
       actualizadoPor: alumno.pdActualizadoPor,
@@ -962,28 +950,19 @@ export const puedeVerAlumnado = (user: Parameters<typeof canAccess>[0]) => canAc
 // ─── Escribir: protección de datos ────────────────────────────────────────────
 
 /**
- * Lo que se puede cambiar de la protección de datos desde la ficha. Todo opcional: la
- * pantalla manda **solo el interruptor que se ha tocado**, no la tarjeta entera, así que
- * dos personas a la vez en fichas distintas (o en la misma) no se pisan los demás campos.
- *
- * Ojo con el `ampa` de aquí: es el permiso de que **el AMPA publique fotos** suyas, y NO
- * tiene nada que ver con `edu_students.ampa`, que dice si la familia es socia del AMPA.
- * Son dos cosas distintas que se llaman igual, y se editan las dos desde esta pantalla.
+ * Lo que se puede cambiar de la protección de datos. Todo opcional: la pantalla manda **solo
+ * la casilla que se ha tocado**, no la tarjeta entera, así que dos personas a la vez en
+ * fichas distintas (o en la misma) no se pisan los demás campos.
  */
 export interface CambioProteccion {
   imagen?: boolean | null;
-  redes?: boolean | null;
-  ampa?: boolean | null;
-  ong?: boolean | null;
-  firmada?: boolean;
+  prodat?: boolean | null;
   notas?: string | null;
 }
 
-const COLUMNA_PD: Record<CampoProteccion, 'pdImagen' | 'pdRedes' | 'pdAmpa' | 'pdOng'> = {
+const COLUMNA_PD: Record<CampoProteccion, 'pdImagen' | 'pdProdat'> = {
   imagen: 'pdImagen',
-  redes: 'pdRedes',
-  ampa: 'pdAmpa',
-  ong: 'pdOng',
+  prodat: 'pdProdat',
 };
 
 /**
@@ -1000,7 +979,6 @@ export async function guardarProteccion(
   for (const campo of CAMPOS_PROTECCION) {
     if (cambios[campo] !== undefined) set[COLUMNA_PD[campo]] = cambios[campo];
   }
-  if (cambios.firmada !== undefined) set.pdFirmada = cambios.firmada;
   if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
 
   const [fila] = await db
@@ -1009,10 +987,7 @@ export async function guardarProteccion(
     .where(eq(eduStudents.id, id))
     .returning({
       imagen: eduStudents.pdImagen,
-      redes: eduStudents.pdRedes,
-      ampa: eduStudents.pdAmpa,
-      ong: eduStudents.pdOng,
-      firmada: eduStudents.pdFirmada,
+      prodat: eduStudents.pdProdat,
       notas: eduStudents.pdNotas,
       actualizadoAt: eduStudents.pdActualizadoAt,
       actualizadoPor: eduStudents.pdActualizadoPor,
@@ -1033,7 +1008,7 @@ export async function claseDeAlumno(id: string): Promise<{ curso: string | null;
 
 /**
  * Lo mismo, pero para una clase entera: es la única forma de que esto se llene algún día.
- * Poner «sí a todo» en 2º ESO B son 25 alumnos × 5 casillas, y a mano eso no lo hace nadie.
+ * Marcar una clase entera son 25 alumnos × 2 casillas, y a mano eso se hace una vez y ya.
  *
  * El alcance NO se da por bueno porque venga en el cuerpo de la petición: se leen las clases
  * de esos ids en la BBDD y se descarta lo que quede fuera, así que quien manda una lista con
@@ -1060,21 +1035,13 @@ export async function guardarProteccionMasiva(
   for (const campo of CAMPOS_PROTECCION) {
     if (cambios[campo] !== undefined) set[COLUMNA_PD[campo]] = cambios[campo];
   }
-  if (cambios.firmada !== undefined) set.pdFirmada = cambios.firmada;
   if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
 
   const tocadas = await db
     .update(eduStudents)
     .set(set)
     .where(inArray(eduStudents.id, permitidos))
-    .returning({
-      id: eduStudents.id,
-      imagen: eduStudents.pdImagen,
-      redes: eduStudents.pdRedes,
-      ampa: eduStudents.pdAmpa,
-      ong: eduStudents.pdOng,
-      firmada: eduStudents.pdFirmada,
-    });
+    .returning({ id: eduStudents.id, imagen: eduStudents.pdImagen, prodat: eduStudents.pdProdat });
 
   // Se devuelven TODAS, no una de muestra: el cambio es el mismo para todas, pero las demás
   // columnas no lo son, y la tabla tiene que repintar la fila entera con lo que hay en la

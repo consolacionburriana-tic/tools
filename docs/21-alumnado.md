@@ -10,8 +10,7 @@ todo lo copiable a un toque.
 
 Es **transversal y casi todo de solo lectura**: no crea tablas ni duplica campos, lee `edu_*`
 como identidad y va a preguntar a cada módulo por lo suyo. Lo único que se escribe desde aquí
-son cuatro interruptores que ya vivían en `edu_students` (protección de datos, banco de libros
-y AMPA), llamando al mismo código que su módulo y con su mismo permiso: la ficha **condensa la
+son las casillas que ya vivían en `edu_students` (protección de datos, banco de libros y AMPA), llamando al mismo código que su módulo y con su mismo permiso: la ficha **condensa la
 información, no se queda con la autoridad**. Nada se copia a una tabla nueva, que es
 exactamente la deuda que documenta
 [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md).
@@ -81,35 +80,31 @@ exactamente la deuda que documenta
    que la app invite a llamar a alguien que ha muerto es el tipo de fallo que no se puede
    permitir.
 
-9. **Protección de datos: cuatro permisos tri-estado, y viven en `edu_students`**
-   (David, 17-sep-2026). Son los cuatro que firma la familia al matricular:
+9. **Protección de datos: DOS casillas, no una lista de permisos** (David, 17-sep-2026,
+   después de probar con cuatro). Viven como columnas `pd_*` de `edu_students`:
 
-   | Campo | Qué autoriza |
-   |---|---|
-   | **Imagen y voz** | Que se le hagan fotos y vídeos en actividades del colegio |
-   | **Redes y web** | Publicarlas en la web y las redes del colegio |
-   | **AMPA** | Que el AMPA publique fotos suyas en sus canales |
-   | **ONG** | Cesión a la ONG (MCM) para sus materiales y campañas |
+   | Campo | Qué dice | De salida |
+   |---|---|---|
+   | **Fotos** (`pd_imagen`) | Si puede salir en fotos y vídeos del colegio | **Sí** para todo el alumnado activo |
+   | **Prodat** (`pd_prodat`) | Si ha vuelto el documento de protección de datos | **Sin contestar** |
 
-   Cada uno vale **sí · no · no consta**. El **punto de partida es «sí a todo»** (David,
-   17-sep-2026): el SQL de estreno pone los cuatro a `true` en el alumnado activo, las altas
-   nuevas entran igual (`DEFAULT true`) y a partir de ahí **se marcan los noes según
-   llegan**, que es como trabaja el colegio de verdad. El `null` no desaparece: se queda
-   para lo que alguien desmarque a mano, y la pantalla lo pinta como «sin constar».
+   Las dos admiten tres estados (sí · no · sin marcar / sin contestar) y ese tercero es
+   media pantalla de este módulo: en fotos significa «nadie lo ha mirado» y en Prodat, «el
+   papel no ha vuelto». Son justo las dos preguntas que se hacen a mitad de curso.
 
-   `pd_firmada` se queda aparte y en `false`: el punto de partida de trabajo no es un papel
-   firmado, y ponerlo a `true` sería decir que hay 639 firmas que no existen. Por eso el
-   chip de la ficha, cuando todo está autorizado pero sin firmar, sale **verde con un «sin
-   firmar» al lado** y no en ámbar: un aviso que sale en las 639 fichas no lo lee nadie.
+   Las fotos arrancan en «sí» porque es como trabaja el colegio (se marcan los noes según
+   llegan): el SQL de estreno las pone y las altas nuevas entran igual (`DEFAULT true`). El
+   Prodat **no lleva default a propósito**: es un papel que vuelve o no vuelve, y ponerlo a
+   `true` sería inventarse 639 documentos.
 
-   Van como columnas `pd_*` de `edu_students`, no en una tabla nueva: es un dato por alumno
-   que no tiene histórico ni pertenece a ningún módulo, igual que `banco_libros` y `ampa`.
-   Se guarda además **quién** lo cambió y **cuándo** (`pd_actualizado_por` / `_at`): esto es
-   la voluntad de una familia, y tiene que poder rastrearse.
+   Van en `edu_students` y no en una tabla nueva porque es un dato por alumno, sin histórico
+   y que no pertenece a ningún módulo, igual que `banco_libros` y `ampa`. Se guarda además
+   **quién** lo cambió y **cuándo** (`pd_actualizado_por` / `_at`): es la voluntad de una
+   familia y tiene que poder rastrearse.
 
-   Ojo con el nombre: el permiso `pd_ampa` («que el AMPA publique fotos») **no es**
-   `edu_students.ampa` («la familia es socia del AMPA»). Se llaman igual y son dos cosas
-   distintas; las dos se editan desde esta pantalla, en bloques separados.
+   > Lo que había antes (redes, AMPA, ONG y «documento firmado») se retiró el mismo día, sin
+   > llegar a producción. Si aplicaste la primera versión del SQL, esas columnas sobran y el
+   > propio fichero te dice cómo quitarlas.
 
 10. **La protección de datos se ve más cerrada que el resto de la ficha** (David,
     17-sep-2026): dirección, jefatura, orientación, secretaría y TIC la ven de todo el
@@ -132,20 +127,42 @@ exactamente la deuda que documenta
     dirección/TIC **con** el módulo del banco). Quien no lo tenga, los ve como chips y no
     ve interruptores.
 
-12. **La pantalla tiene dos vistas: fichas y tabla de protección de datos** (David,
-    17-sep-2026). La ficha responde por una persona; llenar esto son 639 alumnos × 5
-    casillas, y eso no se hace ficha a ficha. La pestaña «Protección de datos» enseña la
-    clase elegida como tabla —una fila por alumno, una columna por permiso— con:
+12. **La pantalla de protección de datos está montada alrededor de tres preguntas, no de
+    una tabla** (David, 17-sep-2026: «es el módulo favorito de mi directora»). Las
+    preguntas reales son «¿quién NO puede salir?», «¿a quién no ha mirado nadie?» y «¿a
+    quién le falta el Prodat?», así que de arriba abajo:
 
-    - **un toque por celda**, que cicla sí → no → sin constar;
-    - **«todos sí» y «todos no» en la cabecera de cada columna**, que es lo que se pidió por
-      columna: entra una autorización nueva y se resuelve sin bajar por las 25 filas;
-    - **«Poner todo a SÍ»** para la clase entera, y «Marcar firmadas».
+    1. **Cuatro contadores que son a la vez el filtro** —Todos · No pueden salir · Sin
+       marcar · Falta Prodat—, porque el número y la pregunta son la misma cosa: ver «7» en
+       rojo y tocarlo para tener los siete delante es un gesto, no dos pantallas. Cuentan
+       **dentro del ámbito**: «3 sin marcar» mirando Primaria son tres de Primaria.
+    2. **El ámbito: etapa a un clic, clase a dos.** El 90% del trabajo es por etapa o del
+       centro entero; las 28 clases están detrás de «Por clases» para no dejar la tabla bajo
+       el pliegue. Elegir una clase ajusta su etapa sola.
+    3. **Tabla agrupada por clase**, con el nº de lista delante del nombre y una fila por
+       alumno. Un toque en la casilla cicla sí → no → sin marcar, y en la cabecera de cada
+       columna hay «todos sí» y «todos no» para lo que se esté viendo. Todo lo masivo pide
+       **un segundo toque** y en él dice a cuántos va.
+    4. **Buscador propio** de la vista, para ir a por una persona sin salir de la tabla.
 
-    Todo lo masivo pide **un segundo toque** y en él dice a cuántos va a afectar: cambiar 25
-    fichas sin querer es un mal rato, y el segundo toque cuesta medio segundo. Y el alcance
-    no se cree lo que venga en la petición: la ruta masiva lee en la BBDD las clases de esos
-    ids y descarta lo que no le toque a quien pulsa.
+    El alcance no se cree lo que venga en la petición: la ruta masiva lee en la BBDD las
+    clases de esos ids y descarta lo que no le toque a quien pulsa.
+
+13. **El PDF sale de lo que se está viendo, y con el mismo orden** (David, 17-sep-2026).
+    Mismo ámbito y mismo filtro que la pantalla, en dos botones: **PDF** (seguido) y **por
+    etapas** (cada etapa empieza en su hoja, para repartirlo). Ordenado siempre
+    etapa → clase → nº de lista → apellidos, con el número delante de cada nombre, porque es
+    el orden en el que el tutor tiene la clase en la cabeza.
+
+    Dos detalles que no son adorno: el **filtro va escrito en la cabecera** (un papel que
+    dice «No pueden salir en fotos» no se confunde con la lista de clase), y el pie de cada
+    hoja avisa de que es un **documento con datos personales**, con la fecha. El buscador
+    **no** entra en el PDF: un papel que depende de lo que alguien tecleó en una caja no hay
+    quien lo explique dos días después.
+
+    Se genera con `pdf-lib` y fuentes estándar (`src/lib/alumnado-pdf.ts`), sin dependencias
+    nuevas, y **el filtro se vuelve a aplicar en el servidor** sobre el alcance de quien
+    pide: el PDF no puede ser la rendija por la que salga alumnado que en pantalla no se ve.
 
 ---
 
@@ -170,7 +187,7 @@ Inventariado contra los **639 alumnos activos** de Neon (10-sep-2026), no contra
 | Banco de libros (sí/no, lote, entregado, libros valorados) | `edu_students.banco_libros` + `bl_*` | 492 participan; 21 lotes asignados |
 | Licencias (participa, pedido hecho, importe, pagado, libros) | `lic_students` + `lic_orders` + `lic_order_items` | 348 participan, 206 con pedido |
 | AMPA (familia socia) | `edu_students.ampa` | 15 |
-| **Protección de datos** (imagen y voz, redes, AMPA, ONG + firmada) | `edu_students.pd_*` | todos a «sí» de salida; los noes se marcan desde la ficha o la tabla |
+| **Protección de datos** (fotos · documento Prodat) | `edu_students.pd_imagen`, `pd_prodat` | fotos a «sí» de salida; el Prodat, sin contestar |
 | Puntualidad (retrasos, minutos, justificados, consecuencias) | `pun_records` + `con_consequences` | 0 (curso recién empezado) |
 | Salidas (apuntado, justificante) | `sal_signups` + `sal_trips` | 3 |
 | ABC (nº de informes, último) | `abc_students` + `abc_behavior_reports` | 7 informes, 1 alumno |
@@ -222,16 +239,17 @@ src/lib/alumnado-server.ts                 # listaAlumnado() y fichaAlumno(): la
 src/app/api/alumnado/[id]/route.ts         # la ficha completa, con guard y alcance
 src/app/api/alumnado/[id]/proteccion/...   # cambiar los 4 permisos + firmada + notas
 src/app/api/alumnado/[id]/participacion/…  # banco de libros y AMPA (llama a bancolibros-server)
-src/app/api/alumnado/proteccion/route.ts   # masivo: una columna, o la clase entera
+src/app/api/alumnado/proteccion/route.ts   # masivo: una columna, o todo lo que se ve
+src/app/api/alumnado/proteccion/pdf/…      # el PDF, con el filtro re-aplicado en servidor
 src/app/gestion/alumnado/                  # layout (guard de módulo) + página + loading
 src/components/alumnado/alumnado-panel.tsx # clases, buscador, lista y orquestación
 src/components/alumnado/ficha-alumno.tsx   # la ficha, en el orden de la tabla de arriba
 src/components/alumnado/copiable.tsx       # Copiable, Dato y CopiarLista
 ```
 
-Sin tablas nuevas. Sí hay **8 columnas nuevas** en `edu_students` (`pd_imagen`, `pd_redes`,
-`pd_ampa`, `pd_ong`, `pd_firmada`, `pd_notas`, `pd_actualizado_at`, `pd_actualizado_por`), en
-`src/db/sql/proteccion-datos.sql`: aditivo e idempotente.
+Sin tablas nuevas. Sí hay **5 columnas nuevas** en `edu_students` (`pd_imagen`, `pd_prodat`,
+`pd_notas`, `pd_actualizado_at`, `pd_actualizado_por`), en `src/db/sql/proteccion-datos.sql`:
+aditivo e idempotente.
 
 ### Rendimiento: lo que importa es el número de TANDAS, no las consultas
 
@@ -304,35 +322,30 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
 - [ ] Foto del alumno, si algún día se saca de Educamos
 - [ ] Lo que salga de usarlo dos semanas
 
-### Fase 2 · Protección de datos y ajustes desde la ficha (17-sep-2026)
-- [x] Helpers puros: los cuatro permisos tri-estado, el aviso de la ficha (rojo si no puede
-      salir en fotos) y el reparto sí/no/no consta, con tests (`alumnado.test.ts`)
-- [x] `permissions.ts`: `veProteccionDatosCompleta` (dirección y demás ven el centro; el tutor,
-      su tutoría) y `puedeEditarProteccionDatos` (secretaría, dirección, TIC)
-- [x] `alumnado-server.ts`: alcance propio de la protección de datos, `fichaVisible()` (lo que
-      no te toca no se manda), `guardarProteccion()` firmado con quién y cuándo
-- [x] Rutas `POST /api/alumnado/[id]/proteccion` y `.../participacion`, con Zod, alcance y 404
-      (no 403) para quien está fuera
-- [x] Tarjeta editable en la ficha: los 4 permisos en sí/no/no consta, documento firmado,
-      notas, y los interruptores de banco de libros y AMPA para quien pueda
-- [x] Chip arriba del todo: **rojo** si la familia ha dicho que no a la imagen, ámbar si falta
-      la firma o hay algún no, verde si está todo autorizado
-- [x] Cámara tachada en la fila de la lista, solo para alumnado cuya protección de datos te toca
-- [x] Vista «Protección de datos»: la clase entera en tabla, un toque por celda, «todos sí /
-      todos no» por columna y «Poner todo a SÍ» para la clase, todo con segundo toque de
-      confirmación (17-sep-2026)
-- [x] Botón «Todo sí» también en la ficha individual
-- [x] Punto de partida «sí a todo» en el SQL de estreno (`UPDATE … WHERE pd_x IS NULL`, así que
-      relanzarlo no pisa ningún «no» ya marcado) y `DEFAULT true` para las altas nuevas
-- [x] `pnpm test`, `pnpm lint`, `pnpm build` en verde
-- [~] **Aplicar `src/db/sql/proteccion-datos.sql` en Neon** — escrito y probado en seco
-      (`pnpm db:sql --pendientes --dry`), pero el contenedor de esta sesión no tiene el host de
-      Neon en su allowlist de red. **Hasta que se aplique, `/gestion/alumnado` da error**:
-      `pnpm db:sql --pendientes` desde el portátil y listo
+### Fase 2 · Protección de datos (17-sep-2026)
+- [x] Helpers puros con tests: las dos casillas tri-estado, el aviso de la ficha, los cuatro
+      vistazos (`casaFiltroProteccion`, `cuentaProteccion`) y la agrupación etapa→clase que
+      comparten tabla y PDF
+- [x] `permissions.ts`: `veProteccionDatosCompleta` (dirección y demás, el centro; el tutor, su
+      tutoría) y `puedeEditarProteccionDatos` (secretaría, dirección, TIC)
+- [x] `alumnado-server.ts`: alcance propio, `fichaVisible()` (lo que no te toca no se manda),
+      `guardarProteccion()` y `guardarProteccionMasiva()` firmados con quién y cuándo
+- [x] Rutas: `POST /api/alumnado/[id]/proteccion`, `.../participacion`, masiva
+      `POST /api/alumnado/proteccion` y `GET /api/alumnado/proteccion/pdf`
+- [x] Tarjeta en la ficha: fotos y Prodat, notas, «Todo sí», y los interruptores de banco de
+      libros y AMPA para quien pueda
+- [x] Chip arriba del todo: rojo si no puede salir, ámbar si nadie lo ha marcado, verde si sí
+      (con el «Prodat sin contestar» al lado, sin dar la nota); cámara tachada en la lista
+- [x] Vista «Protección de datos»: contadores-filtro, etapa a un clic y clase a dos, tabla
+      agrupada con nº de lista, masivos por columna con segundo toque, buscador propio
+- [x] PDF seguido y por etapas, con el filtro en la cabecera y el aviso de datos personales;
+      probado con 75 alumnos de tres etapas, acentos y Ñ, y con lista vacía
+- [x] `pnpm test` (658), `pnpm lint` y `pnpm build` en verde
+- [~] **Aplicar `src/db/sql/proteccion-datos.sql` en Neon** — escrito, idempotente y probado en
+      seco (`pnpm db:sql --pendientes --dry`); el contenedor de esta sesión no tiene el host de
+      Neon en su allowlist de red. **Hasta que se aplique, `/gestion/alumnado` da error**
 - [ ] Probado contra la app con datos reales (pendiente de lo anterior)
-- [ ] Ver cómo va la carga real con secretaría: con el arranque en «sí» y los masivos por
-      clase, lo que queda es marcar los noes. Si aparece un Excel con las autorizaciones,
-      un importador por NIA sigue siendo la opción rápida (`00-desarrollos-futuros.md`)
+- [ ] Lo que diga la directora al usarlo una semana
 
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la

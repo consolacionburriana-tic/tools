@@ -224,17 +224,18 @@ export const eduStudents = pgTable('edu_students', {
   familiaId: text('familia_id'), // GUID ID FAMILIA
   bancoLibros: boolean('banco_libros').notNull().default(true),
   ampa: boolean('ampa').notNull().default(false),
-  // ─ Protección de datos ─ Las cuatro autorizaciones que firma la familia al matricular.
-  // Son TRI-ESTADO: `true` autoriza, `false` NO autoriza y `null` = no consta. El punto de
-  // partida es «sí a todo» (decisión de David, 17-sep-2026: se marcan los noes según
-  // llegan), y por eso las altas nuevas entran en `true`; el `null` se queda para lo que
-  // alguien desmarque a mano. Educamos no exporta estos campos —el papel se queda en
-  // secretaría—, así que se llevan desde la ficha de Alumnado.
-  pdImagen: boolean('pd_imagen').default(true), // imagen y voz: fotos y vídeos del colegio
-  pdRedes: boolean('pd_redes').default(true), // publicarlas en web y redes del colegio
-  pdAmpa: boolean('pd_ampa').default(true), // que el AMPA publique fotos suyas
-  pdOng: boolean('pd_ong').default(true), // cesión a la ONG (MCM) para sus materiales
-  pdFirmada: boolean('pd_firmada').notNull().default(false), // el documento está firmado
+  // ─ Protección de datos ─ Dos casillas, no una lista larga (David, 17-sep-2026):
+  //
+  //   · `pd_imagen`  ¿puede salir en fotos? Arranca en «sí» para todo el alumnado activo
+  //                  (y las altas nuevas entran igual, `DEFAULT true`); se marcan los noes
+  //                  según llegan. `null` = nadie lo ha mirado todavía.
+  //   · `pd_prodat`  el documento Prodat (la empresa de protección de datos). Empieza en
+  //                  `null` = «sin contestar» A PROPÓSITO y sin default: es un papel que
+  //                  la familia devuelve o no, y hasta que vuelve no consta nada.
+  //
+  // Educamos no exporta ninguna de las dos: se llevan desde la ficha de Alumnado.
+  pdImagen: boolean('pd_imagen').default(true),
+  pdProdat: boolean('pd_prodat'),
   pdNotas: text('pd_notas'), // matices del papel («solo fotos de grupo»)
   pdActualizadoAt: timestamp('pd_actualizado_at'),
   pdActualizadoPor: text('pd_actualizado_por'), // correo de quien lo tocó por última vez

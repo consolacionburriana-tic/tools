@@ -249,104 +249,124 @@ export function colorAvatar(id: string): string {
 
 // ─── Protección de datos ──────────────────────────────────────────────────────
 //
-// Las cuatro autorizaciones que firma la familia al matricular. Son TRI-ESTADO:
-// `true` autoriza · `false` NO autoriza · `null` no consta. Esa tercera posibilidad es la
-// importante: «no consta» no es «ha dicho que no», y tampoco es «se puede publicar». Quien
-// mira la ficha antes de subir una foto necesita ver la diferencia de un vistazo.
+// Dos casillas y ya (David, 17-sep-2026), después de probar con cuatro: **fotos sí/no** y
+// el **documento Prodat**. La primera es la que se mira antes de publicar nada y arranca en
+// «sí» para todo el mundo; la segunda es un papel que la familia devuelve o no, y arranca
+// «sin contestar» porque eso es lo que hay.
+//
+// Las dos admiten `null`, que no es un adorno: en fotos significa «nadie lo ha mirado» y en
+// Prodat, «aún no ha vuelto». Media pantalla de este módulo existe para encontrar
+// precisamente esos nulls.
 
-export const CAMPOS_PROTECCION = ['imagen', 'redes', 'ampa', 'ong'] as const;
+export const CAMPOS_PROTECCION = ['imagen', 'prodat'] as const;
 export type CampoProteccion = (typeof CAMPOS_PROTECCION)[number];
 
 export const PROTECCION_LABELS: Record<CampoProteccion, { titulo: string; corto: string; ayuda: string }> = {
   imagen: {
-    titulo: 'Imagen y voz',
-    corto: 'imagen',
-    ayuda: 'Fotos y vídeos hechos en actividades del colegio',
+    titulo: 'Fotos',
+    corto: 'fotos',
+    ayuda: 'Puede salir en fotos y vídeos del colegio',
   },
-  redes: {
-    titulo: 'Redes y web',
-    corto: 'redes',
-    ayuda: 'Publicarlas en la web y las redes del colegio',
-  },
-  ampa: {
-    titulo: 'AMPA',
-    corto: 'AMPA',
-    ayuda: 'Que el AMPA publique fotos suyas en sus canales',
-  },
-  ong: {
-    titulo: 'ONG',
-    corto: 'ONG',
-    ayuda: 'Cesión a la ONG (MCM) para sus materiales y campañas',
+  prodat: {
+    titulo: 'Prodat',
+    corto: 'Prodat',
+    ayuda: 'El documento de protección de datos ha vuelto firmado',
   },
 };
 
 export interface ProteccionDatos {
+  /** `true` puede salir en fotos · `false` no · `null` nadie lo ha mirado. */
   imagen: boolean | null;
-  redes: boolean | null;
-  ampa: boolean | null;
-  ong: boolean | null;
-  /** ¿Está el documento firmado y guardado en secretaría? */
-  firmada: boolean;
+  /** `true` documento devuelto · `false` la familia ha dicho que no · `null` sin contestar. */
+  prodat: boolean | null;
   notas: string | null;
   actualizadoAt: string | null;
   actualizadoPor: string | null;
 }
 
-/** Los cuatro permisos, sin la metainformación de la firma. */
-export const permisosDe = (pd: ProteccionDatos): Record<CampoProteccion, boolean | null> => ({
-  imagen: pd.imagen,
-  redes: pd.redes,
-  ampa: pd.ampa,
-  ong: pd.ong,
-});
-
-/** Lo que la familia ha dicho que NO, en el orden de siempre y con el nombre corto. */
-export function noAutorizados(pd: ProteccionDatos): string[] {
-  const permisos = permisosDe(pd);
-  return CAMPOS_PROTECCION.filter((c) => permisos[c] === false).map((c) => PROTECCION_LABELS[c].corto);
-}
-
-/** Los que no constan: ni sí ni no. */
-export function sinConstar(pd: ProteccionDatos): string[] {
-  const permisos = permisosDe(pd);
-  return CAMPOS_PROTECCION.filter((c) => permisos[c] === null).map((c) => PROTECCION_LABELS[c].corto);
-}
-
 export type TonoProteccion = 'rojo' | 'ambar' | 'verde' | 'gris';
 
 /**
- * El chip que se pinta arriba del todo en la ficha, que es donde se mira antes de publicar
- * una foto. El orden de la decisión no es casual:
+ * El chip de la ficha, que es donde se mira antes de publicar una foto:
  *
- *  1. Un NO a la imagen manda sobre todo lo demás y sale en ROJO: es el error caro.
- *  2. Un no a cualquiera de las otras tres, en ámbar y diciendo a cuál.
- *  3. Con huecos sin marcar, gris: ni sí ni no, y se dice cuáles.
- *  4. Todo autorizado, verde; y si encima falta la firma, se dice al lado sin dar la nota.
+ *  1. Un NO a las fotos manda sobre todo y sale en ROJO: es el error caro.
+ *  2. Sin marcar, ámbar: no es un «sí», es que nadie lo ha mirado.
+ *  3. Puede salir, verde. Si el Prodat no ha vuelto se dice al lado, sin dar la nota: con el
+ *     arranque en «sí», un ámbar aquí saldría en las 639 fichas y no lo leería nadie.
  */
 export function avisoProteccion(pd: ProteccionDatos): { tono: TonoProteccion; texto: string; detalle?: string } {
-  const noes = noAutorizados(pd);
-  const faltan = sinConstar(pd);
-
-  if (pd.imagen === false) {
-    const otros = noes.filter((n) => n !== PROTECCION_LABELS.imagen.corto);
-    return {
-      tono: 'rojo',
-      texto: 'NO puede salir en fotos',
-      detalle: otros.length > 0 ? `tampoco ${otros.join(', ')}` : undefined,
-    };
-  }
-  if (noes.length > 0) {
-    return { tono: 'ambar', texto: `Sin permiso de ${noes.join(', ')}`, detalle: pd.firmada ? undefined : 'sin firmar' };
-  }
-  if (faltan.length > 0) {
-    return { tono: 'gris', texto: 'Protección de datos a medias', detalle: `sin marcar: ${faltan.join(', ')}` };
-  }
-  // Todo autorizado. Que falte la firma se dice, pero en verde y de refilón: desde que el
-  // punto de partida es «sí a todo», un ámbar aquí saldría en las 639 fichas, y una alarma
-  // que sale siempre es una alarma que nadie lee.
-  return { tono: 'verde', texto: 'Imagen autorizada', detalle: pd.firmada ? undefined : 'sin firmar' };
+  const prodat = pd.prodat === true ? undefined : pd.prodat === false ? 'Prodat: no' : 'Prodat sin contestar';
+  if (pd.imagen === false) return { tono: 'rojo', texto: 'NO puede salir en fotos', detalle: prodat };
+  if (pd.imagen === null) return { tono: 'ambar', texto: 'Fotos sin marcar', detalle: prodat };
+  return { tono: 'verde', texto: 'Puede salir en fotos', detalle: prodat };
 }
 
-/** ¿Hay algo aquí que no sea «todo en blanco»? Sirve para no pintar filas vacías. */
-export const tieneProteccion = (pd: ProteccionDatos): boolean =>
-  pd.firmada || Boolean(pd.notas) || CAMPOS_PROTECCION.some((c) => permisosDe(pd)[c] !== null);
+// ─── Los cuatro vistazos de la pantalla ───────────────────────────────────────
+//
+// Son las preguntas que se hacen de verdad: «¿quién no puede salir?» (la de antes de mandar
+// una foto a la web), «¿a quién no ha mirado nadie?» y «¿a quién le falta el Prodat?».
+
+export const FILTROS_PROTECCION = ['todos', 'sin-fotos', 'sin-marcar', 'sin-prodat'] as const;
+export type FiltroProteccion = (typeof FILTROS_PROTECCION)[number];
+
+export const FILTRO_LABELS: Record<FiltroProteccion, { titulo: string; corto: string }> = {
+  todos: { titulo: 'Todo el alumnado', corto: 'Todos' },
+  'sin-fotos': { titulo: 'No pueden salir en fotos', corto: 'No pueden salir' },
+  'sin-marcar': { titulo: 'Fotos sin marcar', corto: 'Sin marcar' },
+  'sin-prodat': { titulo: 'Sin el documento Prodat', corto: 'Falta Prodat' },
+};
+
+export function esFiltroProteccion(valor: string | null | undefined): valor is FiltroProteccion {
+  return (FILTROS_PROTECCION as readonly string[]).includes(valor ?? '');
+}
+
+export function casaFiltroProteccion(
+  pd: { imagen: boolean | null; prodat: boolean | null } | null,
+  filtro: FiltroProteccion,
+): boolean {
+  if (!pd) return false;
+  switch (filtro) {
+    case 'sin-fotos':
+      return pd.imagen === false;
+    case 'sin-marcar':
+      return pd.imagen === null;
+    case 'sin-prodat':
+      // Un «no» de la familia SÍ es una respuesta: lo que falta es lo que no ha vuelto.
+      return pd.prodat === null;
+    default:
+      return true;
+  }
+}
+
+/** Los cuatro contadores de la barra de arriba, de una pasada por la lista. */
+export function cuentaProteccion(
+  alumnos: readonly { proteccion: { imagen: boolean | null; prodat: boolean | null } | null }[],
+): Record<FiltroProteccion, number> {
+  const cuenta: Record<FiltroProteccion, number> = { todos: 0, 'sin-fotos': 0, 'sin-marcar': 0, 'sin-prodat': 0 };
+  for (const a of alumnos) {
+    if (!a.proteccion) continue;
+    for (const f of FILTROS_PROTECCION) if (casaFiltroProteccion(a.proteccion, f)) cuenta[f]++;
+  }
+  return cuenta;
+}
+
+/**
+ * Agrupa una lista ya ordenada en etapa → clase, **sin reordenar nada**: el orden bueno
+ * (etapa, clase, nº de lista y, sin número, apellidos) lo da el servidor una sola vez y lo
+ * respetan por igual la tabla de la pantalla y el PDF. Dos ordenaciones distintas del mismo
+ * listado es el tipo de detalle que hace que alguien deje de fiarse de un papel.
+ */
+export function agruparPorClase<T extends { etapa: string | null; clase: string; curso: string; letra: string | null }>(
+  alumnos: readonly T[],
+): { etapa: string | null; clase: string; alumnos: T[] }[] {
+  const grupos: { etapa: string | null; clase: string; alumnos: T[] }[] = [];
+  for (const a of alumnos) {
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.clase === a.clase) ultimo.alumnos.push(a);
+    else grupos.push({ etapa: a.etapa, clase: a.clase, alumnos: [a] });
+  }
+  return grupos;
+}
+
+/** `true`/`false`/`null` → lo que se escribe en una celda o en el PDF. */
+export const textoPermiso = (valor: boolean | null): string => (valor === true ? 'SÍ' : valor === false ? 'NO' : '—');

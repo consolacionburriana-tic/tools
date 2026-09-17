@@ -20,10 +20,7 @@ const permiso = z.boolean().nullable();
 const cuerpo = z
   .object({
     imagen: permiso.optional(),
-    redes: permiso.optional(),
-    ampa: permiso.optional(),
-    ong: permiso.optional(),
-    firmada: z.boolean().optional(),
+    prodat: permiso.optional(),
     notas: z.string().max(500).nullable().optional(),
   })
   .refine((c) => Object.keys(c).length > 0, { message: 'No hay nada que cambiar' });

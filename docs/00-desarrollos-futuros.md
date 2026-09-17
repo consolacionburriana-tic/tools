@@ -23,24 +23,23 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
-### Protección de datos: ¿cómo se cargan las 639 fichas? (17-sep-2026)
+### Protección de datos: de dónde salen los noes y los Prodat (17-sep-2026)
 
-La ficha de Alumnado ya tiene los cuatro permisos (imagen y voz, redes, AMPA, ONG), tri-estado,
-editables por secretaría/dirección/TIC. **Decidido el 17-sep-2026: se arranca con todos en
-«sí»** (el SQL de estreno los pone, y las altas nuevas entran igual) y se van marcando los
-noes; en la pantalla hay tabla por clase con masivos por columna. Lo que sigue sin decidir es
-de dónde salen los noes reales, porque Educamos no exporta este dato y el papel se queda en
-secretaría. Tres caminos:
+Quedó **fotos sí/no** (arranca en «sí» para todos) y **documento Prodat** (arranca «sin
+contestar»), con pantalla propia: contadores-filtro, edición por celda y masiva, y PDF. Lo que
+no está resuelto es de dónde sale el dato real, porque Educamos no lo exporta y el papel se
+queda en secretaría:
 
-1. **Importar de una hoja**, si secretaría ya lleva la lista en un Excel: un importador como
-   el de horarios (lee por cabecera, casa por NIA) y en una tarde está.
-2. **Preguntárselo a las familias** con un formulario público y magic link, como Salidas: se
-   quedaría firmado por ellas y actualizado solo, pero es una campaña de correo que hay que
-   querer mandar.
-3. **A mano, según vaya haciendo falta**: cero trabajo hoy y es lo que hay montado, pero
-   hasta que alguien marque un «no», la app dice que ese alumno puede salir en fotos porque
-   así se decidió arrancar, no porque conste una firma. Por eso `pd_firmada` va aparte y
-   sigue en `false` en las 639: lo uno no se puede confundir con lo otro.
+1. **Importar de una hoja**, si secretaría ya lleva la lista en un Excel: un importador como el
+   de horarios (lee por cabecera, casa por NIA) y en una tarde está.
+2. **Preguntárselo a las familias** con formulario público y magic link, como Salidas: se
+   quedaría firmado por ellas y actualizado solo, pero es una campaña de correo.
+3. **A mano, según haga falta**, que es lo que hay montado: los noes se marcan cuando se sabe
+   de ellos, y el filtro «Falta Prodat» enseña lo que queda por recoger.
+
+Ojo a lo que significa hoy un «sí» en fotos: que se decidió arrancar así, no que conste una
+firma. Por eso el Prodat va aparte y sigue en «sin contestar» en las 639: lo uno no se puede
+confundir con lo otro.
 
 ### ¿Qué más avisos van al tutor personal, aparte del tercer retraso?
 Desde el 2026-09-03 cada alumno puede tener **tutor personal** (uno de los dos o tres tutores de
@@ -164,7 +163,7 @@ Recopilados de las fichas, para verlos de un vistazo:
   vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`)
   y relanzando `scripts/icono-app.py`. No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
-- **Aplicar el SQL pendiente en Neon** (17-sep-2026): `proteccion-datos.sql` —las 8 columnas
+- **Aplicar el SQL pendiente en Neon** (17-sep-2026): `proteccion-datos.sql` —las 5 columnas
   `pd_*` de `edu_students`— está escrito, es idempotente y pasa el `--dry`, pero el contenedor
   de esa sesión no tenía el host de Neon en su allowlist de red. **Hasta que se aplique,
   `/gestion/alumnado` da error** porque la ficha ya pide esas columnas. Un `pnpm db:sql

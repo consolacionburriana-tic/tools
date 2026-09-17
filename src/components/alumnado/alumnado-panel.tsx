@@ -29,7 +29,7 @@ import { useSearchParams } from 'next/navigation';
 import { BookMarked, Camera, CameraOff, Library, List, Search, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FichaAlumnoPanel, useEscape } from '@/components/alumnado/ficha-alumno';
-import { TablaProteccion } from '@/components/alumnado/tabla-proteccion';
+import { PanelProteccion } from '@/components/alumnado/tabla-proteccion';
 import { casaBusqueda, colorAvatar, iniciales } from '@/lib/alumnado';
 import type { AlumnoLista, ClaseListado, FichaAlumno, ProteccionLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
@@ -99,14 +99,18 @@ export function AlumnadoPanel({
   // Buscar manda sobre la clase elegida: si escribes «roldan», quieres encontrarlo esté
   // donde esté, no que te digan que en 2ºA no hay ningún Roldán.
   const buscando = termino.trim().length >= 2;
+  // Una sola lista con los cambios ya aplicados, y de ahí salen las dos vistas: si cada una
+  // se los aplicase por su cuenta, tocar algo en la tabla y volver a las fichas enseñaría lo
+  // de antes.
+  const alumnosConRetoques = useMemo(
+    () => alumnos.map((a) => (retoques[a.id] ? { ...a, ...retoques[a.id] } : a)),
+    [alumnos, retoques],
+  );
   const visibles = useMemo(() => {
-    const base = buscando
-      ? alumnos.filter((a) => casaBusqueda(a.busca, termino)).slice(0, 60)
-      : clase
-        ? alumnos.filter((a) => claveClase(a) === clase)
-        : alumnos;
-    return base.map((a) => (retoques[a.id] ? { ...a, ...retoques[a.id] } : a));
-  }, [alumnos, buscando, termino, clase, retoques]);
+    if (buscando) return alumnosConRetoques.filter((a) => casaBusqueda(a.busca, termino)).slice(0, 60);
+    if (!clase) return alumnosConRetoques;
+    return alumnosConRetoques.filter((a) => claveClase(a) === clase);
+  }, [alumnosConRetoques, buscando, termino, clase]);
 
   /** Trae la ficha y la guarda en la caché. Idempotente: un id solo se pide una vez. */
   const cargarFicha = useCallback(async (id: string) => {
@@ -134,8 +138,8 @@ export function AlumnadoPanel({
     if (cambio.bancoLibros !== undefined) enLaFila.bancoLibros = cambio.bancoLibros;
     if (cambio.ampa !== undefined) enLaFila.ampa = cambio.ampa;
     if (cambio.proteccion) {
-      const { imagen, redes, ampa, ong, firmada } = cambio.proteccion;
-      enLaFila.proteccion = { imagen, redes, ampa, ong, firmada };
+      const { imagen, prodat } = cambio.proteccion;
+      enLaFila.proteccion = { imagen, prodat };
     }
     if (Object.keys(enLaFila).length > 0) {
       setRetoques((r) => ({ ...r, [id]: { ...r[id], ...enLaFila } }));
@@ -304,9 +308,12 @@ export function AlumnadoPanel({
       )}
 
       {vista === 'proteccion' ? (
-        <TablaProteccion
-          alumnos={visibles}
-          ambito={buscando ? `${visibles.length} resultado(s)` : (claseActual?.clase ?? 'Todo el centro')}
+        // Esta vista se filtra sola (etapa, clase, los cuatro vistazos y su propio
+        // buscador): se le pasa TODO lo que alcanza quien mira, no lo que haya elegido el
+        // carril de las fichas, que responde a otra pregunta.
+        <PanelProteccion
+          alumnos={alumnosConRetoques}
+          clases={clases}
           puedeEditar={puedeEditarProteccion}
           onCambio={actualizarProteccion}
         />

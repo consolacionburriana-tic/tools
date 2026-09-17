@@ -8,9 +8,10 @@
 // se sigue gestionando también en su módulo, con el mismo permiso y llamando al mismo
 // código: la ficha condensa la información, no se queda con la autoridad.
 //
-// Los cuatro permisos son TRI-ESTADO: sí · no · no consta. El tercero no es un adorno —
-// «no consta» es lo que hay en 639 fichas hasta que secretaría vaya pasando los papeles, y
-// pintarlo como «no» haría que nadie publicara una foto en todo el curso.
+// Dos casillas, las dos tri-estado: **fotos** (sí · no · sin marcar) y el **documento
+// Prodat** (recibido · no · sin contestar). El tercer estado no es un adorno: en fotos
+// significa «nadie lo ha mirado» y en Prodat, «el papel no ha vuelto», que es justo lo que
+// la dirección quiere poder buscar.
 
 import { useState } from 'react';
 import { Check, Loader2, Minus, X } from 'lucide-react';
@@ -44,7 +45,7 @@ export function TarjetaProteccion({
   if (!proteccion && !puedeParticipacion) {
     return (
       <p className="px-1 text-xs text-zinc-400">
-        La protección de datos (imagen, redes, AMPA y ONG) solo la ven dirección, secretaría, jefatura, orientación y
+        La protección de datos (fotos y documento Prodat) solo la ven dirección, secretaría, jefatura, orientación y
         el tutor/a de su clase.
       </p>
     );
@@ -82,12 +83,12 @@ export function TarjetaProteccion({
       titulo="Protección de datos"
       accion={
         proteccion && puedeEditar ? (
-          // El atajo del caso normal: la familia autoriza las cuatro cosas, y lo raro es el
-          // «no». Para una clase entera está la tabla de la pestaña de al lado.
+          // El atajo del caso normal: puede salir en fotos y el Prodat ha vuelto. Para una
+          // clase entera está la pestaña de al lado.
           <button
             type="button"
             disabled={guardando === 'todo'}
-            onClick={() => guardar('todo', { imagen: true, redes: true, ampa: true, ong: true }, 'proteccion')}
+            onClick={() => guardar('todo', { imagen: true, prodat: true }, 'proteccion')}
             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
           >
             {guardando === 'todo' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -111,24 +112,18 @@ export function TarjetaProteccion({
             ))}
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
-            <div className="min-w-0">
-              <Interruptor
-                etiqueta="Documento firmado"
-                puesto={proteccion.firmada}
-                editable={puedeEditar}
-                guardando={guardando === 'firmada'}
-                onCambiar={(v) => guardar('firmada', { firmada: v }, 'proteccion')}
-              />
-              {proteccion.notas && <p className="mt-1 text-xs italic text-zinc-500">{proteccion.notas}</p>}
+          {(proteccion.notas || proteccion.actualizadoAt) && (
+            <div className="mt-2.5 flex flex-wrap items-baseline justify-between gap-2 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
+              {proteccion.notas && <p className="min-w-0 text-xs italic text-zinc-500">{proteccion.notas}</p>}
+              {proteccion.actualizadoAt && (
+                // Quién y cuándo, siempre a la vista: esto es la voluntad de una familia.
+                <p className="ml-auto text-[11px] text-zinc-400">
+                  Última vez: {new Date(proteccion.actualizadoAt).toLocaleDateString('es-ES')}
+                  {proteccion.actualizadoPor && ` · ${proteccion.actualizadoPor.split('@')[0]}`}
+                </p>
+              )}
             </div>
-            {proteccion.actualizadoAt && (
-              <p className="text-[11px] text-zinc-400">
-                Última vez: {new Date(proteccion.actualizadoAt).toLocaleDateString('es-ES')}
-                {proteccion.actualizadoPor && ` · ${proteccion.actualizadoPor.split('@')[0]}`}
-              </p>
-            )}
-          </div>
+          )}
           {!puedeEditar && (
             <p className="mt-1.5 text-[11px] text-zinc-400">
               Para cambiar algo de aquí, secretaría (o dirección/TIC): son los papeles que guardan ellos.
@@ -183,7 +178,7 @@ const ESTADOS: { valor: Estado; texto: string; icono: React.ReactNode; puesto: s
   },
   {
     valor: null,
-    texto: 'No consta',
+    texto: 'Sin marcar',
     icono: <Minus className="h-3.5 w-3.5" />,
     puesto: 'bg-zinc-500 text-white dark:bg-zinc-400 dark:text-zinc-900',
   },

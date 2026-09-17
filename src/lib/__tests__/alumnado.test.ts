@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agruparPorClase,
   avisoCumple,
   avisoProteccion,
+  casaFiltroProteccion,
+  cuentaProteccion,
+  FILTROS_PROTECCION,
   casaBusqueda,
   claseLarga,
   colorAvatar,
@@ -13,11 +17,9 @@ import {
   esCorreo,
   indiceDeBusqueda,
   iniciales,
-  noAutorizados,
   normalizar,
   siNo,
-  sinConstar,
-  tieneProteccion,
+  textoPermiso,
   telefono,
   whatsapp,
 } from '@/lib/alumnado';
@@ -265,57 +267,102 @@ describe('quién puede con qué alumno', () => {
 describe('protección de datos', () => {
   const pd = (campos: Partial<Parameters<typeof avisoProteccion>[0]> = {}) => ({
     imagen: null,
-    redes: null,
-    ampa: null,
-    ong: null,
-    firmada: false,
+    prodat: null,
     notas: null,
     actualizadoAt: null,
     actualizadoPor: null,
     ...campos,
   });
 
-  it('un NO a la imagen manda sobre todo lo demás y sale en rojo', () => {
-    const aviso = avisoProteccion(pd({ firmada: true, imagen: false, redes: false, ampa: true, ong: true }));
+  it('un NO a las fotos manda sobre todo y sale en rojo', () => {
+    const aviso = avisoProteccion(pd({ imagen: false, prodat: true }));
     expect(aviso.tono).toBe('rojo');
     expect(aviso.texto).toBe('NO puede salir en fotos');
-    // El de imagen no se repite en el detalle: ya lo dice el texto.
-    expect(aviso.detalle).toBe('tampoco redes');
+    // Con el Prodat recibido no hay nada más que decir al lado.
+    expect(aviso.detalle).toBeUndefined();
   });
 
-  it('un no a las otras es ámbar y dice a cuáles', () => {
-    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: false, ampa: false, ong: true }));
+  it('sin marcar no es un sí: ámbar', () => {
+    const aviso = avisoProteccion(pd({ imagen: null, prodat: true }));
     expect(aviso.tono).toBe('ambar');
-    expect(aviso.texto).toBe('Sin permiso de redes, AMPA');
+    expect(aviso.texto).toBe('Fotos sin marcar');
   });
 
-  it('con huecos sin marcar: gris, y dice cuáles faltan', () => {
-    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: true }));
-    expect(aviso.tono).toBe('gris');
-    expect(aviso.detalle).toBe('sin marcar: AMPA, ONG');
+  it('puede salir: verde, y el Prodat que falta se dice al lado sin dar la nota', () => {
+    expect(avisoProteccion(pd({ imagen: true, prodat: true }))).toEqual({
+      tono: 'verde',
+      texto: 'Puede salir en fotos',
+    });
+    expect(avisoProteccion(pd({ imagen: true }))).toEqual({
+      tono: 'verde',
+      texto: 'Puede salir en fotos',
+      detalle: 'Prodat sin contestar',
+    });
+    expect(avisoProteccion(pd({ imagen: true, prodat: false })).detalle).toBe('Prodat: no');
   });
 
-  it('todo autorizado y firmado: verde y en una línea', () => {
-    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: true, ampa: true, ong: true }));
-    expect(aviso).toEqual({ tono: 'verde', texto: 'Imagen autorizada' });
+  it('el rojo se mantiene aunque falte el Prodat, y lo dice', () => {
+    expect(avisoProteccion(pd({ imagen: false })).detalle).toBe('Prodat sin contestar');
+  });
+});
+
+describe('los cuatro vistazos', () => {
+  const alumno = (imagen: boolean | null, prodat: boolean | null) => ({ proteccion: { imagen, prodat } });
+
+  it('«falta Prodat» es el que no ha vuelto, no el que ha dicho que no', () => {
+    expect(casaFiltroProteccion({ imagen: true, prodat: null }, 'sin-prodat')).toBe(true);
+    expect(casaFiltroProteccion({ imagen: true, prodat: false }, 'sin-prodat')).toBe(false);
   });
 
-  it('todo autorizado sin firma: sigue siendo verde, y lo dice al lado', () => {
-    // Desde que se arranca con «sí a todo», un ámbar aquí saldría en las 639 fichas.
-    const aviso = avisoProteccion(pd({ imagen: true, redes: true, ampa: true, ong: true }));
-    expect(aviso).toEqual({ tono: 'verde', texto: 'Imagen autorizada', detalle: 'sin firmar' });
+  it('«sin marcar» son las fotos que nadie ha mirado, no los noes', () => {
+    expect(casaFiltroProteccion({ imagen: null, prodat: true }, 'sin-marcar')).toBe(true);
+    expect(casaFiltroProteccion({ imagen: false, prodat: true }, 'sin-marcar')).toBe(false);
+    expect(casaFiltroProteccion({ imagen: false, prodat: true }, 'sin-fotos')).toBe(true);
   });
 
-  it('«no consta» no es «ha dicho que no»', () => {
-    const solo = pd({ imagen: false });
-    expect(noAutorizados(solo)).toEqual(['imagen']);
-    expect(sinConstar(solo)).toEqual(['redes', 'AMPA', 'ONG']);
+  it('quien no tiene protección visible no cuenta en ningún filtro, ni en «todos»', () => {
+    // Un tutor mirando otra clase de su etapa: no es que salga a cero, es que no sale.
+    for (const f of FILTROS_PROTECCION) expect(casaFiltroProteccion(null, f)).toBe(false);
   });
 
-  it('tieneProteccion distingue lo vacío de lo anotado', () => {
-    expect(tieneProteccion(pd())).toBe(false);
-    expect(tieneProteccion(pd({ ong: true }))).toBe(true);
-    expect(tieneProteccion(pd({ firmada: true }))).toBe(true);
-    expect(tieneProteccion(pd({ notas: 'solo fotos de grupo' }))).toBe(true);
+  it('cuenta cada cosa por separado, y un alumno puede estar en dos', () => {
+    const cuenta = cuentaProteccion([
+      alumno(true, true),
+      alumno(false, null), // no puede salir Y le falta el Prodat
+      alumno(null, null), // sin marcar Y le falta el Prodat
+      { proteccion: null },
+    ]);
+    expect(cuenta).toEqual({ todos: 3, 'sin-fotos': 1, 'sin-marcar': 1, 'sin-prodat': 2 });
+  });
+});
+
+describe('agrupar para la tabla y el PDF', () => {
+  const a = (clase: string, etapa: string, completo: string) => ({
+    clase,
+    etapa,
+    curso: clase,
+    letra: null,
+    completo,
+  });
+
+  it('respeta el orden que venga y no reordena nada', () => {
+    const grupos = agruparPorClase([
+      a('1º EP A', 'EP', 'Ana'),
+      a('1º EP A', 'EP', 'Bruno'),
+      a('2º ESO B', 'ESO', 'Carla'),
+    ]);
+    expect(grupos.map((g) => g.clase)).toEqual(['1º EP A', '2º ESO B']);
+    expect(grupos[0].alumnos.map((x) => x.completo)).toEqual(['Ana', 'Bruno']);
+  });
+
+  it('una clase que reaparece después de otra abre grupo nuevo (no se mezcla)', () => {
+    // Si el orden llegara mal, es mejor que se vea en la tabla que esconderlo juntando filas
+    // que en el listado estaban separadas.
+    const grupos = agruparPorClase([a('1º EP A', 'EP', 'Ana'), a('2º ESO B', 'ESO', 'Carla'), a('1º EP A', 'EP', 'Zoe')]);
+    expect(grupos).toHaveLength(3);
+  });
+
+  it('textoPermiso es lo que se lee en el papel', () => {
+    expect([textoPermiso(true), textoPermiso(false), textoPermiso(null)]).toEqual(['SÍ', 'NO', '—']);
   });
 });
