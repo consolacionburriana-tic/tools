@@ -105,9 +105,33 @@ export async function identifyStudentsByFamily(campaignId: string, identificador
   return { candidatos, correoFamilia };
 }
 
+/**
+ * El banco de libros se lee **de la BBDD central, en vivo**, no del snapshot de la campaña.
+ *
+ * `lic_students.banco_libros` es una copia que hay que mantener a mano, y basta con que alguien
+ * marque a un alumno en el módulo de Banco de libros antes de que exista en la campaña para que
+ * las dos se separen sin que nadie se entere: le pasó a Mateo Terradez, que figuraba en el banco
+ * y no en Licencias, y por eso el pedido de 1ºESO pedía 48 licencias en vez de 49.
+ *
+ * Leyendo el flag de `edu_students` da igual quién lo escriba ni cuándo: Licencias siempre dice
+ * lo mismo que el Banco de libros. La copia se sigue escribiendo (no se rompe nada que la lea)
+ * pero ya no manda. Provisional hasta la fuente única de alumnado: `docs/06-fuente-unica-alumnado.md`.
+ *
+ * `active` NO se toca aquí: en la campaña significa «participa», que no es lo mismo que estar
+ * activo en el colegio, y eso lo sigue resolviendo el sync de alumnado.
+ */
+function conBancoDeLaCentral<T extends { bancoLibros: boolean }>(fila: T, bancoCentral: boolean | null): T {
+  return bancoCentral == null ? fila : { ...fila, bancoLibros: bancoCentral };
+}
+
 export async function getStudentById(id: string): Promise<LicStudent | null> {
-  const [s] = await db.select().from(licStudents).where(eq(licStudents.id, id)).limit(1);
-  return s ?? null;
+  const [row] = await db
+    .select({ student: licStudents, bancoCentral: eduStudents.bancoLibros })
+    .from(licStudents)
+    .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
+    .where(eq(licStudents.id, id))
+    .limit(1);
+  return row ? conBancoDeLaCentral(row.student, row.bancoCentral) : null;
 }
 
 // Catálogo que ve la familia: BdL -> solo libros fuera del banco; no-BdL -> todos.

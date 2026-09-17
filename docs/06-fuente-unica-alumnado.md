@@ -35,7 +35,26 @@ Todo esto es real y está verificado contra Neon, no es hipotético:
 4. **Enlace cruzado entre dos personas.** La fila de Licencias de Marina Santos Miró apuntaba al
    alumno Marta Sánchez Clofent, porque sus códigos generados colisionaban. *Arreglado a mano.*
 
-Cuatro incidentes distintos, una sola causa: **duplicar datos mutables**.
+### Y volvió a pasar (2026-09-17)
+
+5. **El pedido a la editorial pedía de menos.** **Mateo Terradez** (1ºESO A) figuraba en el banco
+   de libros en la central y **no** en la campaña de Licencias, así que el pedido de 1ºESO pedía
+   48 licencias de cada libro en vez de 49 (y 24 de Tecnología en castellano en vez de 25). El
+   parche del punto 1 no lo cubría: `setBanco()` propaga solo si el alumno **ya existe** en la
+   campaña, y a quien se marca antes de entrar en ella no le llega nunca. Nadie se entera hasta
+   que alguien compara a mano dos pantallas.
+
+   *Parcheado otra vez* (2026-09-17, a petición de David: «no me gusta que haya una cosa en
+   Licencias y otra al otro lado, haz que todo se sincronice solo»): Licencias **lee
+   `banco_libros` de `edu_students` en vivo**, con un join, en `getStudentById()` y en el
+   `loadBase()` de los informes. La copia de `lic_students` se sigue escribiendo pero ya no
+   manda, así que da igual quién la toque ni cuándo.
+
+   **Esto es la Fase 1 de este plan, aplicada solo a un campo.** Cuando se ejecute el plan
+   entero, esos dos joins se quedan como están o se los come la vista/consulta definitiva; lo
+   que NO hay que hacer es volver a leer el flag del snapshot.
+
+Cinco incidentes distintos, una sola causa: **duplicar datos mutables**.
 
 ## La decisión (David, 2026-09-03)
 
