@@ -333,6 +333,42 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
       clase, lo que queda es marcar los noes. Si aparece un Excel con las autorizaciones,
       un importador por NIA sigue siendo la opción rápida (`00-desarrollos-futuros.md`)
 
+### Fase 3 · Plegar la protección de datos en la ficha (lo siguiente que toca)
+
+David, 19-sep-2026. En la ficha, los cuatro permisos ocupan cuatro filas que casi nadie va a
+tocar: el caso normal es «sí a todo» y el «no» es lo raro. Queda a la vista lo que se mira, y
+el detalle plegado, como cuando en Excel agrupas varias columnas.
+
+- [ ] Interruptor general arriba, y los cuatro permisos (imagen y voz, redes, AMPA, ONG)
+      plegados detrás de un desplegable que casi nunca se abrirá
+- [ ] «No» en el general = «no» en los cuatro. El «sí» ya lo hace hoy el botón «Todo sí», que
+      este interruptor absorbe
+- [ ] Confirmar con David: «el toggle general + el de la protección de datos en sí misma» lo he
+      leído como **general + «Documento firmado»** a la vista y los cuatro permisos plegados. Si
+      quería decir general + imagen y voz (que es el permiso caro), cambia qué queda arriba
+- [ ] Decidir qué pinta el general cuando los cuatro NO coinciden (dos síes y un no): o es
+      tri-estado/«mixto», o el resumen lo sigue dando el chip de arriba y el interruptor se
+      queda solo como atajo de escritura. Sin esto, abrir la ficha de alguien con un «no»
+      marcado y ver el general en «sí» es justo el error que esta tarjeta existe para evitar
+- [ ] El detalle por columnas sigue entero en la vista «Protección de datos» por clase, que es
+      donde se marcan los noes de verdad: plegar en la ficha no esconde nada que no esté a un toque
+
+### Fase 4 · Informes en PDF, Word y Excel (después de la 3)
+
+David, 19-sep-2026. Cuatro listados que hoy solo se miran en pantalla y que se piden en papel o
+para mandar: clase completa, banco de libros, AMPA y protección de datos.
+
+- [ ] Botón de informe en PDF, Word y Excel para los cuatro listados
+- [ ] En los cuatro, el mismo interruptor: **lista completa** con quien no participa en gris, o
+      **solo los que sí**. Es la misma pregunta en clase, banco, AMPA y protección, así que se
+      resuelve una vez y se reutiliza
+- [ ] Excel: el repo ya exporta CSV con `;` y BOM en cuatro módulos (`licencias-`, `puntualidad-`,
+      `salidas-` y `evaluaciones-exports.ts`); para .xlsx de verdad, la dependencia `xlsx` ya está
+- [ ] PDF y Word: no hay librería todavía, hay que decidirla antes de empezar. Se generan en
+      servidor: esto es alumnado, no se manda la clase entera al navegador para montar el PDF
+- [ ] El de protección de datos es una lista de nombres con sus permisos y sale en papel del
+      colegio: pie con la fecha y quién lo generó, y no se guarda en Blob
+
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la
       dirección a `edu_guardians.direccion`, en vez de dejarlas solo en `extra`
