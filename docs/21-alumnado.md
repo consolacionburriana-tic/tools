@@ -325,11 +325,10 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
 - [x] Punto de partida «sí a todo» en el SQL de estreno (`UPDATE … WHERE pd_x IS NULL`, así que
       relanzarlo no pisa ningún «no» ya marcado) y `DEFAULT true` para las altas nuevas
 - [x] `pnpm test`, `pnpm lint`, `pnpm build` en verde
-- [~] **Aplicar `src/db/sql/proteccion-datos.sql` en Neon** — escrito y probado en seco
-      (`pnpm db:sql --pendientes --dry`), pero el contenedor de esta sesión no tiene el host de
-      Neon en su allowlist de red. **Hasta que se aplique, `/gestion/alumnado` da error**:
-      `pnpm db:sql --pendientes` desde el portátil y listo
-- [ ] Probado contra la app con datos reales (pendiente de lo anterior)
+- [x] Aplicado `src/db/sql/proteccion-datos.sql` en Neon (19-sep-2026): las 8 columnas
+      nuevas en `edu_students` y el arranque «sí a todo» para el alumnado activo, verificado
+      sentencia a sentencia
+- [ ] Probado contra la app con datos reales
 - [ ] Ver cómo va la carga real con secretaría: con el arranque en «sí» y los masivos por
       clase, lo que queda es marcar los noes. Si aparece un Excel con las autorizaciones,
       un importador por NIA sigue siendo la opción rápida (`00-desarrollos-futuros.md`)

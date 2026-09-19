@@ -164,16 +164,11 @@ Recopilados de las fichas, para verlos de un vistazo:
   vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`)
   y relanzando `scripts/icono-app.py`. No urge.
 - **Google Cloud**: crear el OAuth client para el login — pasitos en `01-auth-roles.md`.
-- **Aplicar el SQL pendiente en Neon** (17-sep-2026): `proteccion-datos.sql` —las 8 columnas
-  `pd_*` de `edu_students`— está escrito, es idempotente y pasa el `--dry`, pero el contenedor
-  de esa sesión no tenía el host de Neon en su allowlist de red. **Hasta que se aplique,
-  `/gestion/alumnado` da error** porque la ficha ya pide esas columnas. Un `pnpm db:sql
-  --pendientes` desde el portátil lo arregla.
-- **Aplicar el SQL pendiente en Neon**: `pnpm db:sql --pendientes` (la lista está en
-  `src/db/sql/pendientes.txt` y en la cabecera de `plataforma.md`). Son tres, de la sesión
-  del 2026-09-09, que no tenía `DATABASE_URL`: plantilla del cuaderno para varias etapas,
-  nombre visible del profesorado y `autoasm.sql` (histórico, FTP y `asm_ajustes`). Basta con
-  lanzarlo desde un entorno que tenga la conexión.
+- ~~**Aplicar el SQL pendiente en Neon**: `proteccion-datos.sql` (las 8 columnas `pd_*` de
+  `edu_students`)~~ ✅ aplicado y verificado el 19-sep-2026.
+- ~~**Aplicar el SQL pendiente en Neon**: los tres de la sesión del 2026-09-09 (plantilla del
+  cuaderno para varias etapas, nombre visible del profesorado y `autoasm.sql`)~~ ✅ aplicados
+  ese mismo día.
 - **Mi horario** (ficha `20`): en la consola de administración de Google Workspace, añadir
   el scope `https://www.googleapis.com/auth/calendar` al Client ID que ya tiene delegación
   de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin

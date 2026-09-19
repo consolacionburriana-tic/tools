@@ -6,5 +6,4 @@
 # Todos son idempotentes, así que volver a lanzarlo no rompe nada. Cuando se apliquen, se
 # quitan de aquí en el mismo commit y se marcan las casillas de la ficha del módulo.
 
-
-proteccion-datos.sql
+# Ahora mismo no hay nada pendiente.

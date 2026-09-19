@@ -72,7 +72,8 @@ pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotente
 Al aplicarlos: quitarlos de `pendientes.txt` y marcar las casillas `[~]` → `[x]` de la ficha
 del módulo, en el mismo commit.
 
-**Ahora mismo no queda nada pendiente.** `licencias-banco-report.sql`
+**Ahora mismo no queda nada pendiente.** `proteccion-datos.sql` (las 8 columnas `pd_*` de
+`edu_students`) se aplicó y verificó el 19-sep-2026; `licencias-banco-report.sql`
 (`lic_campaigns.banco_report_at`) y `licencias-pedidos-editorial.sql` (la tabla de tiradas de
 pedidos a editoriales) se aplicaron y verificaron el 16-sep-2026; los tres de la sesión del
 9-sep-2026 (`cuaderno-plantillas-etapas.sql`, `profes-nombre-mostrado.sql` y `autoasm.sql`), ese
@@ -97,7 +98,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Banco de libros | ✅ | ✅ | ✅ (participantes, AMPA, lotes, valoración por libro, resumen agregado y conector Excel→catálogo; schema al día en Neon) | [`12-bancolibros.md`](./12-bancolibros.md) |
 | Evaluaciones de actividades | ✅ | ✅ | ✅ (Fases 0-4 en producción: editor con presets, formulario público, envío por correo, dashboard y comparativas) | [`16-evaluaciones.md`](./16-evaluaciones.md) |
 | Puntualidad (retrasos de entrada) | ✅ | ✅ | ✅ (Fases 0-3 en Neon y verificadas; tutorías de 2026-27 asignadas en las 28 clases, así que los avisos ya salen) | [`17-puntualidad.md`](./17-puntualidad.md) |
-| Alumnado (ficha por alumno) | ✅ | ✅ | 🟡 (navegador por clase, buscador y ficha completa con los 8 módulos, todo copiable de un toque; alcance por etapa verificado contra la app. Protección de datos —imagen y voz, redes, AMPA, ONG— editable desde la ficha y en tabla por clase (masivos por columna), igual que banco de libros y AMPA: **pendiente de aplicar su SQL en Neon**) | [`21-alumnado.md`](./21-alumnado.md) |
+| Alumnado (ficha por alumno) | ✅ | ✅ | 🟡 (navegador por clase, buscador y ficha completa con los 8 módulos, todo copiable de un toque; alcance por etapa verificado contra la app. Protección de datos —imagen y voz, redes, AMPA, ONG— editable desde la ficha y en tabla por clase (masivos por columna), igual que banco de libros y AMPA; SQL ya aplicado en Neon, falta probar contra la app con datos reales) | [`21-alumnado.md`](./21-alumnado.md) |
 | Cuaderno de tutor | ✅ | ✅ | 🟡 (motor, cola, panel, asignaturas por curso, compartir y **lista de clase en Google Sheets** listos y probados con datos reales; tablas ya en Neon. Falta la tirada real de documentos con las plantillas definitivas) | [`18-cuaderno-tutor.md`](./18-cuaderno-tutor.md) |
 | PWA en iPad (transversal, priorizada) | ✅ | ✅ | 🟡 (Fases 1-2: iconos con el emblema real, atajos, service worker y página de sin conexión; falta la QA en iPad de David) | [`05-pwa.md`](./05-pwa.md) |
 | Horarios (transversal: rejillas, horarios de clase y de profe) | ✅ | ✅ | 🟡 (infantil y primaria importados y navegables en `/gestion/horarios`: vistas por clase, profesor y aula, con importación desde el `.docx` de Educamos; falta secundaria) | [`07-horarios.md`](./07-horarios.md) |
