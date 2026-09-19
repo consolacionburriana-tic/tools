@@ -84,8 +84,19 @@ function ordenLista<T extends { apellido1: string | null; apellido2: string | nu
  * el mismo acto a la campaña vigente.
  */
 export async function setBanco(eduStudentId: string, banco: boolean): Promise<void> {
-  await db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(eq(eduStudents.id, eduStudentId));
-  await propagarBancoACampania([eduStudentId], banco);
+  await setBancoMuchos([eduStudentId], banco);
+}
+
+/**
+ * El mismo cambio para muchos a la vez (una clase entera desde las pestañas de Alumnado).
+ * Existe para que marcar el banco siga siendo UNA cosa: un update y su propagación a la
+ * campaña de Licencias. `setBanco` pasa por aquí, así que lo que se añada mañana vale para
+ * los dos caminos sin acordarse de nada.
+ */
+export async function setBancoMuchos(eduStudentIds: string[], banco: boolean): Promise<void> {
+  if (eduStudentIds.length === 0) return;
+  await db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds));
+  await propagarBancoACampania(eduStudentIds, banco);
 }
 
 /**

@@ -223,15 +223,22 @@ src/app/api/alumnado/[id]/route.ts         # la ficha completa, con guard y alca
 src/app/api/alumnado/[id]/proteccion/...   # cambiar los 4 permisos + firmada + notas
 src/app/api/alumnado/[id]/participacion/…  # banco de libros y AMPA (llama a bancolibros-server)
 src/app/api/alumnado/proteccion/route.ts   # masivo: una columna, o la clase entera
+src/app/api/alumnado/participacion/…       # masivo de banco de libros y AMPA por clase
 src/app/gestion/alumnado/                  # layout (guard de módulo) + página + loading
-src/components/alumnado/alumnado-panel.tsx # clases, buscador, lista y orquestación
+src/components/alumnado/alumnado-panel.tsx # clases, buscador, lista, pestañas y orquestación
 src/components/alumnado/ficha-alumno.tsx   # la ficha, en el orden de la tabla de arriba
+src/components/alumnado/proteccion-datos.tsx  # la tarjeta de la ficha (permisos + participación)
+src/components/alumnado/tabla-proteccion.tsx  # pestaña: los 4 permisos de la clase entera
+src/components/alumnado/tabla-participacion.tsx # pestañas de banco de libros y AMPA
 src/components/alumnado/copiable.tsx       # Copiable, Dato y CopiarLista
 ```
 
 Sin tablas nuevas. Sí hay **8 columnas nuevas** en `edu_students` (`pd_imagen`, `pd_redes`,
 `pd_ampa`, `pd_ong`, `pd_firmada`, `pd_notas`, `pd_actualizado_at`, `pd_actualizado_por`), en
 `src/db/sql/proteccion-datos.sql`: aditivo e idempotente.
+
+Las pestañas de banco de libros y AMPA (Fase 3) **no añaden nada al schema**: escriben
+`edu_students.banco_libros` y `edu_students.ampa`, que ya existían y son del módulo del banco.
 
 ### Rendimiento: lo que importa es el número de TANDAS, no las consultas
 
@@ -333,7 +340,36 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
       clase, lo que queda es marcar los noes. Si aparece un Excel con las autorizaciones,
       un importador por NIA sigue siendo la opción rápida (`00-desarrollos-futuros.md`)
 
-### Fase 3 · Plegar la protección de datos en la ficha (lo siguiente que toca)
+### Fase 3 · Banco de libros y AMPA por clase, desde Alumnado (19-sep-2026)
+
+David: «da igual si vas al módulo banco de libros o vas al módulo alumnado, te vas a encontrar
+esas opciones para cambiarlo rápido y fácil». Los interruptores de la ficha ya existían desde
+la Fase 2, pero eran de uno en uno, y marcar quién va al banco son 492 personas.
+
+- [x] Dos pestañas nuevas junto a «Protección de datos»: **Banco de libros** y **AMPA**, cada
+      una con la clase entera en tabla, un toque por celda y «todos sí / todos no» con segundo
+      toque de confirmación (`tabla-participacion.tsx`, una sola implementación parametrizada
+      por campo)
+- [x] No son tri-estado, y por eso no se pintan como la protección de datos: se participa o no,
+      y el «no» va en gris y no en rojo. Nadie ha dicho que no a nada; esa familia no está
+      apuntada, que es otra cosa
+- [x] El módulo del banco de libros se queda **exactamente como estaba**: la API nueva
+      (`POST /api/alumnado/participacion`) llama a sus mismos `setBancoMuchos`/`setAmpa`, que
+      son los que además propagan el banco al snapshot de Licencias. Alumnado da el atajo, no
+      se queda con la autoridad
+- [x] Mismo permiso que el panel del banco (dirección/TIC): extraído a `puedeParticipacionDe()`
+      para que la ficha, las pestañas y la API no puedan dejar de coincidir. Quien no lo tiene
+      no ve las pestañas, porque son un atajo de edición y no un dato que consultar aquí
+- [x] El alcance se lee de la BBDD y no del cuerpo de la petición, igual que en la protección
+      masiva: quien manda ids que no le tocan se queda sin esos, no con un 403
+- [x] Verificado contra Neon con datos reales sin alterar ninguno (fuera de alcance → 0,
+      id inexistente → 0, filtro por clase → 26 de 50) y contra la app en el navegador: las
+      tres pestañas, en claro y oscuro, a 1180 px y en iPad vertical sin scroll horizontal
+- [x] `pnpm test` (654), `pnpm build` en verde; `pnpm lint` sin ningún problema nuevo
+- [ ] Probado por David en uso real: queda pendiente tocar un interruptor de verdad, que en la
+      verificación no se hizo para no cambiar datos del colegio
+
+### Fase 4 · Plegar la protección de datos en la ficha (lo siguiente que toca)
 
 David, 19-sep-2026. En la ficha, los cuatro permisos ocupan cuatro filas que casi nadie va a
 tocar: el caso normal es «sí a todo» y el «no» es lo raro. Queda a la vista lo que se mira, y
@@ -353,7 +389,7 @@ el detalle plegado, como cuando en Excel agrupas varias columnas.
 - [ ] El detalle por columnas sigue entero en la vista «Protección de datos» por clase, que es
       donde se marcan los noes de verdad: plegar en la ficha no esconde nada que no esté a un toque
 
-### Fase 4 · Informes en PDF, Word y Excel (después de la 3)
+### Fase 5 · Informes en PDF, Word y Excel (después de la 4)
 
 David, 19-sep-2026. Cuatro listados que hoy solo se miran en pantalla y que se piden en papel o
 para mandar: clase completa, banco de libros, AMPA y protección de datos.

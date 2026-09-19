@@ -280,6 +280,45 @@ export const PROTECCION_LABELS: Record<CampoProteccion, { titulo: string; corto:
   },
 };
 
+// ─── Participación (banco de libros y AMPA) ──────────────────────────────────
+//
+// Estos dos NO son permisos ni son tri-estado: se participa o no se participa, y el dato
+// vive en el módulo del banco de libros. Alumnado los enseña y deja cambiarlos por clase
+// porque es donde se tiene delante a la clase entera, pero quien manda sigue siendo el banco.
+
+export const CAMPOS_PARTICIPACION = ['bancoLibros', 'ampa'] as const;
+export type CampoParticipacion = (typeof CAMPOS_PARTICIPACION)[number];
+
+export const PARTICIPACION_LABELS: Record<
+  CampoParticipacion,
+  { titulo: string; columna: string; ayuda: string; si: string; no: string }
+> = {
+  bancoLibros: {
+    titulo: 'Banco de libros',
+    columna: 'Participa',
+    ayuda: 'Se gestiona también en el panel del banco de libros, y es el mismo dato',
+    si: 'participan',
+    no: 'no participan',
+  },
+  ampa: {
+    titulo: 'AMPA',
+    columna: 'Familia socia',
+    // El aviso importante de esta pantalla: se llaman igual y son dos cosas distintas.
+    ayuda: 'La familia es socia del AMPA. NO es el permiso de que el AMPA publique fotos',
+    si: 'socias',
+    no: 'no socias',
+  },
+};
+
+/** Cuántos sí y cuántos no, que es lo que la cabecera dice antes de un masivo. */
+export function reparteParticipacion(
+  alumnos: readonly { bancoLibros: boolean; ampa: boolean }[],
+  campo: CampoParticipacion,
+): { si: number; no: number; total: number } {
+  const si = alumnos.filter((a) => a[campo]).length;
+  return { si, no: alumnos.length - si, total: alumnos.length };
+}
+
 export interface ProteccionDatos {
   imagen: boolean | null;
   redes: boolean | null;

@@ -15,6 +15,9 @@ import {
   iniciales,
   noAutorizados,
   normalizar,
+  PARTICIPACION_LABELS,
+  PROTECCION_LABELS,
+  reparteParticipacion,
   siNo,
   sinConstar,
   tieneProteccion,
@@ -317,5 +320,28 @@ describe('protección de datos', () => {
     expect(tieneProteccion(pd({ ong: true }))).toBe(true);
     expect(tieneProteccion(pd({ firmada: true }))).toBe(true);
     expect(tieneProteccion(pd({ notas: 'solo fotos de grupo' }))).toBe(true);
+  });
+});
+
+describe('participación (banco de libros y AMPA)', () => {
+  const clase = [
+    { bancoLibros: true, ampa: false },
+    { bancoLibros: true, ampa: true },
+    { bancoLibros: false, ampa: false },
+  ];
+
+  it('cuenta los que participan y los que no', () => {
+    expect(reparteParticipacion(clase, 'bancoLibros')).toEqual({ si: 2, no: 1, total: 3 });
+    expect(reparteParticipacion(clase, 'ampa')).toEqual({ si: 1, no: 2, total: 3 });
+  });
+
+  it('una clase vacía no divide entre cero ni miente con el total', () => {
+    expect(reparteParticipacion([], 'ampa')).toEqual({ si: 0, no: 0, total: 0 });
+  });
+
+  it('el AMPA de participación avisa de que NO es el permiso de fotos', () => {
+    // Se llaman igual y son dos cosas distintas: es el error que esta pantalla puede provocar.
+    expect(PARTICIPACION_LABELS.ampa.ayuda).toContain('NO es el permiso');
+    expect(PROTECCION_LABELS.ampa.ayuda).toContain('publique fotos');
   });
 });

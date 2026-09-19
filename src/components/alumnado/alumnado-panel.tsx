@@ -29,8 +29,9 @@ import { useSearchParams } from 'next/navigation';
 import { BookMarked, Camera, CameraOff, Library, List, Search, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FichaAlumnoPanel, useEscape } from '@/components/alumnado/ficha-alumno';
+import { TablaParticipacion } from '@/components/alumnado/tabla-participacion';
 import { TablaProteccion } from '@/components/alumnado/tabla-proteccion';
-import { casaBusqueda, colorAvatar, iniciales } from '@/lib/alumnado';
+import { casaBusqueda, colorAvatar, iniciales, type CampoParticipacion } from '@/lib/alumnado';
 import type { AlumnoLista, ClaseListado, FichaAlumno, ProteccionLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
 
@@ -46,6 +47,7 @@ export function AlumnadoPanel({
   propias,
   fichaInicial,
   puedeEditarProteccion,
+  puedeParticipacion,
 }: {
   alumnos: AlumnoLista[];
   clases: ClaseListado[];
@@ -57,6 +59,8 @@ export function AlumnadoPanel({
   fichaInicial: FichaAlumno | null;
   /** ¿Puede cambiar la protección de datos? (secretaría, dirección, TIC.) */
   puedeEditarProteccion: boolean;
+  /** ¿Puede marcar banco de libros y AMPA? (el permiso del panel del banco: dirección, TIC.) */
+  puedeParticipacion: boolean;
 }) {
   const params = useSearchParams();
   const abiertoId = params.get('alumno');
@@ -70,9 +74,11 @@ export function AlumnadoPanel({
     return clases.length === 1 ? claveClase(clases[0]) : null;
   });
   const [termino, setTermino] = useState('');
-  // Dos vistas sobre la misma lista: las fichas (lo de siempre) y la tabla de protección de
-  // datos de la clase entera, que es la que hace posible llenarla sin morir en el intento.
-  const [vista, setVista] = useState<'fichas' | 'proteccion'>('fichas');
+  // Varias vistas sobre la misma lista: las fichas (lo de siempre) y las tablas de clase
+  // entera, que son las que hacen posible llenar esto sin morir en el intento. Banco de
+  // libros y AMPA están aquí además de en su propio módulo, a propósito: se cambian donde
+  // tengas delante a la clase, entres por donde entres (David, 19-sep-2026).
+  const [vista, setVista] = useState<'fichas' | 'proteccion' | 'bancoLibros' | 'ampa'>('fichas');
   // La caché arranca con la ficha que ya trae el servidor, si se ha entrado por enlace.
   const [fichas, setFichas] = useState<Record<string, FichaAlumno>>(() =>
     fichaInicial ? { [fichaInicial.id]: fichaInicial } : {},
@@ -162,6 +168,25 @@ export function AlumnadoPanel({
     });
   }, []);
 
+  /** Lo mismo para banco de libros y AMPA: el cambio es el mismo valor para todos los ids. */
+  const actualizarParticipacion = useCallback((ids: string[], campo: CampoParticipacion, valor: boolean) => {
+    setRetoques((r) => {
+      const siguiente = { ...r };
+      for (const id of ids) siguiente[id] = { ...siguiente[id], [campo]: valor };
+      return siguiente;
+    });
+    setFichas((f) => {
+      let cambiado = false;
+      const siguiente = { ...f };
+      for (const id of ids) {
+        if (!siguiente[id]) continue;
+        siguiente[id] = { ...siguiente[id], [campo]: valor };
+        cambiado = true;
+      }
+      return cambiado ? siguiente : f;
+    });
+  }, []);
+
   const abrir = useCallback(
     (id: string) => {
       haptic.tap();
@@ -215,9 +240,27 @@ export function AlumnadoPanel({
   // fallado. Una verdad menos que mantener sincronizada a mano.
   const cargando = Boolean(abiertoId) && !ficha && !(abiertoId && fallidas[abiertoId]);
   const claseActual = clases.find((c) => claveClase(c) === clase);
-  // La pestaña de protección de datos solo aparece si hay algo que enseñar en ella: a un
-  // tutor de otra etapa no se le pinta una pestaña que va a estar siempre vacía.
+  // Lo que tienen delante las tablas, para que un masivo diga a qué va a afectar.
+  const ambito = buscando ? `${visibles.length} resultado(s)` : (claseActual?.clase ?? 'Todo el centro');
+  // Cada pestaña solo aparece si hay algo que enseñar en ella: a un tutor de otra etapa no se
+  // le pinta una pestaña que va a estar siempre vacía, y las de banco/AMPA solo salen a quien
+  // puede tocarlas, porque son un atajo de edición y no un dato que consultar aquí.
   const hayProteccion = useMemo(() => alumnos.some((a) => a.proteccion), [alumnos]);
+  const pestanas = useMemo(
+    () => [
+      { id: 'fichas' as const, texto: 'Fichas', icono: <List className="h-3.5 w-3.5" /> },
+      ...(hayProteccion
+        ? [{ id: 'proteccion' as const, texto: 'Protección de datos', icono: <Camera className="h-3.5 w-3.5" /> }]
+        : []),
+      ...(puedeParticipacion
+        ? [
+            { id: 'bancoLibros' as const, texto: 'Banco de libros', icono: <Library className="h-3.5 w-3.5" /> },
+            { id: 'ampa' as const, texto: 'AMPA', icono: <Users className="h-3.5 w-3.5" /> },
+          ]
+        : []),
+    ],
+    [hayProteccion, puedeParticipacion],
+  );
 
   return (
     <div className="space-y-3">
@@ -275,15 +318,10 @@ export function AlumnadoPanel({
         </div>
       )}
 
-      {/* ── Las dos vistas ───────────────────────────────────────────── */}
-      {hayProteccion && (
-        <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
-          {(
-            [
-              { id: 'fichas' as const, texto: 'Fichas', icono: <List className="h-3.5 w-3.5" /> },
-              { id: 'proteccion' as const, texto: 'Protección de datos', icono: <Camera className="h-3.5 w-3.5" /> },
-            ]
-          ).map((v) => (
+      {/* ── Las vistas ───────────────────────────────────────────────── */}
+      {pestanas.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
+          {pestanas.map((v) => (
             <button
               key={v.id}
               type="button"
@@ -306,9 +344,17 @@ export function AlumnadoPanel({
       {vista === 'proteccion' ? (
         <TablaProteccion
           alumnos={visibles}
-          ambito={buscando ? `${visibles.length} resultado(s)` : (claseActual?.clase ?? 'Todo el centro')}
+          ambito={ambito}
           puedeEditar={puedeEditarProteccion}
           onCambio={actualizarProteccion}
+        />
+      ) : vista === 'bancoLibros' || vista === 'ampa' ? (
+        <TablaParticipacion
+          alumnos={visibles}
+          campo={vista}
+          ambito={ambito}
+          puedeEditar={puedeParticipacion}
+          onCambio={actualizarParticipacion}
         />
       ) : (
       <div className="lg:grid lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)] lg:gap-5">

@@ -58,6 +58,7 @@ import {
   veProteccionDatosCompleta,
   type Role,
 } from '@/lib/permissions';
+import { setAmpa, setBancoMuchos } from '@/lib/bancolibros-server';
 import { clasesDeTutor } from '@/lib/puntualidad-server';
 
 export { academicYearActual };
@@ -196,6 +197,17 @@ export interface PermisosFicha {
   participacion: boolean;
 }
 
+/**
+ * Marcar quién participa en el banco/AMPA sigue siendo cosa de dirección/TIC **con el módulo
+ * del banco**: desde Alumnado se edita lo mismo, no se amplía a nadie. No depende del alumno,
+ * así que vive suelto: lo preguntan la ficha (alumno a alumno) y las pestañas de clase
+ * entera, y tenerlo escrito dos veces sería la forma más fácil de que un día dejen de
+ * coincidir.
+ */
+export function puedeParticipacionDe(user: Parameters<typeof canAccess>[0] & { role: Role | null }): boolean {
+  return canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role);
+}
+
 export function permisosFicha(
   user: Parameters<typeof canAccess>[0] & { role: Role | null },
   alcance: AlcanceProteccion,
@@ -204,9 +216,7 @@ export function permisosFicha(
   const ve = veProteccionDe(alcance, alumno);
   return {
     proteccion: ve ? (alcance.edita ? 'editar' : 'ver') : 'no',
-    // Marcar quién participa en el banco/AMPA sigue siendo cosa de dirección/TIC **con el
-    // módulo del banco**: desde aquí se edita lo mismo, no se amplía a nadie.
-    participacion: canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role),
+    participacion: puedeParticipacionDe(user),
   };
 }
 
@@ -1080,4 +1090,31 @@ export async function guardarProteccionMasiva(
   // columnas no lo son, y la tabla tiene que repintar la fila entera con lo que hay en la
   // BBDD, no con lo que ella creía.
   return { filas: tocadas };
+}
+
+/**
+ * Banco de libros y AMPA de varios alumnos a la vez: las pestañas de Alumnado que dejan
+ * marcar la clase entera sin entrar en 25 fichas.
+ *
+ * **No escribe estas dos columnas a mano**: llama a `setBancoMuchos`/`setAmpa` del banco de
+ * libros, que son las que además propagan el banco al snapshot de Licencias. Alumnado enseña
+ * el dato y da el atajo; la autoridad se queda donde estaba. El alcance, igual que en la
+ * protección masiva, se lee de la BBDD y no del cuerpo de la petición.
+ */
+export async function guardarParticipacionMasiva(
+  ids: readonly string[],
+  cambios: { bancoLibros?: boolean; ampa?: boolean },
+  alcanceGeneral: { curso: string; letra: string | null }[] | null,
+): Promise<{ ids: string[] }> {
+  const filas = await db
+    .select({ id: eduStudents.id, curso: eduStudents.curso, letra: eduStudents.letra })
+    .from(eduStudents)
+    .where(and(inArray(eduStudents.id, [...ids]), eq(eduStudents.active, true)));
+
+  const permitidos = filas.filter((f) => puedeConAlumno(alcanceGeneral, f)).map((f) => f.id);
+  if (permitidos.length === 0) return { ids: [] };
+
+  if (cambios.bancoLibros !== undefined) await setBancoMuchos(permitidos, cambios.bancoLibros);
+  if (cambios.ampa !== undefined) await setAmpa(permitidos, cambios.ampa);
+  return { ids: permitidos };
 }

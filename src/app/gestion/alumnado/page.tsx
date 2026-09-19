@@ -10,6 +10,7 @@ import {
   fichaVisible,
   listaAlumnado,
   puedeConAlumno,
+  puedeParticipacionDe,
 } from '@/lib/alumnado-server';
 
 export const metadata = { title: 'Alumnado · Gestión' };
@@ -49,6 +50,7 @@ export default async function AlumnadoPage({
         propias={alcance.propias}
         fichaInicial={fichaInicial}
         puedeEditarProteccion={pd.edita}
+        puedeParticipacion={puedeParticipacionDe(user)}
       />
     </div>
   );
