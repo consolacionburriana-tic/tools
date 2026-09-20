@@ -166,7 +166,7 @@ export function TablaParticipacion({
       </div>
 
       <p className="px-1 text-xs text-zinc-400">
-        {label.ayuda}.{!puedeEditar && ' Aquí solo miras: esto lo cambian dirección o TIC.'}
+        {label.ayuda}.{!puedeEditar && ' Aquí solo miras: esto lo cambian jefatura, dirección o TIC.'}
       </p>
     </div>
   );

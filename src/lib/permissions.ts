@@ -168,13 +168,18 @@ export function diffModulos(
 }
 
 /**
- * Dentro del módulo `bancolibros`, dos cosas quedan reservadas a dirección/TIC (no a
- * tutores, de momento): marcar quién participa en el banco/AMPA, y configurar a mano el
+ * Dentro del módulo `bancolibros`, dos cosas quedan reservadas a jefatura/dirección/TIC (no
+ * a tutores, de momento): marcar quién participa en el banco/AMPA, y configurar a mano el
  * catálogo de libros por curso. El resto del módulo (lotes, checks, pasar lista) lo sigue
  * llevando cualquier rol con acceso al módulo, sin cambios.
+ *
+ * Jefatura/Coord. entra el 20-sep-2026 (David), y entra **en el permiso entero**: es el mismo
+ * dato se toque desde el panel del banco o desde las pestañas de Alumnado, y partirlo en dos
+ * permisos sería garantizar que algún día dejan de coincidir. Ojo a lo que eso arrastra: con
+ * esto, jefatura también puede tocar el catálogo de libros por curso.
  */
 export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
-  return role === 'direccion' || role === 'tic' || role === 'supertic';
+  return role === 'direccion' || role === 'jefe' || role === 'tic' || role === 'supertic';
 }
 
 /**
@@ -210,13 +215,19 @@ export function veProteccionDatosCompleta(role: Role | null): boolean {
 }
 
 /**
- * Y EDITARLA es todavía más estrecho: los papeles firmados los guarda secretaría, y
- * dirección/TIC arreglan lo que haga falta. Un tutor la ve (la suya) pero no la toca: si
- * cada uno pudiera cambiarla desde la ficha, el dato dejaría de significar «lo que hay
- * firmado» para significar «lo que le pareció a alguien».
+ * Y EDITARLA es todavía más estrecho: los papeles firmados los guarda secretaría, jefatura y
+ * dirección los gestionan, y TIC arregla lo que haga falta. Un tutor la ve (la suya) pero no
+ * la toca: si cada uno pudiera cambiarla desde la ficha, el dato dejaría de significar «lo que
+ * hay firmado» para significar «lo que le pareció a alguien».
+ *
+ * Jefatura/Coord. se suma el 20-sep-2026 (David). Secretaría se queda: son quienes reciben y
+ * archivan las autorizaciones, así que quitarles el permiso sería dejar fuera justo a quien
+ * tiene el papel delante.
  */
 export function puedeEditarProteccionDatos(role: Role | null): boolean {
-  return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
+  return (
+    role === 'direccion' || role === 'jefe' || role === 'secretaria' || role === 'tic' || role === 'supertic'
+  );
 }
 
 /**

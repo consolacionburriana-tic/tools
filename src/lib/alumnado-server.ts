@@ -167,7 +167,7 @@ export interface AlcanceProteccion {
   todo: boolean;
   /** Sus tutorías. Vacío = no ve la protección de datos de nadie. */
   clases: { curso: string; letra: string | null }[];
-  /** ¿Puede además cambiarla? (secretaría, dirección y TIC.) */
+  /** ¿Puede además cambiarla? (secretaría, jefatura, dirección y TIC.) */
   edita: boolean;
 }
 
@@ -198,7 +198,7 @@ export interface PermisosFicha {
 }
 
 /**
- * Marcar quién participa en el banco/AMPA sigue siendo cosa de dirección/TIC **con el módulo
+ * Marcar quién participa en el banco/AMPA sigue siendo cosa de jefatura/dirección/TIC **con el módulo
  * del banco**: desde Alumnado se edita lo mismo, no se amplía a nadie. No depende del alumno,
  * así que vive suelto: lo preguntan la ficha (alumno a alumno) y las pestañas de clase
  * entera, y tenerlo escrito dos veces sería la forma más fácil de que un día dejen de

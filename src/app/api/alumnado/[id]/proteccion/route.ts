@@ -35,7 +35,7 @@ const cuerpo = z
  *  1. El módulo (`requireModule`).
  *  2. El alcance general de la pantalla: un alumno de otra etapa no existe para ti (404).
  *  3. El alcance de la protección de datos, que es más estrecho —un tutor solo la de su
- *     tutoría— y encima exige rol de secretaría/dirección/TIC para tocarla (403).
+ *     tutoría— y encima exige rol de secretaría/jefatura/dirección/TIC para tocarla (403).
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireModule('alumnado');
@@ -59,7 +59,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (!pd.edita) {
     return NextResponse.json(
-      { error: 'La protección de datos la cambian secretaría, dirección o TIC' },
+      { error: 'La protección de datos la cambian secretaría, jefatura, dirección o TIC' },
       { status: 403 },
     );
   }

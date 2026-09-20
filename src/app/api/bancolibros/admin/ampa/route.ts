@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const user = await requireModule('bancolibros');
   if (isGuardResponse(user)) return user;
   if (!puedeGestionarParticipantesBanco(user.role)) {
-    return NextResponse.json({ error: 'Solo dirección/TIC pueden marcar quién es del AMPA' }, { status: 403 });
+    return NextResponse.json({ error: 'Solo jefatura, dirección o TIC pueden marcar quién es del AMPA' }, { status: 403 });
   }
   try {
     const { eduStudentIds, ampa } = z

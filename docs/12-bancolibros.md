@@ -39,8 +39,10 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   `banco_libros` pero sin lote ni valoración, solo pertenencia. Pestaña propia "AMPA" en el panel
   (toggle sí/no + bulk "todos sí/no"), separada de "Alumnado" porque se reconcilia contra un PDF
   distinto del banco de libros.
-- **Marcar participantes (banco y AMPA) es de dirección/TIC, no de tutores** (2026-09-01, David;
-  confirmado el mismo día como definitivo: no hace falta abrirlo a jefatura ni a tutores). El
+- **Marcar participantes (banco y AMPA) es de jefatura/dirección/TIC, no de tutores**
+  (2026-09-01, David; aquel día se cerró como «tampoco jefatura», y **David lo enmienda el
+  20-sep-2026: Jefatura/Coord. entra**. Los tutores siguen fuera). Ojo a lo que arrastra: este
+  permiso cubre además el catálogo de libros por curso, así que jefatura también lo alcanza. El
   resto del módulo (lotes, checks de entrega/doc, pasar lista de valoración)
   sigue abierto a cualquier rol con acceso a `bancolibros` — sin cambios ahí. Implementado en
   `puedeGestionarParticipantesBanco()` (`src/lib/permissions.ts`), con guard en las rutas
@@ -61,7 +63,7 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   (público, con precios) desde este módulo. Los libros manuales aparecen mezclados con los del
   catálogo de Licencias en la pestaña Libros, con `bookCod` sintético `manual:<id>` (no choca
   nunca con un COD real), así que la valoración/pasar-lista/ficha funcionan igual para ambos.
-  Gestión (añadir / activar / desactivar) reservada a dirección/TIC, dentro de un `<details>` en
+  Gestión (añadir / activar / desactivar) reservada a jefatura/dirección/TIC, dentro de un `<details>` en
   la propia pestaña Libros.
 
 ## Flujos (mínimos clicks, iPad-first)
@@ -159,13 +161,13 @@ bl_libro_registros (                  // valoración de UN libro de UNA asignaci
 ### Fase 4 · AMPA, permisos y libros manuales (2026-09-01)
 - [x] `edu_students.ampa` + pestaña AMPA (toggle sí/no + bulk) en el panel — [~] pendiente
       `pnpm db:push` de David (sin `DATABASE_URL` en esta sesión para aplicarlo)
-- [x] Marcar banco/AMPA restringido a dirección/TIC (`puedeGestionarParticipantesBanco`), guard en
+- [x] Marcar banco/AMPA restringido a jefatura/dirección/TIC (`puedeGestionarParticipantesBanco`), guard en
       `admin/banco` y `admin/ampa`, UI de solo lectura para el resto de roles
 - [x] Tabla `bl_libros_curso` + CRUD (`admin/libros-manual`) para configurar a mano el catálogo de
       libros del banco por curso, combinado con `lic_books` en la pestaña Libros — [~] pendiente
       el mismo `pnpm db:push`
 - [x] ~~Revisar si algún rol más necesita marcar participantes~~ (David, 2026-09-01: no, se queda
-      solo dirección/TIC)
+      solo jefatura/dirección/TIC)
 
 ### Fase 6 · Conector Excel → catálogo del banco (2026-09-03)
 
@@ -177,7 +179,7 @@ se reaprovecha el mismo patrón vista previa → confirmar y aplicar.
 - **Dónde vive el ajuste**: página propia `/gestion/bancolibros/sincronizar` (como
   `/gestion/licencias/sincronizar`, no dentro del flujo iPad-first del panel principal),
   enlazada desde el `<details>` "Configurar libros a mano" de la pestaña Libros. Reservado a
-  dirección/TIC (`puedeGestionarParticipantesBanco`), igual que el resto de gestión del
+  jefatura/dirección/TIC (`puedeGestionarParticipantesBanco`), igual que el resto de gestión del
   catálogo.
 - **Modo diff reaprovechado de verdad, no reinventado**: se extrajo el `PlanView`/`SyncCard`/
   `usePreviewApply` de `components/licencias/sync-panel.tsx` a `components/sync/plan-view.tsx`
@@ -240,7 +242,7 @@ alumno estaban perfectamente en la central.
 - [x] `setBanco()` propaga el flag a `lic_students` de la campaña vigente en el mismo acto
       (`propagarBancoACampania()` en `src/lib/bancolibros-server.ts`): el cambio se ve en
       Licencias al instante, sin sync manual.
-- [x] Aviso en el panel del banco (solo dirección/TIC) cuando hay alumnado activo de cursos con
+- [x] Aviso en el panel del banco (solo jefatura/dirección/TIC) cuando hay alumnado activo de cursos con
       Licencias que no está en la campaña: `getAlumnosFueraDeCampania()` + `<details>` ámbar
       plegable con la lista y enlace directo a `/gestion/licencias/sincronizar`. Así el descuadre
       del alta se ve solo, en vez de descubrirlo porque una familia llama por teléfono.

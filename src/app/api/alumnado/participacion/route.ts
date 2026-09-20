@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
   if (!puedeParticipacionDe(guard)) {
     return NextResponse.json(
-      { error: 'Solo dirección/TIC pueden cambiar el banco de libros y el AMPA' },
+      { error: 'Solo jefatura, dirección o TIC pueden cambiar el banco de libros y el AMPA' },
       { status: 403 },
     );
   }

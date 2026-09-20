@@ -118,7 +118,8 @@ exactamente la deuda que documenta
     (a quién llamo, qué NIA tiene) y esto es la voluntad firmada de una familia sobre la
     imagen de su hijo. Quien la necesita es quien va a publicar la foto de su clase.
 
-    Y **editarla es aún más estrecho**: secretaría, dirección y TIC. Ellos guardan los
+    Y **editarla es aún más estrecho**: secretaría, jefatura, dirección y TIC (jefatura se
+    suma el 20-sep-2026). Ellos guardan los
     papeles. Un tutor la ve y no la toca, porque si cada uno pudiera cambiarla el dato
     dejaría de significar «lo que hay firmado» para significar «lo que le pareció a alguien».
     Lo que no le toca a quien mira **no se le manda por la red**, no se esconde con CSS: la
@@ -129,7 +130,7 @@ exactamente la deuda que documenta
     alumnos condense toda la información». La ruta de la ficha llama a `setBanco`/`setAmpa`
     del banco de libros —los mismos, que además propagan el banco al snapshot de la campaña
     de Licencias— y exige lo mismo que su panel (`puedeGestionarParticipantesBanco`:
-    dirección/TIC **con** el módulo del banco). Quien no lo tenga, los ve como chips y no
+    jefatura/dirección/TIC **con** el módulo del banco). Quien no lo tenga, los ve como chips y no
     ve interruptores.
 
 12. **La pantalla tiene dos vistas: fichas y tabla de protección de datos** (David,
@@ -315,7 +316,7 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
 - [x] Helpers puros: los cuatro permisos tri-estado, el aviso de la ficha (rojo si no puede
       salir en fotos) y el reparto sí/no/no consta, con tests (`alumnado.test.ts`)
 - [x] `permissions.ts`: `veProteccionDatosCompleta` (dirección y demás ven el centro; el tutor,
-      su tutoría) y `puedeEditarProteccionDatos` (secretaría, dirección, TIC)
+      su tutoría) y `puedeEditarProteccionDatos` (secretaría, jefatura, dirección, TIC)
 - [x] `alumnado-server.ts`: alcance propio de la protección de datos, `fichaVisible()` (lo que
       no te toca no se manda), `guardarProteccion()` firmado con quién y cuándo
 - [x] Rutas `POST /api/alumnado/[id]/proteccion` y `.../participacion`, con Zod, alcance y 404
@@ -361,11 +362,20 @@ la Fase 2, pero eran de uno en uno, y marcar quién va al banco son 492 personas
       ve *todo el que puede ver la ficha de ese alumno* —saber si un niño va al banco es
       gestión diaria, y el icono del banco ya salía en la lista para todo el mundo—, con el
       alcance de siempre (un tutor, los suyos). Editar sigue siendo del panel del banco
-      (dirección/TIC): a quien no puede, la tabla se le pinta en consulta, sin masivos y sin
+      (jefatura/dirección/TIC): a quien no puede, la tabla se le pinta en consulta, sin masivos y sin
       celdas pulsables. Verificado con una cuenta de tutor real: 4 pestañas, 23 alumnos,
       0 botones masivos y 0 celdas editables
 - [x] El permiso, extraído a `puedeParticipacionDe()` para que la ficha, las pestañas y la API
       no puedan dejar de coincidir
+- [x] **Jefatura/Coord. entra a editar** (David, 20-sep-2026), y entra en los dos grupos:
+      `puedeGestionarParticipantesBanco` (banco y AMPA, también en el panel del banco, y con
+      él el catálogo de libros por curso, que cuelga del mismo permiso) y
+      `puedeEditarProteccionDatos` (donde se **suma** a secretaría, que no pierde nada: son
+      quienes archivan las autorizaciones firmadas). Enmienda la decisión del 1-sep-2026, que
+      se había cerrado como «tampoco jefatura» — anotado en `12-bancolibros.md` y en
+      `00-desarrollos-futuros.md`
+- [x] Los dos grupos quedan fijados con tests exhaustivos rol por rol (`permissions.test.ts`),
+      incluidos los que NO deben poder: ampliarlos tiene que ser una decisión, no un descuido
 - [x] La tarjeta de participación de la ficha, igual: visible para quien ve la ficha, con los
       interruptores en modo lectura si no puede cambiarlos
 - [x] La pestaña de protección de datos NO se abre igual: su alcance es más estrecho a

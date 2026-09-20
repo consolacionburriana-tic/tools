@@ -57,7 +57,7 @@ export function AlumnadoPanel({
   propias: readonly { curso: string; letra: string | null }[];
   /** La ficha de `?alumno=…`, ya resuelta en el servidor. Ver el comentario de arriba. */
   fichaInicial: FichaAlumno | null;
-  /** ¿Puede cambiar la protección de datos? (secretaría, dirección, TIC.) */
+  /** ¿Puede cambiar la protección de datos? (secretaría, jefatura, dirección, TIC.) */
   puedeEditarProteccion: boolean;
   /** ¿Puede marcar banco de libros y AMPA? (el permiso del panel del banco: dirección, TIC.) */
   puedeParticipacion: boolean;

@@ -5,9 +5,14 @@ import {
   modulosDe,
   origenModulo,
   MODULES,
+  puedeEditarProteccionDatos,
+  puedeGestionarParticipantesBanco,
   ROLE_MODULES,
+  ROLES,
+  veProteccionDatosCompleta,
   vePuntualidadCompleta,
   type Module,
+  type Role,
 } from '@/lib/permissions';
 
 describe('módulos efectivos de una persona', () => {
@@ -134,5 +139,40 @@ describe('alcance dentro de Puntualidad', () => {
   it('un profe sin el módulo no entra al panel (pero sí puede registrar: eso solo pide sesión)', () => {
     expect(canAccess({ role: 'profe' }, 'puntualidad')).toBe(false);
     expect(vePuntualidadCompleta('profe')).toBe(false);
+  });
+});
+
+// Estos dos grupos deciden quién toca datos personales de un menor, así que se fijan aquí:
+// que ampliarlos sea una decisión y no un descuido. La lista es exhaustiva a propósito —
+// se comprueba rol por rol, incluidos los que NO deben poder.
+describe('quién EDITA participación y protección de datos', () => {
+  const editanBanco: Role[] = ['direccion', 'jefe', 'tic', 'supertic'];
+  const editanProteccion: Role[] = ['direccion', 'jefe', 'secretaria', 'tic', 'supertic'];
+
+  it('banco de libros y AMPA: jefatura, dirección y TIC (20-sep-2026)', () => {
+    for (const role of ROLES) {
+      expect([role, puedeGestionarParticipantesBanco(role)]).toEqual([role, editanBanco.includes(role)]);
+    }
+    expect(puedeGestionarParticipantesBanco(null)).toBe(false);
+  });
+
+  it('protección de datos: los de arriba y ADEMÁS secretaría, que guarda los papeles', () => {
+    for (const role of ROLES) {
+      expect([role, puedeEditarProteccionDatos(role)]).toEqual([role, editanProteccion.includes(role)]);
+    }
+    expect(puedeEditarProteccionDatos(null)).toBe(false);
+  });
+
+  it('un tutor ve pero NO edita: ninguna de las dos cosas', () => {
+    expect(puedeGestionarParticipantesBanco('tutor')).toBe(false);
+    expect(puedeEditarProteccionDatos('tutor')).toBe(false);
+    // Y la protección de datos, además, solo la de su tutoría (alcanceProteccion).
+    expect(veProteccionDatosCompleta('tutor')).toBe(false);
+  });
+
+  it('quien edita protección de datos la ve entera: no se puede cambiar lo que no se ve', () => {
+    for (const role of editanProteccion) {
+      expect([role, veProteccionDatosCompleta(role)]).toEqual([role, true]);
+    }
   });
 });

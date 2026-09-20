@@ -26,7 +26,7 @@ perder ideas por el camino.
 ### Protección de datos: ¿cómo se cargan las 639 fichas? (17-sep-2026)
 
 La ficha de Alumnado ya tiene los cuatro permisos (imagen y voz, redes, AMPA, ONG), tri-estado,
-editables por secretaría/dirección/TIC. **Decidido el 17-sep-2026: se arranca con todos en
+editables por secretaría/jefatura/dirección/TIC. **Decidido el 17-sep-2026: se arranca con todos en
 «sí»** (el SQL de estreno los pone, y las altas nuevas entran igual) y se van marcando los
 noes; en la pantalla hay tabla por clase con masivos por columna. Lo que sigue sin decidir es
 de dónde salen los noes reales, porque Educamos no exporta este dato y el papel se queda en
@@ -279,11 +279,14 @@ Cómo se resolvió, y la regla que queda:
   tablas hay en Neon que no estén en `schema.ts`. Un `\dt` de treinta segundos evita perder
   datos de producción de otra persona.
 
-### ~~Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?~~ ✅ decidido (2026-09-01)
-No: se queda **solo dirección y TIC** (`puedeGestionarParticipantesBanco()` en
-`src/lib/permissions.ts`). Tutores y profes conservan el resto del módulo (lotes, checks, pasar
-lista) y ven esos dos toggles en modo lectura. Cerrado en
-[`12-bancolibros.md`](./12-bancolibros.md).
+### ~~Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?~~ ✅ decidido (2026-09-01) · **reabierto y cerrado otra vez (2026-09-20)**
+El 1-sep se cerró con un «no: solo dirección y TIC». El **20-sep-2026 David lo enmienda y entra
+Jefatura/Coord.** (`puedeGestionarParticipantesBanco()` en `src/lib/permissions.ts`), en el
+permiso entero: tanto en el panel del banco como en las pestañas nuevas de Alumnado, y con él
+también el catálogo de libros por curso, que cuelga del mismo permiso. Tutores y profes siguen
+igual: conservan el resto del módulo (lotes, checks, pasar lista) y ven esos dos toggles en modo
+lectura. El mismo día se suma jefatura a `puedeEditarProteccionDatos()`, sin quitar a secretaría.
+Cerrado en [`12-bancolibros.md`](./12-bancolibros.md) y [`21-alumnado.md`](./21-alumnado.md).
 
 ### ~~Correo: opción B (Google Workspace) además de Resend~~ ✅ hecho (2026-08-31)
 Implementado como se había planteado: `src/lib/email.ts` es el único punto de entrada, con dos

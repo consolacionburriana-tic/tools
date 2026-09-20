@@ -223,7 +223,7 @@ export function TablaProteccion({
       <p className="px-1 text-xs text-zinc-400">
         Cada casilla cicla <strong className="font-medium text-emerald-600 dark:text-emerald-400">sí</strong> →{' '}
         <strong className="font-medium text-red-600 dark:text-red-400">no</strong> → sin constar.
-        {!puedeEditar && ' Aquí solo miras: esto lo cambian secretaría, dirección o TIC.'}
+        {!puedeEditar && ' Aquí solo miras: esto lo cambian secretaría, jefatura, dirección o TIC.'}
       </p>
     </div>
   );

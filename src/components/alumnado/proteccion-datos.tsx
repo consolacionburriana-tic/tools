@@ -122,7 +122,7 @@ export function TarjetaProteccion({
           </div>
           {!puedeEditar && (
             <p className="mt-1.5 text-[11px] text-zinc-400">
-              Para cambiar algo de aquí, secretaría (o dirección/TIC): son los papeles que guardan ellos.
+              Para cambiar algo de aquí, secretaría (o jefatura/dirección/TIC): son los papeles que guardan ellos.
             </p>
           )}
         </>

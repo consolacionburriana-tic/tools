@@ -31,7 +31,7 @@ export default async function SincronizarBancoPage() {
         <BancoSyncPanel />
       ) : (
         <p className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
-          Solo dirección/TIC pueden sincronizar el catálogo de libros.
+          Solo jefatura, dirección o TIC pueden sincronizar el catálogo de libros.
         </p>
       )}
     </div>

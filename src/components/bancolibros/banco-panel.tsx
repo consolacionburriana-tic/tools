@@ -102,7 +102,7 @@ export function BancoPanel({
   /** Alumnado activo de cursos con Licencias que aún no está en la campaña vigente: hasta que
    *  se sincronice, su familia teclea el NIA en el formulario público y no lo encuentra. */
   fueraDeCampania: { nombre: string; curso: string; letra: string | null }[];
-  /** Marcar banco/AMPA sí-no es cosa de dirección/TIC (de momento, no tutores). El resto del
+  /** Marcar banco/AMPA sí-no es cosa de jefatura/dirección/TIC (de momento, no tutores). El resto del
    *  módulo (lotes, checks, pasar lista) sigue abierto a cualquier rol con acceso. */
   puedeGestionarParticipantes: boolean;
 }) {
@@ -348,7 +348,7 @@ export function BancoPanel({
     haptic.success();
   }
 
-  // ── Libros manuales (dirección/TIC): catálogo a mano por curso, sin depender de Licencias ──
+  // ── Libros manuales (jefatura/dirección/TIC): catálogo a mano por curso, sin depender de Licencias ──
   async function refrescarLibros() {
     if (!clase) return;
     const r = await fetch(`/api/bancolibros/admin/libros?${qs()}`);
@@ -610,7 +610,7 @@ export function BancoPanel({
                         </button>
                       ) : (
                         <span
-                          title="Solo dirección/TIC pueden cambiar quién está en el banco"
+                          title="Solo jefatura, dirección o TIC pueden cambiar quién está en el banco"
                           className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full ${a.banco ? 'bg-emerald-500/50' : 'bg-zinc-200 dark:bg-zinc-800'}`}
                         >
                           <span className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${a.banco ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -668,7 +668,7 @@ export function BancoPanel({
             </div>
           )}
 
-          {/* ── Pestaña AMPA (dirección/TIC) ── */}
+          {/* ── Pestaña AMPA (jefatura/dirección/TIC) ── */}
           {tab === 'ampa' && puedeGestionarParticipantes && (
             <div className="anim-up rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
               <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 p-3 text-xs dark:border-zinc-800">

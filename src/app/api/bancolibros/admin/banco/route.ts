@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const user = await requireModule('bancolibros');
   if (isGuardResponse(user)) return user;
   if (!puedeGestionarParticipantesBanco(user.role)) {
-    return NextResponse.json({ error: 'Solo dirección/TIC pueden marcar quién participa en el banco' }, { status: 403 });
+    return NextResponse.json({ error: 'Solo jefatura, dirección o TIC pueden marcar quién participa en el banco' }, { status: 403 });
   }
   try {
     const { eduStudentId, banco } = z

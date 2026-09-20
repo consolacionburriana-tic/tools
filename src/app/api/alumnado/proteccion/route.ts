@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   const pd = alcanceProteccion(guard, alcance.propias);
   if (!pd.edita) {
     return NextResponse.json(
-      { error: 'La protección de datos la cambian secretaría, dirección o TIC' },
+      { error: 'La protección de datos la cambian secretaría, jefatura, dirección o TIC' },
       { status: 403 },
     );
   }

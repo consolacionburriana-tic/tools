@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (!permisosFicha(guard, alcanceProteccion(guard, alcance.propias), alumno).participacion) {
     return NextResponse.json(
-      { error: 'Solo dirección/TIC pueden cambiar el banco de libros y el AMPA' },
+      { error: 'Solo jefatura, dirección o TIC pueden cambiar el banco de libros y el AMPA' },
       { status: 403 },
     );
   }
