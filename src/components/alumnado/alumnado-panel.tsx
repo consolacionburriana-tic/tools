@@ -242,9 +242,14 @@ export function AlumnadoPanel({
   const claseActual = clases.find((c) => claveClase(c) === clase);
   // Lo que tienen delante las tablas, para que un masivo diga a qué va a afectar.
   const ambito = buscando ? `${visibles.length} resultado(s)` : (claseActual?.clase ?? 'Todo el centro');
-  // Cada pestaña solo aparece si hay algo que enseñar en ella: a un tutor de otra etapa no se
-  // le pinta una pestaña que va a estar siempre vacía, y las de banco/AMPA solo salen a quien
-  // puede tocarlas, porque son un atajo de edición y no un dato que consultar aquí.
+  // Banco de libros y AMPA los VE todo el que puede ver la ficha de ese alumno (David,
+  // 19-sep-2026): saber si un niño va al banco es gestión diaria, y el icono del banco ya
+  // salía en la lista para todo el mundo. Editarlos es otra cosa y sigue restringido: a quien
+  // no puede, la tabla se le pinta en modo consulta y sin los masivos.
+  //
+  // La protección de datos, en cambio, mantiene su pestaña condicionada: su alcance es MÁS
+  // estrecho que el de la pantalla a propósito (un tutor solo ve la de su tutoría), así que a
+  // quien no le toca nada no se le pinta una pestaña que va a estar siempre vacía.
   const hayProteccion = useMemo(() => alumnos.some((a) => a.proteccion), [alumnos]);
   const pestanas = useMemo(
     () => [
@@ -252,14 +257,10 @@ export function AlumnadoPanel({
       ...(hayProteccion
         ? [{ id: 'proteccion' as const, texto: 'Protección de datos', icono: <Camera className="h-3.5 w-3.5" /> }]
         : []),
-      ...(puedeParticipacion
-        ? [
-            { id: 'bancoLibros' as const, texto: 'Banco de libros', icono: <Library className="h-3.5 w-3.5" /> },
-            { id: 'ampa' as const, texto: 'AMPA', icono: <Users className="h-3.5 w-3.5" /> },
-          ]
-        : []),
+      { id: 'bancoLibros' as const, texto: 'Banco de libros', icono: <Library className="h-3.5 w-3.5" /> },
+      { id: 'ampa' as const, texto: 'AMPA', icono: <Users className="h-3.5 w-3.5" /> },
     ],
-    [hayProteccion, puedeParticipacion],
+    [hayProteccion],
   );
 
   return (

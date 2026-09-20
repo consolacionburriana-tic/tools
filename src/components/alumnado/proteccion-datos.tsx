@@ -41,15 +41,6 @@ export function TarjetaProteccion({
 }) {
   const [guardando, setGuardando] = useState<string | null>(null);
 
-  if (!proteccion && !puedeParticipacion) {
-    return (
-      <p className="px-1 text-xs text-zinc-400">
-        La protección de datos (imagen, redes, AMPA y ONG) solo la ven dirección, secretaría, jefatura, orientación y
-        el tutor/a de su clase.
-      </p>
-    );
-  }
-
   async function guardar(campo: string, cuerpo: Record<string, unknown>, ruta: 'proteccion' | 'participacion') {
     haptic.tap();
     setGuardando(campo);
@@ -141,27 +132,26 @@ export function TarjetaProteccion({
         </p>
       )}
 
-      {puedeParticipacion && (
-        <div className="mt-2.5 space-y-1 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Participación</p>
-          <Interruptor
-            etiqueta="Banco de libros"
-            ayuda="Se gestiona también en el panel del banco"
-            puesto={bancoLibros}
-            editable
-            guardando={guardando === 'bancoLibros'}
-            onCambiar={(v) => guardar('bancoLibros', { bancoLibros: v }, 'participacion')}
-          />
-          <Interruptor
-            etiqueta="Familia socia del AMPA"
-            ayuda="No es lo mismo que el permiso de fotos del AMPA"
-            puesto={ampa}
-            editable
-            guardando={guardando === 'ampa'}
-            onCambiar={(v) => guardar('ampa', { ampa: v }, 'participacion')}
-          />
-        </div>
-      )}
+      {/* La participación la ve todo el que ve la ficha; cambiarla, solo quien pueda. */}
+      <div className="mt-2.5 space-y-1 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
+        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Participación</p>
+        <Interruptor
+          etiqueta="Banco de libros"
+          ayuda="Se gestiona también en el panel del banco"
+          puesto={bancoLibros}
+          editable={puedeParticipacion}
+          guardando={guardando === 'bancoLibros'}
+          onCambiar={(v) => guardar('bancoLibros', { bancoLibros: v }, 'participacion')}
+        />
+        <Interruptor
+          etiqueta="Familia socia del AMPA"
+          ayuda="No es lo mismo que el permiso de fotos del AMPA"
+          puesto={ampa}
+          editable={puedeParticipacion}
+          guardando={guardando === 'ampa'}
+          onCambiar={(v) => guardar('ampa', { ampa: v }, 'participacion')}
+        />
+      </div>
     </Tarjeta>
   );
 }

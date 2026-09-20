@@ -357,9 +357,20 @@ la Fase 2, pero eran de uno en uno, y marcar quién va al banco son 492 personas
       (`POST /api/alumnado/participacion`) llama a sus mismos `setBancoMuchos`/`setAmpa`, que
       son los que además propagan el banco al snapshot de Licencias. Alumnado da el atajo, no
       se queda con la autoridad
-- [x] Mismo permiso que el panel del banco (dirección/TIC): extraído a `puedeParticipacionDe()`
-      para que la ficha, las pestañas y la API no puedan dejar de coincidir. Quien no lo tiene
-      no ve las pestañas, porque son un atajo de edición y no un dato que consultar aquí
+- [x] **Ver y editar van por separado** (David, 20-sep-2026): las pestañas de banco y AMPA las
+      ve *todo el que puede ver la ficha de ese alumno* —saber si un niño va al banco es
+      gestión diaria, y el icono del banco ya salía en la lista para todo el mundo—, con el
+      alcance de siempre (un tutor, los suyos). Editar sigue siendo del panel del banco
+      (dirección/TIC): a quien no puede, la tabla se le pinta en consulta, sin masivos y sin
+      celdas pulsables. Verificado con una cuenta de tutor real: 4 pestañas, 23 alumnos,
+      0 botones masivos y 0 celdas editables
+- [x] El permiso, extraído a `puedeParticipacionDe()` para que la ficha, las pestañas y la API
+      no puedan dejar de coincidir
+- [x] La tarjeta de participación de la ficha, igual: visible para quien ve la ficha, con los
+      interruptores en modo lectura si no puede cambiarlos
+- [x] La pestaña de protección de datos NO se abre igual: su alcance es más estrecho a
+      propósito (un tutor solo ve la de su tutoría, decisión del 17-sep-2026), así que se queda
+      condicionada a que haya algo que enseñar
 - [x] El alcance se lee de la BBDD y no del cuerpo de la petición, igual que en la protección
       masiva: quien manda ids que no le tocan se queda sin esos, no con un 403
 - [x] Verificado contra Neon con datos reales sin alterar ninguno (fuera de alcance → 0,
