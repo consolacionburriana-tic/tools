@@ -569,7 +569,7 @@ hace insufrible, se cambia con `EMAIL_TRANSPORTE_LICENCIAS=resend` sin tocar có
 - [x] Envío por tandas con progreso, marcado **individual** por licencia y registro de envíos
 - [x] El sello 📤 de los pedidos de pago lo pone el envío
 - [x] Enlaces desde el panel, Editoriales, Exportar y el esquema del proceso
-- [x] Tests de los helpers puros (pegado, emparejado, filtros, correo): 60 casos
+- [x] Tests de los helpers puros (pegado, emparejado, filtros, correo): 56 casos nuevos
 - [ ] **Aplicar `licencias-envios.sql` en Neon** (`pnpm db:sql --pendientes`) — no se ha podido
       hacer en la sesión de desarrollo por no tener `DATABASE_URL`
 - [ ] Estreno: sincronizar, pegar una tanda real pequeña, prueba a `david@` y envío de verdad
