@@ -245,3 +245,185 @@ export async function sendFamilyBlastTest(email: string, subject: string, body: 
     }),
   );
 }
+
+// ─── Correo de entrega de licencias (Fase 5) ──────────────────────────────────
+//
+// Sustituye al FormMule sobre las plantillas ENVIAR. El cuerpo lo escribe el gestor en
+// `/gestion/licencias/envios` con variables; aquí solo se le pone la vitrina.
+//
+// Dos cosas del render que no son caprichos:
+//  · `{codigo}` no se sustituye por texto, sino por una CAJA con el código en grande y
+//    monoespaciado. Es el único dato que el alumno tiene que copiar a mano, y en medio de un
+//    párrafo se pierde (o se copia con un espacio de más y la plataforma dice que no existe).
+//  · El cuerpo se escapa, pero se le devuelven las etiquetas `<b>/<i>/<u>/<br>`: el texto de
+//    siempre viene de FormMule con `<b>` escrito a mano y hay que poder pegarlo tal cual.
+
+// Las variables viven en `licencias-envios.ts` (puro) para que la pantalla las pueda pintar
+// sin arrastrar Resend ni googleapis al navegador.
+export { VARIABLES_LICENCIA } from '@/lib/licencias-envios';
+
+/** Marca interna donde va la caja del código; no se puede teclear desde el panel. */
+const HUECO_CODIGO = '\u0000CODIGO\u0000';
+
+const INLINE_PERMITIDAS = ['b', 'strong', 'i', 'em', 'u'];
+
+/**
+ * Escapa el cuerpo y devuelve solo las etiquetas de énfasis y los saltos. Nada de atributos:
+ * `<b onclick=…>` se queda escapado, que es justo lo que se quiere.
+ */
+export function cuerpoSeguro(texto: string): string {
+  const escapado = (texto ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const conTags = INLINE_PERMITIDAS.reduce(
+    (acc, tag) =>
+      acc.replace(new RegExp(`&lt;(/?)${tag}&gt;`, 'gi'), (_m, cierre: string) => `<${cierre}${tag}>`),
+    escapado,
+  ).replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+  // `**negrita**` también, por si alguien escribe como en WhatsApp.
+  return conTags.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+}
+
+export interface LicenciaCorreo {
+  asignatura: string;
+  libro: string;
+  plataforma: string;
+  codigo: string;
+}
+
+/** Una caja por código. Con varias licencias fusionadas, cada una dice de qué asignatura es. */
+export function cajaCodigos(licencias: LicenciaCorreo[]): string {
+  const varias = licencias.length > 1;
+  return licencias
+    .map(
+      (l) => `
+      <div style="margin:18px 0;border:1px solid #99f6e4;background:#f0fdfa;border-radius:12px;padding:14px 16px;text-align:center;">
+        ${varias ? `<p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;">${l.asignatura}</p>` : ''}
+        <p style="margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:21px;font-weight:700;letter-spacing:.06em;color:#0f766e;word-break:break-all;">${l.codigo}</p>
+        ${l.plataforma ? `<p style="margin:8px 0 0;font-size:12px;color:#5f6b6a;">App del libro digital 📲 <strong>${l.plataforma}</strong></p>` : ''}
+      </div>`,
+    )
+    .join('');
+}
+
+export interface DatosCorreoLicencia {
+  alumno: string;
+  nombre: string;
+  apellidos: string;
+  curso: string;
+  clase: string;
+  academicYear: string;
+  licencias: LicenciaCorreo[];
+}
+
+/** Las variables que puede usar la plantilla. Con varias licencias, las de libro se juntan. */
+export function varsDeLicencia(d: DatosCorreoLicencia): Record<string, string> {
+  const junta = (valores: string[]) => {
+    const unicos = [...new Set(valores.filter(Boolean))];
+    if (unicos.length <= 1) return unicos[0] ?? '';
+    return `${unicos.slice(0, -1).join(', ')} y ${unicos.at(-1)}`;
+  };
+  return {
+    nombre: d.nombre,
+    apellidos: d.apellidos,
+    alumno: d.alumno,
+    curso: d.curso,
+    clase: d.clase,
+    asignatura: junta(d.licencias.map((l) => l.asignatura)),
+    libro: junta(d.licencias.map((l) => l.libro)),
+    editorial: '',
+    plataforma: junta(d.licencias.map((l) => l.plataforma)),
+    codigo: HUECO_CODIGO,
+    n: String(d.licencias.length),
+    curso_escolar: d.academicYear,
+  };
+}
+
+/**
+ * El correo entero. Si el cuerpo no menciona `{codigo}` la caja se pone igual al final: un
+ * correo de licencias sin el código dentro no le sirve a nadie, y es un error fácil de cometer
+ * editando la plantilla con prisa.
+ */
+export function htmlLicencia(cuerpo: string, d: DatosCorreoLicencia): string {
+  const vars = varsDeLicencia(d);
+  const conVars = applyVars(cuerpo, vars);
+  const seguro = cuerpoSeguro(conVars);
+  const caja = cajaCodigos(d.licencias);
+  const cuerpoHtml = seguro.includes(HUECO_CODIGO)
+    ? seguro.split(HUECO_CODIGO).join(caja)
+    : `${seguro}${caja}`;
+  const ficha = [
+    d.alumno ? `👤 <strong>Alumno/a:</strong> ${d.alumno}${d.clase ? ` · ${d.clase}` : ''}` : '',
+    d.licencias.some((l) => l.libro)
+      ? `📙 <strong>Libro${d.licencias.length > 1 ? 's' : ''}:</strong> ${[...new Set(d.licencias.map((l) => l.libro).filter(Boolean))].join(' · ')}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('<br>');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:480px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+    <div style="background:linear-gradient(135deg,#0d9488,#0c8f83);padding:20px 32px;text-align:center;">
+      <p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#ffffff;opacity:.9;">Consolación Burriana · Licencias</p>
+    </div>
+    <div style="padding:26px 32px;font-size:14.5px;color:#27272a;line-height:1.65;">
+      ${cuerpoHtml}
+      ${ficha ? `<div style="margin-top:20px;border-top:1px solid #f4f4f5;padding-top:14px;font-size:13px;color:#52525b;line-height:1.7;">${ficha}</div>` : ''}
+    </div>
+    <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:16px 32px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#9ca3af;"><strong>Consolación Burriana</strong> · licencias@consolacionburriana.com</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export interface PlantillaLicencia {
+  clave: 'pago' | 'banco';
+  nombre: string;
+  subject: string;
+  body: string;
+}
+
+// Las dos de fábrica. Son EL texto de siempre (el del FormMule), con los `<b>` intactos: si el
+// alumno recibe algo distinto a lo que recibía el año pasado, la culpa se la lleva la app.
+export const PLANTILLAS_LICENCIA: PlantillaLicencia[] = [
+  {
+    clave: 'pago',
+    nombre: 'Licencia Digital Adquirida',
+    subject: '[Licencia Digital 📘] Licencia {asignatura}',
+    body: `Hola,
+
+Te mandamos la licencia de <b>{asignatura}</b>
+
+⬇️ <b>CÓDIGO LICENCIA</b> ⬇️
+{codigo}
+
+Para cualquier duda, pregunta primero a tu profesor/a que te ayudará a poner la licencia en clase, después puedes consultarnos en licencias@consolacionburriana.com
+
+Equipo TIC
+Amparo, Jose Miguel, Bárbara y David`,
+  },
+  {
+    clave: 'banco',
+    nombre: 'Licencia Gratuita Banco de Libros',
+    subject: '[Banco de Libros 📗] Licencia {asignatura}',
+    body: `Hola,
+
+Te mandamos la licencia de <b>{asignatura}</b>, incluida en el <b>Banco de Libros</b>.
+
+⬇️ <b>CÓDIGO LICENCIA</b> ⬇️
+{codigo}
+
+Para cualquier duda, pregunta primero a tu profesor/a que te ayudará a poner la licencia en clase, después puedes consultarnos en licencias@consolacionburriana.com
+
+Equipo TIC
+Amparo, Jose Miguel, Bárbara y David`,
+  },
+];
+
+/** Un correo de licencias. Lanza si falla: quien llama lo marca como error en esa licencia. */
+export async function enviarCorreoLicencia(para: string, asunto: string, html: string): Promise<void> {
+  await enviar('licencias', { to: para, subject: asunto, html });
+}

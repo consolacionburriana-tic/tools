@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { BookMarked, CalendarClock, ChevronDown, ChevronLeft, Download, KeyRound, Languages, Layers, ListOrdered, Mail, Map, PiggyBank, RefreshCw, Users } from 'lucide-react';
+import { BookMarked, CalendarClock, ChevronDown, ChevronLeft, Download, KeyRound, Languages, Layers, ListOrdered, Mail, Map, PiggyBank, RefreshCw, Send, Users } from 'lucide-react';
 import { campaignAbierta, cierreAutomaticoResumen, diasHastaCierre, fechaLimiteLabel } from '@/lib/licencias';
 import { getCurrentCampaign, getDashboardStats } from '@/lib/licencias-server';
 import { NavArrow } from '@/components/ui/nav-pending';
@@ -164,6 +164,14 @@ export default async function GestionPage() {
               >
                 <ListOrdered className="h-4 w-4 text-blue-600" />
                 Pedidos
+                <NavArrow className="ml-auto" />
+              </Link>
+              <Link
+                href="/gestion/licencias/envios"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:border-blue-600 dark:active:bg-blue-500/10"
+              >
+                <Send className="h-4 w-4 text-emerald-600" />
+                Envío de licencias
                 <NavArrow className="ml-auto" />
               </Link>
               <Link

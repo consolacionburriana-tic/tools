@@ -297,6 +297,14 @@ export function EditorialReport() {
         )}
       </section>
 
+      <p className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+        Cuando la editorial conteste con los códigos, el paso siguiente es{' '}
+        <Link href="/gestion/licencias/envios" className="font-semibold underline">
+          Envío de licencias
+        </Link>
+        : allí se pegan y se le mandan a cada alumno.
+      </p>
+
       {/* 2 · Banco de libros (gratis) */}
       <section>
         <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">

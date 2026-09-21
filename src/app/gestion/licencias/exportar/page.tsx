@@ -68,6 +68,14 @@ export default async function ExportarPage() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-3 px-4 py-6">
+        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+          Los códigos ya se pegan y se mandan desde la app, en{' '}
+          <Link href="/gestion/licencias/envios" className="font-semibold underline">
+            Envío de licencias
+          </Link>
+          . Estas descargas se quedan como salvavidas: son el mismo formato de las hojas del Sheet, por si algún día
+          hay que hacerlo a mano.
+        </p>
         <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Plantillas de envío (FormMule)</h2>
         <ExportCard tipo="enviar-no" titulo="ENVIAR · NO Banco de Libros" desc="Una fila por licencia de pago de alumnos no-BdL" n={enviarNo} />
         <ExportCard tipo="enviar-si" titulo="ENVIAR · SÍ Banco de Libros" desc="Licencias de pago de alumnos del banco (inglés, francés…)" n={enviarSi} />
@@ -80,8 +88,8 @@ export default async function ExportarPage() {
 
         <p className="pt-3 text-xs text-zinc-400">
           Estas descargas CSV son el equivalente a las hojas del Google Sheet (las pegas o las usa FormMule).
-          La escritura directa en el Google Sheet llegará cuando configuremos la cuenta de servicio de Google.
-          La columna «Licencia Activación» va vacía para que la rellenes con los códigos de las editoriales.
+          La columna «Licencia Activación» va vacía para que la rellenes con los códigos de las editoriales: si en vez
+          de eso los pegas en Envío de licencias, la app manda los correos y va marcando una a una las enviadas.
         </p>
       </main>
     </div>

@@ -25,13 +25,16 @@ Todo lo definido está construido, verificado y desplegado en `main`:
 - **Magic links de familias** (Fase 2b): enlaces personales por familia (`/licencias?t=tok_…`)
   y correo masivo por cursos y clases con esos enlaces. Queda generar los de la campaña real
   en Neon (ver "Inputs pendientes de David").
+- **Envío de las licencias** (Fase 5, sep-2026): los códigos que manda la editorial se pegan en
+  `/gestion/licencias/envios`, se reparten en orden entre los alumnos, lo que sobra queda en el
+  almacén y sale un correo por licencia, marcada una a una. Sustituye al FormMule.
 
 Pendiente **solo por credenciales/accesos externos** (no por código):
 - Escritura directa en el Google Sheet → cuenta de servicio ✅ creada (jul 2026); queda
   verificar la escritura de punta a punta y marcar la casilla de Fase 2.
 - Sincronización con la **API de Educamos** → necesita acceso (hoy: import desde Excel).
-- Gestión de códigos de activación dentro de la app → diferida a propósito (hoy: FormMule sobre
-  las plantillas ENVIAR exportadas).
+- `licencias-envios.sql` **sin aplicar en Neon**: la Fase 5 no funciona hasta que se aplique
+  (`pnpm db:sql --pendientes`).
 
 ## Decisiones cerradas
 
@@ -90,8 +93,10 @@ Pendiente **solo por credenciales/accesos externos** (no por código):
   enmascarado ("Fra. M. Luc.") sigue siendo obligatorio en las **pantallas** públicas.
 - **Packs/itinerarios:** configurables en el dashboard, solo ayuda visual (modo por pack:
   `todos` · `elige uno` · `elige uno o ninguno` · `libre`). No bloquean.
-- **Envío de licencias:** la app **exporta a tu Google Sheet** (hojas `ENVIAR`) y FormMule
-  (ya configurado con "Plantilla NEW") manda los correos. Por ahora, nada más.
+- **Envío de licencias (REEMPLAZADO en la Fase 5, sep-2026):** lo hace la app en
+  `/gestion/licencias/envios` — se pegan los códigos, se reparten en orden y sale un correo por
+  licencia. Antes: la app exportaba a las hojas `ENVIAR` del Google Sheet y FormMule ("Plantilla
+  NEW") mandaba los correos. Los CSV de `/exportar` **siguen estando** como salvavidas.
 - **Educamos:** importar la BBDD ahora, dejar capa "proveedor de alumnos" lista para enganchar
   su API después (el `ID Educamos` ya viaja en los datos). XLS Educamos = un fichero por curso,
   col E = `ID Educamos`, col F = importe (coma decimal). Para fase posterior.
@@ -237,9 +242,8 @@ Q🧾/R📤/S💰 del Google Sheet histórico traídas a la app:
       marca 🧾 al descargarlo. **Incremental**: solo salen los pedidos aún sin pedir.
 - [x] Informe de editoriales de las licencias **gratis del banco de libros** (2026-09-16)
 - [x] Seguimiento por pedido (🧾/📤/💰) visible en la lista y en la ficha de cada pedido
-- [ ] Pegar/subir códigos de activación y casarlos con las líneas de pedido — sigue en
-      FormMule sobre las plantillas ENVIAR exportadas, a propósito
-- [ ] Estado por línea (pendiente / enviado / error) — hoy el estado es por pedido, no por línea
+- [x] Pegar/subir códigos de activación y casarlos con las líneas de pedido → **Fase 5**
+- [x] Estado por línea (pendiente / enviado / error) → **Fase 5** (`lic_licencias`)
 
 ### Las gratis del banco de libros no estaban en el informe (2026-09-16)
 
@@ -433,6 +437,142 @@ Nace de que el módulo tiene ya bastantes pantallas como para que quien no lo mo
 de dos confusiones concretas y caras: creer que el informe de editoriales lo pide todo (ver
 arriba), y no saber que «Exportar» y «Editoriales» sirven para cosas distintas. Cuando cambie un
 flujo, se actualiza ahí: `src/components/licencias/proceso-esquema.tsx`, un array de fases.
+
+## Fase 5 · Envío de las licencias a los alumnos (sep-2026)
+
+La última pieza del ciclo: llegan los códigos de la editorial y hay que hacérselos llegar a cada
+alumno. Sustituye al FormMule sobre las hojas `ENVIAR` del Google Sheet.
+
+**Pantalla:** `/gestion/licencias/envios`.
+
+### Decisiones cerradas
+
+- **De pago y banco de libros, separados de arriba abajo** (dos pestañas, dos recuentos, dos
+  plantillas de correo). Llegan en Excel distintos, de editoriales distintas, y no se suman
+  nunca — el mismo principio que ya rige los pedidos de la Fase 3.
+- **Una tabla nueva, `lic_licencias`, con una fila por licencia a entregar.** Es lo que obliga
+  la realidad de los datos: las de pago son `lic_order_items`, pero **las del banco no existen
+  en ninguna tabla** — son un censo (`alumno BdL × libros del banco de su curso`, resuelto por
+  idioma) que se recalcula a demanda. Para poder pegarle un código a una licencia y marcarla
+  enviada hace falta una fila en los dos casos, así que `sincronizarLicencias()` materializa el
+  censo. Es idempotente y **nunca borra una fila con código o ya enviada**: si un alumno se va,
+  su licencia se marca descartada.
+- **Una fila sin alumno es un SOBRANTE.** «A veces nos pueden sobrar 10 licencias porque se
+  equivocan los comerciales y yo las guardo porque a lo mejor las puedo asignar a alguien en
+  otro momento» (David). Se guardan con su libro y su curso y se colocan después en cualquier
+  alumno pendiente de ese mismo libro. Postgres no choca varios NULL en un índice único, así
+  que conviven sin necesidad de otra tabla (mismo truco que `bl_libros_curso`).
+- **El emparejado es EN ORDEN, y el orden lo manda la pantalla.** El cliente envía las parejas
+  ya hechas; el servidor no reordena. Si reordenara por su cuenta, lo que David aprueba en la
+  vista previa y lo que se guarda podrían no ser lo mismo, y eso es mandarle a un alumno el
+  código de otro.
+- **Un correo por licencia por defecto**, con opción de fusionar en uno por alumno. Uno por
+  licencia se busca mucho mejor después en el buzón; fusionar existe porque un alumno con 10
+  licencias no necesita 10 correos (y porque baja mucho el consumo de cuota de Gmail).
+- **El destinatario es el correo del alumno** (`edu_students.email_google`, su cuenta del
+  colegio, la del iPad), que es a donde iban los envíos de siempre. Se puede cambiar a «correo
+  de la familia» en la barra de la pantalla; la columna «Destino» enseña siempre la dirección
+  exacta antes de mandar nada.
+- **Las plantillas son las de siempre.** El texto del FormMule, con sus `<b>` tal cual: el
+  cuerpo admite `<b>/<i>/<u>/<br>` y `**negrita**`, y escapa todo lo demás. Dos de fábrica
+  (`Licencia Digital Adquirida` y `Licencia Gratuita Banco de Libros`) y las que se guarden en
+  `lic_email_templates` con `contexto='licencias'`.
+- **`{codigo}` no es texto, es una caja.** Donde se escriba sale el código en grande y
+  monoespaciado; si la plantilla se queda sin él, se añade igual al final. Es el único dato que
+  el alumno tiene que copiar a mano y en medio de un párrafo se pierde.
+- **El sello 📤 lo pone el envío**, cuando todas las licencias de pago de un pedido están
+  enviadas. Antes lo ponía a mano el botón «Marcar pasados a plantillas» de Editoriales.
+
+### Las optativas, otra vez
+
+El censo del banco le da a cada alumno **todos** los libros del banco de su curso, y en 4ºESO
+eso no es verdad (Latín, Economía, Biología, Física y Química son de itinerario). Ya pasó con
+las unidades del pedido y se resolvió con `lic_ajustes_pedido`; aquí reaparece como huecos de
+alumnos que no cursan esa asignatura.
+
+La matrícula por materia sigue sin estar en ninguna tabla, así que **lo decide quien pega**: en
+el diálogo de pegado cada alumno tiene su casilla y se desmarca a quien no le toque, o se marca
+el resto como **«no le toca»** (`descartado_at`) en la misma acción. Descartar no borra nada, se
+deshace, y deja de contar como que falta — que es lo que hace que «faltan 25» signifique algo.
+
+### El aviso que evita el error caro
+
+Pegar una columna de códigos contra un filtro que mezcla **dos libros** reparte los códigos de
+Inglés entre Inglés y Religión sin que nada chirríe: los dos son códigos válidos y los dos
+alumnos existen. La pantalla lo detecta (`librosDistintos`) y pide una confirmación explícita.
+
+Otras tres redes, por orden de cuándo saltan:
+
+1. **Duplicados en el propio pegado** — casi siempre una selección de más en Excel; se avisa
+   antes de guardar y no deja continuar.
+2. **Código ya usado en la campaña** — se consulta antes de escribir y se dice a qué alumno le
+   tocó, sin pisar nada.
+3. **Índice único `(campaign_id, codigo)`** — el último cortafuegos, en la base de datos.
+
+Y al escribir, cada hueco se rellena con `WHERE codigo IS NULL`: si entre la vista previa y el
+guardado alguien asignó ese mismo hueco, se rechaza y se dice cuál, en vez de pisarlo.
+
+### Los Excel de las editoriales: se leen solos
+
+«Cada excel es de su padre y de su madre, no hay manera» — es verdad, pero los tres reales se
+parecen en lo único que importa: hay **una** columna de códigos y el resto es relleno. Así que
+no se reconoce a la editorial, se busca la columna (`elegirColumna`): gana la que más valores
+con pinta de código tenga, descartando ISBN, y desempata la unicidad.
+
+Probado contra los tres ficheros reales de 2026:
+
+| Editorial | Forma del fichero | Resultado |
+|---|---|---|
+| SM | Cabecera en la fila 0, código en la col. B, ISBN en la E | 2 códigos ✓ |
+| Cambridge | 11 filas de preámbulo, cabecera `ISBN \| Book \| Code`, ~790 filas vacías al final | 202 códigos ✓ (coincide con su propia cabecera «Number of licences: 202») |
+| Anaya/Edebé (.xls) | Columna A vacía, cabecera en la fila 1, `Título \| Licencia \| ISBN` | 46 códigos ✓ |
+
+El camino principal sigue siendo **copiar y pegar** (es más rápido y David ve lo que copia); lo
+del fichero es un atajo con la misma vista previa, y se puede cambiar la columna a mano si
+alguna editorial estrena formato.
+
+### Límites de envío (Gmail vs Resend)
+
+Va por **Gmail** (`EMAIL_TRANSPORTE` por defecto cuando hay cuenta de servicio), que es lo que
+David prefiere porque los correos quedan en «Enviados» de `licencias@`. Sus topes, de Workspace
+y por buzón suplantado:
+
+- **~2.000 mensajes/día.** Con ~1.600 licencias del banco, mandarlas todas de una en un día se
+  come la cuota y el resto del día no sale nada más de ese buzón. Fusionando por alumno bajan a
+  ~300. La pantalla avisa al pasar de 1.200 correos en una tacada.
+- **~250 unidades de cuota/segundo**, y `messages.send` cuesta 100 → ~2,5 correos/segundo.
+
+De ahí que el envío vaya **en tandas de 80 desde el navegador** con barra de progreso, y no en
+una sola llamada: 80 correos son ~32 s, dentro del `maxDuration` de 60 de la función. Cada
+correo marca sus licencias **en cuanto sale**, así que cortar a media tanda no reenvía nada de
+lo ya entregado, y reintentar solo coge lo que falta. Resend mandaría 100 por llamada (mucho más
+rápido para el masivo del banco), pero no deja rastro en el buzón: si algún día el masivo se
+hace insufrible, se cambia con `EMAIL_TRANSPORTE_LICENCIAS=resend` sin tocar código.
+
+### Checklist
+
+- [x] Esquema `lic_licencias` + `lic_envios` + `contexto`/`clave` en `lic_email_templates`
+      (`src/db/sql/licencias-envios.sql`, aditivo e idempotente)
+- [x] Materializar: `sincronizarLicencias()` (líneas de pedido + censo del banco), idempotente,
+      con descarte automático de lo que se cae del censo y recuperación si vuelve
+- [x] Pantalla «tipo Excel» con filtros (curso, clase, libro, editorial, estado, búsqueda),
+      todas las cabeceras ordenables y recuentos útiles (faltan / listas / enviadas / %)
+- [x] Pegar códigos: análisis del pegado, selector de columna, vista previa alumno ← código,
+      aviso de mezcla de libros, duplicados y códigos ya usados
+- [x] Lectura del Excel de la editorial con detección automática de la columna (verificada
+      contra los ficheros reales de SM, Cambridge y Anaya)
+- [x] Sobrantes: almacén por libro, colocar en un alumno pendiente (atómico, en `db.batch`) y
+      borrar
+- [x] Descartar / deshacer («no le toca»), y quitar un código mal pegado
+- [x] Correo de entrega: dos plantillas de fábrica, variables, `{codigo}` en caja, vista previa,
+      envío de prueba y guardado de plantillas propias
+- [x] Envío por tandas con progreso, marcado **individual** por licencia y registro de envíos
+- [x] El sello 📤 de los pedidos de pago lo pone el envío
+- [x] Enlaces desde el panel, Editoriales, Exportar y el esquema del proceso
+- [x] Tests de los helpers puros (pegado, emparejado, filtros, correo): 56 casos nuevos
+- [ ] **Aplicar `licencias-envios.sql` en Neon** (`pnpm db:sql --pendientes`) — no se ha podido
+      hacer en la sesión de desarrollo por no tener `DATABASE_URL`
+- [ ] Estreno: sincronizar, pegar una tanda real pequeña, prueba a `david@` y envío de verdad
 
 ## Fase 4 · Enganche a la BBDD central Educamos (= hito 3 del roadmap)
 
