@@ -8,9 +8,19 @@ import { hasModule, getSessionUser } from '@/lib/auth-guards';
 const isAdmin = () => hasModule('licencias');
 
 // Plantillas de correo compartidas entre gestores (guardar/cargar/borrar).
-export async function GET() {
+//
+// Dos pantallas las usan y no tienen las mismas variables: `masivo` son los correos a familias
+// de /gestion/licencias/correos y `licencias` los de entrega de códigos de /envios. Cada una
+// lista solo las suyas para que nadie cargue una plantilla llena de variables que ahí no
+// existen y mande `{enlace}` en crudo.
+export async function GET(request: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  const plantillas = await db.select().from(licEmailTemplates).orderBy(desc(licEmailTemplates.updatedAt));
+  const contexto = new URL(request.url).searchParams.get('contexto') === 'licencias' ? 'licencias' : 'masivo';
+  const plantillas = await db
+    .select()
+    .from(licEmailTemplates)
+    .where(eq(licEmailTemplates.contexto, contexto))
+    .orderBy(desc(licEmailTemplates.updatedAt));
   return NextResponse.json({ plantillas });
 }
 
@@ -19,6 +29,7 @@ const saveSchema = z.object({
   nombre: z.string().min(2),
   subject: z.string().min(2),
   body: z.string().min(2),
+  contexto: z.enum(['masivo', 'licencias']).default('masivo'),
 });
 
 export async function POST(request: Request) {

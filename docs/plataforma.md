@@ -89,7 +89,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Módulo / pieza | Plan funcional | Plan técnico | Implementado | Ficha |
 |---|---|---|---|---|
 | Registro ABC (conductas disruptivas) | ✅ | ✅ | ✅ (login del claustro; alumnado enlazado por NIA y en siglas; panel en `/gestion/abc`) | [`10-registro-abc.md`](./10-registro-abc.md) |
-| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-3: campaña completa de punta a punta — pedido a editoriales de pago **y** del banco de libros (dos pedidos separados), seguimiento 🧾/📤/💰, cobro y esquema del proceso; informes verificados contra Neon. Quedan los códigos de activación línea a línea. Los pedidos salen como Google Sheets por editorial en Drive, con PDF) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
+| Licencias digitales | ✅ | ✅ | ✅ (Fases 0-3 + 5: campaña completa de punta a punta — pedido a editoriales de pago **y** del banco de libros (dos pedidos separados), **envío de los códigos a cada alumno desde la app** (pegar la columna del Excel de la editorial, asignación en orden, sobrantes, correo por licencia), seguimiento 🧾/📤/💰, cobro y esquema del proceso; informes verificados contra Neon. Los pedidos salen como Google Sheets por editorial en Drive, con PDF. **`licencias-envios.sql` pendiente de aplicar en Neon**) | [`11-licencias-v2.md`](./11-licencias-v2.md) |
 | BBDD central Educamos (alumnos + tutores + profes) | ✅ | ✅ | 🟡 (poblada y en uso: 640 alumnos y 54 profes activos —97 fichas contando bajas—; faltan pantallas de gestión. Tutor personal por alumno en uso: 56 alumnos repartidos; nombre visible del profesorado editable en `/gestion/profes`) | [`02-integracion-educamos.md`](./02-integracion-educamos.md) |
 | Auth (login Google) + roles/permisos | ✅ | ✅ | ✅ (sesión 10 meses; falta prueba OAuth real de David) | [`01-auth-roles.md`](./01-auth-roles.md) |
 | Escritorio de administración (bienvenida) | ✅ | ✅ | ✅ (tarjetas por rol + stats) | [`03-escritorio-admin.md`](./03-escritorio-admin.md) |
@@ -228,8 +228,10 @@ Formulario público donde las familias se identifican (DNI del tutor o NIA del a
 identificación común de `src/lib/familias-server.ts`), eligen sus
 libros digitales con precios en vivo y confirman el pedido; panel de gestión (`/gestion`) con
 dashboard "quién falta", exportaciones CSV, packs, correos masivos y sincronización con Google
-Sheets. Cubre la campaña entera (Fases 0-3): recoger pedidos, **pedir a las editoriales** (dos
-informes: las de pago, incremental, y las gratis del banco de libros, censo completo), enviar
-las licencias por FormMule y cobrar con el CSV de Educamos, con seguimiento 🧾/📤/💰 por pedido.
-Quien se pierda tiene el **esquema del proceso** en `/gestion/licencias/proceso`. Queda el
+Sheets. Cubre la campaña entera (Fases 0-3 y 5): recoger pedidos, **pedir a las editoriales** (dos
+informes: las de pago, incremental, y las gratis del banco de libros, censo completo),
+**mandarle a cada alumno su código** desde `/gestion/licencias/envios` (se pega la columna del
+Excel de la editorial, se reparte en orden, los que sobran quedan en el almacén, y sale un correo
+por licencia marcándolas una a una) y cobrar con el CSV de Educamos, con seguimiento 🧾/📤/💰 por
+pedido. Quien se pierda tiene el **esquema del proceso** en `/gestion/licencias/proceso`. Queda el
 enganche a la BBDD central (Fase 4). Detalle completo en [`11-licencias-v2.md`](./11-licencias-v2.md).

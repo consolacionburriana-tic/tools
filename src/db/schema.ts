@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { boolean, date, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 // ─── Recurso global (compartido entre todas las tools) ────────────────────────
@@ -588,6 +589,11 @@ export const licEmailTemplates = pgTable('lic_email_templates', {
   nombre: text('nombre').notNull(),
   subject: text('subject').notNull(),
   body: text('body').notNull(),
+  // Qué pantalla la usa: 'masivo' (correos a familias) o 'licencias' (envío de códigos). Las
+  // variables disponibles no son las mismas, así que cada una lista solo las suyas.
+  contexto: text('contexto').notNull().default('masivo'),
+  /** Marca las dos plantillas de fábrica ('banco' y 'pago'), independientemente del nombre. */
+  clave: text('clave'),
   createdByEmail: text('created_by_email'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -644,6 +650,75 @@ export const licAjustesPedido = pgTable(
   (t) => [uniqueIndex('lic_ajustes_pedido_uq').on(t.campaignId, t.tipo, t.curso, t.cod)],
 );
 export type LicAjustePedido = typeof licAjustesPedido.$inferSelect;
+
+// Una fila por licencia a entregar: es la unidad de asignación de código y de envío. Las de
+// pago salen de `lic_order_items`; las del banco de libros NO existen en ninguna tabla (son un
+// censo alumno × libro) y se materializan aquí. Una fila con `studentId` NULL es un SOBRANTE
+// guardado en el almacén, para colocarlo más adelante. Ver licencias-envios.sql
+export const licLicencias = pgTable(
+  'lic_licencias',
+  {
+    id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id, { onDelete: 'cascade' }),
+    tipo: text('tipo').notNull(), // 'pago' | 'banco'
+    /** Curso efectivo: con `cod` forma la identidad del libro (un `cod` suelto no la forma). */
+    curso: text('curso').notNull(),
+    cod: text('cod').notNull(),
+    studentId: uuid('student_id').references(() => licStudents.id),
+    orderItemId: uuid('order_item_id').references(() => licOrderItems.id, { onDelete: 'cascade' }),
+    codigo: text('codigo'),
+    codigoAt: timestamp('codigo_at'),
+    codigoPorEmail: text('codigo_por_email'),
+    estado: text('estado').notNull().default('pendiente'), // 'pendiente' | 'enviado' | 'error'
+    enviadoAt: timestamp('enviado_at'),
+    enviadoA: text('enviado_a'),
+    envioId: uuid('envio_id'),
+    error: text('error'),
+    /** La optativa que este alumno no cursa: deja de contar como "falta" sin borrar la fila. */
+    descartadoAt: timestamp('descartado_at'),
+    descartadoMotivo: text('descartado_motivo'),
+    nota: text('nota'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('lic_licencias_order_item_uq').on(t.orderItemId).where(sql`order_item_id IS NOT NULL`),
+    uniqueIndex('lic_licencias_banco_uq')
+      .on(t.campaignId, t.studentId, t.curso, t.cod)
+      .where(sql`tipo = 'banco' AND student_id IS NOT NULL`),
+    // El mismo código no puede acabar en dos alumnos: último cortafuegos del copiar y pegar.
+    uniqueIndex('lic_licencias_codigo_uq').on(t.campaignId, t.codigo).where(sql`codigo IS NOT NULL`),
+    index('lic_licencias_campaign_idx').on(t.campaignId, t.tipo, t.curso, t.cod),
+    index('lic_licencias_student_idx').on(t.studentId),
+    index('lic_licencias_envio_idx').on(t.envioId),
+  ],
+);
+export type LicLicencia = typeof licLicencias.$inferSelect;
+export type NewLicLicencia = typeof licLicencias.$inferInsert;
+
+// Una fila por CORREO enviado (no por licencia): es lo que permite "fusionar" varias licencias
+// de un alumno en un solo correo y seguir sabiendo después qué salió, a dónde y cuándo.
+export const licEnvios = pgTable(
+  'lic_envios',
+  {
+    id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id, { onDelete: 'cascade' }),
+    tipo: text('tipo').notNull(),
+    studentId: uuid('student_id').references(() => licStudents.id),
+    para: text('para').notNull(),
+    asunto: text('asunto').notNull(),
+    numLicencias: integer('num_licencias').notNull().default(1),
+    ok: boolean('ok').notNull().default(true),
+    error: text('error'),
+    enviadoPorEmail: text('enviado_por_email'),
+    enviadoAt: timestamp('enviado_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('lic_envios_campaign_idx').on(t.campaignId, t.enviadoAt),
+    index('lic_envios_student_idx').on(t.studentId),
+  ],
+);
+export type LicEnvio = typeof licEnvios.$inferSelect;
 
 // ─── Types Licencias ──────────────────────────────────────────────────────────
 export type LicCampaign = typeof licCampaigns.$inferSelect;
