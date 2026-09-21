@@ -214,7 +214,7 @@ const FASES: Fase[] = [
         boton: 'Pegar códigos',
         href: '/gestion/licencias/envios',
         que: 'Se copia la columna de licencias del Excel de la editorial y se pega. Se reparten en orden entre los alumnos que se ven, y la vista previa enseña alumno por alumno qué código le toca antes de guardar nada.',
-        ojo: 'Si sobran códigos se guardan solos en Sobrantes con su libro; si faltan, esos alumnos siguen en «falta código». Quien no curse esa optativa se desmarca antes de pegar.',
+        ojo: 'Si sobran códigos se guardan solos en Sobrantes con su libro; si faltan, esos alumnos siguen en «falta código». Quien no curse esa optativa se desmarca antes de pegar. Los sobrantes se pueden cruzar: una gratis que sobra vale para un alumno de pago del mismo libro.',
       },
       {
         n: 15,
@@ -223,7 +223,7 @@ const FASES: Fase[] = [
         boton: 'Enviar',
         href: '/gestion/licencias/envios',
         que: 'Un correo por licencia (con opción de fusionar en uno por alumno), con la plantilla de Banco de Libros o la de Licencia Adquirida. Hay vista previa y envío de prueba antes del masivo.',
-        ojo: 'Cada licencia se marca como enviada por separado en cuanto sale, así que si un envío grande se corta, al repetirlo no se reenvía nada de lo ya entregado.',
+        ojo: 'Antes de mandar, el aviso dice cuántas hay a la vista, cuántas listas y cuántos correos van a salir, y deja poner un tope. Cada licencia se marca en cuanto SU correo sale, así que cerrar la pestaña no marca de más y al repetir no se reenvía lo ya entregado.',
       },
       {
         n: 16,

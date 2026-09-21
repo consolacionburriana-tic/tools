@@ -106,8 +106,13 @@ export async function POST(request: Request) {
     }
   }
 
-  // Envío real. De uno en uno a propósito: cada correo marca SUS licencias en cuanto sale, así
-  // que si la petición se corta a medias no se reenvía nada de lo ya entregado.
+  // Envío real, de uno en uno a propósito.
+  //
+  // EL ORDEN DE ESTAS TRES LÍNEAS ES LO QUE SOSTIENE TODO: se manda el correo, se espera a que
+  // Gmail lo acepte, y SOLO ENTONCES se marca la licencia. Así, si esto se corta por donde sea
+  // —se cierra la pestaña, se agota la función, se cae la red— es imposible que quede algo
+  // marcado como enviado sin haber salido. El único riesgo es el contrario (correo entregado
+  // que no llega a marcarse, y se reenvía al repetir), que es el lado bueno por el que fallar.
   let enviados = 0;
   let fallidos = 0;
   const errores: string[] = [];

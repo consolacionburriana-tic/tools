@@ -4,6 +4,12 @@
 // licencias porque se equivocan los comerciales y yo las guardo porque a lo mejor las puedo
 // asignar a alguien en otro momento» (David). Por eso no se tiran: se guardan con su libro y
 // su curso, y desde aquí se colocan en cualquier alumno que esté pendiente de ese mismo libro.
+//
+// Esta pantalla es la ÚNICA que ignora la pestaña de pago/banco, a propósito: «las sobrantes sí
+// se pueden mezclar, sobre todo nos sobran gratuitas y se las asignamos a los de pago» (David).
+// Un libro del banco es gratis para el alumnado BdL y de pago para el que no lo es, pero el
+// código es el mismo producto. Lo que no se cruza nunca es el libro — de eso se encarga
+// `puedeColocarse`, aquí y en el servidor.
 
 import { useMemo, useState } from 'react';
 import { Package, Trash2 } from 'lucide-react';
@@ -11,33 +17,30 @@ import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { claveLibro } from '@/lib/licencias-exports';
 import { cursoLabel } from '@/lib/licencias';
-import { ordenNatural, type LicenciaFila, type TipoLicencia } from '@/lib/licencias-envios';
+import { ordenNatural, puedeColocarse, type LicenciaFila } from '@/lib/licencias-envios';
 
 interface Props {
   filas: LicenciaFila[];
-  tipo: TipoLicencia;
   onCambio: () => void | Promise<void>;
 }
 
-export function EnviosSobrantes({ filas, tipo, onCambio }: Props) {
+export function EnviosSobrantes({ filas, onCambio }: Props) {
   const [ocupado, setOcupado] = useState<string | null>(null);
 
-  const sobrantes = useMemo(
-    () => filas.filter((f) => f.tipo === tipo && !f.studentId && f.codigo),
-    [filas, tipo],
-  );
+  const sobrantes = useMemo(() => filas.filter((f) => !f.studentId && f.codigo), [filas]);
 
-  // A quién se le puede colocar cada sobrante: alumnos pendientes de ESE mismo libro.
+  // A quién se le puede colocar cada sobrante: alumnos pendientes de ESE mismo libro, sean de
+  // pago o del banco (ver la nota de arriba).
   const huecosPorLibro = useMemo(() => {
     const mapa = new Map<string, LicenciaFila[]>();
     for (const f of filas) {
-      if (f.tipo !== tipo || !f.studentId || f.codigo || f.descartadoAt) continue;
+      if (!f.studentId || f.codigo || f.descartadoAt) continue;
       const k = claveLibro(f.curso, f.cod);
       mapa.set(k, [...(mapa.get(k) ?? []), f]);
     }
     for (const [k, v] of mapa) mapa.set(k, [...v].sort(ordenNatural));
     return mapa;
-  }, [filas, tipo]);
+  }, [filas]);
 
   const porLibro = useMemo(() => {
     const mapa = new Map<string, { curso: string; cod: string; asignatura: string; items: LicenciaFila[] }>();
@@ -95,8 +98,8 @@ export function EnviosSobrantes({ filas, tipo, onCambio }: Props) {
   if (sobrantes.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-zinc-200 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
-        No hay licencias sobrantes de {tipo === 'banco' ? 'banco de libros' : 'pago'}. Cuando al pegar códigos
-        sobren, se guardan aquí con su libro para poder colocarlas más adelante.
+        No hay licencias sobrantes. Cuando al pegar códigos sobren, se guardan aquí con su libro para poder
+        colocarlas más adelante.
       </p>
     );
   }
@@ -105,8 +108,9 @@ export function EnviosSobrantes({ filas, tipo, onCambio }: Props) {
     <div className="space-y-4">
       <p className="text-sm text-zinc-600 dark:text-zinc-300">
         <Package className="mr-1 inline h-4 w-4 text-blue-600" />
-        {sobrantes.length} licencia(s) guardadas sin dueño. Se pueden colocar en cualquier alumno que esté
-        pendiente <strong>de ese mismo libro</strong>.
+        {sobrantes.length} licencia(s) guardadas sin dueño, de las dos pestañas. Se pueden colocar en cualquier
+        alumno pendiente <strong>de ese mismo libro</strong>, sea de pago o del banco — una gratis que sobra vale
+        para uno de pago, porque el código es el mismo producto.
       </p>
 
       {porLibro.map(([clave, grupo]) => {
@@ -126,7 +130,18 @@ export function EnviosSobrantes({ filas, tipo, onCambio }: Props) {
               <tbody>
                 {grupo.items.map((s) => (
                   <tr key={s.id} className="border-t dark:border-zinc-800">
-                    <td className="px-4 py-2 font-mono text-[13px]">{s.codigo}</td>
+                    <td className="px-4 py-2 font-mono text-[13px]">
+                      {s.codigo}
+                      <span
+                        className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                          s.tipo === 'banco'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                            : 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
+                        }`}
+                      >
+                        {s.tipo === 'banco' ? 'gratis' : 'de pago'}
+                      </span>
+                    </td>
                     <td className="px-2 py-2 text-xs text-zinc-400">{s.nota ?? ''}</td>
                     <td className="px-2 py-2 text-right">
                       <select
@@ -138,12 +153,14 @@ export function EnviosSobrantes({ filas, tipo, onCambio }: Props) {
                         <option value="">
                           {huecos.length ? 'Colocar en…' : 'Nadie pendiente de este libro'}
                         </option>
-                        {huecos.map((h) => (
-                          <option key={h.id} value={h.id}>
-                            {h.alumno} · {cursoLabel(h.curso)}
-                            {h.letra ?? ''}
-                          </option>
-                        ))}
+                        {huecos
+                          .filter((h) => puedeColocarse(s, h))
+                          .map((h) => (
+                            <option key={h.id} value={h.id}>
+                              {h.alumno} · {cursoLabel(h.curso)}
+                              {h.letra ?? ''} · {h.tipo === 'banco' ? 'banco' : 'pago'}
+                            </option>
+                          ))}
                       </select>
                     </td>
                     <td className="w-10 px-2 py-2 text-right">

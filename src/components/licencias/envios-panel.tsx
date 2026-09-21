@@ -131,11 +131,11 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
         if (sync && data.sync) {
           const s = data.sync;
           const nuevas = (s.creadasPago ?? 0) + (s.creadasBanco ?? 0);
-          toast.success(
-            nuevas || s.descartadas
-              ? `${nuevas} licencia(s) nuevas · ${s.descartadas} fuera del censo`
-              : 'Todo al día',
-          );
+          const partes = [];
+          if (nuevas) partes.push(`${nuevas} licencia(s) nuevas`);
+          if (s.descartadas) partes.push(`${s.descartadas} fuera del censo`);
+          if (s.sellados) partes.push(`${s.sellados} pedido(s) marcados 📤`);
+          toast.success(partes.length ? partes.join(' · ') : 'Todo al día');
         }
       } finally {
         setCargando(false);
@@ -225,6 +225,8 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
 
   const r = resumen?.[tipo];
   const pct = r && r.total ? Math.round((r.enviadas / r.total) * 100) : 0;
+  // El contador de sobrantes suma los dos tipos: su pestaña los enseña todos juntos.
+  const totalSobrantes = (resumen?.pago.sobrantes ?? 0) + (resumen?.banco.sobrantes ?? 0);
 
   async function accionSobreSeleccion(
     url: string,
@@ -325,7 +327,7 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
         {(
           [
             ['licencias', 'Licencias'],
-            ['sobrantes', `Sobrantes${r?.sobrantes ? ` (${r.sobrantes})` : ''}`],
+            ['sobrantes', `Sobrantes${totalSobrantes ? ` (${totalSobrantes})` : ''}`],
             ['enviadas', 'Registro de envíos'],
           ] as const
         ).map(([v, label]) => (
@@ -344,7 +346,8 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
         ))}
       </div>
 
-      {vista === 'sobrantes' && <EnviosSobrantes filas={filas} tipo={tipo} onCambio={() => cargar(false)} />}
+      {/* Los sobrantes NO se filtran por pestaña: se cruzan de pago a banco y al revés. */}
+      {vista === 'sobrantes' && <EnviosSobrantes filas={filas} onCambio={() => cargar(false)} />}
 
       {vista === 'enviadas' && (
         <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
@@ -660,6 +663,9 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
         tipo={tipo}
         destino={destino}
         seleccionadas={paraEnviar}
+        aLaVista={visibles.length}
+        listasALaVista={listasVisibles.length}
+        porSeleccion={listasVisibles.some((f) => seleccion.has(f.id))}
         presets={presets}
         onHecho={() => cargar(false)}
       />

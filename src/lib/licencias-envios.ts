@@ -228,3 +228,34 @@ export const VARIABLES_LICENCIA = [
   'n',
   'curso_escolar',
 ] as const;
+
+export interface ParaColocar {
+  tipo: TipoLicencia;
+  curso: string;
+  cod: string;
+  studentId: string | null;
+  codigo: string | null;
+  descartadoAt: string | null;
+  estado?: string;
+}
+
+/**
+ * ¿Se puede colocar este sobrante en este hueco? La regla es **el mismo libro**, `(curso, cod)`
+ * — y `tipo` NO entra en la comparación, a propósito.
+ *
+ * Que el tipo no cuente es una petición explícita de David: «las sobrantes SÍ se pueden mezclar
+ * de pago y de gratuitas, porque sobre todo nos pasa que nos sobran gratuitas y se las
+ * asignamos a los de pago». Y es correcto: un libro del banco es gratis para el alumnado BdL y
+ * de pago para el que no lo es, pero **el código es el mismo producto** — lo único que cambia
+ * es quién lo paga, que es cosa del pedido, no de la licencia.
+ *
+ * Lo que sí es innegociable es el libro: meter un código de Religión en un hueco de Inglés le
+ * da al alumno una licencia que no abre su libro, y nada chirriaría hasta que lo intentara.
+ */
+export function puedeColocarse(sobrante: ParaColocar, hueco: ParaColocar): boolean {
+  if (sobrante.studentId !== null || !sobrante.codigo) return false; // no es un sobrante
+  if (hueco.studentId === null) return false; //                       el destino no es un hueco
+  if (hueco.codigo) return false; //                                   ya tiene código
+  if (hueco.descartadoAt) return false; //                             «no le toca»
+  return sobrante.curso === hueco.curso && sobrante.cod === hueco.cod;
+}
