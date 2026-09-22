@@ -26,6 +26,26 @@ interface Props {
 
 export function EnviosSobrantes({ filas, onCambio }: Props) {
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
+
+  const alternar = (id: string) =>
+    setMarcados((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+
+  /** La casilla de la cabecera de cada libro: marca o desmarca ese libro entero. */
+  const alternarLibro = (ids: string[], marcar: boolean) =>
+    setMarcados((prev) => {
+      const s = new Set(prev);
+      for (const id of ids) {
+        if (marcar) s.add(id);
+        else s.delete(id);
+      }
+      return s;
+    });
 
   const sobrantes = useMemo(() => filas.filter((f) => !f.studentId && f.codigo), [filas]);
 
@@ -75,20 +95,28 @@ export function EnviosSobrantes({ filas, onCambio }: Props) {
     }
   }
 
-  async function borrar(id: string, codigo: string) {
-    if (!confirm(`Se borrará el código ${codigo} del almacén. No se puede deshacer. ¿Seguro?`)) return;
-    setOcupado(id);
+  async function borrar(ids: string[]) {
+    if (!ids.length) return;
+    const aviso =
+      ids.length === 1
+        ? 'Se borrará ese código del almacén. No se puede deshacer. ¿Seguro?'
+        : `Se borrarán ${ids.length} códigos del almacén. No se puede deshacer. ¿Seguro?`;
+    if (!confirm(aviso)) return;
+    setOcupado('borrando');
     try {
       const res = await fetch('/api/licencias/admin/licencias/sobrantes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'borrar', id }),
+        body: JSON.stringify({ accion: 'borrar', ids }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error((await res.json()).error ?? 'No se ha podido borrar');
+        toast.error(data.error ?? 'No se ha podido borrar');
         return;
       }
-      toast.success('Sobrante borrado');
+      haptic.success();
+      toast.success(`${data.count ?? ids.length} sobrante(s) borrados`);
+      setMarcados(new Set());
       await onCambio();
     } finally {
       setOcupado(null);
@@ -113,15 +141,47 @@ export function EnviosSobrantes({ filas, onCambio }: Props) {
         para uno de pago, porque el código es el mismo producto.
       </p>
 
+      {marcados.size > 0 && (
+        <div className="sticky top-2 z-10 flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm shadow-sm dark:border-red-500/30 dark:bg-red-500/10">
+          <span className="font-medium text-red-900 dark:text-red-200">
+            {marcados.size} sobrante(s) marcados
+          </span>
+          <button
+            type="button"
+            onClick={() => borrar([...marcados])}
+            disabled={ocupado === 'borrando'}
+            className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+          >
+            <Trash2 className="h-4 w-4" />
+            Borrar del almacén
+          </button>
+          <button
+            type="button"
+            onClick={() => setMarcados(new Set())}
+            className="ml-auto text-xs text-red-700 underline dark:text-red-300"
+          >
+            Quitar la selección
+          </button>
+        </div>
+      )}
+
       {porLibro.map(([clave, grupo]) => {
         const huecos = huecosPorLibro.get(clave) ?? [];
+        const idsDelLibro = grupo.items.map((i) => i.id);
+        const todosMarcados = idsDelLibro.every((id) => marcados.has(id));
         return (
           <div key={clave} className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
-            <div className="flex flex-wrap items-baseline justify-between gap-2 bg-zinc-50 px-4 py-2 dark:bg-zinc-800/50">
-              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-zinc-50 px-4 py-2 dark:bg-zinc-800/50">
+              <label className="flex items-center gap-2 text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                <input
+                  type="checkbox"
+                  checked={todosMarcados}
+                  onChange={(e) => alternarLibro(idsDelLibro, e.target.checked)}
+                  title="Marcar todos los sobrantes de este libro"
+                />
                 {grupo.asignatura} · {cursoLabel(grupo.curso)}
-                <span className="ml-2 font-normal text-zinc-400">{grupo.cod}</span>
-              </p>
+                <span className="font-normal text-zinc-400">{grupo.cod}</span>
+              </label>
               <p className="text-xs text-zinc-500">
                 {grupo.items.length} sobrante(s) · {huecos.length} alumno(s) pendiente(s)
               </p>
@@ -163,16 +223,13 @@ export function EnviosSobrantes({ filas, onCambio }: Props) {
                           ))}
                       </select>
                     </td>
-                    <td className="w-10 px-2 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => borrar(s.id, s.codigo ?? '')}
-                        disabled={ocupado === s.id}
-                        title="Borrar del almacén"
-                        className="text-zinc-300 transition-colors hover:text-red-500 disabled:opacity-40 dark:text-zinc-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                    <td className="w-10 px-3 py-2 text-right">
+                      <input
+                        type="checkbox"
+                        checked={marcados.has(s.id)}
+                        onChange={() => alternar(s.id)}
+                        title="Marcar para borrar en bloque"
+                      />
                     </td>
                   </tr>
                 ))}

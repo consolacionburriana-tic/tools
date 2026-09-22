@@ -598,6 +598,11 @@ van todas las listas de la vista— y cuántos **correos** van a salir de verdad
 - [x] Cerrar la pestaña no marca como enviado nada que no haya salido; el sello 📤 se repasa
       solo en cada sincronización
 - [x] Descartar / deshacer («no le toca»), y quitar un código mal pegado
+- [x] **Código editable a mano** haciendo clic en la celda (o en «falta código»): la vía de
+      escape para la licencia suelta que llega por correo o el código mal copiado. Si la
+      licencia ya estaba enviada, cambiarlo la devuelve a pendiente —el alumno tiene el
+      viejo— y se avisa antes
+- [x] **Borrado en bloque de sobrantes**: casilla por fila y casilla por libro en su cabecera
 - [x] Correo de entrega: dos plantillas de fábrica, variables, `{codigo}` en caja, vista previa,
       envío de prueba y guardado de plantillas propias
 - [x] Envío por tandas con progreso, marcado **individual** por licencia y registro de envíos

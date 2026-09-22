@@ -111,6 +111,9 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
   const [filtros, setFiltros] = useState<Filtros>({ ...FILTROS_INICIALES, tipo: 'pago' });
   const [orden, setOrden] = useState<{ campo: CampoOrden; asc: boolean }>({ campo: 'curso', asc: true });
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  /** La celda de código que se está editando a mano, y lo que se lleva tecleado. */
+  const [editando, setEditando] = useState<{ id: string; valor: string } | null>(null);
+  const [guardandoCodigo, setGuardandoCodigo] = useState(false);
   const [abrirAsignar, setAbrirAsignar] = useState(false);
   const [abrirEnviar, setAbrirEnviar] = useState(false);
   const [envios, setEnvios] = useState<EnvioRegistro[]>([]);
@@ -251,6 +254,49 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
   }
 
   const seleccionadas = useMemo(() => visibles.filter((f) => seleccion.has(f.id)), [visibles, seleccion]);
+
+  /**
+   * Guarda el código tecleado en una celda. Vía de escape para lo que el pegado en bloque no
+   * cubre: la licencia suelta que manda la editorial por correo, un código mal copiado, el
+   * alumno que llega tarde.
+   */
+  async function guardarCodigo(fila: LicenciaFila, valor: string) {
+    const codigo = valor.trim();
+    if (!codigo || codigo === fila.codigo) {
+      setEditando(null);
+      return;
+    }
+    // Cambiar el código de una ya enviada la devuelve a la cola, porque el alumno tiene el
+    // viejo. Se dice antes, que no es evidente.
+    if (
+      fila.estado === 'enviado' &&
+      !confirm(
+        `${fila.alumno} ya recibió el código ${fila.codigo}.\n\nAl cambiarlo, esta licencia vuelve a «pendiente» para que se le mande el nuevo. ¿Seguimos?`,
+      )
+    ) {
+      setEditando(null);
+      return;
+    }
+    setGuardandoCodigo(true);
+    try {
+      const res = await fetch('/api/licencias/admin/licencias/codigo', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: fila.id, codigo }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? 'No se ha podido guardar');
+        return;
+      }
+      haptic.success();
+      toast.success(data.reenviar ? 'Código cambiado · vuelve a estar pendiente de enviar' : 'Código guardado');
+      setEditando(null);
+      await cargar(false);
+    } finally {
+      setGuardandoCodigo(false);
+    }
+  }
 
   if (cargando) {
     return (
@@ -608,7 +654,30 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
                       <span className="ml-1 text-xs text-zinc-400">{f.editorial}</span>
                     </td>
                     <td className="px-3 py-1.5 font-mono text-[13px]">
-                      {f.codigo ?? <span className="text-zinc-300 dark:text-zinc-600">—</span>}
+                      {editando?.id === f.id ? (
+                        <input
+                          autoFocus
+                          value={editando.valor}
+                          disabled={guardandoCodigo}
+                          onChange={(e) => setEditando({ id: f.id, valor: e.target.value })}
+                          onBlur={() => guardarCodigo(f, editando.valor)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') guardarCodigo(f, editando.valor);
+                            if (e.key === 'Escape') setEditando(null);
+                          }}
+                          placeholder="pega o teclea el código"
+                          className="w-44 rounded-lg border border-blue-400 bg-white px-2 py-1 font-mono text-[13px] outline-none dark:bg-zinc-900"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditando({ id: f.id, valor: f.codigo ?? '' })}
+                          title="Clic para poner o corregir el código a mano"
+                          className="rounded px-1 py-0.5 text-left hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                        >
+                          {f.codigo ?? <span className="text-zinc-300 dark:text-zinc-600">— poner —</span>}
+                        </button>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5">
                       {f.descartadoAt ? (
@@ -626,7 +695,14 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
                           <Mail className="h-3.5 w-3.5" /> lista
                         </span>
                       ) : (
-                        <span className="text-xs text-zinc-400">falta código</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditando({ id: f.id, valor: '' })}
+                          title="Clic para poner el código a mano"
+                          className="rounded px-1 text-xs text-zinc-400 underline decoration-dotted hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          falta código
+                        </button>
                       )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5 text-xs text-zinc-500">{fecha(f.enviadoAt)}</td>

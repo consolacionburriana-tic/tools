@@ -380,6 +380,64 @@ export async function quitarCodigo(campaignId: string, licenciaId: string): Prom
   return hechas.length > 0;
 }
 
+/**
+ * Pone o cambia el código de UNA licencia, a mano desde la tabla. Es la vía de escape para lo
+ * que el pegado en bloque no cubre: una licencia suelta que manda la editorial por correo, un
+ * código mal tecleado, el alumno que llega tarde.
+ *
+ * Si la licencia ya estaba enviada, cambiar el código la devuelve a **pendiente**: el alumno
+ * tiene el código viejo, así que la única forma de que esto signifique algo es que vuelva a
+ * salir. Quien llama avisa antes; aquí solo se deja constancia.
+ */
+export async function ponerCodigo(
+  campaignId: string,
+  licenciaId: string,
+  codigo: string,
+  porEmail: string | null,
+): Promise<{ ok: boolean; motivo?: string; reenviar?: boolean }> {
+  const [actual] = await db
+    .select()
+    .from(licLicencias)
+    .where(and(eq(licLicencias.id, licenciaId), eq(licLicencias.campaignId, campaignId)));
+  if (!actual) return { ok: false, motivo: 'Esa licencia ya no existe' };
+  if (!actual.studentId) return { ok: false, motivo: 'Eso es un sobrante, no la licencia de nadie' };
+  if (actual.codigo === codigo) return { ok: true };
+
+  // El índice único lo impediría igual, pero un choque de índice es un error feo y sin nombre:
+  // mirándolo antes se puede decir a QUIÉN le tocó ese código.
+  const [enUso] = await db
+    .select({ studentId: licLicencias.studentId })
+    .from(licLicencias)
+    .where(and(eq(licLicencias.campaignId, campaignId), eq(licLicencias.codigo, codigo)));
+  if (enUso) {
+    const alumno = enUso.studentId
+      ? await db
+          .select({ nombre: licStudents.nombre, apellidos: licStudents.apellidos })
+          .from(licStudents)
+          .where(eq(licStudents.id, enUso.studentId))
+          .then((r) => (r[0] ? `${r[0].apellidos}, ${r[0].nombre}` : 'otro alumno'))
+      : 'un sobrante del almacén';
+    return { ok: false, motivo: `Ese código ya está en la campaña: ${alumno}` };
+  }
+
+  const yaEnviada = actual.estado === 'enviado';
+  await db
+    .update(licLicencias)
+    .set({
+      codigo,
+      codigoAt: new Date(),
+      codigoPorEmail: porEmail,
+      // Cambiar el código de una enviada la devuelve a la cola: el alumno tiene el viejo.
+      ...(yaEnviada
+        ? { estado: 'pendiente', enviadoAt: null, enviadoA: null, envioId: null, nota: 'código cambiado tras enviarla' }
+        : {}),
+      error: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(licLicencias.id, licenciaId));
+  return { ok: true, reenviar: yaEnviada };
+}
+
 /** Marca huecos como "no le toca" (la optativa que no cursa) o lo deshace. */
 export async function descartarLicencias(
   campaignId: string,
@@ -504,13 +562,20 @@ export async function guardarSobrantes(
   return insertadas.length;
 }
 
-/** Tira un sobrante (caducó, la editorial lo anuló). Solo sobrantes: nunca una licencia dada. */
-export async function borrarSobrante(campaignId: string, id: string): Promise<boolean> {
+/**
+ * Tira sobrantes (caducaron, la editorial los anuló). El `isNull(studentId)` del WHERE no es
+ * decorativo: es lo que garantiza que un borrado en bloque no pueda llevarse por delante una
+ * licencia ya dada a un alumno, aunque llegue un id que no toca.
+ */
+export async function borrarSobrantes(campaignId: string, ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
   const borradas = await db
     .delete(licLicencias)
-    .where(and(eq(licLicencias.id, id), eq(licLicencias.campaignId, campaignId), isNull(licLicencias.studentId)))
+    .where(
+      and(inArray(licLicencias.id, ids), eq(licLicencias.campaignId, campaignId), isNull(licLicencias.studentId)),
+    )
     .returning({ id: licLicencias.id });
-  return borradas.length > 0;
+  return borradas.length;
 }
 
 // ── Envíos ────────────────────────────────────────────────────────────────────

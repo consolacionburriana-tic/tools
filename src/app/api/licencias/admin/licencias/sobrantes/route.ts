@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSessionUser, hasModule } from '@/lib/auth-guards';
 import { getCurrentCampaign } from '@/lib/licencias-server';
-import { borrarSobrante, colocarSobrante, guardarSobrantes } from '@/lib/licencias-envios-server';
+import { borrarSobrantes, colocarSobrante, guardarSobrantes } from '@/lib/licencias-envios-server';
 
 // El almacén de licencias que sobran: «se equivocan los comerciales y mandan 10 de más, y yo
 // las guardo porque a lo mejor las puedo asignar a alguien en otro momento».
@@ -16,7 +16,7 @@ const schema = z.discriminatedUnion('accion', [
     nota: z.string().max(200).optional(),
   }),
   z.object({ accion: z.literal('colocar'), sobranteId: z.string().uuid(), licenciaId: z.string().uuid() }),
-  z.object({ accion: z.literal('borrar'), id: z.string().uuid() }),
+  z.object({ accion: z.literal('borrar'), ids: z.array(z.string().uuid()).min(1).max(2000) }),
 ]);
 
 export async function POST(request: Request) {
@@ -42,8 +42,10 @@ export async function POST(request: Request) {
       const r = await colocarSobrante(campaign.id, datos.sobranteId, datos.licenciaId);
       return r.ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: r.motivo }, { status: 409 });
     }
-    const ok = await borrarSobrante(campaign.id, datos.id);
-    return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+    const count = await borrarSobrantes(campaign.id, datos.ids);
+    return count
+      ? NextResponse.json({ ok: true, count })
+      : NextResponse.json({ error: 'No se ha borrado nada: ¿ya no estaban en el almacén?' }, { status: 404 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error desconocido';
     return NextResponse.json({ error: message }, { status: 400 });
