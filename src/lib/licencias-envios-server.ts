@@ -25,6 +25,7 @@ import {
 import { cursoEfectivo } from '@/lib/licencias';
 import { getBancoLibrosCenso, indexarLibros } from '@/lib/licencias-exports';
 import {
+  puedeColocarse,
   resumir,
   type Destino,
   type LicenciaFila,
@@ -45,6 +46,8 @@ export interface ResultadoSync {
   creadasBanco: number;
   descartadas: number;
   recuperadas: number;
+  /** Pedidos a los que este repaso les ha puesto el sello 📤 que faltaba. */
+  sellados: number;
 }
 
 /**
@@ -142,7 +145,10 @@ export async function sincronizarLicencias(campaignId: string): Promise<Resultad
       : Promise.resolve(),
   ]);
 
-  return { creadasPago, creadasBanco, descartadas: aDescartar.length, recuperadas: aRecuperar.length };
+  // Repaso del sello 📤: se arregla solo si un envío se cortó a medias (ver la función).
+  const sellados = await sellarPedidosCompletos(campaignId);
+
+  return { creadasPago, creadasBanco, descartadas: aDescartar.length, recuperadas: aRecuperar.length, sellados };
 }
 
 /**
@@ -374,6 +380,64 @@ export async function quitarCodigo(campaignId: string, licenciaId: string): Prom
   return hechas.length > 0;
 }
 
+/**
+ * Pone o cambia el código de UNA licencia, a mano desde la tabla. Es la vía de escape para lo
+ * que el pegado en bloque no cubre: una licencia suelta que manda la editorial por correo, un
+ * código mal tecleado, el alumno que llega tarde.
+ *
+ * Si la licencia ya estaba enviada, cambiar el código la devuelve a **pendiente**: el alumno
+ * tiene el código viejo, así que la única forma de que esto signifique algo es que vuelva a
+ * salir. Quien llama avisa antes; aquí solo se deja constancia.
+ */
+export async function ponerCodigo(
+  campaignId: string,
+  licenciaId: string,
+  codigo: string,
+  porEmail: string | null,
+): Promise<{ ok: boolean; motivo?: string; reenviar?: boolean }> {
+  const [actual] = await db
+    .select()
+    .from(licLicencias)
+    .where(and(eq(licLicencias.id, licenciaId), eq(licLicencias.campaignId, campaignId)));
+  if (!actual) return { ok: false, motivo: 'Esa licencia ya no existe' };
+  if (!actual.studentId) return { ok: false, motivo: 'Eso es un sobrante, no la licencia de nadie' };
+  if (actual.codigo === codigo) return { ok: true };
+
+  // El índice único lo impediría igual, pero un choque de índice es un error feo y sin nombre:
+  // mirándolo antes se puede decir a QUIÉN le tocó ese código.
+  const [enUso] = await db
+    .select({ studentId: licLicencias.studentId })
+    .from(licLicencias)
+    .where(and(eq(licLicencias.campaignId, campaignId), eq(licLicencias.codigo, codigo)));
+  if (enUso) {
+    const alumno = enUso.studentId
+      ? await db
+          .select({ nombre: licStudents.nombre, apellidos: licStudents.apellidos })
+          .from(licStudents)
+          .where(eq(licStudents.id, enUso.studentId))
+          .then((r) => (r[0] ? `${r[0].apellidos}, ${r[0].nombre}` : 'otro alumno'))
+      : 'un sobrante del almacén';
+    return { ok: false, motivo: `Ese código ya está en la campaña: ${alumno}` };
+  }
+
+  const yaEnviada = actual.estado === 'enviado';
+  await db
+    .update(licLicencias)
+    .set({
+      codigo,
+      codigoAt: new Date(),
+      codigoPorEmail: porEmail,
+      // Cambiar el código de una enviada la devuelve a la cola: el alumno tiene el viejo.
+      ...(yaEnviada
+        ? { estado: 'pendiente', enviadoAt: null, enviadoA: null, envioId: null, nota: 'código cambiado tras enviarla' }
+        : {}),
+      error: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(licLicencias.id, licenciaId));
+  return { ok: true, reenviar: yaEnviada };
+}
+
 /** Marca huecos como "no le toca" (la optativa que no cursa) o lo deshace. */
 export async function descartarLicencias(
   campaignId: string,
@@ -418,18 +482,38 @@ export async function colocarSobrante(
   // El hueco se comprueba ANTES: dentro del batch no se puede decidir nada, y si ya tuviera
   // código el UPDATE no haría nada pero el DELETE sí, que es justo perder el código.
   const [hueco] = await db
-    .select({ id: licLicencias.id })
+    .select()
     .from(licLicencias)
-    .where(
-      and(
-        eq(licLicencias.id, licenciaId),
-        eq(licLicencias.campaignId, campaignId),
-        isNotNull(licLicencias.studentId),
-        isNull(licLicencias.codigo),
-      ),
-    );
-  if (!hueco) return { ok: false, motivo: 'Ese alumno ya tenía código o no está pendiente' };
+    .where(and(eq(licLicencias.id, licenciaId), eq(licLicencias.campaignId, campaignId)));
+  if (!hueco) return { ok: false, motivo: 'Ese alumno ya no está en la campaña' };
 
+  // La regla completa vive en `puedeColocarse` (con tests): mismo libro sí, mismo tipo da
+  // igual. Que el servidor no comprobara el libro era un agujero de verdad — se podía meter un
+  // código de Religión en un hueco de Inglés y no chirriaba hasta que el alumno lo intentara.
+  const aFila = (l: LicLicencia) => ({
+    tipo: l.tipo as TipoLicencia,
+    curso: l.curso,
+    cod: l.cod,
+    studentId: l.studentId,
+    codigo: l.codigo,
+    descartadoAt: l.descartadoAt?.toISOString() ?? null,
+  });
+  if (!puedeColocarse(aFila(sobrante), aFila(hueco))) {
+    return {
+      ok: false,
+      motivo:
+        sobrante.curso !== hueco.curso || sobrante.cod !== hueco.cod
+          ? 'Ese código es de otro libro: solo se puede colocar en el mismo libro y curso'
+          : 'Ese alumno ya tenía código, o está descartado',
+    };
+  }
+
+  // Se deja dicho de dónde salió: un código gratis del banco colocado en un alumno de pago es
+  // normal (lo pidió David), pero conviene que se vea el año que viene.
+  const nota =
+    sobrante.tipo === hueco.tipo
+      ? 'colocada desde sobrantes'
+      : `colocada desde sobrantes (era ${sobrante.tipo === 'banco' ? 'del banco de libros' : 'de pago'})`;
   const ahora = new Date();
   await db.batch([
     db.delete(licLicencias).where(eq(licLicencias.id, sobranteId)),
@@ -439,7 +523,7 @@ export async function colocarSobrante(
         codigo: sobrante.codigo,
         codigoAt: ahora,
         codigoPorEmail: sobrante.codigoPorEmail,
-        nota: 'colocada desde sobrantes',
+        nota,
         updatedAt: ahora,
       })
       .where(and(eq(licLicencias.id, licenciaId), isNull(licLicencias.codigo))),
@@ -478,13 +562,20 @@ export async function guardarSobrantes(
   return insertadas.length;
 }
 
-/** Tira un sobrante (caducó, la editorial lo anuló). Solo sobrantes: nunca una licencia dada. */
-export async function borrarSobrante(campaignId: string, id: string): Promise<boolean> {
+/**
+ * Tira sobrantes (caducaron, la editorial los anuló). El `isNull(studentId)` del WHERE no es
+ * decorativo: es lo que garantiza que un borrado en bloque no pueda llevarse por delante una
+ * licencia ya dada a un alumno, aunque llegue un id que no toca.
+ */
+export async function borrarSobrantes(campaignId: string, ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
   const borradas = await db
     .delete(licLicencias)
-    .where(and(eq(licLicencias.id, id), eq(licLicencias.campaignId, campaignId), isNull(licLicencias.studentId)))
+    .where(
+      and(inArray(licLicencias.id, ids), eq(licLicencias.campaignId, campaignId), isNull(licLicencias.studentId)),
+    )
     .returning({ id: licLicencias.id });
-  return borradas.length > 0;
+  return borradas.length;
 }
 
 // ── Envíos ────────────────────────────────────────────────────────────────────
@@ -589,30 +680,49 @@ export async function listarEnvios(campaignId: string, limite = 500): Promise<En
  * Cuando todas las licencias DE PAGO de un pedido están enviadas, el pedido pasa el sello 📤
  * ("la familia ya tiene su código"), que es lo que mira la pantalla de Pedidos. Antes lo ponía
  * a mano el botón de las plantillas de FormMule.
+ *
+ * Sin `studentIds` repasa la campaña entera, y eso es a propósito: lo llama el sincronizador
+ * cada vez que se entra a la pantalla. Si un envío se corta a la mitad (se cierra la pestaña),
+ * los correos que ya salieron quedan bien marcados uno a uno, pero el sello del pedido no se
+ * llegaría a poner nunca. Recalculándolo desde el estado en vez de fiarse de lo que pasó en
+ * aquella petición, se arregla solo.
  */
-export async function sellarPedidosCompletos(campaignId: string, studentIds: string[]): Promise<number> {
-  if (!studentIds.length) return 0;
-  const pendientes = db
+export async function sellarPedidosCompletos(campaignId: string, studentIds?: string[]): Promise<number> {
+  if (studentIds && !studentIds.length) return 0;
+  const delTipoPago = and(eq(licLicencias.campaignId, campaignId), eq(licLicencias.tipo, 'pago'));
+
+  // Alumnos con alguna licencia de pago YA enviada. Sin esto, un pedido de 0 € (que los hay,
+  // 13 en la campaña de 2026) pasaría el filtro de "no le queda nada pendiente" sin haber
+  // recibido nunca un correo.
+  const conAlgoEnviado = db
+    .select({ studentId: licLicencias.studentId })
+    .from(licLicencias)
+    .where(and(delTipoPago, isNotNull(licLicencias.studentId), eq(licLicencias.estado, 'enviado')));
+
+  // Y a los que NO les queda ninguna pendiente. `isNotNull` es obligatorio: un NULL dentro de
+  // un NOT IN deja la condición en «desconocido» y no seleccionaría ni una fila.
+  const conPendientes = db
     .select({ studentId: licLicencias.studentId })
     .from(licLicencias)
     .where(
       and(
-        eq(licLicencias.campaignId, campaignId),
-        eq(licLicencias.tipo, 'pago'),
-        inArray(licLicencias.studentId, studentIds),
+        delTipoPago,
+        isNotNull(licLicencias.studentId),
         isNull(licLicencias.descartadoAt),
         sql`${licLicencias.estado} <> 'enviado'`,
       ),
     );
+
   const hechos = await db
     .update(licOrders)
     .set({ sentToTemplateAt: new Date(), updatedAt: new Date() })
     .where(
       and(
         eq(licOrders.campaignId, campaignId),
-        inArray(licOrders.studentId, studentIds),
+        studentIds ? inArray(licOrders.studentId, studentIds) : undefined,
         isNull(licOrders.sentToTemplateAt),
-        notInArray(licOrders.studentId, pendientes),
+        inArray(licOrders.studentId, conAlgoEnviado),
+        notInArray(licOrders.studentId, conPendientes),
       ),
     )
     .returning({ id: licOrders.id });

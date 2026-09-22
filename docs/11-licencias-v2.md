@@ -462,6 +462,14 @@ alumno. Sustituye al FormMule sobre las hojas `ENVIAR` del Google Sheet.
   otro momento» (David). Se guardan con su libro y su curso y se colocan después en cualquier
   alumno pendiente de ese mismo libro. Postgres no choca varios NULL en un índice único, así
   que conviven sin necesidad de otra tabla (mismo truco que `bl_libros_curso`).
+- **Los sobrantes SÍ cruzan de pago a banco y al revés** (David, sep-2026): «sobre todo nos
+  pasa que nos sobran gratuitas y se las asignamos a los de pago». Y es correcto: un libro del
+  banco es gratis para el alumnado BdL y de pago para el que no lo es, pero **el código es el
+  mismo producto** — lo que cambia es quién lo paga, que es cosa del pedido, no de la licencia.
+  Por eso su pestaña es la única que ignora el filtro de pago/banco. Lo que no se cruza nunca es
+  el **libro**: `puedeColocarse()` exige el mismo `(curso, cod)`, en la pantalla y en el
+  servidor, porque un código de Religión en un hueco de Inglés no chirría hasta que el alumno
+  intenta abrir el libro.
 - **El emparejado es EN ORDEN, y el orden lo manda la pantalla.** El cliente envía las parejas
   ya hechas; el servidor no reordena. Si reordenara por su cuenta, lo que David aprueba en la
   vista previa y lo que se guarda podrían no ser lo mismo, y eso es mandarle a un alumno el
@@ -543,11 +551,34 @@ y por buzón suplantado:
 - **~250 unidades de cuota/segundo**, y `messages.send` cuesta 100 → ~2,5 correos/segundo.
 
 De ahí que el envío vaya **en tandas de 80 desde el navegador** con barra de progreso, y no en
-una sola llamada: 80 correos son ~32 s, dentro del `maxDuration` de 60 de la función. Cada
-correo marca sus licencias **en cuanto sale**, así que cortar a media tanda no reenvía nada de
-lo ya entregado, y reintentar solo coge lo que falta. Resend mandaría 100 por llamada (mucho más
+una sola llamada: 80 correos son ~32 s, dentro del `maxDuration` de 60 de la función. Las tandas
+son cosa del límite por segundo, no un tope de cuántas se pueden mandar; para eso está el
+**tope** del panel de confirmación, que corta la tacada donde se le diga (y fusionando corta por
+alumno, para no partir a nadie en dos correos). Resend mandaría 100 por llamada (mucho más
 rápido para el masivo del banco), pero no deja rastro en el buzón: si algún día el masivo se
 hace insufrible, se cambia con `EMAIL_TRANSPORTE_LICENCIAS=resend` sin tocar código.
+
+### Cerrar la pestaña a media tanda no rompe nada
+
+La invariante que lo sostiene está en un orden de tres líneas de `enviar/route.ts`: se manda el
+correo, **se espera a que Gmail lo acepte, y solo entonces** se marca la licencia. Así es
+imposible que algo quede marcado como enviado sin haber salido, se corte por donde se corte. El
+único riesgo es el contrario —correo entregado que no llega a marcarse, y se reenvía al
+repetir—, que es el lado bueno por el que fallar. Mientras hay un envío en marcha el navegador
+pregunta antes de cerrar.
+
+Lo que sí se quedaba a medias era el **sello 📤 del pedido**, que se calculaba con la lista de
+alumnos de aquella petición: si esta no terminaba, el sello no se ponía nunca. Ahora
+`sellarPedidosCompletos()` lo recalcula **desde el estado** y lo repasa entero en cada
+sincronización, así que se arregla solo al volver a entrar a la pantalla.
+
+### El aviso antes de mandar
+
+No es un `confirm()` del navegador, es un panel dentro del diálogo, porque lo que hay que leer
+son cuatro números y un `alert` no los enseña bien. Dice, siempre dentro de la pestaña en la que
+se está: cuántas licencias hay **a la vista** con el filtro de ahora, cuántas de ellas están
+**listas**, cuántas se han elegido —avisando cuando no se ha marcado ninguna fila y por tanto
+van todas las listas de la vista— y cuántos **correos** van a salir de verdad. Debajo, el tope.
 
 ### Checklist
 
@@ -562,14 +593,22 @@ hace insufrible, se cambia con `EMAIL_TRANSPORTE_LICENCIAS=resend` sin tocar có
 - [x] Lectura del Excel de la editorial con detección automática de la columna (verificada
       contra los ficheros reales de SM, Cambridge y Anaya)
 - [x] Sobrantes: almacén por libro, colocar en un alumno pendiente (atómico, en `db.batch`) y
-      borrar
+      borrar; se cruzan de pago a banco y al revés, pero nunca de libro (`puedeColocarse`)
+- [x] Aviso de confirmación con los números del filtro y tope ajustable de la tacada
+- [x] Cerrar la pestaña no marca como enviado nada que no haya salido; el sello 📤 se repasa
+      solo en cada sincronización
 - [x] Descartar / deshacer («no le toca»), y quitar un código mal pegado
+- [x] **Código editable a mano** haciendo clic en la celda (o en «falta código»): la vía de
+      escape para la licencia suelta que llega por correo o el código mal copiado. Si la
+      licencia ya estaba enviada, cambiarlo la devuelve a pendiente —el alumno tiene el
+      viejo— y se avisa antes
+- [x] **Borrado en bloque de sobrantes**: casilla por fila y casilla por libro en su cabecera
 - [x] Correo de entrega: dos plantillas de fábrica, variables, `{codigo}` en caja, vista previa,
       envío de prueba y guardado de plantillas propias
 - [x] Envío por tandas con progreso, marcado **individual** por licencia y registro de envíos
 - [x] El sello 📤 de los pedidos de pago lo pone el envío
 - [x] Enlaces desde el panel, Editoriales, Exportar y el esquema del proceso
-- [x] Tests de los helpers puros (pegado, emparejado, filtros, correo): 56 casos nuevos
+- [x] Tests de los helpers puros (pegado, emparejado, filtros, correo, colocación de sobrantes): 62 casos nuevos
 - [ ] **Aplicar `licencias-envios.sql` en Neon** (`pnpm db:sql --pendientes`) — no se ha podido
       hacer en la sesión de desarrollo por no tener `DATABASE_URL`
 - [ ] Estreno: sincronizar, pegar una tanda real pequeña, prueba a `david@` y envío de verdad

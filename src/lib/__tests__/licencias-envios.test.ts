@@ -6,6 +6,7 @@ import {
   librosDe,
   librosDistintos,
   ordenNatural,
+  puedeColocarse,
   resumir,
   type Filtros,
   type LicenciaFila,
@@ -188,5 +189,40 @@ describe('librosDistintos', () => {
 
   it('con un solo libro, pegar es seguro', () => {
     expect(librosDistintos([fila(), fila()])).toEqual(['2ESO|2ESO-ING']);
+  });
+});
+
+describe('puedeColocarse · sobrante → hueco', () => {
+  const sobrante = (p = {}) =>
+    ({ tipo: 'banco' as const, curso: '3ESO', cod: '3ESO-LEN', studentId: null, codigo: 'AAAA1111', descartadoAt: null, ...p });
+  const hueco = (p = {}) =>
+    ({ tipo: 'pago' as const, curso: '3ESO', cod: '3ESO-LEN', studentId: 'alu-1', codigo: null, descartadoAt: null, ...p });
+
+  it('una gratis que sobra se le puede dar a uno de pago: es el mismo libro', () => {
+    // El caso real de David: un libro del banco es gratis para el alumnado BdL y de pago para
+    // el que no lo es, pero el código es el mismo producto.
+    expect(puedeColocarse(sobrante({ tipo: 'banco' }), hueco({ tipo: 'pago' }))).toBe(true);
+    expect(puedeColocarse(sobrante({ tipo: 'pago' }), hueco({ tipo: 'banco' }))).toBe(true);
+  });
+
+  it('pero nunca de otro libro', () => {
+    expect(puedeColocarse(sobrante(), hueco({ cod: '3ESO-ING' }))).toBe(false);
+  });
+
+  it('ni del mismo código en otro curso (3ESO-REL está en 3ESO y en 3PDC)', () => {
+    expect(puedeColocarse(sobrante({ cod: '3ESO-REL' }), hueco({ cod: '3ESO-REL', curso: '3PDC' }))).toBe(false);
+  });
+
+  it('no pisa a quien ya tiene código', () => {
+    expect(puedeColocarse(sobrante(), hueco({ codigo: 'BBBB2222' }))).toBe(false);
+  });
+
+  it('no se le da a quien está descartado («no le toca»)', () => {
+    expect(puedeColocarse(sobrante(), hueco({ descartadoAt: '2026-09-01T00:00:00Z' }))).toBe(false);
+  });
+
+  it('el origen tiene que ser un sobrante de verdad: sin dueño y con código', () => {
+    expect(puedeColocarse(sobrante({ studentId: 'alu-9' }), hueco())).toBe(false);
+    expect(puedeColocarse(sobrante({ codigo: null }), hueco())).toBe(false);
   });
 });
