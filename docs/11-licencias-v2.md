@@ -602,6 +602,11 @@ van todas las listas de la vista— y cuántos **correos** van a salir de verdad
       escape para la licencia suelta que llega por correo o el código mal copiado. Si la
       licencia ya estaba enviada, cambiarlo la devuelve a pendiente —el alumno tiene el
       viejo— y se avisa antes
+- [x] **Reenviar** una licencia ya enviada sin tocar el código: enlace junto al badge «enviada»
+      que abre el mismo diálogo de envío forzado a esa fila (con confirmación antes). En el
+      servidor, `licenciasParaEnviar`/`contextoParaEnvio` aceptan un `forzar` explícito que
+      salta el filtro de «ya enviada» solo cuando se pide; el flujo normal (Enviar en bloque)
+      sigue sin poder tocar nada ya marcado
 - [x] **Borrado en bloque de sobrantes**: casilla por fila y casilla por libro en su cabecera
 - [x] Correo de entrega: dos plantillas de fábrica, variables, `{codigo}` en caja, vista previa,
       envío de prueba y guardado de plantillas propias

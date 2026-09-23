@@ -729,8 +729,16 @@ export async function sellarPedidosCompletos(campaignId: string, studentIds?: st
   return hechos.length;
 }
 
-/** Las licencias que entran en un envío, ya validadas (con código, sin enviar y con destino). */
-export async function licenciasParaEnviar(campaignId: string, ids: string[]): Promise<LicLicencia[]> {
+/**
+ * Las licencias que entran en un envío, ya validadas (con código, sin descartar y con destino).
+ * Por defecto excluye las ya enviadas; `forzar` las deja pasar para un reenvío explícito (mismo
+ * código, otro correo) sin abrir la puerta a que el flujo normal las mande dos veces.
+ */
+export async function licenciasParaEnviar(
+  campaignId: string,
+  ids: string[],
+  forzar = false,
+): Promise<LicLicencia[]> {
   if (!ids.length) return [];
   return db
     .select()
@@ -742,7 +750,7 @@ export async function licenciasParaEnviar(campaignId: string, ids: string[]): Pr
         isNotNull(licLicencias.codigo),
         isNotNull(licLicencias.studentId),
         isNull(licLicencias.descartadoAt),
-        sql`${licLicencias.estado} <> 'enviado'`,
+        forzar ? undefined : sql`${licLicencias.estado} <> 'enviado'`,
       ),
     );
 }
@@ -777,8 +785,9 @@ export async function contextoParaEnvio(
   campaignId: string,
   ids: string[],
   destino: Destino,
+  forzar = false,
 ): Promise<LicenciaParaEnviar[]> {
-  const licencias = await licenciasParaEnviar(campaignId, ids);
+  const licencias = await licenciasParaEnviar(campaignId, ids, forzar);
   if (!licencias.length) return [];
   const studentIds = [...new Set(licencias.map((l) => l.studentId).filter((v): v is string => Boolean(v)))];
   const [alumnos, libros, pedidos] = await Promise.all([

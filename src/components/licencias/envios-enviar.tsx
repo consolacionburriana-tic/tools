@@ -47,6 +47,8 @@ interface Props {
   listasALaVista: number;
   /** Si lo elegido viene de marcar filas a mano o es «todo lo que está listo a la vista». */
   porSeleccion: boolean;
+  /** Reenvío explícito de licencias ya marcadas como enviadas (mismo código, otro correo). */
+  forzar?: boolean;
   presets: Preset[];
   onHecho: () => void | Promise<void>;
 }
@@ -60,6 +62,7 @@ export function EnviosEnviar({
   aLaVista,
   listasALaVista,
   porSeleccion,
+  forzar = false,
   presets,
   onHecho,
 }: Props) {
@@ -131,7 +134,7 @@ export function EnviosEnviar({
     const res = await fetch('/api/licencias/admin/licencias/enviar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion, tipo, ids, asunto, cuerpo, fusionar, destino }),
+      body: JSON.stringify({ accion, tipo, ids, asunto, cuerpo, fusionar, destino, forzar }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? 'Error');
@@ -246,7 +249,7 @@ export function EnviosEnviar({
       <DialogContent className="max-h-[92vh] w-full max-w-[min(64rem,calc(100%-2rem))] overflow-y-auto sm:max-w-[min(64rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>
-            Enviar {aEnviar.length} licencia(s) · {correos} correo(s)
+            {forzar ? 'Reenviar' : 'Enviar'} {aEnviar.length} licencia(s) · {correos} correo(s)
           </DialogTitle>
         </DialogHeader>
 
@@ -369,6 +372,11 @@ export function EnviosEnviar({
               Repasa antes de mandar
             </p>
             <ul className="mt-2 space-y-1 text-sm text-zinc-700 dark:text-zinc-200">
+              {forzar && (
+                <li className="text-amber-700 dark:text-amber-300">
+                  Ya se había enviado antes: esto es un <strong>reenvío</strong> del mismo código.
+                </li>
+              )}
               <li>
                 Pestaña <strong>{tipo === 'banco' ? 'Banco de libros (gratis)' : 'De pago'}</strong>, con el filtro
                 de ahora mismo: <strong>{aLaVista}</strong> licencia(s) a la vista, de ellas{' '}
@@ -481,7 +489,9 @@ export function EnviosEnviar({
             ) : (
               <Send className="mr-1 inline h-4 w-4" />
             )}
-            {confirmando ? `Sí, mandar ${correos} correo(s)` : `Enviar ${correos} correo(s)`}
+            {confirmando
+              ? `Sí, ${forzar ? 'reenviar' : 'mandar'} ${correos} correo(s)`
+              : `${forzar ? 'Reenviar' : 'Enviar'} ${correos} correo(s)`}
           </button>
         </div>
       </DialogContent>
