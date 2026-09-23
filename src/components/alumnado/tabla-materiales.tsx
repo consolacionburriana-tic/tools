@@ -65,7 +65,8 @@ export function TablaMateriales({
   onMateriales: (materiales: MaterialLista[]) => void;
   onInforme: (columnas: ClaveColumna[]) => void;
 }) {
-  const { guardando, confirmando, enviar, confirmarY } = useGuardado();
+  const { guardando, pendiente, enviar, pedir, confirmacion } = useGuardado();
+  const esperando = (clave: string) => pendiente?.clave === clave;
   const [editando, setEditando] = useState<MaterialLista | 'nuevo' | null>(null);
 
   // Las columnas: los materiales que van a alguien de los que se ven ahora.
@@ -126,6 +127,8 @@ export function TablaMateriales({
         )}
       </BarraTabla>
 
+      {confirmacion}
+
       {editando && (
         <FormMaterial
           inicial={editando === 'nuevo' ? null : editando}
@@ -159,7 +162,7 @@ export function TablaMateriales({
                   const pagados = suyos.filter((a) => a.materiales[m.id] === 'pagado' || a.materiales[m.id] === 'becado').length;
                   const ids = suyos.map((a) => a.id);
                   return (
-                    <th key={m.id} className="min-w-[6.5rem] p-2 align-bottom">
+                    <th key={m.id} className="min-w-[12rem] p-2 align-bottom">
                       <span className="block text-center text-xs font-semibold text-zinc-700 dark:text-zinc-200" title={m.notas ?? undefined}>
                         {m.nombre}
                       </span>
@@ -168,24 +171,37 @@ export function TablaMateriales({
                       </span>
                       {puedeGestionar && (
                         <span className="mt-1 flex flex-wrap justify-center gap-0.5">
-                          <ColumnaBoton
-                            activa={confirmando === `${m.id}-pagado`}
-                            ocupada={guardando === `${m.id}-pagado`}
-                            tono="verde"
-                            titulo={`${m.nombre}: todos pagado en ${ambito} (${ids.length})`}
-                            onClick={() => confirmarY(`${m.id}-pagado`, () => void marcar(`${m.id}-pagado`, m.id, ids, 'pagado'))}
-                          >
-                            <Check className="h-3 w-3" />
-                          </ColumnaBoton>
-                          <ColumnaBoton
-                            activa={confirmando === `${m.id}-no`}
-                            ocupada={guardando === `${m.id}-no`}
-                            tono="rojo"
-                            titulo={`${m.nombre}: todos no pagado en ${ambito} (${ids.length})`}
-                            onClick={() => confirmarY(`${m.id}-no`, () => void marcar(`${m.id}-no`, m.id, ids, 'no'))}
-                          >
-                            <X className="h-3 w-3" />
-                          </ColumnaBoton>
+                          {(
+                            [
+                              { estado: 'pagado' as const, texto: 'Todos pagado', tono: 'verde' as const, icono: <Check className="h-3 w-3" /> },
+                              { estado: 'no' as const, texto: 'Todos no', tono: 'rojo' as const, icono: <X className="h-3 w-3" /> },
+                              { estado: null, texto: 'Todos —', tono: 'gris' as const, icono: <Minus className="h-3 w-3" /> },
+                            ]
+                          ).map((b) => {
+                            const clave = `${m.id}-${b.estado ?? 'sin'}`;
+                            const nombre = ESTADO_MATERIAL_LABEL[b.estado ?? 'sin'].texto.toUpperCase();
+                            return (
+                              <ColumnaBoton
+                                key={clave}
+                                activa={esperando(clave)}
+                                ocupada={guardando === clave}
+                                tono={b.tono}
+                                texto={b.texto}
+                                titulo={`${m.nombre}: ${b.texto.toLowerCase()} en ${ambito} (${ids.length})`}
+                                onClick={() =>
+                                  pedir({
+                                    clave,
+                                    pregunta: `¿«${m.nombre}»: ${nombre} a los ${ids.length} alumnos de ${ambito}?`,
+                                    boton: `Sí, todos a ${nombre}`,
+                                    tono: b.tono === 'gris' ? 'neutro' : b.tono,
+                                    hacer: () => marcar(clave, m.id, ids, b.estado),
+                                  })
+                                }
+                              >
+                                {b.icono}
+                              </ColumnaBoton>
+                            );
+                          })}
                           <ColumnaBoton
                             activa={false}
                             ocupada={false}
@@ -196,11 +212,19 @@ export function TablaMateriales({
                             <Pencil className="h-3 w-3" />
                           </ColumnaBoton>
                           <ColumnaBoton
-                            activa={confirmando === `${m.id}-quitar`}
+                            activa={esperando(`${m.id}-quitar`)}
                             ocupada={false}
                             tono="rojo"
                             titulo={`Quitar «${m.nombre}» (si ya tiene pagos, se archiva)`}
-                            onClick={() => confirmarY(`${m.id}-quitar`, () => void quitar(m))}
+                            onClick={() =>
+                              pedir({
+                                clave: `${m.id}-quitar`,
+                                pregunta: `¿Quitar «${m.nombre}»? Si ya tiene pagos marcados, se archiva y se guardan.`,
+                                boton: 'Sí, quitarlo',
+                                tono: 'rojo',
+                                hacer: () => quitar(m),
+                              })
+                            }
                           >
                             <Trash2 className="h-3 w-3" />
                           </ColumnaBoton>

@@ -40,7 +40,7 @@ export function TablaParticipacion({
 }) {
   const otro: Campo = campo === 'bancoLibros' ? 'ampa' : 'bancoLibros';
   const [conOtro, setConOtro] = useState(false);
-  const { guardando, confirmando, enviar, confirmarY } = useGuardado();
+  const { guardando, pendiente, enviar, pedir, confirmacion } = useGuardado();
 
   const columnas: Campo[] = conOtro ? [campo, otro] : [campo];
 
@@ -94,6 +94,8 @@ export function TablaParticipacion({
         </button>
       </BarraTabla>
 
+      {confirmacion}
+
       <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
         <table className="w-full min-w-[20rem] text-sm">
           <thead>
@@ -107,20 +109,38 @@ export function TablaParticipacion({
                   {puedeEditar && (
                     <span className="mt-1 flex justify-center gap-0.5">
                       <ColumnaBoton
-                        activa={confirmando === `${c}-si`}
+                        activa={pendiente?.clave === `${c}-si`}
                         ocupada={guardando === `${c}-si`}
                         tono="verde"
+                        texto="Todos sí"
                         titulo={`${TITULO[c]}: todos sí en ${ambito} (${alumnos.length})`}
-                        onClick={() => confirmarY(`${c}-si`, () => void guardar(`${c}-si`, alumnos.map((a) => a.id), c, true))}
+                        onClick={() =>
+                          pedir({
+                            clave: `${c}-si`,
+                            pregunta: `¿${TITULO[c]}: SÍ a los ${alumnos.length} alumnos de ${ambito}?`,
+                            boton: 'Sí, todos a SÍ',
+                            tono: 'verde',
+                            hacer: () => guardar(`${c}-si`, alumnos.map((a) => a.id), c, true),
+                          })
+                        }
                       >
                         <Check className="h-3 w-3" />
                       </ColumnaBoton>
                       <ColumnaBoton
-                        activa={confirmando === `${c}-no`}
+                        activa={pendiente?.clave === `${c}-no`}
                         ocupada={guardando === `${c}-no`}
                         tono="rojo"
+                        texto="Todos no"
                         titulo={`${TITULO[c]}: todos no en ${ambito} (${alumnos.length})`}
-                        onClick={() => confirmarY(`${c}-no`, () => void guardar(`${c}-no`, alumnos.map((a) => a.id), c, false))}
+                        onClick={() =>
+                          pedir({
+                            clave: `${c}-no`,
+                            pregunta: `¿${TITULO[c]}: NO a los ${alumnos.length} alumnos de ${ambito}?`,
+                            boton: 'Sí, todos a NO',
+                            tono: 'rojo',
+                            hacer: () => guardar(`${c}-no`, alumnos.map((a) => a.id), c, false),
+                          })
+                        }
                       >
                         <X className="h-3 w-3" />
                       </ColumnaBoton>

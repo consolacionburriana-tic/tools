@@ -144,8 +144,11 @@ exactamente la deuda que documenta
       columna: entra una autorización nueva y se resuelve sin bajar por las 25 filas;
     - **«Poner todo a SÍ»** para la clase entera.
 
-    Todo lo masivo pide **un segundo toque** y en él dice a cuántos va a afectar: cambiar 25
-    fichas sin querer es un mal rato, y el segundo toque cuesta medio segundo. Y el alcance
+    Todo lo masivo **pregunta antes en una barra de confirmación** que dice en palabras qué va
+    a pasar y a cuántos alumnos («¿AMPA: NO a los 11 alumnos de 4º PDC?»), con «Cancelar» y un
+    botón grande para hacerlo. Hasta el 23-sep-2026 era un segundo toque sobre un icono de
+    12 px que en el primero solo cambiaba de color, y David lo dio por roto («parece que no
+    funciona nada»): los botones de columna llevan ahora texto («Todos sí», «Todos no»). Y el alcance
     no se cree lo que venga en la petición: la ruta masiva lee en la BBDD las clases de esos
     ids y descarta lo que no le toque a quien pulsa.
 
@@ -419,6 +422,11 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
       los tres formatos (el del centro entero, 28 páginas, en 0,4 s); la tutora ve la beca como
       «pagado», la protección de datos de otra clase en blanco, 404 en Infantil y 403 al
       intentar marcar. Capturas en claro y oscuro a 1180 px. Los cambios de prueba se deshicieron
+- [x] Botones masivos rehechos (23-sep-2026, «parece que no funciona nada»): con texto, y
+      confirmación en una barra que dice qué y a cuántos. Probado con clics reales en 4º PDC:
+      AMPA todos no/sí, banco todos sí, protección general sí/no, correo todos/nadie, ONG no/sí
+      desde el detalle, materiales pagado/no/quitar y «Cancelar»; las filas cambian al momento
+      y persiste al recargar. Datos de 4º PDC restaurados después
 - [ ] **Aplicar `proteccion-datos-quita-firmada.sql` en Neon DESPUÉS de desplegar** (el código
       que hay hoy en producción todavía lee `pd_firmada`): `pnpm db:sql --pendientes`
 - [ ] Revisar con David las decisiones que tomé yo (`00-desarrollos-futuros.md`): quién marca el
