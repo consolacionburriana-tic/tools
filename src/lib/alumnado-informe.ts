@@ -182,6 +182,8 @@ export interface FiltroInforme {
 
 export interface GrupoInforme {
   clase: string;
+  /** Tutores de la clase, para el encabezado de su folio. */
+  tutores: string[];
   filas: { numero: number | null; alumno: string; celdas: CeldaInforme[] }[];
   /** `n/total` por columna, o null si esa columna no se totaliza o no aplica a nadie. */
   totales: (string | null)[];
@@ -210,6 +212,8 @@ export function construirInforme(opciones: {
   ambito: string;
   /** `true` = una sola tabla con la clase como columna, en vez de un bloque por clase. */
   sinAgrupar?: boolean;
+  /** Nombre de la clase → sus tutores. */
+  tutores?: Record<string, string[]>;
 }): Informe {
   const disponibles = columnasDisponibles(opciones.materiales);
   const porClave = new Map(disponibles.map((c) => [c.clave, c]));
@@ -229,7 +233,7 @@ export function construirInforme(opciones: {
     const clave = opciones.sinAgrupar ? '' : a.clase;
     let grupo = indice.get(clave);
     if (!grupo) {
-      grupo = { clase: clave, filas: [], totales: [] };
+      grupo = { clase: clave, tutores: opciones.tutores?.[clave] ?? [], filas: [], totales: [] };
       indice.set(clave, grupo);
       grupos.push(grupo);
     }

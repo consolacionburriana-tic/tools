@@ -24,7 +24,7 @@ const parametros = z.object({
   filtro: z.string().max(200).default(''),
   titulo: z.string().max(120).default(''),
   agrupar: z.enum(['1', '0']).default('1'),
-  paginaPorClase: z.enum(['1', '0']).default('0'),
+  paginaPorClase: z.enum(['1', '0']).default('1'),
 });
 
 /**
@@ -78,6 +78,7 @@ export async function GET(request: Request) {
     titulo: p.titulo,
     ambito,
     sinAgrupar: p.agrupar === '0',
+    tutores: Object.fromEntries(elegidas.map((c) => [c.clase, c.tutores])),
   });
   if (informe.columnas.length === 0) {
     return NextResponse.json({ error: 'Elige al menos una columna' }, { status: 400 });

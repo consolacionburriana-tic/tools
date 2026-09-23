@@ -158,11 +158,16 @@ export async function informePdf(
     y -= altoCabecera;
   };
 
-  const cabeGrupo = (clase: string, continuacion: boolean) => {
+  // Cada clase se encabeza con su nombre en grande y sus tutores: es el folio que se le da.
+  const cabeGrupo = (clase: string, continuacion: boolean, tutores: string[] = []) => {
     if (!clase) return;
     const texto = aWinAnsi(continuacion ? `${clase} (sigue)` : clase);
-    pagina.drawText(texto, { x: MARGEN, y: y - 12, size: 12, font: negrita, color: color('18181B') });
-    y -= 20;
+    pagina.drawText(texto, { x: MARGEN, y: y - 14, size: 14, font: negrita, color: color('18181B') });
+    if (tutores.length > 0) {
+      const t = recortar(aWinAnsi(`Tutor/a: ${tutores.join(' y ')}`), normal, 9, util / 2);
+      pagina.drawText(t, { x: ANCHO - MARGEN - normal.widthOfTextAtSize(t, 9), y: y - 13, size: 9, font: normal, color: color('52525B') });
+    }
+    y -= 22;
   };
 
   const MIN_Y = MARGEN + 20;
@@ -176,13 +181,13 @@ export async function informePdf(
     const hueco = (g.clase ? 20 : 0) + altoCabecera + ALTO_FILA * Math.min(3, g.filas.length) + ALTO_FILA;
     if (gi > 0 && (opciones.paginaPorClase || y - hueco < MIN_Y)) nuevaPagina();
     else if (gi > 0) y -= 10;
-    cabeGrupo(g.clase, false);
+    cabeGrupo(g.clase, false, g.tutores);
     pintarCabeceraTabla();
 
     g.filas.forEach((f, fi) => {
       if (y - ALTO_FILA < MIN_Y) {
         nuevaPagina();
-        cabeGrupo(g.clase, true);
+        cabeGrupo(g.clase, true, g.tutores);
         pintarCabeceraTabla();
       }
       if (fi % 2 === 1) {

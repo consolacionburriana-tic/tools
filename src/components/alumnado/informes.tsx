@@ -46,7 +46,8 @@ export function Informes({
   const [elegidas, setElegidas] = useState<Set<string>>(() => new Set(claseActual ? [claveClase(claseActual)] : []));
   const [filtro, setFiltro] = useState('');
   const [titulo, setTitulo] = useState('');
-  const [paginaPorClase, setPaginaPorClase] = useState(false);
+  // Por defecto un folio por clase: es lo que se reparte a cada tutor.
+  const [paginaPorClase, setPaginaPorClase] = useState(true);
   const [descargando, setDescargando] = useState<Formato | null>(null);
 
   const porGrupo = useMemo(() => {
@@ -224,7 +225,7 @@ export function Informes({
       {clasesDelInforme.length > 1 && (
         <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
           <input type="checkbox" checked={paginaPorClase} onChange={(e) => setPaginaPorClase(e.target.checked)} className="h-4 w-4" />
-          En el PDF, cada clase en su página (para repartir a los tutores)
+          En el PDF, un folio por clase con sus tutores (para entregar a cada tutor)
         </label>
       )}
 
