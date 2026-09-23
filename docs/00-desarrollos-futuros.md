@@ -39,8 +39,32 @@ secretaría. Tres caminos:
    querer mandar.
 3. **A mano, según vaya haciendo falta**: cero trabajo hoy y es lo que hay montado, pero
    hasta que alguien marque un «no», la app dice que ese alumno puede salir en fotos porque
-   así se decidió arrancar, no porque conste una firma. Por eso `pd_firmada` va aparte y
-   sigue en `false` en las 639: lo uno no se puede confundir con lo otro.
+   así se decidió arrancar, no porque conste una firma. (`pd_firmada`, que servía para
+   distinguirlo, se quitó el 23-sep-2026 a petición de David: no se usaba.)
+
+### Alumnado · venta de materiales, banco y AMPA: lo que decidí yo al construirlo (23-sep-2026) — revisar con David
+
+David pidió las pestañas de banco de libros, AMPA y venta de materiales, y los informes a
+medida. Esto es lo que quedó decidido por mí, sin preguntar, y conviene confirmar:
+
+1. **Quién marca banco de libros y AMPA en las pestañas nuevas**: lo mismo que ya había
+   (dirección/TIC con el módulo del banco). **Secretaría no**, aunque sí lleva la protección
+   de datos y los materiales. Si el AMPA, que ahora solo vive en Alumnado, lo lleva
+   secretaría, es añadir su rol a `puedeGestionarParticipantesBanco` (una línea).
+2. **Jefatura no ve las becas** de materiales: la lista de David fue dirección, secretaría,
+   TIC y orientación. A jefatura un becado le sale como «pagado», igual que a los tutores.
+3. **El «check general» de la protección de datos no se guarda**: se deduce de los cuatro
+   permisos (sí = los cuatro sí, no = los cuatro no, «parcial» si hay algún no suelto). Así
+   no hay dos verdades que sincronizar a mano.
+4. **La «desestimación del correo» arranca en «no desestima» para todos** (verde) y el rojo
+   se marca a mano, igual que se hizo con las fotos.
+5. **Un material que ya tiene pagos no se borra, se archiva**: desaparece de la pantalla y
+   sus estados se guardan. Si no tiene ninguno, se borra de verdad (era un error al crearlo).
+6. **La ficha individual todavía no enseña los materiales** del alumno: están en su pestaña y
+   en los informes. Si hace falta verlos en la ficha, el dato ya viaja con la lista.
+7. **`pd_firmada` se quita de Neon en un paso aparte** (`proteccion-datos-quita-firmada.sql`,
+   en `pendientes.txt`): hay que aplicarlo **después** de desplegar, porque el código que
+   hay ahora en producción todavía la lee.
 
 ### ¿Qué más avisos van al tutor personal, aparte del tercer retraso?
 Desde el 2026-09-03 cada alumno puede tener **tutor personal** (uno de los dos o tres tutores de

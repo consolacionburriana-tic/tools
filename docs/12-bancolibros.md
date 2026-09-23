@@ -35,6 +35,10 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   alumno con bulk por clase. Sigue siendo papel; la app solo marca recibido.
 - **Curso académico en vigor**: calculado (sep-ago) en `src/lib/constants.ts`
   (`academicYearActual()` → '2025-26'), sin config en BBDD.
+- **El AMPA ya no se lleva desde este panel** (2026-09-23, David: «que ya no salga ahí, solo
+  en la sección alumnado»). Se marca en la pestaña «AMPA» de `/gestion/alumnado`, con el mismo
+  permiso de siempre; aquí se quitaron la pestaña, la columna del resumen y la ruta
+  `admin/ampa`. El dato sigue siendo `edu_students.ampa`.
 - **AMPA** (2026-09-01, David): `edu_students.ampa` (boolean, default `false`) — igual patrón que
   `banco_libros` pero sin lote ni valoración, solo pertenencia. Pestaña propia "AMPA" en el panel
   (toggle sí/no + bulk "todos sí/no"), separada de "Alumnado" porque se reconcilia contra un PDF

@@ -33,8 +33,6 @@ Pendiente **solo por credenciales/accesos externos** (no por código):
 - Escritura directa en el Google Sheet → cuenta de servicio ✅ creada (jul 2026); queda
   verificar la escritura de punta a punta y marcar la casilla de Fase 2.
 - Sincronización con la **API de Educamos** → necesita acceso (hoy: import desde Excel).
-- `licencias-envios.sql` **sin aplicar en Neon**: la Fase 5 no funciona hasta que se aplique
-  (`pnpm db:sql --pendientes`).
 
 ## Decisiones cerradas
 
@@ -609,8 +607,8 @@ van todas las listas de la vista— y cuántos **correos** van a salir de verdad
 - [x] El sello 📤 de los pedidos de pago lo pone el envío
 - [x] Enlaces desde el panel, Editoriales, Exportar y el esquema del proceso
 - [x] Tests de los helpers puros (pegado, emparejado, filtros, correo, colocación de sobrantes): 62 casos nuevos
-- [ ] **Aplicar `licencias-envios.sql` en Neon** (`pnpm db:sql --pendientes`) — no se ha podido
-      hacer en la sesión de desarrollo por no tener `DATABASE_URL`
+- [x] **Aplicar `licencias-envios.sql` en Neon** — ya estaba aplicado (comprobado el 23-sep-2026:
+      `lic_licencias` existe); se relanzó, idempotente, y se quitó de `pendientes.txt`
 - [ ] Estreno: sincronizar, pegar una tanda real pequeña, prueba a `david@` y envío de verdad
 
 ## Fase 4 · Enganche a la BBDD central Educamos (= hito 3 del roadmap)

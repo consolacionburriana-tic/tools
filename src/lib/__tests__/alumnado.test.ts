@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   avisoCumple,
+  aplicaMaterial,
   avisoProteccion,
+  describirDestinos,
+  estadoVisible,
+  generalProteccion,
+  siguienteEstadoMaterial,
+  siguienteGeneral,
   casaBusqueda,
   claseLarga,
   colorAvatar,
@@ -268,7 +274,7 @@ describe('protección de datos', () => {
     redes: null,
     ampa: null,
     ong: null,
-    firmada: false,
+    desestimaCorreo: false,
     notas: null,
     actualizadoAt: null,
     actualizadoPor: null,
@@ -276,7 +282,7 @@ describe('protección de datos', () => {
   });
 
   it('un NO a la imagen manda sobre todo lo demás y sale en rojo', () => {
-    const aviso = avisoProteccion(pd({ firmada: true, imagen: false, redes: false, ampa: true, ong: true }));
+    const aviso = avisoProteccion(pd({ imagen: false, redes: false, ampa: true, ong: true }));
     expect(aviso.tono).toBe('rojo');
     expect(aviso.texto).toBe('NO puede salir en fotos');
     // El de imagen no se repite en el detalle: ya lo dice el texto.
@@ -284,26 +290,27 @@ describe('protección de datos', () => {
   });
 
   it('un no a las otras es ámbar y dice a cuáles', () => {
-    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: false, ampa: false, ong: true }));
+    const aviso = avisoProteccion(pd({ imagen: true, redes: false, ampa: false, ong: true }));
     expect(aviso.tono).toBe('ambar');
     expect(aviso.texto).toBe('Sin permiso de redes, AMPA');
   });
 
   it('con huecos sin marcar: gris, y dice cuáles faltan', () => {
-    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: true }));
+    const aviso = avisoProteccion(pd({ imagen: true, redes: true }));
     expect(aviso.tono).toBe('gris');
     expect(aviso.detalle).toBe('sin marcar: AMPA, ONG');
   });
 
-  it('todo autorizado y firmado: verde y en una línea', () => {
-    const aviso = avisoProteccion(pd({ firmada: true, imagen: true, redes: true, ampa: true, ong: true }));
-    expect(aviso).toEqual({ tono: 'verde', texto: 'Imagen autorizada' });
+  it('todo autorizado: verde y en una línea', () => {
+    const aviso = avisoProteccion(pd({ imagen: true, redes: true, ampa: true, ong: true }));
+    expect(aviso).toEqual({ tono: 'verde', texto: 'Imagen autorizada', detalle: undefined });
   });
 
-  it('todo autorizado sin firma: sigue siendo verde, y lo dice al lado', () => {
-    // Desde que se arranca con «sí a todo», un ámbar aquí saldría en las 639 fichas.
-    const aviso = avisoProteccion(pd({ imagen: true, redes: true, ampa: true, ong: true }));
-    expect(aviso).toEqual({ tono: 'verde', texto: 'Imagen autorizada', detalle: 'sin firmar' });
+  it('la desestimación del correo va de coletilla, sin cambiar el tono', () => {
+    const verde = avisoProteccion(pd({ imagen: true, redes: true, ampa: true, ong: true, desestimaCorreo: true }));
+    expect(verde).toEqual({ tono: 'verde', texto: 'Imagen autorizada', detalle: 'sin correo del alumno' });
+    const rojo = avisoProteccion(pd({ imagen: false, redes: false, ampa: true, ong: true, desestimaCorreo: true }));
+    expect(rojo.detalle).toBe('tampoco redes · sin correo del alumno');
   });
 
   it('«no consta» no es «ha dicho que no»', () => {
@@ -312,10 +319,78 @@ describe('protección de datos', () => {
     expect(sinConstar(solo)).toEqual(['redes', 'AMPA', 'ONG']);
   });
 
+  it('el check general se deduce de los cuatro', () => {
+    expect(generalProteccion(pd({ imagen: true, redes: true, ampa: true, ong: true }))).toBe('si');
+    expect(generalProteccion(pd({ imagen: false, redes: false, ampa: false, ong: false }))).toBe('no');
+    // Un no suelto: «parcial», que es lo que obliga a desplegar el detalle.
+    expect(generalProteccion(pd({ imagen: true, redes: true, ampa: true, ong: false }))).toBe('parcial');
+    expect(generalProteccion(pd({ imagen: true, redes: null, ampa: false, ong: true }))).toBe('parcial');
+    // Huecos sin ningún no: sin constar, no «sí».
+    expect(generalProteccion(pd({ imagen: true, redes: true }))).toBeNull();
+    expect(generalProteccion(pd())).toBeNull();
+  });
+
+  it('un toque en la general pone todo a no si estaba todo a sí, y si no, todo a sí', () => {
+    expect(siguienteGeneral('si')).toBe(false);
+    expect(siguienteGeneral('no')).toBe(true);
+    expect(siguienteGeneral('parcial')).toBe(true);
+    expect(siguienteGeneral(null)).toBe(true);
+  });
+
   it('tieneProteccion distingue lo vacío de lo anotado', () => {
     expect(tieneProteccion(pd())).toBe(false);
     expect(tieneProteccion(pd({ ong: true }))).toBe(true);
-    expect(tieneProteccion(pd({ firmada: true }))).toBe(true);
+    expect(tieneProteccion(pd({ desestimaCorreo: true }))).toBe(true);
     expect(tieneProteccion(pd({ notas: 'solo fotos de grupo' }))).toBe(true);
+  });
+});
+
+describe('venta de materiales', () => {
+  const eso3a = { curso: '3ESO', letra: 'A' };
+  const pdc3 = { curso: '3ºPPDC', letra: 'PDC' };
+  const pri2b = { curso: '2PRI', letra: 'B' };
+
+  it('un material va a una etapa, a un curso o a clases sueltas, y se mezclan', () => {
+    expect(aplicaMaterial([{ tipo: 'etapa', etapa: 'EP' }], pri2b)).toBe(true);
+    expect(aplicaMaterial([{ tipo: 'etapa', etapa: 'EP' }], eso3a)).toBe(false);
+    expect(aplicaMaterial([{ tipo: 'curso', curso: '3ESO' }], eso3a)).toBe(true);
+    expect(aplicaMaterial([{ tipo: 'clase', curso: '3ESO', letra: 'B' }], eso3a)).toBe(false);
+    expect(
+      aplicaMaterial([{ tipo: 'etapa', etapa: 'EP' }, { tipo: 'clase', curso: '3ESO', letra: 'A' }], eso3a),
+    ).toBe(true);
+    expect(aplicaMaterial([], eso3a)).toBe(false);
+    expect(aplicaMaterial([{ tipo: 'etapa', etapa: 'ESO' }], { curso: null, letra: null })).toBe(false);
+  });
+
+  it('un curso de ESO incluye a su PDC, y el PDC es de Secundaria', () => {
+    expect(aplicaMaterial([{ tipo: 'curso', curso: '3ESO' }], pdc3)).toBe(true);
+    expect(aplicaMaterial([{ tipo: 'curso', curso: '4ESO' }], pdc3)).toBe(false);
+    expect(aplicaMaterial([{ tipo: 'etapa', etapa: 'ESO' }], pdc3)).toBe(true);
+  });
+
+  it('el ciclo de la celda empieza en «sí» y la beca solo sale a quien la ve', () => {
+    expect(siguienteEstadoMaterial(null)).toBe('pagado');
+    expect(siguienteEstadoMaterial('pagado')).toBe('no');
+    expect(siguienteEstadoMaterial('no')).toBe('becado');
+    expect(siguienteEstadoMaterial('becado')).toBe('no_aplica');
+    expect(siguienteEstadoMaterial('no_aplica')).toBeNull();
+    expect(siguienteEstadoMaterial('no', false)).toBe('no_aplica');
+  });
+
+  it('becado se ve como pagado para quien no deba saberlo', () => {
+    expect(estadoVisible('becado', false)).toBe('pagado');
+    expect(estadoVisible('becado', true)).toBe('becado');
+    expect(estadoVisible('no', false)).toBe('no');
+    expect(estadoVisible(null, false)).toBeNull();
+  });
+
+  it('describe a quién va en una línea', () => {
+    expect(
+      describirDestinos([
+        { tipo: 'etapa', etapa: 'EP' },
+        { tipo: 'curso', curso: '1ESO' },
+        { tipo: 'clase', curso: '2ESO', letra: 'B' },
+      ]),
+    ).toBe('Primaria · 1º ESO · 2º ESO B');
   });
 });

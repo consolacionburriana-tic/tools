@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, BarChart3, BookOpen, Check, ChevronLeft, HeartHandshake, Loader2, NotebookPen, Users, Wand2 } from 'lucide-react';
+import { AlertTriangle, BarChart3, BookOpen, Check, ChevronLeft, Loader2, NotebookPen, Users, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 
@@ -102,12 +102,13 @@ export function BancoPanel({
   /** Alumnado activo de cursos con Licencias que aún no está en la campaña vigente: hasta que
    *  se sincronice, su familia teclea el NIA en el formulario público y no lo encuentra. */
   fueraDeCampania: { nombre: string; curso: string; letra: string | null }[];
-  /** Marcar banco/AMPA sí-no es cosa de dirección/TIC (de momento, no tutores). El resto del
+  /** Marcar banco sí-no es cosa de dirección/TIC (de momento, no tutores). El AMPA ya no vive
+   *  aquí: desde el 23-sep-2026 solo se lleva desde Alumnado (pestaña «AMPA»). El resto del
    *  módulo (lotes, checks, pasar lista) sigue abierto a cualquier rol con acceso. */
   puedeGestionarParticipantes: boolean;
 }) {
   const [clase, setClase] = useState<ClaseOpt | null>(null);
-  const [tab, setTab] = useState<'alumnado' | 'ampa' | 'libros'>('alumnado');
+  const [tab, setTab] = useState<'alumnado' | 'libros'>('alumnado');
   const [alumnado, setAlumnado] = useState<AlumnoRow[] | null>(null);
   const [libros, setLibros] = useState<LibroCard[] | null>(null);
   const [libro, setLibro] = useState<LibroCard | null>(null);
@@ -129,7 +130,7 @@ export function BancoPanel({
 
   /** Ajusta en local el contador agregado de la clase activa (sin esperar a refrescar). */
   const bumpResumen = useCallback(
-    (campo: 'banco' | 'ampa', delta: 1 | -1) => {
+    (campo: 'banco', delta: 1 | -1) => {
       if (!clase) return;
       const key = claseKey(clase.curso, clase.letra);
       setResumen((prev) => prev.map((r) => (claseKey(r.curso, r.letra) === key ? { ...r, [campo]: Math.max(0, r[campo] + delta) } : r)));
@@ -264,31 +265,6 @@ export function BancoPanel({
     }
   }
 
-  // ── AMPA ──
-  async function toggleAmpa(a: AlumnoRow) {
-    setAlumnado((prev) => prev!.map((x) => (x.eduStudentId === a.eduStudentId ? { ...x, ampa: !a.ampa } : x)));
-    bumpResumen('ampa', a.ampa ? -1 : 1);
-    if (!(await post('/api/bancolibros/admin/ampa', { eduStudentIds: [a.eduStudentId], ampa: !a.ampa }))) {
-      setAlumnado((prev) => prev!.map((x) => (x.eduStudentId === a.eduStudentId ? { ...x, ampa: a.ampa } : x)));
-      bumpResumen('ampa', a.ampa ? 1 : -1);
-    }
-  }
-
-  async function bulkAmpa(ampa: boolean) {
-    if (!alumnado?.length) return;
-    const cambios = alumnado.filter((a) => a.ampa !== ampa).length;
-    setAlumnado((prev) => prev!.map((x) => ({ ...x, ampa })));
-    setResumen((prev) => {
-      if (!clase) return prev;
-      const key = claseKey(clase.curso, clase.letra);
-      return prev.map((r) => (claseKey(r.curso, r.letra) === key ? { ...r, ampa: ampa ? r.total : 0 } : r));
-    });
-    if (!(await post('/api/bancolibros/admin/ampa', { eduStudentIds: alumnado.map((a) => a.eduStudentId), ampa }))) {
-      return void recargarAlumnado();
-    }
-    if (cambios) haptic.success();
-  }
-
   async function ponerLote(a: AlumnoRow, numero: number | 'auto' | null) {
     setOcupado(a.eduStudentId);
     try {
@@ -397,13 +373,12 @@ export function BancoPanel({
   }
 
   const enBanco = useMemo(() => alumnado?.filter((a) => a.banco).length ?? 0, [alumnado]);
-  const enAmpa = useMemo(() => alumnado?.filter((a) => a.ampa).length ?? 0, [alumnado]);
 
   // Cursos en el orden en que aparecen en `clases` (ya vienen por etapa → curso), para las
   // filas de subtotal del resumen agregado.
   const cursosOrden = useMemo(() => [...new Set(clases.map((c) => c.curso))], [clases]);
   const totalGeneral = useMemo(
-    () => resumen.reduce((acc, r) => ({ total: acc.total + r.total, banco: acc.banco + r.banco, ampa: acc.ampa + r.ampa }), { total: 0, banco: 0, ampa: 0 }),
+    () => resumen.reduce((acc, r) => ({ total: acc.total + r.total, banco: acc.banco + r.banco }), { total: 0, banco: 0 }),
     [resumen],
   );
 
@@ -448,7 +423,7 @@ export function BancoPanel({
           <BarChart3 className="h-4 w-4 shrink-0 text-zinc-400" />
           <span className="font-medium text-zinc-700 dark:text-zinc-200">Resumen</span>
           <span className="text-zinc-400">
-            {totalGeneral.banco}/{totalGeneral.total} en banco · {totalGeneral.ampa} AMPA
+            {totalGeneral.banco}/{totalGeneral.total} en banco
           </span>
           <ChevronLeft className="ml-auto h-4 w-4 shrink-0 -rotate-90 text-zinc-400 transition-transform [details[open]_&]:rotate-90" />
         </summary>
@@ -459,7 +434,6 @@ export function BancoPanel({
                 <th className="px-3 py-2 text-left font-medium">Clase</th>
                 <th className="px-3 py-2 text-right font-medium">Alumnos</th>
                 <th className="px-3 py-2 text-right font-medium">Banco</th>
-                <th className="px-3 py-2 text-right font-medium">AMPA</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
@@ -468,9 +442,9 @@ export function BancoPanel({
                 const sub = filas.reduce(
                   (acc, c) => {
                     const r = resumenMap.get(claseKey(c.curso, c.letra));
-                    return { total: acc.total + (r?.total ?? 0), banco: acc.banco + (r?.banco ?? 0), ampa: acc.ampa + (r?.ampa ?? 0) };
+                    return { total: acc.total + (r?.total ?? 0), banco: acc.banco + (r?.banco ?? 0) };
                   },
-                  { total: 0, banco: 0, ampa: 0 },
+                  { total: 0, banco: 0 },
                 );
                 return (
                   <Fragment key={curso}>
@@ -478,7 +452,6 @@ export function BancoPanel({
                       <td className="px-3 py-1.5">{curso}</td>
                       <td className="px-3 py-1.5 text-right">{sub.total}</td>
                       <td className="px-3 py-1.5 text-right">{sub.banco}</td>
-                      <td className="px-3 py-1.5 text-right">{sub.ampa}</td>
                     </tr>
                     {filas.map((c) => {
                       const r = resumenMap.get(claseKey(c.curso, c.letra));
@@ -487,7 +460,6 @@ export function BancoPanel({
                           <td className="py-1.5 pl-7 pr-3">↳ {c.label}</td>
                           <td className="px-3 py-1.5 text-right">{r?.total ?? 0}</td>
                           <td className="px-3 py-1.5 text-right">{r?.banco ?? 0}</td>
-                          <td className="px-3 py-1.5 text-right">{r?.ampa ?? 0}</td>
                         </tr>
                       );
                     })}
@@ -553,9 +525,6 @@ export function BancoPanel({
             {(
               [
                 { k: 'alumnado', label: `Alumnado${alumnado ? ` · ${enBanco}/${alumnado.length} en banco` : ''}`, icon: Users },
-                ...(puedeGestionarParticipantes
-                  ? [{ k: 'ampa' as const, label: `AMPA${alumnado ? ` · ${enAmpa}/${alumnado.length}` : ''}`, icon: HeartHandshake }]
-                  : []),
                 { k: 'libros', label: `Libros${libros ? ` · ${libros.length}` : ''}`, icon: BookOpen },
               ] as const
             ).map((t) => (
@@ -661,45 +630,6 @@ export function BancoPanel({
                           )}
                         </>
                       )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {/* ── Pestaña AMPA (dirección/TIC) ── */}
-          {tab === 'ampa' && puedeGestionarParticipantes && (
-            <div className="anim-up rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 p-3 text-xs dark:border-zinc-800">
-                <span className="mr-1 text-zinc-400">Reconciliar contra el listado del AMPA:</span>
-                <button type="button" onClick={() => void bulkAmpa(true)} className="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300">
-                  Todos sí
-                </button>
-                <button type="button" onClick={() => void bulkAmpa(false)} className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
-                  Todos no
-                </button>
-              </div>
-              {alumnado === null ? (
-                <p className="flex items-center justify-center gap-2 p-8 text-sm text-zinc-400">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
-                </p>
-              ) : (
-                <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                  {alumnado.map((a) => (
-                    <li key={a.eduStudentId} className={`flex items-center gap-2 px-3.5 py-2 ${a.ampa ? '' : 'opacity-55'}`}>
-                      <button
-                        type="button"
-                        onClick={() => void toggleAmpa(a)}
-                        aria-label={a.ampa ? 'Quitar del AMPA' : 'Meter en el AMPA'}
-                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                          a.ampa ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'
-                        }`}
-                      >
-                        <span className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${a.ampa ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                      <span className="w-6 shrink-0 text-right text-xs font-bold text-zinc-400">{a.numeroLista}</span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{a.nombre}</span>
                     </li>
                   ))}
                 </ul>

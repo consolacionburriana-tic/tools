@@ -1,8 +1,9 @@
 # Alumnado · la ficha de cada alumno
 
-**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (navegador y ficha completos y
-probados contra datos reales; la protección de datos está escrita y probada en local, pero su
-SQL sigue pendiente de aplicar en Neon — ver el aviso al final)
+**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (navegador, ficha, protección
+de datos, pestañas de banco de libros / AMPA / venta de materiales e informes a medida, todo
+probado contra datos reales el 23-sep-2026; queda quitar `pd_firmada` de Neon tras el
+despliegue — ver la Fase 3)
 
 Pantalla de consulta de `/gestion/alumnado`: eliges una clase (o buscas), tocas a un alumno y
 tienes **todo lo que la plataforma sabe de él** en una sola vista, con lo importante arriba y
@@ -10,9 +11,11 @@ todo lo copiable a un toque.
 
 Es **transversal y casi todo de solo lectura**: no crea tablas ni duplica campos, lee `edu_*`
 como identidad y va a preguntar a cada módulo por lo suyo. Lo único que se escribe desde aquí
-son cuatro interruptores que ya vivían en `edu_students` (protección de datos, banco de libros
+son los interruptores que ya vivían en `edu_students` (protección de datos, banco de libros
 y AMPA), llamando al mismo código que su módulo y con su mismo permiso: la ficha **condensa la
-información, no se queda con la autoridad**. Nada se copia a una tabla nueva, que es
+información, no se queda con la autoridad**. La excepción, desde el 23-sep-2026, es la **venta
+de materiales** (decisión 15): esa sí tiene sus dos tablas `mat_*`, porque no es un dato de la
+ficha de nadie sino columnas que se crean y se quitan cada curso. Nada se copia a una tabla nueva, que es
 exactamente la deuda que documenta
 [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md).
 
@@ -97,10 +100,9 @@ exactamente la deuda que documenta
    llegan**, que es como trabaja el colegio de verdad. El `null` no desaparece: se queda
    para lo que alguien desmarque a mano, y la pantalla lo pinta como «sin constar».
 
-   `pd_firmada` se queda aparte y en `false`: el punto de partida de trabajo no es un papel
-   firmado, y ponerlo a `true` sería decir que hay 639 firmas que no existen. Por eso el
-   chip de la ficha, cuando todo está autorizado pero sin firmar, sale **verde con un «sin
-   firmar» al lado** y no en ámbar: un aviso que sale en las 639 fichas no lo lee nadie.
+   Hubo un quinto campo, `pd_firmada` («documento firmado»), que **se quitó el 23-sep-2026**
+   (David: «el de firmado se va fuera, en la UI y en la BBDD»). No se llegó a usar: estaba a
+   `false` en las 645 filas.
 
    Van como columnas `pd_*` de `edu_students`, no en una tabla nueva: es un dato por alumno
    que no tiene histórico ni pertenece a ningún módulo, igual que `banco_libros` y `ampa`.
@@ -132,20 +134,72 @@ exactamente la deuda que documenta
     dirección/TIC **con** el módulo del banco). Quien no lo tenga, los ve como chips y no
     ve interruptores.
 
-12. **La pantalla tiene dos vistas: fichas y tabla de protección de datos** (David,
-    17-sep-2026). La ficha responde por una persona; llenar esto son 639 alumnos × 5
+12. **La pantalla tiene varias vistas: fichas y tablas por clase** (David, 17-sep-2026; las
+    de banco, AMPA, materiales e informes, 23-sep-2026). La ficha responde por una persona; llenar esto son 639 alumnos × 5
     casillas, y eso no se hace ficha a ficha. La pestaña «Protección de datos» enseña la
     clase elegida como tabla —una fila por alumno, una columna por permiso— con:
 
     - **un toque por celda**, que cicla sí → no → sin constar;
     - **«todos sí» y «todos no» en la cabecera de cada columna**, que es lo que se pidió por
       columna: entra una autorización nueva y se resuelve sin bajar por las 25 filas;
-    - **«Poner todo a SÍ»** para la clase entera, y «Marcar firmadas».
+    - **«Poner todo a SÍ»** para la clase entera.
 
     Todo lo masivo pide **un segundo toque** y en él dice a cuántos va a afectar: cambiar 25
     fichas sin querer es un mal rato, y el segundo toque cuesta medio segundo. Y el alcance
     no se cree lo que venga en la petición: la ruta masiva lee en la BBDD las clases de esos
     ids y descarta lo que no le toque a quien pulsa.
+
+13. **Protección de datos en dos columnas, no en cinco** (David, 23-sep-2026). La tabla se ve
+    con un **check general sí / no** y la **desestimación del correo del alumno**; las cuatro
+    de detalle (imagen, redes, AMPA, ONG) se despliegan con un toque en la cabecera.
+
+    - La general **no es un dato guardado**: se deduce de los cuatro (`generalProteccion`).
+      Sí = los cuatro sí; no = los cuatro no; **«parcial»** en ámbar si hay algún no suelto,
+      que es la señal de que hay que desplegar; gris si falta algo por marcar. Un toque la
+      pone toda a sí (o toda a no si ya estaba a sí). Guardarla aparte sería tener dos
+      verdades que sincronizar, el error de [`06`](./06-fuente-unica-alumnado.md).
+    - **Desestimación del correo** (`pd_desestima_correo`): la familia no quiere que el
+      colegio le dé cuenta de correo al alumno. Por defecto **nadie desestima**, y eso es lo
+      verde; desestimar sale en **rojo**. En la ficha sale de coletilla en el chip de
+      protección de datos («sin correo del alumno»), sin cambiar su color: no tiene que ver
+      con las fotos, pero quien abre la ficha tiene que enterarse.
+
+14. **Banco de libros y AMPA también en tabla, «solo marcar el check»** (David, 23-sep-2026).
+    Una columna, un check por alumno, «todos sí / todos no» con segundo toque. En cada una se
+    puede **sacar la otra al lado** (en la del banco, el AMPA; y al revés), porque a principio
+    de curso se piden juntas. Mismo permiso que la ficha y que el panel del banco:
+    dirección/TIC con el módulo del banco. **El AMPA ya no se lleva desde el banco de libros**:
+    solo desde aquí.
+
+15. **Venta de materiales** (David, 23-sep-2026). Secretaría, dirección y TIC crean
+    **materiales** (la agenda, la bata…), y cada uno es una **columna** para las clases a las
+    que va. A quién va se elige al crearlo: **una etapa entera, un curso entero o clases
+    sueltas, mezclables**; se guarda la regla (`destinos`), no la lista de alumnos, así que una
+    alta de mitad de curso ya tiene su casilla. Un curso de ESO incluye a su PDC.
+
+    Cada celda tiene **cinco estados**, un toque cicla: **—** (sin información, que es como
+    empieza todo el mundo) → **pagado** → **no** → **becado** → **no aplica**.
+
+    **«Becado» solo lo ven dirección, secretaría, orientación y TIC.** A los demás —tutores,
+    jefatura— se les manda como «pagado» desde el servidor (`estadoVisible`), no se esconde
+    con CSS: para un tutor lo único que importa es que el alumno tiene su material.
+
+    No se crean columnas en Postgres por material: un material es una fila de
+    `mat_materiales` y su estado por alumno una de `mat_estados`. Quitar un material que ya
+    tiene pagos lo **archiva** (los pagos son historia del curso); si no tiene ninguno, se borra.
+
+16. **Informes a medida en PDF, Excel y CSV** (David, 23-sep-2026: «a principio de curso nos
+    hace falta esa información»). Eliges columnas (NIA, banco, AMPA, protección de datos
+    general o detallada, correo, cada material), clases (la elegida, todas las que ves o las
+    que marques), un filtro opcional («solo quien NO ha pagado la agenda») y formato. Sale
+    agrupado por clase con el total de cada una; en el PDF, apaisado si hay muchas columnas y,
+    si se quiere, **una página por clase** para repartir a los tutores.
+
+    El informe lo monta el servidor con **la misma función que pinta la lista**
+    (`listaAlumnado`), así que no enseña nada que no se vea ya en pantalla: el alcance por
+    etapa, la protección de datos que no te toca (sale en blanco) y las becas (salen como
+    «pagado») se recortan igual. Cada tabla tiene su botón «Informe», que abre este mismo
+    formulario con sus columnas ya puestas.
 
 ---
 
@@ -170,7 +224,8 @@ Inventariado contra los **639 alumnos activos** de Neon (10-sep-2026), no contra
 | Banco de libros (sí/no, lote, entregado, libros valorados) | `edu_students.banco_libros` + `bl_*` | 492 participan; 21 lotes asignados |
 | Licencias (participa, pedido hecho, importe, pagado, libros) | `lic_students` + `lic_orders` + `lic_order_items` | 348 participan, 206 con pedido |
 | AMPA (familia socia) | `edu_students.ampa` | 15 |
-| **Protección de datos** (imagen y voz, redes, AMPA, ONG + firmada) | `edu_students.pd_*` | todos a «sí» de salida; los noes se marcan desde la ficha o la tabla |
+| **Protección de datos** (imagen y voz, redes, AMPA, ONG + desestimación del correo) | `edu_students.pd_*` | todos a «sí» de salida (y nadie desestima el correo); los noes se marcan desde la ficha o la tabla |
+| **Venta de materiales** (pagado / no / becado / no aplica) | `mat_materiales` + `mat_estados` | desde el 23-sep-2026 |
 | Puntualidad (retrasos, minutos, justificados, consecuencias) | `pun_records` + `con_consequences` | 0 (curso recién empezado) |
 | Salidas (apuntado, justificante) | `sal_signups` + `sal_trips` | 3 |
 | ABC (nº de informes, último) | `abc_students` + `abc_behavior_reports` | 7 informes, 1 alumno |
@@ -220,18 +275,29 @@ src/lib/alumnado.ts                        # helpers puros: búsqueda normalizad
                                            # banderitas del extra (con tests)
 src/lib/alumnado-server.ts                 # listaAlumnado() y fichaAlumno(): las dos queries
 src/app/api/alumnado/[id]/route.ts         # la ficha completa, con guard y alcance
-src/app/api/alumnado/[id]/proteccion/...   # cambiar los 4 permisos + firmada + notas
+src/app/api/alumnado/[id]/proteccion/...   # cambiar los 4 permisos + correo + notas
 src/app/api/alumnado/[id]/participacion/…  # banco de libros y AMPA (llama a bancolibros-server)
 src/app/api/alumnado/proteccion/route.ts   # masivo: una columna, o la clase entera
 src/app/gestion/alumnado/                  # layout (guard de módulo) + página + loading
 src/components/alumnado/alumnado-panel.tsx # clases, buscador, lista y orquestación
 src/components/alumnado/ficha-alumno.tsx   # la ficha, en el orden de la tabla de arriba
 src/components/alumnado/copiable.tsx       # Copiable, Dato y CopiarLista
+# Fase 3 (23-sep-2026)
+src/lib/materiales-server.ts               # materiales: lista, estados (con la beca recortada), crear/editar/quitar
+src/lib/alumnado-informe.ts                # informes: columnas, celdas, filtro, agrupado y CSV (puro, con tests)
+src/lib/alumnado-informe-formatos.ts       # PDF (pdf-lib) y Excel (xlsx-escribir) del informe
+src/app/api/alumnado/participacion/…       # banco / AMPA masivo
+src/app/api/alumnado/materiales/…          # crear, editar, quitar un material y marcar estados
+src/app/api/alumnado/informe/route.ts      # GET → PDF, Excel o CSV
+src/components/alumnado/piezas-tabla.tsx   # celdas, botones de columna y masivos compartidos
+src/components/alumnado/tabla-participacion.tsx · tabla-materiales.tsx · informes.tsx
 ```
 
-Sin tablas nuevas. Sí hay **8 columnas nuevas** en `edu_students` (`pd_imagen`, `pd_redes`,
-`pd_ampa`, `pd_ong`, `pd_firmada`, `pd_notas`, `pd_actualizado_at`, `pd_actualizado_por`), en
-`src/db/sql/proteccion-datos.sql`: aditivo e idempotente.
+Columnas `pd_*` en `edu_students` (`pd_imagen`, `pd_redes`, `pd_ampa`, `pd_ong`, `pd_notas`,
+`pd_actualizado_at`, `pd_actualizado_por`) en `src/db/sql/proteccion-datos.sql`, y
+`pd_desestima_correo` más las tablas `mat_materiales` / `mat_estados` en
+`proteccion-datos-v2.sql`: aditivos e idempotentes. `pd_firmada` se retira con
+`proteccion-datos-quita-firmada.sql`, **después** del despliegue.
 
 ### Rendimiento: lo que importa es el número de TANDAS, no las consultas
 
@@ -325,14 +391,38 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
 - [x] Punto de partida «sí a todo» en el SQL de estreno (`UPDATE … WHERE pd_x IS NULL`, así que
       relanzarlo no pisa ningún «no» ya marcado) y `DEFAULT true` para las altas nuevas
 - [x] `pnpm test`, `pnpm lint`, `pnpm build` en verde
-- [~] **Aplicar `src/db/sql/proteccion-datos.sql` en Neon** — escrito y probado en seco
-      (`pnpm db:sql --pendientes --dry`), pero el contenedor de esta sesión no tiene el host de
-      Neon en su allowlist de red. **Hasta que se aplique, `/gestion/alumnado` da error**:
-      `pnpm db:sql --pendientes` desde el portátil y listo
-- [ ] Probado contra la app con datos reales (pendiente de lo anterior)
+- [x] **Aplicar `src/db/sql/proteccion-datos.sql` en Neon** — ya estaba aplicado (comprobado el
+      23-sep-2026: las columnas `pd_*` existen y las 645 fichas activas están a «sí»)
+- [x] Probado contra la app con datos reales (23-sep-2026, junto con la Fase 3)
 - [ ] Ver cómo va la carga real con secretaría: con el arranque en «sí» y los masivos por
       clase, lo que queda es marcar los noes. Si aparece un Excel con las autorizaciones,
       un importador por NIA sigue siendo la opción rápida (`00-desarrollos-futuros.md`)
+
+### Fase 3 · Pestañas de banco, AMPA y materiales, e informes (23-sep-2026)
+- [x] Protección de datos: check general sí/no deducido de los cuatro (`generalProteccion`,
+      con tests), detalle plegable, columna de desestimación del correo (verde por defecto,
+      rojo si desestima) en la tabla y en la ficha, y fuera `pd_firmada` de la UI y del código
+- [x] Pestañas «Banco de libros» y «AMPA»: un check por alumno, todos sí / todos no con segundo
+      toque, «ver también» la otra columna y botón de informe; ruta masiva
+      `POST /api/alumnado/participacion` (con `setBancoVarios`, que propaga a Licencias)
+- [x] El AMPA sale del panel del banco de libros (pestaña, columna del resumen y ruta `admin/ampa`)
+- [x] Venta de materiales: `mat_materiales` + `mat_estados`, crear/editar/quitar (secretaría,
+      dirección, TIC), destinos por etapa/curso/clase (`aplicaMaterial`, con tests), cinco
+      estados con un toque, masivos por columna, y beca recortada en el servidor para quien no
+      deba verla (`estadoVisible` + `veBecasMateriales`)
+- [x] Informes a medida: columnas, clases, filtro, título y formato PDF / Excel / CSV, agrupado
+      por clase con totales y opción de una página por clase (`alumnado-informe.ts`, con tests
+      de celdas, filtro, totales, CSV, PDF y Excel)
+- [x] `proteccion-datos-v2.sql` aplicado en Neon (`pd_desestima_correo`, `mat_*`)
+- [x] Probado contra la app con datos reales (sesión de TIC y de una tutora de 2º ESO B): crear
+      material, marcar pagos y beca, rechazo de un alumno al que el material no va, informes en
+      los tres formatos (el del centro entero, 28 páginas, en 0,4 s); la tutora ve la beca como
+      «pagado», la protección de datos de otra clase en blanco, 404 en Infantil y 403 al
+      intentar marcar. Capturas en claro y oscuro a 1180 px. Los cambios de prueba se deshicieron
+- [ ] **Aplicar `proteccion-datos-quita-firmada.sql` en Neon DESPUÉS de desplegar** (el código
+      que hay hoy en producción todavía lee `pd_firmada`): `pnpm db:sql --pendientes`
+- [ ] Revisar con David las decisiones que tomé yo (`00-desarrollos-futuros.md`): quién marca el
+      AMPA, jefatura y las becas, materiales en la ficha individual
 
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la

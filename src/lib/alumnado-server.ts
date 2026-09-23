@@ -47,7 +47,9 @@ import {
   indiceDeBusqueda,
   normalizar,
   siNo,
+  aplicaMaterial,
   type CampoProteccion,
+  type EstadoMaterial,
   type ProteccionDatos,
   type ValorDomicilio,
 } from '@/lib/alumnado';
@@ -58,7 +60,10 @@ import {
   veProteccionDatosCompleta,
   type Role,
 } from '@/lib/permissions';
+import { estadosMateriales, listaMateriales, type MaterialLista } from '@/lib/materiales-server';
 import { clasesDeTutor } from '@/lib/puntualidad-server';
+
+export type { MaterialLista };
 
 export { academicYearActual };
 
@@ -253,6 +258,11 @@ export interface AlumnoLista {
   proteccion: ProteccionLista | null;
   /** `true` = tiene el pedido de licencias hecho; `false` = le toca y no lo tiene; null = no le toca. */
   pedidoHecho: boolean | null;
+  /**
+   * Venta de materiales: material → estado, solo lo que tiene algo marcado (sin clave = «—»).
+   * «Becado» ya viene cambiado por «pagado» para quien no deba verlo (`estadoVisible`).
+   */
+  materiales: Record<string, EstadoMaterial>;
 }
 
 /** Lo mínimo de la protección de datos para pintar una fila o una celda de la tabla. */
@@ -261,7 +271,7 @@ export interface ProteccionLista {
   redes: boolean | null;
   ampa: boolean | null;
   ong: boolean | null;
-  firmada: boolean;
+  desestimaCorreo: boolean;
 }
 
 export interface ClaseListado {
@@ -282,11 +292,12 @@ export async function listaAlumnado(
   alcance: { curso: string; letra: string | null }[] | null,
   academicYear = academicYearActual(),
   proteccion?: AlcanceProteccion,
-): Promise<{ alumnos: AlumnoLista[]; clases: ClaseListado[] }> {
+  veBecas = false,
+): Promise<{ alumnos: AlumnoLista[]; clases: ClaseListado[]; materiales: MaterialLista[] }> {
   // UNA sola tanda: `estadoPedidos` ya no espera a saber cuál es la campaña activa, la
   // resuelve con una subconsulta. Con ~127 ms por viaje a Neon, quitar la espera previa vale
   // tanto como optimizar cualquiera de las consultas.
-  const [filas, numeros, pedidos, tutorias, profes] = await Promise.all([
+  const [filas, numeros, pedidos, tutorias, profes, materiales, estados] = await Promise.all([
     db
       .select({
         id: eduStudents.id,
@@ -304,7 +315,7 @@ export async function listaAlumnado(
         pdRedes: eduStudents.pdRedes,
         pdAmpa: eduStudents.pdAmpa,
         pdOng: eduStudents.pdOng,
-        pdFirmada: eduStudents.pdFirmada,
+        pdDesestimaCorreo: eduStudents.pdDesestimaCorreo,
       })
       .from(eduStudents)
       .where(eq(eduStudents.active, true)),
@@ -325,6 +336,8 @@ export async function listaAlumnado(
         apellido2: eduTeachers.apellido2,
       })
       .from(eduTeachers),
+    listaMateriales(academicYear),
+    estadosMateriales(veBecas, academicYear),
   ]);
 
   const numeroPorAlumno = new Map(numeros.map((n) => [n.eduStudentId, n.numero]));
@@ -360,9 +373,16 @@ export async function listaAlumnado(
       ampa: f.ampa,
       proteccion:
         proteccion && veProteccionDe(proteccion, f)
-          ? { imagen: f.pdImagen, redes: f.pdRedes, ampa: f.pdAmpa, ong: f.pdOng, firmada: f.pdFirmada }
+          ? {
+              imagen: f.pdImagen,
+              redes: f.pdRedes,
+              ampa: f.pdAmpa,
+              ong: f.pdOng,
+              desestimaCorreo: f.pdDesestimaCorreo,
+            }
           : null,
       pedidoHecho: pedidos.has(f.id) ? pedidos.get(f.id)! : null,
+      materiales: estados.get(f.id) ?? {},
     });
   }
 
@@ -398,9 +418,13 @@ export async function listaAlumnado(
     clase.alumnos++;
   }
 
+  const visibles = [...clases.values()].sort((a, b) => compararClases(a, b));
   return {
     alumnos,
-    clases: [...clases.values()].sort((a, b) => compararClases(a, b)),
+    clases: visibles,
+    // Solo los materiales que van a alguna clase de las que se ven: a un tutor de Infantil no
+    // se le pinta la columna de la calculadora de 4º de ESO.
+    materiales: materiales.filter((m) => visibles.some((c) => aplicaMaterial(m.destinos, c))),
   };
 }
 
@@ -773,7 +797,7 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
       redes: alumno.pdRedes,
       ampa: alumno.pdAmpa,
       ong: alumno.pdOng,
-      firmada: alumno.pdFirmada,
+      desestimaCorreo: alumno.pdDesestimaCorreo,
       notas: alumno.pdNotas,
       actualizadoAt: alumno.pdActualizadoAt ? alumno.pdActualizadoAt.toISOString() : null,
       actualizadoPor: alumno.pdActualizadoPor,
@@ -975,7 +999,7 @@ export interface CambioProteccion {
   redes?: boolean | null;
   ampa?: boolean | null;
   ong?: boolean | null;
-  firmada?: boolean;
+  desestimaCorreo?: boolean;
   notas?: string | null;
 }
 
@@ -1000,7 +1024,7 @@ export async function guardarProteccion(
   for (const campo of CAMPOS_PROTECCION) {
     if (cambios[campo] !== undefined) set[COLUMNA_PD[campo]] = cambios[campo];
   }
-  if (cambios.firmada !== undefined) set.pdFirmada = cambios.firmada;
+  if (cambios.desestimaCorreo !== undefined) set.pdDesestimaCorreo = cambios.desestimaCorreo;
   if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
 
   const [fila] = await db
@@ -1012,7 +1036,7 @@ export async function guardarProteccion(
       redes: eduStudents.pdRedes,
       ampa: eduStudents.pdAmpa,
       ong: eduStudents.pdOng,
-      firmada: eduStudents.pdFirmada,
+      desestimaCorreo: eduStudents.pdDesestimaCorreo,
       notas: eduStudents.pdNotas,
       actualizadoAt: eduStudents.pdActualizadoAt,
       actualizadoPor: eduStudents.pdActualizadoPor,
@@ -1060,7 +1084,7 @@ export async function guardarProteccionMasiva(
   for (const campo of CAMPOS_PROTECCION) {
     if (cambios[campo] !== undefined) set[COLUMNA_PD[campo]] = cambios[campo];
   }
-  if (cambios.firmada !== undefined) set.pdFirmada = cambios.firmada;
+  if (cambios.desestimaCorreo !== undefined) set.pdDesestimaCorreo = cambios.desestimaCorreo;
   if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
 
   const tocadas = await db
@@ -1073,7 +1097,7 @@ export async function guardarProteccionMasiva(
       redes: eduStudents.pdRedes,
       ampa: eduStudents.pdAmpa,
       ong: eduStudents.pdOng,
-      firmada: eduStudents.pdFirmada,
+      desestimaCorreo: eduStudents.pdDesestimaCorreo,
     });
 
   // Se devuelven TODAS, no una de muestra: el cambio es el mismo para todas, pero las demás
