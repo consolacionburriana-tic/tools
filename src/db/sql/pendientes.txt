@@ -7,5 +7,3 @@
 # quitan de aquí en el mismo commit y se marcan las casillas de la ficha del módulo.
 
 
-# ⚠️ Solo cuando esté desplegado el código que ya no lee `pd_firmada` (ver el propio fichero):
-proteccion-datos-quita-firmada.sql

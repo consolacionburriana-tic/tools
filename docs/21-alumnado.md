@@ -2,8 +2,7 @@
 
 **Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (navegador, ficha, protección
 de datos, pestañas de banco de libros / AMPA / venta de materiales e informes a medida, todo
-probado contra datos reales el 23-sep-2026; queda quitar `pd_firmada` de Neon tras el
-despliegue — ver la Fase 3)
+probado contra datos reales y en producción desde el 23-sep-2026)
 
 Pantalla de consulta de `/gestion/alumnado`: eliges una clase (o buscas), tocas a un alumno y
 tienes **todo lo que la plataforma sabe de él** en una sola vista, con lo importante arriba y
@@ -427,8 +426,8 @@ de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cam
       AMPA todos no/sí, banco todos sí, protección general sí/no, correo todos/nadie, ONG no/sí
       desde el detalle, materiales pagado/no/quitar y «Cancelar»; las filas cambian al momento
       y persiste al recargar. Datos de 4º PDC restaurados después
-- [ ] **Aplicar `proteccion-datos-quita-firmada.sql` en Neon DESPUÉS de desplegar** (el código
-      que hay hoy en producción todavía lee `pd_firmada`): `pnpm db:sql --pendientes`
+- [x] `proteccion-datos-quita-firmada.sql` aplicado en Neon (23-sep-2026), después de comprobar
+      que producción ya servía el código sin `pd_firmada` (#68 y #70 fusionados)
 - [ ] Revisar con David las decisiones que tomé yo (`00-desarrollos-futuros.md`): quién marca el
       AMPA, jefatura y las becas, materiales en la ficha individual
 
