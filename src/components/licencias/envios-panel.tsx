@@ -116,6 +116,8 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
   const [guardandoCodigo, setGuardandoCodigo] = useState(false);
   const [abrirAsignar, setAbrirAsignar] = useState(false);
   const [abrirEnviar, setAbrirEnviar] = useState(false);
+  /** Fila ya enviada que se quiere reenviar; abre el mismo diálogo pero solo con ella y forzado. */
+  const [reenviarId, setReenviarId] = useState<string | null>(null);
   const [envios, setEnvios] = useState<EnvioRegistro[]>([]);
 
   const cargar = useCallback(
@@ -225,6 +227,7 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
     const elegidas = listasVisibles.filter((f) => seleccion.has(f.id));
     return elegidas.length ? elegidas : listasVisibles;
   }, [listasVisibles, seleccion]);
+  const filaReenviar = useMemo(() => visibles.find((f) => f.id === reenviarId) ?? null, [visibles, reenviarId]);
 
   const r = resumen?.[tipo];
   const pct = r && r.total ? Math.round((r.enviadas / r.total) * 100) : 0;
@@ -254,6 +257,16 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
   }
 
   const seleccionadas = useMemo(() => visibles.filter((f) => seleccion.has(f.id)), [visibles, seleccion]);
+
+  /** Reenvía el mismo código a una licencia ya enviada, sin tocarlo (ver `ponerCodigo` para el
+   * camino de «ha cambiado el código»). Abre el mismo diálogo de envío, forzado a esa única fila. */
+  function reenviar(fila: LicenciaFila) {
+    if (!confirm(`${fila.alumno} ya recibió el código ${fila.codigo}.\n\n¿Reenviarle el mismo correo otra vez?`)) {
+      return;
+    }
+    setReenviarId(fila.id);
+    setAbrirEnviar(true);
+  }
 
   /**
    * Guarda el código tecleado en una celda. Vía de escape para lo que el pegado en bloque no
@@ -683,8 +696,18 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
                       {f.descartadoAt ? (
                         <span className="text-xs text-zinc-400">no le toca</span>
                       ) : f.estado === 'enviado' ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                          <BadgeCheck className="h-3.5 w-3.5" /> enviada
+                        <span className="inline-flex items-center gap-1.5 text-xs">
+                          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                            <BadgeCheck className="h-3.5 w-3.5" /> enviada
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => reenviar(f)}
+                            title="Volver a mandarle el mismo código"
+                            className="text-zinc-400 underline decoration-dotted hover:text-blue-600 dark:hover:text-blue-400"
+                          >
+                            reenviar
+                          </button>
                         </span>
                       ) : f.estado === 'error' ? (
                         <span className="text-xs text-red-600 dark:text-red-400" title={f.error ?? ''}>
@@ -735,13 +758,17 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
       <EnviosEnviar
         key={tipo}
         abierto={abrirEnviar}
-        onCerrar={() => setAbrirEnviar(false)}
+        onCerrar={() => {
+          setAbrirEnviar(false);
+          setReenviarId(null);
+        }}
         tipo={tipo}
         destino={destino}
-        seleccionadas={paraEnviar}
+        seleccionadas={filaReenviar ? [filaReenviar] : paraEnviar}
+        forzar={Boolean(filaReenviar)}
         aLaVista={visibles.length}
         listasALaVista={listasVisibles.length}
-        porSeleccion={listasVisibles.some((f) => seleccion.has(f.id))}
+        porSeleccion={filaReenviar ? true : listasVisibles.some((f) => seleccion.has(f.id))}
         presets={presets}
         onHecho={() => cargar(false)}
       />

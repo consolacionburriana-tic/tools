@@ -28,6 +28,8 @@ const schema = z.object({
   cuerpo: z.string().min(2).max(20000),
   fusionar: z.boolean().default(false),
   destino: z.enum(['alumno', 'familia']).default('alumno'),
+  /** Reenvío explícito: deja pasar licencias ya marcadas como `enviado`. */
+  forzar: z.boolean().default(false),
   /** Solo en `prueba`: a dónde se manda el correo de muestra. */
   pruebaPara: z.string().email().optional(),
 });
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Datos no válidos' }, { status: 400 });
   }
 
-  const licencias = await contextoParaEnvio(campaign.id, datos.ids, datos.destino);
+  const licencias = await contextoParaEnvio(campaign.id, datos.ids, datos.destino, datos.forzar);
   if (!licencias.length) {
     return NextResponse.json(
       { error: 'Ninguna de esas licencias se puede enviar (sin código, ya enviada o descartada)' },
