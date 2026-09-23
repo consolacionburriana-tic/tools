@@ -11,10 +11,26 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 
-/** El estado de «qué se está guardando» y «qué espera confirmación», con el POST incluido. */
+/** Un cambio masivo esperando el «sí, hazlo»: qué va a pasar, en palabras, y a cuántos. */
+export interface Pendiente {
+  clave: string;
+  pregunta: string;
+  boton: string;
+  tono: 'verde' | 'rojo' | 'neutro';
+  hacer: () => Promise<unknown> | void;
+}
+
+/**
+ * El estado de «qué se está guardando» y «qué espera confirmación», con el POST incluido.
+ *
+ * Lo masivo NO se confirma con un segundo toque sobre el mismo botón (así estuvo hasta el
+ * 23-sep-2026 y David lo dio por roto: el primer toque solo cambiaba de color y parecía que no
+ * hacía nada). Ahora el primer toque abre una barra que dice en palabras qué va a pasar y a
+ * cuántos alumnos, con un botón grande para hacerlo y otro para cancelar.
+ */
 export function useGuardado() {
   const [guardando, setGuardando] = useState<string | null>(null);
-  const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [pendiente, setPendiente] = useState<Pendiente | null>(null);
 
   async function enviar<T>(clave: string, url: string, cuerpo: unknown, avisoMasivo?: string): Promise<T | null> {
     haptic.tap();
@@ -36,21 +52,78 @@ export function useGuardado() {
       return null;
     } finally {
       setGuardando(null);
-      setConfirmando(null);
     }
   }
 
-  /** Primer toque: pide confirmación. Segundo: lo hace. */
-  function confirmarY(clave: string, hacer: () => void) {
-    if (confirmando !== clave) {
-      haptic.tap();
-      setConfirmando(clave);
-      return;
-    }
-    hacer();
+  /** Primer paso de lo masivo: enseña la barra de confirmación. */
+  function pedir(p: Pendiente) {
+    haptic.tap();
+    setPendiente(p);
   }
 
-  return { guardando, confirmando, setConfirmando, enviar, confirmarY };
+  async function confirmar() {
+    if (!pendiente) return;
+    const p = pendiente;
+    setPendiente(null);
+    await p.hacer();
+  }
+
+  const confirmacion = (
+    <BarraConfirmacion
+      pendiente={pendiente}
+      ocupada={Boolean(pendiente && guardando === pendiente.clave)}
+      onConfirmar={() => void confirmar()}
+      onCancelar={() => setPendiente(null)}
+    />
+  );
+
+  return { guardando, pendiente, enviar, pedir, confirmacion };
+}
+
+function BarraConfirmacion({
+  pendiente,
+  ocupada,
+  onConfirmar,
+  onCancelar,
+}: {
+  pendiente: Pendiente | null;
+  ocupada: boolean;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  if (!pendiente) return null;
+  const color =
+    pendiente.tono === 'verde'
+      ? 'bg-emerald-600 hover:bg-emerald-700'
+      : pendiente.tono === 'rojo'
+        ? 'bg-red-600 hover:bg-red-700'
+        : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900';
+  return (
+    <div
+      role="alertdialog"
+      aria-label="Confirmar cambio masivo"
+      className="sticky top-16 z-10 flex flex-wrap items-center gap-2 rounded-2xl bg-amber-50 px-4 py-3 shadow-md ring-2 ring-amber-400 dark:bg-amber-950/80 dark:ring-amber-600"
+    >
+      <p className="mr-auto text-sm font-medium text-amber-900 dark:text-amber-100">{pendiente.pregunta}</p>
+      <button
+        type="button"
+        onClick={onCancelar}
+        className="rounded-xl px-3.5 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        onClick={onConfirmar}
+        disabled={ocupada}
+        autoFocus
+        className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${color}`}
+      >
+        {ocupada && <Loader2 className="h-4 w-4 animate-spin" />}
+        {pendiente.boton}
+      </button>
+    </div>
+  );
 }
 
 export const CELDA_TONO = {
@@ -105,45 +178,45 @@ export function Celda({
   );
 }
 
+/** Botón de una columna entera («Todos sí»): con TEXTO, no solo un icono. */
 export function ColumnaBoton({
   activa,
   ocupada,
   tono,
   titulo,
+  texto,
   onClick,
   children,
 }: {
+  /** Es el que está esperando confirmación. */
   activa: boolean;
   ocupada: boolean;
   tono: 'verde' | 'rojo' | 'azul' | 'gris';
   titulo: string;
+  /** Lo que pone el botón. Sin texto (editar, borrar) queda solo el icono. */
+  texto?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   const base = {
-    verde: 'text-emerald-600 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-950',
-    rojo: 'text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950',
-    azul: 'text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-950',
-    gris: 'text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800',
-  }[tono];
-  const puesta = {
-    verde: 'bg-emerald-600 text-white',
-    rojo: 'bg-red-600 text-white',
-    azul: 'bg-blue-600 text-white',
-    gris: 'bg-zinc-600 text-white',
+    verde: 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
+    rojo: 'bg-red-50 text-red-700 ring-red-200 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900',
+    azul: 'bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900',
+    gris: 'bg-zinc-50 text-zinc-600 ring-zinc-200 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700',
   }[tono];
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={ocupada}
-      title={activa ? `${titulo} · toca otra vez para confirmar` : titulo}
+      title={titulo}
       aria-label={titulo}
-      className={`inline-flex h-6 min-w-7 items-center justify-center rounded-md px-1 text-[10px] font-semibold transition-colors disabled:opacity-60 ${
-        activa ? puesta : base
+      className={`inline-flex h-7 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-semibold ring-1 transition-colors disabled:opacity-60 ${base} ${
+        activa ? 'ring-2 ring-amber-400' : ''
       }`}
     >
-      {ocupada ? <Loader2 className="h-3 w-3 animate-spin" /> : children}
+      {ocupada ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : children}
+      {texto}
     </button>
   );
 }
@@ -152,7 +225,6 @@ export function BotonMasivo({
   activa,
   ocupada,
   texto,
-  confirmacion,
   tono = 'neutro',
   onClick,
   icono,
@@ -160,7 +232,6 @@ export function BotonMasivo({
   activa: boolean;
   ocupada: boolean;
   texto: string;
-  confirmacion: string;
   tono?: 'verde' | 'gris' | 'neutro';
   onClick: () => void;
   icono?: React.ReactNode;
@@ -177,11 +248,11 @@ export function BotonMasivo({
       onClick={onClick}
       disabled={ocupada}
       className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-colors disabled:opacity-60 ${
-        activa ? 'bg-amber-500 text-white hover:bg-amber-600' : colores
+        activa ? `${colores} ring-2 ring-amber-400` : colores
       }`}
     >
       {ocupada ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : icono}
-      {activa ? confirmacion : texto}
+      {texto}
     </button>
   );
 }

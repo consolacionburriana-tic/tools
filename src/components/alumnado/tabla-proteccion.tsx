@@ -73,7 +73,7 @@ export function TablaProteccion({
   onInforme: (columnas: ClaveColumna[]) => void;
 }) {
   const [detalle, setDetalle] = useState(false);
-  const { guardando, confirmando, enviar, confirmarY } = useGuardado();
+  const { guardando, pendiente, enviar, pedir, confirmacion } = useGuardado();
 
   const conPd = alumnos.filter((a) => a.proteccion);
   const sinPd = alumnos.length - conPd.length;
@@ -89,8 +89,16 @@ export function TablaProteccion({
     if (datos) onCambio(datos.filas);
   }
 
-  const masivo = (clave: string, cambios: Cambios) =>
-    confirmarY(clave, () => void guardar(clave, conPd.map((a) => a.id), cambios));
+  /** Lo masivo pregunta primero, en palabras y con el número de alumnos. */
+  const masivo = (clave: string, pregunta: string, boton: string, tono: 'verde' | 'rojo' | 'neutro', cambios: Cambios) =>
+    pedir({
+      clave,
+      pregunta: `${pregunta} · ${conPd.length} ${conPd.length === 1 ? 'alumno' : 'alumnos'} de ${ambito}`,
+      boton,
+      tono,
+      hacer: () => guardar(clave, conPd.map((a) => a.id), cambios),
+    });
+  const esperando = (clave: string) => pendiente?.clave === clave;
 
   if (conPd.length === 0) {
     return (
@@ -127,24 +135,24 @@ export function TablaProteccion({
         {puedeEditar && (
           <>
             <BotonMasivo
-              activa={confirmando === 'todo-si'}
+              activa={esperando('todo-si')}
               ocupada={guardando === 'todo-si'}
               texto="Poner todo a SÍ"
-              confirmacion={`Sí: ${conPd.length} alumnos × 4 permisos`}
               tono="verde"
-              onClick={() => masivo('todo-si', todos(true))}
+              onClick={() => masivo('todo-si', '¿Autorizar los cuatro permisos (imagen, redes, AMPA y ONG)?', 'Sí, todo a SÍ', 'verde', todos(true))}
             />
             <BotonMasivo
-              activa={confirmando === 'limpiar'}
+              activa={esperando('limpiar')}
               ocupada={guardando === 'limpiar'}
               texto="Dejar sin constar"
-              confirmacion={`Sí: borrar los ${conPd.length}`}
               tono="gris"
-              onClick={() => masivo('limpiar', todos(null))}
+              onClick={() => masivo('limpiar', '¿Borrar los cuatro permisos y dejarlos sin constar?', 'Sí, dejar sin constar', 'neutro', todos(null))}
             />
           </>
         )}
       </BarraTabla>
+
+      {confirmacion}
 
       <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
         <table className="w-full min-w-[24rem] text-sm">
@@ -168,20 +176,22 @@ export function TablaProteccion({
                 {puedeEditar && (
                   <span className="mt-1 flex justify-center gap-0.5">
                     <ColumnaBoton
-                      activa={confirmando === 'general-si'}
+                      activa={esperando('general-si')}
                       ocupada={guardando === 'general-si'}
                       tono="verde"
-                      titulo={`Autoriza todo en ${ambito}`}
-                      onClick={() => masivo('general-si', todos(true))}
+                      texto="Todos sí"
+                      titulo={`Protección de datos: todos sí en ${ambito}`}
+                      onClick={() => masivo('general-si', '¿Protección de datos a SÍ (los cuatro permisos)?', 'Sí, todos a SÍ', 'verde', todos(true))}
                     >
                       <Check className="h-3 w-3" />
                     </ColumnaBoton>
                     <ColumnaBoton
-                      activa={confirmando === 'general-no'}
+                      activa={esperando('general-no')}
                       ocupada={guardando === 'general-no'}
                       tono="rojo"
-                      titulo={`No autoriza nada en ${ambito}`}
-                      onClick={() => masivo('general-no', todos(false))}
+                      texto="Todos no"
+                      titulo={`Protección de datos: todos no en ${ambito}`}
+                      onClick={() => masivo('general-no', '¿Protección de datos a NO (los cuatro permisos)?', 'Sí, todos a NO', 'rojo', todos(false))}
                     >
                       <X className="h-3 w-3" />
                     </ColumnaBoton>
@@ -197,20 +207,26 @@ export function TablaProteccion({
                     {puedeEditar && (
                       <span className="mt-1 flex justify-center gap-0.5">
                         <ColumnaBoton
-                          activa={confirmando === `${campo}-si`}
+                          activa={esperando(`${campo}-si`)}
                           ocupada={guardando === `${campo}-si`}
                           tono="verde"
+                          texto="Sí"
                           titulo={`Poner «${PROTECCION_LABELS[campo].titulo}» a sí en ${ambito}`}
-                          onClick={() => masivo(`${campo}-si`, { [campo]: true })}
+                          onClick={() =>
+                            masivo(`${campo}-si`, `¿«${PROTECCION_LABELS[campo].titulo}» a SÍ?`, 'Sí, todos a SÍ', 'verde', { [campo]: true })
+                          }
                         >
                           <Check className="h-3 w-3" />
                         </ColumnaBoton>
                         <ColumnaBoton
-                          activa={confirmando === `${campo}-no`}
+                          activa={esperando(`${campo}-no`)}
                           ocupada={guardando === `${campo}-no`}
                           tono="rojo"
+                          texto="No"
                           titulo={`Poner «${PROTECCION_LABELS[campo].titulo}» a no en ${ambito}`}
-                          onClick={() => masivo(`${campo}-no`, { [campo]: false })}
+                          onClick={() =>
+                            masivo(`${campo}-no`, `¿«${PROTECCION_LABELS[campo].titulo}» a NO?`, 'Sí, todos a NO', 'rojo', { [campo]: false })
+                          }
                         >
                           <X className="h-3 w-3" />
                         </ColumnaBoton>
@@ -225,13 +241,28 @@ export function TablaProteccion({
                 {puedeEditar && (
                   <span className="mt-1 flex justify-center gap-0.5">
                     <ColumnaBoton
-                      activa={confirmando === 'correo-no'}
+                      activa={esperando('correo-no')}
                       ocupada={guardando === 'correo-no'}
                       tono="verde"
+                      texto="Nadie"
                       titulo={`Nadie desestima el correo en ${ambito}`}
-                      onClick={() => masivo('correo-no', { desestimaCorreo: false })}
+                      onClick={() =>
+                        masivo('correo-no', '¿Marcar que NADIE desestima el correo?', 'Sí, nadie desestima', 'verde', { desestimaCorreo: false })
+                      }
                     >
                       <Check className="h-3 w-3" />
+                    </ColumnaBoton>
+                    <ColumnaBoton
+                      activa={esperando('correo-si')}
+                      ocupada={guardando === 'correo-si'}
+                      tono="rojo"
+                      texto="Todos"
+                      titulo={`Todos desestiman el correo en ${ambito}`}
+                      onClick={() =>
+                        masivo('correo-si', '¿Marcar que TODOS desestiman el correo?', 'Sí, todos desestiman', 'rojo', { desestimaCorreo: true })
+                      }
+                    >
+                      <X className="h-3 w-3" />
                     </ColumnaBoton>
                   </span>
                 )}
