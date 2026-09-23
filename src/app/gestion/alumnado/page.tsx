@@ -11,6 +11,12 @@ import {
   listaAlumnado,
   puedeConAlumno,
 } from '@/lib/alumnado-server';
+import {
+  canAccess,
+  puedeGestionarMateriales,
+  puedeGestionarParticipantesBanco,
+  veBecasMateriales,
+} from '@/lib/permissions';
 
 export const metadata = { title: 'Alumnado · Gestión' };
 
@@ -31,7 +37,8 @@ export default async function AlumnadoPage({
   // El alcance de la protección de datos es más estrecho que el de la pantalla: dirección y
   // demás la ven entera, un tutor solo la de su tutoría (ver `alcanceProteccion`).
   const pd = alcanceProteccion(user, alcance.propias);
-  const { alumnos, clases } = await listaAlumnado(alcance.clases, undefined, pd);
+  const veBecas = veBecasMateriales(user.role);
+  const { alumnos, clases, materiales } = await listaAlumnado(alcance.clases, undefined, pd, veBecas);
 
   // El alcance se comprueba también aquí: un enlace a un alumno de otra etapa no puede
   // colar su ficha en el HTML por venir en la URL.
@@ -49,6 +56,10 @@ export default async function AlumnadoPage({
         propias={alcance.propias}
         fichaInicial={fichaInicial}
         puedeEditarProteccion={pd.edita}
+        puedeParticipacion={canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role)}
+        materiales={materiales}
+        puedeGestionarMateriales={puedeGestionarMateriales(user.role)}
+        veBecas={veBecas}
       />
     </div>
   );

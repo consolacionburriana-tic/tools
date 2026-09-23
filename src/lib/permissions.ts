@@ -220,6 +220,26 @@ export function puedeEditarProteccionDatos(role: Role | null): boolean {
 }
 
 /**
+ * Venta de materiales (dentro de `alumnado`): crear materiales —cada uno es una columna— y
+ * marcar quién ha pagado es cosa de secretaría, dirección y TIC (David, 23-sep-2026). El
+ * resto de quien entra en Alumnado lo ve, dentro de su alcance, sin lápiz.
+ */
+export function puedeGestionarMateriales(role: Role | null): boolean {
+  return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
+}
+
+/**
+ * «Becado» es un dato económico de la familia: lo ven dirección, secretaría, orientación y
+ * TIC. Para el resto del claustro un becado sale como «pagado» —lo que le importa a un tutor
+ * es que el alumno tiene su material—, y ese cambio se hace en el servidor.
+ */
+export function veBecasMateriales(role: Role | null): boolean {
+  return (
+    role === 'direccion' || role === 'secretaria' || role === 'orientacion' || role === 'tic' || role === 'supertic'
+  );
+}
+
+/**
  * Los horarios van en DOS módulos a propósito, no en uno:
  *
  *   - `horarios`         → ver el horario de las CLASES. Abierto a todo el claustro: un

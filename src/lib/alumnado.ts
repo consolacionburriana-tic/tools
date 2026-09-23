@@ -5,6 +5,7 @@
 // «¿a quién llamo?», «¿este es del banco de libros / tiene el pedido hecho?» y «dame su NIA».
 // Todo lo que hay aquí está al servicio de eso.
 // Ficha del módulo: docs/21-alumnado.md
+import { cursoBaseEso, etapaDeCurso } from '@/lib/cursos';
 
 // ─── Búsqueda ─────────────────────────────────────────────────────────────────
 
@@ -285,29 +286,60 @@ export interface ProteccionDatos {
   redes: boolean | null;
   ampa: boolean | null;
   ong: boolean | null;
-  /** ¿Está el documento firmado y guardado en secretaría? */
-  firmada: boolean;
+  /**
+   * La familia desestima el correo electrónico del alumno (no quiere que el colegio le dé
+   * cuenta). Por defecto `false`: nadie desestima, y eso es lo verde.
+   */
+  desestimaCorreo: boolean;
   notas: string | null;
   actualizadoAt: string | null;
   actualizadoPor: string | null;
 }
 
-/** Los cuatro permisos, sin la metainformación de la firma. */
-export const permisosDe = (pd: ProteccionDatos): Record<CampoProteccion, boolean | null> => ({
+/** Los cuatro permisos, sin la metainformación. */
+export const permisosDe = (
+  pd: Pick<ProteccionDatos, CampoProteccion>,
+): Record<CampoProteccion, boolean | null> => ({
   imagen: pd.imagen,
   redes: pd.redes,
   ampa: pd.ampa,
   ong: pd.ong,
 });
 
+/**
+ * El «check general» de la tabla (David, 23-sep-2026): una sola columna que dice sí o no, y
+ * las cuatro de detalle se despliegan solo si hace falta. NO es un dato guardado aparte, se
+ * deduce de los cuatro: guardarlo sería tener dos verdades que sincronizar a mano, que es
+ * exactamente el error que documenta `06-fuente-unica-alumnado.md`.
+ *
+ *  - `si`      los cuatro autorizados
+ *  - `no`      los cuatro NO autorizados
+ *  - `parcial` hay algún no, pero no todos (lo que obliga a desplegar para saber cuál)
+ *  - `null`    falta alguno por marcar y ninguno es no
+ */
+export type GeneralProteccion = 'si' | 'no' | 'parcial' | null;
+
+export function generalProteccion(pd: Pick<ProteccionDatos, CampoProteccion>): GeneralProteccion {
+  const valores = CAMPOS_PROTECCION.map((c) => permisosDe(pd)[c]);
+  if (valores.every((v) => v === true)) return 'si';
+  if (valores.every((v) => v === false)) return 'no';
+  if (valores.some((v) => v === false)) return 'parcial';
+  return null;
+}
+
+/** Lo que pone un toque sobre la celda general: si ya está todo a sí, todo a no; si no, todo a sí. */
+export function siguienteGeneral(actual: GeneralProteccion): boolean {
+  return actual !== 'si';
+}
+
 /** Lo que la familia ha dicho que NO, en el orden de siempre y con el nombre corto. */
-export function noAutorizados(pd: ProteccionDatos): string[] {
+export function noAutorizados(pd: Pick<ProteccionDatos, CampoProteccion>): string[] {
   const permisos = permisosDe(pd);
   return CAMPOS_PROTECCION.filter((c) => permisos[c] === false).map((c) => PROTECCION_LABELS[c].corto);
 }
 
 /** Los que no constan: ni sí ni no. */
-export function sinConstar(pd: ProteccionDatos): string[] {
+export function sinConstar(pd: Pick<ProteccionDatos, CampoProteccion>): string[] {
   const permisos = permisosDe(pd);
   return CAMPOS_PROTECCION.filter((c) => permisos[c] === null).map((c) => PROTECCION_LABELS[c].corto);
 }
@@ -321,32 +353,113 @@ export type TonoProteccion = 'rojo' | 'ambar' | 'verde' | 'gris';
  *  1. Un NO a la imagen manda sobre todo lo demás y sale en ROJO: es el error caro.
  *  2. Un no a cualquiera de las otras tres, en ámbar y diciendo a cuál.
  *  3. Con huecos sin marcar, gris: ni sí ni no, y se dice cuáles.
- *  4. Todo autorizado, verde; y si encima falta la firma, se dice al lado sin dar la nota.
+ *  4. Todo autorizado, verde.
+ *
+ * La desestimación del correo va de coletilla en el detalle: no tiene que ver con las
+ * fotos, pero quien abre la ficha tiene que enterarse.
  */
 export function avisoProteccion(pd: ProteccionDatos): { tono: TonoProteccion; texto: string; detalle?: string } {
   const noes = noAutorizados(pd);
   const faltan = sinConstar(pd);
+  const correo = pd.desestimaCorreo ? 'sin correo del alumno' : undefined;
+  const junta = (...partes: (string | undefined)[]) => partes.filter(Boolean).join(' · ') || undefined;
 
   if (pd.imagen === false) {
     const otros = noes.filter((n) => n !== PROTECCION_LABELS.imagen.corto);
     return {
       tono: 'rojo',
       texto: 'NO puede salir en fotos',
-      detalle: otros.length > 0 ? `tampoco ${otros.join(', ')}` : undefined,
+      detalle: junta(otros.length > 0 ? `tampoco ${otros.join(', ')}` : undefined, correo),
     };
   }
   if (noes.length > 0) {
-    return { tono: 'ambar', texto: `Sin permiso de ${noes.join(', ')}`, detalle: pd.firmada ? undefined : 'sin firmar' };
+    return { tono: 'ambar', texto: `Sin permiso de ${noes.join(', ')}`, detalle: correo };
   }
   if (faltan.length > 0) {
-    return { tono: 'gris', texto: 'Protección de datos a medias', detalle: `sin marcar: ${faltan.join(', ')}` };
+    return { tono: 'gris', texto: 'Protección de datos a medias', detalle: junta(`sin marcar: ${faltan.join(', ')}`, correo) };
   }
-  // Todo autorizado. Que falte la firma se dice, pero en verde y de refilón: desde que el
-  // punto de partida es «sí a todo», un ámbar aquí saldría en las 639 fichas, y una alarma
-  // que sale siempre es una alarma que nadie lee.
-  return { tono: 'verde', texto: 'Imagen autorizada', detalle: pd.firmada ? undefined : 'sin firmar' };
+  return { tono: 'verde', texto: 'Imagen autorizada', detalle: correo };
 }
 
 /** ¿Hay algo aquí que no sea «todo en blanco»? Sirve para no pintar filas vacías. */
 export const tieneProteccion = (pd: ProteccionDatos): boolean =>
-  pd.firmada || Boolean(pd.notas) || CAMPOS_PROTECCION.some((c) => permisosDe(pd)[c] !== null);
+  pd.desestimaCorreo || Boolean(pd.notas) || CAMPOS_PROTECCION.some((c) => permisosDe(pd)[c] !== null);
+
+// ─── Venta de materiales ──────────────────────────────────────────────────────
+//
+// Un material (la agenda, la bata…) es una columna de la vista de Alumnado para las clases a
+// las que va. Su estado por alumno tiene CINCO valores y el quinto importa tanto como los
+// otros: «—» es que todavía no hay información, que no es lo mismo que «no ha pagado».
+
+export const ESTADOS_MATERIAL = ['pagado', 'no', 'becado', 'no_aplica'] as const;
+export type EstadoMaterial = (typeof ESTADOS_MATERIAL)[number];
+
+export const ESTADO_MATERIAL_LABEL: Record<EstadoMaterial | 'sin', { texto: string; corto: string }> = {
+  pagado: { texto: 'Pagado', corto: 'Sí' },
+  no: { texto: 'No pagado', corto: 'No' },
+  becado: { texto: 'Becado', corto: 'Beca' },
+  no_aplica: { texto: 'No aplica', corto: 'N/A' },
+  sin: { texto: 'Sin información', corto: '—' },
+};
+
+/**
+ * El ciclo de un toque sobre la celda: — → sí → no → becado → no aplica → —. Empieza por
+ * «sí» porque es lo que se marca el 90% de las veces según van pagando.
+ */
+export function siguienteEstadoMaterial(actual: EstadoMaterial | null, conBeca = true): EstadoMaterial | null {
+  const ciclo: (EstadoMaterial | null)[] = conBeca
+    ? [null, 'pagado', 'no', 'becado', 'no_aplica']
+    : [null, 'pagado', 'no', 'no_aplica'];
+  const i = ciclo.indexOf(actual);
+  return ciclo[(i + 1) % ciclo.length];
+}
+
+/**
+ * «Becado» es un dato económico de la familia: lo ven dirección, secretaría, orientación y
+ * TIC. Al resto del claustro se le manda como «pagado» (David, 23-sep-2026), porque para un
+ * tutor lo único que importa es que el alumno tiene su material. Se aplica en el SERVIDOR,
+ * antes de mandar nada: esconderlo con CSS sería mandarlo igual.
+ */
+export function estadoVisible(estado: EstadoMaterial | null, veBecas: boolean): EstadoMaterial | null {
+  if (estado === 'becado' && !veBecas) return 'pagado';
+  return estado;
+}
+
+export type DestinoMaterial =
+  | { tipo: 'etapa'; etapa: string }
+  | { tipo: 'curso'; curso: string }
+  | { tipo: 'clase'; curso: string; letra: string | null };
+
+/**
+ * ¿Va este material a este alumno? Una etapa entera, un curso entero o una clase suelta, y
+ * se pueden mezclar («toda Primaria y además 1º ESO A»). Un curso de ESO incluye a su PDC:
+ * un alumno de 3º PDC es de 3º de ESO para todo lo demás (`cursoBaseEso`).
+ */
+export function aplicaMaterial(
+  destinos: readonly DestinoMaterial[],
+  alumno: { curso: string | null; letra: string | null },
+): boolean {
+  if (!alumno.curso) return false;
+  const curso = alumno.curso;
+  const base = cursoBaseEso(curso);
+  return destinos.some((d) => {
+    if (d.tipo === 'etapa') return etapaDeCurso(curso) === d.etapa;
+    if (d.tipo === 'curso') return d.curso === curso || d.curso === base;
+    return d.curso === curso && (d.letra ?? null) === (alumno.letra ?? null);
+  });
+}
+
+const ETAPA_NOMBRE: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'Secundaria' };
+
+/** «Primaria · 1º ESO · 2º ESO B», para decir a quién va sin abrir nada. */
+export function describirDestinos(destinos: readonly DestinoMaterial[]): string {
+  return destinos
+    .map((d) =>
+      d.tipo === 'etapa'
+        ? (ETAPA_NOMBRE[d.etapa] ?? d.etapa)
+        : d.tipo === 'curso'
+          ? claseLarga(d.curso, null)
+          : claseLarga(d.curso, d.letra),
+    )
+    .join(' · ');
+}

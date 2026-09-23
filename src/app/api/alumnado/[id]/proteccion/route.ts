@@ -23,7 +23,7 @@ const cuerpo = z
     redes: permiso.optional(),
     ampa: permiso.optional(),
     ong: permiso.optional(),
-    firmada: z.boolean().optional(),
+    desestimaCorreo: z.boolean().optional(),
     notas: z.string().max(500).nullable().optional(),
   })
   .refine((c) => Object.keys(c).length > 0, { message: 'No hay nada que cambiar' });

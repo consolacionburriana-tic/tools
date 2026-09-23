@@ -112,23 +112,25 @@ export function TarjetaProteccion({
           </div>
 
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <Interruptor
-                etiqueta="Documento firmado"
-                puesto={proteccion.firmada}
+                etiqueta="Desestima el correo del alumno"
+                ayuda="La familia no quiere cuenta de correo del colegio para él"
+                puesto={proteccion.desestimaCorreo}
+                peligro
                 editable={puedeEditar}
-                guardando={guardando === 'firmada'}
-                onCambiar={(v) => guardar('firmada', { firmada: v }, 'proteccion')}
+                guardando={guardando === 'desestimaCorreo'}
+                onCambiar={(v) => guardar('desestimaCorreo', { desestimaCorreo: v }, 'proteccion')}
               />
               {proteccion.notas && <p className="mt-1 text-xs italic text-zinc-500">{proteccion.notas}</p>}
             </div>
-            {proteccion.actualizadoAt && (
-              <p className="text-[11px] text-zinc-400">
-                Última vez: {new Date(proteccion.actualizadoAt).toLocaleDateString('es-ES')}
-                {proteccion.actualizadoPor && ` · ${proteccion.actualizadoPor.split('@')[0]}`}
-              </p>
-            )}
           </div>
+          {proteccion.actualizadoAt && (
+            <p className="mt-1 text-right text-[11px] text-zinc-400">
+              Última vez: {new Date(proteccion.actualizadoAt).toLocaleDateString('es-ES')}
+              {proteccion.actualizadoPor && ` · ${proteccion.actualizadoPor.split('@')[0]}`}
+            </p>
+          )}
           {!puedeEditar && (
             <p className="mt-1.5 text-[11px] text-zinc-400">
               Para cambiar algo de aquí, secretaría (o dirección/TIC): son los papeles que guardan ellos.
@@ -259,6 +261,7 @@ function Interruptor({
   etiqueta,
   ayuda,
   puesto,
+  peligro = false,
   editable,
   guardando,
   onCambiar,
@@ -266,6 +269,8 @@ function Interruptor({
   etiqueta: string;
   ayuda?: string;
   puesto: boolean;
+  /** El «sí» es lo raro y va en rojo (desestimar el correo). */
+  peligro?: boolean;
   editable: boolean;
   guardando: boolean;
   onCambiar: (valor: boolean) => void;
@@ -285,7 +290,11 @@ function Interruptor({
           disabled={guardando}
           onClick={() => onCambiar(!puesto)}
           className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
-            puesto ? 'bg-emerald-600 dark:bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'
+            puesto
+              ? peligro
+                ? 'bg-red-600 dark:bg-red-500'
+                : 'bg-emerald-600 dark:bg-emerald-500'
+              : 'bg-zinc-300 dark:bg-zinc-700'
           }`}
         >
           <span
@@ -297,7 +306,11 @@ function Interruptor({
           </span>
         </button>
       ) : (
-        <span className="shrink-0 text-xs text-zinc-500">{puesto ? 'Sí' : 'No'}</span>
+        <span
+          className={`shrink-0 text-xs ${puesto && peligro ? 'font-medium text-red-600 dark:text-red-400' : 'text-zinc-500'}`}
+        >
+          {puesto ? 'Sí' : 'No'}
+        </span>
       )}
     </div>
   );

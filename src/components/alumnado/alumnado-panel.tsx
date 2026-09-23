@@ -26,18 +26,24 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BookMarked, Camera, CameraOff, Library, List, Search, Users, X } from 'lucide-react';
+import { BookMarked, Camera, CameraOff, FileText, HeartHandshake, Library, List, Search, ShoppingBag, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FichaAlumnoPanel, useEscape } from '@/components/alumnado/ficha-alumno';
+import { Informes } from '@/components/alumnado/informes';
+import { TablaMateriales } from '@/components/alumnado/tabla-materiales';
+import { TablaParticipacion } from '@/components/alumnado/tabla-participacion';
 import { TablaProteccion } from '@/components/alumnado/tabla-proteccion';
-import { casaBusqueda, colorAvatar, iniciales } from '@/lib/alumnado';
-import type { AlumnoLista, ClaseListado, FichaAlumno, ProteccionLista } from '@/lib/alumnado-server';
+import { casaBusqueda, colorAvatar, iniciales, type EstadoMaterial } from '@/lib/alumnado';
+import type { ClaveColumna } from '@/lib/alumnado-informe';
+import type { AlumnoLista, ClaseListado, FichaAlumno, MaterialLista, ProteccionLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
 
 const ETAPA_ORDEN = ['EI', 'EP', 'ESO'] as const;
 const ETAPA_LABEL: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'Secundaria', otras: 'Otras' };
 
 const claveClase = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
+
+type Vista = 'fichas' | 'proteccion' | 'banco' | 'ampa' | 'materiales' | 'informes';
 
 export function AlumnadoPanel({
   alumnos,
@@ -46,6 +52,10 @@ export function AlumnadoPanel({
   propias,
   fichaInicial,
   puedeEditarProteccion,
+  puedeParticipacion,
+  materiales: materialesIniciales,
+  puedeGestionarMateriales,
+  veBecas,
 }: {
   alumnos: AlumnoLista[];
   clases: ClaseListado[];
@@ -57,6 +67,14 @@ export function AlumnadoPanel({
   fichaInicial: FichaAlumno | null;
   /** ¿Puede cambiar la protección de datos? (secretaría, dirección, TIC.) */
   puedeEditarProteccion: boolean;
+  /** ¿Puede marcar banco de libros y AMPA? (dirección/TIC con el módulo del banco.) */
+  puedeParticipacion: boolean;
+  /** Los materiales a la venta este curso que van a alguna de sus clases. */
+  materiales: MaterialLista[];
+  /** ¿Puede crear materiales y marcar pagos? (secretaría, dirección, TIC.) */
+  puedeGestionarMateriales: boolean;
+  /** ¿Ve «becado»? Si no, el servidor ya se lo manda como «pagado». */
+  veBecas: boolean;
 }) {
   const params = useSearchParams();
   const abiertoId = params.get('alumno');
@@ -72,7 +90,13 @@ export function AlumnadoPanel({
   const [termino, setTermino] = useState('');
   // Dos vistas sobre la misma lista: las fichas (lo de siempre) y la tabla de protección de
   // datos de la clase entera, que es la que hace posible llenarla sin morir en el intento.
-  const [vista, setVista] = useState<'fichas' | 'proteccion'>('fichas');
+  // Desde el 23-sep-2026 también banco de libros, AMPA, venta de materiales e informes: cada
+  // una es la clase entera en tabla, con el mismo carril de clases arriba.
+  const [vista, setVista] = useState<Vista>('fichas');
+  const [materiales, setMateriales] = useState<MaterialLista[]>(materialesIniciales);
+  // Lo que trae el botón «Informe» de cada tabla. `n` fuerza a montar de nuevo el formulario
+  // con esas columnas aunque ya estuviera abierto.
+  const [preset, setPreset] = useState<{ columnas: ClaveColumna[]; n: number }>({ columnas: [], n: 0 });
   // La caché arranca con la ficha que ya trae el servidor, si se ha entrado por enlace.
   const [fichas, setFichas] = useState<Record<string, FichaAlumno>>(() =>
     fichaInicial ? { [fichaInicial.id]: fichaInicial } : {},
@@ -134,8 +158,8 @@ export function AlumnadoPanel({
     if (cambio.bancoLibros !== undefined) enLaFila.bancoLibros = cambio.bancoLibros;
     if (cambio.ampa !== undefined) enLaFila.ampa = cambio.ampa;
     if (cambio.proteccion) {
-      const { imagen, redes, ampa, ong, firmada } = cambio.proteccion;
-      enLaFila.proteccion = { imagen, redes, ampa, ong, firmada };
+      const { imagen, redes, ampa, ong, desestimaCorreo } = cambio.proteccion;
+      enLaFila.proteccion = { imagen, redes, ampa, ong, desestimaCorreo };
     }
     if (Object.keys(enLaFila).length > 0) {
       setRetoques((r) => ({ ...r, [id]: { ...r[id], ...enLaFila } }));
@@ -160,6 +184,54 @@ export function AlumnadoPanel({
       }
       return cambiado ? siguiente : f;
     });
+  }, []);
+
+  /** Banco de libros / AMPA desde su tabla: a la lista y, si estaban abiertas, a las fichas. */
+  const actualizarParticipacion = useCallback(
+    (ids: string[], cambio: Partial<Pick<AlumnoLista, 'bancoLibros' | 'ampa'>>) => {
+      setRetoques((r) => {
+        const siguiente = { ...r };
+        for (const id of ids) siguiente[id] = { ...siguiente[id], ...cambio };
+        return siguiente;
+      });
+      setFichas((f) => {
+        let cambiado = false;
+        const siguiente = { ...f };
+        for (const id of ids) {
+          if (!siguiente[id]) continue;
+          siguiente[id] = { ...siguiente[id], ...cambio };
+          cambiado = true;
+        }
+        return cambiado ? siguiente : f;
+      });
+    },
+    [],
+  );
+
+  const porId = useMemo(() => new Map(alumnos.map((a) => [a.id, a])), [alumnos]);
+
+  /** Un pago marcado: se mezcla con lo que ya tuviera ese alumno de otros materiales. */
+  const actualizarMaterial = useCallback(
+    (materialId: string, ids: string[], estado: EstadoMaterial | null) => {
+      setRetoques((r) => {
+        const siguiente = { ...r };
+        for (const id of ids) {
+          const antes = siguiente[id]?.materiales ?? porId.get(id)?.materiales ?? {};
+          const materiales = { ...antes };
+          if (estado) materiales[materialId] = estado;
+          else delete materiales[materialId];
+          siguiente[id] = { ...siguiente[id], materiales };
+        }
+        return siguiente;
+      });
+    },
+    [porId],
+  );
+
+  const pedirInforme = useCallback((columnas: ClaveColumna[]) => {
+    haptic.tap();
+    setPreset((p) => ({ columnas, n: p.n + 1 }));
+    setVista('informes');
   }, []);
 
   const abrir = useCallback(
@@ -218,6 +290,9 @@ export function AlumnadoPanel({
   // La pestaña de protección de datos solo aparece si hay algo que enseñar en ella: a un
   // tutor de otra etapa no se le pinta una pestaña que va a estar siempre vacía.
   const hayProteccion = useMemo(() => alumnos.some((a) => a.proteccion), [alumnos]);
+  const ambito = buscando ? `${visibles.length} resultado(s)` : (claseActual?.clase ?? 'Todo el centro');
+  // Con varias clases a la vez (buscando, o sin clase elegida), cada fila dice la suya.
+  const conClase = buscando || !clase;
 
   return (
     <div className="space-y-3">
@@ -275,40 +350,79 @@ export function AlumnadoPanel({
         </div>
       )}
 
-      {/* ── Las dos vistas ───────────────────────────────────────────── */}
-      {hayProteccion && (
-        <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
-          {(
-            [
-              { id: 'fichas' as const, texto: 'Fichas', icono: <List className="h-3.5 w-3.5" /> },
-              { id: 'proteccion' as const, texto: 'Protección de datos', icono: <Camera className="h-3.5 w-3.5" /> },
-            ]
-          ).map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => {
-                haptic.tap();
-                setVista(v.id);
-              }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                vista === v.id
-                  ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
-                  : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
-            >
-              {v.icono} {v.texto}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* ── Las vistas ───────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 overflow-x-auto rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
+        {(
+          [
+            { id: 'fichas' as const, texto: 'Fichas', icono: <List className="h-3.5 w-3.5" /> },
+            ...(hayProteccion
+              ? [{ id: 'proteccion' as const, texto: 'Protección de datos', icono: <Camera className="h-3.5 w-3.5" /> }]
+              : []),
+            { id: 'banco' as const, texto: 'Banco de libros', icono: <Library className="h-3.5 w-3.5" /> },
+            { id: 'ampa' as const, texto: 'AMPA', icono: <HeartHandshake className="h-3.5 w-3.5" /> },
+            { id: 'materiales' as const, texto: 'Venta de materiales', icono: <ShoppingBag className="h-3.5 w-3.5" /> },
+            { id: 'informes' as const, texto: 'Informes', icono: <FileText className="h-3.5 w-3.5" /> },
+          ]
+        ).map((v) => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => {
+              haptic.tap();
+              setVista(v.id);
+            }}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              vista === v.id
+                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
+                : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
+          >
+            {v.icono} {v.texto}
+          </button>
+        ))}
+      </div>
 
       {vista === 'proteccion' ? (
         <TablaProteccion
           alumnos={visibles}
-          ambito={buscando ? `${visibles.length} resultado(s)` : (claseActual?.clase ?? 'Todo el centro')}
+          ambito={ambito}
+          conClase={conClase}
           puedeEditar={puedeEditarProteccion}
           onCambio={actualizarProteccion}
+          onInforme={pedirInforme}
+        />
+      ) : vista === 'banco' || vista === 'ampa' ? (
+        <TablaParticipacion
+          key={vista}
+          campo={vista === 'banco' ? 'bancoLibros' : 'ampa'}
+          alumnos={visibles}
+          ambito={ambito}
+          conClase={conClase}
+          puedeEditar={puedeParticipacion}
+          onCambio={actualizarParticipacion}
+          onInforme={pedirInforme}
+        />
+      ) : vista === 'materiales' ? (
+        <TablaMateriales
+          alumnos={visibles}
+          clases={clases}
+          materiales={materiales}
+          ambito={ambito}
+          conClase={conClase}
+          puedeGestionar={puedeGestionarMateriales}
+          veBecas={veBecas}
+          onEstados={actualizarMaterial}
+          onMateriales={setMateriales}
+          onInforme={pedirInforme}
+        />
+      ) : vista === 'informes' ? (
+        <Informes
+          key={preset.n}
+          clases={clases}
+          claseActual={claseActual ?? null}
+          materiales={materiales}
+          veProteccion={hayProteccion}
+          preset={preset.columnas}
         />
       ) : (
       <div className="lg:grid lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)] lg:gap-5">

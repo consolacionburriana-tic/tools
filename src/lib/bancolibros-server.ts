@@ -84,8 +84,14 @@ function ordenLista<T extends { apellido1: string | null; apellido2: string | nu
  * el mismo acto a la campaña vigente.
  */
 export async function setBanco(eduStudentId: string, banco: boolean): Promise<void> {
-  await db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(eq(eduStudents.id, eduStudentId));
-  await propagarBancoACampania([eduStudentId], banco);
+  await setBancoVarios([eduStudentId], banco);
+}
+
+/** Lo mismo para muchos a la vez («todos sí» de una clase), con la misma propagación. */
+export async function setBancoVarios(eduStudentIds: string[], banco: boolean): Promise<void> {
+  if (eduStudentIds.length === 0) return;
+  await db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds));
+  await propagarBancoACampania(eduStudentIds, banco);
 }
 
 /**

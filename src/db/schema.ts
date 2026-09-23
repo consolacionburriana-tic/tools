@@ -235,7 +235,10 @@ export const eduStudents = pgTable('edu_students', {
   pdRedes: boolean('pd_redes').default(true), // publicarlas en web y redes del colegio
   pdAmpa: boolean('pd_ampa').default(true), // que el AMPA publique fotos suyas
   pdOng: boolean('pd_ong').default(true), // cesión a la ONG (MCM) para sus materiales
-  pdFirmada: boolean('pd_firmada').notNull().default(false), // el documento está firmado
+  // Desestimación del correo del alumno: la familia NO quiere que el colegio le dé cuenta de
+  // correo. Lo normal es que no se desestime (false, en verde); el `true` sale en rojo.
+  // (`pd_firmada` se quitó el 23-sep-2026, David: ver `proteccion-datos-v2.sql`.)
+  pdDesestimaCorreo: boolean('pd_desestima_correo').notNull().default(false),
   pdNotas: text('pd_notas'), // matices del papel («solo fotos de grupo»)
   pdActualizadoAt: timestamp('pd_actualizado_at'),
   pdActualizadoPor: text('pd_actualizado_por'), // correo de quien lo tocó por última vez
@@ -1713,3 +1716,41 @@ export type AsmEntrega = typeof asmEntregas.$inferSelect;
 export type NewAsmEntrega = typeof asmEntregas.$inferInsert;
 export type AsmFtpConfig = typeof asmFtpConfig.$inferSelect;
 export type AsmAjuste = typeof asmAjustes.$inferSelect;
+
+// ─── Venta de materiales (prefijo mat_, dentro de Alumnado) ───────────────────
+// Ficha: docs/21-alumnado.md (fase 3). Secretaría, dirección y TIC crean «materiales» (la
+// agenda, la bata, el cuaderno de 3º…) y cada uno es una COLUMNA de la vista de Alumnado para
+// las clases a las que va dirigido. No se crean columnas en Postgres por material: un material
+// es una fila de `mat_materiales` y su estado por alumno una fila de `mat_estados`.
+//
+// `destinos` dice a quién va: una etapa entera, un curso entero o clases sueltas, mezclables
+// (`aplicaMaterial` en src/lib/alumnado.ts). Se guarda la regla y no la lista de alumnos, así
+// que una alta de mitad de curso en 3ºA ya tiene su casilla sin tocar nada.
+export const matMateriales = pgTable('mat_materiales', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  nombre: text('nombre').notNull(),
+  importe: numeric('importe', { precision: 8, scale: 2 }), // informativo; puede no tenerlo
+  notas: text('notas'),
+  destinos: jsonb('destinos')
+    .$type<({ tipo: 'etapa'; etapa: string } | { tipo: 'curso'; curso: string } | { tipo: 'clase'; curso: string; letra: string | null })[]>()
+    .notNull(),
+  activo: boolean('activo').notNull().default(true), // archivado = false; nunca se borra con estados
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdBy: text('created_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Estado de pago de un material para un alumno. Sin fila (o `estado` null) = «—», no hay
+// información todavía. `becado` solo lo ven dirección, secretaría, orientación y TIC: al
+// resto del claustro se le manda como `pagado` (`estadoVisible`), porque para un tutor lo
+// único que importa es que el alumno tiene su material.
+export const matEstados = pgTable('mat_estados', {
+  materialId: uuid('material_id').notNull().references(() => matMateriales.id, { onDelete: 'cascade' }),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id),
+  estado: text('estado'), // 'pagado' | 'no' | 'becado' | 'no_aplica' | null
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  updatedBy: text('updated_by'),
+}, (t) => [
+  uniqueIndex('mat_estados_material_alumno_idx').on(t.materialId, t.eduStudentId),
+]);
