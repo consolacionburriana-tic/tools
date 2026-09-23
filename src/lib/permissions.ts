@@ -98,7 +98,8 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   ],
   jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado'],
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado'],
-  secretaria: ['licencias', 'salidas', 'bancolibros', 'horarios', 'mi-horario', 'cuaderno', 'alumnado'],
+  // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»).
+  secretaria: [...MODULES],
   // El tutor entra, pero solo ve SUS tutorías (`alcanceAlumnado` en alumnado-server.ts).
   tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado'],
   profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario'],
@@ -174,7 +175,7 @@ export function diffModulos(
  * llevando cualquier rol con acceso al módulo, sin cambios.
  */
 export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
-  return role === 'direccion' || role === 'tic' || role === 'supertic';
+  return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
 }
 
 /**
@@ -185,7 +186,7 @@ export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
  * del claustro con sesión: basta `requireSession()`, como el formulario del ABC.
  */
 export function vePuntualidadCompleta(role: Role | null): boolean {
-  return role === 'direccion' || role === 'jefe' || role === 'orientacion' || role === 'tic' || role === 'supertic';
+  return role === 'direccion' || role === 'jefe' || role === 'orientacion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
 }
 
 /**
@@ -252,7 +253,7 @@ export function veBecasMateriales(role: Role | null): boolean {
  * como `vePuntualidadCompleta()`: tener el módulo da vista, no lápiz.
  */
 export function puedeEditarHorarios(role: Role | null): boolean {
-  return role === 'direccion' || role === 'jefe' || role === 'tic' || role === 'supertic';
+  return role === 'direccion' || role === 'jefe' || role === 'secretaria' || role === 'tic' || role === 'supertic';
 }
 
 export const DOMINIO_LOGIN = 'consolacionburriana.com';

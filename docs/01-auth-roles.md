@@ -67,7 +67,7 @@ export const ROLE_MODULES: Record<Role, Module[]> = {
   direccion:  ['abc', 'licencias', 'salidas', 'bancolibros', 'evaluaciones', 'educamos'],
   jefe:       ['salidas', 'bancolibros', 'evaluaciones'],
   orientacion:['abc', 'evaluaciones'],
-  secretaria: ['licencias', 'salidas', 'bancolibros'],
+  secretaria: [...MODULES],   // desde el 23-sep-2026: todo, como TIC (David: «son los DIOSES»)
   tutor:      ['salidas', 'bancolibros', 'evaluaciones'],
   profe:      ['salidas', 'bancolibros', 'evaluaciones'],
 };
