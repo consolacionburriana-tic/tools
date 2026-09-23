@@ -62,9 +62,6 @@ medida. Esto es lo que quedó decidido por mí, sin preguntar, y conviene confir
    sus estados se guardan. Si no tiene ninguno, se borra de verdad (era un error al crearlo).
 6. **La ficha individual todavía no enseña los materiales** del alumno: están en su pestaña y
    en los informes. Si hace falta verlos en la ficha, el dato ya viaja con la lista.
-7. **`pd_firmada` se quita de Neon en un paso aparte** (`proteccion-datos-quita-firmada.sql`,
-   en `pendientes.txt`): hay que aplicarlo **después** de desplegar, porque el código que
-   hay ahora en producción todavía la lee.
 
 ### ¿Qué más avisos van al tutor personal, aparte del tercer retraso?
 Desde el 2026-09-03 cada alumno puede tener **tutor personal** (uno de los dos o tres tutores de
