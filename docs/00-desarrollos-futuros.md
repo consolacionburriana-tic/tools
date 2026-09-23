@@ -47,10 +47,9 @@ secretaría. Tres caminos:
 David pidió las pestañas de banco de libros, AMPA y venta de materiales, y los informes a
 medida. Esto es lo que quedó decidido por mí, sin preguntar, y conviene confirmar:
 
-1. **Quién marca banco de libros y AMPA en las pestañas nuevas**: lo mismo que ya había
-   (dirección/TIC con el módulo del banco). **Secretaría no**, aunque sí lleva la protección
-   de datos y los materiales. Si el AMPA, que ahora solo vive en Alumnado, lo lleva
-   secretaría, es añadir su rol a `puedeGestionarParticipantesBanco` (una línea).
+1. ~~Quién marca banco de libros y AMPA~~ ✅ resuelto (23-sep-2026, David): **secretaría
+   tiene acceso a todo**, igual que TIC: todos los módulos y todos los permisos de rol
+   (banco/AMPA, puntualidad completa, editar horarios, protección de datos, materiales y becas).
 2. **Jefatura no ve las becas** de materiales: la lista de David fue dirección, secretaría,
    TIC y orientación. A jefatura un becado le sale como «pagado», igual que a los tutores.
 3. **El «check general» de la protección de datos no se guarda**: se deduce de los cuatro
