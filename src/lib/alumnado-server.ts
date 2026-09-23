@@ -281,6 +281,8 @@ export interface ClaseListado {
   etapa: Etapa | null;
   alumnos: number;
   tutores: string[];
+  /** Nombre y apellidos de los tutores, para los informes. */
+  tutoresCompletos: string[];
 }
 
 /**
@@ -406,13 +408,18 @@ export async function listaAlumnado(
         clase: a.clase,
         etapa: a.etapa,
         alumnos: 0,
-        tutores: tutorias
-          .filter((t) => t.curso === a.curso && (t.letra ?? '') === (a.letra ?? ''))
-          .map((t) => profePorId.get(t.eduTeacherId))
-          .filter((p): p is NonNullable<typeof p> => Boolean(p))
-          .map((p) => nombresDe(p).corto)
-          .sort((x, y) => x.localeCompare(y, 'es')),
+        tutores: [],
+        tutoresCompletos: [],
       };
+      const suyos = tutorias
+        .filter((t) => t.curso === a.curso && (t.letra ?? '') === (a.letra ?? ''))
+        .map((t) => profePorId.get(t.eduTeacherId))
+        .filter((p): p is NonNullable<typeof p> => Boolean(p))
+        .map((p) => nombresDe(p))
+        .sort((x, y) => x.corto.localeCompare(y.corto, 'es'));
+      clase.tutores = suyos.map((n) => n.corto);
+      // El nombre entero va en los informes: el folio que se entrega tiene que decir claro de quién es.
+      clase.tutoresCompletos = suyos.map((n) => n.usual);
       clases.set(clave, clase);
     }
     clase.alumnos++;

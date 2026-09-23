@@ -7,6 +7,7 @@
 // carácter del mundo, y un nombre con una letra rara no puede tumbar el informe entero
 // (`aWinAnsi`).
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { LOGO_COLE_PNG_BASE64 } from '@/lib/logo-cole';
 import { escribirXlsx, type EntradaCelda } from '@/lib/xlsx-escribir';
 import type { Informe, TonoCelda } from '@/lib/alumnado-informe';
 
@@ -79,43 +80,52 @@ function partir(texto: string, fuente: PDFFont, tamano: number, ancho: number, m
 
 export async function informePdf(
   informe: Informe,
-  opciones: { paginaPorClase?: boolean; fecha?: Date; centro?: string } = {},
+  opciones: { paginaPorClase?: boolean; fecha?: Date; centro?: string; cursoAcademico?: string } = {},
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(aWinAnsi(informe.titulo));
   pdf.setCreator('Tools · Colegio Consolación Burriana');
   const normal = await pdf.embedFont(StandardFonts.Helvetica);
   const negrita = await pdf.embedFont(StandardFonts.HelveticaBold);
+  // El logo no puede tumbar el informe: si fallara, sale sin él.
+  const logo = await pdf.embedPng(Buffer.from(LOGO_COLE_PNG_BASE64, 'base64')).catch(() => null);
 
-  // Con muchas columnas, apaisado: una lista de clase con 8 columnas en vertical no se lee.
-  const apaisado = informe.columnas.length > 5;
+  const folio = Boolean(opciones.paginaPorClase);
+  // Vertical siempre que quepa: una lista de clase se lee y se reparte mejor así. Solo con
+  // muchas columnas se pasa a apaisado.
+  const apaisado = informe.columnas.length > 7;
   const [ANCHO, ALTO] = apaisado ? [841.89, 595.28] : [595.28, 841.89];
-  const MARGEN = 36;
+  const MARGEN = 34;
   const util = ANCHO - MARGEN * 2;
+  const PIE = MARGEN + 16;
 
-  // Anchos: Nº fijo, columnas de valor según su cabecera (entre 46 y 92 pt) y el nombre se
-  // queda con lo que sobre (nunca menos de 150).
+  // ── Anchos: nº de lista, nombre y columnas de valor ──
   const T_CAB = 7.5;
-  const T_CELDA = 8.5;
-  const anchoNum = 22;
+  const anchoNum = 30;
   let anchosValor = informe.columnas.map((c) =>
-    Math.min(92, Math.max(46, negrita.widthOfTextAtSize(aWinAnsi(c.titulo), T_CAB) / 1.6 + 12)),
+    Math.min(90, Math.max(44, negrita.widthOfTextAtSize(aWinAnsi(c.titulo), T_CAB) / 1.6 + 12)),
   );
   const sumaValor = anchosValor.reduce((a, b) => a + b, 0);
-  if (util - anchoNum - sumaValor < 150) {
-    const factor = (util - anchoNum - 150) / sumaValor;
+  if (util - anchoNum - sumaValor < 170) {
+    const factor = (util - anchoNum - 170) / sumaValor;
     anchosValor = anchosValor.map((a) => a * factor);
   }
   const anchoAlumno = util - anchoNum - anchosValor.reduce((a, b) => a + b, 0);
   const cabeceras = informe.columnas.map((c, i) => partir(aWinAnsi(c.titulo), negrita, T_CAB, anchosValor[i] - 6, 2));
-  const altoCabecera = Math.max(1, ...cabeceras.map((l) => l.length)) * 9 + 8;
-  const ALTO_FILA = 15;
+  const altoCabecera = Math.max(1, ...cabeceras.map((l) => l.length)) * 9 + 10;
 
-  const fecha = (opciones.fecha ?? new Date()).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const fecha = (opciones.fecha ?? new Date()).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  const curso = opciones.cursoAcademico ? `Curso ${opciones.cursoAcademico}` : '';
+  const AZUL = color('1D4ED8');
+
+  const ALTO_MEMBRETE = 58;
+  const ALTO_CLASE = 58;
+  // En modo folio la fila se ajusta para que la clase más larga quepa en UNA hoja (el peor
+  // caso real son 32), sin pasar de 22 pt, que con 20 alumnos ya queda holgado.
+  const maxFilas = Math.max(1, ...informe.grupos.map((g) => g.filas.length));
+  const hueco = ALTO - MARGEN - ALTO_MEMBRETE - ALTO_CLASE - altoCabecera - PIE - 22; // 22 = fila de total
+  const ALTO_FILA = folio ? Math.max(11, Math.min(22, hueco / maxFilas)) : 17;
+  const T_CELDA = Math.min(10, Math.max(7.5, ALTO_FILA * 0.5));
 
   const paginas: PDFPage[] = [];
   let pagina!: PDFPage;
@@ -125,80 +135,91 @@ export async function informePdf(
     pagina = pdf.addPage([ANCHO, ALTO]);
     paginas.push(pagina);
     y = ALTO - MARGEN;
-    // Membrete: pequeño y gris, para que lo importante sea la tabla.
-    pagina.drawText(aWinAnsi(opciones.centro ?? 'Colegio Consolación · Burriana'), {
-      x: MARGEN,
-      y: y - 8,
-      size: 8,
-      font: normal,
-      color: color('71717A'),
-    });
+    // Membrete: logo, colegio y curso a la izquierda; qué informe es y la fecha a la derecha.
+    let x = MARGEN;
+    if (logo) {
+      const alto = 40;
+      const ancho = (logo.width / logo.height) * alto;
+      pagina.drawImage(logo, { x, y: y - alto, width: ancho, height: alto });
+      x += ancho + 12;
+    }
+    pagina.drawText(aWinAnsi(opciones.centro ?? 'Colegio Consolación · Burriana'), { x, y: y - 16, size: 11, font: negrita, color: color('18181B') });
+    if (curso) pagina.drawText(aWinAnsi(curso), { x, y: y - 31, size: 10, font: normal, color: AZUL });
+    const titulo = recortar(aWinAnsi(informe.titulo), negrita, 11, util / 2);
+    pagina.drawText(titulo, { x: ANCHO - MARGEN - negrita.widthOfTextAtSize(titulo, 11), y: y - 16, size: 11, font: negrita, color: color('18181B') });
     const f = aWinAnsi(fecha);
-    pagina.drawText(f, { x: ANCHO - MARGEN - normal.widthOfTextAtSize(f, 8), y: y - 8, size: 8, font: normal, color: color('71717A') });
-    y -= 30;
-    pagina.drawText(recortar(aWinAnsi(informe.titulo), negrita, 16, util), { x: MARGEN, y, size: 16, font: negrita, color: color('18181B') });
-    y -= 15;
-    pagina.drawText(recortar(aWinAnsi(informe.ambito), normal, 9, util), { x: MARGEN, y, size: 9, font: normal, color: color('52525B') });
-    y -= 18;
+    pagina.drawText(f, { x: ANCHO - MARGEN - normal.widthOfTextAtSize(f, 9), y: y - 31, size: 9, font: normal, color: color('71717A') });
+    y -= ALTO_MEMBRETE - 10;
+    pagina.drawLine({ start: { x: MARGEN, y }, end: { x: ANCHO - MARGEN, y }, thickness: 1.2, color: AZUL });
+    y -= 10;
+  };
+
+  // La clase en grande y sus tutores bien claros: es el folio que se le da a cada tutor.
+  const cabeGrupo = (g: Informe['grupos'][number], continuacion: boolean) => {
+    const nombre = g.clase || informe.ambito;
+    pagina.drawText(aWinAnsi(continuacion ? `${nombre} (sigue)` : nombre), { x: MARGEN, y: y - 22, size: 22, font: negrita, color: color('18181B') });
+    const tutores = g.tutores.length > 0 ? `Tutor/a: ${g.tutores.join(' y ')}` : 'Sin tutor/a asignado';
+    pagina.drawText(recortar(aWinAnsi(tutores), negrita, 12, util * 0.6), { x: MARGEN, y: y - 40, size: 12, font: negrita, color: color('3F3F46') });
+    const cuantos = aWinAnsi(`${g.filas.length} ${g.filas.length === 1 ? 'alumno' : 'alumnos'}`);
+    pagina.drawText(cuantos, { x: ANCHO - MARGEN - normal.widthOfTextAtSize(cuantos, 10), y: y - 20, size: 10, font: normal, color: color('52525B') });
+    if (g.clase && informe.ambito.includes(' · ')) {
+      const filtro = recortar(aWinAnsi(informe.ambito.split(' · ').slice(1).join(' · ')), normal, 9, util * 0.38);
+      pagina.drawText(filtro, { x: ANCHO - MARGEN - normal.widthOfTextAtSize(filtro, 9), y: y - 38, size: 9, font: normal, color: color('B45309') });
+    }
+    y -= ALTO_CLASE - 6;
   };
 
   const pintarCabeceraTabla = () => {
-    pagina.drawRectangle({ x: MARGEN, y: y - altoCabecera, width: util, height: altoCabecera, color: color('F4F4F5') });
-    const base = y - 11;
-    pagina.drawText('Nº', { x: MARGEN + 4, y: base, size: T_CAB, font: negrita, color: color('52525B') });
-    pagina.drawText('Alumno', { x: MARGEN + anchoNum + 4, y: base, size: T_CAB, font: negrita, color: color('52525B') });
+    pagina.drawRectangle({ x: MARGEN, y: y - altoCabecera, width: util, height: altoCabecera, color: color('EFF6FF') });
+    const base = y - 12;
+    pagina.drawText('Nº', { x: MARGEN + (anchoNum - negrita.widthOfTextAtSize('Nº', T_CAB)) / 2, y: base, size: T_CAB, font: negrita, color: AZUL });
+    pagina.drawText('ALUMNO/A', { x: MARGEN + anchoNum + 6, y: base, size: T_CAB, font: negrita, color: AZUL });
     let x = MARGEN + anchoNum + anchoAlumno;
     informe.columnas.forEach((_, i) => {
       cabeceras[i].forEach((linea, j) => {
         const w = negrita.widthOfTextAtSize(linea, T_CAB);
-        pagina.drawText(linea, { x: x + (anchosValor[i] - w) / 2, y: base - j * 9, size: T_CAB, font: negrita, color: color('52525B') });
+        pagina.drawText(linea, { x: x + (anchosValor[i] - w) / 2, y: base - j * 9, size: T_CAB, font: negrita, color: AZUL });
       });
       x += anchosValor[i];
     });
     y -= altoCabecera;
   };
 
-  // Cada clase se encabeza con su nombre en grande y sus tutores: es el folio que se le da.
-  const cabeGrupo = (clase: string, continuacion: boolean, tutores: string[] = []) => {
-    if (!clase) return;
-    const texto = aWinAnsi(continuacion ? `${clase} (sigue)` : clase);
-    pagina.drawText(texto, { x: MARGEN, y: y - 14, size: 14, font: negrita, color: color('18181B') });
-    if (tutores.length > 0) {
-      const t = recortar(aWinAnsi(`Tutor/a: ${tutores.join(' y ')}`), normal, 9, util / 2);
-      pagina.drawText(t, { x: ANCHO - MARGEN - normal.widthOfTextAtSize(t, 9), y: y - 13, size: 9, font: normal, color: color('52525B') });
-    }
-    y -= 22;
-  };
-
-  const MIN_Y = MARGEN + 20;
+  const dentro = (alto: number) => y - alto >= PIE;
   nuevaPagina();
 
   if (informe.grupos.length === 0) {
-    pagina.drawText('No hay nadie que cumpla lo pedido.', { x: MARGEN, y: y - 12, size: 10, font: normal, color: color('71717A') });
+    pagina.drawText('No hay nadie que cumpla lo pedido.', { x: MARGEN, y: y - 14, size: 11, font: normal, color: color('71717A') });
   }
 
   informe.grupos.forEach((g, gi) => {
-    const hueco = (g.clase ? 20 : 0) + altoCabecera + ALTO_FILA * Math.min(3, g.filas.length) + ALTO_FILA;
-    if (gi > 0 && (opciones.paginaPorClase || y - hueco < MIN_Y)) nuevaPagina();
-    else if (gi > 0) y -= 10;
-    cabeGrupo(g.clase, false, g.tutores);
+    if (gi > 0) {
+      const necesita = ALTO_CLASE + altoCabecera + ALTO_FILA * Math.min(3, g.filas.length);
+      if (folio || !dentro(necesita)) nuevaPagina();
+      else y -= 14;
+    }
+    cabeGrupo(g, false);
     pintarCabeceraTabla();
 
     g.filas.forEach((f, fi) => {
-      if (y - ALTO_FILA < MIN_Y) {
+      if (!dentro(ALTO_FILA)) {
         nuevaPagina();
-        cabeGrupo(g.clase, true, g.tutores);
+        cabeGrupo(g, true);
         pintarCabeceraTabla();
       }
-      if (fi % 2 === 1) {
-        pagina.drawRectangle({ x: MARGEN, y: y - ALTO_FILA, width: util, height: ALTO_FILA, color: color('FAFAFA') });
-      }
-      const base = y - 10.5;
-      if (f.numero !== null) {
-        pagina.drawText(String(f.numero), { x: MARGEN + 4, y: base, size: T_CELDA, font: normal, color: color('A1A1AA') });
-      }
-      pagina.drawText(recortar(aWinAnsi(f.alumno), normal, T_CELDA, anchoAlumno - 8), {
-        x: MARGEN + anchoNum + 4,
+      if (fi % 2 === 1) pagina.drawRectangle({ x: MARGEN, y: y - ALTO_FILA, width: util, height: ALTO_FILA, color: color('FAFAFA') });
+      const base = y - ALTO_FILA / 2 - T_CELDA * 0.35;
+      // El nº de lista, en negrita y bien visible: es por donde el tutor busca en su lista.
+      const num = f.numero !== null ? String(f.numero) : '·';
+      pagina.drawText(num, {
+        x: MARGEN + (anchoNum - negrita.widthOfTextAtSize(num, T_CELDA + 0.5)) / 2,
+        y: base,
+        size: T_CELDA + 0.5,
+        font: negrita,
+        color: color('1E3A8A'),
+      });
+      pagina.drawText(recortar(aWinAnsi(f.alumno), normal, T_CELDA, anchoAlumno - 10), {
+        x: MARGEN + anchoNum + 6,
         y: base,
         size: T_CELDA,
         font: normal,
@@ -207,66 +228,46 @@ export async function informePdf(
       let x = MARGEN + anchoNum + anchoAlumno;
       f.celdas.forEach((c, i) => {
         const tono = HEX[c.tono];
+        const pad = Math.min(3, ALTO_FILA * 0.15);
         if (tono.fondo && c.texto) {
-          pagina.drawRectangle({
-            x: x + 3,
-            y: y - ALTO_FILA + 2,
-            width: anchosValor[i] - 6,
-            height: ALTO_FILA - 4,
-            color: color(tono.fondo),
-          });
+          pagina.drawRectangle({ x: x + 4, y: y - ALTO_FILA + pad, width: anchosValor[i] - 8, height: ALTO_FILA - pad * 2, color: color(tono.fondo) });
         }
-        const texto = recortar(aWinAnsi(c.texto), c.tono === 'nada' ? normal : negrita, T_CELDA - 0.5, anchosValor[i] - 8);
         const fuente = c.tono === 'nada' ? normal : negrita;
-        const w = fuente.widthOfTextAtSize(texto, T_CELDA - 0.5);
-        pagina.drawText(texto, { x: x + (anchosValor[i] - w) / 2, y: base, size: T_CELDA - 0.5, font: fuente, color: color(tono.texto) });
+        const tam = T_CELDA - 0.5;
+        const texto = recortar(aWinAnsi(c.texto), fuente, tam, anchosValor[i] - 10);
+        const w = fuente.widthOfTextAtSize(texto, tam);
+        pagina.drawText(texto, { x: x + (anchosValor[i] - w) / 2, y: base, size: tam, font: fuente, color: color(tono.texto) });
         x += anchosValor[i];
       });
-      pagina.drawLine({
-        start: { x: MARGEN, y: y - ALTO_FILA },
-        end: { x: MARGEN + util, y: y - ALTO_FILA },
-        thickness: 0.4,
-        color: color('E4E4E7'),
-      });
+      pagina.drawLine({ start: { x: MARGEN, y: y - ALTO_FILA }, end: { x: MARGEN + util, y: y - ALTO_FILA }, thickness: 0.4, color: color('E4E4E7') });
       y -= ALTO_FILA;
     });
 
     // Fila de totales de la clase.
     if (g.totales.some((t) => t !== null)) {
-      if (y - ALTO_FILA < MIN_Y) nuevaPagina();
-      const base = y - 10.5;
-      pagina.drawText(aWinAnsi(`Total · ${g.filas.length} ${g.filas.length === 1 ? 'alumno' : 'alumnos'}`), {
-        x: MARGEN + anchoNum + 4,
-        y: base,
-        size: T_CELDA,
-        font: negrita,
-        color: color('3F3F46'),
-      });
+      if (!dentro(20)) nuevaPagina();
+      pagina.drawRectangle({ x: MARGEN, y: y - 20, width: util, height: 20, color: color('F4F4F5') });
+      const base = y - 13.5;
+      pagina.drawText('Total', { x: MARGEN + anchoNum + 6, y: base, size: 9, font: negrita, color: color('3F3F46') });
       let x = MARGEN + anchoNum + anchoAlumno;
       g.totales.forEach((t, i) => {
         if (t) {
-          const w = negrita.widthOfTextAtSize(t, T_CELDA);
-          pagina.drawText(t, { x: x + (anchosValor[i] - w) / 2, y: base, size: T_CELDA, font: negrita, color: color('3F3F46') });
+          const w = negrita.widthOfTextAtSize(t, 9);
+          pagina.drawText(t, { x: x + (anchosValor[i] - w) / 2, y: base, size: 9, font: negrita, color: color('3F3F46') });
         }
         x += anchosValor[i];
       });
-      y -= ALTO_FILA;
+      y -= 20;
     }
   });
 
   // Pie con el número de página, cuando ya se sabe cuántas hay.
   paginas.forEach((p, i) => {
     const texto = `${i + 1} / ${paginas.length}`;
-    p.drawText(texto, {
-      x: ANCHO - MARGEN - normal.widthOfTextAtSize(texto, 8),
-      y: MARGEN - 14,
-      size: 8,
-      font: normal,
-      color: color('A1A1AA'),
-    });
-    p.drawText(aWinAnsi(`${informe.total} ${informe.total === 1 ? 'alumno' : 'alumnos'} · datos personales: no dejar a la vista`), {
+    p.drawText(texto, { x: ANCHO - MARGEN - normal.widthOfTextAtSize(texto, 8), y: MARGEN - 12, size: 8, font: normal, color: color('A1A1AA') });
+    p.drawText(aWinAnsi('Contiene datos personales del alumnado: no dejar a la vista ni tirar sin destruir'), {
       x: MARGEN,
-      y: MARGEN - 14,
+      y: MARGEN - 12,
       size: 8,
       font: normal,
       color: color('A1A1AA'),

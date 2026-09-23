@@ -10,6 +10,7 @@ import {
   type FiltroInforme,
 } from '@/lib/alumnado-informe';
 import { informePdf, informeXlsx } from '@/lib/alumnado-informe-formatos';
+import { academicYearActual } from '@/lib/constants';
 import { MIME_XLSX } from '@/lib/xlsx-escribir';
 import { veBecasMateriales } from '@/lib/permissions';
 
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
     titulo: p.titulo,
     ambito,
     sinAgrupar: p.agrupar === '0',
-    tutores: Object.fromEntries(elegidas.map((c) => [c.clase, c.tutores])),
+    tutores: Object.fromEntries(elegidas.map((c) => [c.clase, c.tutoresCompletos])),
   });
   if (informe.columnas.length === 0) {
     return NextResponse.json({ error: 'Elige al menos una columna' }, { status: 400 });
@@ -98,6 +99,6 @@ export async function GET(request: Request) {
     const buffer = await informeXlsx(informe);
     return new NextResponse(new Uint8Array(buffer), { headers: cabeceras(MIME_XLSX, 'xlsx') });
   }
-  const bytes = await informePdf(informe, { paginaPorClase: p.paginaPorClase === '1' });
+  const bytes = await informePdf(informe, { paginaPorClase: p.paginaPorClase === '1', cursoAcademico: academicYearActual() });
   return new NextResponse(Buffer.from(bytes), { headers: cabeceras('application/pdf', 'pdf') });
 }
