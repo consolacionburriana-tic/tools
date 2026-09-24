@@ -193,6 +193,22 @@ surgieron y **no** se implementaron, por si interesan:
   remitente `no-responder@consolacionburriana.com` esté verificado en Resend (el de
   `licencias@` seguía pendiente de cosas del dominio).
 
+### Evaluaciones: publicarlas también en Google Classroom (idea de David, 24-sep-2026)
+Además del correo, que la evaluación salga como anuncio o tarea en el Classroom de cada
+clase. No está hecho: "hay que gestionar esa gestión". Lo que habrá que decidir y montar:
+- **Permisos**: la cuenta de servicio ya tiene delegación de dominio (Gmail/Calendar), pero
+  hay que añadir los scopes de Classroom (`classroom.announcements` o `classroom.coursework.students`)
+  y decidir **en nombre de quién** se publica (el tutor de la clase, o una cuenta del cole que
+  sea co-profesora de todos los cursos — la API solo deja publicar a quien es profe del curso).
+- **Mapeo curso de Classroom ↔ clase** (1ESO A…): no existe hoy. O se guarda a mano una vez
+  por curso escolar, o se deduce del nombre del curso de Classroom con la lista de
+  `courses.list` y se confirma en pantalla.
+- **Anuncio o tarea**: el anuncio es lo sencillo; la tarea da fecha límite y "entregado", pero
+  el enlace personalizado `?a=…` no cabe (el material es el mismo para toda la clase), así que
+  en Classroom iría el enlace común y se perdería la trazabilidad por alumno.
+- **Programado**: Classroom sí admite `scheduledTime` en anuncios y tareas, así que encaja con
+  los envíos programados sin cron, igual que Resend.
+
 ### Evaluaciones: familias
 El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link
 de familias (`fam_access_tokens`, ya usado por Licencias y Salidas) con su propio propósito

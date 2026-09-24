@@ -98,10 +98,10 @@ export async function sendChunks(
   items: BlastItem[],
   subject: string,
   body: string,
-  opciones: { perfil?: PerfilCorreo; replyTo?: string } = {},
-): Promise<{ sent: number; errors: number; skipped: boolean }> {
-  if (!emailConfigurado()) return { sent: 0, errors: 0, skipped: true };
-  const { sent, errors } = await enviarLote(
+  opciones: { perfil?: PerfilCorreo; replyTo?: string; programadoPara?: Date } = {},
+): Promise<{ sent: number; errors: number; skipped: boolean; ids: string[] }> {
+  if (!emailConfigurado()) return { sent: 0, errors: 0, skipped: true, ids: [] };
+  const { sent, errors, ids } = await enviarLote(
     opciones.perfil ?? 'general',
     items.map((r) => ({
       to: r.email,
@@ -109,6 +109,7 @@ export async function sendChunks(
       html: wrapHtml(applyVars(body, r.vars), r.cta, opciones.perfil),
       replyTo: opciones.replyTo,
     })),
+    { programadoPara: opciones.programadoPara },
   );
-  return { sent, errors, skipped: false };
+  return { sent, errors, skipped: false, ids };
 }

@@ -1,6 +1,11 @@
-// Envío de la evaluación por correo. Tres acciones sobre el mismo cálculo de
-// destinatarios: `preview` (recuento antes de disparar), `test` (una prueba a mi
-// dirección) y `enviar`.
+// Envío de la evaluación por correo. Acciones sobre el mismo cálculo de destinatarios:
+// `preview` (recuento antes de disparar), `test` (una prueba a mi dirección), `enviar`
+// (ya) y `programar` (a una hora). Más `envios` (historial) y `cancelar` (un programado).
+//
+// Programar NO usa cron: el lote se entrega a Resend con `scheduled_at` y lo dispara Resend
+// (hasta 30 días vista). Los destinatarios se calculan AL PROGRAMAR — "solo a quien falta"
+// es quien falta en ese momento —, y si la evaluación sigue en borrador puede abrirse sola
+// a esa hora (`eval_forms.abrir_en`, perezoso: ver `hidratarForm`).
 //
 // Alumnado → un enlace PERSONALIZADO por alumno (`?a=…`, ver la ficha del módulo).
 // Profesorado → el MISMO enlace para todos, a propósito: la evaluación es 100 %
@@ -11,9 +16,15 @@ import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { appBaseUrl } from '@/lib/constants';
 import { getFamiliasDeAlumnos } from '@/lib/fam-tokens-server';
 import { claseLabel, varsDeDestinatario } from '@/lib/evaluaciones';
+import { remitente } from '@/lib/email';
 import { enviarEvaluacion, type DestinatarioCorreo } from '@/lib/evaluaciones-email';
 import {
+  actualizarForm,
+  cancelarEnvio,
   ensureInvitacionesAlumnos,
+  getEnvios,
+  getHuecosPendientes,
+  registrarEnvio,
   getDestinatariosProfes,
   getFormCompleto,
   marcarInvitacionesEnviadas,
@@ -24,13 +35,21 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 const schema = z.object({
   formId: z.string().uuid(),
-  accion: z.enum(['preview', 'test', 'enviar']),
+  accion: z.enum(['preview', 'test', 'enviar', 'programar', 'envios', 'cancelar']),
+  programadoPara: z.string().datetime({ offset: true }).nullable().default(null),
+  /** Si sigue en borrador, abrirla sola a la hora del envío. */
+  abrirSola: z.boolean().default(true),
+  envioId: z.string().uuid().nullable().default(null),
   subject: z.string().default(''),
   body: z.string().default(''),
   testEmail: z.string().email().nullable().default(null),
   soloPendientes: z.boolean().default(true),
   etapas: z.array(z.string()).default([]),
 });
+
+// Resend admite hasta 30 días; se deja margen para que no rebote por segundos.
+const MAX_PROGRAMAR_MS = 29.5 * 24 * 60 * 60 * 1000;
+const MIN_PROGRAMAR_MS = 60 * 1000;
 
 interface Calculo {
   destinatarios: DestinatarioCorreo[];
@@ -46,6 +65,16 @@ export async function POST(request: Request) {
     const input = schema.parse(await request.json());
     const form = await getFormCompleto(input.formId);
     if (!form) return NextResponse.json({ error: 'Formulario no encontrado' }, { status: 404 });
+
+    if (input.accion === 'envios') {
+      return NextResponse.json({ envios: await getEnvios(form.id), abrirEn: form.abrirEn });
+    }
+    if (input.accion === 'cancelar') {
+      if (!input.envioId) return NextResponse.json({ error: 'Falta el envío' }, { status: 400 });
+      const r = await cancelarEnvio(input.envioId);
+      if (!r.ok) return NextResponse.json({ error: r.motivo }, { status: 409 });
+      return NextResponse.json({ ok: true, cancelados: r.cancelados, noCancelables: r.noCancelables });
+    }
 
     const base = appBaseUrl();
     const enlaceComun = `${base}/evaluaciones/${form.token}`;
@@ -87,7 +116,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, enviados: res.sent, destino });
     }
 
-    if (form.estado !== 'abierto') {
+    let programadoPara: Date | null = null;
+    let abrirEn: Date | null = null;
+    if (input.accion === 'programar') {
+      if (!input.programadoPara) return NextResponse.json({ error: 'Elige cuándo se envía' }, { status: 400 });
+      programadoPara = new Date(input.programadoPara);
+      const falta = programadoPara.getTime() - Date.now();
+      if (falta < MIN_PROGRAMAR_MS) return NextResponse.json({ error: 'Esa hora ya ha pasado (o es ya mismo): envíalo ahora' }, { status: 400 });
+      if (falta > MAX_PROGRAMAR_MS) return NextResponse.json({ error: 'Se puede programar como mucho a 30 días vista' }, { status: 400 });
+      if (remitente('evaluaciones').transporte !== 'resend') {
+        return NextResponse.json({ error: 'Programar envíos solo funciona con Resend' }, { status: 409 });
+      }
+      if (form.estado === 'cerrado') {
+        return NextResponse.json({ error: 'La evaluación está cerrada: ábrela o no se podrá responder' }, { status: 409 });
+      }
+      if (form.estado === 'borrador') {
+        // Si va a abrirse sola, no puede quedar ninguna frase a medias: es el mismo guardián
+        // que el botón de "abierto", y más importante aquí porque nadie estará mirando.
+        const huecos = await getHuecosPendientes(form.id);
+        if (huecos.length > 0) {
+          return NextResponse.json({ error: 'Termina antes las frases que quedan a medias' }, { status: 409 });
+        }
+        if (!input.abrirSola) {
+          return NextResponse.json({ error: 'Sigue en borrador: marca que se abra sola o ábrela ya' }, { status: 409 });
+        }
+        abrirEn = programadoPara;
+      }
+    } else if (form.estado !== 'abierto') {
       return NextResponse.json({ error: 'Abre la evaluación antes de enviarla' }, { status: 409 });
     }
     if (calculo.destinatarios.length === 0) {
@@ -101,11 +156,32 @@ export async function POST(request: Request) {
       titulo: form.titulo,
       academicYear: form.academicYear,
       replyTo: guard.email, // quien manda la evaluación recibe las respuestas
+      programadoPara: programadoPara ?? undefined,
     });
     if (res.skipped) return NextResponse.json({ error: 'No hay transporte de correo configurado (Gmail/Workspace o Resend)' }, { status: 500 });
+    if (res.sent === 0 && res.errors > 0) {
+      return NextResponse.json({ error: 'El servicio de correo ha rechazado el envío' }, { status: 502 });
+    }
     if (calculo.tokensInvitacion.length > 0) await marcarInvitacionesEnviadas(calculo.tokensInvitacion);
+    if (abrirEn) await actualizarForm(form.id, { abrirEn });
+    await registrarEnvio({
+      formId: form.id,
+      asunto: input.subject,
+      total: res.sent,
+      errores: res.errors,
+      resendIds: res.ids,
+      programadoPara,
+      soloPendientes: form.audiencia === 'alumnos' && input.soloPendientes,
+      createdByEmail: guard.email,
+    });
 
-    return NextResponse.json({ ok: true, enviados: res.sent, errores: res.errors, sinCorreo: calculo.sinCorreo.length });
+    return NextResponse.json({
+      ok: true,
+      enviados: res.sent,
+      errores: res.errors,
+      sinCorreo: calculo.sinCorreo.length,
+      programadoPara,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error desconocido';
     return NextResponse.json({ error: message }, { status: 400 });

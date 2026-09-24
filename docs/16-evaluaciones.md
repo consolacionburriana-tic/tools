@@ -240,6 +240,27 @@ Dos niveles de color, deliberadamente independientes:
   global. `EMAIL_TRANSPORTE_EVALUACIONES` sigue mandando si algún día se quiere volver a Gmail.
   Motivo: los envíos van a colectivos enteros (y en una conjunta, a varios), y Resend manda en
   lotes de 100 mientras que Gmail va de uno en uno.
+- **Envíos programados, sin cron** (2026-09-24). En "Enviar", el selector "Enviar ahora /
+  Programar" con fecha y hora (atajos "Mañana 8:30" y "El lunes 8:30"). Cómo va, y por qué así:
+  - Vercel Hobby solo deja **dos crons diarios** y ya están gastados (Puntualidad y Cuaderno):
+    un cron cada pocos minutos que mire "¿toca mandar algo?" no es posible — ni deseable.
+  - Así que **no programamos nosotros: programa Resend.** El lote sale en el momento con
+    `scheduled_at` y Resend lo guarda y lo dispara a su hora (hasta 30 días vista). El SDK
+    quita `scheduledAt` del tipo del lote, pero lo serializa y la API lo acepta: comprobado
+    contra Resend el 24-sep-2026 (queda `scheduled` y se cancela por id).
+  - `eval_envios` guarda cada envío (también los inmediatos, como historial) con los ids que
+    devuelve Resend: es lo que permite verlo en el panel y **cancelarlo** hasta su hora. Borrar
+    la evaluación cancela antes lo que tenga programado (si no, llegaría un enlace muerto).
+  - **Los destinatarios se calculan al programar**: "solo a quien falta" es quien falta en ese
+    momento. Para un recordatorio, lo honesto es programarlo cerca de la hora o repetirlo.
+  - **Apertura automática** (`eval_forms.abrir_en`): si se programa estando en borrador, se
+    puede marcar "abrirla sola a esa hora". Es **perezosa**, tampoco hay cron: la primera vez
+    que alguien carga el formulario pasada la hora, se abre (`hidratarForm`). Nunca con frases
+    a medias. Abrirla o cerrarla a mano quita la apertura automática; cancelar el último envío
+    programado, también.
+  - Solo con Resend (el perfil de Evaluaciones ya va por Resend); con Gmail se rechaza.
+- **Arreglo de paso en `enviarLote`**: el SDK de Resend no lanza cuando falla un lote, devuelve
+  `{ error }`, y se contaba como enviado. Ahora cuenta como error (afecta a todos los módulos).
 - Reutiliza el motor de envío masivo común (`src/lib/correos.ts`): variables `{nombre}`,
   `{curso}`, `{titulo}`, `{enlace}`, `{curso_escolar}`, escapado, enlaces clicables y batch
   de 100 vía Resend.
@@ -325,6 +346,12 @@ queda a medias entre dos peticiones.
 - [x] Eliminar evaluaciones desde el listado y el editor (sector o conjunta entera), con
       confirmación y ELIMINAR escrito si hay respuestas. Verificado en la misma prueba de humo
       (sin respuestas, con respuestas sin forzar → 409, forzado).
+- [x] Envíos programados vía Resend (`scheduled_at`), sin cron: historial y cancelación
+      (`eval_envios`), apertura automática perezosa (`abrir_en`) y cancelación al borrar.
+      `evaluaciones-envios.sql` aplicado en Neon. Verificado contra Neon y Resend con un
+      correo real programado a 20 días y cancelado (y otro cancelado al borrar el formulario).
+- [x] "Eliminar" a la vista: icono en la botonera del editor y en cada fila de sector del
+      listado (antes solo estaba dentro de Ajustes, plegado).
 - [x] Color DOMINANTE por formulario (mismo catálogo, independiente del de cada actividad):
       viste botón de enviar, progreso y fondo del formulario público — ver "Color e identidad
       visual" más arriba

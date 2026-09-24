@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BookmarkPlus, Link2, Loader2, Send, Trash2, TriangleAlert, Users } from 'lucide-react';
+import { BookmarkPlus, CalendarClock, Link2, Loader2, Send, Trash2, TriangleAlert, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones';
 import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-plantillas';
+import { Segmentado } from '@/components/evaluaciones/ui';
 
 interface Plantilla {
   id: string;
@@ -34,6 +35,46 @@ interface Preview {
   personalizado: boolean;
   ejemplo: Record<string, string>;
 }
+
+interface Envio {
+  id: string;
+  estado: 'programado' | 'enviado' | 'cancelado';
+  programadoPara: string | null;
+  asunto: string;
+  total: number;
+  errores: number;
+  soloPendientes: boolean;
+  createdByEmail: string | null;
+  createdAt: string;
+}
+
+const fmtFecha = (iso: string) =>
+  new Date(iso).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+/** Valor para <input type="datetime-local"> en hora local: "2026-09-25T08:30". */
+function aLocal(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** Atajos de lo que se programa de verdad: primera hora de mañana o del lunes. */
+function atajos(ahora: number): { label: string; fecha: Date }[] {
+  const manana = new Date(ahora);
+  manana.setDate(manana.getDate() + 1);
+  manana.setHours(8, 30, 0, 0);
+  const lunes = new Date(ahora);
+  lunes.setDate(lunes.getDate() + (((8 - lunes.getDay()) % 7) || 7));
+  lunes.setHours(8, 30, 0, 0);
+  const out = [{ label: 'Mañana 8:30', fecha: manana }];
+  if (lunes.getTime() !== manana.getTime()) out.push({ label: 'El lunes 8:30', fecha: lunes });
+  return out;
+}
+
+const ESTADO_ENVIO: Record<Envio['estado'], string> = {
+  programado: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+  enviado: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+  cancelado: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300',
+};
 
 const ETAPAS = [
   { value: 'EI', label: 'Infantil' },
@@ -65,8 +106,65 @@ export function EnviarPanel({
   const [confirmando, setConfirmando] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [guardadas, setGuardadas] = useState<Plantilla[]>([]);
+  const [modo, setModo] = useState<'ahora' | 'programar'>('ahora');
+  const [cuando, setCuando] = useState('');
+  const [abrirSola, setAbrirSola] = useState(true);
+  const [envios, setEnvios] = useState<Envio[]>([]);
+  const [cancelando, setCancelando] = useState<string | null>(null);
+
+  // "Ahora" como estado (y no Date.now() en el render): se refresca cada medio minuto para
+  // que los límites del selector y la validación no se queden viejos con la pestaña abierta.
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const cuandoFecha = cuando ? new Date(cuando) : null;
+  const cuandoValido =
+    !!cuandoFecha &&
+    !Number.isNaN(cuandoFecha.getTime()) &&
+    cuandoFecha.getTime() > ahora + 60_000 &&
+    cuandoFecha.getTime() < ahora + 29.5 * 864e5;
+  // Enviar ya exige que esté abierta; programar vale también en borrador si se abre sola.
+  const puedeEnviar =
+    modo === 'ahora' ? estado === 'abierto' : cuandoValido && estado !== 'cerrado' && (estado === 'abierto' || abrirSola);
+
+  function cargarEnvios() {
+    fetch('/api/evaluaciones/admin/enviar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formId, accion: 'envios' }),
+    })
+      .then((r) => r.json())
+      .then((d) => setEnvios(d.envios ?? []))
+      .catch(() => {});
+  }
+
+  async function cancelarEnvio(id: string) {
+    setCancelando(id);
+    try {
+      const res = await fetch('/api/evaluaciones/admin/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formId, accion: 'cancelar', envioId: id }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? 'No se pudo cancelar');
+      haptic.success();
+      toast.success(d.noCancelables > 0 ? `Cancelado (${d.noCancelables} ya habían salido)` : 'Envío cancelado: no saldrá ningún correo');
+      cargarEnvios();
+    } catch (e) {
+      haptic.warning();
+      toast.error(e instanceof Error ? e.message : 'Error inesperado');
+    } finally {
+      setCancelando(null);
+    }
+  }
 
   const deFabrica = useMemo(() => PLANTILLAS_FABRICA.filter((p) => p.audiencia === audiencia), [audiencia]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => cargarEnvios(), [formId]);
 
   useEffect(() => {
     fetch('/api/evaluaciones/admin/plantillas-correo')
@@ -93,7 +191,7 @@ export function EnviarPanel({
   const vars = preview?.ejemplo ?? { nombre: 'María', curso: '1ESO', titulo, enlace, curso_escolar: academicYear };
   const rellenar = (t: string) => (t ?? '').replace(/\{(\w+)\}/g, (m, k: string) => vars[k.toLowerCase()] ?? m);
 
-  async function accion(tipo: 'test' | 'enviar') {
+  async function accion(tipo: 'test' | 'enviar' | 'programar') {
     setBusy(true);
     try {
       const res = await fetch('/api/evaluaciones/admin/enviar', {
@@ -107,13 +205,22 @@ export function EnviarPanel({
           testEmail: testEmail.trim() || null,
           soloPendientes,
           etapas,
+          programadoPara: tipo === 'programar' && cuandoFecha ? cuandoFecha.toISOString() : null,
+          abrirSola,
         }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error ?? 'No se pudo enviar');
       haptic.success();
-      toast.success(tipo === 'test' ? `Prueba enviada a ${d.destino}` : `Enviados ${d.enviados} correos`);
+      toast.success(
+        tipo === 'test'
+          ? `Prueba enviada a ${d.destino}`
+          : tipo === 'programar'
+            ? `${d.enviados} correos programados para ${fmtFecha(d.programadoPara)}`
+            : `Enviados ${d.enviados} correos`,
+      );
       setConfirmando(false);
+      if (tipo !== 'test') cargarEnvios();
     } catch (e) {
       haptic.warning();
       toast.error(e instanceof Error ? e.message : 'Error inesperado');
@@ -159,6 +266,7 @@ export function EnviarPanel({
           <p className="mt-2 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
             <TriangleAlert className="h-4 w-4 shrink-0" />
             Está en <strong>{estado}</strong>: ábrela antes de enviar o los enlaces no dejarán responder.
+            {estado === 'borrador' && ' También puedes programar el envío y que se abra sola a esa hora.'}
           </p>
         )}
         {audiencia === 'alumnos' && clasesElegidas === 0 && (
@@ -331,20 +439,96 @@ export function EnviarPanel({
           </button>
         </div>
 
-        <div className="mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+        <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+          <Segmentado
+            valor={modo}
+            onChange={(m) => {
+              setModo(m);
+              setConfirmando(false);
+              if (m === 'programar' && !cuando) setCuando(aLocal(atajos(ahora)[0].fecha));
+            }}
+            opciones={[
+              { valor: 'ahora', label: 'Enviar ahora' },
+              { valor: 'programar', label: 'Programar' },
+            ]}
+          />
+
+          {/* Programar: la hora la guarda Resend y lo dispara él. Aquí no queda nada
+             corriendo: por eso no hay cron, y por eso se puede cerrar la pestaña. */}
+          {modo === 'programar' && (
+            <div className="anim-up space-y-2.5 rounded-xl bg-violet-50/60 p-3 dark:bg-violet-500/5">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="datetime-local"
+                  value={cuando}
+                  min={aLocal(new Date(ahora + 5 * 60_000))}
+                  max={aLocal(new Date(ahora + 29 * 864e5))}
+                  onChange={(e) => setCuando(e.target.value)}
+                  className={`${inputCls} !w-auto`}
+                />
+                {atajos(ahora).map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    onClick={() => setCuando(aLocal(a.fecha))}
+                    className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100 dark:bg-zinc-900 dark:text-violet-300 dark:ring-violet-500/30"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+              {cuando && !cuandoValido && (
+                <p className="text-xs text-rose-600 dark:text-rose-400">Elige una hora futura, como mucho a 30 días vista.</p>
+              )}
+              {estado === 'borrador' && (
+                <label className="flex cursor-pointer items-start gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                  <input type="checkbox" className="mt-0.5" checked={abrirSola} onChange={(e) => setAbrirSola(e.target.checked)} />
+                  <span>
+                    <strong>Abrirla sola a esa hora.</strong> Sigue en borrador hasta entonces, así que nadie puede responder
+                    antes de tiempo.
+                  </span>
+                </label>
+              )}
+              <p className="text-xs text-zinc-500">
+                {audiencia === 'alumnos' && soloPendientes
+                  ? 'Los destinatarios se calculan ahora: "quien falta" es quien falta en este momento.'
+                  : 'Los destinatarios se calculan ahora, al programarlo.'}{' '}
+                Se puede cancelar hasta la hora del envío.
+              </p>
+            </div>
+          )}
+
           {confirmando ? (
             <div className="space-y-2">
               <p className="text-sm text-zinc-700 dark:text-zinc-200">
-                Se enviarán <strong>{preview?.total ?? 0}</strong> correos. ¿Seguimos?
+                {modo === 'programar' && cuandoFecha ? (
+                  <>
+                    Se programarán <strong>{preview?.total ?? 0}</strong> correos para el{' '}
+                    <strong>{fmtFecha(cuandoFecha.toISOString())}</strong>. ¿Seguimos?
+                  </>
+                ) : (
+                  <>
+                    Se enviarán <strong>{preview?.total ?? 0}</strong> correos. ¿Seguimos?
+                  </>
+                )}
               </p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void accion('enviar')}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3 font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                  onClick={() => void accion(modo === 'programar' ? 'programar' : 'enviar')}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-50 ${
+                    modo === 'programar' ? 'bg-violet-600 hover:bg-violet-700' : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
                 >
-                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />} Sí, enviar ahora
+                  {busy ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : modo === 'programar' ? (
+                    <CalendarClock className="h-5 w-5" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
+                  {modo === 'programar' ? 'Sí, programar' : 'Sí, enviar ahora'}
                 </button>
                 <button
                   type="button"
@@ -358,15 +542,50 @@ export function EnviarPanel({
           ) : (
             <button
               type="button"
-              disabled={busy || !preview?.total || estado !== 'abierto'}
+              disabled={busy || !preview?.total || !puedeEnviar}
               onClick={() => setConfirmando(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-50 ${
+                modo === 'programar' ? 'bg-violet-600 hover:bg-violet-700' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
-              <Send className="h-5 w-5" /> Enviar a {preview?.total ?? 0} destinatario(s)
+              {modo === 'programar' ? <CalendarClock className="h-5 w-5" /> : <Send className="h-5 w-5" />}
+              {modo === 'programar'
+                ? `Programar ${preview?.total ?? 0} correo(s)${cuandoValido && cuandoFecha ? ` · ${fmtFecha(cuandoFecha.toISOString())}` : ''}`
+                : `Enviar a ${preview?.total ?? 0} destinatario(s)`}
             </button>
           )}
         </div>
       </div>
+
+      {envios.length > 0 && (
+        <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">Envíos</p>
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {envios.map((e) => (
+              <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${ESTADO_ENVIO[e.estado]}`}>{e.estado}</span>
+                <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                  {fmtFecha(e.programadoPara ?? e.createdAt)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-zinc-500">
+                  {e.total} correo(s){e.errores > 0 && ` · ${e.errores} con error`} · {e.asunto}
+                </span>
+                {e.estado === 'programado' && (
+                  <button
+                    type="button"
+                    disabled={cancelando !== null}
+                    onClick={() => void cancelarEnvio(e.id)}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                  >
+                    {cancelando === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                    Cancelar envío
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
