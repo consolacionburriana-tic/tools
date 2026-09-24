@@ -10,9 +10,11 @@ import {
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { etapaDeCurso } from '@/lib/cursos';
-import { AUDIENCIAS, CATALOGO, claseLabel, huecosPendientes, opcionesAcademicYear, type Audiencia } from '@/lib/evaluaciones';
+import { CATALOGO, claseLabel, huecosPendientes, opcionesAcademicYear, type Audiencia } from '@/lib/evaluaciones';
 import type { EvalQuestion } from '@/db/schema';
-import type { FormCompleto } from '@/lib/evaluaciones-server';
+import type { FormCompleto, SectorGrupo } from '@/lib/evaluaciones-server';
+import { BandaSector, SectoresTabs } from '@/components/evaluaciones/sectores';
+import { EliminarEvaluacion } from '@/components/evaluaciones/eliminar-evaluacion';
 import { QuestionCard } from '@/components/evaluaciones/question-card';
 import { ActividadColorButton, ColorDotButton } from '@/components/evaluaciones/color-picker';
 import {
@@ -52,11 +54,13 @@ interface Props {
   respuestas: number;
   baseUrl: string;
   academicYearActual: string;
+  /** Los otros formularios de la misma evaluación conjunta (vacío si va suelto). */
+  sectores: SectorGrupo[];
 }
 
 const claseKey = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
 
-export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, academicYearActual }: Props) {
+export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, academicYearActual, sectores }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<FormCompleto>(inicial);
   const [ocupado, setOcupado] = useState(false);
@@ -83,6 +87,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
   );
 
   const audiencia = form.audiencia as Audiencia;
+  const conjunta = sectores.length > 1;
   const bloqueada = respuestas > 0;
   const enlace = `${baseUrl}/evaluaciones/${form.token}`;
   const pendientesRevision = useMemo(
@@ -145,7 +150,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo duplicar');
       haptic.success();
-      toast.success('Copia creada');
+      toast.success(opts.grupo ? `Copiados ${data.forms?.length ?? ''} sectores` : 'Copia creada');
       router.push(`/gestion/evaluaciones/${data.form.id}`);
       router.refresh();
     } catch (e) {
@@ -311,12 +316,24 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
 
   return (
     <div className="anim-stagger space-y-4">
+      {/* ── Sectores ─────────────────────────────────────────────────────────
+         Alumnado, profesorado y familias de la misma evaluación: un formulario
+         cada uno, con sus preguntas y sus rasgos. Las pestañas dejan saltar de
+         uno a otro y añadir el que falte sin volver al listado. */}
+      <SectoresTabs
+        sectores={sectores}
+        actualId={form.id}
+        destino="editor"
+        anadirDesde={{ formId: form.id, audiencia }}
+      />
+
       {/* ── Cabecera ──────────────────────────────────────────────────────────
          Antes: chips + título + descripción + 3 botones de estado + 4 acciones,
          todo apilado con el mismo peso. Ahora hay tres franjas con jerarquía
          distinta: identidad (color + título), contexto (datos en gris) y acciones
          (estado a la izquierda, lo que se hace con el formulario a la derecha). */}
       <div className={`${PANEL} overflow-hidden`}>
+        <BandaSector audiencia={audiencia} />
         <div className="p-4 sm:p-5">
           <div className="flex items-start gap-2.5">
             {/* Color del FORMULARIO, no de una actividad: viste el botón de enviar, la
@@ -331,9 +348,6 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                 className={CAMPO_TITULO}
               />
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 px-2">
-                <Dato etiqueta="Responde">
-                  {AUDIENCIAS.find((a) => a.value === audiencia)?.emoji} {AUDIENCIAS.find((a) => a.value === audiencia)?.label}
-                </Dato>
                 <Dato etiqueta="Curso">{form.academicYear}</Dato>
                 <Dato etiqueta="Respuestas">{respuestas}</Dato>
               </div>
@@ -560,17 +574,6 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
               >
                 <Copy className="h-3.5 w-3.5" /> Tal cual
               </button>
-              {AUDIENCIAS.filter((a) => a.value !== audiencia).map((a) => (
-                <button
-                  key={a.value}
-                  type="button"
-                  disabled={ocupado}
-                  onClick={() => void duplicar({ audiencia: a.value })}
-                  className={BTN_SUAVE}
-                >
-                  <Sparkles className="h-3.5 w-3.5" /> Versión {a.label.toLowerCase()}
-                </button>
-              ))}
               {opcionesAcademicYear(academicYearActual)
                 .filter((y) => y !== form.academicYear)
                 .slice(0, 2)
@@ -582,9 +585,55 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                     onClick={() => void duplicar({ academicYear: y })}
                     className={BTN_SUAVE}
                   >
-                    <Copy className="h-3.5 w-3.5" /> A {y}
+                    <Copy className="h-3.5 w-3.5" /> {conjunta ? `Solo este sector a ${y}` : `A ${y}`}
                   </button>
                 ))}
+              <p className="w-full pt-1 text-[11px] text-zinc-400">
+                ¿La misma evaluación para otro colectivo? Añádelo desde las pestañas de arriba: se queda en la misma
+                evaluación, con su propio preset.
+              </p>
+            </div>
+
+            {/* Copiar la conjunta entera: todos los sectores, con una sola copia de cada
+               actividad en el curso destino (misma serie → la comparativa entre años cuadra). */}
+            {conjunta && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Rotulo className="mr-1">Toda la evaluación</Rotulo>
+                {opcionesAcademicYear(academicYearActual)
+                  .filter((y) => y !== form.academicYear)
+                  .slice(0, 2)
+                  .map((y) => (
+                    <button
+                      key={y}
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => void duplicar({ academicYear: y, grupo: true })}
+                      className={BTN_SUAVE}
+                    >
+                      <Copy className="h-3.5 w-3.5" /> Los {sectores.length} sectores a {y}
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+              <Rotulo className="mr-1">Eliminar</Rotulo>
+              <EliminarEvaluacion
+                formId={form.id}
+                nombre={`«${form.titulo}»`}
+                respuestas={respuestas}
+                etiqueta={conjunta ? 'Solo este sector' : 'Esta evaluación'}
+                volverA={conjunta ? `/gestion/evaluaciones/${sectores.find((x) => x.id !== form.id)?.id}` : '/gestion/evaluaciones'}
+              />
+              {conjunta && (
+                <EliminarEvaluacion
+                  formId={form.id}
+                  grupo
+                  nombre={`la evaluación entera (${sectores.length} sectores)`}
+                  respuestas={sectores.reduce((n, x) => n + x.respuestas, 0)}
+                  etiqueta={`La evaluación entera (${sectores.length} sectores)`}
+                />
+              )}
             </div>
           </div>
       </Plegable>

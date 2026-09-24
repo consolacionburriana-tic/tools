@@ -3,8 +3,9 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, Download, GitCompare } from 'lucide-react';
-import { getResultados } from '@/lib/evaluaciones-server';
+import { getResultados, getSectoresGrupo } from '@/lib/evaluaciones-server';
 import { ResultadosPanel } from '@/components/evaluaciones/resultados-panel';
+import { SectoresTabs } from '@/components/evaluaciones/sectores';
 
 export const metadata = { title: 'Resultados · Evaluaciones' };
 
@@ -22,6 +23,7 @@ export default async function ResultadosPage({
   if (!resultados) notFound();
 
   const serie = resultados.bloques.find((b) => b.serieId)?.serieId ?? null;
+  const sectores = await getSectoresGrupo(resultados.form.grupoId);
 
   return (
     <div className="space-y-4">
@@ -46,7 +48,8 @@ export default async function ResultadosPage({
           </a>
         </div>
       </div>
-      <ResultadosPanel resultados={resultados} formId={id} claseActiva={clase ?? null} />
+      <SectoresTabs sectores={sectores} actualId={id} destino="resultados" />
+      <ResultadosPanel key={id} resultados={resultados} formId={id} claseActiva={clase ?? null} />
     </div>
   );
 }

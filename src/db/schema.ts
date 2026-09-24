@@ -807,12 +807,17 @@ export const evalForms = pgTable('eval_forms', {
   // es el que "viste" la experiencia entera de quien responde.
   color: text('color'),
   clases: jsonb('clases').$type<{ curso: string; letra: string | null }[]>().notNull().default([]),
+  // Evaluación conjunta: los formularios de alumnado/profesorado/familias creados a la vez
+  // comparten grupo. Cada uno sigue siendo independiente; el grupo solo los enseña juntos.
+  grupoId: uuid('grupo_id'),
   createdByEmail: text('created_by_email'),
   abiertoAt: timestamp('abierto_at'),
   cerradoAt: timestamp('cerrado_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('eval_forms_grupo_idx').on(t.grupoId),
+]);
 
 export const evalBlocks = pgTable('eval_blocks', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),

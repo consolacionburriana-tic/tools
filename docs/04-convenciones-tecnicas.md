@@ -42,7 +42,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | Var | Para qué |
 |---|---|
 | `DATABASE_URL` | Neon (pooled connection string) |
-| `EMAIL_TRANSPORTE` (`gmail`\|`resend`) · `EMAIL_TRANSPORTE_<PERFIL>` | Transporte de correo, global o por módulo. Sin valor: `gmail` si hay cuenta de servicio, si no `resend` |
+| `EMAIL_TRANSPORTE` (`gmail`\|`resend`) · `EMAIL_TRANSPORTE_<PERFIL>` | Transporte de correo, global o por módulo. Sin valor: `gmail` si hay cuenta de servicio, si no `resend`. Excepción por código: **Evaluaciones va por Resend** (`DEFECTOS` de `email.ts`), salvo que se ponga `EMAIL_TRANSPORTE_EVALUACIONES` |
 | `EMAIL_FROM_<PERFIL>` · `EMAIL_REPLYTO_<PERFIL>` · `EMAIL_BUZON_<PERFIL>` | Remitente, Reply-To y buzón suplantado por módulo (perfiles: `LICENCIAS`, `SALIDAS`, `ABC`, `EVALUACIONES`, `GENERAL`) |
 | `GMAIL_CONCURRENCIA` | Correos en paralelo en los masivos por Gmail (por defecto 3; la cuota real es ≈ 2,5/s por buzón) |
 | `RESEND_API_KEY` · `RESEND_FROM` | Transporte Resend (alternativa/respaldo) |

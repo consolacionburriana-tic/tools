@@ -7,7 +7,7 @@ colectivos. Es el **hito 6 del roadmap** — el más independiente del resto.
 
 ---
 
-## Estado: plan técnico ✅ · implementación ✅ · en producción ✅ (Fases 0-4, 2026-08-26 · pulido 2026-08-27)
+## Estado: plan técnico ✅ · implementación ✅ · en producción ✅ (Fases 0-4, 2026-08-26 · pulido 2026-08-27 · evaluación conjunta 2026-09-24)
 
 Depende de: auth/roles (`01-auth-roles.md`) para el panel de gestión y de `edu_*` para el
 alumnado/profesorado. El formulario de respuesta es público por enlace (y opcionalmente puede
@@ -30,6 +30,34 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
   un cambio destructivo de schema y no aporta nada a quien usa la herramienta.
 - **La misma actividad puede tener formulario de alumnado y de profesorado**, con preguntas
   distintas, enganchados a la misma actividad → "visión alumnos vs visión profes".
+- **Evaluación conjunta** (2026-09-24): en el alta se pueden marcar varios colectivos a la vez
+  (alumnado + profesorado + familias). Se crea **un formulario por colectivo**, con las mismas
+  actividades (las nuevas se crean una sola vez) y un `eval_forms.grupo_id` común. Lo que NO
+  se comparte, a propósito: preguntas, preset, anonimato, enlace, estado, clases y color. Cada
+  sector se edita, se abre, se envía y se analiza por separado; el grupo solo sirve para
+  enseñarlos juntos. Por eso no es un formulario con "secciones por colectivo": mezclaría el
+  anonimato del claustro con la trazabilidad del alumnado.
+  - **Pestañas de sector** (`SectoresTabs`, `src/components/evaluaciones/sectores.tsx`) encima
+    del editor, del envío y de los resultados: saltan al MISMO sitio del otro sector (de
+    "Enviar" del alumnado a "Enviar" del profesorado) y dicen de un vistazo su estado,
+    respuestas y frases a medias. Desde el editor, un botón punteado añade el colectivo que
+    falte (duplicar con otra audiencia en el mismo curso = se une al grupo; si el formulario
+    iba suelto, estrena grupo con él). No se permiten dos formularios del mismo colectivo en un
+    grupo.
+  - **Banda de sector** (`BandaSector`) arriba de la cabecera del editor: "Preguntas para el
+    profesorado" + sus rasgos (`RASGOS_AUDIENCIA`), con el color del colectivo. Es lo que evita
+    editar las del claustro creyendo que son las del alumnado.
+  - **El color de un sector es el de su colectivo** (`COLOR_AUDIENCIA` = la paleta de datos
+    `--eval-*` de los gráficos), no el color decorativo del formulario. Naranja = profesorado
+    en el alta, el editor, el listado y la comparativa.
+  - El listado junta los sectores en **una tarjeta** con cabecera común y una fila por
+    colectivo, cada una con sus acciones. Títulos: "<base> · Alumnado", "<base> · Profesorado".
+  - **Copiar a otro curso** (2026-09-24): en Ajustes del editor, "Toda la evaluación → Los N
+    sectores a <curso>", y en el alta, "¿Repetir una evaluación de <curso anterior>?" lista la
+    conjunta como UNA fila y la copia entera (`duplicarGrupo`). Va a un grupo nuevo y cada
+    actividad se copia **una sola vez** al curso destino (misma serie) y la comparten todos los
+    sectores, igual que en el original. "Solo este sector a <curso>" sigue existiendo y deja la
+    copia suelta.
 - **`serie_id`**: al copiar una actividad de un curso a otro se conserva la serie. Es lo que
   permite comparar la Convivencia de Inicio de 2025-26 con la de 2026-27 sin adivinar nada por
   el nombre.
@@ -174,6 +202,21 @@ Dos niveles de color, deliberadamente independientes:
     llevas las evaluaciones". Es lo natural para la coordinación de pastoral, que también es
     tutora. Ver [`01-auth-roles.md`](./01-auth-roles.md).
 
+### Eliminar evaluaciones (2026-09-24)
+- **Desde el listado** (papelera en cada tarjeta; en una conjunta, en la cabecera = la
+  evaluación entera) **y desde Ajustes del editor** ("Solo este sector" / "La evaluación
+  entera"). `DELETE /api/evaluaciones/admin/forms/[id]` con `?grupo=1` para todos los
+  sectores.
+- **Sin "Deshacer"**, a diferencia de preguntas y bloques: va al servidor al momento, así que
+  pide confirmación en el sitio (sin `confirm()`). **Con respuestas se puede borrar, pero hay que
+  escribir ELIMINAR** y el servidor solo lo acepta con `?forzar=1`; sin eso responde 409 con el
+  recuento. Antes era "lo respondido no se borra nunca, se cierra": David pidió poder eliminar,
+  y el gesto de más es lo que protege lo respondido de un clic despistado. El aviso recuerda que,
+  si solo se quiere dejar de recibir respuestas, basta con cerrarla.
+- Respuestas, invitaciones, bloques y preguntas caen en cascada. **Las actividades se quedan**:
+  pueden estar en otros formularios y son las que dan la serie para comparar entre cursos (se
+  archivan desde Actividades si sobran).
+
 ### Editor: borrar con deshacer (2026-08-27)
 - **Borrar un bloque o una pregunta no llama al servidor al momento.** Se oculta ya mismo en
   pantalla y sale un toast de sonner con acción "Deshacer" (`GRACIA_BORRADO_MS` = 4,5 s, el
@@ -192,6 +235,11 @@ Dos niveles de color, deliberadamente independientes:
   array, así que un borrado pendiente en mitad de la lista no descuadra nada.
 
 ### Correo
+- **Sale por Resend** (2026-09-24, decisión de David): el perfil `evaluaciones` fija
+  `transporte: 'resend'` en `DEFECTOS` de `src/lib/email.ts`, que pisa el `EMAIL_TRANSPORTE`
+  global. `EMAIL_TRANSPORTE_EVALUACIONES` sigue mandando si algún día se quiere volver a Gmail.
+  Motivo: los envíos van a colectivos enteros (y en una conjunta, a varios), y Resend manda en
+  lotes de 100 mientras que Gmail va de uno en uno.
 - Reutiliza el motor de envío masivo común (`src/lib/correos.ts`): variables `{nombre}`,
   `{curso}`, `{titulo}`, `{enlace}`, `{curso_escolar}`, escapado, enlaces clicables y batch
   de 100 vía Resend.
@@ -207,7 +255,7 @@ Dos niveles de color, deliberadamente independientes:
 | Tabla | Para qué |
 |---|---|
 | `eval_activities` | Lo que se evalúa: nombre, fecha, lugar, `categoria` (pastoral/innovación/general/otra), `tipo`, `objetivo` (profes), `resumen` (alumnos), `academic_year`, `serie_id`, `color` (acento visual), `archivada` |
-| `eval_forms` | Un envío a un colectivo: `audiencia` (quién responde), `estado` (borrador/abierto/cerrado), `token`, `anonimo`, `identifica_alumno`, `pedir_clase`, `pedir_etapa`, `requiere_login`, `aviso_anonimato`, `mensaje_final`, `color` (acento dominante), `clases` |
+| `eval_forms` | Un envío a un colectivo: `audiencia` (quién responde), `estado` (borrador/abierto/cerrado), `token`, `anonimo`, `identifica_alumno`, `pedir_clase`, `pedir_etapa`, `requiere_login`, `aviso_anonimato`, `mensaje_final`, `color` (acento dominante), `clases`, `grupo_id` (evaluación conjunta; NULL = suelto) |
 | `eval_blocks` | Una actividad dentro de un formulario: `activity_id` (nullable), `titulo`, `intro`, `orden` |
 | `eval_questions` | `clave`, `texto`, `ayuda`, `tipo`, `escala`, `estilo` (solo estrellas), `filas[]`, `opciones[]`, `permite_otra`, `obligatoria`, `revisar`, feedback del quiz, `orden` |
 | `eval_question_templates` | Preguntas que guarda el claustro para reutilizar |
@@ -264,6 +312,19 @@ queda a medias entre dos peticiones.
 - [x] Borrar bloque/pregunta con papelera de deshacer (toast + plazo, sin `confirm()`)
 - [x] Color de acento por actividad (20 tonos, al azar al crear, cambiable en un clic) e
       insignia con letra (A, B, C…) en el editor y en resultados
+- [x] Evaluación conjunta: varios colectivos en el mismo alta (un formulario por colectivo,
+      mismas actividades, `grupo_id`), pestañas de sector en editor/envío/resultados, banda de
+      identidad del sector, "añadir colectivo" desde el editor y tarjeta agrupada en el listado.
+      `evaluaciones-grupos.sql` aplicado en Neon (2026-09-24); lógica verificada con prueba de
+      humo contra la BBDD (alta conjunta, sectores, añadir familias, rechazo de repetido, form
+      suelto que estrena grupo) y limpiada después. **Falta que David lo vea en pantalla**: el
+      agente no pudo entrar en `/gestion` sin sesión.
+- [x] Copiar una evaluación conjunta entera a otro curso (editor y "repetir" del alta), con una
+      sola copia de cada actividad compartida por los sectores. Verificado con prueba de humo
+      contra Neon en cursos ficticios, limpiada después.
+- [x] Eliminar evaluaciones desde el listado y el editor (sector o conjunta entera), con
+      confirmación y ELIMINAR escrito si hay respuestas. Verificado en la misma prueba de humo
+      (sin respuestas, con respuestas sin forzar → 409, forzado).
 - [x] Color DOMINANTE por formulario (mismo catálogo, independiente del de cada actividad):
       viste botón de enviar, progreso y fondo del formulario público — ver "Color e identidad
       visual" más arriba

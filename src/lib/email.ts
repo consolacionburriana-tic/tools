@@ -9,7 +9,8 @@
 //
 // Todo es configurable por entorno (ver tabla en docs/04-convenciones-tecnicas.md):
 //   EMAIL_TRANSPORTE=gmail|resend            · transporte por defecto de todo el sitio
-//   EMAIL_TRANSPORTE_<PERFIL>=gmail|resend   · excepción para un módulo
+//   EMAIL_TRANSPORTE_<PERFIL>=gmail|resend   · excepción para un módulo (pisa también el
+//                                              `transporte` fijado en DEFECTOS: Evaluaciones → Resend)
 //   EMAIL_FROM_<PERFIL>="Nombre <buzon@dominio>"
 //   EMAIL_REPLYTO_<PERFIL>=buzon@dominio
 //   EMAIL_BUZON_<PERFIL>=buzon@dominio       · solo Gmail: buzón real a suplantar si el `From`
@@ -48,7 +49,8 @@ export interface Mensaje {
 const DOMINIO = 'consolacionburriana.com';
 
 // Identidades por defecto. Cambiarlas en producción no requiere deploy: EMAIL_FROM_<PERFIL>.
-const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: string }> = {
+// `transporte` fija el de un módulo por código (pisa el global, pero no EMAIL_TRANSPORTE_<PERFIL>).
+const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: string; transporte?: Transporte }> = {
   licencias: {
     nombre: 'Licencias · Colegio Consolación',
     email: `licencias@${DOMINIO}`,
@@ -56,7 +58,10 @@ const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: 
   },
   salidas: { nombre: 'Salidas · Colegio Consolación', email: `no-responder@${DOMINIO}` },
   abc: { nombre: 'Registro ABC · Colegio Consolación', email: `no-responder@${DOMINIO}` },
-  evaluaciones: { nombre: 'Evaluaciones · Colegio Consolación', email: `no-responder@${DOMINIO}` },
+  // Resend (decisión de David, 2026-09-24): los envíos de evaluaciones van a todo un colectivo
+  // a la vez (alumnado + profesorado + familias en una conjunta) y Resend los manda en lotes
+  // de 100; por Gmail irían de uno en uno.
+  evaluaciones: { nombre: 'Evaluaciones · Colegio Consolación', email: `no-responder@${DOMINIO}`, transporte: 'resend' },
   puntualidad: { nombre: 'Puntualidad · Colegio Consolación', email: `no-responder@${DOMINIO}` },
   cuaderno: { nombre: 'Cuaderno de tutor · Colegio Consolación', email: `no-responder@${DOMINIO}` },
   general: { nombre: 'Colegio Consolación', email: `no-responder@${DOMINIO}` },
@@ -95,7 +100,9 @@ export function remitente(perfil: PerfilCorreo): Remitente {
     buzon: env('EMAIL_BUZON', perfil) ?? parseado.email,
     replyTo: env('EMAIL_REPLYTO', perfil) ?? defecto.replyTo,
     transporte:
-      transporteModulo === 'gmail' || transporteModulo === 'resend' ? transporteModulo : transportePorDefecto(),
+      transporteModulo === 'gmail' || transporteModulo === 'resend'
+        ? transporteModulo
+        : (defecto.transporte ?? transportePorDefecto()),
   };
 }
 

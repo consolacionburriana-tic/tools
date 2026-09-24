@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseRemitente } from '@/lib/email';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { parseRemitente, remitente } from '@/lib/email';
 import { construirMime, direccion, encabezado } from '@/lib/email-gmail';
 
 describe('parseRemitente', () => {
@@ -55,5 +55,19 @@ describe('construirMime', () => {
   it('omite el Reply-To si no hay', () => {
     const sinReply = construirMime({ from: 'a@b.com', to: ['c@d.com'], subject: 'x', html: 'y' });
     expect(sinReply).not.toContain('Reply-To');
+  });
+});
+
+describe('transporte por módulo', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('Evaluaciones sale por Resend aunque el global diga Gmail', () => {
+    vi.stubEnv('EMAIL_TRANSPORTE', 'gmail');
+    expect(remitente('evaluaciones').transporte).toBe('resend');
+    expect(remitente('salidas').transporte).toBe('gmail');
+  });
+  it('la variable del módulo sigue mandando sobre el valor por código', () => {
+    vi.stubEnv('EMAIL_TRANSPORTE_EVALUACIONES', 'gmail');
+    expect(remitente('evaluaciones').transporte).toBe('gmail');
   });
 });

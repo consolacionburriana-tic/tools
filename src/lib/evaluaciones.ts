@@ -16,6 +16,44 @@ export const AUDIENCIAS = [
 ] as const;
 export type Audiencia = (typeof AUDIENCIAS)[number]['value'];
 
+/**
+ * Lo que distingue a cada sector de una evaluación conjunta, en frases cortas. Es lo que
+ * se enseña en el alta y en la cabecera del editor para que nunca haya duda de qué
+ * preguntas son de quién: cada colectivo tiene su preset, su anonimato y su forma de
+ * enviarse, y eso NO se mezcla aunque evalúen la misma actividad.
+ */
+export const RASGOS_AUDIENCIA: Record<Audiencia, { preset: string; rasgos: string[] }> = {
+  alumnos: {
+    preset: 'Valoración de la actividad y observaciones, con el tono de siempre',
+    rasgos: ['Anónima en pantalla', 'Enlace personalizado', 'Ve el resumen de la actividad', 'Por clases'],
+  },
+  profesores: {
+    preset: 'Objetivos, organización (duración, dinámica, materiales, ambiente) y observaciones',
+    rasgos: ['100 % anónima', 'Enlace común al claustro', 'Ve el objetivo de la actividad', 'Por etapa'],
+  },
+  familias: {
+    preset: 'Valoración general y observaciones',
+    rasgos: ['Anónima', 'A los correos de los tutores legales'],
+  },
+};
+
+/**
+ * Color de cada colectivo: la paleta de datos validada de `globals.css` (la de los
+ * gráficos). Identifica al sector en el editor, el envío y el listado; no confundir con
+ * el color del formulario, que es decorativo y al azar.
+ */
+export const COLOR_AUDIENCIA: Record<Audiencia, string> = {
+  alumnos: 'var(--eval-alumnos)',
+  profesores: 'var(--eval-profesores)',
+  familias: 'var(--eval-familias)',
+};
+
+/** Etiqueta de colectivo para títulos: "Convivencia · Alumnado". */
+export function tituloConAudiencia(base: string, audiencia: Audiencia): string {
+  const label = AUDIENCIAS.find((a) => a.value === audiencia)?.label ?? audiencia;
+  return `${base.trim()} · ${label}`;
+}
+
 export const CATEGORIAS = [
   { value: 'pastoral', label: 'Pastoral', emoji: '✝️', color: 'violet' },
   { value: 'innovacion', label: 'Innovación', emoji: '💡', color: 'amber' },
@@ -699,7 +737,13 @@ export const COLORES_ACTIVIDAD = [
   '#57534e', // stone
 ] as const;
 
-/** Un color al azar del catálogo. Cada llamada puede tocar uno distinto. */
-export function colorAleatorio(): string {
-  return COLORES_ACTIVIDAD[Math.floor(Math.random() * COLORES_ACTIVIDAD.length)];
+/**
+ * Un color al azar del catálogo. Cada llamada puede tocar uno distinto. `evitar` quita
+ * los ya usados (los formularios de una evaluación conjunta no deben repetir color), salvo
+ * que no quede ninguno libre.
+ */
+export function colorAleatorio(evitar: readonly string[] = []): string {
+  const libres = COLORES_ACTIVIDAD.filter((c) => !evitar.includes(c));
+  const pool = libres.length > 0 ? libres : COLORES_ACTIVIDAD;
+  return pool[Math.floor(Math.random() * pool.length)];
 }

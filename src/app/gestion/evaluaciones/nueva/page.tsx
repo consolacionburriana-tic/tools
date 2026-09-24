@@ -24,7 +24,7 @@ export default async function NuevaEvaluacionPage() {
       clases={clases}
       actividades={actividades.map((a) => ({ id: a.id, nombre: a.nombre, categoria: a.categoria, fecha: a.fecha }))}
       actividadesAnterior={actividadesAnterior.map((a) => ({ id: a.id, nombre: a.nombre, categoria: a.categoria, fecha: a.fecha }))}
-      formsAnterior={formsAnterior.map((f) => ({ id: f.id, titulo: f.titulo, audiencia: f.audiencia, actividades: f.actividades }))}
+      formsAnterior={formsAnterior.map((f) => ({ id: f.id, titulo: f.titulo, audiencia: f.audiencia, actividades: f.actividades, grupoId: f.grupoId }))}
     />
   );
 }
