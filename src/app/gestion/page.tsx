@@ -15,6 +15,7 @@ import {
   GraduationCap,
   KeyRound,
   Library,
+  ListTodo,
   LogOut,
   NotebookPen,
   Settings2,
@@ -48,7 +49,8 @@ export default async function EscritorioPage() {
   // Junio y septiembre, Licencias manda: sale arriba del todo (ver esTemporadaLicencias).
   const ahora = new Date();
   const licenciasArriba = puede('licencias') && esTemporadaLicencias(ahora);
-  const configuracion = puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm');
+  const configuracion =
+    puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas');
 
   // Stats solo de los módulos que el rol puede ver
   const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm] = await Promise.all([
@@ -254,6 +256,14 @@ export default async function EscritorioPage() {
                 icon={<Apple className="h-6 w-6" />}
                 title="AUTOASM (Apple School Manager)"
                 desc="Generar y revisar los seis CSV de ASM y descargarlos en un ZIP"
+              />
+            )}
+            {puede('tareas') && (
+              <ModuleCard
+                href="/gestion/tareas"
+                icon={<ListTodo className="h-6 w-6" />}
+                title="Tareas de la plataforma"
+                desc="Fallitos apuntados e ideas de módulos nuevos, listos para copiar"
               />
             )}
           </section>

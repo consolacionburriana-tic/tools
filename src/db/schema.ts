@@ -1782,3 +1782,30 @@ export const matEstados = pgTable('mat_estados', {
 }, (t) => [
   uniqueIndex('mat_estados_material_alumno_idx').on(t.materialId, t.eduStudentId),
 ]);
+
+// ─── Tareas de la plataforma (prefijo tar_) ───────────────────────────────────
+// Ficha: docs/23-tareas.md. El cuaderno de bitácora del propio desarrollo: fallitos de una
+// línea que alguien ve en una pantalla, e ideas de módulos nuevos con su descripción y su
+// checklist. Se apunta desde el botón flotante de /gestion y se lleva en /gestion/tareas.
+//
+// Una sola tabla para los dos tipos a propósito: el día que esto sea un kanban, las
+// columnas son `estado` y los dos tipos de tarjeta conviven en el mismo tablero.
+export const tarTareas = pgTable('tar_tareas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tipo: text('tipo').notNull(), // 'fallo' | 'modulo'
+  titulo: text('titulo').notNull(), // el fallito entero, o el nombre del módulo nuevo
+  modulo: text('modulo'), // fallo: clave de MODULES o null = la plataforma en general
+  descripcion: text('descripcion'), // módulo: definición funcional
+  checklist: jsonb('checklist').$type<{ id: string; texto: string; hecho: boolean }[]>().notNull().default([]),
+  estado: text('estado').notNull().default('pendiente'), // 'pendiente' | 'en_curso' | 'hecho' | 'descartado'
+  ruta: text('ruta'), // pantalla desde la que se apuntó (/gestion/puntualidad/registros)
+  createdBy: text('created_by'), // email
+  createdByNombre: text('created_by_nombre'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  hechoAt: timestamp('hecho_at'),
+}, (t) => [
+  index('tar_tareas_estado_idx').on(t.estado),
+  index('tar_tareas_created_by_idx').on(t.createdBy),
+]);
+export type TarTarea = typeof tarTareas.$inferSelect;
