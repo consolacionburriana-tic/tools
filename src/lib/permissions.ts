@@ -24,6 +24,8 @@ export const MODULES = [
   'usuarios',
   'profes',
   'autoasm',
+  'tareas',
+  'tareas-reportar',
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -43,6 +45,8 @@ export const MODULE_LABELS: Record<Module, string> = {
   usuarios: 'Usuarios y roles',
   profes: 'Tutorías',
   autoasm: 'AUTOASM (Apple School Manager)',
+  tareas: 'Tareas de la plataforma',
+  'tareas-reportar': 'Reportar fallitos',
 };
 
 /**
@@ -95,11 +99,14 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'cuaderno',
     'profes',
     'autoasm',
+    'tareas-reportar',
   ],
   jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado'],
-  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado'],
-  // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»).
-  secretaria: [...MODULES],
+  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'tareas-reportar'],
+  // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»)…
+  // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
+  // fallitos, no los gestiona (David, 24-sep-2026).
+  secretaria: MODULES.filter((m) => m !== 'tareas'),
   // El tutor entra, pero solo ve SUS tutorías (`alcanceAlumnado` en alumnado-server.ts).
   tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado'],
   profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario'],

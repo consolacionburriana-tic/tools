@@ -423,6 +423,11 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
 
+- **Tareas de la plataforma → kanban** ([`23-tareas.md`](./23-tareas.md)): columnas por estado
+  con arrastrar, y quizá prioridad, responsable y enlazar un fallito con el commit/PR que lo
+  arregla. También por decidir: si el resto del claustro (tutores, profes) puede reportar
+  fallitos — hoy basta añadir `tareas-reportar` a su rol en `permissions.ts` — y si quien
+  reporta recibe un aviso cuando su fallito pasa a «hecho».
 - ~~**Mejorar la PWA** (instalación en iPad)~~ → promocionada a ficha propia con plan y
   checklist: [`05-pwa.md`](./05-pwa.md).
 - **Plataforma de pago online** para Salidas (y quizá Licencias): sustituiría el justificante
