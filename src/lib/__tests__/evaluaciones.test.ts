@@ -18,7 +18,10 @@ import {
   preguntasIncompletas,
   presetActividad,
   slugClave,
+  tituloConAudiencia,
   tonoDe,
+  AUDIENCIAS,
+  RASGOS_AUDIENCIA,
   CATALOGO,
   COLORES_ACTIVIDAD,
   type PreguntaParaValidar,
@@ -335,5 +338,21 @@ describe('color de la actividad', () => {
   it('con suficientes tiradas toca más de un color (no está clavado en el primero)', () => {
     const vistos = new Set(Array.from({ length: 200 }, () => colorAleatorio()));
     expect(vistos.size).toBeGreaterThan(1);
+  });
+});
+
+describe('evaluación conjunta', () => {
+  it('colorAleatorio no repite los colores a evitar mientras quede alguno libre', () => {
+    const usados = COLORES_ACTIVIDAD.slice(0, COLORES_ACTIVIDAD.length - 1);
+    for (let i = 0; i < 20; i++) expect(colorAleatorio(usados)).toBe(COLORES_ACTIVIDAD[COLORES_ACTIVIDAD.length - 1]);
+  });
+  it('colorAleatorio sigue dando un color del catálogo si ya se han usado todos', () => {
+    expect(COLORES_ACTIVIDAD).toContain(colorAleatorio(COLORES_ACTIVIDAD));
+  });
+  it('el título de cada sector lleva su colectivo', () => {
+    expect(tituloConAudiencia(' Convivencia de inicio ', 'profesores')).toBe('Convivencia de inicio · Profesorado');
+  });
+  it('cada colectivo tiene sus rasgos descritos', () => {
+    for (const a of AUDIENCIAS) expect(RASGOS_AUDIENCIA[a.value].rasgos.length).toBeGreaterThan(0);
   });
 });

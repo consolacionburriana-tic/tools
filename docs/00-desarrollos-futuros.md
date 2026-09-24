@@ -180,6 +180,19 @@ surgieron y **no** se implementaron, por si interesan:
   [`01-auth-roles.md`](./01-auth-roles.md) — es un cambio de una línea en
   `src/lib/permissions.ts`, se puede ajustar sobre la marcha.
 
+### Evaluaciones conjuntas: lo que decidí yo al construirlas (24-sep-2026) — revisar con David
+- **Un formulario por colectivo, no uno con secciones**: cada sector conserva su anonimato,
+  su enlace (personalizado en alumnado, común en profesorado), su estado y su preset. Un único
+  formulario con "parte de profes" y "parte de alumnos" habría mezclado el 100 % anónimo del
+  claustro con la trazabilidad del alumnado. Si se quisiera abrir/cerrar todos los sectores a
+  la vez con un botón, es añadirlo encima del grupo.
+- **Copiar una conjunta entera a otro curso** no está: hoy se copia sector a sector (y cada
+  copia queda suelta, sin grupo). Si al empezar 2027-28 se echa en falta, es un
+  `duplicarGrupo` que llame a `duplicarForm` por sector con el mismo `grupo_id` nuevo.
+- Evaluaciones sale por **Resend** por código, aunque el global sea Gmail. Revisar que el
+  remitente `no-responder@consolacionburriana.com` esté verificado en Resend (el de
+  `licencias@` seguía pendiente de cosas del dominio).
+
 ### Evaluaciones: familias
 El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link
 de familias (`fam_access_tokens`, ya usado por Licencias y Salidas) con su propio propósito

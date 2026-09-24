@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { appBaseUrl } from '@/lib/constants';
-import { getFormCompleto } from '@/lib/evaluaciones-server';
+import { getFormCompleto, getSectoresGrupo } from '@/lib/evaluaciones-server';
 import { EnviarPanel } from '@/components/evaluaciones/enviar-panel';
+import { SectoresTabs } from '@/components/evaluaciones/sectores';
 import type { Audiencia } from '@/lib/evaluaciones';
 
 export const metadata = { title: 'Enviar evaluación · Gestión' };
@@ -14,6 +15,7 @@ export default async function EnviarPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const form = await getFormCompleto(id);
   if (!form) notFound();
+  const sectores = await getSectoresGrupo(form.grupoId);
 
   return (
     <div className="space-y-4">
@@ -23,7 +25,9 @@ export default async function EnviarPage({ params }: { params: Promise<{ id: str
       >
         <ChevronLeft className="h-4 w-4" /> Volver al editor
       </Link>
+      <SectoresTabs sectores={sectores} actualId={form.id} destino="enviar" />
       <EnviarPanel
+        key={form.id}
         formId={form.id}
         titulo={form.titulo}
         audiencia={form.audiencia as Audiencia}

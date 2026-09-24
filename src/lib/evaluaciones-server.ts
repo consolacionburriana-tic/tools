@@ -24,7 +24,9 @@ import { academicYearActual } from '@/lib/constants';
 import { compararClasesMayoresPrimero, etapaDeCurso } from '@/lib/cursos';
 import { nombreProfe } from '@/lib/profes';
 import {
+  AUDIENCIAS,
   AVISO_ANONIMATO,
+  audienciaLabel,
   INTRO_FORM,
   MENSAJE_FINAL,
   claveUnica,
@@ -37,6 +39,7 @@ import {
   nuevoTokenInvitacion,
   presetActividad,
   slugClave,
+  tituloConAudiencia,
   type Audiencia,
   type Categoria,
   type PreguntaBorrador,
@@ -275,36 +278,26 @@ export interface NuevoFormInput {
   createdByEmail?: string | null;
 }
 
-/**
- * Crea el formulario entero de una tacada: datos + bloques (uno por actividad) +
- * preguntas del preset. Es el camino de "mínimos clics": el editor se abre ya con
- * todo escrito y solo hay que retocar las frases marcadas.
- */
 export async function crearForm(input: NuevoFormInput): Promise<FormCompleto> {
-  const academicYear = input.academicYear ?? academicYearActual();
-  const audiencia = input.audiencia;
+  const [form] = await crearEvaluacion({ ...input, audiencias: [input.audiencia] });
+  return form;
+}
 
-  const [form] = await db
-    .insert(evalForms)
-    .values({
-      academicYear,
-      titulo: input.titulo.trim(),
-      descripcion: input.descripcion ?? INTRO_FORM[audiencia],
-      audiencia,
-      token: nuevoTokenFormulario(),
-      anonimo: true,
-      // El alumnado responde con enlace personalizado cuando se envía por correo:
-      // se guarda de qué alumno viene (decisión cerrada, ver la ficha del módulo).
-      identificaAlumno: audiencia === 'alumnos',
-      pedirClase: audiencia === 'alumnos',
-      pedirEtapa: audiencia === 'profesores',
-      avisoAnonimato: AVISO_ANONIMATO[audiencia],
-      mensajeFinal: MENSAJE_FINAL[audiencia],
-      color: input.color ?? colorAleatorio(),
-      clases: input.clases ?? [],
-      createdByEmail: input.createdByEmail ?? null,
-    })
-    .returning();
+/**
+ * Crea la evaluación para uno o varios colectivos a la vez. Con más de uno es una
+ * **evaluación conjunta**: un formulario por colectivo, todos enganchados a las MISMAS
+ * actividades (las nuevas se crean una sola vez) y con el mismo `grupoId`. Cada formulario
+ * lleva su preset, su anonimato, su enlace y su color: lo único que comparten es qué se
+ * evalúa, que es justo lo que luego permite la comparativa "visión alumnos vs profes".
+ */
+export async function crearEvaluacion(
+  input: Omit<NuevoFormInput, 'audiencia'> & { audiencias: Audiencia[] },
+): Promise<FormCompleto[]> {
+  const academicYear = input.academicYear ?? academicYearActual();
+  const audiencias = [...new Set(input.audiencias)];
+  if (audiencias.length === 0) throw new Error('Elige quién responde');
+  const conjunta = audiencias.length > 1;
+  const grupoId = conjunta ? crypto.randomUUID() : null;
 
   const nuevas = await Promise.all(
     (input.actividadesNuevas ?? []).map((a) =>
@@ -316,18 +309,93 @@ export async function crearForm(input: NuevoFormInput): Promise<FormCompleto> {
     : [];
   const actividades = [...existentes, ...nuevas];
 
-  let orden = 0;
-  for (const act of actividades) {
-    await anadirBloque(form.id, {
-      activityId: act.id,
-      titulo: act.nombre,
-      audiencia,
-      conPreset: input.conPreset !== false,
-      orden: orden++,
-    });
-  }
+  const colores: string[] = [];
+  const creados: FormCompleto[] = [];
+  for (const audiencia of audiencias) {
+    const color = (!conjunta && input.color) || colorAleatorio(colores);
+    colores.push(color);
+    const [form] = await db
+      .insert(evalForms)
+      .values({
+        academicYear,
+        titulo: conjunta ? tituloConAudiencia(input.titulo, audiencia) : input.titulo.trim(),
+        descripcion: (!conjunta && input.descripcion) || INTRO_FORM[audiencia],
+        audiencia,
+        token: nuevoTokenFormulario(),
+        anonimo: true,
+        // El alumnado responde con enlace personalizado cuando se envía por correo:
+        // se guarda de qué alumno viene (decisión cerrada, ver la ficha del módulo).
+        identificaAlumno: audiencia === 'alumnos',
+        pedirClase: audiencia === 'alumnos',
+        pedirEtapa: audiencia === 'profesores',
+        avisoAnonimato: AVISO_ANONIMATO[audiencia],
+        mensajeFinal: MENSAJE_FINAL[audiencia],
+        color,
+        // Las clases solo significan algo para el alumnado (quién falta, segmentar).
+        clases: audiencia === 'alumnos' ? (input.clases ?? []) : [],
+        grupoId,
+        createdByEmail: input.createdByEmail ?? null,
+      })
+      .returning();
 
-  return (await getFormCompleto(form.id))!;
+    let orden = 0;
+    for (const act of actividades) {
+      await anadirBloque(form.id, {
+        activityId: act.id,
+        titulo: act.nombre,
+        audiencia,
+        conPreset: input.conPreset !== false,
+        orden: orden++,
+      });
+    }
+    creados.push((await getFormCompleto(form.id))!);
+  }
+  return creados;
+}
+
+export interface SectorGrupo {
+  id: string;
+  titulo: string;
+  audiencia: Audiencia;
+  estado: string;
+  color: string | null;
+  respuestas: number;
+  /** Frases del preset a medias: mientras haya, ese sector no se puede abrir. */
+  huecos: number;
+}
+
+/**
+ * Los sectores (un formulario por colectivo) de una evaluación conjunta, en el orden fijo
+ * alumnado → profesorado → familias. Vacío si el formulario va suelto.
+ */
+export async function getSectoresGrupo(grupoId: string | null): Promise<SectorGrupo[]> {
+  if (!grupoId) return [];
+  const forms = await db.select().from(evalForms).where(eq(evalForms.grupoId, grupoId));
+  if (forms.length === 0) return [];
+  const ids = forms.map((f) => f.id);
+  const bloques = await db.select({ id: evalBlocks.id, formId: evalBlocks.formId }).from(evalBlocks).where(inArray(evalBlocks.formId, ids));
+  const [conteos, preguntas] = await Promise.all([
+    contarRespuestas(ids),
+    bloques.length
+      ? db
+          .select({ id: evalQuestions.id, blockId: evalQuestions.blockId, texto: evalQuestions.texto, filas: evalQuestions.filas })
+          .from(evalQuestions)
+          .where(inArray(evalQuestions.blockId, bloques.map((b) => b.id)))
+      : Promise.resolve([]),
+  ]);
+  const formDeBloque = new Map(bloques.map((b) => [b.id, b.formId]));
+  const orden = AUDIENCIAS.map((a) => a.value as string);
+  return forms
+    .map((f) => ({
+      id: f.id,
+      titulo: f.titulo,
+      audiencia: f.audiencia as Audiencia,
+      estado: f.estado,
+      color: f.color,
+      respuestas: conteos.get(f.id) ?? 0,
+      huecos: huecosPendientes(preguntas.filter((q) => formDeBloque.get(q.blockId) === f.id)).length,
+    }))
+    .sort((a, b) => orden.indexOf(a.audiencia) - orden.indexOf(b.audiencia));
 }
 
 /**
@@ -354,6 +422,13 @@ export async function actualizarForm(id: string, patch: Partial<EvalForm>): Prom
   await db.update(evalForms).set(set).where(eq(evalForms.id, id));
 }
 
+/** "Convivencia · Alumnado" → "Convivencia · Profesorado" (y si no llevaba colectivo, se le pone). */
+function tituloOtroColectivo(titulo: string, de: Audiencia, a: Audiencia): string {
+  const sufijo = ` · ${AUDIENCIAS.find((x) => x.value === de)?.label}`;
+  const base = titulo.endsWith(sufijo) ? titulo.slice(0, -sufijo.length) : titulo;
+  return tituloConAudiencia(base, a);
+}
+
 /**
  * Duplica un formulario con toda su estructura. Sirve para tres cosas del día a día:
  * repetir la evaluación del curso siguiente (`academicYear` distinto → las actividades
@@ -370,12 +445,32 @@ export async function duplicarForm(
   const audiencia = opts.audiencia ?? (orig.audiencia as Audiencia);
   const cambiaAudiencia = audiencia !== orig.audiencia;
   const cambiaAnio = academicYear !== orig.academicYear;
+  // Otro colectivo, mismo curso = otro sector de la MISMA evaluación: se une a su grupo
+  // (y si el original iba suelto, estrena grupo con él). Otro curso = evaluación nueva.
+  const sector = cambiaAudiencia && !cambiaAnio;
+  const grupoId = sector ? (orig.grupoId ?? crypto.randomUUID()) : null;
+  if (sector && orig.grupoId) {
+    const [yaEsta] = await db
+      .select({ id: evalForms.id })
+      .from(evalForms)
+      .where(and(eq(evalForms.grupoId, orig.grupoId), eq(evalForms.audiencia, audiencia)))
+      .limit(1);
+    if (yaEsta) throw new Error(`Esta evaluación ya tiene su formulario de ${audienciaLabel(audiencia).toLowerCase()}`);
+  }
+  if (sector && !orig.grupoId) {
+    await db.update(evalForms).set({ grupoId }).where(eq(evalForms.id, orig.id));
+  }
+  const coloresGrupo = grupoId
+    ? (await db.select({ color: evalForms.color }).from(evalForms).where(eq(evalForms.grupoId, grupoId)))
+        .map((f) => f.color)
+        .filter((c): c is string => !!c)
+    : [orig.color].filter((c): c is string => !!c);
 
   const [form] = await db
     .insert(evalForms)
     .values({
       academicYear,
-      titulo: opts.titulo ?? (cambiaAudiencia ? `${orig.titulo} · ${audiencia}` : `${orig.titulo} (copia)`),
+      titulo: opts.titulo ?? (cambiaAudiencia ? tituloOtroColectivo(orig.titulo, orig.audiencia as Audiencia, audiencia) : `${orig.titulo} (copia)`),
       descripcion: cambiaAudiencia ? INTRO_FORM[audiencia] : orig.descripcion,
       audiencia,
       token: nuevoTokenFormulario(),
@@ -388,8 +483,9 @@ export async function duplicarForm(
       mensajeFinal: cambiaAudiencia ? MENSAJE_FINAL[audiencia] : orig.mensajeFinal,
       // Color nuevo siempre: es una evaluación distinta (aunque sea "tal cual"), y así
       // se distingue de un vistazo del original si los dos acaban abiertos a la vez.
-      color: colorAleatorio(),
+      color: colorAleatorio(coloresGrupo),
       clases: audiencia === 'alumnos' ? orig.clases : [],
+      grupoId,
       createdByEmail: opts.createdByEmail ?? null,
     })
     .returning();

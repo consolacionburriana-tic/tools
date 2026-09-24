@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { crearForm } from '@/lib/evaluaciones-server';
+import { crearEvaluacion } from '@/lib/evaluaciones-server';
 
 const claseSchema = z.object({ curso: z.string(), letra: z.string().nullable() });
 
+const audienciaSchema = z.enum(['alumnos', 'profesores', 'familias']);
+
+// `audiencias` con más de un colectivo = evaluación conjunta: un formulario por colectivo,
+// mismas actividades, mismo grupo. `audiencia` (uno solo) se mantiene por compatibilidad.
 const schema = z.object({
   titulo: z.string().min(3),
-  audiencia: z.enum(['alumnos', 'profesores', 'familias']),
+  audiencia: audienciaSchema.optional(),
+  audiencias: z.array(audienciaSchema).max(3).optional(),
   academicYear: z.string().regex(/^\d{4}-\d{2}$/).optional(),
   descripcion: z.string().nullable().optional(),
   clases: z.array(claseSchema).default([]),
@@ -35,8 +40,12 @@ export async function POST(request: Request) {
     if (input.activityIds.length === 0 && input.actividadesNuevas.length === 0) {
       return NextResponse.json({ error: 'Añade al menos una actividad' }, { status: 400 });
     }
-    const form = await crearForm({ ...input, createdByEmail: guard.email });
-    return NextResponse.json({ ok: true, form }, { status: 201 });
+    const audiencias = input.audiencias?.length ? input.audiencias : input.audiencia ? [input.audiencia] : [];
+    if (audiencias.length === 0) {
+      return NextResponse.json({ error: 'Elige quién responde' }, { status: 400 });
+    }
+    const forms = await crearEvaluacion({ ...input, audiencias, createdByEmail: guard.email });
+    return NextResponse.json({ ok: true, form: forms[0], forms }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error desconocido';
     return NextResponse.json({ error: message }, { status: 400 });
