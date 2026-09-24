@@ -407,6 +407,15 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
             <Link href={`/gestion/evaluaciones/${form.id}/enviar`} className={`${BTN_PRIMARIO} ml-1`}>
               <Send className="h-3.5 w-3.5" /> Enviar
             </Link>
+            {/* A la vista y no solo en Ajustes: nadie buscaba "eliminar" dentro de un plegable. */}
+            <EliminarEvaluacion
+              formId={form.id}
+              nombre={conjunta ? `el sector de ${audiencia === 'alumnos' ? 'alumnado' : audiencia === 'profesores' ? 'profesorado' : 'familias'}` : `«${form.titulo}»`}
+              respuestas={respuestas}
+              etiqueta={conjunta ? 'Eliminar este sector' : 'Eliminar la evaluación'}
+              compacto
+              volverA={conjunta ? `/gestion/evaluaciones/${sectores.find((x) => x.id !== form.id)?.id}` : '/gestion/evaluaciones'}
+            />
           </div>
         </div>
 

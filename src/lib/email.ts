@@ -161,14 +161,20 @@ export async function enviar(perfil: PerfilCorreo, mensaje: Mensaje): Promise<vo
  * Masivo: un mensaje por destinatario (nadie ve el correo de nadie). Resend lo hace en lotes
  * de 100 por llamada; Gmail va de uno en uno con concurrencia limitada — mismo contrato,
  * `{ sent, errors }`, con errores parciales contados y sin abortar el resto.
+ *
+ * `programadoPara`: en vez de salir ya, Resend lo guarda y lo dispara a esa hora (hasta 30
+ * días vista). No hay cron nuestro detrás: la programación vive en Resend y se cancela con
+ * `cancelarProgramados(ids)`. Solo existe en Resend; con Gmail se rechaza.
  */
 export async function enviarLote(
   perfil: PerfilCorreo,
   mensajes: Mensaje[],
-): Promise<{ sent: number; errors: number }> {
-  if (mensajes.length === 0) return { sent: 0, errors: 0 };
+  opciones: { programadoPara?: Date } = {},
+): Promise<{ sent: number; errors: number; ids: string[] }> {
+  if (mensajes.length === 0) return { sent: 0, errors: 0, ids: [] };
   const r = remitente(perfil);
   if (r.transporte === 'gmail') {
+    if (opciones.programadoPara) throw new Error('Programar envíos solo funciona con Resend');
     const payload: MensajeGmail[] = mensajes.map((m) => ({
       from: direccion(r.nombre, r.email),
       to: aLista(m.to),
@@ -176,28 +182,60 @@ export async function enviarLote(
       html: m.html,
       replyTo: m.replyTo ?? r.replyTo,
     }));
-    return enviarLoteGmail(r.buzon, payload);
+    return { ...(await enviarLoteGmail(r.buzon, payload)), ids: [] };
   }
   const resend = getResend();
+  const scheduledAt = opciones.programadoPara?.toISOString();
   let sent = 0;
   let errors = 0;
+  const ids: string[] = [];
   for (let i = 0; i < mensajes.length; i += 100) {
     const chunk = mensajes.slice(i, i + 100);
     try {
-      await resend.batch.send(
+      // El tipo del SDK quita `scheduledAt` del lote, pero su serializador lo manda y la API
+      // lo acepta (comprobado el 24-sep-2026: el lote queda `scheduled` y se cancela por id).
+      const { data, error } = await resend.batch.send(
         chunk.map((m) => ({
           from: from(r),
           to: aLista(m.to),
           replyTo: m.replyTo ?? r.replyTo,
           subject: m.subject,
           html: m.html,
-        })),
+          ...(scheduledAt ? { scheduledAt } : {}),
+        })) as Parameters<typeof resend.batch.send>[0],
       );
+      if (error) throw new Error(error.message);
       sent += chunk.length;
+      ids.push(...(data?.data ?? []).map((d) => d.id));
     } catch (e) {
       console.error('Resend batch error:', e instanceof Error ? e.message : e);
       errors += chunk.length;
     }
   }
-  return { sent, errors };
+  return { sent, errors, ids };
+}
+
+/**
+ * Cancela correos programados en Resend. Devuelve cuántos se cancelaron y cuántos ya no se
+ * podían (salieron ya o no existían). Resend tarda unos segundos en pasar un correo recién
+ * programado de `queued` a `scheduled`, y en ese rato contesta "Email is not scheduled":
+ * se reintenta un par de veces antes de darlo por salido.
+ */
+export async function cancelarProgramados(ids: string[]): Promise<{ cancelados: number; noCancelables: number }> {
+  if (ids.length === 0) return { cancelados: 0, noCancelables: 0 };
+  const resend = getResend();
+  let cancelados = 0;
+  let noCancelables = 0;
+  for (const id of ids) {
+    let ok = false;
+    for (let intento = 0; intento < 3 && !ok; intento++) {
+      if (intento > 0) await new Promise((res) => setTimeout(res, 1500));
+      const { error } = await resend.emails.cancel(id);
+      if (!error) ok = true;
+      else if (!/not scheduled/i.test(error.message)) break;
+    }
+    if (ok) cancelados++;
+    else noCancelables++;
+  }
+  return { cancelados, noCancelables };
 }

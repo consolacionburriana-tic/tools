@@ -8,6 +8,7 @@ import {
   evalAnswers,
   evalBlocks,
   evalEmailTemplates,
+  evalEnvios,
   evalForms,
   evalInvites,
   evalQuestions,
@@ -16,11 +17,13 @@ import {
   eduTeachers,
   type EvalActivity,
   type EvalBlock,
+  type EvalEnvio,
   type EvalForm,
   type EvalQuestion,
   type NewEvalQuestion,
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
+import { cancelarProgramados } from '@/lib/email';
 import { compararClasesMayoresPrimero, etapaDeCurso } from '@/lib/cursos';
 import { nombreProfe } from '@/lib/profes';
 import {
@@ -251,6 +254,22 @@ async function hidratarForm(form: EvalForm): Promise<FormCompleto> {
       ? db.select().from(evalActivities).where(inArray(evalActivities.id, activityIds))
       : Promise.resolve([] as EvalActivity[]),
   ]);
+
+  // Apertura automática de un envío programado, perezosa: sin cron, se abre la primera vez
+  // que alguien carga el formulario pasada la hora. Nunca con frases a medias (el mismo
+  // guardián que el botón de "abierto"): si las hay, se queda en borrador.
+  if (form.estado === 'borrador' && form.abrirEn && form.abrirEn.getTime() <= Date.now()) {
+    const conHuecos = huecosPendientes(preguntas.map((q) => ({ id: q.id, texto: q.texto, filas: q.filas }))).length > 0;
+    if (!conHuecos) {
+      const ahora = new Date();
+      await db
+        .update(evalForms)
+        .set({ estado: 'abierto', abiertoAt: ahora, abrirEn: null, updatedAt: ahora })
+        .where(and(eq(evalForms.id, form.id), eq(evalForms.estado, 'borrador')));
+      form = { ...form, estado: 'abierto', abiertoAt: ahora, abrirEn: null };
+    }
+  }
+
   return {
     ...form,
     bloques: bloques.map((b) => ({
@@ -413,11 +432,13 @@ export async function getHuecosPendientes(formId: string): Promise<{ questionId:
 export async function actualizarForm(id: string, patch: Partial<EvalForm>): Promise<void> {
   const campos = [
     'titulo', 'descripcion', 'audiencia', 'estado', 'academicYear', 'anonimo', 'identificaAlumno',
-    'pedirClase', 'pedirEtapa', 'requiereLogin', 'avisoAnonimato', 'mensajeFinal', 'clases', 'color',
+    'pedirClase', 'pedirEtapa', 'requiereLogin', 'avisoAnonimato', 'mensajeFinal', 'clases', 'color', 'abrirEn',
   ] as const;
   const set: Record<string, unknown> = { updatedAt: new Date() };
   for (const k of campos) if (patch[k] !== undefined) set[k] = patch[k];
   if (patch.estado === 'abierto') set.abiertoAt = new Date();
+  // Abrirla o cerrarla a mano gana a la apertura automática de un envío programado.
+  if (patch.estado && patch.abrirEn === undefined) set.abrirEn = null;
   if (patch.estado === 'cerrado') set.cerradoAt = new Date();
   await db.update(evalForms).set(set).where(eq(evalForms.id, id));
 }
@@ -604,7 +625,16 @@ export async function borrarForm(
   if (n > 0 && !opts.forzar) {
     return { ok: false, respuestas: n, motivo: `Tiene ${n} respuestas: confirma que quieres borrarlas también.` };
   }
-  // Las respuestas, respuestas sueltas e invitaciones caen en cascada con el formulario.
+  // Lo programado en Resend no se va con la BBDD: si no se cancela, llegaría un correo con un
+  // enlace a una evaluación que ya no existe.
+  const pendientes = await db
+    .select()
+    .from(evalEnvios)
+    .where(and(inArray(evalEnvios.formId, ids), eq(evalEnvios.estado, 'programado')));
+  for (const e of pendientes) {
+    if (e.programadoPara && e.programadoPara.getTime() > Date.now()) await cancelarProgramados(e.resendIds);
+  }
+  // Las respuestas, respuestas sueltas, invitaciones y envíos caen en cascada con el formulario.
   await db.delete(evalForms).where(inArray(evalForms.id, ids));
   return { ok: true, borrados: ids.length };
 }
@@ -1327,4 +1357,82 @@ export async function getClasesDisponibles(): Promise<Clase[]> {
     .from(eduStudents)
     .where(eq(eduStudents.active, true));
   return rows.filter((r): r is Clase => r.curso !== null).sort(compararClasesMayoresPrimero);
+}
+
+// ─── Envíos por correo (inmediatos y programados) ─────────────────────────────
+
+export type EstadoEnvio = 'programado' | 'enviado' | 'cancelado';
+
+export interface EnvioResumen extends Omit<EvalEnvio, 'estado' | 'resendIds'> {
+  /** Un programado cuya hora ya pasó se enseña como enviado: Resend ya lo ha disparado. */
+  estado: EstadoEnvio;
+}
+
+export async function registrarEnvio(input: {
+  formId: string;
+  asunto: string;
+  total: number;
+  errores: number;
+  resendIds: string[];
+  programadoPara: Date | null;
+  soloPendientes: boolean;
+  createdByEmail: string | null;
+}): Promise<void> {
+  await db.insert(evalEnvios).values({
+    formId: input.formId,
+    estado: input.programadoPara ? 'programado' : 'enviado',
+    programadoPara: input.programadoPara,
+    asunto: input.asunto,
+    total: input.total,
+    errores: input.errores,
+    resendIds: input.resendIds,
+    soloPendientes: input.soloPendientes,
+    createdByEmail: input.createdByEmail,
+  });
+}
+
+/** Historial de envíos del formulario. Los ids de Resend no salen del servidor. */
+export async function getEnvios(formId: string): Promise<EnvioResumen[]> {
+  const filas = await db.select().from(evalEnvios).where(eq(evalEnvios.formId, formId)).orderBy(desc(evalEnvios.createdAt)).limit(20);
+  const ahora = Date.now();
+  return filas.map((f) => ({
+    id: f.id,
+    formId: f.formId,
+    programadoPara: f.programadoPara,
+    asunto: f.asunto,
+    total: f.total,
+    errores: f.errores,
+    soloPendientes: f.soloPendientes,
+    createdByEmail: f.createdByEmail,
+    createdAt: f.createdAt,
+    canceladoAt: f.canceladoAt,
+    estado:
+      f.estado === 'programado' && f.programadoPara && f.programadoPara.getTime() <= ahora
+        ? 'enviado'
+        : (f.estado as EstadoEnvio),
+  }));
+}
+
+/**
+ * Cancela un envío programado en Resend. Si era el que iba a abrir la evaluación sola y no
+ * queda ningún otro programado, se quita también la apertura automática.
+ */
+export async function cancelarEnvio(
+  envioId: string,
+): Promise<{ ok: boolean; motivo?: string; cancelados?: number; noCancelables?: number }> {
+  const [envio] = await db.select().from(evalEnvios).where(eq(evalEnvios.id, envioId)).limit(1);
+  if (!envio) return { ok: false, motivo: 'Envío no encontrado' };
+  if (envio.estado !== 'programado') return { ok: false, motivo: 'Ese envío no está programado' };
+  if (!envio.programadoPara || envio.programadoPara.getTime() <= Date.now()) {
+    return { ok: false, motivo: 'Ya ha salido: no se puede cancelar' };
+  }
+  const r = await cancelarProgramados(envio.resendIds);
+  await db.update(evalEnvios).set({ estado: 'cancelado', canceladoAt: new Date() }).where(eq(evalEnvios.id, envio.id));
+  const programados = await db
+    .select({ programadoPara: evalEnvios.programadoPara })
+    .from(evalEnvios)
+    .where(and(eq(evalEnvios.formId, envio.formId), eq(evalEnvios.estado, 'programado')));
+  const otro = programados.some((e) => e.programadoPara && e.programadoPara.getTime() > Date.now());
+  if (!otro) await db.update(evalForms).set({ abrirEn: null }).where(eq(evalForms.id, envio.formId));
+  return { ok: true, ...r };
 }

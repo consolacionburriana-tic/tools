@@ -22,11 +22,15 @@ export interface EnvioInput {
   academicYear: string;
   /** Correo de quien lo manda: las respuestas van a esa persona, no a un buzón sin dueño. */
   replyTo?: string;
+  /** Programado: lo dispara Resend a esa hora (ver `enviarLote`). */
+  programadoPara?: Date;
 }
 
 const CTA_LABEL = 'Rellenar la evaluación';
 
-export async function enviarEvaluacion(input: EnvioInput): Promise<{ sent: number; errors: number; skipped: boolean }> {
+export async function enviarEvaluacion(
+  input: EnvioInput,
+): Promise<{ sent: number; errors: number; skipped: boolean; ids: string[] }> {
   const items: BlastItem[] = input.destinatarios.map((d) => ({
     email: d.email,
     vars: varsDeDestinatario({
@@ -38,5 +42,9 @@ export async function enviarEvaluacion(input: EnvioInput): Promise<{ sent: numbe
     }),
     cta: { url: d.enlace, label: CTA_LABEL },
   }));
-  return sendChunks(items, input.subject, input.body, { perfil: 'evaluaciones', replyTo: input.replyTo });
+  return sendChunks(items, input.subject, input.body, {
+    perfil: 'evaluaciones',
+    replyTo: input.replyTo,
+    programadoPara: input.programadoPara,
+  });
 }

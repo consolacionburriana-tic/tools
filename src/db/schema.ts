@@ -810,6 +810,9 @@ export const evalForms = pgTable('eval_forms', {
   // Evaluación conjunta: los formularios de alumnado/profesorado/familias creados a la vez
   // comparten grupo. Cada uno sigue siendo independiente; el grupo solo los enseña juntos.
   grupoId: uuid('grupo_id'),
+  // Apertura automática (envío programado): si sigue en borrador al llegar esta hora, se
+  // abre sola la primera vez que alguien carga el formulario. Sin cron.
+  abrirEn: timestamp('abrir_en'),
   createdByEmail: text('created_by_email'),
   abiertoAt: timestamp('abierto_at'),
   cerradoAt: timestamp('cerrado_at'),
@@ -817,6 +820,25 @@ export const evalForms = pgTable('eval_forms', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   index('eval_forms_grupo_idx').on(t.grupoId),
+]);
+
+// Envíos por correo de un formulario: inmediatos (historial) y programados. Los programados
+// los dispara Resend (`scheduled_at`), no un cron nuestro; aquí quedan sus ids para cancelar.
+export const evalEnvios = pgTable('eval_envios', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
+  estado: text('estado').notNull().default('programado'), // programado | enviado | cancelado
+  programadoPara: timestamp('programado_para'), // null = inmediato
+  asunto: text('asunto').notNull(),
+  total: integer('total').notNull().default(0),
+  errores: integer('errores').notNull().default(0),
+  resendIds: jsonb('resend_ids').$type<string[]>().notNull().default([]),
+  soloPendientes: boolean('solo_pendientes').notNull().default(false),
+  createdByEmail: text('created_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  canceladoAt: timestamp('cancelado_at'),
+}, (t) => [
+  index('eval_envios_form_idx').on(t.formId),
 ]);
 
 export const evalBlocks = pgTable('eval_blocks', {
@@ -926,6 +948,7 @@ export const evalEmailTemplates = pgTable('eval_email_templates', {
 export type EvalActivity = typeof evalActivities.$inferSelect;
 export type NewEvalActivity = typeof evalActivities.$inferInsert;
 export type EvalForm = typeof evalForms.$inferSelect;
+export type EvalEnvio = typeof evalEnvios.$inferSelect;
 export type NewEvalForm = typeof evalForms.$inferInsert;
 export type EvalBlock = typeof evalBlocks.$inferSelect;
 export type NewEvalBlock = typeof evalBlocks.$inferInsert;

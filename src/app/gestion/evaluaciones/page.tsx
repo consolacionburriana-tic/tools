@@ -259,6 +259,14 @@ function TarjetaConjunta({ forms }: { forms: FormResumen[] }) {
                 </Link>
                 <Respuestas f={f} />
                 <Acciones f={f} />
+                <EliminarEvaluacion
+                  formId={f.id}
+                  nombre={`el sector de ${a?.label.toLowerCase()}`}
+                  respuestas={f.respuestas}
+                  etiqueta={`Eliminar solo el sector de ${a?.label.toLowerCase()}`}
+                  compacto
+                  volverA={null}
+                />
               </div>
               <BarraProgreso f={f} color={color} />
             </div>
