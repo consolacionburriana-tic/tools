@@ -7,6 +7,7 @@ import { AUDIENCIAS, COLOR_AUDIENCIA, opcionesAcademicYear, type Audiencia } fro
 import { getActividades, getForms, type FormResumen } from '@/lib/evaluaciones-server';
 import { NavPending } from '@/components/ui/nav-pending';
 import { BTN_SUAVE } from '@/components/evaluaciones/ui';
+import { EliminarEvaluacion } from '@/components/evaluaciones/eliminar-evaluacion';
 
 export const metadata = { title: 'Evaluaciones · Gestión' };
 
@@ -196,6 +197,7 @@ function TarjetaForm({ f }: { f: FormResumen }) {
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <Respuestas f={f} />
         <Acciones f={f} />
+        <EliminarEvaluacion formId={f.id} nombre={`«${f.titulo}»`} respuestas={f.respuestas} compacto volverA={null} />
       </div>
       <BarraProgreso f={f} color={f.color ?? '#2563eb'} />
     </div>
@@ -212,21 +214,32 @@ function TarjetaConjunta({ forms }: { forms: FormResumen[] }) {
   const total = forms.reduce((n, f) => n + f.respuestas, 0);
   return (
     <div className={TARJETA_LISTADO}>
-      <div className="px-4 pb-3 pt-4 sm:px-5">
-        <p className="flex flex-wrap items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
-          {tituloBase(primero)}
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-            conjunta · {forms.length} sectores
-          </span>
-        </p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500">
-          <span className="inline-flex items-center gap-1">
-            <CalendarRange className="h-3.5 w-3.5" />
-            {primero.academicYear}
-          </span>
-          {primero.actividades.length > 0 && <span className="truncate">{primero.actividades.join(' · ')}</span>}
-          <span>{total} respuestas en total</span>
-        </p>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 px-4 pb-3 pt-4 sm:px-5">
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
+            {tituloBase(primero)}
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              conjunta · {forms.length} sectores
+            </span>
+          </p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500">
+            <span className="inline-flex items-center gap-1">
+              <CalendarRange className="h-3.5 w-3.5" />
+              {primero.academicYear}
+            </span>
+            {primero.actividades.length > 0 && <span className="truncate">{primero.actividades.join(' · ')}</span>}
+            <span>{total} respuestas en total</span>
+          </p>
+        </div>
+        <EliminarEvaluacion
+          formId={primero.id}
+          grupo
+          nombre={`la evaluación entera (${forms.length} sectores)`}
+          respuestas={total}
+          etiqueta="Eliminar la evaluación entera"
+          compacto
+          volverA={null}
+        />
       </div>
       <div className="divide-y divide-zinc-100 border-t border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
         {forms.map((f) => {

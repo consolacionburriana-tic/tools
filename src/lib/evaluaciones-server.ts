@@ -437,7 +437,17 @@ function tituloOtroColectivo(titulo: string, de: Audiencia, a: Audiencia): strin
  */
 export async function duplicarForm(
   id: string,
-  opts: { academicYear?: string; audiencia?: Audiencia; titulo?: string; createdByEmail?: string | null } = {},
+  opts: {
+    academicYear?: string;
+    audiencia?: Audiencia;
+    titulo?: string;
+    createdByEmail?: string | null;
+    /** Uso interno de `duplicarGrupo`: grupo nuevo al que va la copia. */
+    grupoDestino?: string;
+    /** Uso interno de `duplicarGrupo`: actividad original → copia en el curso destino, para
+     * que todos los sectores copiados apunten a la MISMA actividad y no a una por sector. */
+    actividadesCopiadas?: Map<string, string>;
+  } = {},
 ): Promise<FormCompleto | null> {
   const orig = await getFormCompleto(id);
   if (!orig) return null;
@@ -448,7 +458,7 @@ export async function duplicarForm(
   // Otro colectivo, mismo curso = otro sector de la MISMA evaluación: se une a su grupo
   // (y si el original iba suelto, estrena grupo con él). Otro curso = evaluación nueva.
   const sector = cambiaAudiencia && !cambiaAnio;
-  const grupoId = sector ? (orig.grupoId ?? crypto.randomUUID()) : null;
+  const grupoId = opts.grupoDestino ?? (sector ? (orig.grupoId ?? crypto.randomUUID()) : null);
   if (sector && orig.grupoId) {
     const [yaEsta] = await db
       .select({ id: evalForms.id })
@@ -495,8 +505,13 @@ export async function duplicarForm(
     // comparativa entre años tenga dos puntos y no uno reutilizado.
     let activityId = b.activityId;
     if (cambiaAnio && b.activityId) {
-      const copia = await copiarActividad(b.activityId, academicYear, opts.createdByEmail);
-      activityId = copia?.id ?? b.activityId;
+      const yaCopiada = opts.actividadesCopiadas?.get(b.activityId);
+      if (yaCopiada) activityId = yaCopiada;
+      else {
+        const copia = await copiarActividad(b.activityId, academicYear, opts.createdByEmail);
+        activityId = copia?.id ?? b.activityId;
+        opts.actividadesCopiadas?.set(b.activityId, activityId);
+      }
     }
     const act = activityId ? await getActividad(activityId) : null;
 
@@ -540,12 +555,58 @@ export async function duplicarForm(
   return getFormCompleto(form.id);
 }
 
-/** Borra un formulario. Solo si no tiene respuestas: lo respondido no se tira nunca. */
-export async function borrarForm(id: string): Promise<{ ok: boolean; motivo?: string }> {
-  const n = (await contarRespuestas([id])).get(id) ?? 0;
-  if (n > 0) return { ok: false, motivo: `Tiene ${n} respuestas: ciérralo en vez de borrarlo.` };
-  await db.delete(evalForms).where(eq(evalForms.id, id));
-  return { ok: true };
+/**
+ * Copia una evaluación conjunta ENTERA a otro curso: todos sus sectores, con sus preguntas
+ * tal cual, en un grupo nuevo. Cada actividad se copia una sola vez al curso destino
+ * (misma serie) y la comparten todos los sectores, igual que en el original.
+ */
+export async function duplicarGrupo(
+  grupoId: string,
+  academicYear: string,
+  createdByEmail?: string | null,
+): Promise<FormCompleto[]> {
+  const sectores = await getSectoresGrupo(grupoId);
+  if (sectores.length === 0) return [];
+  const grupoDestino = crypto.randomUUID();
+  const actividadesCopiadas = new Map<string, string>();
+  const copias: FormCompleto[] = [];
+  for (const s of sectores) {
+    const copia = await duplicarForm(s.id, {
+      academicYear,
+      titulo: s.titulo,
+      createdByEmail,
+      grupoDestino,
+      actividadesCopiadas,
+    });
+    if (copia) copias.push(copia);
+  }
+  return copias;
+}
+
+/**
+ * Borra un formulario (o, con `grupo`, todos los sectores de su evaluación conjunta).
+ * Lo que tiene respuestas NO se borra salvo con `forzar`: la interfaz solo lo manda tras
+ * una confirmación explícita, porque se pierden las respuestas y no hay vuelta atrás.
+ * Las actividades se quedan (pueden estar en otros formularios o servir de serie).
+ */
+export async function borrarForm(
+  id: string,
+  opts: { grupo?: boolean; forzar?: boolean } = {},
+): Promise<{ ok: boolean; motivo?: string; respuestas?: number; borrados?: number }> {
+  const [form] = await db.select({ id: evalForms.id, grupoId: evalForms.grupoId }).from(evalForms).where(eq(evalForms.id, id)).limit(1);
+  if (!form) return { ok: false, motivo: 'Formulario no encontrado' };
+  const ids =
+    opts.grupo && form.grupoId
+      ? (await db.select({ id: evalForms.id }).from(evalForms).where(eq(evalForms.grupoId, form.grupoId))).map((f) => f.id)
+      : [id];
+  const conteos = await contarRespuestas(ids);
+  const n = ids.reduce((t, x) => t + (conteos.get(x) ?? 0), 0);
+  if (n > 0 && !opts.forzar) {
+    return { ok: false, respuestas: n, motivo: `Tiene ${n} respuestas: confirma que quieres borrarlas también.` };
+  }
+  // Las respuestas, respuestas sueltas e invitaciones caen en cascada con el formulario.
+  await db.delete(evalForms).where(inArray(evalForms.id, ids));
+  return { ok: true, borrados: ids.length };
 }
 
 // ─── Estructura (bloques y preguntas) ─────────────────────────────────────────

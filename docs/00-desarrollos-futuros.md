@@ -186,9 +186,9 @@ surgieron y **no** se implementaron, por si interesan:
   formulario con "parte de profes" y "parte de alumnos" habría mezclado el 100 % anónimo del
   claustro con la trazabilidad del alumnado. Si se quisiera abrir/cerrar todos los sectores a
   la vez con un botón, es añadirlo encima del grupo.
-- **Copiar una conjunta entera a otro curso** no está: hoy se copia sector a sector (y cada
-  copia queda suelta, sin grupo). Si al empezar 2027-28 se echa en falta, es un
-  `duplicarGrupo` que llame a `duplicarForm` por sector con el mismo `grupo_id` nuevo.
+- ~~Copiar una conjunta entera a otro curso~~ ✅ hecho el mismo día (`duplicarGrupo`).
+- **Eliminar con respuestas** (pedido por David): se permite escribiendo ELIMINAR. Si en la
+  práctica se prefiere que lo respondido no se pueda borrar nunca, es quitar `forzar` del route.
 - Evaluaciones sale por **Resend** por código, aunque el global sea Gmail. Revisar que el
   remitente `no-responder@consolacionburriana.com` esté verificado en Resend (el de
   `licencias@` seguía pendiente de cosas del dominio).

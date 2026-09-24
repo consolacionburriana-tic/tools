@@ -52,8 +52,12 @@ Rutas: gestión en `/gestion/evaluaciones`, formulario público en `/evaluacione
     en el alta, el editor, el listado y la comparativa.
   - El listado junta los sectores en **una tarjeta** con cabecera común y una fila por
     colectivo, cada una con sus acciones. Títulos: "<base> · Alumnado", "<base> · Profesorado".
-  - Duplicar un sector a **otro curso** lo saca del grupo (es otra evaluación); copiar la
-    evaluación conjunta entera a otro curso de un clic queda en `00-desarrollos-futuros.md`.
+  - **Copiar a otro curso** (2026-09-24): en Ajustes del editor, "Toda la evaluación → Los N
+    sectores a <curso>", y en el alta, "¿Repetir una evaluación de <curso anterior>?" lista la
+    conjunta como UNA fila y la copia entera (`duplicarGrupo`). Va a un grupo nuevo y cada
+    actividad se copia **una sola vez** al curso destino (misma serie) y la comparten todos los
+    sectores, igual que en el original. "Solo este sector a <curso>" sigue existiendo y deja la
+    copia suelta.
 - **`serie_id`**: al copiar una actividad de un curso a otro se conserva la serie. Es lo que
   permite comparar la Convivencia de Inicio de 2025-26 con la de 2026-27 sin adivinar nada por
   el nombre.
@@ -198,6 +202,21 @@ Dos niveles de color, deliberadamente independientes:
     llevas las evaluaciones". Es lo natural para la coordinación de pastoral, que también es
     tutora. Ver [`01-auth-roles.md`](./01-auth-roles.md).
 
+### Eliminar evaluaciones (2026-09-24)
+- **Desde el listado** (papelera en cada tarjeta; en una conjunta, en la cabecera = la
+  evaluación entera) **y desde Ajustes del editor** ("Solo este sector" / "La evaluación
+  entera"). `DELETE /api/evaluaciones/admin/forms/[id]` con `?grupo=1` para todos los
+  sectores.
+- **Sin "Deshacer"**, a diferencia de preguntas y bloques: va al servidor al momento, así que
+  pide confirmación en el sitio (sin `confirm()`). **Con respuestas se puede borrar, pero hay que
+  escribir ELIMINAR** y el servidor solo lo acepta con `?forzar=1`; sin eso responde 409 con el
+  recuento. Antes era "lo respondido no se borra nunca, se cierra": David pidió poder eliminar,
+  y el gesto de más es lo que protege lo respondido de un clic despistado. El aviso recuerda que,
+  si solo se quiere dejar de recibir respuestas, basta con cerrarla.
+- Respuestas, invitaciones, bloques y preguntas caen en cascada. **Las actividades se quedan**:
+  pueden estar en otros formularios y son las que dan la serie para comparar entre cursos (se
+  archivan desde Actividades si sobran).
+
 ### Editor: borrar con deshacer (2026-08-27)
 - **Borrar un bloque o una pregunta no llama al servidor al momento.** Se oculta ya mismo en
   pantalla y sale un toast de sonner con acción "Deshacer" (`GRACIA_BORRADO_MS` = 4,5 s, el
@@ -300,6 +319,12 @@ queda a medias entre dos peticiones.
       humo contra la BBDD (alta conjunta, sectores, añadir familias, rechazo de repetido, form
       suelto que estrena grupo) y limpiada después. **Falta que David lo vea en pantalla**: el
       agente no pudo entrar en `/gestion` sin sesión.
+- [x] Copiar una evaluación conjunta entera a otro curso (editor y "repetir" del alta), con una
+      sola copia de cada actividad compartida por los sectores. Verificado con prueba de humo
+      contra Neon en cursos ficticios, limpiada después.
+- [x] Eliminar evaluaciones desde el listado y el editor (sector o conjunta entera), con
+      confirmación y ELIMINAR escrito si hay respuestas. Verificado en la misma prueba de humo
+      (sin respuestas, con respuestas sin forzar → 409, forzado).
 - [x] Color DOMINANTE por formulario (mismo catálogo, independiente del de cada actividad):
       viste botón de enviar, progreso y fondo del formulario público — ver "Color e identidad
       visual" más arriba

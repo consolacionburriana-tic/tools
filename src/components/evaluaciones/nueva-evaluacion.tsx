@@ -29,6 +29,46 @@ interface FormAnterior {
   titulo: string;
   audiencia: string;
   actividades: string[];
+  grupoId: string | null;
+}
+
+/** Una fila de "repetir del curso anterior": un formulario suelto o una conjunta entera. */
+interface RepeticionAnterior {
+  id: string;
+  titulo: string;
+  audiencias: string[];
+  actividades: string[];
+  conjunta: boolean;
+}
+
+function agruparAnteriores(forms: FormAnterior[]): RepeticionAnterior[] {
+  const out: RepeticionAnterior[] = [];
+  const vistos = new Map<string, RepeticionAnterior>();
+  const orden = AUDIENCIAS.map((a) => a.value as string);
+  for (const f of forms) {
+    const previo = f.grupoId ? vistos.get(f.grupoId) : undefined;
+    if (previo) {
+      previo.audiencias.push(f.audiencia);
+      previo.audiencias.sort((a, b) => orden.indexOf(a) - orden.indexOf(b));
+      previo.conjunta = true;
+      continue;
+    }
+    const sufijo = ` · ${AUDIENCIAS.find((a) => a.value === f.audiencia)?.label}`;
+    const fila: RepeticionAnterior = {
+      id: f.id,
+      titulo: f.grupoId && f.titulo.endsWith(sufijo) ? f.titulo.slice(0, -sufijo.length) : f.titulo,
+      audiencias: [f.audiencia],
+      actividades: f.actividades,
+      conjunta: false,
+    };
+    if (f.grupoId) vistos.set(f.grupoId, fila);
+    out.push(fila);
+  }
+  // Un grupo que se quedó con un solo sector se copia como formulario suelto, con su título.
+  for (const fila of out) {
+    if (!fila.conjunta) fila.titulo = forms.find((f) => f.id === fila.id)?.titulo ?? fila.titulo;
+  }
+  return out;
 }
 
 interface Props {
@@ -175,18 +215,24 @@ export function NuevaEvaluacion({
     }
   }
 
-  async function duplicarDelAnterior(formId: string) {
+  const repeticiones = useMemo(() => agruparAnteriores(formsAnterior), [formsAnterior]);
+
+  async function duplicarDelAnterior(formId: string, grupo: boolean) {
     setGuardando(true);
     try {
       const res = await fetch(`/api/evaluaciones/admin/forms/${formId}/duplicar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ academicYear }),
+        body: JSON.stringify({ academicYear, grupo }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo duplicar');
       haptic.success();
-      toast.success(`Copiada a ${academicYear} con todas sus preguntas`);
+      toast.success(
+        grupo
+          ? `Copiada a ${academicYear} con sus ${data.forms?.length ?? ''} sectores y todas sus preguntas`
+          : `Copiada a ${academicYear} con todas sus preguntas`,
+      );
       router.push(`/gestion/evaluaciones/${data.form.id}`);
       router.refresh();
     } catch (e) {
@@ -235,27 +281,29 @@ export function NuevaEvaluacion({
 
   return (
     <div className="anim-stagger space-y-4">
-      {formsAnterior.length > 0 && (
+      {repeticiones.length > 0 && (
         <details className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
           <summary className="cursor-pointer text-sm font-medium text-zinc-800 dark:text-zinc-200">
-            ¿Repetir una evaluación de {academicYearAnterior}? <span className="text-xs font-normal text-zinc-500">({formsAnterior.length})</span>
+            ¿Repetir una evaluación de {academicYearAnterior}? <span className="text-xs font-normal text-zinc-500">({repeticiones.length})</span>
           </summary>
           <p className="mt-1 text-xs text-zinc-500">
-            Se copia entera —actividades y preguntas— al curso {academicYear}, lista para retocar.
+            Se copia entera —actividades y preguntas, y en las conjuntas todos sus sectores— al curso {academicYear},
+            lista para retocar.
           </p>
           <div className="mt-3 space-y-2">
-            {formsAnterior.map((f) => (
+            {repeticiones.map((f) => (
               <div key={f.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">{f.titulo}</p>
                   <p className="truncate text-xs text-zinc-500">
-                    {AUDIENCIAS.find((a) => a.value === f.audiencia)?.label} · {f.actividades.join(' · ')}
+                    {f.audiencias.map((v) => AUDIENCIAS.find((a) => a.value === v)?.label).join(' + ')} ·{' '}
+                    {f.actividades.join(' · ')}
                   </p>
                 </div>
                 <button
                   type="button"
                   disabled={guardando}
-                  onClick={() => void duplicarDelAnterior(f.id)}
+                  onClick={() => void duplicarDelAnterior(f.id, f.conjunta)}
                   className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-500/10 dark:text-blue-300"
                 >
                   <Copy className="h-3.5 w-3.5" /> Copiar a {academicYear}

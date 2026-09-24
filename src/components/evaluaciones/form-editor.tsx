@@ -14,6 +14,7 @@ import { CATALOGO, claseLabel, huecosPendientes, opcionesAcademicYear, type Audi
 import type { EvalQuestion } from '@/db/schema';
 import type { FormCompleto, SectorGrupo } from '@/lib/evaluaciones-server';
 import { BandaSector, SectoresTabs } from '@/components/evaluaciones/sectores';
+import { EliminarEvaluacion } from '@/components/evaluaciones/eliminar-evaluacion';
 import { QuestionCard } from '@/components/evaluaciones/question-card';
 import { ActividadColorButton, ColorDotButton } from '@/components/evaluaciones/color-picker';
 import {
@@ -86,6 +87,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
   );
 
   const audiencia = form.audiencia as Audiencia;
+  const conjunta = sectores.length > 1;
   const bloqueada = respuestas > 0;
   const enlace = `${baseUrl}/evaluaciones/${form.token}`;
   const pendientesRevision = useMemo(
@@ -148,7 +150,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo duplicar');
       haptic.success();
-      toast.success('Copia creada');
+      toast.success(opts.grupo ? `Copiados ${data.forms?.length ?? ''} sectores` : 'Copia creada');
       router.push(`/gestion/evaluaciones/${data.form.id}`);
       router.refresh();
     } catch (e) {
@@ -583,13 +585,55 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                     onClick={() => void duplicar({ academicYear: y })}
                     className={BTN_SUAVE}
                   >
-                    <Copy className="h-3.5 w-3.5" /> A {y}
+                    <Copy className="h-3.5 w-3.5" /> {conjunta ? `Solo este sector a ${y}` : `A ${y}`}
                   </button>
                 ))}
               <p className="w-full pt-1 text-[11px] text-zinc-400">
                 ¿La misma evaluación para otro colectivo? Añádelo desde las pestañas de arriba: se queda en la misma
                 evaluación, con su propio preset.
               </p>
+            </div>
+
+            {/* Copiar la conjunta entera: todos los sectores, con una sola copia de cada
+               actividad en el curso destino (misma serie → la comparativa entre años cuadra). */}
+            {conjunta && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Rotulo className="mr-1">Toda la evaluación</Rotulo>
+                {opcionesAcademicYear(academicYearActual)
+                  .filter((y) => y !== form.academicYear)
+                  .slice(0, 2)
+                  .map((y) => (
+                    <button
+                      key={y}
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => void duplicar({ academicYear: y, grupo: true })}
+                      className={BTN_SUAVE}
+                    >
+                      <Copy className="h-3.5 w-3.5" /> Los {sectores.length} sectores a {y}
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+              <Rotulo className="mr-1">Eliminar</Rotulo>
+              <EliminarEvaluacion
+                formId={form.id}
+                nombre={`«${form.titulo}»`}
+                respuestas={respuestas}
+                etiqueta={conjunta ? 'Solo este sector' : 'Esta evaluación'}
+                volverA={conjunta ? `/gestion/evaluaciones/${sectores.find((x) => x.id !== form.id)?.id}` : '/gestion/evaluaciones'}
+              />
+              {conjunta && (
+                <EliminarEvaluacion
+                  formId={form.id}
+                  grupo
+                  nombre={`la evaluación entera (${sectores.length} sectores)`}
+                  respuestas={sectores.reduce((n, x) => n + x.respuestas, 0)}
+                  etiqueta={`La evaluación entera (${sectores.length} sectores)`}
+                />
+              )}
             </div>
           </div>
       </Plegable>

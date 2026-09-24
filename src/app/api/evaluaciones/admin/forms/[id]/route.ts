@@ -52,11 +52,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+// `?grupo=1` borra todos los sectores de la evaluación conjunta; `?forzar=1` borra aunque
+// haya respuestas (solo tras la confirmación explícita de la interfaz). Sin forzar y con
+// respuestas devuelve 409 con el recuento, para que la interfaz pida esa confirmación.
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireModule('evaluaciones');
   if (isGuardResponse(guard)) return guard;
   const { id } = await params;
-  const res = await borrarForm(id);
-  if (!res.ok) return NextResponse.json({ error: res.motivo }, { status: 409 });
-  return NextResponse.json({ ok: true });
+  const url = new URL(request.url);
+  const res = await borrarForm(id, { grupo: url.searchParams.get('grupo') === '1', forzar: url.searchParams.get('forzar') === '1' });
+  if (!res.ok) {
+    return NextResponse.json({ error: res.motivo, respuestas: res.respuestas ?? 0 }, { status: res.respuestas ? 409 : 404 });
+  }
+  return NextResponse.json({ ok: true, borrados: res.borrados });
 }
