@@ -49,7 +49,7 @@ export async function GET(request: Request) {
   const p = leido.data;
 
   const alcance = await alcanceAlumnado(guard);
-  const pd = alcanceProteccion(guard, alcance.propias);
+  const pd = alcanceProteccion(guard, alcance);
   const { alumnos, clases, materiales } = await listaAlumnado(alcance.clases, undefined, pd, veBecasMateriales(guard.role));
 
   const pedidas = new Set(p.clases.split(',').map((c) => c.trim()).filter(Boolean));

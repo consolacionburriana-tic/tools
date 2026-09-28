@@ -29,8 +29,12 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   - `estado`: `Nuevo` · `MB` · `B` · `R` · `M` · `Mojado`
   - `borrado` sí/no (por defecto **sí**) · `forrado` sí/no (por defecto **sí**)
   - notas libres opcionales
-- **Todos los roles con acceso al módulo ven y rellenan todo** (cualquier profe puede pasar
-  lista de cualquier libro; sin restricción por asignatura, de primeras).
+- **Cada uno ve y rellena lo de su etapa** (David, 28-sep-2026): tutor y profe, solo las
+  clases de sus etapas (las mismas que en Alumnado: multiselección en `/gestion/profes`,
+  horario y tutorías); dirección, jefatura, orientación, secretaría, TIC y comunicación, todo.
+  Se comprueba en el servidor (`src/lib/bancolibros-alcance.ts`) en todas las rutas del
+  módulo. Sin restricción por asignatura. Marcar quién participa sigue siendo solo de
+  dirección/secretaría/TIC.
 - **Documentación firmada** (inicio/fin de curso) y **entrega del lote**: checkboxes por
   alumno con bulk por clase. Sigue siendo papel; la app solo marca recibido.
 - **Curso académico en vigor**: calculado (sep-ago) en `src/lib/constants.ts`

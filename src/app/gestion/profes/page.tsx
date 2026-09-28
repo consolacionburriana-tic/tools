@@ -5,14 +5,23 @@ import { ChevronLeft } from 'lucide-react';
 import { getTeachers } from '@/lib/educamos-server';
 import { getClasesConTutores } from '@/lib/tutorias-server';
 import { TutoriasPanel } from '@/components/profes/tutorias-panel';
+import { EtapasPanel } from '@/components/profes/etapas-panel';
+import { etapasAutomaticasPorProfe } from '@/lib/alumnado-server';
+import type { Etapa } from '@/lib/cursos';
 import { NombresPanel } from '@/components/profes/nombres-panel';
 import { nombreProfeBreve, nombresDeProfe } from '@/lib/profes';
 import { mayusculasBellas, nombreDePila } from '@/lib/personas';
 
 export const metadata = { title: 'Profesorado · Gestión' };
 
+const esEtapa = (e: string | null): e is Etapa => e === 'EI' || e === 'EP' || e === 'ESO';
+
 export default async function ProfesPage() {
-  const [clases, profes] = await Promise.all([getClasesConTutores(), getTeachers()]);
+  const [clases, profes, automaticas] = await Promise.all([
+    getClasesConTutores(),
+    getTeachers(),
+    etapasAutomaticasPorProfe(),
+  ]);
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
@@ -20,7 +29,7 @@ export default async function ProfesPage() {
           <div>
             <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Profesorado</h1>
             <p className="text-xs text-zinc-500">
-              Tutores de cada clase, reparto del alumnado entre ellos y el nombre con el que sale cada profe
+              Tutores de cada clase, reparto del alumnado entre ellos, etapas de cada profe y el nombre con el que sale cada profe
             </p>
           </div>
           <Link
@@ -42,6 +51,20 @@ export default async function ProfesPage() {
               etapa: p.etapa,
               esTutor: p.esTutor,
               claseTutor: p.claseTutor,
+            }))}
+        />
+        {/* Multiselección: hay quien da clase en dos etapas. Decide qué ve en Alumnado y Banco. */}
+        <EtapasPanel
+          profes={profes
+            .filter((p) => p.email)
+            .map((p) => ({
+              id: p.id,
+              nombre: nombresDeProfe(p).usual,
+              etapa: p.etapa,
+              esTutor: p.esTutor,
+              claseTutor: p.claseTutor,
+              etapas: p.etapas ?? (esEtapa(p.etapa) ? [p.etapa] : []),
+              automaticas: automaticas.get(p.id) ?? [],
             }))}
         />
         {/* El "given name": se ajusta aquí y sale en todas las salidas del centro. */}

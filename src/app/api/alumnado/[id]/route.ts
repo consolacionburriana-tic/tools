@@ -28,10 +28,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   // En paralelo: la ficha no depende del alcance ni al revés, y encadenarlas costaba dos
   // viajes a Neon de más justo en la petición que se nota al tocar un alumno.
-  const [ficha, { clases, propias }] = await Promise.all([
+  const [ficha, { clases }] = await Promise.all([
     fichaAlumno(id),
-    // `conPropias: false` solo ahorra la consulta a quien lo ve todo; a un tutor se le
-    // traen igual, porque sus tutorías SON el alcance de la protección de datos.
     alcanceAlumnado(guard, { conPropias: false }),
   ]);
   if (!ficha) return NextResponse.json({ error: 'Ese alumno no existe' }, { status: 404 });
@@ -41,7 +39,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Ese alumno no existe' }, { status: 404 });
   }
 
-  // La protección de datos va más cerrada que el resto de la ficha (un tutor solo la de su
-  // tutoría), así que la que no toca ni siquiera se manda por la red.
-  return NextResponse.json({ ficha: fichaVisible(ficha, guard, alcanceProteccion(guard, propias)) });
+  // La protección de datos tiene el mismo alcance que la ficha (la etapa), pero se pasa por
+  // `fichaVisible` para que la regla viva en un solo sitio.
+  return NextResponse.json({ ficha: fichaVisible(ficha, guard, alcanceProteccion(guard, { clases })) });
 }

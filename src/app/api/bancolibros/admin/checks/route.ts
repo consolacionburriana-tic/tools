@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { hasModule } from '@/lib/auth-guards';
+import { asignacionesEnAlcance, fueraDeAlcance, requireBanco } from '@/lib/bancolibros-alcance';
 import { setChecks } from '@/lib/bancolibros-server';
 
 export async function POST(request: Request) {
-  if (!(await hasModule('bancolibros'))) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const acceso = await requireBanco();
+  if (acceso instanceof NextResponse) return acceso;
   try {
     const { asignacionIds, campos } = z
       .object({
@@ -12,6 +13,7 @@ export async function POST(request: Request) {
         campos: z.object({ entregado: z.boolean().optional(), docInicio: z.boolean().optional(), docFin: z.boolean().optional() }),
       })
       .parse(await request.json());
+    if (!(await asignacionesEnAlcance(acceso.etapas, asignacionIds))) return fueraDeAlcance();
     await setChecks(asignacionIds, campos);
     return NextResponse.json({ ok: true });
   } catch (error) {

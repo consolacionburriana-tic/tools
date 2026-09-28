@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Ese alumno no existe' }, { status: 404 });
   }
 
-  const pd = alcanceProteccion(guard, alcance.propias);
+  const pd = alcanceProteccion(guard, alcance);
   // Mismo mensaje que si no existiera, por el mismo motivo que en la ruta de la ficha:
   // quién está en cada clase no es información que dar a quien no le toca.
   if (!veProteccionDe(pd, alumno)) {

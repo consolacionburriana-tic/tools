@@ -139,7 +139,7 @@ export function TarjetaProteccion({
         </>
       ) : (
         <p className="text-xs text-zinc-400">
-          La protección de datos de este alumno no te toca: un tutor solo ve la de su propia tutoría.
+          La protección de datos de este alumno no te toca: se ve la de tu etapa.
         </p>
       )}
 
