@@ -18,9 +18,17 @@ de recuentos que se puede copiar**, y un histórico al lado.
 
 ---
 
-## Estado: plan funcional ✅ · plan técnico ✅ · implementado ⬜
+## Estado: plan funcional ✅ · plan técnico ✅ · implementado 🟡
 
-Decisiones cerradas con David el 28-sep-2026. Listo para empezar la fase 1.
+En `/gestion/numeros` desde el 28-sep-2026, con las **ocho pestañas** (Resumen, Familias y
+papeles, Banco y AMPA, Materiales, Protección de datos, Licencias, Perfil del alumnado y Datos
+que faltan), copiar para Sheets / Docs / WhatsApp (imagen), **fotos mensuales** y la vista
+**Histórico**. Probado contra Neon con sesión de TIC y de una tutora de 2º ESO B. `num_fotos`
+aplicada en Neon, con una primera foto a mano del 28-sep-2026 («arranque del módulo»); la
+primera mensual la hará el cron el 1-oct-2026 (hace falta el despliegue con `vercel.json`).
+
+Queda: botón A4 en PDF, tocar un número → Alumnado filtrado, Salidas y Puntualidad por clase,
+y la IA (ver checklist).
 
 ---
 
@@ -241,29 +249,30 @@ por alumno. Necesitará su variable de entorno y su decisión de proveedor.
 ## Checklist
 
 ### Fase 1 · La tabla
-- [ ] `numeros.ts`: columnas por pestaña (con `basic`), árbol con subtotales, %, TSV / HTML, frases (con tests)
-- [ ] `numeros-server.ts`: recuentos por clase en una tanda (incluidos los papeles por familia), con el recorte por permisos
-- [ ] Módulo `numeros` en permisos (dirección, jefatura, orientación, secretaría, TIC, tutor) y tarjeta en el escritorio
-- [ ] Pantalla: cifras copiables, pestañas Resumen · Familias y papeles · Banco y AMPA · Materiales · Protección de datos
-- [ ] «Solo lo básico», nivel etapa/curso/clase, filtro de etapa, Nº o %
-- [ ] Aviso grande de etapa para tutores
-- [ ] Copiar tabla para Sheets, Docs y WhatsApp (imagen; «Compartir» en iPad), probado pegando de verdad
-- [ ] Frase para pegar y «lo que llama la atención» con reglas
-- [ ] Probado en claro y oscuro, a 1180 px y en iPad vertical; como TIC y como tutor
-- [ ] `pnpm test`, `pnpm lint`, `pnpm build` en verde
+- [x] `numeros.ts`: columnas por pestaña (con `basico`), árbol con subtotales, %, TSV / HTML, frases, «lo que llama la atención», recorte por permisos y preferencias (con tests: `numeros.test.ts`)
+- [x] `numeros-server.ts`: recuentos por clase en una tanda (papeles por familia, perfil y datos que faltan incluidos); cuadra con los recuentos a mano del 28-sep-2026 (645 · 485 familias · banco 399/428 · 254 pedidos)
+- [x] Módulo `numeros` en permisos (dirección, jefatura, orientación, secretaría, TIC y tutor), `vePerfilAlumnado`, `puedeHacerFotosNumeros`, y tarjeta en el escritorio
+- [x] Pantalla: cifras copiables, pestañas con su color, «solo lo básico», nivel etapa/curso/clase, filtro de etapa, Nº o %
+- [x] Aviso grande de etapa para tutores (probado: una tutora de 2º ESO B ve las 10 clases de Secundaria y 5 pestañas)
+- [x] Copiar tabla: Sheets / Excel (TSV + HTML), Docs / correo (HTML) y WhatsApp como imagen PNG («Compartir» en pantallas táctiles, portapapeles en el ordenador, y si no, la imagen para mantenerla pulsada). Probada la imagen copiada al portapapeles
+- [x] Preferencias por persona en una cookie que lee el servidor (sin parpadeo)
+- [x] Frase para pegar al tocar una fila; tocar un número lo copia
+- [x] `pnpm test` y `pnpm build` en verde; `pnpm lint` sin nada nuevo (los errores que salen son de ficheros de antes)
+- [ ] Probado en iPad vertical y en oscuro por David; pegado de verdad en Sheets, Docs y WhatsApp
 
 ### Fase 2 · Lo del equipo
-- [ ] Pestaña Licencias (TIC, secretaría, dirección; campaña no cerrada)
-- [ ] Pestañas Perfil del alumnado y Datos que faltan
+- [x] Pestaña Licencias (TIC, secretaría, dirección; campaña no cerrada)
+- [x] Pestañas Perfil del alumnado y Datos que faltan
+- [x] Selector de material cuando haya más de uno
 - [ ] Tocar un número abre Alumnado filtrado (`?filtro=` en Alumnado)
 - [ ] Salidas y Puntualidad por clase
-- [ ] Selector de material cuando haya más de uno
 - [ ] Botón A4 (PDF: una hoja, una por etapa, una por clase)
 
 ### Fase 3 · Fotos e histórico
-- [ ] `num_fotos` (SQL aditivo + `pendientes.txt`) y `guardarFoto()`
-- [ ] Cron del día 1 en `vercel.json` (idempotente) y botón de foto a mano con nota
-- [ ] Vista Histórico: evolución por etapa, comparar dos fotos, copiar la serie
+- [x] `num_fotos` (`numeros-fotos.sql`, aplicado en Neon el 28-sep-2026) y `guardarFoto()`
+- [x] Cron del día 1 a las 5:00 UTC en `vercel.json` (`/api/numeros/cron/foto`, `CRON_SECRET`, idempotente) y botón de foto a mano con nota (`POST /api/numeros/fotos`, secretaría/dirección/TIC; probado el 403 de una tutora y el 401 del cron sin secreto)
+- [x] Vista Histórico: evolución por etapa, comparar dos fotos por curso, tira de fotos, copiar la serie
+- [ ] Ver la primera foto mensual del 1-oct-2026 (necesita el despliegue)
 - [ ] Sacar todas las fotos juntas (Excel largo)
 
 ### Fase 4 · Análisis

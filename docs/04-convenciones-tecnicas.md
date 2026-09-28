@@ -55,7 +55,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
 | `PUNTUALIDAD_AVISOS_COPIA` | Correos (separados por comas) que reciben copia del aviso del tercer retraso, además del tutor/a. Vacío = solo el tutor |
-| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad y worker del Cuaderno de tutor. El worker también lo usa para re-despertarse a sí mismo |
+| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor y foto mensual de Números del cole. El worker también lo usa para re-despertarse a sí mismo |
 
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
 código que la usa.

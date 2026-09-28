@@ -20,6 +20,7 @@ export const MODULES = [
   'mi-horario',
   'educamos',
   'alumnado',
+  'numeros',
   'cuaderno',
   'usuarios',
   'profes',
@@ -41,6 +42,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   'mi-horario': 'Mi horario',
   educamos: 'BBDD central',
   alumnado: 'Alumnado',
+  numeros: 'Números del cole',
   cuaderno: 'Cuaderno de tutor',
   usuarios: 'Usuarios y roles',
   profes: 'Tutorías',
@@ -96,19 +98,21 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'mi-horario',
     'educamos',
     'alumnado',
+    'numeros',
     'cuaderno',
     'profes',
     'autoasm',
     'tareas-reportar',
   ],
-  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado'],
-  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'tareas-reportar'],
+  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros'],
+  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar'],
   // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»)…
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
   // fallitos, no los gestiona (David, 24-sep-2026).
   secretaria: MODULES.filter((m) => m !== 'tareas'),
-  // El tutor entra, pero solo ve SUS tutorías (`alcanceAlumnado` en alumnado-server.ts).
-  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado'],
+  // El tutor entra, pero solo ve SU ETAPA (`alcanceAlumnado` en alumnado-server.ts), en
+  // Alumnado y en Números.
+  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros'],
   profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario'],
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
@@ -245,6 +249,31 @@ export function veBecasMateriales(role: Role | null): boolean {
   return (
     role === 'direccion' || role === 'secretaria' || role === 'orientacion' || role === 'tic' || role === 'supertic'
   );
+}
+
+/**
+ * Números del cole: la pestaña «Perfil del alumnado» (edad, repetición por año de
+ * nacimiento, nacionalidad, de dónde vienen, familia numerosa…) es información de gestión,
+ * no de aula: equipo directivo, orientación, secretaría y TIC. Un tutor ve su etapa en el
+ * resto de pestañas, pero esta no (docs/24-numeros.md).
+ */
+export function vePerfilAlumnado(role: Role | null): boolean {
+  return (
+    role === 'direccion' ||
+    role === 'jefe' ||
+    role === 'orientacion' ||
+    role === 'secretaria' ||
+    role === 'tic' ||
+    role === 'supertic'
+  );
+}
+
+/**
+ * Números del cole: guardar una foto a mano en el histórico (además de la del día 1 de cada
+ * mes, que es automática). Secretaría, dirección y TIC, los mismos que llevan los datos.
+ */
+export function puedeHacerFotosNumeros(role: Role | null): boolean {
+  return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
 }
 
 /**
