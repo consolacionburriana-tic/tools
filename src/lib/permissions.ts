@@ -107,9 +107,10 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
   // fallitos, no los gestiona (David, 24-sep-2026).
   secretaria: MODULES.filter((m) => m !== 'tareas'),
-  // El tutor entra, pero solo ve SUS tutorías (`alcanceAlumnado` en alumnado-server.ts).
+  // Tutor y profe entran en Alumnado, pero solo ven SU ETAPA (entrando en su tutoría si la
+  // tienen): `alcanceAlumnado` en alumnado-server.ts. Profe, desde el 28-sep-2026 (David).
   tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado'],
-  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario'],
+  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario', 'alumnado'],
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
   // 'tutor' y darle 'evaluaciones' como módulo extra.

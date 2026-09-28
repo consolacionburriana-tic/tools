@@ -343,10 +343,10 @@ protección de datos, **quién la ve y quién la toca** (`veProteccionDatosCompl
 de tocar nada; fuera de alcance devuelven 404, no 403, por el mismo motivo que la de lectura.
 
 Módulo `alumnado` en `src/lib/permissions.ts`. Lo trae el rol de dirección, jefatura,
-orientación, secretaría, TIC y **tutor** (que ve su etapa). `profe` **no** lo trae por defecto:
-se le puede dar a mano desde `/gestion/usuarios` como cualquier otro módulo, y con el criterio
-de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cambiar una línea de
-`ROLE_MODULES`, pero es una decisión de David, no un detalle de implementación.
+orientación, secretaría, TIC, **tutor y profe** (estos dos, solo su etapa; el tutor entra
+ya en su tutoría). El profe lo trae desde el 28-sep-2026 (David: «que los profesores/tutores
+vean TODO lo de su etapa, por defecto su tutoría, pero no etapas que no son las suyas»). Un
+profe sin `edu_teachers.etapa` ni tutoría no ve a nadie, igual que un tutor en ese caso.
 
 ---
 
