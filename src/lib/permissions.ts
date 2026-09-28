@@ -26,6 +26,7 @@ export const MODULES = [
   'autoasm',
   'tareas',
   'tareas-reportar',
+  'comunicacion',
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -47,6 +48,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   autoasm: 'AUTOASM (Apple School Manager)',
   tareas: 'Tareas de la plataforma',
   'tareas-reportar': 'Reportar fallitos',
+  comunicacion: 'Comunicación (protección de datos de todo el centro)',
 };
 
 /**
@@ -65,6 +67,7 @@ export const ROLES = [
   'orientacion',
   'secretaria',
   'evaluaciones',
+  'comunicacion',
   'supertic',
 ] as const;
 export type Role = (typeof ROLES)[number];
@@ -78,6 +81,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   orientacion: 'Orientación',
   secretaria: 'Secretaría',
   evaluaciones: 'Evaluaciones',
+  comunicacion: 'Comunicación',
   supertic: 'SuperTIC',
 };
 
@@ -115,6 +119,10 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
   // 'tutor' y darle 'evaluaciones' como módulo extra.
   evaluaciones: ['evaluaciones', 'mi-horario'],
+  // Comunicación publica fotos y vídeos de todo el centro: ve la ficha y la protección de
+  // datos de TODAS las etapas (David, 28-sep-2026). A quien además es tutor/profe se le deja
+  // su rol y se le da el módulo `comunicacion` como extra: el efecto es el mismo.
+  comunicacion: ['alumnado', 'comunicacion', 'horarios', 'mi-horario', 'tareas-reportar'],
 };
 // Nota: el FORMULARIO del ABC lo puede enviar cualquier persona autenticada del claustro
 // (basta sesión); el módulo 'abc' de esta matriz es su panel de gestión.
@@ -198,16 +206,14 @@ export function vePuntualidadCompleta(role: Role | null): boolean {
 }
 
 /**
- * Dentro del módulo `alumnado`, la **protección de datos** (imagen y voz, redes, AMPA y
- * ONG) va más cerrada que el resto de la ficha, por decisión de David: quien lleva el
- * centro la ve entera, y un tutor **solo la de su tutoría**, no la de toda su etapa.
- *
- * Es a propósito que sea más estrecho que el alcance general del módulo: el resto de la
- * ficha son datos de gestión del día a día (a quién llamo, qué NIA tiene), y esto es la
- * voluntad que ha firmado una familia sobre la imagen de su hijo. Quien la necesita es
- * quien va a publicar una foto de su propia clase.
+ * Dentro del módulo `alumnado`, ¿quién ve la **protección de datos** (imagen y voz, redes,
+ * AMPA y ONG) de todo el centro? Quien lleva el centro y quien tenga el módulo
+ * `comunicacion` (rol o extra). El resto (tutor, profe) la ve de su etapa, igual que la
+ * ficha (David, 28-sep-2026; antes era solo la de su tutoría).
  */
-export function veProteccionDatosCompleta(role: Role | null): boolean {
+export function veProteccionDatosCompleta(acceso: Acceso | null | undefined): boolean {
+  if (canAccess(acceso, 'comunicacion')) return true;
+  const role = acceso?.role ?? null;
   return (
     role === 'direccion' ||
     role === 'jefe' ||

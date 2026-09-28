@@ -32,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!alumno || !puedeConAlumno(alcance.clases, alumno)) {
     return NextResponse.json({ error: 'Ese alumno no existe' }, { status: 404 });
   }
-  if (!permisosFicha(guard, alcanceProteccion(guard, alcance.propias), alumno).participacion) {
+  if (!permisosFicha(guard, alcanceProteccion(guard, alcance), alumno).participacion) {
     return NextResponse.json(
       { error: 'Solo dirección/TIC pueden cambiar el banco de libros y el AMPA' },
       { status: 403 },

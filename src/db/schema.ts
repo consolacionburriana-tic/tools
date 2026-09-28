@@ -311,6 +311,10 @@ export const eduTeachers = pgTable('edu_teachers', {
   // Etapa a la que pertenece el profe: 'EI' | 'EP' | 'ESO' (o null si sin asignar).
   // En tutores se deriva de claseTutor; en no-tutores se asigna a mano (no está en Educamos).
   etapa: text('etapa'),
+  // Multiselección a mano (desde /gestion/profes): hay quien da clase en dos etapas. El
+  // alcance por etapa (Alumnado, Banco de libros) une esto con `etapa`, sus tutorías y su
+  // horario. Nunca lo toca el sync de Educamos.
+  etapas: jsonb('etapas').$type<('EI' | 'EP' | 'ESO')[]>(),
   active: boolean('active').notNull().default(true), // false si tiene fecha de baja
   extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN pagadores/bancos/SS/retribuciones)
   createdAt: timestamp('created_at').defaultNow().notNull(),

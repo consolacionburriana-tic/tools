@@ -27,6 +27,8 @@ import {
   eduTutorPersonal,
   eduTutorias,
   horApoyos,
+  horAsignacionGrupos,
+  horAsignacionProfes,
   licBooks,
   licCampaigns,
   licOrderItems,
@@ -58,6 +60,7 @@ import {
   puedeEditarProteccionDatos,
   puedeGestionarParticipantesBanco,
   veProteccionDatosCompleta,
+  type Acceso,
   type Role,
 } from '@/lib/permissions';
 import { estadosMateriales, listaMateriales, type MaterialLista } from '@/lib/materiales-server';
@@ -97,32 +100,24 @@ export interface AlcanceAlumnado {
  * Sin ninguna de las dos cosas no se ve nada: es la respuesta segura, y la pantalla lo dice.
  */
 export async function alcanceAlumnado(
-  user: { email: string; role: Role | null },
+  user: Acceso & { email: string },
   opciones: { conPropias?: boolean } = {},
 ): Promise<AlcanceAlumnado> {
   const conPropias = opciones.conPropias !== false;
-  const veTodo = Boolean(user.role && VE_TODO.includes(user.role));
+  const veTodo = veTodoElCentro(user);
 
   // Quien lo ve todo y no necesita saber sus tutorías (la ruta API, que solo comprueba
   // permiso) se ahorra las dos consultas enteras.
   if (veTodo && !conPropias) return { clases: null, propias: [], etapas: [] };
 
-  // Las tutorías y la etapa de su ficha son independientes: van a la vez, no encadenadas.
-  const [propias, profes] = await Promise.all([
+  // Las tutorías y las etapas de su ficha son independientes: van a la vez, no encadenadas.
+  const [propias, deSuFicha] = await Promise.all([
     conPropias || !veTodo ? clasesDeTutor(user.email) : Promise.resolve([]),
-    veTodo
-      ? Promise.resolve([])
-      : db.select({ etapa: eduTeachers.etapa }).from(eduTeachers).where(ilike(eduTeachers.email, user.email)).limit(1),
+    veTodo ? Promise.resolve([]) : etapasDeFichaProfe(user.email),
   ]);
   if (veTodo) return { clases: null, propias, etapas: [] };
 
-  const etapas = [
-    ...new Set(
-      [profes[0]?.etapa, ...propias.map((c) => etapaDeCurso(c.curso))].filter((e): e is Etapa =>
-        e === 'EI' || e === 'EP' || e === 'ESO',
-      ),
-    ),
-  ];
+  const etapas = unirEtapas([...deSuFicha, ...propias.map((c) => etapaDeCurso(c.curso))]);
   if (etapas.length === 0) return { clases: [], propias, etapas };
 
   const clases = await db
@@ -142,6 +137,72 @@ export async function alcanceAlumnado(
   };
 }
 
+/** ¿Ve el centro entero? Los roles de `VE_TODO` y quien tenga el módulo `comunicacion`. */
+export function veTodoElCentro(user: Acceso): boolean {
+  return Boolean(user.role && VE_TODO.includes(user.role)) || canAccess(user, 'comunicacion');
+}
+
+const ETAPAS: readonly Etapa[] = ['EI', 'EP', 'ESO'];
+
+function unirEtapas(lista: readonly (string | null | undefined)[]): Etapa[] {
+  const set = new Set(lista);
+  return ETAPAS.filter((e) => set.has(e));
+}
+
+/**
+ * Las etapas de un profe según su ficha: la **multiselección** `edu_teachers.etapas` (hay
+ * quien da clase en dos, como Nathan o Vicent Tarancón) o, si nunca se ha tocado, la etapa
+ * única de antes; más las
+ * etapas de los cursos en los que tiene clase en Horarios. Las de sus tutorías las añade
+ * quien llama, que ya las tiene.
+ */
+async function etapasDeFichaProfe(email: string): Promise<Etapa[]> {
+  const [ficha] = await db
+    .select({ id: eduTeachers.id, etapa: eduTeachers.etapa, etapas: eduTeachers.etapas })
+    .from(eduTeachers)
+    .where(ilike(eduTeachers.email, email))
+    .limit(1);
+  if (!ficha) return [];
+  const horario = await db
+    .selectDistinct({ curso: horAsignacionGrupos.curso })
+    .from(horAsignacionProfes)
+    .innerJoin(horAsignacionGrupos, eq(horAsignacionGrupos.asignacionId, horAsignacionProfes.asignacionId))
+    .where(eq(horAsignacionProfes.eduTeacherId, ficha.id));
+  // Si ya se han elegido a mano, mandan ellas; si no, la etapa única de siempre.
+  const aMano = ficha.etapas ?? (ficha.etapa ? [ficha.etapa] : []);
+  return unirEtapas([...aMano, ...horario.map((h) => etapaDeCurso(h.curso))]);
+}
+
+/**
+ * Las etapas que alcanza alguien, para módulos que filtran por etapa sin mirar clases
+ * (Banco de libros). `null` = todas.
+ */
+export async function etapasDeAlcance(user: Acceso & { email: string }): Promise<Etapa[] | null> {
+  if (veTodoElCentro(user)) return null;
+  const [propias, deSuFicha] = await Promise.all([clasesDeTutor(user.email), etapasDeFichaProfe(user.email)]);
+  return unirEtapas([...deSuFicha, ...propias.map((c) => etapaDeCurso(c.curso))]);
+}
+
+/**
+ * Para la pantalla de Profesorado: las etapas que a cada profe ya le vienen solas (horario y
+ * tutorías de este curso), para pintarlas aparte de las que se marcan a mano.
+ */
+export async function etapasAutomaticasPorProfe(academicYear = academicYearActual()): Promise<Map<string, Etapa[]>> {
+  const [horario, tutorias] = await Promise.all([
+    db
+      .selectDistinct({ id: horAsignacionProfes.eduTeacherId, curso: horAsignacionGrupos.curso })
+      .from(horAsignacionProfes)
+      .innerJoin(horAsignacionGrupos, eq(horAsignacionGrupos.asignacionId, horAsignacionProfes.asignacionId)),
+    db
+      .select({ id: eduTutorias.eduTeacherId, curso: eduTutorias.curso })
+      .from(eduTutorias)
+      .where(eq(eduTutorias.academicYear, academicYear)),
+  ]);
+  const crudo = new Map<string, (Etapa | null)[]>();
+  for (const f of [...horario, ...tutorias]) crudo.set(f.id, [...(crudo.get(f.id) ?? []), etapaDeCurso(f.curso)]);
+  return new Map([...crudo].map(([id, lista]) => [id, unirEtapas(lista)]));
+}
+
 const mismaClase = (a: { curso: string | null; letra: string | null }, b: { curso: string; letra: string | null }) =>
   a.curso === b.curso && (a.letra ?? null) === (b.letra ?? null);
 
@@ -157,31 +218,27 @@ export function puedeConAlumno(
 // ─── Protección de datos: quién la ve y quién la toca ─────────────────────────
 
 /**
- * La protección de datos (imagen y voz, redes, AMPA y ONG) va MÁS CERRADA que el resto de
- * la ficha, por decisión de David (17-sep-2026): dirección y demás la ven entera, y un
- * tutor **solo la de su tutoría**, no la de toda su etapa.
- *
- * Sí, es una regla distinta a la del resto de la pantalla, y es a propósito: lo demás son
- * datos de gestión diaria (a quién llamo, qué NIA tiene) y esto es la voluntad que ha
- * firmado una familia sobre la imagen de su hijo. Quien la necesita es quien va a publicar
- * la foto de su propia clase.
+ * La protección de datos (imagen y voz, redes, AMPA y ONG) se ve con el MISMO alcance que
+ * la ficha: tutor y profe, la de su etapa (David, 28-sep-2026; antes era solo su tutoría).
+ * De todo el centro: dirección y demás, y quien tenga el módulo `comunicacion`, que es quien
+ * publica fotos de cualquier etapa. Editarla sigue siendo solo de secretaría/dirección/TIC.
  */
 export interface AlcanceProteccion {
   /** `true` = todo el centro. Si no, vale lo que haya en `clases`. */
   todo: boolean;
-  /** Sus tutorías. Vacío = no ve la protección de datos de nadie. */
+  /** Las clases que alcanza (las de su etapa). Vacío = no ve la de nadie. */
   clases: { curso: string; letra: string | null }[];
   /** ¿Puede además cambiarla? (secretaría, dirección y TIC.) */
   edita: boolean;
 }
 
 export function alcanceProteccion(
-  user: { role: Role | null },
-  propias: readonly { curso: string; letra: string | null }[],
+  user: Acceso,
+  alcance: { clases: { curso: string; letra: string | null }[] | null },
 ): AlcanceProteccion {
   return {
-    todo: veProteccionDatosCompleta(user.role),
-    clases: [...propias],
+    todo: veProteccionDatosCompleta(user) || alcance.clases === null,
+    clases: [...(alcance.clases ?? [])],
     edita: puedeEditarProteccionDatos(user.role),
   };
 }

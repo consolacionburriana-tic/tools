@@ -103,8 +103,7 @@ export function TablaProteccion({
   if (conPd.length === 0) {
     return (
       <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-400 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
-        Aquí no hay ningún alumno cuya protección de datos te toque. Un tutor solo ve la de su
-        propia tutoría.
+        Aquí no hay ningún alumno cuya protección de datos te toque: se ve la de tu etapa.
       </div>
     );
   }
@@ -121,7 +120,7 @@ export function TablaProteccion({
           <>
             {noes > 0 && <span className="text-amber-600 dark:text-amber-400"> · {noes} con algún no</span>}
             {desestiman > 0 && <span className="text-red-600 dark:text-red-400"> · {desestiman} sin correo</span>}
-            {sinPd > 0 && <span className="text-zinc-400"> · {sinPd} fuera de tu tutoría</span>}
+            {sinPd > 0 && <span className="text-zinc-400"> · {sinPd} fuera de tu etapa</span>}
           </>
         }
       >

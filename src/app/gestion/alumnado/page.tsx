@@ -34,9 +34,9 @@ export default async function AlumnadoPage({
   if (!user) redirect('/gestion/login');
 
   const [{ alumno: pedido }, alcance] = await Promise.all([searchParams, alcanceAlumnado(user)]);
-  // El alcance de la protección de datos es más estrecho que el de la pantalla: dirección y
-  // demás la ven entera, un tutor solo la de su tutoría (ver `alcanceProteccion`).
-  const pd = alcanceProteccion(user, alcance.propias);
+  // La protección de datos se ve con el mismo alcance que la pantalla (la etapa); verla de
+  // todo el centro es de dirección y demás, y del módulo `comunicacion`.
+  const pd = alcanceProteccion(user, alcance);
   const veBecas = veBecasMateriales(user.role);
   const { alumnos, clases, materiales } = await listaAlumnado(alcance.clases, undefined, pd, veBecas);
 

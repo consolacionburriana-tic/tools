@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { hasModule } from '@/lib/auth-guards';
+import { cursoEnAlcance, fueraDeAlcance, requireBanco } from '@/lib/bancolibros-alcance';
 import { asignarLote } from '@/lib/bancolibros-server';
 
 export async function POST(request: Request) {
-  if (!(await hasModule('bancolibros'))) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const acceso = await requireBanco();
+  if (acceso instanceof NextResponse) return acceso;
   try {
     const input = z
       .object({
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
         numero: z.union([z.number().int().min(1).max(999), z.literal('auto'), z.null()]),
       })
       .parse(await request.json());
+    if (!cursoEnAlcance(acceso.etapas, input.curso)) return fueraDeAlcance();
     const res = await asignarLote(input);
     return NextResponse.json({ ok: true, ...res });
   } catch (error) {
