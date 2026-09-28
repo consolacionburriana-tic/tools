@@ -23,6 +23,24 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Números del cole: cuatro decisiones antes de construirlo (28-sep-2026)
+Ficha y maqueta en [`24-numeros.md`](./24-numeros.md). Lo que propongo, a falta de que David lo cierre:
+
+1. **¿Módulo nuevo o pestaña de Alumnado?** Propuesta: módulo nuevo `numeros`, con tarjeta en
+   el escritorio. Alumnado responde «¿quién es?» y esto «¿cuántos?», y además junta cosas que no
+   son de Alumnado (licencias, salidas, profesorado). Se enlazan: el número lleva a la lista.
+2. **¿Quién entra?** Propuesta: dirección, jefatura, orientación, secretaría y TIC ven el cole
+   entero; tutores, su etapa (la regla de Alumnado); profe, no. Dentro, lo sensible se recorta
+   como ya se hace (becas sumadas a pagado, protección de datos solo de su tutoría, ABC nunca
+   por clase).
+3. **Licencias: ¿para quién y cuándo?** Propuesta: quien tiene el módulo `licencias`
+   (dirección, secretaría, TIC) y **solo mientras la campaña no esté cerrada** (`status !==
+   'closed'`, no `campaignAbierta`, que ya da el plazo por vencido y hoy aún se mandan códigos).
+   Alternativa: solo TIC.
+4. **¿Se limpian los datos raros que salieron al contar?** Los 85 `banco_libros = true` de
+   Infantil y 1º-2º EP son un `UPDATE` de una línea sobre datos reales; el AMPA concentrado en
+   1º ESO A (15 de 16) lo tiene que mirar quien lo marcó. Nada tocado.
+
 ### Protección de datos: ¿cómo se cargan las 639 fichas? (17-sep-2026)
 
 La ficha de Alumnado ya tiene los cuatro permisos (imagen y voz, redes, AMPA, ONG), tri-estado,
@@ -436,8 +454,8 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   (ya apuntado como "Fase 3" en el README original).
 - Notificaciones por WhatsApp o push, además de email, para avisos urgentes (p. ej. "falta tu
   justificante de pago").
-- Dashboard agregado de dirección que cruce datos de varios módulos (p. ej. económico de
-  Licencias + Salidas y pagos).
+- ~~Dashboard agregado de dirección que cruce datos de varios módulos~~ → propuesta con ficha
+  propia: [`24-numeros.md`](./24-numeros.md) (Números del cole, 28-sep-2026).
 - Firma electrónica de documentos (autorizaciones de salidas, documentación de banco de libros)
   en vez de papel escaneado.
 - **AUTOASM en Neon** (hoy el proyecto vive en `localStorage`, ver
