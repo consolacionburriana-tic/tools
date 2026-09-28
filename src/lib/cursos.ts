@@ -120,6 +120,27 @@ export function cursoEnBanco(curso: string | null | undefined): boolean {
 }
 
 /**
+ * Qué hacer con `edu_students.banco_libros` cuando el sync de Educamos da de alta a un alumno
+ * (`antes` = null) o le cambia el curso. Devuelve el valor a escribir, o `null` = no tocar.
+ *
+ * - **Alta**: en el banco si su curso lo tiene. Sin esto, la columna nacía a `true` por su
+ *   DEFAULT y en septiembre de 2026 había 85 alumnos de Infantil y 1º-2º EP «en el banco»,
+ *   que no existe en esos cursos (limpiados el 28-sep-2026, ver `docs/24-numeros.md`).
+ * - **Entra en un curso con banco** desde uno sin (2º → 3º EP): `true`, el mismo punto de
+ *   partida que un alta; los que no participan se desmarcan en el panel del banco.
+ * - **Sale a un curso sin banco**: `false`.
+ * - Entre dos cursos con banco (o dos sin): `null`, se respeta lo que haya marcado.
+ */
+export function bancoTrasCambioDeCurso(
+  antes: string | null | undefined,
+  despues: string | null | undefined,
+): boolean | null {
+  const ahora = cursoEnBanco(despues);
+  if (antes == null) return ahora;
+  return cursoEnBanco(antes) === ahora ? null : ahora;
+}
+
+/**
  * Etiqueta de clase para pantalla: `'2ESO' + 'B'` → `'2ESO B'`, y `'3ºPPDC' + 'PDC'` →
  * `'3ºPPDC'` (en PDC la letra ES el curso, repetirla sobra). Igual que la de Registro ABC,
  * pero aquí porque no es de ningún módulo: la usa todo el que pinte una clase.
