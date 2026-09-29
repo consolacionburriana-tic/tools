@@ -20,6 +20,10 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
 - **Quién participa vive en `edu_students.banco_libros`** (default `true`). Se gestiona desde
   este módulo: listado por clase con toggle sí/no y bulk (David: "quiero tener claramente
   listados quiénes son del banco y quiénes no y poder cambiar con facilidad").
+  **Ojo con ese default** (28-sep-2026): dejaba «en el banco» a las altas de Infantil y 1º-2º
+  EP, que no tienen banco (eran 85). Se limpiaron en Neon y el sync de Educamos ya decide la
+  casilla con `bancoTrasCambioDeCurso()` de `cursos.ts`: alta según el curso, «sí» al entrar
+  en 3º EP, «no» al salir a un curso sin banco. Ver [`24-numeros.md`](./24-numeros.md).
 - **El lote es un número dentro de una clase** (ej. lotes de 1ºESO A, del 1 al 30) y **se
   asigna por curso académico**: cada año se guarda qué lote tuvo qué alumno. El histórico no
   se sobrescribe jamás. El "Nº CLASE" del Word es exactamente este número de lote.

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { compararClases, compararClasesMayoresPrimero, cursoBaseEso, etapaDeCurso, ordenCurso } from '@/lib/cursos';
+import {
+  bancoTrasCambioDeCurso,
+  compararClases,
+  compararClasesMayoresPrimero,
+  cursoBaseEso,
+  etapaDeCurso,
+  ordenCurso,
+} from '@/lib/cursos';
 import { CURSOS_FORM } from '@/lib/licencias';
 
 describe('orden de clases de mayores a pequeños (Evaluaciones)', () => {
@@ -90,5 +97,24 @@ describe('curso base de un alumno de PDC', () => {
     const enFormulario = new Set<string>(CURSOS_FORM.map((c) => c.base));
     expect(enFormulario.has(cursoBaseEso('3ºPPDC')!)).toBe(true);
     expect(enFormulario.has(cursoBaseEso('4ºPPDC')!)).toBe(true);
+  });
+});
+
+describe('banco de libros al dar de alta o cambiar de curso', () => {
+  it('un alta entra en el banco solo si su curso lo tiene', () => {
+    expect(bancoTrasCambioDeCurso(null, '3INF')).toBe(false);
+    expect(bancoTrasCambioDeCurso(null, '2PRI')).toBe(false);
+    expect(bancoTrasCambioDeCurso(null, '3PRI')).toBe(true);
+    expect(bancoTrasCambioDeCurso(null, '1ESO')).toBe(true);
+    expect(bancoTrasCambioDeCurso(null, '4ºPPDC')).toBe(true);
+  });
+  it('al entrar en un curso con banco se marca, y al salir a uno sin banco se quita', () => {
+    expect(bancoTrasCambioDeCurso('2PRI', '3PRI')).toBe(true);
+    expect(bancoTrasCambioDeCurso('3PRI', '2PRI')).toBe(false);
+  });
+  it('entre dos cursos del mismo lado no se toca lo que haya marcado', () => {
+    expect(bancoTrasCambioDeCurso('3PRI', '4PRI')).toBeNull();
+    expect(bancoTrasCambioDeCurso('3ESO', '3ºPPDC')).toBeNull();
+    expect(bancoTrasCambioDeCurso('5INF', '1PRI')).toBeNull();
   });
 });

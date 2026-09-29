@@ -72,7 +72,7 @@ pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotente
 Al aplicarlos: quitarlos de `pendientes.txt` y marcar las casillas `[~]` → `[x]` de la ficha
 del módulo, en el mismo commit.
 
-**Ahora mismo no queda nada pendiente.** `licencias-banco-report.sql`
+**Ahora mismo no queda nada pendiente.** `numeros-fotos.sql` (la tabla `num_fotos` del histórico de Números del cole) se aplicó y verificó el 28-sep-2026. `licencias-banco-report.sql`
 (`lic_campaigns.banco_report_at`) y `licencias-pedidos-editorial.sql` (la tabla de tiradas de
 pedidos a editoriales) se aplicaron y verificaron el 16-sep-2026; los tres de la sesión del
 9-sep-2026 (`cuaderno-plantillas-etapas.sql`, `profes-nombre-mostrado.sql` y `autoasm.sql`), ese
@@ -105,6 +105,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | AUTOASM (Apple School Manager) | ✅ | ✅ | ✅ (los seis CSV de ASM: se generan de la BBDD central o del ZIP del curso pasado, se validan, se navegan y se descargan; falta la subida real a ASM de David) | [`19-autoasm.md`](./19-autoasm.md) |
 | Mi horario (ver el mío y llevarlo a Google Calendar) | ✅ | ✅ | 🟡 (Fases 0-3 hechas y en Neon; falta que David añada el scope de Calendar en Workspace y la primera prueba real) | [`20-mi-horario.md`](./20-mi-horario.md) |
 | Tareas de la plataforma (fallitos e ideas de módulos) | ✅ | ✅ | ✅ (botón flotante en `/gestion` para apuntar en dos segundos, tablero a pantalla completa en `/gestion/tareas`, copiar para pegar a un agente; TIC lo lleva, dirección/secretaría/orientación reportan) | [`23-tareas.md`](./23-tareas.md) |
+| Números del cole (recuentos por clase, curso, etapa y colegio, copiables, con fotos mensuales) | ✅ | ✅ | ✅ (en `/gestion/numeros`: ocho pestañas, tocar un número enseña quiénes son, copiar / WhatsApp / imprimir A4, fotos mensuales; ideas para más adelante en su ficha) | [`24-numeros.md`](./24-numeros.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 empezado y en uso, pero le falta algo (lo que falta va entre
@@ -158,7 +159,7 @@ conexión). Auditoría de cambios y dashboard de dirección siguen como ideas en
 - **Una base de datos (Neon + Drizzle), un schema por módulo con prefijo de tabla propio**:
   `abc_*` Registro ABC · `lic_*` Licencias · `edu_*` BBDD central Educamos · `auth_*` usuarios y
   roles · `sal_*` Salidas y pagos · `bl_*` Banco de libros · `eval_*` Evaluaciones ·
-  `hor_*` Horarios · `pun_*` Puntualidad y `con_*` consecuencias (prefijo aparte a propósito: una consecuencia no
+  `hor_*` Horarios · `num_*` Números del cole · `pun_*` Puntualidad y `con_*` consecuencias (prefijo aparte a propósito: una consecuencia no
   siempre nace de un retraso, ver [`17-puntualidad.md`](./17-puntualidad.md)). Así
   cualquiera puede ver en `src/db/schema.ts` a qué módulo pertenece cada tabla sin leer código.
 - **Alumnos y tutores como recurso compartido en `edu_*`.** La fuente de verdad administrativa

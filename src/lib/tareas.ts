@@ -94,6 +94,7 @@ const FICHAS: Partial<Record<Module, string>> = {
   'mi-horario': 'docs/20-mi-horario.md',
   educamos: 'docs/02-integracion-educamos.md',
   alumnado: 'docs/21-alumnado.md',
+  numeros: 'docs/24-numeros.md',
   cuaderno: 'docs/18-cuaderno-tutor.md',
   usuarios: 'docs/01-auth-roles.md',
   profes: 'docs/02-integracion-educamos.md',

@@ -7,6 +7,7 @@ import {
   Apple,
   BookMarked,
   Bus,
+  ChartColumnBig,
   CalendarCheck,
   CalendarDays,
   ClipboardCheck,
@@ -160,6 +161,14 @@ export default async function EscritorioPage() {
               icon={<Users className="h-6 w-6" />}
               title="Alumnado"
               desc="La ficha de cada alumno: contacto de la familia, NIA, banco de libros y licencias"
+            />
+          )}
+          {puede('numeros') && (
+            <ModuleCard
+              href="/gestion/numeros"
+              icon={<ChartColumnBig className="h-6 w-6" />}
+              title="Números del cole"
+              desc="Cuántos hay por clase, curso y etapa: familias, banco, materiales… listos para copiar"
             />
           )}
           {puede('licencias') && !licenciasArriba && (

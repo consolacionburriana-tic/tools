@@ -16,7 +16,7 @@ import {
   type NewEduStudent,
 } from '@/db/schema';
 import { getSessionUser, hasModule } from '@/lib/auth-guards';
-import { etapaDeCurso } from '@/lib/cursos';
+import { bancoTrasCambioDeCurso, etapaDeCurso } from '@/lib/cursos';
 import {
   CODIGO_INTERNO_RE,
   computeSyncPlan,
@@ -192,6 +192,8 @@ export async function aplicarSync(input: {
       movil2: r.movil2,
       telEmergencia: r.telEmergencia,
       familiaId: r.familiaId,
+      // Sin esto la columna nace a `true` (su DEFAULT) también en Infantil y 1º-2º EP.
+      bancoLibros: bancoTrasCambioDeCurso(null, r.curso) ?? false,
       extra: Object.keys(r.extra).length ? r.extra : null,
       active: true,
       updatedAt: ahora,
@@ -218,6 +220,11 @@ export async function aplicarSync(input: {
       } else {
         set[d.campo] = d.nuevo;
       }
+    }
+    // Cambio de curso que cruza la frontera del banco (2º → 3º EP): la casilla la sigue.
+    if (typeof set.curso === 'string') {
+      const banco = bancoTrasCambioDeCurso(porId.get(cambio.studentId)?.curso ?? null, set.curso);
+      if (banco !== null) set.bancoLibros = banco;
     }
     statements.push(db.update(eduStudents).set(set).where(eq(eduStudents.id, cambio.studentId)));
   }

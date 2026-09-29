@@ -1813,3 +1813,23 @@ export const tarTareas = pgTable('tar_tareas', {
   index('tar_tareas_created_by_idx').on(t.createdBy),
 ]);
 export type TarTarea = typeof tarTareas.$inferSelect;
+
+// ─── Números del cole (prefijo num_) ──────────────────────────────────────────
+// Ficha: docs/24-numeros.md. La pantalla de hoy no tiene tablas: se calcula al abrir. Esto es
+// solo el HISTÓRICO: una foto de todos los recuentos por clase, el día 1 de cada mes (cron) o
+// cuando alguien la pide. Solo recuentos, nunca personas, así que una foto no arrastra datos
+// personales. `datos` es el `DatosNumeros` de `src/lib/numeros.ts` tal cual, sin recortar
+// por permisos (se recorta al leerlo), y `version` dice con qué formato se guardó.
+export const numFotos = pgTable('num_fotos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tomadaAt: timestamp('tomada_at').defaultNow().notNull(),
+  academicYear: text('academic_year').notNull(),
+  origen: text('origen').notNull(), // 'mensual' (cron) | 'manual'
+  nota: text('nota'),
+  version: integer('version').notNull().default(1),
+  datos: jsonb('datos').notNull(),
+  creadaPor: text('creada_por'), // correo, o 'cron'
+}, (t) => [
+  index('num_fotos_tomada_idx').on(t.tomadaAt),
+]);
+export type NumFoto = typeof numFotos.$inferSelect;
