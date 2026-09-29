@@ -265,11 +265,48 @@ describe('preferencias', () => {
     const { leerPreferencias, PREFERENCIAS_INICIALES } = await import('@/lib/numeros');
     expect(leerPreferencias(undefined)).toEqual(PREFERENCIAS_INICIALES);
     expect(leerPreferencias('{roto')).toEqual(PREFERENCIAS_INICIALES);
-    expect(leerPreferencias(JSON.stringify({ pestana: 'familias', nivel: 'clases', basico: true, modo: 'x' }))).toEqual({
+    expect(leerPreferencias(JSON.stringify({ pestana: 'familias', nivel: 'clases', basico: false, modo: 'x' }))).toEqual({
       ...PREFERENCIAS_INICIALES,
       pestana: 'familias',
       nivel: 'clases',
-      basico: true,
+      basico: false,
     });
+    expect(PREFERENCIAS_INICIALES.basico).toBe(true);
+  });
+});
+
+describe('quiénes son', () => {
+  it('cada columna de personas tiene su lista; las de euros o medias, no', async () => {
+    const { listaDeColumna } = await import('@/lib/numeros');
+    const ctx = { papel: 'cole' as const, materialId: '1c9955ea-ad01-4e4d-90fe-aa01884391fc' };
+    expect(listaDeColumna('resumen', 'chicas', ctx)).toEqual({ tipo: 'a', marca: 'chica' });
+    expect(listaDeColumna('resumen', 'media', ctx)).toBeNull();
+    expect(listaDeColumna('familias', 'papeles', { ...ctx, papel: 'etapa' })).toEqual({ tipo: 'a', marca: 'papel_etapa' });
+    expect(listaDeColumna('banco', 'banco.no', ctx)).toEqual({ tipo: 'a', marca: 'banco_no', soloBanco: true });
+    expect(listaDeColumna('materiales', 'sin', ctx)).toEqual({ tipo: 'm', materialId: ctx.materialId, estado: 'sin' });
+    expect(listaDeColumna('licencias', 'lic.importe', ctx)).toBeNull();
+  });
+
+  it('ida y vuelta por la URL, y nada raro se cuela', async () => {
+    const { escribirLista, leerLista } = await import('@/lib/numeros');
+    const marcas = ['chica', 'banco_no'];
+    const l = { tipo: 'a' as const, marca: 'banco_no', soloBanco: true };
+    expect(leerLista(escribirLista(l), marcas)).toEqual(l);
+    expect(leerLista('a:chica', marcas)).toEqual({ tipo: 'a', marca: 'chica' });
+    expect(leerLista("a:chica'; drop", marcas)).toBeNull();
+    expect(leerLista('a:mayor', marcas)).toBeNull();
+    expect(leerLista('m:no-es-un-id:pagado', marcas)).toBeNull();
+    expect(leerLista('l:faltan', marcas)).toEqual({ tipo: 'l', estado: 'faltan' });
+  });
+
+  it('el ámbito de cada fila', async () => {
+    const { enAmbito } = await import('@/lib/numeros');
+    expect(enAmbito('total', '3INF', 'A')).toBe(true);
+    expect(enAmbito('e|ESO', '3ºPPDC', 'PDC')).toBe(true);
+    expect(enAmbito('e|EP', '3ºPPDC', 'PDC')).toBe(false);
+    expect(enAmbito('c|3ESO', '3ºPPDC', 'PDC')).toBe(true);
+    expect(enAmbito('c|3ESO', '3ESO', 'A')).toBe(true);
+    expect(enAmbito('3ESO|A', '3ESO', 'B')).toBe(false);
+    expect(enAmbito('3ºPPDC|PDC', '3ºPPDC', 'PDC')).toBe(true);
   });
 });

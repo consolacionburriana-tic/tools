@@ -263,7 +263,7 @@ export function pestanas(ctx: ContextoPestanas): Pestana[] {
     id: 'familias',
     titulo: 'Familias y papeles',
     columnas: [
-      { id: 'alumnos', titulo: 'Alumnos', valor: (v) => g(v, 'alumnos') },
+      { id: 'alumnos', titulo: 'Alumnos', valor: (v) => g(v, 'alumnos'), basico: true },
       {
         id: 'papeles',
         titulo: 'Papeles',
@@ -767,15 +767,14 @@ export interface Preferencias {
   nivel: Nivel;
   modo: 'n' | 'p';
   basico: boolean;
-  formato: 'hoja' | 'documento' | 'whatsapp';
 }
 
 export const PREFERENCIAS_INICIALES: Preferencias = {
   pestana: 'resumen',
   nivel: 'cursos',
   modo: 'n',
-  basico: false,
-  formato: 'hoja',
+  // Se entra viendo lo básico: quien quiere más lo pide con «Ver más datos» (y se recuerda).
+  basico: true,
 };
 
 const PESTANAS_IDS: readonly PestanaId[] = ['resumen', 'familias', 'banco', 'materiales', 'proteccion', 'licencias', 'perfil', 'datos'];
@@ -795,7 +794,109 @@ export function leerPreferencias(crudo: string | undefined | null): Preferencias
     pestana: de(o.pestana, PESTANAS_IDS, PREFERENCIAS_INICIALES.pestana),
     nivel: de(o.nivel, ['etapas', 'cursos', 'clases'] as const, PREFERENCIAS_INICIALES.nivel),
     modo: de(o.modo, ['n', 'p'] as const, PREFERENCIAS_INICIALES.modo),
-    basico: o.basico === true,
-    formato: de(o.formato, ['hoja', 'documento', 'whatsapp'] as const, PREFERENCIAS_INICIALES.formato),
+    basico: typeof o.basico === 'boolean' ? o.basico : PREFERENCIAS_INICIALES.basico,
   };
 }
+
+// ─── Quiénes son: la lista detrás de cada número ──────────────────────────────
+// Tocar un número abre la lista de esos alumnos. La lista se pide al servidor con dos cosas:
+// QUÉ (una marca del alumnado, un estado de un material o de licencias) y DÓNDE (la fila:
+// una clase, un curso, una etapa o todo el cole). El servidor filtra por la misma marca con
+// la que contó, así que la lista y el número siempre cuadran.
+
+export type Lista =
+  | { tipo: 'a'; marca: string; soloBanco?: boolean }
+  | { tipo: 'm'; materialId: string; estado: 'van' | 'pagado' | 'no' | 'becado' | 'no_aplica' | 'sin' }
+  | { tipo: 'l'; estado: 'alumnos' | 'pedidos' | 'faltan' | 'nop' };
+
+const LISTAS_ALUMNADO: Record<string, string> = {
+  'resumen:alumnos': 'todos',
+  'resumen:chicas': 'chica',
+  'resumen:chicos': 'chico',
+  'resumen:nuevos': 'nuevo',
+  'resumen:hermanos': 'con_hermanos',
+  'familias:alumnos': 'todos',
+  'familias:hermanos': 'con_hermanos',
+  'banco:ampa': 'ampa',
+  'proteccion:alumnos': 'todos',
+  'proteccion:pd.si': 'pd_si',
+  'proteccion:pd.no': 'pd_no',
+  'proteccion:pd.null': 'pd_null',
+  'proteccion:pd.correo': 'pd_correo',
+  'perfil:alumnos': 'todos',
+  'perfil:desde3': 'desde3',
+  'perfil:mayores': 'mayor',
+  'perfil:extranjeros': 'extranjero',
+  'perfil:fuera': 'fuera',
+  'perfil:numerosa': 'numerosa',
+  'perfil:empleados': 'empleado',
+  'datos:alumnos': 'todos',
+  'datos:nia': 'sin_nia',
+  'datos:dni': 'sin_dni',
+  'datos:sip': 'sin_sip',
+  'datos:tel': 'sin_tel',
+  'datos:google': 'sin_google',
+  'datos:tp': 'falta_tp',
+};
+
+/** La lista que hay detrás de una columna, o `null` si esa columna no es de personas (euros, medias). */
+export function listaDeColumna(
+  pestana: PestanaId,
+  columna: string,
+  ctx: { papel: 'cole' | 'etapa'; materialId: string | null },
+): Lista | null {
+  const marca = LISTAS_ALUMNADO[`${pestana}:${columna}`];
+  if (marca) return { tipo: 'a', marca };
+  if (pestana === 'familias' && columna === 'papeles') return { tipo: 'a', marca: ctx.papel === 'etapa' ? 'papel_etapa' : 'papel_cole' };
+  if (pestana === 'familias' && columna === 'pequenos') return { tipo: 'a', marca: ctx.papel === 'etapa' ? 'pequeno_etapa' : 'pequeno_cole' };
+  if (pestana === 'banco') {
+    if (columna === 'banco.alumnos') return { tipo: 'a', marca: 'todos', soloBanco: true };
+    if (columna === 'banco.si') return { tipo: 'a', marca: 'banco', soloBanco: true };
+    if (columna === 'banco.no') return { tipo: 'a', marca: 'banco_no', soloBanco: true };
+  }
+  if (pestana === 'materiales' && ctx.materialId) {
+    const estados = { van: 'van', pagado: 'pagado', no: 'no', becado: 'becado', no_aplica: 'no_aplica', sin: 'sin' } as const;
+    const estado = estados[columna as keyof typeof estados];
+    if (estado) return { tipo: 'm', materialId: ctx.materialId, estado };
+  }
+  if (pestana === 'licencias') {
+    const estados = { 'lic.alumnos': 'alumnos', 'lic.pedidos': 'pedidos', 'lic.faltan': 'faltan', 'lic.nop': 'nop' } as const;
+    const estado = estados[columna as keyof typeof estados];
+    if (estado) return { tipo: 'l', estado };
+  }
+  return null;
+}
+
+/** Para la URL: `a:chica`, `a:banco:b`, `m:<id>:pagado`, `l:faltan`. */
+export function escribirLista(l: Lista): string {
+  if (l.tipo === 'a') return `a:${l.marca}${l.soloBanco ? ':b' : ''}`;
+  if (l.tipo === 'm') return `m:${l.materialId}:${l.estado}`;
+  return `l:${l.estado}`;
+}
+
+/** Lo contrario, sin fiarse: lo que no sea exactamente una lista válida es `null`. */
+export function leerLista(texto: string | null | undefined, marcasValidas: readonly string[]): Lista | null {
+  if (!texto) return null;
+  const p = texto.split(':');
+  if (p[0] === 'a' && (p.length === 2 || (p.length === 3 && p[2] === 'b')) && marcasValidas.includes(p[1])) {
+    return { tipo: 'a', marca: p[1], ...(p.length === 3 ? { soloBanco: true } : {}) };
+  }
+  if (p[0] === 'm' && p.length === 3 && /^[0-9a-f-]{36}$/i.test(p[1]) && ['van', 'pagado', 'no', 'becado', 'no_aplica', 'sin'].includes(p[2])) {
+    return { tipo: 'm', materialId: p[1], estado: p[2] as 'van' };
+  }
+  if (p[0] === 'l' && p.length === 2 && ['alumnos', 'pedidos', 'faltan', 'nop'].includes(p[1])) {
+    return { tipo: 'l', estado: p[1] as 'alumnos' };
+  }
+  return null;
+}
+
+/** ¿Está esta clase dentro de la fila? La fila es su `clave` de `construirTabla`. */
+export function enAmbito(ambito: string, curso: string, letra: string | null): boolean {
+  if (ambito === 'total') return true;
+  if (ambito.startsWith('e|')) return etapaDeCurso(curso) === ambito.slice(2);
+  if (ambito.startsWith('c|')) return (cursoBaseEso(curso) ?? curso) === ambito.slice(2);
+  return ambito === `${curso}|${letra ?? ''}`;
+}
+
+/** Marcas que son información de perfil (solo quien ve la pestaña de perfil). */
+export const MARCAS_PERFIL: readonly string[] = ['desde3', 'mayor', 'extranjero', 'fuera', 'numerosa', 'empleado'];

@@ -3,9 +3,14 @@
 // «Números del cole»: la tabla de recuentos por clase, curso y etapa. Ficha: docs/24-numeros.md
 //
 // El servidor manda los recuentos por clase ya recortados para quien mira; aquí se hace todo
-// lo demás (subtotales, %, pestañas, «solo lo básico», copiar) sin volver a la red.
-import { useMemo, useState } from 'react';
-import { Check, ClipboardCopy, Copy, Eye, History, Image as ImageIcon, Lock, Sheet, Table2 } from 'lucide-react';
+// lo demás (subtotales, %, pestañas, «lo básico», copiar, imprimir) sin volver a la red.
+//
+// Pensada para quien no se lleva bien con las pantallas (David, 29-sep-2026: «que no sea muy
+// compleja»): se entra viendo lo básico, cada control dice en palabras lo que hace, no hay
+// selector de formatos (tres botones: copiar, WhatsApp, imprimir) y tocar un número hace
+// siempre lo mismo: enseñar quiénes son.
+import { useEffect, useMemo, useState } from 'react';
+import { Check, Copy, ExternalLink, Eye, Hand, Image as ImageIcon, Loader2, Lock, Printer, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { copiarTexto } from '@/components/alumnado/copiable';
 import { Historico } from '@/components/numeros/historico';
@@ -19,18 +24,22 @@ import {
   columnasVisibles,
   construirTabla,
   COOKIE_PREFERENCIAS,
+  escribirLista,
   ETAPA_NOMBRE,
   ETAPAS_ORDEN,
   euros,
   g,
+  listaDeColumna,
   llamaLaAtencion,
+  nombreClase,
   nombreEnFrase,
   pestanas as construirPestanas,
   sumar,
   tablaCopiable,
+  type Columna,
   type DatosNumeros,
   type FilaTabla,
-  type Nivel,
+  type Lista,
   type PermisosNumeros,
   type PestanaId,
   type Preferencias,
@@ -115,7 +124,7 @@ function Segmentos<T extends string>({
           type="button"
           aria-pressed={v === valor}
           onClick={() => onChange(v)}
-          className={`cursor-pointer whitespace-nowrap rounded-[10px] ${grande ? 'px-4 py-2 text-sm' : 'px-2.5 py-1.5 text-[13px]'} transition-colors ${
+          className={`cursor-pointer whitespace-nowrap rounded-[10px] ${grande ? 'px-4 py-2 text-sm' : 'px-3 py-1.5 text-[13.5px]'} transition-colors ${
             v === valor
               ? 'bg-white font-semibold text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
               : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -128,6 +137,24 @@ function Segmentos<T extends string>({
   );
 }
 
+/** Una etiqueta delante de un grupo de botones: «Ver por», «De». */
+function Campo({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[13px] font-medium text-zinc-500 dark:text-zinc-400">{etiqueta}</span>
+      {children}
+    </div>
+  );
+}
+
+interface Pedida {
+  titulo: string;
+  donde: string;
+  lista: Lista;
+  ambito: string;
+  total: number;
+}
+
 export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, puedeFoto }: Props) {
   const [vista, setVista] = useState<'hoy' | 'historico'>('hoy');
   const [prefs, setPrefs] = useState<Preferencias>(preferencias);
@@ -137,6 +164,7 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
   const [sel, setSel] = useState<string | null>(null);
   const [copiada, setCopiada] = useState<string | null>(null);
   const [imagen, setImagen] = useState<{ url: string; mensaje: string } | null>(null);
+  const [pedida, setPedida] = useState<Pedida | null>(null);
 
   const cambiar = (p: Partial<Preferencias>) => {
     const nuevas = { ...prefs, ...p };
@@ -155,6 +183,8 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
   const pestana = todas.find((p) => p.id === prefs.pestana) ?? todas[0];
   const color = COLOR[pestana.id];
   const columnas = columnasVisibles(pestana, prefs.basico);
+  // Con lo básico no hay porcentajes: un número es lo que se busca.
+  const modo = prefs.basico ? 'n' : prefs.modo;
 
   const filasClase = useMemo(
     () => (etapa === 'todo' ? datos.filas : datos.filas.filter((f) => f.etapa === etapa)),
@@ -171,49 +201,26 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
   const etapasHay = ETAPAS_ORDEN.filter((e) => datos.filas.some((f) => f.etapa === e));
   const total = sumar(datos.filas);
   const fecha = new Date(datos.generadoAt);
-  const subtitulo = `Consolación Burriana · ${fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' })}`;
+  const fechaLarga = fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
+  const deQuien = etapa === 'todo' ? (etapasPropias.length ? etapasPropias.map((e) => ETAPA_NOMBRE[e]).join(' y ') : 'todo el cole') : ETAPA_NOMBRE[etapa];
+  const subtitulo = `Consolación Burriana · ${deQuien} · ${fechaLarga}`;
 
   async function copiarValor(texto: string, clave: string) {
     if (await copiarTexto(texto)) {
       haptic.tap();
       setCopiada(clave);
-      setTimeout(() => setCopiada((c) => (c === clave ? null : c)), 1100);
+      setTimeout(() => setCopiada((c) => (c === clave ? null : c)), 1400);
     }
   }
 
+  const copiable = () => tablaCopiable(pestana.titulo, subtitulo, prefs.nivel, columnas, tabla, modo);
+
   async function copiarTabla() {
-    const t = tablaCopiable(pestana.titulo, subtitulo, prefs.nivel, columnas, tabla, prefs.modo);
-    if (prefs.formato === 'whatsapp') {
-      const blob = await tablaAImagen(t, color.hex);
-      if (!blob) return toast.error('No se pudo dibujar la imagen');
-      const fichero = new File([blob], `${pestana.titulo}.png`, { type: 'image/png' });
-      // En el iPad (pantalla táctil) lo cómodo es «Compartir» → WhatsApp; en el ordenador, al
-      // portapapeles para pegar en WhatsApp Web.
-      const tactil = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
-      if (tactil && navigator.canShare?.({ files: [fichero] })) {
-        try {
-          await navigator.share({ files: [fichero], title: pestana.titulo });
-          haptic.success();
-          return;
-        } catch (e) {
-          if (e instanceof DOMException && e.name === 'AbortError') return;
-        }
-      }
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        haptic.success();
-        toast.success('Copiada como imagen: pégala en el chat de WhatsApp');
-        return;
-      } catch {
-        setImagen({
-          url: URL.createObjectURL(blob),
-          mensaje: 'Este navegador no deja copiar imágenes: mantén pulsada la imagen para copiarla o guardarla.',
-        });
-        return;
-      }
-    }
+    const t = copiable();
     const tsv = aTSV(t);
     try {
+      // Con las dos versiones: la hoja de cálculo reparte en celdas y el correo o el Doc
+      // conservan la tabla con su formato. Un botón para todo.
       await navigator.clipboard.write([
         new ClipboardItem({
           'text/html': new Blob([aHTML(t)], { type: 'text/html' }),
@@ -224,27 +231,63 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
       if (!(await copiarTexto(tsv))) return toast.error('No se pudo copiar');
     }
     haptic.success();
-    toast.success(
-      prefs.formato === 'documento'
-        ? 'Copiada con formato: pégala en un Doc o en un correo'
-        : `Copiadas ${t.filas.length} filas: pégalas en la celda A1 de la hoja`,
-    );
+    toast.success('Tabla copiada. Pégala en Excel, en Drive, en un correo o en un documento.');
+  }
+
+  async function paraWhatsapp() {
+    const t = copiable();
+    const blob = await tablaAImagen(t, color.hex);
+    if (!blob) return toast.error('No se pudo hacer la imagen');
+    const fichero = new File([blob], `${pestana.titulo}.png`, { type: 'image/png' });
+    // En el iPad (pantalla táctil) lo cómodo es «Compartir» → WhatsApp; en el ordenador, al
+    // portapapeles para pegar en WhatsApp Web.
+    const tactil = window.matchMedia?.('(pointer: coarse)').matches;
+    if (tactil && navigator.canShare?.({ files: [fichero] })) {
+      try {
+        await navigator.share({ files: [fichero], title: pestana.titulo });
+        haptic.success();
+        return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      haptic.success();
+      toast.success('Imagen copiada. Ve a WhatsApp y pégala en el chat.');
+    } catch {
+      setImagen({
+        url: URL.createObjectURL(blob),
+        mensaje: 'Mantén pulsada la imagen para copiarla o guardarla, y luego mándala por WhatsApp.',
+      });
+    }
+  }
+
+  function abrirLista(fila: FilaTabla, col: Columna, valor: number) {
+    const lista = listaDeColumna(pestana.id, col.id, { papel, materialId: materialId ?? datos.materiales[0]?.id ?? null });
+    if (!lista) return;
+    setPedida({
+      titulo: col.sub ? `${col.titulo} ${col.sub}` : col.titulo,
+      donde: nombreEnFrase(fila),
+      lista,
+      ambito: fila.clave,
+      total: valor,
+    });
   }
 
   const materialActual = datos.materiales.find((m) => m.id === materialId) ?? datos.materiales[0];
-  const kpis: { etiqueta: string; valor: number; sub: string; punto: string; barra?: [number, number]; texto?: string }[] = [
+  const kpis: { etiqueta: string; valor: number; sub: string; punto: string; barra?: [number, number] }[] = [
     { etiqueta: 'Alumnos', valor: g(total, 'alumnos'), sub: `${datos.filas.length} clases`, punto: COLOR.resumen.punto },
     {
       etiqueta: 'Familias',
       valor: g(total, clavePapeles(etapasPropias.length ? 'etapa' : 'cole')),
-      sub: '= papeles para repartir',
+      sub: 'un papel por familia',
       punto: COLOR.familias.punto,
-      barra: [g(total, clavePapeles(etapasPropias.length ? 'etapa' : 'cole')), g(total, 'alumnos')],
     },
     {
       etiqueta: 'Banco de libros',
       valor: g(total, 'banco.si'),
-      sub: `de ${g(total, 'banco.alumnos')} en cursos con banco`,
+      sub: `de ${g(total, 'banco.alumnos')} que pueden`,
       punto: COLOR.banco.punto,
       barra: [g(total, 'banco.si'), g(total, 'banco.alumnos')],
     },
@@ -260,17 +303,6 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
       barra: [g(total, `mat.${materialActual.id}.pagado`), van],
     });
   }
-  const profes = etapasPropias.length
-    ? etapasPropias.reduce((s, e) => s + datos.profes[e], 0)
-    : datos.profes.EI + datos.profes.EP + datos.profes.ESO + datos.profes.sinEtapa;
-  kpis.push({
-    etiqueta: 'Profesorado',
-    valor: profes,
-    sub: etapasPropias.length
-      ? `activo en ${etapasPropias.map((e) => ETAPA_NOMBRE[e]).join(' y ')}`
-      : `${datos.profes.EI} EI · ${datos.profes.EP} EP · ${datos.profes.ESO} ESO${datos.profes.sinEtapa ? ` · ${datos.profes.sinEtapa} sin etapa` : ''}`,
-    punto: COLOR.perfil.punto,
-  });
   if (hayLicencias) {
     kpis.push({
       etiqueta: 'Pedidos de licencias',
@@ -282,32 +314,42 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
   }
 
   const nombrePrimera = prefs.nivel === 'etapas' ? 'Etapa' : prefs.nivel === 'cursos' ? 'Curso' : 'Clase';
+  const boton =
+    'inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 print:space-y-3">
+      {/* Para imprimir: A4 y los colores de las filas tal cual. */}
+      <style>{'@media print { @page { size: A4; margin: 12mm } body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact } }'}</style>
+
       {/* Cabecera: qué es, de cuándo, y Hoy | Histórico */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Números del cole</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 print:text-xl">
+            Números del cole<span className="hidden print:inline"> · {pestana.titulo}</span>
+          </h1>
           <p className="mt-0.5 text-sm text-zinc-500">
-            Curso {datos.academicYear} · datos de las{' '}
-            {fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })} de hoy
+            Curso {datos.academicYear} · <span className="print:hidden">datos de las{' '}
+            {fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })} de hoy</span>
+            <span className="hidden print:inline">{deQuien} · {fechaLarga}</span>
           </p>
         </div>
-        <Segmentos
-          etiqueta="Vista"
-          grande
-          opciones={[
-            ['hoy', 'Hoy'],
-            ['historico', 'Histórico'],
-          ]}
-          valor={vista}
-          onChange={setVista}
-        />
+        <div className="print:hidden">
+          <Segmentos
+            etiqueta="Vista"
+            grande
+            opciones={[
+              ['hoy', 'Hoy'],
+              ['historico', 'Cómo ha ido cambiando'],
+            ]}
+            valor={vista}
+            onChange={setVista}
+          />
+        </div>
       </div>
 
       {etapasPropias.length > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-zinc-800 dark:border-emerald-900/60 dark:bg-emerald-500/10 dark:text-zinc-200">
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-zinc-800 dark:border-emerald-900/60 dark:bg-emerald-500/10 dark:text-zinc-200 print:hidden">
           <Eye className="h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" />
           <p>
             <b className="font-semibold">
@@ -318,43 +360,33 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
         </div>
       )}
 
-      {/* Las cifras del cole: tocar una la copia */}
-      <section aria-label="El cole de un vistazo" className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
-        {kpis.map((k) => {
-          const clave = `kpi:${k.etiqueta}`;
-          return (
-            <button
-              key={k.etiqueta}
-              type="button"
-              onClick={() => copiarValor(String(k.valor), clave)}
-              className="flex cursor-pointer flex-col gap-0.5 rounded-2xl border border-zinc-200 bg-white p-3 text-left transition-colors hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
-            >
-              <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-                <i className={`h-2 w-2 shrink-0 rounded-full ${k.punto}`} />
-                {k.etiqueta}
+      {/* Las cifras del cole, de un vistazo */}
+      <section aria-label="El cole de un vistazo" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6 print:hidden">
+        {kpis.map((k) => (
+          <div key={k.etiqueta} className="flex flex-col gap-0.5 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <i className={`h-2 w-2 shrink-0 rounded-full ${k.punto}`} />
+              {k.etiqueta}
+            </span>
+            <span className="text-2xl font-semibold tabular-nums tracking-tight text-zinc-900 dark:text-zinc-100">
+              {k.valor.toLocaleString('es-ES')}
+            </span>
+            <span className="text-xs text-zinc-400">{k.sub}</span>
+            {k.barra && k.barra[1] > 0 && (
+              <span className="mt-1 h-[3px] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                <span className={`block h-full ${k.punto}`} style={{ width: `${Math.min(100, (k.barra[0] * 100) / k.barra[1])}%` }} />
               </span>
-              <span className="text-2xl font-semibold tabular-nums tracking-tight text-zinc-900 dark:text-zinc-100">
-                {k.valor.toLocaleString('es-ES')}
-              </span>
-              <span className={`text-xs ${copiada === clave ? 'text-green-600 dark:text-green-400' : 'text-zinc-400'}`}>
-                {copiada === clave ? 'copiado' : k.sub}
-              </span>
-              {k.barra && k.barra[1] > 0 && (
-                <span className="mt-1 h-[3px] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                  <span className={`block h-full ${k.punto}`} style={{ width: `${Math.min(100, (k.barra[0] * 100) / k.barra[1])}%` }} />
-                </span>
-              )}
-            </button>
-          );
-        })}
+            )}
+          </div>
+        ))}
       </section>
 
       {vista === 'historico' ? (
         <Historico permisos={permisos} puedeFoto={puedeFoto} etapasPropias={etapasPropias} />
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          {/* Pestañas */}
-          <div role="tablist" className="flex gap-0.5 overflow-x-auto border-b border-zinc-200 px-2 pt-2 dark:border-zinc-800">
+        <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
+          {/* Pestañas: qué se cuenta */}
+          <div role="tablist" className="flex gap-0.5 overflow-x-auto border-b border-zinc-200 px-2 pt-2 dark:border-zinc-800 print:hidden">
             {todas.map((p) => {
               const activa = p.id === pestana.id;
               return (
@@ -367,7 +399,7 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
                     cambiar({ pestana: p.id });
                     setSel(null);
                   }}
-                  className={`-mb-px flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-t-xl border-b-2 px-3 py-2.5 text-[13.5px] transition-colors ${
+                  className={`-mb-px flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-t-xl border-b-2 px-3 py-2.5 text-[14px] transition-colors ${
                     activa
                       ? `${COLOR[p.id].activo} font-semibold text-zinc-900 dark:text-zinc-100`
                       : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -380,78 +412,81 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
             })}
           </div>
 
-          {/* Controles */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
-            <div className="flex flex-wrap items-center gap-2.5">
+          {/* Cómo verlo, y qué hacer con ello */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800 print:hidden">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
+              <Campo etiqueta="Ver por">
+                <Segmentos
+                  etiqueta="Ver por"
+                  opciones={[
+                    ['etapas', 'Etapa'],
+                    ['cursos', 'Curso'],
+                    ['clases', 'Clase'],
+                  ]}
+                  valor={prefs.nivel}
+                  onChange={(v) => {
+                    cambiar({ nivel: v });
+                    setSel(null);
+                  }}
+                />
+              </Campo>
+              {etapasHay.length > 1 && (
+                <Campo etiqueta="De">
+                  <Segmentos
+                    etiqueta="De"
+                    opciones={[['todo', 'Todo el cole'] as const, ...etapasHay.map((e) => [e, ETAPA_NOMBRE[e]] as const)]}
+                    valor={etapa}
+                    onChange={(v) => {
+                      setEtapa(v);
+                      setSel(null);
+                    }}
+                  />
+                </Campo>
+              )}
               <button
                 type="button"
-                aria-pressed={prefs.basico}
+                aria-pressed={!prefs.basico}
                 onClick={() => cambiar({ basico: !prefs.basico })}
-                className={`inline-flex cursor-pointer items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-[13px] transition-colors ${
-                  prefs.basico
+                className={`inline-flex cursor-pointer items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-[13.5px] transition-colors ${
+                  !prefs.basico
                     ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-500/10 dark:text-blue-200'
                     : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
                 }`}
               >
-                <span className={`relative h-[18px] w-[30px] rounded-full transition-colors ${prefs.basico ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
-                  <span
-                    className={`absolute left-0.5 top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${prefs.basico ? 'translate-x-3' : ''}`}
-                  />
+                <span className={`relative h-[18px] w-[30px] rounded-full transition-colors ${!prefs.basico ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
+                  <span className={`absolute left-0.5 top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${!prefs.basico ? 'translate-x-3' : ''}`} />
                 </span>
-                Solo lo básico
+                Ver más datos
               </button>
-              <Segmentos
-                etiqueta="Nivel"
-                opciones={[
-                  ['etapas', 'Etapas'],
-                  ['cursos', 'Cursos'],
-                  ['clases', 'Clases'],
-                ]}
-                valor={prefs.nivel}
-                onChange={(v: Nivel) => {
-                  cambiar({ nivel: v });
-                  setSel(null);
-                }}
-              />
-              {etapasHay.length > 1 && (
+              {!prefs.basico && (
                 <Segmentos
-                  etiqueta="Etapa"
-                  opciones={[['todo', 'Todo'] as const, ...etapasHay.map((e) => [e, ETAPA_NOMBRE[e]] as const)]}
-                  valor={etapa}
-                  onChange={(v) => {
-                    setEtapa(v);
-                    setSel(null);
-                  }}
+                  etiqueta="Números o porcentajes"
+                  opciones={[
+                    ['n', 'Números'],
+                    ['p', 'Porcentajes'],
+                  ]}
+                  valor={prefs.modo}
+                  onChange={(v) => cambiar({ modo: v })}
                 />
               )}
-              <Segmentos
-                etiqueta="Números o porcentaje"
-                opciones={[
-                  ['n', 'Nº'],
-                  ['p', '%'],
-                ]}
-                valor={prefs.modo}
-                onChange={(v) => cambiar({ modo: v })}
-              />
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Segmentos
-                etiqueta="Copiar para"
-                opciones={[
-                  ['hoja', 'Sheets / Excel'],
-                  ['documento', 'Docs / correo'],
-                  ['whatsapp', 'WhatsApp · imagen'],
-                ]}
-                valor={prefs.formato}
-                onChange={(v) => cambiar({ formato: v })}
-              />
+              <button type="button" onClick={copiarTabla} className={`${boton} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`}>
+                <Copy className="h-4 w-4" /> Copiar tabla
+              </button>
               <button
                 type="button"
-                onClick={copiarTabla}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 active:bg-blue-800"
+                onClick={paraWhatsapp}
+                className={`${boton} border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
               >
-                {prefs.formato === 'whatsapp' ? <ImageIcon className="h-4 w-4" /> : prefs.formato === 'hoja' ? <Sheet className="h-4 w-4" /> : <ClipboardCopy className="h-4 w-4" />}
-                Copiar tabla
+                <ImageIcon className="h-4 w-4" /> WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className={`${boton} border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+              >
+                <Printer className="h-4 w-4" /> Imprimir
               </button>
             </div>
           </div>
@@ -468,22 +503,27 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
             campana={datos.campana}
           />
 
+          <p className="flex items-center gap-2 px-3.5 pt-3 text-[13px] text-zinc-500 dark:text-zinc-400 print:hidden">
+            <Hand className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            Toca un número para ver quiénes son.
+          </p>
+
           {/* La tabla */}
-          <div className="max-h-[70vh] overflow-auto">
-            <table className="w-full border-separate border-spacing-0 text-[13.5px] tabular-nums">
+          <div className="max-h-[70vh] overflow-auto print:max-h-none print:overflow-visible">
+            <table className="w-full border-separate border-spacing-0 text-[14px] tabular-nums print:text-[11px]">
               <thead>
                 <tr>
-                  <th className="sticky left-0 top-0 z-20 min-w-40 border-b border-zinc-200 bg-white px-3 py-2 text-left align-bottom text-[11.5px] font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+                  <th className="sticky left-0 top-0 z-20 min-w-40 border-b border-zinc-200 bg-white px-3 py-2 text-left align-bottom text-[12px] font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 print:static print:min-w-0">
                     {nombrePrimera}
                   </th>
                   {columnas.map((c) => (
                     <th
                       key={c.id}
                       title={c.candado ?? c.porque}
-                      className="sticky top-0 z-10 whitespace-nowrap border-b border-zinc-200 bg-white px-3 py-2 text-right align-bottom text-[11.5px] font-semibold text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+                      className="sticky top-0 z-10 whitespace-nowrap border-b border-zinc-200 bg-white px-3 py-2 text-right align-bottom text-[12px] font-semibold text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 print:static"
                     >
                       <span className="inline-flex items-center gap-1">
-                        {c.candado && <Lock className="h-3 w-3 text-zinc-400" />}
+                        {c.candado && <Lock className="h-3 w-3 text-zinc-400 print:hidden" />}
                         {c.titulo}
                       </span>
                       {c.sub && <span className="block font-normal text-zinc-400">{c.sub}</span>}
@@ -497,11 +537,11 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
                     key={f.clave}
                     fila={f}
                     columnas={columnas}
-                    modo={prefs.modo}
+                    modo={modo}
                     seleccionada={sel === f.clave}
                     onSeleccionar={() => setSel(f.clave)}
-                    onCopiar={copiarValor}
-                    copiada={copiada}
+                    onAbrir={(c, v) => abrirLista(f, c, v)}
+                    tieneLista={(c) => listaDeColumna(pestana.id, c.id, { papel, materialId }) !== null}
                     barra={color.barra}
                   />
                 ))}
@@ -510,25 +550,27 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
           </div>
 
           {/* Debajo: la frase y lo que llama la atención */}
-          <div className="grid border-t border-zinc-200 md:grid-cols-2 dark:border-zinc-800">
-            <div className="space-y-2 border-b border-zinc-200 p-4 md:border-b-0 md:border-r dark:border-zinc-800">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">La frase para pegar · toca una fila</p>
-              <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-[14.5px] leading-relaxed text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+          <div className="grid border-t border-zinc-200 md:grid-cols-2 dark:border-zinc-800 print:block print:border-0">
+            <div className="space-y-2 border-b border-zinc-200 p-4 md:border-b-0 md:border-r dark:border-zinc-800 print:border-0 print:px-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 print:hidden">
+                Una frase para pegar · toca el nombre de una fila para cambiarla
+              </p>
+              <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-[14.5px] leading-relaxed text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 print:border-0 print:bg-transparent print:p-0 print:text-[12px]">
                 {frase}
               </p>
               <button
                 type="button"
                 onClick={() => copiarValor(frase, 'frase')}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 print:hidden"
               >
                 {copiada === 'frase' ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                 {copiada === 'frase' ? 'Copiada' : 'Copiar la frase'}
               </button>
             </div>
-            <div className="space-y-2 p-4">
+            <div className="space-y-2 p-4 print:hidden">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Lo que llama la atención</p>
               {atencion.length ? (
-                <ul className="space-y-1.5 text-[13px] text-zinc-600 dark:text-zinc-400">
+                <ul className="space-y-1.5 text-[13.5px] text-zinc-600 dark:text-zinc-400">
                   {atencion.map((t) => (
                     <li key={t} className="flex gap-2">
                       <i className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${color.punto}`} />
@@ -546,10 +588,11 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
         </section>
       )}
 
-      <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-        {vista === 'hoy' ? <Table2 className="h-3.5 w-3.5" /> : <History className="h-3.5 w-3.5" />}
-        Toca cualquier número para copiarlo. Todo se cuenta al abrir la página, con el alumnado activo de la BBDD central.
+      <p className="text-xs text-zinc-400 print:mt-2">
+        Contado al abrir la página, con el alumnado activo de la BBDD central. <span className="print:hidden">Números del cole.</span>
       </p>
+
+      {pedida && <QuienesSon pedida={pedida} onCerrar={() => setPedida(null)} />}
 
       {imagen && (
         <div
@@ -589,17 +632,17 @@ function FilaVista({
   modo,
   seleccionada,
   onSeleccionar,
-  onCopiar,
-  copiada,
+  onAbrir,
+  tieneLista,
   barra,
 }: {
   fila: FilaTabla;
-  columnas: ReturnType<typeof columnasVisibles>;
+  columnas: Columna[];
   modo: 'n' | 'p';
   seleccionada: boolean;
   onSeleccionar: () => void;
-  onCopiar: (texto: string, clave: string) => void;
-  copiada: string | null;
+  onAbrir: (c: Columna, valor: number) => void;
+  tieneLista: (c: Columna) => boolean;
   barra: string;
 }) {
   const grupo = fila.tipo !== 'clase' && !(fila.tipo === 'curso' && !fila.nombre.startsWith('Total'));
@@ -611,12 +654,12 @@ function FilaVista({
         : fila.tipo === 'curso' && grupo
           ? 'bg-zinc-50 dark:bg-zinc-900/60'
           : 'bg-white dark:bg-zinc-900';
-  const anillo = seleccionada ? 'shadow-[inset_0_1px_0_#2563eb,inset_0_-1px_0_#2563eb]' : '';
+  const anillo = seleccionada ? 'shadow-[inset_0_1px_0_#2563eb,inset_0_-1px_0_#2563eb] print:shadow-none' : '';
   return (
-    <tr className={fondo}>
+    <tr className={`${fondo} break-inside-avoid`}>
       <td
-        className={`sticky left-0 z-[1] cursor-pointer border-b border-zinc-200 px-3 py-2 dark:border-zinc-800 ${fondo} ${
-          seleccionada ? 'shadow-[inset_3px_0_0_#2563eb,inset_0_1px_0_#2563eb,inset_0_-1px_0_#2563eb]' : ''
+        className={`sticky left-0 z-[1] cursor-pointer border-b border-zinc-200 px-3 py-2 dark:border-zinc-800 print:static print:py-1 ${fondo} ${
+          seleccionada ? 'shadow-[inset_3px_0_0_#2563eb,inset_0_1px_0_#2563eb,inset_0_-1px_0_#2563eb] print:shadow-none' : ''
         } ${fila.tipo === 'clase' ? 'pl-8 text-zinc-600 dark:text-zinc-400' : grupo ? 'font-semibold text-zinc-900 dark:text-zinc-100' : 'text-zinc-800 dark:text-zinc-200'}`}
         onClick={onSeleccionar}
       >
@@ -629,42 +672,147 @@ function FilaVista({
       </td>
       {columnas.map((c) => {
         const cel = celda(c, fila, modo);
-        const clave = `${fila.clave}:${c.id}`;
-        const tono = cel.vacia || !cel.valor
-          ? 'text-zinc-400 dark:text-zinc-600'
-          : c.tono === 'rojo'
-            ? 'font-semibold text-red-600 dark:text-red-400'
-            : c.tono === 'ambar'
-              ? 'font-semibold text-amber-600 dark:text-amber-400'
-              : '';
+        const abre = !cel.vacia && (cel.valor ?? 0) > 0 && tieneLista(c);
+        const tono =
+          cel.vacia || !cel.valor
+            ? 'text-zinc-400 dark:text-zinc-600'
+            : c.tono === 'rojo'
+              ? 'font-semibold text-red-600 dark:text-red-400'
+              : c.tono === 'ambar'
+                ? 'font-semibold text-amber-600 dark:text-amber-400'
+                : '';
         return (
           <td
             key={c.id}
-            className={`whitespace-nowrap border-b border-zinc-200 px-3 py-2 text-right dark:border-zinc-800 ${anillo} ${grupo ? 'font-semibold' : ''} ${tono} ${
-              cel.vacia ? '' : 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-500/10'
+            className={`whitespace-nowrap border-b border-zinc-200 px-3 py-2 text-right dark:border-zinc-800 print:py-1 ${anillo} ${grupo ? 'font-semibold' : ''} ${tono} ${
+              abre ? 'cursor-pointer hover:bg-blue-50 hover:text-blue-700 hover:underline hover:underline-offset-2 dark:hover:bg-blue-500/10 dark:hover:text-blue-300' : ''
             }`}
-            onClick={cel.vacia ? undefined : () => onCopiar(cel.crudo, clave)}
-            title={cel.vacia ? undefined : 'Tocar para copiar'}
+            onClick={abre ? () => onAbrir(c, cel.valor ?? 0) : undefined}
+            title={abre ? 'Ver quiénes son' : undefined}
           >
-            {copiada === clave ? (
-              <span className="text-green-600 dark:text-green-400">copiado</span>
-            ) : (
-              <>
-                {cel.texto}
-                {!cel.vacia && modo === 'n' && c.barra && cel.pct !== null && fila.tipo !== 'clase' && (
-                  <span className="ml-1.5 text-[11.5px] font-normal text-zinc-400">{Math.round(cel.pct)} %</span>
-                )}
-                {!cel.vacia && c.barra && cel.pct !== null && (
-                  <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                    <span className={`block h-full ${barra}`} style={{ width: `${Math.min(100, cel.pct)}%` }} />
-                  </span>
-                )}
-              </>
+            {cel.texto}
+            {!cel.vacia && modo === 'n' && c.barra && cel.pct !== null && fila.tipo !== 'clase' && (
+              <span className="ml-1.5 text-[11.5px] font-normal text-zinc-400">{Math.round(cel.pct)} %</span>
+            )}
+            {!cel.vacia && c.barra && cel.pct !== null && (
+              <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800 print:hidden">
+                <span className={`block h-full ${barra}`} style={{ width: `${Math.min(100, cel.pct)}%` }} />
+              </span>
             )}
           </td>
         );
       })}
     </tr>
+  );
+}
+
+interface AlumnoQuien {
+  id: string;
+  nombre: string;
+  curso: string;
+  letra: string | null;
+}
+
+/** La lista de «quiénes son», con su ficha en Alumnado a un toque. */
+function QuienesSon({ pedida, onCerrar }: { pedida: Pedida; onCerrar: () => void }) {
+  const [estado, setEstado] = useState<{ cargando: boolean; alumnos: AlumnoQuien[] | null; error: boolean }>({
+    cargando: true,
+    alumnos: null,
+    error: false,
+  });
+  const [copiada, setCopiada] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    const q = new URLSearchParams({ lista: escribirLista(pedida.lista), ambito: pedida.ambito });
+    fetch(`/api/numeros/quienes?${q}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((j: { alumnos: AlumnoQuien[] }) => vivo && setEstado({ cargando: false, alumnos: j.alumnos, error: false }))
+      .catch(() => vivo && setEstado({ cargando: false, alumnos: null, error: true }));
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onCerrar();
+    window.addEventListener('keydown', esc);
+    return () => {
+      vivo = false;
+      window.removeEventListener('keydown', esc);
+    };
+  }, [pedida, onCerrar]);
+
+  const alumnos = estado.alumnos ?? [];
+  const varias = new Set(alumnos.map((a) => `${a.curso}|${a.letra}`)).size > 1;
+
+  async function copiar() {
+    const texto = alumnos.map((a) => (varias ? `${a.nombre}\t${nombreClase(a.curso, a.letra)}` : a.nombre)).join('\n');
+    if (await copiarTexto(texto)) {
+      haptic.tap();
+      setCopiada(true);
+      setTimeout(() => setCopiada(false), 1400);
+    }
+  }
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Quiénes son" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4 print:hidden" onClick={onCerrar}>
+      <div
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <div>
+            <p className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <Users className="h-3.5 w-3.5" /> Quiénes son
+            </p>
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+              {pedida.titulo} · {pedida.donde}
+            </h2>
+            <p className="text-sm text-zinc-500">
+              {estado.cargando ? `${pedida.total} alumnos` : `${alumnos.length} ${alumnos.length === 1 ? 'alumno' : 'alumnos'}`}
+            </p>
+          </div>
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="cursor-pointer rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {estado.cargando ? (
+            <div className="flex items-center justify-center gap-2 p-8 text-sm text-zinc-500">
+              <Loader2 className="h-4 w-4 animate-spin" /> Buscando…
+            </div>
+          ) : estado.error ? (
+            <p className="p-6 text-sm text-red-600">No se pudo sacar la lista. Vuelve a probar.</p>
+          ) : alumnos.length === 0 ? (
+            <p className="p-6 text-sm text-zinc-500">No hay nadie.</p>
+          ) : (
+            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {alumnos.map((a) => (
+                <li key={a.id}>
+                  <a
+                    href={`/gestion/alumnado?alumno=${a.id}`}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14.5px] text-zinc-800 hover:bg-blue-50 dark:text-zinc-200 dark:hover:bg-blue-500/10"
+                  >
+                    <span>{a.nombre}</span>
+                    <span className="flex shrink-0 items-center gap-2 text-xs text-zinc-400">
+                      {varias && nombreClase(a.curso, a.letra)}
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2 border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <span className="text-xs text-zinc-400">Toca un nombre para abrir su ficha</span>
+          <button
+            type="button"
+            onClick={copiar}
+            disabled={!alumnos.length}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {copiada ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copiada ? 'Copiada' : 'Copiar la lista'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -689,26 +837,25 @@ function Aviso({
   setMaterialId: (id: string) => void;
   campana: DatosNumeros['campana'];
 }) {
-  const caja = 'flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 px-3.5 py-2.5 text-[12.5px] dark:border-zinc-800';
+  const caja = 'flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 px-3.5 py-2.5 text-[13px] dark:border-zinc-800 print:hidden';
   if (pestana === 'familias') {
     return (
       <div className={`${caja} bg-teal-50/60 text-zinc-700 dark:bg-teal-500/5 dark:text-zinc-300`}>
         <p className="min-w-60 flex-1">
-          Para repartir <b className="font-semibold">un papel por familia, al hermano mayor</b>.{' '}
-          {soloUnaEtapa
-            ? 'Viendo una etapa, el mayor se busca dentro de ella.'
-            : 'Si el papel es solo para una etapa, el mayor se busca dentro de ella (en Primaria, el mayor de Primaria aunque tenga un hermano en la ESO).'}
+          Cuántos papeles hacen falta para dar <b className="font-semibold">uno por familia, al hermano mayor</b>.
         </p>
         {!soloUnaEtapa && (
-          <Segmentos
-            etiqueta="Para quién es el papel"
-            opciones={[
-              ['cole', 'Papel para todo el cole'],
-              ['etapa', 'Un papel por etapa'],
-            ]}
-            valor={papelCole ? 'cole' : 'etapa'}
-            onChange={(v) => setPapelCole(v === 'cole')}
-          />
+          <Campo etiqueta="El papel es para">
+            <Segmentos
+              etiqueta="El papel es para"
+              opciones={[
+                ['cole', 'Todo el cole'],
+                ['etapa', 'Cada etapa por separado'],
+              ]}
+              valor={papelCole ? 'cole' : 'etapa'}
+              onChange={(v) => setPapelCole(v === 'cole')}
+            />
+          </Campo>
         )}
       </div>
     );
@@ -726,13 +873,14 @@ function Aviso({
   if (pestana === 'materiales' && materiales.length > 1) {
     return (
       <div className={`${caja} bg-amber-50/60 dark:bg-amber-500/5`}>
-        <span className="text-zinc-600 dark:text-zinc-400">Material:</span>
-        <Segmentos
-          etiqueta="Material"
-          opciones={materiales.map((m) => [m.id, m.nombre] as const)}
-          valor={materialId ?? materiales[0].id}
-          onChange={setMaterialId}
-        />
+        <Campo etiqueta="Material">
+          <Segmentos
+            etiqueta="Material"
+            opciones={materiales.map((m) => [m.id, m.nombre] as const)}
+            valor={materialId ?? materiales[0].id}
+            onChange={setMaterialId}
+          />
+        </Campo>
       </div>
     );
   }
@@ -741,7 +889,7 @@ function Aviso({
       <div className={`${caja} bg-sky-50/60 text-zinc-700 dark:bg-sky-500/5 dark:text-zinc-300`}>
         <p>
           <Lock className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-          {campana.nombre} · solo TIC, secretaría y dirección, y solo mientras la campaña no esté cerrada.
+          {campana.nombre} · solo lo ven TIC, secretaría y dirección, mientras la campaña esté abierta.
         </p>
       </div>
     );

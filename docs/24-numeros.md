@@ -18,19 +18,17 @@ de recuentos que se puede copiar**, y un histórico al lado.
 
 ---
 
-## Estado: plan funcional ✅ · plan técnico ✅ · implementado 🟡
+## Estado: plan funcional ✅ · plan técnico ✅ · implementado ✅ (29-sep-2026)
 
-En `/gestion/numeros` desde el 28-sep-2026, con las **ocho pestañas** (Resumen, Familias y
-papeles, Banco y AMPA, Materiales, Protección de datos, Licencias, Perfil del alumnado y Datos
-que faltan), copiar para Sheets / Docs / WhatsApp (imagen), **fotos mensuales** y la vista
-**Histórico**. Probado contra Neon con sesión de TIC y de una tutora de 2º ESO B. `num_fotos`
-aplicada en Neon, con una primera foto a mano del 28-sep-2026 («arranque del módulo»); la
-primera mensual la hará el cron el 1-oct-2026 (hace falta el despliegue con `vercel.json`).
+En `/gestion/numeros`: ocho pestañas (Resumen, Familias y papeles, Banco y AMPA, Materiales,
+Protección de datos, Licencias, Perfil del alumnado y Datos que faltan); **tocar un número
+enseña quiénes son** y cada nombre abre su ficha en Alumnado; copiar tabla, WhatsApp
+(imagen) e **imprimir en A4**; fotos mensuales y la vista «Cómo ha ido cambiando». Probado
+contra Neon con sesión de TIC y de una tutora de 2º ESO B. `num_fotos` en Neon, con una
+primera foto a mano del 28-sep-2026; la primera mensual la hace el cron el 1-oct-2026.
 
-Queda: botón A4 en PDF, tocar un número → Alumnado filtrado, Salidas y Puntualidad por clase,
-y la IA (ver checklist).
-
----
+Lo que queda son ideas, no pendientes: están en «Quizá, más adelante» de la checklist y en
+`00-desarrollos-futuros.md`.
 
 ## Decisiones cerradas
 
@@ -75,30 +73,54 @@ y la IA (ver checklist).
     azul Primaria, verde Secundaria; validados para daltonismo en claro y oscuro).
 11. **Se limpió el banco en cursos sin banco** (ver abajo), y se arregló en el sync para que
     no vuelva.
+12. **Sencilla, para quien no se lleva bien con las pantallas** (David, 29-sep-2026: «que no
+    sea muy compleja»):
+    - se entra en **lo básico** (una o dos columnas por pestaña); «Ver más datos» enseña el
+      resto y, solo entonces, «Números / Porcentajes»;
+    - los controles dicen lo que hacen: «Ver por: Etapa / Curso / Clase», «De: Todo el cole /
+      Infantil / Primaria / Secundaria»;
+    - **tres botones y ningún selector de formato**: «Copiar tabla» (vale para Excel, Drive,
+      un correo o un Doc: lleva la tabla en texto y en HTML a la vez), «WhatsApp» (imagen) e
+      «Imprimir»;
+    - tocar un número hace siempre lo mismo, **enseñar quiénes son**, y lo dice encima de la
+      tabla. Las cifras de arriba ya no se copian al tocarlas (dos gestos distintos para lo
+      mismo confundían);
+    - «Histórico» pasa a llamarse **«Cómo ha ido cambiando»**.
+13. **«Alumnado ya filtrado» es una lista dentro de Números**, no un filtro nuevo en Alumnado:
+    Alumnado solo entiende `?alumno=`, y la lista resuelve lo que se quería sin cambiar de
+    pantalla. Sale la gente de ese número en esa fila (clase, curso, etapa o todo el cole),
+    con su clase si hay varias, «Copiar la lista», y cada nombre abre su ficha. La lista sale
+    **de la misma marca SQL que el número** (`conMarcas` en `numeros-server.ts`): no pueden no
+    cuadrar. Fuera de alcance o sin permiso, 404 (como la ficha de Alumnado).
+14. **Imprimir es el imprimir del navegador**, con una hoja de estilos de impresión: A4, solo
+    el título, la tabla que se está viendo y la frase. Para una etapa sola, se filtra antes
+    («De: Primaria»). En el iPad sale el menú de siempre (AirPrint o guardar en PDF).
+15. **Protección de datos con el alcance de la etapa** (29-sep-2026, al traer `main`): desde
+    el 28-sep-2026 la protección de datos se ve con el mismo alcance que la ficha, así que el
+    tutor tiene también esa pestaña, de su etapa.
 
 ---
 
 ## La pantalla
 
-1. **Cabecera**: «Números del cole», curso y hora de los datos. A la derecha, **Hoy |
-   Histórico**.
+1. **Cabecera**: «Números del cole», curso y hora de los datos. A la derecha, **Hoy | Cómo
+   ha ido cambiando**.
 2. **Aviso de alcance** (solo tutores): «Estás viendo Secundaria, tu etapa».
-3. **Cifras del cole**: alumnos, familias (= papeles), banco, AMPA, cada material,
-   profesorado y, si toca, pedidos de licencias. Tocar una la copia.
+3. **Cifras del cole** (solo para mirar): alumnos, familias (= papeles), banco, AMPA, el
+   material y, si toca, pedidos de licencias.
 4. **La tabla**:
    - **Pestañas**: Resumen · Familias y papeles · Banco de libros y AMPA · Materiales ·
-     Protección de datos · Licencias · Perfil del alumnado · Datos que faltan (más Salidas y
-     Puntualidad en la fase 2).
-   - **Solo lo básico** · nivel **etapas / cursos / clases** (subtotales intercalados y fila
-     final de todo el cole) · filtro de etapa · **Nº o %**.
-   - **Copiar tabla** para Sheets / Excel (TSV + HTML: se pega en A1 y cada número cae en su
-     celda), Docs / correo (tabla con formato) o **WhatsApp (imagen)**. Botón **A4**.
-   - **Tocar una fila** escribe la **frase para pegar** («Para dar un papel por familia en
-     3º EP hacen falta 27 copias, no 45…»). **Tocar un número** abre Alumnado filtrado.
+     Protección de datos · Licencias · Perfil del alumnado · Datos que faltan.
+   - **Ver por** etapa / curso / clase (subtotales intercalados y fila final de todo el
+     cole) · **De** todo el cole / una etapa · **Ver más datos** (y con él, números o %).
+   - **Copiar tabla** (TSV + HTML: vale para Excel, Drive, un correo o un Doc), **WhatsApp**
+     (imagen) e **Imprimir** (A4).
+   - **Tocar un número** enseña quiénes son; **tocar el nombre de una fila** cambia la
+     **frase para pegar** («Para dar un papel por familia en 3º EP hacen falta 27 copias, no 45…»).
    - **Lo que llama la atención**: dos o tres frases sobre lo que se está viendo.
-5. **Histórico**: evolución mensual por etapa del número elegido (alumnos, familias, banco,
-   licencias…), con cursor y valores al pasar; **comparar dos fotos** cualquiera (antes →
-   después, con +/−); la tira de fotos guardadas; y copiar la serie para un Sheet.
+5. **Cómo ha ido cambiando**: evolución mensual por etapa del número elegido, con cursor y
+   valores al pasar; **comparar dos fotos** cualquiera (antes → después, con +/−, por curso);
+   la tira de fotos guardadas; copiar la serie; y guardar una foto a mano.
 
 ## Lo que se puede contar, y de dónde sale
 
@@ -258,26 +280,29 @@ por alumno. Necesitará su variable de entorno y su decisión de proveedor.
 - [x] Preferencias por persona en una cookie que lee el servidor (sin parpadeo)
 - [x] Frase para pegar al tocar una fila; tocar un número lo copia
 - [x] `pnpm test` y `pnpm build` en verde; `pnpm lint` sin nada nuevo (los errores que salen son de ficheros de antes)
-- [ ] Probado en iPad vertical y en oscuro por David; pegado de verdad en Sheets, Docs y WhatsApp
+- [ ] Que David lo pruebe en el iPad y pegando de verdad en Sheets, Docs y WhatsApp
 
 ### Fase 2 · Lo del equipo
 - [x] Pestaña Licencias (TIC, secretaría, dirección; campaña no cerrada)
 - [x] Pestañas Perfil del alumnado y Datos que faltan
 - [x] Selector de material cuando haya más de uno
-- [ ] Tocar un número abre Alumnado filtrado (`?filtro=` en Alumnado)
+- [x] Tocar un número enseña quiénes son (`GET /api/numeros/quienes`), con su ficha en
+      Alumnado a un toque y «Copiar la lista» (probado: 34 papeles de 3 años = 34 nombres;
+      una tutora recibe 404 al pedir «mayores que su curso» o licencias, y lista vacía de Infantil)
+- [x] Imprimir en A4 (hoja de impresión del navegador; probado sacando el PDF)
+- [x] Interfaz simplificada (decisión 12)
+
+### Quizá, más adelante (David, 29-sep-2026: «lo demás déjalo como cosas maybe futuro»)
 - [ ] Salidas y Puntualidad por clase
-- [ ] Botón A4 (PDF: una hoja, una por etapa, una por clase)
+- [ ] Sacar todas las fotos juntas (Excel largo) para el «big data»
+- [ ] «Pedir análisis» a Gemini con los recuentos (sin nombres), e informe de varias hojas A4
+- [ ] Un filtro de verdad en Alumnado (`?filtro=`), si la lista de Números se queda corta
 
 ### Fase 3 · Fotos e histórico
 - [x] `num_fotos` (`numeros-fotos.sql`, aplicado en Neon el 28-sep-2026) y `guardarFoto()`
 - [x] Cron del día 1 a las 5:00 UTC en `vercel.json` (`/api/numeros/cron/foto`, `CRON_SECRET`, idempotente) y botón de foto a mano con nota (`POST /api/numeros/fotos`, secretaría/dirección/TIC; probado el 403 de una tutora y el 401 del cron sin secreto)
 - [x] Vista Histórico: evolución por etapa, comparar dos fotos por curso, tira de fotos, copiar la serie
-- [ ] Ver la primera foto mensual del 1-oct-2026 (necesita el despliegue)
-- [ ] Sacar todas las fotos juntas (Excel largo)
-
-### Fase 4 · Análisis
-- [ ] «Pedir análisis» a Gemini con los recuentos (sin nombres), con su variable de entorno
-- [ ] Informe de varias hojas A4 con números y análisis
+- [ ] Ver la primera foto mensual del 1-oct-2026 (la hace el cron tras el despliegue)
 
 ### Hecho fuera de fase
 - [x] Limpiar las 85 casillas de banco en cursos sin banco (Neon, 28-sep-2026) y arreglar el

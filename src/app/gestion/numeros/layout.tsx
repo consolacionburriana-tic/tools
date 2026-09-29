@@ -10,8 +10,8 @@ export default async function NumerosLayout({ children }: { children: React.Reac
   if (!canAccess(user, 'numeros')) redirect('/gestion/sin-acceso');
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 print:min-h-0 print:bg-white">
+      <header className="sticky top-0 z-30 border-b print:hidden border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4">
           <Link
             href="/gestion/numeros"
@@ -27,7 +27,7 @@ export default async function NumerosLayout({ children }: { children: React.Reac
           </Link>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-5">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-5 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

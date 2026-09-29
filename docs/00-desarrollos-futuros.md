@@ -438,6 +438,11 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   justificante de pago").
 - ~~Dashboard agregado de dirección que cruce datos de varios módulos~~ → ficha propia, con
   las decisiones cerradas el 28-sep-2026: [`24-numeros.md`](./24-numeros.md) (Números del cole).
+- **Números del cole, quizá más adelante** (David, 29-sep-2026: «maybe futuro»): Salidas y
+  Puntualidad por clase; sacar todas las fotos del histórico juntas para analizarlas; un
+  «Pedir análisis» a Gemini con los recuentos (nunca nombres) y un informe de varias hojas A4;
+  y un filtro de verdad en Alumnado (`?filtro=`) si la lista de «quiénes son» se queda corta.
+  Detalle en [`24-numeros.md`](./24-numeros.md).
 - Firma electrónica de documentos (autorizaciones de salidas, documentación de banco de libros)
   en vez de papel escaneado.
 - **AUTOASM en Neon** (hoy el proyecto vive en `localStorage`, ver

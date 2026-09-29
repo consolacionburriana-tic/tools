@@ -8,7 +8,8 @@ import { and, asc, desc, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { licCampaigns, numFotos } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
-import { cursoEnBanco, etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { compararClases, cursoEnBanco, etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { nombresDe } from '@/lib/personas';
 import { aplicaMaterial } from '@/lib/alumnado';
 import { listaMateriales } from '@/lib/materiales-server';
 import { alcanceAlumnado } from '@/lib/alumnado-server';
@@ -19,7 +20,16 @@ import {
   type Acceso,
   type Role,
 } from '@/lib/permissions';
-import { recortar, type DatosNumeros, type FilaClase, type PermisosNumeros, type Valores } from '@/lib/numeros';
+import {
+  enAmbito,
+  MARCAS_PERFIL,
+  recortar,
+  type DatosNumeros,
+  type FilaClase,
+  type Lista,
+  type PermisosNumeros,
+  type Valores,
+} from '@/lib/numeros';
 
 type Clase = { curso: string; letra: string | null };
 const claveClase = (curso: string, letra: string | null) => `${curso}|${letra ?? ''}`;
@@ -58,12 +68,15 @@ type FilaAlumnado = {
 };
 
 /**
- * Todo lo que sale de `edu_students` en UNA consulta, por clase.
+ * Las MARCAS de cada alumno: una columna sí/no por cada cosa que se cuenta. Es la única
+ * definición de cada número: el recuento por clase (`alumnadoPorClase`) cuenta marcas y la
+ * lista de «quiénes son» (`quienesSon`) filtra por la misma marca, así que el número y la
+ * lista no pueden no cuadrar.
  *
  * - **Papeles por familia**: la familia es `familia_id` (o el propio alumno si no lo tiene) y
  *   el papel se lo lleva el mayor —el de curso más alto; si empatan, el mayor de edad—. Se
- *   cuenta dos veces: el mayor del cole (`rn_cole`) y el mayor dentro de su etapa
- *   (`rn_etapa`), para cuando el papel es solo para Infantil, Primaria o Secundaria.
+ *   marca dos veces: el mayor del cole (`papel_cole`) y el mayor dentro de su etapa
+ *   (`papel_etapa`), para cuando el papel es solo para Infantil, Primaria o Secundaria.
  * - **Mayores que su curso**: nacidos antes del año que toca (`anioQueToca` de numeros.ts,
  *   repetido aquí en SQL); **desde los 3 años**: alta en Educamos como tarde el año en que
  *   empezó 3 años (`anioDeEmpezar3`).
@@ -72,11 +85,11 @@ type FilaAlumnado = {
  *
  * Del `extra` solo se piden las claves que se cuentan: el jsonb entero pesa (ver convenciones).
  */
-async function alumnadoPorClase(inicio: number, academicYear: string): Promise<FilaAlumnado[]> {
+function conMarcas(inicio: number, academicYear: string) {
   const desdeNuevos = `${inicio}-07-01`;
-  const r = await db.execute<FilaAlumnado>(sql`
+  return sql`
     WITH s AS (
-      SELECT s.id, s.curso, s.letra, s.sexo, s.banco_libros, s.ampa,
+      SELECT s.id, s.nombre, s.apellido1, s.apellido2, s.curso, s.letra, s.sexo, s.banco_libros, s.ampa,
         s.pd_imagen, s.pd_redes, s.pd_ampa, s.pd_ong, s.pd_desestima_correo,
         s.nia, s.dni, s.email_google, s.fecha_nacimiento,
         coalesce(nullif(trim(s.tel_emergencia), ''), nullif(trim(s.extra->>'TEL EMERGENCIA ALUMNO'), '')) AS tel,
@@ -103,40 +116,89 @@ async function alumnadoPorClase(inicio: number, academicYear: string): Promise<F
       SELECT DISTINCT ON (sg.student_id) sg.student_id, upper(trim(coalesce(g.localidad, ''))) AS localidad
       FROM edu_student_guardians sg JOIN edu_guardians g ON g.id = sg.guardian_id
       ORDER BY sg.student_id, sg.orden NULLS LAST
-    )
-    SELECT r.curso, r.letra,
+    ), tut AS (
+      SELECT curso, coalesce(letra, '') AS letra, count(*) AS tutores FROM edu_tutorias
+      WHERE academic_year = ${academicYear} GROUP BY curso, coalesce(letra, '')
+    ), m AS (
+      SELECT r.id, r.nombre, r.apellido1, r.apellido2, r.curso, r.letra, r.fecha_nacimiento,
+        true AS todos,
+        r.sexo = 'F' AS chica,
+        r.sexo = 'M' AS chico,
+        coalesce(r.alta >= ${desdeNuevos}::date, false) AS nuevo,
+        r.hijos > 1 AS con_hermanos,
+        r.rn_cole = 1 AS papel_cole,
+        r.rn_cole > 1 AS pequeno_cole,
+        r.rn_etapa = 1 AS papel_etapa,
+        r.rn_etapa > 1 AS pequeno_etapa,
+        coalesce(r.banco_libros, false) AS banco,
+        NOT coalesce(r.banco_libros, false) AS banco_no,
+        coalesce(r.ampa, false) AS ampa,
+        coalesce(r.pd_imagen AND r.pd_redes AND r.pd_ampa AND r.pd_ong, false) AS pd_si,
+        (r.pd_imagen IS FALSE OR r.pd_redes IS FALSE OR r.pd_ampa IS FALSE OR r.pd_ong IS FALSE) AS pd_no,
+        (NOT (r.pd_imagen IS FALSE OR r.pd_redes IS FALSE OR r.pd_ampa IS FALSE OR r.pd_ong IS FALSE)
+          AND (r.pd_imagen IS NULL OR r.pd_redes IS NULL OR r.pd_ampa IS NULL OR r.pd_ong IS NULL)) AS pd_null,
+        coalesce(r.pd_desestima_correo, false) AS pd_correo,
+        (r.alta IS NOT NULL AND extract(year FROM r.alta) <= r.anio_3) AS desde3,
+        (r.fecha_nacimiento IS NOT NULL AND extract(year FROM r.fecha_nacimiento) < r.anio_toca) AS mayor,
+        (r.nac <> '' AND r.nac NOT IN ('ESPAÑA', 'ESPANA')) AS extranjero,
+        (coalesce(l.localidad, '') <> '' AND l.localidad NOT LIKE '%BURRIANA%' AND l.localidad NOT LIKE '%BORRIANA%') AS fuera,
+        r.fnum = 'TRUE' AS numerosa,
+        r.hemp = 'TRUE' AS empleado,
+        coalesce(trim(r.nia), '') = '' AS sin_nia,
+        coalesce(trim(r.dni), '') = '' AS sin_dni,
+        r.sip IS NULL AS sin_sip,
+        r.tel IS NULL AS sin_tel,
+        coalesce(trim(r.email_google), '') = '' AS sin_google,
+        tp.id IS NOT NULL AS con_tp,
+        (coalesce(t.tutores, 0) > 1 AND tp.id IS NULL) AS falta_tp
+      FROM r
+      LEFT JOIN loc l ON l.student_id = r.id
+      LEFT JOIN edu_tutor_personal tp ON tp.edu_student_id = r.id AND tp.academic_year = ${academicYear}
+      LEFT JOIN tut t ON t.curso = r.curso AND t.letra = coalesce(r.letra, '')
+    )`;
+}
+
+/** Las marcas por las que se puede pedir «quiénes son». Lista cerrada: van tal cual al SQL. */
+export const MARCAS_ALUMNADO = [
+  'todos', 'chica', 'chico', 'nuevo', 'con_hermanos', 'papel_cole', 'pequeno_cole', 'papel_etapa', 'pequeno_etapa',
+  'banco', 'banco_no', 'ampa', 'pd_si', 'pd_no', 'pd_null', 'pd_correo', 'desde3', 'mayor', 'extranjero', 'fuera',
+  'numerosa', 'empleado', 'sin_nia', 'sin_dni', 'sin_sip', 'sin_tel', 'sin_google', 'falta_tp',
+] as const;
+export type MarcaAlumnado = (typeof MARCAS_ALUMNADO)[number];
+
+async function alumnadoPorClase(inicio: number, academicYear: string): Promise<FilaAlumnado[]> {
+  const r = await db.execute<FilaAlumnado>(sql`
+    ${conMarcas(inicio, academicYear)}
+    SELECT curso, letra,
       count(*)::int AS alumnos,
-      count(*) FILTER (WHERE r.sexo = 'F')::int AS chicas,
-      count(*) FILTER (WHERE r.sexo = 'M')::int AS chicos,
-      count(*) FILTER (WHERE r.alta >= ${desdeNuevos}::date)::int AS nuevos,
-      count(*) FILTER (WHERE r.hijos > 1)::int AS hermanos,
-      count(*) FILTER (WHERE r.rn_cole = 1)::int AS papeles,
-      count(*) FILTER (WHERE r.rn_etapa = 1)::int AS papeles_etapa,
-      count(*) FILTER (WHERE r.banco_libros)::int AS banco,
-      count(*) FILTER (WHERE r.ampa)::int AS ampa,
-      count(*) FILTER (WHERE r.pd_imagen AND r.pd_redes AND r.pd_ampa AND r.pd_ong)::int AS pd_si,
-      count(*) FILTER (WHERE r.pd_imagen IS FALSE OR r.pd_redes IS FALSE OR r.pd_ampa IS FALSE OR r.pd_ong IS FALSE)::int AS pd_no,
-      count(*) FILTER (WHERE NOT (r.pd_imagen IS FALSE OR r.pd_redes IS FALSE OR r.pd_ampa IS FALSE OR r.pd_ong IS FALSE)
-        AND (r.pd_imagen IS NULL OR r.pd_redes IS NULL OR r.pd_ampa IS NULL OR r.pd_ong IS NULL))::int AS pd_null,
-      count(*) FILTER (WHERE r.pd_desestima_correo)::int AS pd_correo,
-      coalesce(sum(extract(epoch FROM age(now(), r.fecha_nacimiento)) / 31557600.0), 0)::float AS edad_suma,
-      count(r.fecha_nacimiento)::int AS edad_n,
-      count(*) FILTER (WHERE r.alta IS NOT NULL AND extract(year FROM r.alta) <= r.anio_3)::int AS desde3,
-      count(*) FILTER (WHERE r.fecha_nacimiento IS NOT NULL AND extract(year FROM r.fecha_nacimiento) < r.anio_toca)::int AS mayores,
-      count(*) FILTER (WHERE r.nac <> '' AND r.nac NOT IN ('ESPAÑA', 'ESPANA'))::int AS extranjeros,
-      count(*) FILTER (WHERE l.localidad <> '' AND l.localidad NOT LIKE '%BURRIANA%' AND l.localidad NOT LIKE '%BORRIANA%')::int AS fuera,
-      count(*) FILTER (WHERE r.fnum = 'TRUE')::int AS numerosa,
-      count(*) FILTER (WHERE r.hemp = 'TRUE')::int AS empleados,
-      count(*) FILTER (WHERE coalesce(trim(r.nia), '') = '')::int AS sin_nia,
-      count(*) FILTER (WHERE coalesce(trim(r.dni), '') = '')::int AS sin_dni,
-      count(*) FILTER (WHERE r.sip IS NULL)::int AS sin_sip,
-      count(*) FILTER (WHERE r.tel IS NULL)::int AS sin_tel,
-      count(*) FILTER (WHERE coalesce(trim(r.email_google), '') = '')::int AS sin_google,
-      count(tp.id)::int AS con_tutor_personal
-    FROM r
-    LEFT JOIN loc l ON l.student_id = r.id
-    LEFT JOIN edu_tutor_personal tp ON tp.edu_student_id = r.id AND tp.academic_year = ${academicYear}
-    GROUP BY r.curso, r.letra
+      count(*) FILTER (WHERE chica)::int AS chicas,
+      count(*) FILTER (WHERE chico)::int AS chicos,
+      count(*) FILTER (WHERE nuevo)::int AS nuevos,
+      count(*) FILTER (WHERE con_hermanos)::int AS hermanos,
+      count(*) FILTER (WHERE papel_cole)::int AS papeles,
+      count(*) FILTER (WHERE papel_etapa)::int AS papeles_etapa,
+      count(*) FILTER (WHERE banco)::int AS banco,
+      count(*) FILTER (WHERE ampa)::int AS ampa,
+      count(*) FILTER (WHERE pd_si)::int AS pd_si,
+      count(*) FILTER (WHERE pd_no)::int AS pd_no,
+      count(*) FILTER (WHERE pd_null)::int AS pd_null,
+      count(*) FILTER (WHERE pd_correo)::int AS pd_correo,
+      coalesce(sum(extract(epoch FROM age(now(), fecha_nacimiento)) / 31557600.0), 0)::float AS edad_suma,
+      count(fecha_nacimiento)::int AS edad_n,
+      count(*) FILTER (WHERE desde3)::int AS desde3,
+      count(*) FILTER (WHERE mayor)::int AS mayores,
+      count(*) FILTER (WHERE extranjero)::int AS extranjeros,
+      count(*) FILTER (WHERE fuera)::int AS fuera,
+      count(*) FILTER (WHERE numerosa)::int AS numerosa,
+      count(*) FILTER (WHERE empleado)::int AS empleados,
+      count(*) FILTER (WHERE sin_nia)::int AS sin_nia,
+      count(*) FILTER (WHERE sin_dni)::int AS sin_dni,
+      count(*) FILTER (WHERE sin_sip)::int AS sin_sip,
+      count(*) FILTER (WHERE sin_tel)::int AS sin_tel,
+      count(*) FILTER (WHERE sin_google)::int AS sin_google,
+      count(*) FILTER (WHERE con_tp)::int AS con_tutor_personal
+    FROM m
+    GROUP BY curso, letra
   `);
   return r.rows;
 }
@@ -433,4 +495,83 @@ export async function fotosPara(vista: VistaNumeros): Promise<(FotoLista & { dat
     nota: f.nota,
     datos: recortar(f.datos as DatosNumeros, vista),
   }));
+}
+
+// ─── Quiénes son ──────────────────────────────────────────────────────────────
+
+export interface AlumnoQuien {
+  id: string;
+  nombre: string;
+  curso: string;
+  letra: string | null;
+}
+
+type FilaQuien = { id: string; nombre: string | null; apellido1: string | null; apellido2: string | null; curso: string; letra: string | null };
+
+/**
+ * La lista detrás de un número: los alumnos de esa fila (`ambito`) con esa marca, dentro de
+ * lo que puede ver quien pregunta. `null` = no le toca verla (se contesta 404, como Alumnado).
+ */
+export async function quienesSon(lista: Lista, ambito: string, vista: VistaNumeros): Promise<AlumnoQuien[] | null> {
+  const { permisos } = vista;
+  if (lista.tipo === 'a' && lista.marca.startsWith('pd_') && !permisos.proteccion) return null;
+  if (lista.tipo === 'a' && MARCAS_PERFIL.includes(lista.marca) && !permisos.perfil) return null;
+  if (lista.tipo === 'm' && lista.estado === 'becado' && !permisos.becas) return null;
+  if (lista.tipo === 'l' && !permisos.licencias) return null;
+
+  const academicYear = academicYearActual();
+  const inicio = Number(academicYear.slice(0, 4));
+  let filas: FilaQuien[];
+
+  if (lista.tipo === 'a') {
+    // La marca viene de una lista cerrada (`leerLista` con MARCAS_ALUMNADO): es seguro ponerla
+    // como identificador.
+    if (!(MARCAS_ALUMNADO as readonly string[]).includes(lista.marca)) return null;
+    const r = await db.execute<FilaQuien>(sql`
+      ${conMarcas(inicio, academicYear)}
+      SELECT id, nombre, apellido1, apellido2, curso, letra FROM m WHERE ${sql.identifier(lista.marca)}
+    `);
+    filas = r.rows.filter((f) => !lista.soloBanco || cursoEnBanco(f.curso));
+  } else if (lista.tipo === 'm') {
+    const [material] = (await listaMateriales(academicYear)).filter((m) => m.id === lista.materialId);
+    if (!material) return [];
+    const r = await db.execute<FilaQuien & { estado: string | null }>(sql`
+      SELECT s.id, s.nombre, s.apellido1, s.apellido2, s.curso, s.letra, me.estado
+      FROM edu_students s
+      LEFT JOIN mat_estados me ON me.edu_student_id = s.id AND me.material_id = ${material.id}
+      WHERE s.active AND s.curso IS NOT NULL
+    `);
+    const quiere = (estado: string | null) => {
+      if (lista.estado === 'van') return true;
+      if (lista.estado === 'sin') return !estado;
+      // Quien no ve las becas las tiene sumadas a «pagado»: su lista también.
+      if (lista.estado === 'pagado' && !permisos.becas) return estado === 'pagado' || estado === 'becado';
+      return estado === lista.estado;
+    };
+    filas = r.rows.filter((f) => aplicaMaterial(material.destinos, f) && quiere(f.estado));
+  } else {
+    const cond =
+      lista.estado === 'pedidos'
+        ? sql`o.id IS NOT NULL`
+        : lista.estado === 'faltan'
+          ? sql`o.id IS NULL AND ls.manual_completed_at IS NULL`
+          : lista.estado === 'nop'
+            ? sql`o.id IS NULL AND ls.manual_completed_at IS NOT NULL`
+            : sql`true`;
+    const r = await db.execute<FilaQuien>(sql`
+      SELECT e.id, e.nombre, e.apellido1, e.apellido2, e.curso, e.letra
+      FROM lic_students ls
+      JOIN edu_students e ON e.id = ls.edu_student_id AND e.active
+      LEFT JOIN lic_orders o ON o.student_id = ls.id AND NOT o.archived
+      WHERE ls.campaign_id = ${CAMPANA_ACTUAL} AND ls.active AND ${cond}
+    `);
+    filas = r.rows;
+  }
+
+  const dentro = (f: FilaQuien) =>
+    vista.clases === null || vista.clases.some((c) => c.curso === f.curso && (c.letra ?? null) === (f.letra ?? null));
+  return filas
+    .filter((f) => dentro(f) && enAmbito(ambito, f.curso, f.letra))
+    .map((f) => ({ id: f.id, nombre: nombresDe(f).usual, curso: f.curso, letra: f.letra }))
+    .sort((a, b) => compararClases(a, b) || a.nombre.localeCompare(b.nombre, 'es'));
 }
