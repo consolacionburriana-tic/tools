@@ -16,7 +16,6 @@ import {
   canAccess,
   veBecasMateriales,
   vePerfilAlumnado,
-  veProteccionDatosCompleta,
   type Acceso,
   type Role,
 } from '@/lib/permissions';
@@ -352,7 +351,9 @@ export async function vistaNumeros(
     clases: alcance.clases,
     etapas: alcance.etapas,
     permisos: {
-      proteccion: veProteccionDatosCompleta(user.role),
+      // Desde el 28-sep-2026 la protección de datos se ve con el alcance de la ficha (la
+      // etapa), como en Alumnado: las clases ya vienen recortadas, así que aquí basta el sí.
+      proteccion: true,
       licencias: canAccess(user, 'licencias') && campana !== null && campana.estado !== 'closed',
       perfil: vePerfilAlumnado(user.role),
       becas: veBecasMateriales(user.role),

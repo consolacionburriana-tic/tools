@@ -313,8 +313,7 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
             <b className="font-semibold">
               Estás viendo {etapasPropias.map((e) => ETAPA_NOMBRE[e]).join(' y ')}, tu etapa.
             </b>{' '}
-            {datos.filas.length} clases, {g(total, 'alumnos')} alumnos. Lo de las otras etapas no te sale, y la protección
-            de datos la ves solo de tu tutoría, en Alumnado.
+            {datos.filas.length} clases, {g(total, 'alumnos')} alumnos. Lo de las otras etapas no te sale.
           </p>
         </div>
       )}

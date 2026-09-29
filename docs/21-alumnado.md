@@ -61,9 +61,12 @@ exactamente la deuda que documenta
    pedírselo a otro tutor no protege nada. Lo que **no** cruza es la etapa: quien lleva Infantil
    no tiene por qué ver las fichas de la ESO.
 
-   La etapa sale de `edu_teachers.etapa` y, si está en blanco, de las etapas de sus tutorías de
-   este curso. Sin ninguna de las dos cosas no se ve nada, y la pantalla lo dice con un aviso
-   que manda a hablar con TIC (hoy hay 10 profes activos sin etapa asignada).
+   Las etapas son **varias** (28-sep-2026: hay quien da clase en dos, como Nathan o Vicent
+   Tarancón) y salen de la unión de: la multiselección `edu_teachers.etapas` (se marca en
+   `/gestion/profes` → «Etapas»; si nunca se ha tocado, vale la etapa única `etapa`), las
+   etapas de los cursos en los que tiene clase en Horarios, y las de sus tutorías de este
+   curso. Sin ninguna no se ve nada, y la pantalla lo dice con un aviso que manda a hablar con
+   TIC. Aplica igual a tutores y a profes, y el mismo criterio vale en el Banco de libros.
 
    > Ojo: esto es **más ancho que el alcance de Puntualidad**, que sigue siendo por tutoría, y es
    > a propósito. Allí se registran y se corrigen datos de un alumno; aquí solo se consultan.
@@ -112,12 +115,12 @@ exactamente la deuda que documenta
    `edu_students.ampa` («la familia es socia del AMPA»). Se llaman igual y son dos cosas
    distintas; las dos se editan desde esta pantalla, en bloques separados.
 
-10. **La protección de datos se ve más cerrada que el resto de la ficha** (David,
-    17-sep-2026): dirección, jefatura, orientación, secretaría y TIC la ven de todo el
-    centro; **un tutor solo la de su tutoría**, no la de toda su etapa. Sí, es una regla
-    distinta a la de la decisión 6, y es a propósito: lo demás son datos de gestión diaria
-    (a quién llamo, qué NIA tiene) y esto es la voluntad firmada de una familia sobre la
-    imagen de su hijo. Quien la necesita es quien va a publicar la foto de su clase.
+10. **La protección de datos se ve con el mismo alcance que la ficha** (David, 28-sep-2026;
+    del 17-sep hasta entonces era solo la de la tutoría): tutor y profe, la de su etapa;
+    dirección, jefatura, orientación, secretaría y TIC, la de todo el centro. Y el **rol
+    `comunicacion`** —o el módulo `comunicacion` dado como extra, p. ej. a una tutora que
+    además lleva comunicación— ve la ficha y la protección de datos de **todas las etapas**,
+    porque es quien publica fotos de cualquier clase.
 
     Y **editarla es aún más estrecho**: secretaría, dirección y TIC. Ellos guardan los
     papeles. Un tutor la ve y no la toca, porque si cada uno pudiera cambiarla el dato
@@ -343,10 +346,10 @@ protección de datos, **quién la ve y quién la toca** (`veProteccionDatosCompl
 de tocar nada; fuera de alcance devuelven 404, no 403, por el mismo motivo que la de lectura.
 
 Módulo `alumnado` en `src/lib/permissions.ts`. Lo trae el rol de dirección, jefatura,
-orientación, secretaría, TIC y **tutor** (que ve su etapa). `profe` **no** lo trae por defecto:
-se le puede dar a mano desde `/gestion/usuarios` como cualquier otro módulo, y con el criterio
-de etapa vería lo mismo que un tutor de su etapa. Dárselo al rol entero es cambiar una línea de
-`ROLE_MODULES`, pero es una decisión de David, no un detalle de implementación.
+orientación, secretaría, TIC, **tutor y profe** (estos dos, solo su etapa; el tutor entra
+ya en su tutoría). El profe lo trae desde el 28-sep-2026 (David: «que los profesores/tutores
+vean TODO lo de su etapa, por defecto su tutoría, pero no etapas que no son las suyas»). Un
+profe sin `edu_teachers.etapa` ni tutoría no ve a nadie, igual que un tutor en ese caso.
 
 ---
 

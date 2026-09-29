@@ -406,6 +406,16 @@ export async function fijarNombreMostrado(teacherId: string, nombre: string | nu
   return fila ?? null;
 }
 
+/** Las etapas elegidas a mano de un profe (multiselección). Lista vacía = ninguna. */
+export async function fijarEtapasProfe(teacherId: string, etapas: ('EI' | 'EP' | 'ESO')[]): Promise<EduTeacher | null> {
+  const [fila] = await db
+    .update(eduTeachers)
+    .set({ etapas, updatedAt: new Date() })
+    .where(eq(eduTeachers.id, teacherId))
+    .returning();
+  return fila ?? null;
+}
+
 export async function getTeacherByEmail(email: string): Promise<EduTeacher | null> {
   const [row] = await db
     .select()
