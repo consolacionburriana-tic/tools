@@ -1,5 +1,5 @@
 // El evento de Google Calendar de cada sesión de Oratorios / Godly Play. Ficha:
-// docs/25-oratorios.md
+// docs/26-oratorios.md
 //
 // Mismo cliente que Mi horario (cuenta de servicio con delegación de dominio): se escribe
 // SUPLANTANDO a la persona responsable, en el calendario compartido del tipo. Así Google

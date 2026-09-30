@@ -1,5 +1,5 @@
 // Correos de Oratorios y Godly Play al profe al que se le quita la hora. Ficha:
-// docs/25-oratorios.md
+// docs/26-oratorios.md
 //
 // Es un correo de compañero a compañero: sale del buzón de quien lo lleva, sin logos ni
 // firma corporativa (David, 30-sep-2026: «evita firmitas»). Lo único «bonito» es el bloque

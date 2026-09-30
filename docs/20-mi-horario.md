@@ -253,6 +253,14 @@ src/app/(public)/mi-horario/  # la pantalla
       credenciales para ejecutarlo en vivo, así que el camino feliz está escrito y
       tipado pero no verificado con Google de por medio
 
+### Fase 3b · Abreviatura, selector de emoji y tramo del curso — ✅
+- [x] Abreviatura editable por materia/actividad (`mih_preferencias.abreviaturas`); vacía = la
+      de la materia o la generada
+- [x] Selector de emoji estándar (`emoji-picker-react`, emojis nativos) con una fila de
+      típicos de colegio arriba (`EMOJIS_ACADEMICOS`)
+- [x] Tramo del curso: septiembre–junio u octubre–mayo (`mih_preferencias.rango_curso`),
+      cruzado con las fechas del periodo — recorta, nunca amplía. SQL aplicado en Neon
+
 ### Fase 5 · Desde jefatura, a todo el claustro — ⬜
 - [ ] Mismo mecanismo, en bucle, para quien tenga `horarios-profes` y pueda editar
 - [ ] Vista previa de a quién se le va a escribir antes de lanzarlo

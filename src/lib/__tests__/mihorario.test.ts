@@ -5,7 +5,9 @@ import {
   construirEventoGoogle,
   datosPlantillaDeCelda,
   duracionMinutos,
+  abreviaturaDeCelda,
   emojiDeCelda,
+  rangoExportacion,
   EMOJI_GENERICO_LECTIVA,
   EMOJI_GENERICO_NO_LECTIVA,
   generarAbreviatura,
@@ -210,5 +212,39 @@ describe('duración de la sesión', () => {
   it('calcula los minutos', () => {
     expect(duracionMinutos({ horaInicio: '09:00', horaFin: '09:45' })).toBe(45);
     expect(duracionMinutos({ horaInicio: '08:00', horaFin: '10:10' })).toBe(130);
+  });
+});
+
+describe('abreviatura editable', () => {
+  it('la de la persona gana; sin ella, la de la materia', () => {
+    expect(abreviaturaDeCelda(celda({}), { 'materia:mat-1': 'MATES' })).toBe('MATES');
+    expect(abreviaturaDeCelda(celda({}), {})).toBe('MAT');
+  });
+
+  it('una actividad usa la clave actividad:<código>', () => {
+    const c = celda({ materiaId: null, abreviatura: null, actividad: 'guardia', titulo: 'Guardia' });
+    expect(abreviaturaDeCelda(c, { 'actividad:guardia': 'GD' })).toBe('GD');
+  });
+});
+
+describe('rango del curso a exportar', () => {
+  const ordinario = { fechaInicio: '2026-09-08', fechaFin: '2027-06-22' };
+
+  it('septiembre a junio: el periodo tal cual si cabe dentro', () => {
+    expect(rangoExportacion('2026-27', 'sep-jun', ordinario)).toEqual(ordinario);
+  });
+
+  it('octubre a mayo: recorta el periodo por los dos lados', () => {
+    expect(rangoExportacion('2026-27', 'oct-may', ordinario)).toEqual({ fechaInicio: '2026-10-01', fechaFin: '2027-05-31' });
+  });
+
+  it('nunca amplía: un periodo de junio con septiembre-junio se queda en junio', () => {
+    const junio = { fechaInicio: '2027-06-01', fechaFin: '2027-06-22' };
+    expect(rangoExportacion('2026-27', 'sep-jun', junio)).toEqual(junio);
+  });
+
+  it('un periodo fuera del tramo da un rango invertido (no se crea nada)', () => {
+    const r = rangoExportacion('2026-27', 'oct-may', { fechaInicio: '2027-06-01', fechaFin: '2027-06-22' });
+    expect(r.fechaFin < r.fechaInicio).toBe(true);
   });
 });

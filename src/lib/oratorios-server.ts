@@ -1,4 +1,4 @@
-// Capa de servidor de Oratorios y Godly Play. Ficha: docs/25-oratorios.md
+// Capa de servidor de Oratorios y Godly Play. Ficha: docs/26-oratorios.md
 //
 // La pantalla recibe TODO de una vez (tipos, horario, sesiones del curso, disponibilidad…)
 // y calcula los candidatos en el cliente con `oratorios.ts`: así pasar de semana no cuesta

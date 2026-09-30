@@ -2,7 +2,7 @@
 
 // /gestion/oratorios para quien lo lleva: cinco pestañas sobre el mismo estado. Todo el curso
 // viaja de una vez y los candidatos se calculan aquí (`oratorios.ts`), así que pasar de
-// semana o de pestaña no cuesta un viaje al servidor. Ficha: docs/25-oratorios.md
+// semana o de pestaña no cuesta un viaje al servidor. Ficha: docs/26-oratorios.md
 import { CalendarRange, ChartColumnBig, Clock, List, Settings2, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';

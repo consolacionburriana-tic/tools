@@ -1,4 +1,4 @@
--- Oratorios y Godly Play (ficha: docs/25-oratorios.md)
+-- Oratorios y Godly Play (ficha: docs/26-oratorios.md)
 -- Fecha: 2026-09-30
 --
 -- Aditivo e idempotente: se puede lanzar dos veces sin romper nada. Se aplica con

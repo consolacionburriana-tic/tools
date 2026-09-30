@@ -1,7 +1,7 @@
 'use client';
 
 // Piezas compartidas de Oratorios y Godly Play: llamadas a la API, chips y avisos en
-// símbolos. Ficha: docs/25-oratorios.md
+// símbolos. Ficha: docs/26-oratorios.md
 import { cn } from '@/lib/utils';
 import type {
   AccionLote,

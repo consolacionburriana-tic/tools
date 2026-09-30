@@ -1,4 +1,4 @@
-// Oratorios y Godly Play: helpers puros (sin IO, testeables). Ficha: docs/25-oratorios.md
+// Oratorios y Godly Play: helpers puros (sin IO, testeables). Ficha: docs/26-oratorios.md
 //
 // Lo que tiene criterio vive aquí, sin BBDD delante, para poder probarlo con casos
 // inventados: qué cuenta para el objetivo, qué avisos lleva cada candidato de un hueco, en

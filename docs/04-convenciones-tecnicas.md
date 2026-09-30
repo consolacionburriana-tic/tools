@@ -48,6 +48,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `RESEND_API_KEY` · `RESEND_FROM` | Transporte Resend (alternativa/respaldo) |
 | `LICENCIAS_GESTORES` | Lista de correos de aviso de Licencias |
 | `GOOGLE_SA_CLIENT_EMAIL` · `GOOGLE_SA_PRIVATE_KEY` (antes `GOOGLE_SHEETS_*`, siguen valiendo) · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio: Sheet de Licencias **y** envío por la API de Gmail |
+| `GOOGLE_ADMIN_BUZON` | Opcional. Buzón **administrador** del dominio que suplanta Calendarios del dominio para leer Directory y Classroom. Sin fijar, se usa el de quien está en la pantalla (docs/25-calendarios.md) |
 | `APP_BASE_URL` | URL pública que usa **todo** el código para construir enlaces (`appBaseUrl()` en `src/lib/constants.ts`) — magic links, avisos por correo, botones de plantillas. **El único sitio donde cambiar de dominio es Vercel → Settings → Environment Variables, nunca el código.** Mientras `tools.consolacionburriana.com` no esté enganchado, va aquí la URL real de Vercel (p. ej. `https://consolacionburriana-tools1.vercel.app`); el día que el dominio esté listo, se cambia este valor y se redeploya. Sin fijar, cae a `https://tools.consolacionburriana.com`. En local, `http://localhost:3000` |
 
 | `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
@@ -64,7 +65,7 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
 ## Base de datos (Drizzle + Neon)
 
 - **Todas las tablas en `src/db/schema.ts`**, agrupadas por módulo con su prefijo (`abc_`,
-  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`) y un comentario separador
+  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`) y un comentario separador
   por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
 - ⚠️ **Antes de `pnpm db:push`, mira qué hay en Neon.** Push borra lo que no esté en

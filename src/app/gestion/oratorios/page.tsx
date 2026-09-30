@@ -11,7 +11,7 @@ import { MisOratorios } from '@/components/oratorios/mis-oratorios';
 
 export const metadata = { title: 'Oratorios y Godly Play · Gestión' };
 
-// Ficha: docs/25-oratorios.md. Quien lo lleva (`oratorios`) recibe el curso entero y planifica;
+// Ficha: docs/26-oratorios.md. Quien lo lleva (`oratorios`) recibe el curso entero y planifica;
 // el claustro (`oratorios-ver`) ve solo lo suyo, y solo si el acceso común está encendido.
 export default async function OratoriosPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await getSessionUser();

@@ -25,7 +25,7 @@ perder ideas por el camino.
 
 ### Oratorios y Godly Play: lo que decidí yo al construirlo (30-sep-2026) — revisar con David
 
-Están todas en «Decisiones cerradas» de [`25-oratorios.md`](./25-oratorios.md), marcadas 🤖. Las
+Están todas en «Decisiones cerradas» de [`26-oratorios.md`](./26-oratorios.md), marcadas 🤖. Las
 que más conviene mirar:
 
 1. **Godly Play arranca con infantil y primaria**, y Oratorio con ESO. Se cambia en Ajustes.
@@ -254,6 +254,11 @@ Recopilados de las fichas, para verlos de un vistazo:
   del 2026-09-09, que no tenía `DATABASE_URL`: plantilla del cuaderno para varias etapas,
   nombre visible del profesorado y `autoasm.sql` (histórico, FTP y `asm_ajustes`). Basta con
   lanzarlo desde un entorno que tenga la conexión.
+- **Calendarios del dominio** (ficha `25`, 30-sep-2026): en la delegación de dominio del
+  mismo Client ID, añadir `admin.directory.user.readonly`, `classroom.courses.readonly` y
+  `calendar` (este último lo comparte con Mi horario), y habilitar en Google Cloud *Admin SDK
+  API*, *Google Classroom API* y *Google Calendar API*. Luego, «Comprobar permisos» en
+  `/gestion/calendarios` dice si falta algo. Pasos en `25-calendarios.md`.
 - **Mi horario** (ficha `20`): en la consola de administración de Google Workspace, añadir
   el scope `https://www.googleapis.com/auth/calendar` al Client ID que ya tiene delegación
   de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin
@@ -442,6 +447,15 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
 
+- **Calendarios del dominio** ([`25-calendarios.md`](./25-calendarios.md)), decisiones de
+  alcance tomadas al construirlo que David puede revisar: el corte de «este curso» en Classroom
+  es el **1 de julio** (no septiembre), el borrado es **de verdad** (`calendars.delete`) y no
+  «quitar de la lista de todos», y **secretaría no tiene el módulo** aunque tenga «todo».
+  Ideas: (1) versión suave «ocultar a todos» (`calendarList.delete` por suscriptor) si algún
+  calendario no se quiere perder; (2) los calendarios cuyo dueño es una cuenta **suspendida**
+  (profes que se fueron) no se pueden borrar suplantándola: habría que transferirlos desde la
+  consola o reactivar la cuenta un momento — ver cuántos salen en el primer escaneo; (3) un
+  aviso anual (julio) en el escritorio para hacer la limpieza del curso que acaba.
 - **Tareas de la plataforma → kanban** ([`23-tareas.md`](./23-tareas.md)): columnas por estado
   con arrastrar, y quizá prioridad, responsable y enlazar un fallito con el commit/PR que lo
   arregla. También por decidir: si el resto del claustro (tutores, profes) puede reportar

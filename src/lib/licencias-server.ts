@@ -24,7 +24,6 @@ import {
   CURSOS_FORM,
   cursoEfectivo,
   isPdcLetra,
-  normalize,
   resolveBilingual,
   toPdcCurso,
   totalPedido,

@@ -2,7 +2,7 @@
 
 // 🗓️ Planificar: el asistente. Semana a semana, los huecos de quien lo lleva y quién cabe en
 // cada uno (con la materia y el profe que pierde la hora y sus avisos en símbolos). Dos
-// toques por sesión: el hueco y la clase. Ficha: docs/25-oratorios.md
+// toques por sesión: el hueco y la clase. Ficha: docs/26-oratorios.md
 import { ArrowRightLeft, BookOpen, ChevronLeft, ChevronRight, CalendarClock, Check, CheckCheck, Plus, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';

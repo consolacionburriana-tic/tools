@@ -1623,6 +1623,12 @@ export const mihPreferencias = pgTable('mih_preferencias', {
   // módulos extra/bloqueados: la propuesta del centro puede mejorar sin pisar lo que alguien
   // ya eligió a mano.
   emojis: jsonb('emojis').$type<Record<string, string>>().notNull().default({}),
+  // Abreviatura por clave (mismas claves que `emojis`). Solo lo que la persona ha cambiado:
+  // sin entrada, sale la de la materia (o la generada por respaldo).
+  abreviaturas: jsonb('abreviaturas').$type<Record<string, string>>().notNull().default({}),
+  // Qué tramo del curso se exporta: 'sep-jun' (septiembre a junio) o 'oct-may' (octubre a
+  // mayo). Se cruza con las fechas del periodo: nunca las amplía.
+  rangoCurso: text('rango_curso').notNull().default('sep-jun'),
   calendarioGoogleId: text('calendario_google_id'), // null = el calendario principal
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -1835,7 +1841,7 @@ export const numFotos = pgTable('num_fotos', {
 export type NumFoto = typeof numFotos.$inferSelect;
 
 // ─── Oratorios y Godly Play (prefijo ora_) ────────────────────────────────────
-// Ficha: docs/25-oratorios.md. Un profe se lleva a (media) clase un rato en la hora de otro
+// Ficha: docs/26-oratorios.md. Un profe se lleva a (media) clase un rato en la hora de otro
 // profe. Genérico por dentro: un TIPO de momento (oratorio, Godly Play, mañana un taller) con
 // su objetivo por clase, su calendario de Google y su texto de correo.
 
@@ -1939,3 +1945,80 @@ export const oraSesiones = pgTable('ora_sesiones', {
   index('ora_sesiones_aviso_idx').on(t.avisoEstado, t.avisoProgramadoPara),
 ]);
 export type OraSesion = typeof oraSesiones.$inferSelect;
+
+// ─── Calendarios del dominio (prefijo cal_) ───────────────────────────────────
+// Ficha: docs/25-calendarios.md. El inventario de los calendarios SECUNDARIOS del dominio
+// (cada clase de Classroom crea uno) para ver de quién son, si tienen eventos y borrarlos en
+// bloque. Es una FOTO: la rellena el escaneo (Classroom + calendarList de cada usuario) y se
+// puede rehacer cuando se quiera. Las filas no se borran nunca: un calendario borrado se
+// queda con `borrado_at`, que es el registro de quién se lo llevó y cuándo.
+export const calCalendarios = pgTable('cal_calendarios', {
+  id: text('id').primaryKey(), // el id de Google Calendar (c_classroom…@group.calendar.google.com)
+  nombre: text('nombre'),
+  descripcion: text('descripcion'),
+  esClassroom: boolean('es_classroom').notNull().default(false),
+  // La clase de Classroom de la que sale, si se ha encontrado en courses.list
+  courseId: text('course_id'),
+  courseNombre: text('course_nombre'),
+  courseSeccion: text('course_seccion'),
+  courseEstado: text('course_estado'), // ACTIVE | ARCHIVED | PROVISIONED | DECLINED | SUSPENDED
+  courseCreadoAt: timestamp('course_creado_at'),
+  courseOwnerEmail: text('course_owner_email'),
+  courseVistoAt: timestamp('course_visto_at'), // último escaneo en que la clase seguía existiendo
+  // Eventos (el último recuento)
+  eventos: integer('eventos'),
+  eventosFuturos: integer('eventos_futuros'),
+  primerEventoAt: timestamp('primer_evento_at'),
+  ultimoEventoAt: timestamp('ultimo_evento_at'),
+  eventosContadosAt: timestamp('eventos_contados_at'),
+  eventosError: text('eventos_error'),
+  vistoAt: timestamp('visto_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  // Borrado (nunca se borra la fila)
+  borradoAt: timestamp('borrado_at'),
+  borradoPor: text('borrado_por'),
+  borradoComo: text('borrado_como'), // buzón suplantado que lo borró
+  borradoError: text('borrado_error'), // último intento fallido, si lo hubo
+}, (t) => [
+  index('cal_calendarios_borrado_idx').on(t.borradoAt),
+  index('cal_calendarios_course_idx').on(t.courseId),
+]);
+export type CalCalendario = typeof calCalendarios.$inferSelect;
+
+// Quién tiene cada calendario en su lista y con qué permiso. Sirve para dos cosas: contar a
+// cuánta gente le sale y saber a quién suplantar para borrarlo (el `owner`).
+export const calSuscripciones = pgTable('cal_suscripciones', {
+  calendarId: text('calendar_id').notNull(),
+  email: text('email').notNull(),
+  rol: text('rol').notNull(), // owner | writer | reader | freeBusyReader
+  vistoAt: timestamp('visto_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('cal_suscripciones_pk').on(t.calendarId, t.email),
+  index('cal_suscripciones_email_idx').on(t.email),
+]);
+export type CalSuscripcion = typeof calSuscripciones.$inferSelect;
+
+// Las clases de Classroom del dominio (todas, tengan calendario o no), para poder borrar las
+// de hace años. Misma idea que cal_calendarios: foto del último escaneo, y las filas no se
+// borran nunca — una clase borrada se queda con `borrado_at`.
+export const calClases = pgTable('cal_clases', {
+  id: text('id').primaryKey(), // courseId de Classroom
+  nombre: text('nombre'),
+  seccion: text('seccion'),
+  estado: text('estado'), // ACTIVE | ARCHIVED | PROVISIONED | DECLINED | SUSPENDED | DESAPARECIDA
+  creadaAt: timestamp('creada_at'),
+  actualizadaAt: timestamp('actualizada_at'),
+  ownerEmail: text('owner_email'),
+  calendarId: text('calendar_id'),
+  enlace: text('enlace'), // alternateLink: la clase en la web de Classroom
+  vistoAt: timestamp('visto_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  borradoAt: timestamp('borrado_at'),
+  borradoPor: text('borrado_por'),
+  borradoError: text('borrado_error'),
+}, (t) => [
+  index('cal_clases_borrado_idx').on(t.borradoAt),
+]);
+export type CalClase = typeof calClases.$inferSelect;
