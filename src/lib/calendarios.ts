@@ -176,3 +176,52 @@ export function candidatosParaBorrar(propietarios: readonly string[], courseOwne
   if (courseOwnerEmail && !lista.includes(courseOwnerEmail)) lista.push(courseOwnerEmail);
   return lista;
 }
+
+// ── Clases de Classroom ──────────────────────────────────────────────────────
+
+/** Años de un curso académico «2023-24» → 2023. */
+function anioInicio(curso: string): number {
+  return Number(curso.slice(0, 4));
+}
+
+/**
+ * Cuántos cursos atrás queda `curso` respecto al actual: en 2026-27, el 2023-24 tiene
+ * antigüedad 3. El filtro «3 años o más» se queda con 2023-24 y anteriores.
+ */
+export function antiguedadCurso(curso: string | null, hoy = new Date()): number | null {
+  if (!curso) return null;
+  return anioInicio(cursoAcademicoActualClassroom(hoy)) - anioInicio(curso);
+}
+
+/** El curso más reciente que entra con «`anios` años o más»: 3 en 2026-27 → '2023-24'. */
+export function cursoLimite(anios: number, hoy = new Date()): string {
+  const inicio = anioInicio(cursoAcademicoActualClassroom(hoy)) - anios;
+  return `${inicio}-${String((inicio + 1) % 100).padStart(2, '0')}`;
+}
+
+/** De qué curso es una clase: el nombre si lo dice («1ESOA (2024/2025)»); si no, cuándo se creó. */
+export function cursoDeClase(nombre: string | null, creadaAt: Date | null): string | null {
+  return cursoEnNombre(nombre) ?? (creadaAt ? cursoAcademicoDeClase(creadaAt) : null);
+}
+
+export const ANIOS_POR_DEFECTO = 3;
+
+export interface ClaseFila {
+  id: string;
+  nombre: string | null;
+  seccion: string | null;
+  estado: string | null;
+  creadaAt: string | null;
+  actualizadaAt: string | null;
+  ownerEmail: string | null;
+  calendarId: string | null;
+  enlace: string | null;
+  /** Si su calendario sigue vivo en el inventario (para ofrecer borrarlo también). */
+  calendarioVivo: boolean;
+  curso: string | null;
+  antiguedad: number | null;
+  vistoAt: string;
+  borradoAt: string | null;
+  borradoPor: string | null;
+  borradoError: string | null;
+}

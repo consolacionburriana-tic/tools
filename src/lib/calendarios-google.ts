@@ -220,8 +220,11 @@ export interface ClaseClassroom {
   seccion: string | null;
   estado: string | null;
   creadaAt: Date | null;
+  actualizadaAt: Date | null;
   ownerId: string | null;
   calendarId: string | null;
+  /** El enlace a la clase en la web de Classroom. */
+  enlace: string | null;
 }
 
 export async function paginaClases(
@@ -234,7 +237,7 @@ export async function paginaClases(
     classroom(admin).courses.list({
       pageSize: 200,
       pageToken: pageToken ?? undefined,
-      fields: 'nextPageToken,courses(id,name,section,courseState,creationTime,ownerId,calendarId)',
+      fields: 'nextPageToken,courses(id,name,section,courseState,creationTime,updateTime,ownerId,calendarId,alternateLink)',
     }),
   );
   return {
@@ -246,8 +249,10 @@ export async function paginaClases(
         seccion: c.section ?? null,
         estado: c.courseState ?? null,
         creadaAt: c.creationTime ? new Date(c.creationTime) : null,
+        actualizadaAt: c.updateTime ? new Date(c.updateTime) : null,
         ownerId: c.ownerId ?? null,
         calendarId: c.calendarId ?? null,
+        enlace: c.alternateLink ?? null,
       })),
     siguiente: data.nextPageToken ?? null,
   };

@@ -10,10 +10,13 @@
 //   3. eventos   → cuántos eventos tiene cada calendario, de 12 en 12
 import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { calCalendarios, calSuscripciones } from '@/db/schema';
+import { calCalendarios, calClases, calSuscripciones } from '@/db/schema';
 import {
+  antiguedadCurso,
   candidatosParaBorrar,
   cursoDeCalendario,
+  cursoDeClase,
+  type ClaseFila,
   grupoDeCalendario,
   pareceDeClassroom,
   type CalendarioFila,
@@ -89,12 +92,53 @@ export async function pasoClassroom(
         },
       });
   }
+  // Todas las clases, tengan calendario o no (ver la pestaña «Clases de Classroom»).
+  if (clases.length > 0) {
+    await db
+      .insert(calClases)
+      .values(
+        clases.map((c) => ({
+          id: c.id,
+          nombre: c.nombre,
+          seccion: c.seccion,
+          estado: c.estado,
+          creadaAt: c.creadaAt,
+          actualizadaAt: c.actualizadaAt,
+          ownerEmail: c.ownerId ? (usuarios.get(c.ownerId) ?? null) : null,
+          calendarId: c.calendarId,
+          enlace: c.enlace,
+          vistoAt: ahora,
+          updatedAt: ahora,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: calClases.id,
+        set: {
+          nombre: sql`excluded.nombre`,
+          seccion: sql`excluded.seccion`,
+          estado: sql`excluded.estado`,
+          creadaAt: sql`excluded.creada_at`,
+          actualizadaAt: sql`excluded.actualizada_at`,
+          ownerEmail: sql`excluded.owner_email`,
+          calendarId: sql`excluded.calendar_id`,
+          enlace: sql`excluded.enlace`,
+          vistoAt: sql`excluded.visto_at`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
+  }
   // Última página: lo que tenía clase y esta vez no ha salido es que la clase se borró.
   if (!siguiente) {
-    await db
-      .update(calCalendarios)
-      .set({ courseEstado: CLASE_DESAPARECIDA, updatedAt: ahora })
-      .where(and(sql`${calCalendarios.courseId} is not null`, lt(calCalendarios.courseVistoAt, inicio)));
+    await Promise.all([
+      db
+        .update(calCalendarios)
+        .set({ courseEstado: CLASE_DESAPARECIDA, updatedAt: ahora })
+        .where(and(sql`${calCalendarios.courseId} is not null`, lt(calCalendarios.courseVistoAt, inicio))),
+      db
+        .update(calClases)
+        .set({ estado: CLASE_DESAPARECIDA, updatedAt: ahora })
+        .where(lt(calClases.vistoAt, inicio)),
+    ]);
   }
   return { siguiente, clases: clases.length, conCalendario: filas.length };
 }
@@ -297,6 +341,38 @@ export async function listarCalendarios(hoy = new Date()): Promise<CalendarioFil
       eventosError: c.eventosError,
       suscriptores: suscriptores ?? 0,
       propietarios: propietarios ?? [],
+      vistoAt: c.vistoAt.toISOString(),
+      borradoAt: iso(c.borradoAt),
+      borradoPor: c.borradoPor,
+      borradoError: c.borradoError,
+    };
+  });
+}
+
+/** Las clases de Classroom del último escaneo, con su curso y antigüedad ya calculados. */
+export async function listarClases(hoy = new Date()): Promise<ClaseFila[]> {
+  const filas = await db
+    .select({
+      c: calClases,
+      calendarioVivo: sql<boolean>`${calCalendarios.id} is not null and ${calCalendarios.borradoAt} is null`,
+    })
+    .from(calClases)
+    .leftJoin(calCalendarios, eq(calCalendarios.id, calClases.calendarId));
+  return filas.map(({ c, calendarioVivo }) => {
+    const curso = cursoDeClase(c.nombre, c.creadaAt);
+    return {
+      id: c.id,
+      nombre: c.nombre,
+      seccion: c.seccion,
+      estado: c.estado,
+      creadaAt: iso(c.creadaAt),
+      actualizadaAt: iso(c.actualizadaAt),
+      ownerEmail: c.ownerEmail,
+      calendarId: c.calendarId,
+      enlace: c.enlace,
+      calendarioVivo: calendarioVivo === true,
+      curso,
+      antiguedad: antiguedadCurso(curso, hoy),
       vistoAt: c.vistoAt.toISOString(),
       borradoAt: iso(c.borradoAt),
       borradoPor: c.borradoPor,
