@@ -1892,3 +1892,27 @@ export const calSuscripciones = pgTable('cal_suscripciones', {
   index('cal_suscripciones_email_idx').on(t.email),
 ]);
 export type CalSuscripcion = typeof calSuscripciones.$inferSelect;
+
+// Las clases de Classroom del dominio (todas, tengan calendario o no), para poder borrar las
+// de hace años. Misma idea que cal_calendarios: foto del último escaneo, y las filas no se
+// borran nunca — una clase borrada se queda con `borrado_at`.
+export const calClases = pgTable('cal_clases', {
+  id: text('id').primaryKey(), // courseId de Classroom
+  nombre: text('nombre'),
+  seccion: text('seccion'),
+  estado: text('estado'), // ACTIVE | ARCHIVED | PROVISIONED | DECLINED | SUSPENDED | DESAPARECIDA
+  creadaAt: timestamp('creada_at'),
+  actualizadaAt: timestamp('actualizada_at'),
+  ownerEmail: text('owner_email'),
+  calendarId: text('calendar_id'),
+  enlace: text('enlace'), // alternateLink: la clase en la web de Classroom
+  vistoAt: timestamp('visto_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  borradoAt: timestamp('borrado_at'),
+  borradoPor: text('borrado_por'),
+  borradoError: text('borrado_error'),
+}, (t) => [
+  index('cal_clases_borrado_idx').on(t.borradoAt),
+]);
+export type CalClase = typeof calClases.$inferSelect;

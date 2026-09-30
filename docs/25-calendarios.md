@@ -82,6 +82,25 @@ por venir) y buscador.
 
 ---
 
+## Clases de Classroom (pestaña aparte)
+
+El mismo escaneo guarda **todas las clases** del dominio (tengan calendario o no) en
+`cal_clases`. La pestaña «Clases de Classroom» las enseña con su curso (del nombre,
+«1ESOA (2024/2025)», o de la fecha de creación), su estado, su profe, la fecha del último
+cambio y un enlace para abrirla en Classroom. Filtro por defecto: **3 años o más** (en
+2026-27, del 2023-24 hacia atrás), y se puede cambiar el número.
+
+🟡 **Borrarlas desde aquí está pendiente.** La idea (pedida por David el 30-sep-2026):
+seleccionar las viejas y borrarlas en bloque, archivándolas antes si no lo están (Classroom
+solo deja eliminar clases archivadas) y, de paso, su calendario. Necesita cambiar en la
+delegación `classroom.courses.readonly` por `classroom.courses` (el completo). La sesión que
+hizo la pestaña no pudo escribir esa parte: el entorno bloqueó el código que borra clases, y
+queda para una sesión en la que David lo autorice. Mientras, el enlace de cada clase lleva a
+Classroom para borrarla a mano.
+
+Ojo cuando se haga: borrar una clase **no** borra su carpeta de Drive (se queda en el Drive
+del profe) ni su calendario, y no se deshace.
+
 ## Paso de David en Workspace (una vez)
 
 1. **Consola de admin → Seguridad → Control de API → Delegación de todo el dominio** → el
@@ -150,6 +169,8 @@ por venir) y buscador.
 - [x] Escaneo por pasos (Classroom, usuarios, eventos) y borrado en tandas
 - [x] Pantalla `/gestion/calendarios` con pestañas, filtros, selección y confirmación; tarjeta en el escritorio
 - [x] Consulta del inventario verificada contra Neon con filas de prueba (y limpiadas)
+- [x] Inventario de clases de Classroom (`cal_clases`, `calendarios-clases.sql` aplicado en Neon el 30-sep-2026) con filtro «X años o más», 3 por defecto
+- [ ] Borrar clases de Classroom en bloque (archivar + eliminar + su calendario) — pendiente, ver «Clases de Classroom»
 
 ### Fase 2 · Puesta en marcha (David)
 - [~] Scopes en la delegación de dominio y APIs habilitadas en Cloud (código listo; paso de David)

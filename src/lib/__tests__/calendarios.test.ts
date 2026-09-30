@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   acumularEventos,
+  antiguedadCurso,
+  cursoDeClase,
+  cursoLimite,
   candidatosParaBorrar,
   cursoAcademicoDeClase,
   cursoEnNombre,
@@ -124,5 +127,22 @@ describe('borrado', () => {
     expect(candidatosParaBorrar(['a@x.com'], 'b@x.com')).toEqual(['a@x.com', 'b@x.com']);
     expect(candidatosParaBorrar(['a@x.com'], 'a@x.com')).toEqual(['a@x.com']);
     expect(candidatosParaBorrar([], null)).toEqual([]);
+  });
+});
+
+describe('antigüedad de las clases', () => {
+  it('cuenta cursos hacia atrás desde el actual (2026-27)', () => {
+    expect(antiguedadCurso('2026-27', HOY)).toBe(0);
+    expect(antiguedadCurso('2023-24', HOY)).toBe(3);
+    expect(antiguedadCurso(null, HOY)).toBeNull();
+  });
+  it('«3 años o más» llega hasta el 2023-24', () => {
+    expect(cursoLimite(3, HOY)).toBe('2023-24');
+    expect(cursoLimite(1, HOY)).toBe('2025-26');
+  });
+  it('el curso de una clase sale del nombre y, si no, de la fecha', () => {
+    expect(cursoDeClase('1ESOA (2022/2023)', new Date('2025-09-01T00:00:00Z'))).toBe('2022-23');
+    expect(cursoDeClase('Robótica', new Date('2023-10-01T00:00:00Z'))).toBe('2023-24');
+    expect(cursoDeClase('Robótica', null)).toBeNull();
   });
 });
