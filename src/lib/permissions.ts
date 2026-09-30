@@ -28,6 +28,7 @@ export const MODULES = [
   'tareas',
   'tareas-reportar',
   'comunicacion',
+  'calendarios',
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -51,14 +52,16 @@ export const MODULE_LABELS: Record<Module, string> = {
   tareas: 'Tareas de la plataforma',
   'tareas-reportar': 'Reportar fallitos',
   comunicacion: 'Comunicación (protección de datos de todo el centro)',
+  calendarios: 'Calendarios del dominio',
 };
 
 /**
  * Módulos que conviene pensárselo dos veces antes de dar a dedo: `usuarios` permite
  * repartir permisos (incluidos los propios) y `educamos` toca la BBDD de alumnado y
- * familias entera. La interfaz los marca; no están prohibidos.
+ * familias entera. `calendarios` borra calendarios de Google de cualquier persona del
+ * dominio. La interfaz los marca; no están prohibidos.
  */
-export const MODULOS_SENSIBLES: readonly Module[] = ['usuarios', 'educamos'];
+export const MODULOS_SENSIBLES: readonly Module[] = ['usuarios', 'educamos', 'calendarios'];
 
 export const ROLES = [
   'profe',
@@ -112,8 +115,9 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar'],
   // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»)…
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
-  // fallitos, no los gestiona (David, 24-sep-2026).
-  secretaria: MODULES.filter((m) => m !== 'tareas'),
+  // fallitos, no los gestiona (David, 24-sep-2026). Tampoco los calendarios del dominio:
+  // borran calendarios de Google de cualquiera, es cosa del administrador de Workspace.
+  secretaria: MODULES.filter((m) => m !== 'tareas' && m !== 'calendarios'),
   // Tutor y profe entran en Alumnado, pero solo ven SU ETAPA (entrando en su tutoría si la
   // tienen): `alcanceAlumnado` en alumnado-server.ts. Profe, desde el 28-sep-2026 (David).
   // Números del cole, con el mismo alcance, solo el tutor (docs/24-numeros.md).
