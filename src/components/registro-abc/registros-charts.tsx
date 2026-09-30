@@ -409,6 +409,7 @@ function RecordDetail({
   // Solo renderiza los campos de texto libre con contenido
   const freeTexts = [
     { label: 'Producido con', value: report.involvedWith },
+    { label: 'Situación problemática', value: report.situationDescription },
     { label: 'A · Antecedentes', value: report.antecedents },
     { label: 'C · Consecuencias', value: report.consequences },
     { label: 'Acciones de reconducción', value: report.redirectActions },

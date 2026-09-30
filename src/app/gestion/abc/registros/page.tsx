@@ -28,6 +28,7 @@ export type ReportRow = {
   presentNames: string | null;
   behaviors: string[];
   involvedWith: string | null;
+  situationDescription: string | null;
   antecedents: string | null;
   consequences: string | null;
   redirectActions: string | null;

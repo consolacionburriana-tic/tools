@@ -54,6 +54,12 @@ posteriori lo ya construido y deja abierto lo que falta.
   `edu_tutorias` del curso académico actual), buscador del resto del claustro, y un correo
   suelto solo como último recurso (familias, externos). Lo guardado sigue siendo la lista de
   correos de `email_recipients`; las etiquetas se resuelven al vuelo.
+- **Situación problemática + bloque opcional plegado (2026-09-30):** el formulario pide, tras los
+  campos obligatorios y el «por qué», un texto libre «Describe la situación problemática»
+  (`situation_description`, opcional; SQL `abc-situacion.sql`, aplicado). Debajo, A/C/reconducción/
+  efectividad/comentarios van en un bloque plegado por defecto con la etiqueta «Opcional» y el
+  título «Comentarios opcionales que nos ayudan a entender la situación» (se abre solo si el
+  borrador ya traía algo). El texto sale en el correo de aviso, el detalle y el listado del panel.
 - **Sin exponer desde la portada pública junto a Licencias** (ver retoques en `licencias-v2.md`):
   la portada de `/` solo enlaza a Licencias + administración, no expone directamente el ABC.
 

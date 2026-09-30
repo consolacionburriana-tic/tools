@@ -178,6 +178,17 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
+      {report.situationDescription && (
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
+            Situación problemática
+          </h3>
+          <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+            {report.situationDescription}
+          </p>
+        </div>
+      )}
+
       {/* ── Grid A-B-C ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <AbcPanel

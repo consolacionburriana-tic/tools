@@ -53,6 +53,7 @@ export const abcBehaviorReports = pgTable('abc_behavior_reports', {
   presentNames: text('present_names'),
   behaviors: jsonb('behaviors').$type<string[]>().notNull().default([]),
   involvedWith: text('involved_with'),
+  situationDescription: text('situation_description'),
   antecedents: text('antecedents'),
   consequences: text('consequences'),
   redirectActions: text('redirect_actions'),
