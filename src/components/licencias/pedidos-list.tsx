@@ -93,6 +93,7 @@ export function PedidosList() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- recarga al cambiar el filtro de archivados
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [includeArchived]);

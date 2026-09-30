@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth-guards';
-import { emojiDeCelda } from '@/lib/mihorario';
+import { abreviaturaDeCelda, emojiDeCelda } from '@/lib/mihorario';
 import { getPreferencias, getProfePorEmail, guardarPreferencias } from '@/lib/mihorario-server';
 import { getCeldas, getPeriodoVigente } from '@/lib/horarios-server';
 
@@ -24,11 +24,11 @@ export async function GET() {
   const periodo = await getPeriodoVigente();
   const celdas = periodo ? await getCeldas(periodo.id, 'profe', profe.id) : [];
 
-  const claves = new Map<string, { clave: string; etiqueta: string; emoji: string }>();
+  const claves = new Map<string, { clave: string; etiqueta: string; emoji: string; abrev: string }>();
   for (const c of celdas) {
     const clave = c.materiaId ? `materia:${c.materiaId}` : `actividad:${c.actividad}`;
     if (!claves.has(clave)) {
-      claves.set(clave, { clave, etiqueta: c.titulo, emoji: emojiDeCelda(c, preferencias.emojis) });
+      claves.set(clave, { clave, etiqueta: c.titulo, emoji: emojiDeCelda(c, preferencias.emojis), abrev: abreviaturaDeCelda(c, preferencias.abreviaturas) });
     }
   }
 
@@ -37,6 +37,8 @@ export async function GET() {
       plantillaTitulo: preferencias.plantillaTitulo,
       plantillaDescripcion: preferencias.plantillaDescripcion,
       emojis: preferencias.emojis,
+      abreviaturas: preferencias.abreviaturas,
+      rangoCurso: preferencias.rangoCurso,
       calendarioGoogleId: preferencias.calendarioGoogleId,
     },
     categorias: [...claves.values()].sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es')),
@@ -55,6 +57,8 @@ export async function POST(req: Request) {
     plantillaTitulo: body.plantillaTitulo,
     plantillaDescripcion: body.plantillaDescripcion ?? null,
     emojis: body.emojis ?? {},
+    abreviaturas: body.abreviaturas ?? {},
+    rangoCurso: body.rangoCurso,
     calendarioGoogleId: body.calendarioGoogleId ?? null,
   });
   return NextResponse.json({ ok: true });

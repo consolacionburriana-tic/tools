@@ -32,6 +32,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.2",
+    "emoji-picker-react": "^4.22.3",
     "googleapis": "^173.0.0",
     "ios-haptics": "^0.1.5",
     "jszip": "^3.10.1",

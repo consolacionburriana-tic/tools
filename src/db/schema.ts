@@ -1623,6 +1623,12 @@ export const mihPreferencias = pgTable('mih_preferencias', {
   // módulos extra/bloqueados: la propuesta del centro puede mejorar sin pisar lo que alguien
   // ya eligió a mano.
   emojis: jsonb('emojis').$type<Record<string, string>>().notNull().default({}),
+  // Abreviatura por clave (mismas claves que `emojis`). Solo lo que la persona ha cambiado:
+  // sin entrada, sale la de la materia (o la generada por respaldo).
+  abreviaturas: jsonb('abreviaturas').$type<Record<string, string>>().notNull().default({}),
+  // Qué tramo del curso se exporta: 'sep-jun' (septiembre a junio) o 'oct-may' (octubre a
+  // mayo). Se cruza con las fechas del periodo: nunca las amplía.
+  rangoCurso: text('rango_curso').notNull().default('sep-jun'),
   calendarioGoogleId: text('calendario_google_id'), // null = el calendario principal
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

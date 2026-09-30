@@ -83,6 +83,13 @@ export function emojiDeCelda(celda: CeldaHorario, propios: Record<string, string
   return celda.lectiva ? EMOJI_GENERICO_LECTIVA : EMOJI_GENERICO_NO_LECTIVA;
 }
 
+/** Emojis "de colegio" que salen arriba del selector, para no tener que buscar. */
+export const EMOJIS_ACADEMICOS = [
+  '🔢', '➗', '📐', '📖', '📚', '✏️', '🔤', '🗣️', '🌍', '🔬', '🧪', '💻',
+  '🎨', '🎵', '⚽', '🏃', '🇬🇧', '🇪🇸', '✝️', '🧭', '🤸', '🌱', '🛠️', '⚖️',
+  '👥', '🛟', '👤', '📌', '🧠', '🎭', '📝', '⭐',
+];
+
 // ─── Abreviatura de respaldo ────────────────────────────────────────────────────
 
 const CONECTORES = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'en', 'i', 'e', 'y', 'of', 'a', 'al', 'con', 'per']);
@@ -130,6 +137,12 @@ export function generarAbreviatura(nombre: string): string {
     }
   }
   return letras.slice(0, 6);
+}
+
+/** La abreviatura que le toca a una celda: la de la persona, si no la de la materia, si no la generada. */
+export function abreviaturaDeCelda(celda: CeldaHorario, propias: Record<string, string>): string {
+  const clave = celda.materiaId ? `materia:${celda.materiaId}` : `actividad:${celda.actividad}`;
+  return propias[clave]?.trim() || celda.abreviatura || generarAbreviatura(celda.titulo);
 }
 
 // ─── Motor de la plantilla del título ──────────────────────────────────────────
@@ -200,8 +213,8 @@ export function renderizarPlantilla(plantilla: string, datos: DatosPlantilla): s
 }
 
 /** Los datos de plantilla que salen de una celda ya resuelta (con su emoji ya decidido). */
-export function datosPlantillaDeCelda(celda: CeldaHorario, emoji: string): DatosPlantilla {
-  const abrev = celda.abreviatura || generarAbreviatura(celda.titulo);
+export function datosPlantillaDeCelda(celda: CeldaHorario, emoji: string, abreviatura?: string): DatosPlantilla {
+  const abrev = abreviatura?.trim() || celda.abreviatura || generarAbreviatura(celda.titulo);
   const grupos = celda.grupos;
   return {
     emoji,
@@ -221,6 +234,31 @@ export function datosPlantillaDeCelda(celda: CeldaHorario, emoji: string): Datos
 export interface RangoFechas {
   fechaInicio: string; // 'YYYY-MM-DD'
   fechaFin: string;
+}
+
+export type RangoCurso = 'sep-jun' | 'oct-may';
+
+export const RANGOS_CURSO: { valor: RangoCurso; etiqueta: string }[] = [
+  { valor: 'sep-jun', etiqueta: 'De septiembre a junio' },
+  { valor: 'oct-may', etiqueta: 'De octubre a mayo' },
+];
+
+/**
+ * Las fechas que se exportan: el tramo elegido del curso ('2026-27': septiembre 2026 →
+ * junio 2027, u octubre 2026 → mayo 2027) CRUZADO con las del periodo. Nunca amplía el
+ * periodo (el de junio no se estira a septiembre); solo lo recorta. Si no se cruzan, sale
+ * un rango invertido y no se crea ningún evento.
+ */
+export function rangoExportacion(academicYear: string, rango: RangoCurso, periodo: RangoFechas): RangoFechas {
+  const y0 = Number(academicYear.slice(0, 4));
+  if (!Number.isFinite(y0) || y0 < 1900) return periodo;
+  const [mIni, mFin, diaFin] = rango === 'oct-may' ? [10, 5, 31] : [9, 6, 30];
+  const ini = `${y0}-${String(mIni).padStart(2, '0')}-01`;
+  const fin = `${y0 + 1}-${String(mFin).padStart(2, '0')}-${diaFin}`;
+  return {
+    fechaInicio: ini > periodo.fechaInicio ? ini : periodo.fechaInicio,
+    fechaFin: fin < periodo.fechaFin ? fin : periodo.fechaFin,
+  };
 }
 
 /**
@@ -280,11 +318,11 @@ const DIA_RRULE = ['', 'MO', 'TU', 'WE', 'TH', 'FR'];
  */
 export function construirEventoGoogle(
   celda: CeldaHorario,
-  opciones: { plantillaTitulo: string; plantillaDescripcion?: string; emoji: string; periodo: RangoFechas; festivos: readonly RangoFechas[]; periodoId: string; timeZone?: string },
+  opciones: { plantillaTitulo: string; plantillaDescripcion?: string; emoji: string; abreviatura?: string; periodo: RangoFechas; festivos: readonly RangoFechas[]; periodoId: string; timeZone?: string },
 ): { evento: Record<string, unknown>; primeraFecha: string | null } {
   const tz = opciones.timeZone ?? 'Europe/Madrid';
   const { primeraFecha, fechasExcluidas } = ocurrenciasSemanales(celda.dia, opciones.periodo, opciones.festivos);
-  const datos = datosPlantillaDeCelda(celda, opciones.emoji);
+  const datos = datosPlantillaDeCelda(celda, opciones.emoji, opciones.abreviatura);
   const summary = renderizarPlantilla(opciones.plantillaTitulo, datos);
   const description = opciones.plantillaDescripcion ? renderizarPlantilla(opciones.plantillaDescripcion, datos) : undefined;
 

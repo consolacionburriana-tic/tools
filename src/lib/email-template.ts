@@ -2,7 +2,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   BEHAVIORS, CONTEXTS, TIME_SLOTS, PRESENT_PEOPLE, REASONS,
-  type BehaviorValue, type ContextValue, type TimeSlotValue,
+  type BehaviorValue,
 } from './constants';
 
 interface ReportEmailData {
@@ -58,11 +58,11 @@ export function buildReportEmail(data: ReportEmailData): { subject: string; html
     .join('');
 
   const peoplePills = data.presentPeople
-    .map((p) => pill(label(PRESENT_PEOPLE, p as any), 'zinc'))
+    .map((p) => pill(label(PRESENT_PEOPLE, p), 'zinc'))
     .join('');
 
   const reasonPills = data.reasons.length
-    ? data.reasons.map((r) => pill(label(REASONS, r as any), 'teal')).join('') +
+    ? data.reasons.map((r) => pill(label(REASONS, r), 'teal')).join('') +
       (data.reasonOther ? `<br><span style="font-size:13px;color:#6b7280;margin-top:4px;display:inline-block;">${data.reasonOther}</span>` : '')
     : '<span style="color:#9ca3af;font-style:italic;">No indicado</span>';
 
