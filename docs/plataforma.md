@@ -28,7 +28,10 @@ Léelo en este orden si te incorporas a una sesión de desarrollo (persona o age
 3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — decisiones pendientes,
    inputs que solo David puede desbloquear, decisiones ya cerradas (el histórico del *por qué*) e
    ideas sin decidir. Documento vivo.
-4. **`docs/<nn>-<modulo>.md`** — un documento por módulo/pieza con su plan funcional, plan
+4. **[`docs/08-despliegue-y-fork.md`](./08-despliegue-y-fork.md)** — dónde se hace cada cosa para
+   desplegar el repo en otro colegio (fork con cuentas propias). Si tocas algo que afecte a
+   variables de entorno, cuentas externas o al schema inicial, actualízala en el mismo commit.
+5. **`docs/<nn>-<modulo>.md`** — un documento por módulo/pieza con su plan funcional, plan
    técnico y checklist de fases (formato heredado de `11-licencias-v2.md`, que fue el primero).
 
 **Regla de oro:** antes de tocar un módulo, lee su ficha. Antes de decidir alcance nuevo, mira

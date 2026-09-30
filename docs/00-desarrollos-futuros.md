@@ -451,6 +451,17 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
 
+- **Que otros colegios puedan usar el repo** ([`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md),
+  escrita el 30-sep-2026). Dos cosas que la guía deja anotadas y que decide David:
+  (1) **Licencia del repo.** No hay `LICENSE`: sin ella, otro colegio puede hacer fork en GitHub
+  pero no tiene permiso expreso para reutilizar el código. Si el objetivo es compartirlo, hay que
+  elegir una (MIT/Apache si vale cualquier uso; AGPL si se quiere que las mejoras vuelvan).
+  (2) **Centralizar la identidad del colegio.** Hoy dominio, remitentes, nombre, contactos y los
+  IDs de Drive de Licencias están repartidos por ~20 ficheros (tabla del §6 de la guía). Una
+  única `src/lib/colegio.ts` (o variables de entorno) los reduciría a un solo sitio y haría el
+  fork casi de solo configuración. Además, `db:push` no conoce cuatro tablas `lic_*` que solo
+  existen en SQL: pasarlas a `schema.ts` simplificaría el arranque de una base vacía a un solo
+  comando. Y quien no use Educamos necesita otro lector de alumnado (`src/lib/educamos.ts`).
 - **Calendarios del dominio** ([`25-calendarios.md`](./25-calendarios.md)), decisiones de
   alcance tomadas al construirlo que David puede revisar: el corte de «este curso» en Classroom
   es el **1 de julio** (no septiembre), el borrado es **de verdad** (`calendars.delete`) y no
