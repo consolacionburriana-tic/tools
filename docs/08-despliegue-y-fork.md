@@ -166,18 +166,18 @@ letra `B`; ver [`02-integracion-educamos.md`](./02-integracion-educamos.md#etapa
 |---|---|---|
 | **Varias líneas por curso** (A, B, C, D…: 2, 3, 4 o más clases) | ✅ | La letra viene de Educamos; no hay límite ni lista fija, y se ordenan por letra. Cursos de una sola línea (sin letra): también |
 | **PDC** (diversificación) | ✅ | Vale `PPDC` (como lo manda Educamos aquí) o `PDC`; se trata como ESO con letra `PDC` |
-| **Bachillerato** | ✅ (⚠️ sin probar con un export real) | Se guarda como `1BACH`/`2BACH` (+ letra o modalidad); se leen también `BAT`, `BTO` y `Bachillerato`. Sale en Alumnado, Horarios, Tutorías, Cuaderno, Números y Evaluaciones. **No entra** en Banco de libros, Licencias, Puntualidad, Oratorios ni AUTOASM (decisiones en [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)). Si tu Educamos lo nombra de otra forma, se ajusta en `parseBachillerato()` (`src/lib/cursos.ts`) |
+| **Bachillerato** | ✅ (⚠️ sin probar con un export real) | Se guarda como `1BACH`/`2BACH` (+ letra o modalidad); se leen también `BAT`, `BTO` y `Bachillerato`.  Sale en Alumnado, Horarios, Tutorías, Cuaderno, Números, Evaluaciones, Banco de libros, Puntualidad y Oratorios. **No entra** en Licencias ni AUTOASM (decisiones en [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)). Si tu Educamos lo nombra de otra forma, se ajusta en `parseBachillerato()` (`src/lib/cursos.ts`) |
 | **Una clase de una etapa que no conocemos** (FP, aula de enlace…) | ✅ no rompe | Esos alumnos **no se importan**, se avisa en la vista previa (una vez por clase) y el resto del fichero entra igual |
 | **FP** (CFGM/CFGS) o **escuela infantil 0-3** | ❌ | Añadir una etapa es tocar `src/lib/cursos.ts` (receta en su cabecera) |
 | Promoción de curso a la manera de Consolación | ⚠️ | Infantil rota 3→4→5→3, Primaria en ciclos de dos años (1↔2, 3↔4, 5↔6, misma letra), ESO sube y 4º egresa, Bachillerato sube y 2º egresa. Si tu colegio promociona 1º→2º de forma normal, cámbialo en `promocion` de `src/lib/configuracion.ts` (`'sube'`) |
-| Banco de libros | ⚠️ | Solo desde 3º de Primaria hasta 4º de ESO: `bancoLibros` en `src/lib/configuracion.ts` |
+| Banco de libros | ⚠️ | Desde 3º de Primaria hasta 2º de Bachillerato: `bancoLibros` en `src/lib/configuracion.ts` |
 | Licencias | ⚠️ | El formulario cubre de 6º de Primaria a 4º de ESO (`CURSOS_FORM` en `src/lib/licencias.ts`) |
-| Puntualidad | ⚠️ | Solo ESO y PDC ([`17-puntualidad.md`](./17-puntualidad.md)) |
+| Puntualidad | ⚠️ | ESO, PDC y Bachillerato: `puntualidad.etapas` en `src/lib/configuracion.ts` ([`17-puntualidad.md`](./17-puntualidad.md)) |
 | AUTOASM | ⚠️ | Lista fija de cursos de 3INF a 4ESO, con alcance desde 6º (`autoasm-construir.ts`) |
 
-Para que un profe vea a Bachillerato en Alumnado, márcale la etapa «Bachillerato» en
-`/gestion/profes` (o dale una tutoría o un horario en un curso de Bachillerato); dirección y quien
-ve el centro entero lo ven sin más.
+**ESO y Bachillerato son una etapa conjunta** a efectos de quién ve qué (Alumnado, Banco de libros,
+Números): un profe con ESO ve a Bachillerato y al revés; dirección y quien ve el centro entero lo
+ven todo. Si tu colegio los separa, se cambia en `etapasConjuntas` de `src/lib/configuracion.ts`.
 
 ## 8 · Quitar lo que no uses
 

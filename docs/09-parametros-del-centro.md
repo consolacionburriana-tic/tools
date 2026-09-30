@@ -19,7 +19,9 @@ Consolación; si cambias uno a propósito, el test correspondiente te avisa.
 |---|---|---|
 | `niveles` (primer y último curso de cada etapa) | Infantil 3-5 · Primaria 1-6 · ESO 1-4 · Bachillerato 1-2 | Promoción de curso |
 | `promocion` (`'rota'` · `'parejas'` · `'sube'`) | Infantil rota (3→4→5→3) · Primaria por parejas (1↔2, 3↔4, 5↔6) · ESO y Bachillerato suben y el último egresa | Botón «Promocionar +1 curso» de `/gestion/profes` |
-| `bancoLibros` (desde qué nivel de cada etapa) | Primaria desde 3º · ESO entera · el resto, fuera | Banco de libros, Alumnado, sync de Educamos |
+| `bancoLibros` (desde qué nivel de cada etapa) | Primaria desde 3º · ESO entera · Bachillerato entero · Infantil y 1º-2º de Primaria, fuera | Banco de libros, Alumnado, sync de Educamos |
+| `etapasConjuntas` (etapas que van juntas para «quién ve a quién») | ESO + Bachillerato | Alumnado, Banco de libros y Números: un profe con una de las dos ve las dos |
+| `puntualidad.etapas` | ESO (con PDC) y Bachillerato | Buscador del formulario, lista de alumnado del módulo (TypeScript y SQL salen de la misma lista) |
 | `puntualidad.horaLimite` / `retrasosPorConsecuencia` | `08:05` · `3` | Formulario, panel, avisos y resumen semanal (y los textos que dicen «08:05») |
 | `calendario.zonaHoraria` | `Europe/Madrid` | Todas las fechas «de hoy» (Números, Oratorios, Mi horario, Tareas) |
 | `calendario.mesInicioCurso` | `9` (septiembre) | Curso académico en vigor |
@@ -41,11 +43,10 @@ candidatos para una siguiente vuelta.
 
 | Qué | Dónde está hoy | Por qué no se ha movido |
 |---|---|---|
-| **A qué etapas afecta Puntualidad** (hoy ESO y PDC) | `cursoEnPuntualidad()` en `src/lib/puntualidad.ts` **y** `CURSOS_MODULO` (SQL) en `puntualidad-server.ts` | Está en dos sitios; hay que moverlos a la vez o se descuadran |
 | **Cursos que cubre Licencias** (6º EP – 4º ESO, con PDC) | `CURSOS_FORM` en `src/lib/licencias.ts` | Los libros y precios del catálogo están en la BBDD y cuelgan de esos códigos |
 | **Cursos y clases de AUTOASM** | `CURSOS_CENTRO` (`autoasm-construir.ts`), plantilla en `autoasm-plantilla.ts`, sede en `CENTRO_PLANTILLA` | Son la foto de lo que ya existe en Apple School Manager del colegio |
 | Alcance de AUTOASM (desde 6º EP) | Opción de la propia pantalla `/gestion/autoasm` | **Ya se cambia en la app**, no hace falta tocar código |
-| Etapas de Oratorios y Godly Play | `ETAPAS_ORA` (`src/lib/oratorios.ts`); los tipos, en la BBDD (editables en sus Ajustes) | Lo editable ya está en la app |
+| Etapas de cada tipo de Oratorios y Godly Play | En la BBDD (`ora_tipos`), editables en sus Ajustes; las etapas elegibles son todas (`ETAPAS`) | Lo editable ya está en la app |
 | Rejillas de horario, tramos, espacios | BBDD (`hor_*`), editables en `/gestion/horarios` | Ya es dato, no constante |
 | Matriz rol → módulos | `ROLE_MODULES` en `src/lib/permissions.ts` (y ajustes por persona en `/gestion/usuarios`) | Es política de accesos: mejor con revisión de código |
 | Remitentes y nombres de correo por módulo | `DEFECTOS` en `src/lib/email.ts` (leen `COLEGIO`) y variables `EMAIL_FROM_*` | Ya se cambian sin deploy con las variables de entorno |

@@ -467,25 +467,28 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   llegado un fichero de Educamos con Bachillerato, así que la **convención está deducida** de
   cómo Educamos nombra el resto (`{1|2}BACH` + letra opcional; se leen también `BAT`, `BTO`,
   `BAC` y `Bachillerato`, y se guardan siempre como `1BACH`). Cuando llegue el primer fichero
-  real, el ajuste es de una línea en `parseBachillerato()` (`src/lib/cursos.ts`). Decisiones 🤖
-  que tomé yo y hay que revisar con David:
+  real, el ajuste es de una línea en `parseBachillerato()` (`src/lib/cursos.ts`).
+  **Decidido por David (30-sep-2026):**
+  - ✅ **Bachillerato SÍ tiene banco de libros** (`bancoLibros` en `configuracion.ts`).
+  - ✅ **Puntualidad y Oratorios lo incluyen** (`puntualidad.etapas`; `ETAPAS_ORA`). Oratorios:
+    los tipos ya creados (Oratorio = ESO, Godly Play = Infantil y Primaria) no cambian; si el
+    Oratorio tiene que llegar también a Bachillerato, se marca en sus Ajustes.
+  - ✅ **ESO y Bachillerato son una etapa conjunta** a efectos de quién ve qué en Alumnado, Banco
+    de libros y Números (`etapasConjuntas`): un profe con ESO ve a Bachillerato y al revés.
+  - ✅ Color pizarra en Números, «1º Bach A».
+  Decisiones 🤖 que tomé yo y siguen pendientes de revisar:
   1. **Promoción**: 1º → 2º y **2º egresa** (`cursoSiguiente`).
-  2. **Fuera del banco de libros** (`cursoEnBanco`): la Xarxa Llibres llega hasta 4º ESO.
-  3. **Fuera de AUTOASM** (`entraEnAlcance`): la plantilla de ASM no tiene sus cursos ni clases y
+  2. **Fuera de AUTOASM** (`entraEnAlcance`): la plantilla de ASM no tiene sus cursos ni clases y
      nadie ha decidido su `grade_level`; sale en el aviso de «fuera de alcance».
-  4. **Sin Bachillerato en Licencias, Puntualidad y Oratorios**: siguen como estaban (6º EP–4º ESO,
-     solo ESO, Infantil/Primaria/ESO). Si se quieren, es una decisión por módulo.
-  5. **Quién ve a Bachillerato en Alumnado y en Números**: dirección y quien ve el centro entero, sí;
-     un profe solo si tiene la etapa «Bachillerato» marcada en `/gestion/profes`, o una tutoría o
-     un horario en un curso de Bachillerato.
-  6. **Números**: color pizarra (el violeta ya es «protección de datos»), «1º Bach A».
-  7. **Un curso sin letra** (`2ESO`, `1BACH`) ya no se parte mal (antes salía `2ES` + letra `O`).
-  8. **Etapa desconocida** (FP, un aula específica, cualquier código raro): esos alumnos y sus
+  3. **Sin Bachillerato en Licencias**: sigue 6º EP – 4º ESO (`CURSOS_FORM`). Si hace falta, es una
+     decisión aparte porque cuelga del catálogo de libros.
+  4. **Un curso sin letra** (`2ESO`, `1BACH`) ya no se parte mal (antes salía `2ES` + letra `O`).
+  5. **Etapa desconocida** (FP, un aula específica, cualquier código raro): esos alumnos y sus
      tutores **no se importan**, se avisa por clase en la vista previa y el resto del fichero se
      importa igual. Si ya estaban en la BBDD no salen como «desaparecidos».
   ⬜ **FP (CFGM/CFGS) y escuela infantil 0-3**: siguen sin soporte (Horarios reconoce CFGM/CFGS,
   desactivados). Añadir una etapa es: `ETAPAS` + `ETAPA_LABEL` en `cursos.ts`, sus reglas en
-  `etapaDeCurso`/`cursoSiguiente`/`cursoEnBanco`, y dejar que el compilador señale el resto; la
+  `etapaDeCurso` y sus niveles, promoción y banco en `configuracion.ts`, y dejar que el compilador señale el resto; la
   receta y las trampas que se encontraron están en la cabecera de `cursos.ts`.
   ✅ **Promoción configurable** (30-sep-2026): `promocion` en `src/lib/configuracion.ts`, junto con
   el resto de parámetros del centro ([`09-parametros-del-centro.md`](./09-parametros-del-centro.md)).
