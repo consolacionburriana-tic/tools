@@ -11,6 +11,10 @@
     {
       "path": "/api/numeros/cron/foto",
       "schedule": "0 5 1 * *"
+    },
+    {
+      "path": "/api/oratorios/cron/avisos",
+      "schedule": "30 6 * * *"
     }
   ]
 }

@@ -28,6 +28,8 @@ export const MODULES = [
   'tareas',
   'tareas-reportar',
   'comunicacion',
+  'oratorios',
+  'oratorios-ver',
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -51,6 +53,8 @@ export const MODULE_LABELS: Record<Module, string> = {
   tareas: 'Tareas de la plataforma',
   'tareas-reportar': 'Reportar fallitos',
   comunicacion: 'Comunicación (protección de datos de todo el centro)',
+  oratorios: 'Oratorios y Godly Play (planificar)',
+  'oratorios-ver': 'Oratorios y Godly Play (ver lo mío)',
 };
 
 /**
@@ -107,9 +111,10 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'profes',
     'autoasm',
     'tareas-reportar',
+    'oratorios-ver',
   ],
-  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros'],
-  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar'],
+  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'oratorios-ver'],
+  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver'],
   // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»)…
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
   // fallitos, no los gestiona (David, 24-sep-2026).
@@ -117,8 +122,11 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // Tutor y profe entran en Alumnado, pero solo ven SU ETAPA (entrando en su tutoría si la
   // tienen): `alcanceAlumnado` en alumnado-server.ts. Profe, desde el 28-sep-2026 (David).
   // Números del cole, con el mismo alcance, solo el tutor (docs/24-numeros.md).
-  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros'],
-  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario', 'alumnado'],
+  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros', 'oratorios-ver'],
+  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario', 'alumnado', 'oratorios-ver'],
+  // Oratorios: `oratorios` (planificar) no va en ningún rol — es de poca gente y se da a mano;
+  // `oratorios-ver` es de todo el claustro, pero la pantalla solo se abre si quien lo lleva
+  // enciende el «acceso común» (docs/25-oratorios.md).
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
   // 'tutor' y darle 'evaluaciones' como módulo extra.

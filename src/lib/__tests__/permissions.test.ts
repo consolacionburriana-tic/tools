@@ -98,9 +98,9 @@ describe('guardar la selección como diferencia respecto al rol', () => {
   it('marcar uno de más lo guarda como extra; desmarcar uno del rol, como bloqueado', () => {
     const r = diffModulos('tutor', ['salidas', 'evaluaciones'] as Module[]);
     expect(r.modulosExtra).toEqual(['evaluaciones']);
-    // El rol tutor trae salidas, bancolibros, puntualidad, horarios, mi-horario, alumnado y
-    // numeros: lo que no se marca, bloqueado.
-    expect(r.modulosBloqueados).toEqual(['bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros']);
+    // El rol tutor trae salidas, bancolibros, puntualidad, horarios, mi-horario, alumnado,
+    // numeros y oratorios-ver: lo que no se marca, bloqueado.
+    expect(r.modulosBloqueados).toEqual(['bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros', 'oratorios-ver']);
   });
 
   it('ida y vuelta: guardar la diferencia y volver a resolverla da lo mismo que se marcó', () => {
@@ -134,5 +134,22 @@ describe('alcance dentro de Puntualidad', () => {
   it('un profe sin el módulo no entra al panel (pero sí puede registrar: eso solo pide sesión)', () => {
     expect(canAccess({ role: 'profe' }, 'puntualidad')).toBe(false);
     expect(vePuntualidadCompleta('profe')).toBe(false);
+  });
+});
+
+describe('oratorios', () => {
+  it('planificar no va en ningún rol del claustro: se da a mano (salvo TIC y secretaría, que lo tienen todo)', () => {
+    for (const r of ['profe', 'tutor', 'jefe', 'direccion', 'orientacion', 'evaluaciones', 'comunicacion'] as const) {
+      expect(canAccess({ role: r }, 'oratorios')).toBe(false);
+    }
+    expect(canAccess({ role: 'tic' }, 'oratorios')).toBe(true);
+    expect(canAccess({ role: 'secretaria' }, 'oratorios')).toBe(true);
+    expect(canAccess({ role: 'profe', modulosExtra: ['oratorios'] }, 'oratorios')).toBe(true);
+  });
+
+  it('ver lo mío lo tiene todo el claustro por rol', () => {
+    for (const r of ['profe', 'tutor', 'jefe', 'direccion', 'orientacion'] as const) {
+      expect(canAccess({ role: r }, 'oratorios-ver')).toBe(true);
+    }
   });
 });

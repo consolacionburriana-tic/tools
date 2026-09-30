@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Database,
   GraduationCap,
+  HandHeart,
   KeyRound,
   Library,
   ListTodo,
@@ -30,6 +31,7 @@ import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess, ROLE_LABELS, type Module } from '@/lib/permissions';
 import { getCurrentCampaign } from '@/lib/licencias-server';
 import { getEstadoAutoasm } from '@/lib/autoasm-entregas';
+import { accesoComunActivo } from '@/lib/oratorios-server';
 import { esTemporadaLicencias } from '@/lib/licencias';
 import {
   AutoasmDestacada,
@@ -54,7 +56,7 @@ export default async function EscritorioPage() {
     puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas');
 
   // Stats solo de los módulos que el rol puede ver
-  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm] = await Promise.all([
+  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun] = await Promise.all([
     puede('educamos') ? db.select({ n: count() }).from(eduStudents).where(eq(eduStudents.active, true)) : null,
     puede('educamos') ? db.select({ n: count() }).from(eduTeachers).where(eq(eduTeachers.active, true)) : null,
     puede('educamos') ? db.select().from(eduSyncRuns).orderBy(desc(eduSyncRuns.createdAt)).limit(1) : null,
@@ -72,7 +74,10 @@ export default async function EscritorioPage() {
     // AUTOASM avisa solo: sube al principio en el arranque de curso y cuando hay alumnado
     // nuevo que todavía no ha pasado por Apple School Manager.
     puede('autoasm') ? getEstadoAutoasm(ahora).catch(() => null) : null,
+    // Oratorios: el claustro solo ve la tarjeta si quien lo lleva ha abierto el acceso común.
+    !puede('oratorios') && puede('oratorios-ver') ? accesoComunActivo().catch(() => false) : false,
   ]);
+  const veOratorios = puede('oratorios') || oratoriosComun;
 
   const asm = estadoAsm ?? null;
   const autoasmArriba = asm !== null && (asm.esTemporada || asm.alumnosSinPasar.length > 0);
@@ -185,6 +190,14 @@ export default async function EscritorioPage() {
               icon={<CalendarDays className="h-6 w-6" />}
               title="Horarios"
               desc="Horario por clase, por profesor y por aula, e importación desde Educamos"
+            />
+          )}
+          {veOratorios && (
+            <ModuleCard
+              href="/gestion/oratorios"
+              icon={<HandHeart className="h-6 w-6" />}
+              title="Oratorios y Godly Play"
+              desc={puede('oratorios') ? 'Planificar por clase sin molestar siempre al mismo profe, con Calendar y aviso por correo' : 'Los momentos que te quitan una hora de clase'}
             />
           )}
           {puede('mi-horario') && (

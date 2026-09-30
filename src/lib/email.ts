@@ -27,6 +27,7 @@ export type PerfilCorreo =
   | 'evaluaciones'
   | 'puntualidad'
   | 'cuaderno'
+  | 'oratorios'
   | 'general';
 
 export interface Remitente {
@@ -44,6 +45,12 @@ export interface Mensaje {
   html: string;
   /** Pisa el `Reply-To` del perfil (p. ej. el tutor que manda el recordatorio de la salida). */
   replyTo?: string;
+  /**
+   * Mandarlo **como esta persona**, desde su propio buzón del dominio (Oratorios: el correo al
+   * profe sale de quien lo lleva). Con Gmail se suplanta su buzón; con Resend sale del
+   * remitente del perfil con su nombre delante y su correo de `Reply-To`.
+   */
+  como?: { nombre: string; email: string };
 }
 
 const DOMINIO = 'consolacionburriana.com';
@@ -64,6 +71,8 @@ const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: 
   evaluaciones: { nombre: 'Evaluaciones · Colegio Consolación', email: `no-responder@${DOMINIO}`, transporte: 'resend' },
   puntualidad: { nombre: 'Puntualidad · Colegio Consolación', email: `no-responder@${DOMINIO}` },
   cuaderno: { nombre: 'Cuaderno de tutor · Colegio Consolación', email: `no-responder@${DOMINIO}` },
+  // Casi siempre sale con `como` (del buzón de quien lo lleva); esto es solo el respaldo.
+  oratorios: { nombre: 'Oratorios · Colegio Consolación', email: `no-responder@${DOMINIO}` },
   general: { nombre: 'Colegio Consolación', email: `no-responder@${DOMINIO}` },
 };
 
@@ -131,11 +140,24 @@ function aLista(to: string | string[]): string[] {
   return Array.isArray(to) ? to : [to];
 }
 
+/**
+ * El remitente cuando el correo sale «como» una persona. Solo se suplanta un buzón del
+ * dominio del centro: cualquier otro correo se queda en el perfil, con su nombre delante.
+ */
+export function conComo(r: Remitente, como: Mensaje['como']): Remitente {
+  if (!como) return r;
+  const delDominio = como.email.toLowerCase().endsWith(`@${DOMINIO}`);
+  if (r.transporte === 'gmail' && delDominio) {
+    return { ...r, nombre: como.nombre, email: como.email, buzon: como.email, replyTo: como.email };
+  }
+  return { ...r, nombre: como.nombre || r.nombre, replyTo: como.email };
+}
+
 // ── API pública ───────────────────────────────────────────────────────────────
 
 /** Un correo (transaccional). Lanza si falla: quien llama decide si eso rompe su flujo. */
 export async function enviar(perfil: PerfilCorreo, mensaje: Mensaje): Promise<void> {
-  const r = remitente(perfil);
+  const r = conComo(remitente(perfil), mensaje.como);
   const replyTo = mensaje.replyTo ?? r.replyTo;
   if (r.transporte === 'gmail') {
     await enviarGmail(r.buzon, {

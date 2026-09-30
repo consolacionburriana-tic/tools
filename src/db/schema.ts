@@ -1833,3 +1833,109 @@ export const numFotos = pgTable('num_fotos', {
   index('num_fotos_tomada_idx').on(t.tomadaAt),
 ]);
 export type NumFoto = typeof numFotos.$inferSelect;
+
+// ─── Oratorios y Godly Play (prefijo ora_) ────────────────────────────────────
+// Ficha: docs/25-oratorios.md. Un profe se lleva a (media) clase un rato en la hora de otro
+// profe. Genérico por dentro: un TIPO de momento (oratorio, Godly Play, mañana un taller) con
+// su objetivo por clase, su calendario de Google y su texto de correo.
+
+export const oraTipos = pgTable('ora_tipos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  codigo: text('codigo').notNull().unique(), // 'oratorio' | 'godly' | …
+  nombre: text('nombre').notNull(), // 'Oratorio' — va en el título del evento
+  nombreCorreo: text('nombre_correo').notNull(), // 'oratorio' — «un momento de oratorio»
+  emoji: text('emoji').notNull().default('🙏'),
+  calendarioId: text('calendario_id'), // calendario compartido de Google donde va el evento
+  // Objetivo POR CLASE: `cantidad` sesiones cada `frecuencia` ('mes' | 'trimestre' | 'curso').
+  frecuencia: text('frecuencia').notNull().default('mes'),
+  cantidad: integer('cantidad').notNull().default(1),
+  // A qué clases va: `clases` (claves 'curso|letra') manda si está; si es null, todas las de
+  // `etapas` sacadas del alumnado activo, sin PDC.
+  etapas: jsonb('etapas').$type<string[]>().notNull().default([]),
+  clases: jsonb('clases').$type<string[]>(),
+  textoCorreo: text('texto_correo'), // párrafo extra del correo («Será primero la mitad…»)
+  avisoDias: integer('aviso_dias').notNull().default(7), // aviso programado N días antes
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+export type OraTipo = typeof oraTipos.$inferSelect;
+
+// Una fila por curso: los trimestres (para el objetivo y los recuentos) y si el claustro
+// puede entrar a ver lo suyo (`oratorios-ver`).
+export const oraAjustes = pgTable('ora_ajustes', {
+  academicYear: text('academic_year').primaryKey(),
+  trimestres: jsonb('trimestres').$type<{ inicio: string; fin: string }[]>().notNull().default([]),
+  accesoComun: boolean('acceso_comun').notNull().default(false),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  updatedBy: text('updated_by'),
+});
+
+// Huecos de cada responsable en la semana tipo. Por día + horas (no por id de tramo):
+// reimportar horarios regenera los tramos y esto no se tiene que perder.
+export const oraDisponibilidad = pgTable('ora_disponibilidad', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  responsableEmail: text('responsable_email').notNull(),
+  diaSemana: integer('dia_semana').notNull(), // 1 = lunes … 5 = viernes
+  horaInicio: text('hora_inicio').notNull(), // 'HH:MM'
+  horaFin: text('hora_fin').notNull(),
+  nivel: text('nivel').notNull(), // 'optima' | 'alternativa' | 'ultima'
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('ora_disponibilidad_uq').on(t.responsableEmail, t.diaSemana, t.horaInicio),
+]);
+
+export interface EntradaHistorialOra {
+  at: string;
+  por: string;
+  que: string;
+  fecha?: string;
+  horaInicio?: string;
+  horaFin?: string;
+}
+
+export const oraSesiones = pgTable('ora_sesiones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tipoId: uuid('tipo_id').notNull().references(() => oraTipos.id),
+  academicYear: text('academic_year').notNull(),
+  curso: text('curso').notNull(),
+  letra: text('letra'),
+  numero: integer('numero').notNull(), // «Sesión 2» de esa clase y tipo en el curso
+  fecha: date('fecha').notNull(),
+  horaInicio: text('hora_inicio').notNull(),
+  horaFin: text('hora_fin').notNull(),
+  responsableEmail: text('responsable_email').notNull(), // quien lo lleva e invita
+  responsableNombre: text('responsable_nombre'),
+  // El profe al que se le quita la hora. Materia y nombre, de FOTO: el horario puede cambiar
+  // y la sesión tiene que seguir diciendo a quién se avisó.
+  profeId: uuid('profe_id').references(() => eduTeachers.id),
+  profeNombre: text('profe_nombre'),
+  materia: text('materia'),
+  // TODOS los profes que pierden esa hora (el primero es `profeId`): en un desdoble o una
+  // optativa conjunta son varios, y a todos se les invita y se les avisa.
+  profes: jsonb('profes').$type<{ id: string; nombre: string; materia: string | null }[]>().notNull().default([]),
+  estado: text('estado').notNull().default('borrador'), // 'borrador'|'confirmado'|'reprogramar'|'anulado'
+  avisoEstado: text('aviso_estado').notNull().default('no'), // 'no'|'pendiente'|'programado'|'enviado'
+  avisoTipo: text('aviso_tipo').notNull().default('aviso'), // 'aviso'|'cambio'|'anulacion'
+  avisoProgramadoPara: date('aviso_programado_para'),
+  avisoEnviadoAt: timestamp('aviso_enviado_at'),
+  avisoManual: boolean('aviso_manual').notNull().default(false), // «se lo he dicho en persona»
+  avisoError: text('aviso_error'),
+  googleEventId: text('google_event_id'),
+  googleCalendarId: text('google_calendar_id'),
+  calendarioError: text('calendario_error'),
+  notas: text('notas'),
+  // Cada cambio de fecha y cada aviso enviado (con la fecha que se avisó: es el «antes» del
+  // correo de cambio).
+  historial: jsonb('historial').$type<EntradaHistorialOra[]>().notNull().default([]),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('ora_sesiones_year_idx').on(t.academicYear, t.tipoId),
+  index('ora_sesiones_fecha_idx').on(t.fecha),
+  index('ora_sesiones_profe_idx').on(t.profeId),
+  index('ora_sesiones_aviso_idx').on(t.avisoEstado, t.avisoProgramadoPara),
+]);
+export type OraSesion = typeof oraSesiones.$inferSelect;
