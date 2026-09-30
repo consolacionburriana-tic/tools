@@ -11,10 +11,11 @@ import { SelectorTipo, Puntos } from './planificar';
 import type { Estado } from './panel';
 
 function Tarjeta({ emoji, n, texto, tono }: { emoji: string; n: number; texto: string; tono: string }) {
+  // `emoji` es el del estado (el mismo de los chips de la lista): aquí hace de leyenda.
   return (
     <div className={cn('rounded-2xl border p-3', tono)}>
       <p className="text-2xl font-bold tabular-nums">
-        {emoji} {n}
+        <span className="text-lg" aria-hidden>{emoji}</span> {n}
       </p>
       <p className="text-xs opacity-80">{texto}</p>
     </div>
@@ -72,7 +73,7 @@ export function Numeros({ e }: { e: Estado }) {
     <div className="space-y-5">
       <SelectorTipo e={e} />
       <p className="text-sm text-zinc-500">
-        🎯 {tipo.cantidad} {FRECUENCIA_LABELS[tipo.frecuencia]} por clase · {clases.length} clases
+        Objetivo: {tipo.cantidad} {FRECUENCIA_LABELS[tipo.frecuencia]} por clase · {clases.length} clases
       </p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -122,7 +123,7 @@ export function Numeros({ e }: { e: Estado }) {
       {/* Por número de sesión */}
       {porNumero.length > 0 && (
         <section className="space-y-1">
-          <h3 className="text-sm font-semibold">#️⃣ Por sesión</h3>
+          <h3 className="text-sm font-semibold">Por sesión</h3>
           <div className="flex flex-wrap gap-2">
             {porNumero.map((p) => (
               <div key={p.n} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -140,7 +141,7 @@ export function Numeros({ e }: { e: Estado }) {
 
       {/* Molestias por profe */}
       <section className="space-y-1">
-        <h3 className="text-sm font-semibold">🙋 A quién se ha quitado la hora (todos los tipos)</h3>
+        <h3 className="text-sm font-semibold">A quién se ha quitado la hora (todos los tipos)</h3>
         {molestias.length === 0 ? (
           <p className="text-sm text-zinc-500">Todavía a nadie.</p>
         ) : (
@@ -169,7 +170,7 @@ export function Numeros({ e }: { e: Estado }) {
                     ))}
                     <td className="px-2 py-1 text-center font-semibold tabular-nums">
                       {m.total}
-                      {m.borradores > 0 && <span className="ml-1 text-xs font-normal text-zinc-400">+{m.borradores}📝</span>}
+                      {m.borradores > 0 && <span className="ml-1 text-xs font-normal text-zinc-400">+{m.borradores} borr.</span>}
                     </td>
                     <td className="py-1">
                       <div className="flex h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
@@ -188,7 +189,7 @@ export function Numeros({ e }: { e: Estado }) {
       {/* Por mes */}
       {meses.length > 0 && (
         <section className="space-y-1">
-          <h3 className="text-sm font-semibold">🗓️ Fechas por mes</h3>
+          <h3 className="text-sm font-semibold">Fechas por mes</h3>
           <div className="flex flex-wrap gap-2">
             {meses.map((mes) => (
               <div key={mes} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">

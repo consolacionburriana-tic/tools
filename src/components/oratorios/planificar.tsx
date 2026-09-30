@@ -3,8 +3,8 @@
 // 🗓️ Planificar: el asistente. Semana a semana, los huecos de quien lo lleva y quién cabe en
 // cada uno (con la materia y el profe que pierde la hora y sus avisos en símbolos). Dos
 // toques por sesión: el hueco y la clase. Ficha: docs/25-oratorios.md
+import { ArrowRightLeft, BookOpen, ChevronLeft, ChevronRight, CalendarClock, Check, CheckCheck, Plus, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { haptic } from '@/lib/haptics';
@@ -77,10 +77,10 @@ export function SelectorResponsable({ e }: { e: Estado }) {
   const esta = conCorreo.some((p) => p.email === e.responsable);
   return (
     <SelectChip value={e.responsable} onChange={e.setResponsable} title="Quién lo lleva (e invita)">
-      {!esta && <option value={e.responsable}>👤 {e.responsable}</option>}
+      {!esta && <option value={e.responsable}>{e.responsable}</option>}
       {conCorreo.map((p) => (
         <option key={p.id} value={p.email!}>
-          👤 {p.nombre}
+          {p.nombre}
           {p.email === e.datos.yo.email ? ' (yo)' : ''}
         </option>
       ))}
@@ -133,7 +133,7 @@ export function Planificar({ e }: { e: Estado }) {
   );
   const porRecolocar = e.sesiones.filter((s) => s.tipoId === tipo?.id && s.estado === 'reprogramar');
 
-  if (!tipo) return <p className="text-sm text-zinc-500">No hay ningún tipo activo. Créalo en ⚙️ Ajustes.</p>;
+  if (!tipo) return <p className="text-sm text-zinc-500">No hay ningún tipo activo. Créalo en Ajustes.</p>;
 
   function elegirRango(clave: string, r: RangoFechas) {
     setRango({ clave, rango: r });
@@ -157,7 +157,7 @@ export function Planificar({ e }: { e: Estado }) {
       ]);
       e.guardarSesiones([nueva]);
       haptic.success();
-      toast.success(`📝 ${etiquetaClase(nueva)} · S${nueva.numero}`, { description: `${fechaCorta(fecha)} ${horaBonita(nueva.horaInicio)}` });
+      toast.success(`Borrador: ${etiquetaClase(nueva)} · S${nueva.numero}`, { description: `${fechaCorta(fecha)} ${horaBonita(nueva.horaInicio)}` });
       setHueco(null);
     } catch (err) {
       haptic.warning();
@@ -181,8 +181,8 @@ export function Planificar({ e }: { e: Estado }) {
       e.guardarSesiones([nueva]);
       e.mover(null);
       haptic.success();
-      toast.success(`🔁 ${etiquetaClase(nueva)} → ${fechaCorta(fecha)} ${horaBonita(nueva.horaInicio)}`, {
-        description: nueva.calendarioError ? `⚠️ ${nueva.calendarioError}` : nueva.avisoEstado === 'pendiente' ? '✉️ Toca avisar del cambio' : undefined,
+      toast.success(`${etiquetaClase(nueva)} → ${fechaCorta(fecha)} ${horaBonita(nueva.horaInicio)}`, {
+        description: nueva.calendarioError ? nueva.calendarioError : nueva.avisoEstado === 'pendiente' ? 'Toca avisar del cambio' : undefined,
       });
     } catch (err) {
       haptic.warning();
@@ -195,7 +195,7 @@ export function Planificar({ e }: { e: Estado }) {
   async function autocompletarRango() {
     const propuestas = autocompletar(ctx, tipo, clases, rango, disp, { email: e.responsable, profeId: profeResp });
     if (propuestas.length === 0) {
-      toast.info(disp.length === 0 ? 'Primero marca tus huecos en ⏰' : 'Nada que proponer: está cubierto o no hay huecos libres');
+      toast.info(disp.length === 0 ? 'Primero marca tus huecos en «Mis huecos»' : 'Nada que proponer: está cubierto o no hay huecos libres');
       return;
     }
     setTrabajando(true);
@@ -203,7 +203,7 @@ export function Planificar({ e }: { e: Estado }) {
       const nuevas = await api.crear(propuestas.map((p) => ({ ...p, responsableEmail: e.responsable })));
       e.guardarSesiones(nuevas);
       haptic.success();
-      toast.success(`✨ ${nuevas.length} borradores`, {
+      toast.success(`${nuevas.length} borradores`, {
         action: {
           label: 'Deshacer',
           onClick: () => void e.lote('descartar', nuevas.map((n) => n.id)),
@@ -258,13 +258,13 @@ export function Planificar({ e }: { e: Estado }) {
         </span>
       </div>
 
-      {/* 🎯 El objetivo del rango, clase a clase */}
+      {/* El objetivo del rango, clase a clase */}
       <BarraObjetivo progreso={progreso} unidades={unidades.length} />
 
       {/* Acciones */}
       <div className="flex flex-wrap gap-2">
         <Accion tono="azul" onClick={autocompletarRango} disabled={trabajando || e.ocupado} title="Reparte el rango en tus huecos ⭐ y luego 👍">
-          ✨ Autocompletar
+          <Sparkles className="h-4 w-4" /> Autocompletar
         </Accion>
         <Accion
           tono="verde"
@@ -274,7 +274,7 @@ export function Planificar({ e }: { e: Estado }) {
             if (window.confirm(`¿Confirmar ${borradores.length}? Se crean los eventos y se invita a los profes.`)) void e.lote('confirmar', borradores.map((b) => b.id));
           }}
         >
-          ✅ Confirmar {borradores.length > 0 && <span className="tabular-nums">({borradores.length})</span>}
+          <CheckCheck className="h-4 w-4" /> Confirmar {borradores.length > 0 && <span className="tabular-nums">({borradores.length})</span>}
         </Accion>
         {borradores.length > 0 && (
           <Accion
@@ -285,34 +285,36 @@ export function Planificar({ e }: { e: Estado }) {
               if (window.confirm(`¿Descartar ${borradores.length} borradores?`)) void e.lote('descartar', borradores.map((b) => b.id));
             }}
           >
-            🗑️ {borradores.length}
+            <Trash2 className="h-4 w-4" /> {borradores.length}
           </Accion>
         )}
         <Accion onClick={() => setManual({ fecha: e.datos.hoy, franja: null })} title="Una clase sin horario o una hora rara">
-          ➕ A mano
+          <Plus className="h-4 w-4" /> A mano
         </Accion>
       </div>
 
       {disp.length === 0 && (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-          ⏰ Sin huecos marcados: márcalos en «Mis huecos» y el asistente te los enseña aquí.
+          Sin huecos marcados: márcalos en «Mis huecos» y el asistente te los enseña aquí.
         </p>
       )}
 
       {/* Mover / por recolocar */}
       {moviendo ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-300 bg-violet-50 px-3 py-2 text-sm text-violet-900 dark:border-violet-500/40 dark:bg-violet-500/10 dark:text-violet-200">
-          <span>
-            🔁 <b>{etiquetaClase(moviendo)}</b> · S{moviendo.numero} — toca su hueco nuevo
+          <span className="inline-flex items-center gap-1.5">
+            <ArrowRightLeft className="h-4 w-4" /> <b>{etiquetaClase(moviendo)}</b> · S{moviendo.numero} — toca su hueco nuevo
           </span>
-          <button type="button" onClick={() => e.mover(null)} className="ml-auto rounded-lg px-2 py-1 font-medium hover:bg-violet-100 dark:hover:bg-violet-500/20">
-            ✕
+          <button type="button" onClick={() => e.mover(null)} className="ml-auto rounded-lg p-1 hover:bg-violet-100 dark:hover:bg-violet-500/20" aria-label="Dejar de mover">
+            <X className="h-4 w-4" />
           </button>
         </div>
       ) : (
         porRecolocar.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm text-violet-700 dark:text-violet-300">🔁 Por recolocar</span>
+            <span className="inline-flex items-center gap-1 text-sm text-violet-700 dark:text-violet-300">
+              <CalendarClock className="h-4 w-4" /> Por recolocar
+            </span>
             {porRecolocar.map((s) => (
               <Pastilla key={s.id} onClick={() => e.mover(s.id)} className="border-violet-300 dark:border-violet-500/40">
                 {etiquetaClase(s)} · S{s.numero}
@@ -355,7 +357,10 @@ export function Planificar({ e }: { e: Estado }) {
             const lectivo = esDiaLectivo(d, e.ajustes.trimestres, e.datos.festivos);
             return (
               <div key={d} className={cn('rounded-lg px-2 py-1 text-center text-xs font-semibold', d === e.datos.hoy ? 'bg-blue-600 text-white' : 'text-zinc-600 dark:text-zinc-300', !lectivo && 'opacity-50')}>
-                {diaCorto(diaSemana(d))} {fechaCorta(d)} {festivo && '🎉'}
+                <span className={cn(festivo && 'line-through')}>
+                  {diaCorto(diaSemana(d))} {fechaCorta(d)}
+                </span>
+                {festivo && <span className="block text-[10px] font-normal">festivo</span>}
               </div>
             );
           })}
@@ -363,7 +368,7 @@ export function Planificar({ e }: { e: Estado }) {
             <FilaFranja key={`${f.horaInicio}-${f.horaFin}`} e={e} ctx={ctx} franja={f} dias={dias} disp={disp} profeResp={profeResp} clases={clases} tipoId={tipo.id} moviendo={moviendo} onTocar={tocarCelda} />
           ))}
         </div>
-        {franjas.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">No hay horario importado para las etapas de este tipo. Usa ➕ A mano.</p>}
+        {franjas.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">No hay horario importado para las etapas de este tipo. Usa «A mano».</p>}
       </div>
 
       {hueco && (
@@ -396,7 +401,7 @@ function BarraObjetivo({ progreso, unidades }: { progreso: ReturnType<typeof pro
     <div className="-mx-4 overflow-x-auto px-4">
       <div className="flex gap-1.5">
         <span className={cn('inline-flex shrink-0 items-center rounded-full px-2.5 text-sm font-semibold', pendientes ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300')} title="Por hacer en el rango">
-          🎯 {pendientes || '✓'}
+          <Target className="mr-1 h-3.5 w-3.5" /> {pendientes || <Check className="h-3.5 w-3.5" />}
         </span>
         {progreso.map((f) => (
           <span key={f.clave} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900" title={`✔️ ${f.total.hechas} · 📅 ${f.total.programadas} · 📝 ${f.total.borradores} · ○ ${f.total.porHacer}`}>
@@ -532,13 +537,15 @@ function FilaFranja({
             {destino && <Avisos avisos={destino.avisos} />}
             {sugerencia && (
               <span className="flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
-                <span>＋ {nombreClase(sugerencia.clase.curso, sugerencia.clase.letra)}</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Plus className="h-3 w-3" /> {nombreClase(sugerencia.clase.curso, sugerencia.clase.letra)}
+                </span>
                 <Avisos avisos={sugerencia.avisos.filter((a) => a.nivel !== 'info')} />
               </span>
             )}
             {propias.length > 0 && (
-              <span className="mt-auto truncate text-[10px] text-zinc-400" title="Tu horario">
-                📚 {[...new Set(propias.map((p) => (p.curso ? nombreClase(p.curso, p.letra) : p.materia)))].join(', ')}
+              <span className="mt-auto flex items-center gap-0.5 truncate text-[10px] text-zinc-400" title="Tu horario">
+                <BookOpen className="h-3 w-3 shrink-0" /> {[...new Set(propias.map((p) => (p.curso ? nombreClase(p.curso, p.letra) : p.materia)))].join(', ')}
               </span>
             )}
           </div>
@@ -590,7 +597,7 @@ function DialogoHueco({
 
         {propias.length > 0 && (
           <p className="rounded-lg bg-zinc-100 px-2 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-            📚 A esta hora das clase: {[...new Set(propias.map((p) => (p.curso ? nombreClase(p.curso, p.letra) : p.materia)))].join(', ')}
+            A esta hora das clase: {[...new Set(propias.map((p) => (p.curso ? nombreClase(p.curso, p.letra) : p.materia)))].join(', ')}
           </p>
         )}
         {aqui.length > 0 && (
@@ -639,10 +646,10 @@ function DialogoHueco({
                   {c.hora.profes.length
                     ? c.hora.profes.map((p) => (
                         <span key={p.id}>
-                          📘 {p.materia ?? '—'} · <b className="font-medium text-zinc-800 dark:text-zinc-100">{p.nombre}</b>
+                          {p.materia ?? '—'} · <b className="font-medium text-zinc-800 dark:text-zinc-100">{p.nombre}</b>
                         </span>
                       ))
-                    : `📘 ${c.hora.materias.join(', ') || '—'}`}
+                    : c.hora.materias.join(', ') || '—'}
                 </span>
               </button>
             </li>
@@ -651,9 +658,11 @@ function DialogoHueco({
         {candidatos.length === 0 && <p className="text-sm text-zinc-500">Ninguna clase de este tipo tiene clase a esa hora.</p>}
         <div className="flex flex-wrap gap-2">
           {utiles.length > 0 && utiles.length < candidatos.length && (
-            <Accion onClick={() => setVerTodas(!verTodas)}>{verTodas ? '✓ Solo las que faltan' : `＋ ${candidatos.length - utiles.length} ya cubiertas`}</Accion>
+            <Accion onClick={() => setVerTodas(!verTodas)}>{verTodas ? 'Solo las que faltan' : `+ ${candidatos.length - utiles.length} ya cubiertas`}</Accion>
           )}
-          <Accion onClick={onManual}>➕ A mano</Accion>
+          <Accion onClick={onManual}>
+            <Plus className="h-4 w-4" /> A mano
+          </Accion>
         </div>
         <p className="text-[11px] leading-relaxed text-zinc-400">
           🔴 misma hora y profe que la anterior · ×N veces este trimestre · 🟡 mismo profe · 📅 ya tiene ese día · ⏱️ muy seguido · 🚌 salida · ✓ cubierta
@@ -693,7 +702,7 @@ function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e:
       const [nueva] = await api.crear([{ tipoId, curso: clase.curso, letra: clase.letra, fecha, horaInicio: inicio, horaFin: fin, profes, responsableEmail: e.responsable }]);
       e.guardarSesiones([nueva]);
       haptic.success();
-      toast.success(`📝 ${etiquetaClase(nueva)} · S${nueva.numero}`);
+      toast.success(`Borrador: ${etiquetaClase(nueva)} · S${nueva.numero}`);
       onClose();
     } catch (err) {
       haptic.warning();
@@ -707,10 +716,10 @@ function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e:
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
-        <DialogTitle>➕ A mano</DialogTitle>
+        <DialogTitle>Sesión a mano</DialogTitle>
         <div className="grid grid-cols-2 gap-2">
           <label className="col-span-2 text-xs text-zinc-500">
-            👥 Clase
+            Clase
             <select value={clave} onChange={(ev) => setClave(ev.target.value)} className={campo}>
               {e.datos.clases.map((c) => (
                 <option key={claveClase(c)} value={claveClase(c)}>
@@ -720,11 +729,11 @@ function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e:
             </select>
           </label>
           <label className="col-span-2 text-xs text-zinc-500">
-            📅 Día
+            Día
             <input type="date" value={fecha} onChange={(ev) => setFecha(ev.target.value)} className={campo} />
           </label>
           <label className="text-xs text-zinc-500">
-            🕘 De
+            De
             <input type="time" value={inicio} onChange={(ev) => setInicio(ev.target.value)} className={campo} />
           </label>
           <label className="text-xs text-zinc-500">
@@ -732,7 +741,7 @@ function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e:
             <input type="time" value={fin} onChange={(ev) => setFin(ev.target.value)} className={campo} />
           </label>
           <label className="col-span-2 text-xs text-zinc-500">
-            📘 Profe que pierde la hora {delHorario && <span className="text-emerald-600">· del horario ✓</span>}
+            Profe que pierde la hora {delHorario && <span className="text-emerald-600">· del horario</span>}
             <select
               multiple
               value={profeIds}
@@ -748,7 +757,7 @@ function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e:
           </label>
         </div>
         <Accion tono="azul" onClick={guardar} disabled={guardando}>
-          📝 Guardar borrador
+          Guardar borrador
         </Accion>
       </DialogContent>
     </Dialog>

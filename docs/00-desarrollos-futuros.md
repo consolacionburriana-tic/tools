@@ -28,16 +28,14 @@ perder ideas por el camino.
 Están todas en «Decisiones cerradas» de [`25-oratorios.md`](./25-oratorios.md), marcadas 🤖. Las
 que más conviene mirar:
 
-1. **Godly Play arranca con infantil y primaria**, y Oratorio con ESO. Se cambia en ⚙️ Ajustes.
-2. **Sin PDC por defecto** (se supone que hace oratorio con su grupo de referencia).
-3. **Trimestres propuestos**: T1 hasta el 22-dic, T2 del 7-ene al 19-mar (viernes antes de
-   Ramos), T3 del 30-mar al 19-jun. Editables en Ajustes; hasta que se guarden salen como
-   «propuestos».
-4. **El 🔴 mira todos los tipos**, no solo el mismo: a un profe le da igual qué le quite la hora.
-5. **Un tercer nivel de disponibilidad, 🤏 último recurso**, que el autocompletar no usa nunca.
-6. **Acceso común apagado** hasta que David lo encienda.
+1. **Godly Play arranca con infantil y primaria**, y Oratorio con ESO. Se cambia en Ajustes.
+2. ~~Sin PDC~~ ✅ David (30-sep): **PDC dentro**, 10 clases de ESO. ~~Trimestres~~ ✅ «muy bien».
+3. **El 🔴 mira todos los tipos**, no solo el mismo: a un profe le da igual qué le quite la hora.
+4. **Un tercer nivel de disponibilidad, 🤏 último recurso**, que el autocompletar no usa nunca.
+5. **Acceso común apagado** hasta que David lo encienda.
 
-⚠️ **Y un hallazgo que no es de este módulo: en Neon solo está el horario de la ESO.** Las
+⚠️ **Y un hallazgo que no es de este módulo: en Neon solo está el horario de la ESO, y sin el
+PDC.** Las
 rejillas de infantil y primaria existen, pero sus sesiones no (313 sesiones, todas de ESO; la
 ficha de horarios dice 597 de EI y EP importadas el 5-sep). Mientras no se reimporten, el
 asistente no puede proponer huecos en infantil ni primaria —que es donde va Godly Play— y hay

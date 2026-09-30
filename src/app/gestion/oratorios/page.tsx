@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { HandHeart } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess } from '@/lib/permissions';
@@ -25,7 +26,7 @@ export default async function OratoriosPage({ searchParams }: { searchParams: Pr
   if (!(await accesoComunActivo())) {
     return (
       <div className="mx-auto max-w-md py-16 text-center text-zinc-600 dark:text-zinc-400">
-        <p className="text-4xl">🙏</p>
+        <HandHeart className="mx-auto h-10 w-10 text-zinc-400" />
         <p className="mt-3">Todavía no está abierto al claustro.</p>
       </div>
     );

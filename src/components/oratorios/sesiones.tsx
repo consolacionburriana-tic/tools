@@ -3,6 +3,7 @@
 // 📋 Sesiones: la lista del curso con sus estados, y los avisos en bloque (enviar todos los
 // pendientes, programarlos a 7 días). Las acciones en bloque van sobre lo que se ve con el
 // filtro puesto: sin casillas que marcar una a una.
+import { AlarmClock, CheckCheck, Send, TriangleAlert, User } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { chipAviso, chipEstado, diaCorto, diaSemana, estaActiva, fechaCorta, horaBonita, nombreMesCorto, profesDe, trimestreDe, type SesionOra } from '@/lib/oratorios';
@@ -12,12 +13,12 @@ import type { Estado } from './panel';
 
 type Filtro = 'vivas' | 'borrador' | 'avisar' | 'reprogramar' | 'anulado' | 'hechas' | 'todas';
 const FILTROS: [Filtro, string][] = [
-  ['vivas', '📅 Próximas'],
-  ['avisar', '✉️ Por avisar'],
-  ['borrador', '📝'],
-  ['reprogramar', '🔁'],
-  ['hechas', '✔️'],
-  ['anulado', '✖️'],
+  ['vivas', 'Próximas'],
+  ['avisar', 'Por avisar'],
+  ['borrador', 'Borradores'],
+  ['reprogramar', 'Reprogramar'],
+  ['hechas', 'Hechas'],
+  ['anulado', 'Anuladas'],
   ['todas', 'Todas'],
 ];
 
@@ -76,7 +77,7 @@ export function ListaSesiones({ e }: { e: Estado }) {
           </Pastilla>
         ))}
         <Pastilla activa={soloMias} onClick={() => setSoloMias(!soloMias)} title="Solo las que llevo yo">
-          👤 Mías
+          <User className="h-4 w-4" /> Mías
         </Pastilla>
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -106,12 +107,12 @@ export function ListaSesiones({ e }: { e: Estado }) {
                 if (window.confirm(`¿Enviar ya ${porAvisar.length} avisos? Un correo por profe, desde el buzón de quien lo lleva.`)) void e.lote('enviar', porAvisar.map((s) => s.id));
               }}
             >
-              📨 Enviar ({porAvisar.length})
+              <Send className="h-4 w-4" /> Enviar avisos ({porAvisar.length})
             </Accion>
           )}
           {sinProgramar.length > 0 && (
             <Accion disabled={e.ocupado} onClick={() => void e.lote('programar', sinProgramar.map((s) => s.id), 7)} title="Programar los pendientes 7 días antes">
-              ⏰ 7d ({sinProgramar.length})
+              <AlarmClock className="h-4 w-4" /> 7d ({sinProgramar.length})
             </Accion>
           )}
           {borradores.length > 0 && (
@@ -122,7 +123,7 @@ export function ListaSesiones({ e }: { e: Estado }) {
                 if (window.confirm(`¿Confirmar ${borradores.length}? Se crean los eventos y se invita a los profes.`)) void e.lote('confirmar', borradores.map((s) => s.id));
               }}
             >
-              ✅ ({borradores.length})
+              <CheckCheck className="h-4 w-4" /> Confirmar ({borradores.length})
             </Accion>
           )}
         </div>
@@ -155,7 +156,7 @@ export function ListaSesiones({ e }: { e: Estado }) {
                       </span>
                       <span className="block truncate text-xs text-zinc-500">
                         {profesDe(s).map((p) => p.nombre).join(', ') || '—'}
-                        {s.responsableEmail !== e.datos.yo.email && ` · 👤 ${s.responsableNombre ?? s.responsableEmail}`}
+                        {s.responsableEmail !== e.datos.yo.email && ` · lo lleva ${s.responsableNombre ?? s.responsableEmail}`}
                       </span>
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-0.5">
@@ -164,7 +165,7 @@ export function ListaSesiones({ e }: { e: Estado }) {
                     </span>
                     {(s.calendarioError || s.avisoError) && (
                       <span className={cn('text-amber-600')} title={s.calendarioError ?? s.avisoError ?? ''}>
-                        ⚠️
+                        <TriangleAlert className="h-4 w-4" />
                       </span>
                     )}
                   </button>

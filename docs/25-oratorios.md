@@ -19,7 +19,7 @@ calendario de Google y su texto de correo.
 
 Código entero escrito y **probado contra Neon y contra Google Calendar de verdad**, con sesión de
 TIC en el navegador (iPad en horizontal y móvil): disponibilidad, asistente, autocompletar (24
-borradores repartidos en oct-dic, las 8 clases de ESO cubiertas cada mes, numeración S1-S4
+borradores repartidos en oct-dic, las 8 clases de ESO con horario cubiertas cada mes, numeración S1-S4
 correcta), mover, reprogramar, anular, lista, números, ajustes y la vista del claustro con y sin
 acceso común. Todo lo de prueba se borró de Neon al terminar: arranca vacío, solo con los dos
 tipos sembrados.
@@ -33,7 +33,12 @@ Paola Gómez**, y al anularla desde la app, la cancelación (evento `cancelled`)
 una prueba.
 
 **Lo que falta:** el primer envío real de un correo de aviso (plantilla revisada en render, sin
-mandar a nadie) y que David confirme las decisiones marcadas 🤖 más abajo.
+mandar a nadie), que David confirme las decisiones marcadas 🤖 más abajo y reimportar el horario
+del PDC (y el de infantil y primaria) para que el asistente proponga huecos también ahí.
+
+**Iconos**: como el resto de la app, `lucide-react` en pestañas, botones y etiquetas. Emojis solo
+donde son un dato: el de cada tipo (lo elige quien lo crea), los tres niveles de disponibilidad,
+los avisos de cada hueco (🔴 ×2 🟡 📅 ⏱️ 🚌) y los estados — igual que 🧾 📤 💰 en Licencias.
 
 ---
 
@@ -196,11 +201,13 @@ Lo que pidió David, tal cual, y lo que decidí yo al construirlo (marcado con �
    anterior/siguiente de esa clase = 🔴. Avisa, no prohíbe. 🤖 Se miran las sesiones de
    **todos los tipos**: al profe le da igual que la hora se la quite un oratorio o un Godly Play.
 6. **Correo desde el buzón del responsable**, con la plantilla de David, sin firmas.
-7. 🤖 **Clases de cada tipo**: por defecto, todas las de las etapas del tipo sacadas del
-   alumnado activo, **sin PDC** (el PDC hace oratorio con su grupo de referencia). Se puede
-   fijar la lista a mano en Ajustes. Oratorio arranca con **ESO**; Godly Play con **infantil y
-   primaria** — David: confírmalo.
-8. 🤖 **Trimestres por defecto** (editables en Ajustes): T1 del inicio del periodo ordinario al
+7. **Clases de cada tipo**: todas las de las etapas del tipo, sacadas del alumnado activo,
+   **con el PDC dentro** (David, 30-sep-2026: «el PDC dentrísimo»): en la ESO son **10 clases**,
+   y así cuentan en el objetivo y en los números. Se puede fijar la lista a mano en Ajustes.
+   Oratorio arranca con **ESO**; Godly Play con **infantil y primaria**.
+   ⚠️ El horario del PDC no está en Neon (el de la ESO se importó sin sus bloques), así que el
+   asistente no propone huecos para 3º y 4º PDC hasta que se reimporte: mientras, «A mano».
+8. **Trimestres por defecto** (editables en Ajustes; David, 30-sep-2026: «muy bien»): T1 del inicio del periodo ordinario al
    22 de diciembre; T2 del 7 de enero al viernes anterior al Domingo de Ramos; T3 del martes
    después de Pascua al 19 de junio. Sirven para el objetivo por trimestre, el recuento de
    molestias y los botones de rango.
@@ -259,8 +266,8 @@ src/components/oratorios/     # asistente, lista, números, disponibilidad, ajus
       30-sep-2026 a mediodía; por la mañana aún no lo estaba)
 - [x] Primera prueba real contra el calendario de Oratorio: crear con invitado y anular (ver
       «Estado»)
-- [ ] **David**: que cada persona que vaya a llevar oratorios pueda **editar** los dos
-      calendarios compartidos (con David ya funciona)
+- [x] **David**: que cada persona que vaya a llevar oratorios pueda **editar** los dos
+      calendarios compartidos (hecho, 30-sep-2026)
 
 ### Fase 3 · Avisos por correo — 🟡
 - [x] Plantillas aviso / cambio / anulación, agrupadas por profe

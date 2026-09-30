@@ -247,19 +247,23 @@ export function claveHorario(c: Clase): string {
   return claveClase(c);
 }
 
-/** '4ESO' + 'B' → '4 ESO B'; '3PRI' + 'A' → '3 PRI A'. Para el título del evento y el correo. */
+/** '4ESO' + 'B' → '4 ESO B'; '3ºPPDC' → '3º PDC'. Para el título del evento y el correo. */
 export function etiquetaClase(c: Clase): string {
+  if (c.letra === 'PDC') return `${(cursoBaseEso(c.curso) ?? c.curso).replace(/\D.*$/, '')}º PDC`;
   return nombreClase(c.curso, c.letra).replace(/^(\d+)(º?)\s*([A-Za-zÀ-ÿ])/, '$1$2 $3');
 }
 
-/** Las clases a las que va un tipo: su lista fija si la tiene; si no, las de sus etapas sin PDC. */
+/**
+ * Las clases a las que va un tipo: su lista fija si la tiene; si no, todas las de sus etapas,
+ * PDC incluido (David, 30-sep-2026: «el PDC dentrísimo» — son 10 clases en la ESO).
+ */
 export function clasesDeTipo(tipo: Pick<TipoMomento, 'clases' | 'etapas'>, alumnado: readonly Clase[]): Clase[] {
   if (tipo.clases && tipo.clases.length > 0) {
     const fijas = new Set(tipo.clases);
     return alumnado.filter((c) => fijas.has(claveClase(c)));
   }
   const etapas = new Set(tipo.etapas);
-  return alumnado.filter((c) => c.letra !== 'PDC' && etapas.has(etapaDeCurso(c.curso) ?? ''));
+  return alumnado.filter((c) => etapas.has(etapaDeCurso(c.curso) ?? ''));
 }
 
 // ─── Trimestres y unidades del objetivo ────────────────────────────────────────

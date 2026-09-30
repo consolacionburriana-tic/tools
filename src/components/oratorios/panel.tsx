@@ -3,6 +3,7 @@
 // /gestion/oratorios para quien lo lleva: cinco pestañas sobre el mismo estado. Todo el curso
 // viaja de una vez y los candidatos se calculan aquí (`oratorios.ts`), así que pasar de
 // semana o de pestaña no cuesta un viaje al servidor. Ficha: docs/25-oratorios.md
+import { CalendarRange, ChartColumnBig, Clock, List, Settings2, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
@@ -18,12 +19,12 @@ import { Ajustes } from './ajustes';
 import { DetalleSesion } from './detalle';
 
 export type Pestana = (typeof PESTANAS_ORA)[number];
-const PESTANAS: { clave: Pestana; emoji: string; texto: string }[] = [
-  { clave: 'planificar', emoji: '🗓️', texto: 'Planificar' },
-  { clave: 'sesiones', emoji: '📋', texto: 'Sesiones' },
-  { clave: 'numeros', emoji: '📊', texto: 'Números' },
-  { clave: 'huecos', emoji: '⏰', texto: 'Mis huecos' },
-  { clave: 'ajustes', emoji: '⚙️', texto: 'Ajustes' },
+const PESTANAS: { clave: Pestana; Icono: LucideIcon; texto: string }[] = [
+  { clave: 'planificar', Icono: CalendarRange, texto: 'Planificar' },
+  { clave: 'sesiones', Icono: List, texto: 'Sesiones' },
+  { clave: 'numeros', Icono: ChartColumnBig, texto: 'Números' },
+  { clave: 'huecos', Icono: Clock, texto: 'Mis huecos' },
+  { clave: 'ajustes', Icono: Settings2, texto: 'Ajustes' },
 ];
 
 /** Lo que comparten las pestañas: estado y las operaciones que lo cambian. */
@@ -153,7 +154,7 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
                 : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800',
             )}
           >
-            <span aria-hidden>{p.emoji}</span>
+            <p.Icono className="h-4 w-4" aria-hidden />
             <span className={cn(pestana === p.clave ? 'inline' : 'hidden sm:inline')}>{p.texto}</span>
           </button>
         ))}

@@ -2,6 +2,7 @@
 
 // ⚙️ Ajustes: los tipos de momento (objetivo, calendario, texto del correo, a qué clases va),
 // los trimestres del curso y el «acceso común» del claustro.
+import { Check, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -27,7 +28,7 @@ export function Ajustes({ e }: { e: Estado }) {
       e.setAjustes(a);
       setTrimestres(a.trimestres);
       haptic.success();
-      toast.success('✓ Guardado');
+      toast.success('Guardado');
     } catch (err) {
       haptic.warning();
       toast.error(err instanceof Error ? err.message : 'No se ha podido');
@@ -53,16 +54,18 @@ export function Ajustes({ e }: { e: Estado }) {
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{t.nombre}</span>
                   <span className="block truncate text-xs text-zinc-500">
-                    🎯 {t.cantidad} {FRECUENCIA_LABELS[t.frecuencia]} · {t.clases?.length ? `${t.clases.length} clases` : t.etapas.map((x) => ETAPA_LABELS[x]).join(' + ') || '—'} · ✉️ {t.avisoDias}d ·{' '}
-                    {t.calendarioId ? '📆 ✓' : '📆 ✗'}
+                    {t.cantidad} {FRECUENCIA_LABELS[t.frecuencia]} · {t.clases?.length ? `${t.clases.length} clases` : t.etapas.map((x) => ETAPA_LABELS[x]).join(' + ') || '—'} · aviso {t.avisoDias} días antes ·{' '}
+                    {t.calendarioId ? 'con calendario' : 'sin calendario'}
                   </span>
                 </span>
-                <span className="text-zinc-400">✏️</span>
+                <Pencil className="h-4 w-4 text-zinc-400" />
               </button>
             </li>
           ))}
         </ul>
-        <Accion onClick={() => setEditando('nuevo')}>➕ Nuevo tipo</Accion>
+        <Accion onClick={() => setEditando('nuevo')}>
+          <Plus className="h-4 w-4" /> Nuevo tipo
+        </Accion>
       </section>
 
       {/* Trimestres */}
@@ -83,7 +86,7 @@ export function Ajustes({ e }: { e: Estado }) {
         </div>
         {(cambiados || !e.ajustes.guardados) && (
           <Accion tono="azul" disabled={guardando} onClick={() => void guardarAjustes({ trimestres })}>
-            ✓ Guardar trimestres
+            <Check className="h-4 w-4" /> Guardar trimestres
           </Accion>
         )}
         <p className="text-xs text-zinc-500">
@@ -104,7 +107,7 @@ export function Ajustes({ e }: { e: Estado }) {
             onChange={(ev) => void guardarAjustes({ accesoComun: ev.target.checked })}
           />
           <span className="text-sm">
-            <b>👀 Cada profe ve lo suyo</b>
+            <b>Cada profe ve lo suyo</b>
             <span className="block text-zinc-500">Las sesiones confirmadas que le quitan una hora (o que lleva). Nunca los borradores.</span>
           </span>
         </label>
@@ -152,7 +155,7 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
       const guardado = await api.tipo(tipo?.id ?? null, { ...f, codigo, nombreCorreo: f.nombreCorreo || f.nombre.toLowerCase() });
       e.setTipos(tipo ? e.tipos.map((t) => (t.id === guardado.id ? guardado : t)) : [...e.tipos, guardado]);
       haptic.success();
-      toast.success(`✓ ${guardado.nombre}`);
+      toast.success(`Guardado: ${guardado.nombre}`);
       onClose();
     } catch (err) {
       haptic.warning();
@@ -165,7 +168,7 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogTitle>{tipo ? `${tipo.emoji} ${tipo.nombre}` : '➕ Nuevo tipo'}</DialogTitle>
+        <DialogTitle>{tipo ? `${tipo.emoji} ${tipo.nombre}` : 'Nuevo tipo'}</DialogTitle>
         <div className="grid grid-cols-4 gap-2">
           <label className="text-xs text-zinc-500">
             Emoji
@@ -180,7 +183,7 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
             <input value={f.nombreCorreo} onChange={(ev) => set('nombreCorreo', ev.target.value)} placeholder={f.nombre.toLowerCase()} className={campo} />
           </label>
           <label className="text-xs text-zinc-500">
-            🎯
+            Objetivo
             <input type="number" min={1} max={20} value={f.cantidad} onChange={(ev) => set('cantidad', Number(ev.target.value) || 1)} className={campo} />
           </label>
           <label className="col-span-3 text-xs text-zinc-500">
@@ -194,7 +197,7 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
             </select>
           </label>
           <div className="col-span-4 space-y-1">
-            <p className="text-xs text-zinc-500">👥 Clases</p>
+            <p className="text-xs text-zinc-500">Clases</p>
             <div className="flex flex-wrap gap-1.5">
               {ETAPAS_ORA.map((et) => (
                 <Pastilla key={et} activa={f.etapas.includes(et)} onClick={() => set('etapas', f.etapas.includes(et) ? f.etapas.filter((x) => x !== et) : [...f.etapas, et])}>
@@ -202,7 +205,7 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
                 </Pastilla>
               ))}
               <Pastilla activa={fijas} onClick={() => set('clases', fijas ? null : automaticas)} title="Elegir clase a clase">
-                ✋ A mano
+                Elegir a mano
               </Pastilla>
             </div>
             {fijas && (
@@ -223,18 +226,18 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
                 })}
               </div>
             )}
-            {!fijas && <p className="text-[11px] text-zinc-400">{automaticas.length} clases (sin PDC)</p>}
+            {!fijas && <p className="text-[11px] text-zinc-400">{automaticas.length} clases</p>}
           </div>
           <label className="col-span-4 text-xs text-zinc-500">
-            📆 Calendario de Google (id)
+            Calendario de Google (id)
             <input value={f.calendarioId ?? ''} onChange={(ev) => set('calendarioId', ev.target.value || null)} placeholder="c_…@group.calendar.google.com" className={cn(campo, 'font-mono text-xs')} />
           </label>
           <label className="col-span-4 text-xs text-zinc-500">
-            ✉️ Texto extra del correo
+            Texto extra del correo
             <textarea value={f.textoCorreo ?? ''} onChange={(ev) => set('textoCorreo', ev.target.value || null)} rows={3} className={cn(campo, 'py-1.5')} />
           </label>
           <label className="col-span-2 text-xs text-zinc-500">
-            ⏰ Aviso, días antes
+            Aviso, días antes
             <input type="number" min={0} max={60} value={f.avisoDias} onChange={(ev) => set('avisoDias', Number(ev.target.value) || 0)} className={campo} />
           </label>
           <label className="col-span-2 flex items-end gap-2 pb-2 text-sm">
@@ -242,7 +245,7 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
           </label>
         </div>
         <Accion tono="azul" disabled={guardando || !f.nombre.trim()} onClick={guardar}>
-          ✓ Guardar
+          <Check className="h-4 w-4" /> Guardar
         </Accion>
       </DialogContent>
     </Dialog>

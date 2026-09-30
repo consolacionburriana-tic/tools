@@ -153,13 +153,17 @@ describe('clases', () => {
     expect(claveHorario({ curso: '2ESO', letra: 'B' })).toBe('2ESO|B');
   });
 
-  it('clases de un tipo: sus etapas sin PDC, o su lista fija', () => {
+  it('clases de un tipo: sus etapas con el PDC dentro, o su lista fija', () => {
     const alumnado = [
       { curso: '1ESO', letra: 'A' },
       { curso: '3ºPPDC', letra: 'PDC' },
       { curso: '3PRI', letra: 'A' },
     ];
-    expect(clasesDeTipo(ORATORIO, alumnado)).toEqual([{ curso: '1ESO', letra: 'A' }]);
+    expect(clasesDeTipo(ORATORIO, alumnado)).toEqual([
+      { curso: '1ESO', letra: 'A' },
+      { curso: '3ºPPDC', letra: 'PDC' },
+    ]);
+    expect(etiquetaClase({ curso: '4ºPPDC', letra: 'PDC' })).toBe('4º PDC');
     expect(clasesDeTipo({ ...ORATORIO, clases: ['3ºPPDC|PDC'] }, alumnado)).toEqual([{ curso: '3ºPPDC', letra: 'PDC' }]);
   });
 

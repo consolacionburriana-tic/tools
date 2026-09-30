@@ -4,6 +4,7 @@
 // cicla ⭐ → 👍 → 🤏 → nada y se guarda solo. «⚡ Desde mi horario» marca como ⭐ las horas
 // que el horario ya tiene como Oratorio. Va con `key` = la persona: cambiar de responsable
 // monta una rejilla nueva con la suya.
+import { Eraser, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
@@ -84,7 +85,7 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
       else nuevos.push(hueco);
     }
     guardar(nuevos);
-    toast.success(`⚡ ${oratorio.length} ⭐`);
+    toast.success(`${oratorio.length} horas de Oratorio marcadas como ⭐`);
   }
 
   // Si se sale con un cambio sin guardar (el guardado espera 0,7 s), el navegador pregunta.
@@ -106,15 +107,15 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
             {ETAPA_LABELS[et]}
           </Pastilla>
         ))}
-        <span className="ml-auto text-xs text-zinc-500">{estado === 'ok' ? '✓ guardado' : estado === 'guardando' ? '… guardando' : '●'}</span>
+        <span className="ml-auto text-xs text-zinc-500">{estado === 'ok' ? 'Guardado' : 'Guardando…'}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Accion onClick={desdeMiHorario} disabled={!profeId} title="Marca ⭐ las horas de Oratorio de tu horario">
-          ⚡ Desde mi horario
+          <Zap className="h-4 w-4" /> Desde mi horario
         </Accion>
         {huecos.length > 0 && (
-          <Accion tono="rojo" onClick={() => window.confirm('¿Vaciar todos los huecos?') && guardar([])}>
-            🧹
+          <Accion tono="rojo" onClick={() => window.confirm('¿Vaciar todos los huecos?') && guardar([])} title="Vaciar">
+            <Eraser className="h-4 w-4" />
           </Accion>
         )}
         <span className="flex gap-3 text-sm">
@@ -125,7 +126,7 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
           ))}
         </span>
       </div>
-      {!profeId && <p className="text-sm text-amber-700 dark:text-amber-300">👤 {email} no está en la BBDD central de profes: no se puede pintar su horario.</p>}
+      {!profeId && <p className="text-sm text-amber-700 dark:text-amber-300">{email} no está en la BBDD central de profes: no se puede pintar su horario.</p>}
 
       <div className="-mx-4 overflow-x-auto px-4">
         <div className="grid min-w-[560px] gap-1" style={{ gridTemplateColumns: '3.5rem repeat(5, minmax(0, 1fr))' }}>
@@ -180,7 +181,7 @@ function FilaHuecos({
             <span className="text-base leading-none">{nivel ? NIVEL_INFO[nivel].emoji : ''}</span>
             {etiquetas.length > 0 && (
               <span className={cn('w-full truncate', nivel ? 'opacity-80' : 'text-zinc-500')}>
-                {esOratorio ? '🙏 ' : '📚 '}
+                {esOratorio ? 'Oratorio · ' : ''}
                 {etiquetas.join(', ')}
                 {materia && <span className="block truncate opacity-70">{materia}</span>}
               </span>

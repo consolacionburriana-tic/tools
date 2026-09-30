@@ -2,6 +2,7 @@
 
 // Lo que ve el claustro con `oratorios-ver` (si quien lo lleva ha encendido el acceso común):
 // solo las sesiones confirmadas que le quitan una hora, o que lleva. De solo lectura.
+import { CalendarDays } from 'lucide-react';
 import { useState } from 'react';
 import { nombreClase } from '@/lib/cursos';
 import { chipEstado, fechaLarga, horaBonita, profesDe, type SesionOra } from '@/lib/oratorios';
@@ -18,13 +19,13 @@ export function MisOratorios({ datos, email }: { datos: DatosMios; email: string
     <div className="space-y-3">
       <div className="flex gap-1.5">
         <Pastilla activa={!pasadas} onClick={() => setPasadas(false)}>
-          📅 Próximas <span className="opacity-70">{proximas.length}</span>
+          Próximas <span className="opacity-70">{proximas.length}</span>
         </Pastilla>
         <Pastilla activa={pasadas} onClick={() => setPasadas(true)}>
-          ✔️ Pasadas <span className="opacity-70">{hechas.length}</span>
+          Pasadas <span className="opacity-70">{hechas.length}</span>
         </Pastilla>
       </div>
-      {lista.length === 0 && <p className="py-10 text-center text-sm text-zinc-500">Nada por aquí 🙂</p>}
+      {lista.length === 0 && <p className="py-10 text-center text-sm text-zinc-500">Nada por aquí.</p>}
       <ul className="space-y-2">
         {lista.map((s) => (
           <Fila key={s.id} s={s} datos={datos} email={email} />
@@ -45,11 +46,11 @@ function Fila({ s, datos, email }: { s: SesionOra; datos: DatosMios; email: stri
         <span className="text-zinc-500">{tipo?.nombre}</span>
         <ChipVista chip={chipEstado(s, datos.hoy)} className="ml-auto" />
       </div>
-      <p className="mt-1 text-sm">
-        📅 {capital(fechaLarga(s.fecha))} · 🕘 {horaBonita(s.horaInicio)}–{horaBonita(s.horaFin)}
+      <p className="mt-1 flex items-center gap-1.5 text-sm">
+        <CalendarDays className="h-4 w-4 text-zinc-400" /> {capital(fechaLarga(s.fecha))} · {horaBonita(s.horaInicio)}–{horaBonita(s.horaFin)}
       </p>
       <p className="text-sm text-zinc-500">
-        {lleva ? `📘 ${profesDe(s).map((p) => `${p.materia ?? '—'} · ${p.nombre}`).join(', ') || '—'}` : `👤 ${s.responsableNombre ?? s.responsableEmail}`}
+        {lleva ? profesDe(s).map((p) => `${p.materia ?? '—'} · ${p.nombre}`).join(', ') || '—' : `Lo lleva ${s.responsableNombre ?? s.responsableEmail}`}
       </p>
     </li>
   );

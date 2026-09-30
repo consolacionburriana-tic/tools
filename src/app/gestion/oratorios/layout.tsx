@@ -15,7 +15,7 @@ export default async function OratoriosLayout({ children }: { children: React.Re
       <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4">
           <Link href="/gestion/oratorios" className="text-sm font-semibold text-zinc-900 hover:text-blue-600 dark:text-zinc-100 dark:hover:text-blue-400">
-            🙏 Oratorios y Godly Play
+            Oratorios y Godly Play
           </Link>
           <Link
             href="/gestion"

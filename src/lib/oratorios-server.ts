@@ -661,7 +661,7 @@ export async function accionLote(accion: AccionLote, ids: string[], por: Quien, 
       .delete(oraSesiones)
       .where(and(inArray(oraSesiones.id, ids), eq(oraSesiones.estado, 'borrador')))
       .returning({ id: oraSesiones.id });
-    return { sesiones: [], borradas: filas.map((f) => f.id), mensaje: `🗑️ ${filas.length}` };
+    return { sesiones: [], borradas: filas.map((f) => f.id), mensaje: `${filas.length} borradores descartados` };
   }
   if (accion === 'enviar') return enviarAvisos(ids, por);
 
@@ -684,7 +684,7 @@ export async function accionLote(accion: AccionLote, ids: string[], por: Quien, 
       return actualizar(s.id, cambios);
     });
     const errores = hechas.filter((s) => s.calendarioError).length;
-    return { sesiones: hechas, borradas: [], mensaje: errores ? `✅ ${hechas.length} · ⚠️ calendario ${errores}` : `✅ ${hechas.length}` };
+    return { sesiones: hechas, borradas: [], mensaje: errores ? `${hechas.length} confirmadas · ${errores} sin evento en Calendar` : `${hechas.length} confirmadas` };
   }
 
   const vivas = sesiones.filter((s) => s.estado === 'confirmado' || (s.estado === 'anulado' && s.avisoEstado === 'pendiente'));
@@ -706,7 +706,7 @@ export async function accionLote(accion: AccionLote, ids: string[], por: Quien, 
       return actualizar(s.id, { ...avisoAlConfirmar(s.fecha, d, hoy), avisoError: null });
     }),
   );
-  return { sesiones: hechas, borradas: [], mensaje: `✓ ${hechas.length}` };
+  return { sesiones: hechas, borradas: [], mensaje: `${hechas.length} actualizadas` };
 }
 
 // ─── Avisos por correo ───────────────────────────────────────────────────────
@@ -814,7 +814,7 @@ export async function enviarAvisos(ids: string[], por: Quien | null): Promise<Re
   );
   const enviados = hechas.filter((s) => !s.avisoError || s.avisoEstado === 'enviado').length;
   const errores = elegibles.length - enviados;
-  return { sesiones: hechas, borradas: [], mensaje: errores ? `📨 ${enviados} · ⚠️ ${errores}` : `📨 ${enviados}` };
+  return { sesiones: hechas, borradas: [], mensaje: errores ? `${enviados} avisados · ${errores} con error` : `${enviados} avisados` };
 }
 
 /** Cron diario: los avisos programados para hoy o antes que aún no han salido. */
