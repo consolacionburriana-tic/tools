@@ -190,7 +190,9 @@ conexión). Auditoría de cambios y dashboard de dirección siguen como ideas en
   Bachillerato (`Etapa`, `ETAPAS`, `ETAPA_LABEL`), cómo se reconoce un curso, cómo se promociona
   y si entra en el banco. Ningún módulo enumera las etapas a mano: importa de ahí (ver
   [`04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md#etapas-y-cursos)). Nombre, dominio
-  y buzones del colegio: `src/lib/colegio.ts`.
+  y buzones del colegio: `src/lib/colegio.ts`; parámetros del centro (niveles, promoción, banco,
+  hora límite, calendario…): `src/lib/configuracion.ts`, inventario en
+  [`09-parametros-del-centro.md`](./09-parametros-del-centro.md).
 - **Identificación pública de familias SIN datos personales**: los formularios de familias
   nunca buscan por nombre/apellidos ni muestran datos sin enmascarar. Patrón común en
   `src/lib/familias{,-server}.ts`: DNI/NIE del tutor → sus hijos como "Fra. M. Luc." · NIA →

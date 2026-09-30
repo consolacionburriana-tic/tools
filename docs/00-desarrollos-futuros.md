@@ -487,9 +487,13 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   desactivados). Añadir una etapa es: `ETAPAS` + `ETAPA_LABEL` en `cursos.ts`, sus reglas en
   `etapaDeCurso`/`cursoSiguiente`/`cursoEnBanco`, y dejar que el compilador señale el resto; la
   receta y las trampas que se encontraron están en la cabecera de `cursos.ts`.
-  ⬜ **Promoción «a la manera de Consolación»** (Infantil rota 3→4→5→3, Primaria en ciclos de
-  dos años): otro colegio promociona 1º→2º. Si un fork lo pide, hacer `cursoSiguiente()`
-  configurable en `colegio.ts`.
+  ✅ **Promoción configurable** (30-sep-2026): `promocion` en `src/lib/configuracion.ts`, junto con
+  el resto de parámetros del centro ([`09-parametros-del-centro.md`](./09-parametros-del-centro.md)).
+  ⬜ **Ajustes editables desde la app** (`/gestion/ajustes` sobre una tabla en Neon, con los valores
+  de `configuracion.ts` como defecto): hoy esos parámetros se cambian con código y redeploy. Solo
+  merece la pena si quien lleva el colegio necesita cambiarlos sin desarrollador. Ver el final de
+  `09`. Y quedan fuera de la configuración —por ir atados a datos o a SQL— los cursos de Licencias,
+  las etapas de Puntualidad y la plantilla de ASM (lista completa en `09`).
 - **Calendarios del dominio** (ficha `25`, 30-sep-2026): en la delegación de dominio del
   mismo Client ID, añadir `admin.directory.user.readonly`, `classroom.courses.readonly` y
   `calendar` (este último lo comparte con Mi horario), y habilitar en Google Cloud *Admin SDK

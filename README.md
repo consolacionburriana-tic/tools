@@ -17,8 +17,9 @@ colegios con **Educamos** y **Google Workspace for Education**, con Infantil, Pr
 👉 **[`docs/08-despliegue-y-fork.md`](./docs/08-despliegue-y-fork.md)** — guía esquemática de
 *dónde se hace cada cosa* (GitHub, Neon, Vercel, Google, correo) y qué cambiar en el código.
 
-Cambiar la identidad (dominio, nombre, buzones) es editar un solo fichero:
-[`src/lib/colegio.ts`](./src/lib/colegio.ts). Lo imprescindible para arrancar es poco: **Neon** (base de datos) + **Vercel** (hosting) + un
+Cambiar la identidad (dominio, nombre, buzones) es editar un solo fichero,
+[`src/lib/colegio.ts`](./src/lib/colegio.ts), y cómo funciona tu centro (cursos por etapa,
+promoción, banco de libros, hora límite…) otro, [`src/lib/configuracion.ts`](./src/lib/configuracion.ts). Lo imprescindible para arrancar es poco: **Neon** (base de datos) + **Vercel** (hosting) + un
 **Google Workspace** para el login del claustro. Lo demás (correo, Drive, Calendar, Classroom,
 archivos adjuntos) se va activando módulo a módulo.
 

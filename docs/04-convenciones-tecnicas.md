@@ -244,6 +244,16 @@ Las etapas (`Etapa`: Infantil, Primaria, ESO, Bachillerato) y todo lo que se dec
 - Al importar de Educamos, una etapa que no se reconoce **no importa** a ese alumno pero **no
   rompe** el fichero (ver `docs/02-integracion-educamos.md`).
 
+## Parámetros del centro
+
+Los valores que dependen de **cómo es el colegio** (niveles de cada etapa, promoción, desde dónde
+hay banco de libros, hora límite de Puntualidad, calendario escolar, sesión, tamaño máximo de
+archivo) viven en `src/lib/configuracion.ts` (`CONFIGURACION`), sin imports de valores para que
+lo usen servidor y cliente. **No los escribas a pelo en código nuevo**, y si un texto de pantalla
+repite un valor (`08:05`, `10 MB`), léelo de ahí. Lo que aún no está movido, y por qué, está en
+[`09-parametros-del-centro.md`](./09-parametros-del-centro.md). Un test por parámetro fija los
+valores de Consolación (`configuracion.test.ts`).
+
 ## Identidad del colegio
 
 El dominio de Workspace, el nombre, el host y los buzones (Licencias, no-responder, soporte) viven

@@ -135,6 +135,12 @@ contactos que ven las familias.
 
 ⚠️ Sin cambiar `dominio`, **nadie de tu colegio puede entrar**: el login solo admite ese dominio.
 
+**Y un segundo fichero para cómo es tu centro: [`src/lib/configuracion.ts`](../src/lib/configuracion.ts).**
+Niveles de cada etapa, cómo se promociona, desde dónde hay banco de libros, hora límite de
+Puntualidad, calendario escolar, duración de la sesión y tamaño máximo de archivo. Está todo con
+los valores de Consolación; cambia lo que no encaje con tu colegio. Qué es cada cosa, quién la
+lee y **qué queda todavía fuera**: [`09-parametros-del-centro.md`](./09-parametros-del-centro.md).
+
 Lo que **no** sale de ahí y se cambia a mano (son marca y ficheros estáticos):
 
 | Qué | Dónde |
@@ -163,8 +169,8 @@ letra `B`; ver [`02-integracion-educamos.md`](./02-integracion-educamos.md#etapa
 | **Bachillerato** | ✅ (⚠️ sin probar con un export real) | Se guarda como `1BACH`/`2BACH` (+ letra o modalidad); se leen también `BAT`, `BTO` y `Bachillerato`. Sale en Alumnado, Horarios, Tutorías, Cuaderno, Números y Evaluaciones. **No entra** en Banco de libros, Licencias, Puntualidad, Oratorios ni AUTOASM (decisiones en [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)). Si tu Educamos lo nombra de otra forma, se ajusta en `parseBachillerato()` (`src/lib/cursos.ts`) |
 | **Una clase de una etapa que no conocemos** (FP, aula de enlace…) | ✅ no rompe | Esos alumnos **no se importan**, se avisa en la vista previa (una vez por clase) y el resto del fichero entra igual |
 | **FP** (CFGM/CFGS) o **escuela infantil 0-3** | ❌ | Añadir una etapa es tocar `src/lib/cursos.ts` (receta en su cabecera) |
-| Promoción de curso a la manera de Consolación | ⚠️ | Infantil rota 3→4→5→3, Primaria en ciclos de dos años (1↔2, 3↔4, 5↔6, misma letra), ESO sube y 4º egresa, Bachillerato sube y 2º egresa. Si tu colegio promociona 1º→2º de forma normal, el botón «promocionar» de tutorías dará destinos equivocados en Primaria e Infantil: se cambia en `cursoSiguiente()` de `src/lib/cursos.ts` |
-| Banco de libros | ⚠️ | Solo desde 3º de Primaria hasta 4º de ESO (`cursoEnBanco()`, mismo fichero) |
+| Promoción de curso a la manera de Consolación | ⚠️ | Infantil rota 3→4→5→3, Primaria en ciclos de dos años (1↔2, 3↔4, 5↔6, misma letra), ESO sube y 4º egresa, Bachillerato sube y 2º egresa. Si tu colegio promociona 1º→2º de forma normal, cámbialo en `promocion` de `src/lib/configuracion.ts` (`'sube'`) |
+| Banco de libros | ⚠️ | Solo desde 3º de Primaria hasta 4º de ESO: `bancoLibros` en `src/lib/configuracion.ts` |
 | Licencias | ⚠️ | El formulario cubre de 6º de Primaria a 4º de ESO (`CURSOS_FORM` en `src/lib/licencias.ts`) |
 | Puntualidad | ⚠️ | Solo ESO y PDC ([`17-puntualidad.md`](./17-puntualidad.md)) |
 | AUTOASM | ⚠️ | Lista fija de cursos de 3INF a 4ESO, con alcance desde 6º (`autoasm-construir.ts`) |
