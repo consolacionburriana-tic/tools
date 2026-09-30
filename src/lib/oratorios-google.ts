@@ -12,8 +12,9 @@ import type { calendar_v3 } from 'googleapis';
 
 import { calendarConfigurado, conReintentos, getCalendar } from '@/lib/mihorario-google';
 import { etiquetaClase, profesDe, tituloEvento, type SesionOra, type TipoMomento } from '@/lib/oratorios';
+import { CONFIGURACION } from '@/lib/configuracion';
 
-const ZONA = 'Europe/Madrid';
+const ZONA = CONFIGURACION.calendario.zonaHoraria;
 export const ORIGEN = 'tools-oratorios';
 
 export interface DestinoEvento {

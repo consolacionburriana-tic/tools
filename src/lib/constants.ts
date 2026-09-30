@@ -1,4 +1,5 @@
 import { COLEGIO } from '@/lib/colegio';
+import { CONFIGURACION } from '@/lib/configuracion';
 // Contextos del incidente
 export const CONTEXTS = [
   { value: 'aula', label: 'Aula' },
@@ -97,9 +98,9 @@ export function appBaseUrl(): string {
   return (process.env.APP_BASE_URL || COLEGIO.web).replace(/\/+$/, '');
 }
 
-// Curso académico en vigor (sep-ago): en julio de 2026 → '2025-26'.
+// Curso académico en vigor (sep-ago): en julio de 2026 → '2025-26'. El mes de inicio, en `configuracion.ts`.
 export function academicYearActual(fecha = new Date()): string {
   const y = fecha.getFullYear();
-  const inicio = fecha.getMonth() + 1 >= 9 ? y : y - 1;
+  const inicio = fecha.getMonth() + 1 >= CONFIGURACION.calendario.mesInicioCurso ? y : y - 1;
   return `${inicio}-${String((inicio + 1) % 100).padStart(2, '0')}`;
 }

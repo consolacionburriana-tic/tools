@@ -7,11 +7,12 @@ import { normalizarBloqueClase, unirLeyendas, type ResultadoBloque } from '@/lib
 import { leerHorarios } from '@/lib/horarios-lectores';
 import { importarBloques } from '@/lib/horarios-server';
 import { etapaDeCursoHorario } from '@/lib/horarios';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BYTES = CONFIGURACION.archivos.maxMB * 1024 * 1024;
 
 /**
  * Sube un .docx/.xlsx de horarios. Con `confirmar=false` (por defecto) SOLO devuelve la
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const fichero = form.get('fichero');
   if (!(fichero instanceof File)) return NextResponse.json({ error: 'Falta el fichero' }, { status: 400 });
-  if (fichero.size > MAX_BYTES) return NextResponse.json({ error: 'El fichero pasa de 10 MB' }, { status: 400 });
+  if (fichero.size > MAX_BYTES) return NextResponse.json({ error: `El fichero pasa de ${CONFIGURACION.archivos.maxMB} MB` }, { status: 400 });
   if (!/\.(docx|xlsx)$/i.test(fichero.name)) {
     return NextResponse.json({ error: 'Solo .docx o .xlsx de Educamos' }, { status: 400 });
   }

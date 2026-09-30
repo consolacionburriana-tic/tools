@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { hasModule } from '@/lib/auth-guards';
 import { analizarExcel } from '@/lib/licencias-codigos-excel';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 export const maxDuration = 60;
 
-const LIMITE = 10 * 1024 * 1024; // 10 MB, como el resto de subidas del repo
+const LIMITE = CONFIGURACION.archivos.maxMB * 1024 * 1024; // como el resto de subidas del repo
 
 /**
  * Lee el Excel de la editorial y devuelve los códigos. NO toca la base de datos: la pantalla
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const fichero = form.get('fichero');
     if (!(fichero instanceof File)) return NextResponse.json({ error: 'Falta el fichero' }, { status: 400 });
-    if (fichero.size > LIMITE) return NextResponse.json({ error: 'El fichero pasa de 10 MB' }, { status: 413 });
+    if (fichero.size > LIMITE) return NextResponse.json({ error: `El fichero pasa de ${CONFIGURACION.archivos.maxMB} MB` }, { status: 413 });
     const hoja = typeof form.get('hoja') === 'string' ? (form.get('hoja') as string) : undefined;
     const columnaCruda = form.get('columna');
     const columna = typeof columnaCruda === 'string' && columnaCruda !== '' ? Number(columnaCruda) : undefined;

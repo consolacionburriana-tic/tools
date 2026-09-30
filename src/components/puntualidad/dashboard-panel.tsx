@@ -23,6 +23,7 @@ import {
 import { AlertTriangle, CalendarDays, Clock, Users } from 'lucide-react';
 import type { DashboardPuntualidad } from '@/lib/puntualidad-server';
 import { ClaseChip } from './ui';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 const NARANJA = '#ea580c';
 const NARANJA_CLARO = '#fdba74';
@@ -185,7 +186,7 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
           icono={<CalendarDays className="h-4 w-4" />}
           etiqueta="Retraso medio"
           valor={`${datos.minutosMedios} min`}
-          sub="sobre la hora límite (08:05)"
+          sub={`sobre la hora límite (${CONFIGURACION.puntualidad.horaLimite})`}
         />
         <Kpi
           icono={<AlertTriangle className="h-4 w-4" />}

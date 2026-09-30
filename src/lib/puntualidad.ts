@@ -6,12 +6,13 @@
 // retrasos esta semana que con quien llegó tarde por última vez hace cinco meses.
 import { z } from 'zod';
 import { etapaDeCurso } from '@/lib/cursos';
+import { CONFIGURACION } from '@/lib/configuracion';
 
-/** Hora a la que se cierran las puertas: a partir de aquí es retraso. */
-export const HORA_LIMITE = '08:05';
+/** Hora a la que se cierran las puertas: a partir de aquí es retraso. Ver `configuracion.ts`. */
+export const HORA_LIMITE: string = CONFIGURACION.puntualidad.horaLimite;
 
-/** Cada cuántos retrasos NO justificados se avisa al tutor y se pone consecuencia. */
-export const RETRASOS_POR_CONSECUENCIA = 3;
+/** Cada cuántos retrasos NO justificados se avisa al tutor y se pone consecuencia. Ver `configuracion.ts`. */
+export const RETRASOS_POR_CONSECUENCIA: number = CONFIGURACION.puntualidad.retrasosPorConsecuencia;
 
 /**
  * Quién recibe el aviso del tercer retraso de UN alumno concreto.

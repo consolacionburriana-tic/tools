@@ -34,6 +34,7 @@ import {
   type ResumenHistorial,
 } from '@/lib/puntualidad';
 import type { AlumnoBusqueda } from '@/lib/puntualidad-server';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 interface Asignatura {
   id: string;
@@ -673,7 +674,7 @@ export function PuntualidadForm({
                 : 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
             }`}
           >
-            {retraso === 0 ? 'Sin retraso (límite 08:05)' : `${formatoRetraso(retraso)} tarde`}
+            {retraso === 0 ? `Sin retraso (límite ${CONFIGURACION.puntualidad.horaLimite})` : `${formatoRetraso(retraso)} tarde`}
           </span>
         </div>
       </Seccion>

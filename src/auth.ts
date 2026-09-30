@@ -5,11 +5,12 @@ import { db } from '@/db';
 import { authUsers } from '@/db/schema';
 import { eduTeachers } from '@/db/schema';
 import { DOMINIO_LOGIN, type Module, type Role } from '@/lib/permissions';
+import { CONFIGURACION } from '@/lib/configuracion';
 
-// Sesión larga a propósito (10 meses ≈ un curso): el claustro no debe re-loguearse
+// Sesión larga a propósito (≈ un curso; los valores están en `configuracion.ts`): el claustro no debe re-loguearse
 // a mitad de curso. El rol se refresca contra la BBDD cada 15 min sin re-login.
-const DIEZ_MESES_S = 300 * 24 * 60 * 60;
-const REFRESCO_ROL_MS = 15 * 60 * 1000;
+const DURACION_SESION_S = CONFIGURACION.sesion.duracionDias * 24 * 60 * 60;
+const REFRESCO_ROL_MS = CONFIGURACION.sesion.refrescoRolMinutos * 60 * 1000;
 
 export interface AccesoResuelto {
   role: Role | null;
@@ -45,7 +46,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       authorization: { params: { hd: DOMINIO_LOGIN, prompt: 'select_account' } },
     }),
   ],
-  session: { strategy: 'jwt', maxAge: DIEZ_MESES_S },
+  session: { strategy: 'jwt', maxAge: DURACION_SESION_S },
   pages: { signIn: '/gestion/login' },
   callbacks: {
     // El parámetro hd es cosmético: la restricción real de dominio es esta.

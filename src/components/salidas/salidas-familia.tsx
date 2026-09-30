@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { stepAnim } from '@/lib/motion';
 import { COLEGIO } from '@/lib/colegio';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 interface Hijo {
   eduStudentId: string;
@@ -535,7 +536,7 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
                 <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   {file ? file.name : trip.estado === 'subido' ? 'Sustituir justificante' : 'Foto o PDF del justificante de pago'}
                 </span>
-                <span className="text-xs text-zinc-400">jpg, png, heic o pdf · máx. 10 MB</span>
+                <span className="text-xs text-zinc-400">jpg, png, heic o pdf · máx. {CONFIGURACION.archivos.maxMB} MB</span>
               </label>
               <input
                 ref={fileRef}

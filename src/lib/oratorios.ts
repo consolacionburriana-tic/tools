@@ -10,6 +10,7 @@
 import { z } from 'zod';
 
 import { cursoBaseEso, etapaDeCurso, nombreClase } from '@/lib/cursos';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 // ─── Catálogos ───────────────────────────────────────────────────────────────
 
@@ -189,9 +190,9 @@ export function lunesDe(iso: string): string {
   return sumarDias(iso, 1 - diaSemana(iso));
 }
 
-/** Hoy en España, como 'YYYY-MM-DD' (el servidor va en UTC). */
+/** Hoy en el colegio (su zona horaria), como 'YYYY-MM-DD' (el servidor va en UTC). */
 export function hoyEnEspana(ahora = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(ahora);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: CONFIGURACION.calendario.zonaHoraria }).format(ahora);
 }
 
 export function aMin(hhmm: string): number {
@@ -290,14 +291,16 @@ export function pascua(anio: number): string {
 /**
  * Trimestres de partida de un curso ('2026-27'): T1 del inicio al 22-dic, T2 del 7-ene al
  * viernes antes de Ramos, T3 del martes después de Pascua al 19-jun. Se retocan en Ajustes.
+ * Las fechas de partida están en `CONFIGURACION.calendario.trimestres`.
  */
 export function trimestresPorDefecto(academicYear: string, inicioCurso?: string | null): Trimestre[] {
   const y = Number(academicYear.slice(0, 4));
   const p = pascua(y + 1);
+  const t = CONFIGURACION.calendario.trimestres;
   return [
-    { inicio: inicioCurso ?? `${y}-09-01`, fin: `${y}-12-22` },
-    { inicio: `${y + 1}-01-07`, fin: sumarDias(p, -9) },
-    { inicio: sumarDias(p, 2), fin: `${y + 1}-06-19` },
+    { inicio: inicioCurso ?? `${y}-${String(CONFIGURACION.calendario.mesInicioCurso).padStart(2, '0')}-01`, fin: `${y}-${t.finT1}` },
+    { inicio: `${y + 1}-${t.inicioT2}`, fin: sumarDias(p, t.finT2DiasDesdePascua) },
+    { inicio: sumarDias(p, t.inicioT3DiasDesdePascua), fin: `${y + 1}-${t.finT3}` },
   ];
 }
 

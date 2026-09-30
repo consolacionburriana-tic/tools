@@ -19,6 +19,7 @@ import {
   type PermisosNumeros,
 } from '@/lib/numeros';
 import type { Etapa } from '@/lib/cursos';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 interface Foto {
   id: string;
@@ -46,9 +47,9 @@ const PUNTO_ETAPA: Record<Etapa, string> = {
 const TRAZO: Record<Etapa, string> = { EI: 'var(--num-ei)', EP: 'var(--num-ep)', ESO: 'var(--num-eso)', BACH: 'var(--num-bach)' };
 
 const corta = (iso: string) =>
-  new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'Europe/Madrid' });
+  new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit', timeZone: CONFIGURACION.calendario.zonaHoraria });
 const larga = (iso: string) =>
-  new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
+  new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: CONFIGURACION.calendario.zonaHoraria });
 
 function primeroDelMesQueViene(): string {
   const d = new Date();

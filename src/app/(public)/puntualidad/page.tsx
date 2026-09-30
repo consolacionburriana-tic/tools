@@ -8,6 +8,7 @@ import { canAccess } from '@/lib/permissions';
 import { ensureSubjects } from '@/lib/puntualidad-server';
 import { getTeacherByEmail } from '@/lib/educamos-server';
 import { PuntualidadForm } from '@/components/puntualidad/puntualidad-form';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 export const metadata = {
   title: 'Puntualidad · Consolación',
@@ -33,7 +34,7 @@ export default async function PuntualidadPage() {
             <Link href="/gestion" className="font-semibold text-zinc-900 hover:text-orange-600 dark:text-zinc-100 dark:hover:text-orange-400">
               Puntualidad
             </Link>
-            <span className="text-xs text-zinc-400">límite 08:05</span>
+            <span className="text-xs text-zinc-400">límite {CONFIGURACION.puntualidad.horaLimite}</span>
           </div>
           <div className="flex items-center gap-1">
             {canAccess(user, 'puntualidad') && (

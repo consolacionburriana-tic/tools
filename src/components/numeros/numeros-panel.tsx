@@ -45,6 +45,7 @@ import {
   type Preferencias,
 } from '@/lib/numeros';
 import type { Etapa } from '@/lib/cursos';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 // Un color por pestaña (en el punto, el borde y la barra) y uno por etapa: poquito, en su sitio.
 const COLOR: Record<PestanaId, { punto: string; activo: string; barra: string; hex: string }> = {
@@ -203,7 +204,7 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
   const etapasHay = ETAPAS_ORDEN.filter((e) => datos.filas.some((f) => f.etapa === e));
   const total = sumar(datos.filas);
   const fecha = new Date(datos.generadoAt);
-  const fechaLarga = fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
+  const fechaLarga = fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: CONFIGURACION.calendario.zonaHoraria });
   const deQuien = etapa === 'todo' ? (etapasPropias.length ? etapasPropias.map((e) => ETAPA_NOMBRE[e]).join(' y ') : 'todo el cole') : ETAPA_NOMBRE[etapa];
   const subtitulo = `Consolación Burriana · ${deQuien} · ${fechaLarga}`;
 
@@ -332,7 +333,7 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500">
             Curso {datos.academicYear} · <span className="print:hidden">datos de las{' '}
-            {fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })} de hoy</span>
+            {fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: CONFIGURACION.calendario.zonaHoraria })} de hoy</span>
             <span className="hidden print:inline">{deQuien} · {fechaLarga}</span>
           </p>
         </div>

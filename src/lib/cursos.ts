@@ -1,4 +1,5 @@
 // Helpers puros de cursos y etapas (sin IO, testeables).
+// Los números de cada etapa (niveles, promoción, banco de libros) están en `configuracion.ts`.
 //
 // Los códigos de curso de la BBDD central (edu_students.curso) tienen esta forma:
 //   Infantil    : 3INF, 4INF, 5INF          → etapa EI (3-4-5 años)
@@ -17,8 +18,10 @@
 // (infantil → primaria → secundaria → bachillerato) y, dentro de cada etapa, por curso.
 //
 // **Para añadir otra etapa (FP, escuela infantil…)**: añadirla a `ETAPAS` (en su orden), a
-// `ETAPA_LABEL`, y darle sitio en `etapaDeCurso`, `cursoSiguiente` y `cursoEnBanco`. El
-// compilador señala el resto: todo lo que es un `Record<Etapa, …>` no compila hasta que la tenga.
+// `ETAPA_LABEL`, sus niveles y su promoción en `configuracion.ts`, y darle sitio en
+// `etapaDeCurso`. El compilador señala el resto: todo lo que es un `Record<Etapa, …>` no compila hasta que la tenga.
+
+import { CONFIGURACION } from './configuracion';
 
 /** Las etapas que la plataforma sabe trabajar, en el orden en que se enseñan. */
 export const ETAPAS = ['EI', 'EP', 'ESO', 'BACH'] as const;
@@ -125,12 +128,9 @@ export function compararClasesMayoresPrimero(
 }
 
 /**
- * ¿Este curso entra en el banco de libros? El banco arranca en 3º de primaria;
- * infantil, 1º y 2º de primaria quedan fuera. Secundaria y PDC entran siempre.
- */
-/**
  * Curso al que se pasa al promocionar de año, o `null` si no hay destino (egresa).
- * Reglas fijadas por David (2026-09-01):
+ * Las reglas de cada etapa están en `CONFIGURACION.promocion`; las de Consolación, fijadas por
+ * David (2026-09-01), son:
  * - **Infantil** rota el ciclo 3-4-5: `3INF→4INF→5INF→3INF`.
  * - **Primaria** rota dentro del ciclo de dos años: `1↔2`, `3↔4`, `5↔6` (misma letra).
  * - **ESO** sube de verdad (`1→2→3→4`) y **4º egresa**. Los PDC siguen la misma regla
@@ -145,30 +145,33 @@ export function cursoSiguiente(curso: string | null | undefined): string | null 
   // El destino se construye cambiando el número inicial: sin número delante (`BACH1`) no hay a dónde ir.
   if (!curso || !etapa || !/^\d/.test(curso)) return null;
   const nivel = nivelDeCurso(curso);
+  const { min, max } = CONFIGURACION.niveles[etapa];
+  if (nivel < min || nivel > max) return null;
   let destino: number | null;
-  if (etapa === 'EI') {
-    if (nivel < 3 || nivel > 5) return null;
-    destino = nivel === 5 ? 3 : nivel + 1;
-  } else if (etapa === 'EP') {
-    if (nivel < 1 || nivel > 6) return null;
-    destino = nivel % 2 === 1 ? nivel + 1 : nivel - 1;
-  } else if (etapa === 'ESO') {
-    if (nivel < 1 || nivel > 4) return null;
-    destino = nivel === 4 ? null : nivel + 1;
-  } else {
-    // Bachillerato: dos cursos, sube 1º → 2º y 2º egresa.
-    if (nivel < 1 || nivel > 2) return null;
-    destino = nivel === 2 ? null : nivel + 1;
+  switch (CONFIGURACION.promocion[etapa]) {
+    case 'rota':
+      destino = nivel === max ? min : nivel + 1;
+      break;
+    case 'parejas':
+      destino = (nivel - min) % 2 === 0 ? nivel + 1 : nivel - 1;
+      break;
+    case 'sube':
+      destino = nivel === max ? null : nivel + 1;
+      break;
   }
   return destino === null ? null : curso.replace(/^\d+/, String(destino));
 }
 
+/**
+ * ¿Este curso entra en el banco de libros? Lo dice `CONFIGURACION.bancoLibros`: hoy de 3º de
+ * Primaria a 4º de ESO. Infantil, 1º-2º de Primaria y Bachillerato quedan fuera; el PDC entra
+ * con su curso de ESO.
+ */
 export function cursoEnBanco(curso: string | null | undefined): boolean {
   const etapa = etapaDeCurso(curso);
-  if (etapa === 'EI') return false;
-  if (etapa === 'EP') return nivelDeCurso(curso) >= 3;
-  if (etapa === 'ESO') return true;
-  return false; // Bachillerato no entra en el banco (la Xarxa de Llibres llega hasta 4º ESO)
+  if (!etapa) return false;
+  const regla = (CONFIGURACION.bancoLibros as Partial<Record<Etapa, { desdeNivel: number }>>)[etapa];
+  return regla !== undefined && nivelDeCurso(curso) >= regla.desdeNivel;
 }
 
 /**
