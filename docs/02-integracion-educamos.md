@@ -288,6 +288,30 @@ Salió al montar la ficha de alumnado (`docs/21-alumnado.md`), inventariando los
       quien los necesite usa `delExtra()` / `domicilio()` de `src/lib/alumnado.ts`, que es lo
       que hace la ficha.
 
+### Etapas y clases: cómo se lee `CLASE` (2026-09-30)
+
+`parseClase()` (en `src/lib/educamos.ts`) parte la columna `CLASE` en `curso` + `letra`:
+
+| `CLASE` | `curso` | `letra` |
+|---|---|---|
+| `2ESOB`, `3INFA`, `1PRIA` (y `2º ESO B`) | `2ESO`, `3INF`, `1PRI` | `B`, `A`, `A` |
+| `2ESO`, `6PRI`, `3INF` (una sola línea) | igual | `null` |
+| `3ºPPDC`, `3ºPDC`, `3ESOPDC`, `3PDC` | el código tal cual | `PDC` |
+| `1BACHA`, `1º Bachillerato B`, `2BAT`, `2BACHCT` | `1BACH`, `2BACH` | `A`, `B`, `null`, `CT` |
+
+- **PDC**: vale `PPDC` (como lo manda Educamos aquí) y `PDC` (por si otro colegio lo tiene así).
+  Todo el repo lo trata como ESO con letra `PDC` (`esPdc()`, `cursoBaseEso()`).
+- **Bachillerato** — ⚠️ **convención deducida, sin export real todavía**: se guarda siempre como
+  `1BACH`/`2BACH` aunque llegue como `BAT`, `BTO` o `Bachillerato`; la letra (o modalidad) puede
+  tener hasta tres caracteres. Vive en `parseBachillerato()` de `cursos.ts`, que también usan el
+  import de Horarios y el parser de tutorías. **Cuando llegue el primer fichero real, comprobar
+  esto primero.**
+- **Etapa desconocida**: si `CLASE` viene informada pero `etapaDeCurso()` no la reconoce (FP,
+  un aula de enlace…), esa fila **no se importa** —ni el alumno ni sus tutores— y el fichero
+  sigue. `parseEducamosFile` devuelve esas filas en `omitidas` y avisa una vez por clase; la vista
+  previa las conoce para no dar por «desaparecido» a quien ya estuviera en la BBDD. Sin `CLASE`
+  (curso `null`) sí se importa, como siempre.
+
 ### Tutor personal: reparto del alumnado entre los tutores de una clase (2026-09-03)
 
 En Infantil y Primaria lo normal es un tutor por clase, pero **a veces son dos** (y como mucho

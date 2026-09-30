@@ -7,8 +7,8 @@ No explica los módulos (eso es [`plataforma.md`](./plataforma.md)) ni cómo se 
 > **Para quién es:** colegios con **Google Workspace for Education** y **Educamos**. La gracia
 > de la plataforma es importar alumnado y profesorado del export de Educamos y que todos los
 > módulos ya lo tengan (decisión de diseño, 30-sep-2026: no hay lector para otros programas de
-> gestión). Antes de empezar, mira el **§7**: la estructura de etapas y cursos para la que está
-> hecha (Infantil, Primaria y ESO; **Bachillerato aún no**).
+> gestión). Antes de empezar, mira el **§7**: la estructura de etapas y cursos que soporta
+> (Infantil, Primaria, ESO y Bachillerato).
 
 > **Estado de esta guía:** escrita leyendo el código y la configuración reales del repo. El
 > despliegue desde cero en un colegio ajeno **todavía no se ha ensayado de punta a punta**: si
@@ -152,23 +152,26 @@ tras cambiar, `pnpm lint && pnpm build && pnpm test` deben seguir pasando.
 
 ## 7 · Etapas y clases: qué soporta tu centro
 
-La estructura para la que está hecha es la de un colegio de **Infantil (3-4-5 años), Primaria
-(1º-6º) y ESO (1º-4º)**. Los cursos salen del export de Educamos (`2ESOB` → curso `2ESO`, letra `B`).
+La estructura de partida es la de un colegio de **Infantil (3-4-5 años), Primaria (1º-6º), ESO
+(1º-4º) y Bachillerato (1º-2º)**. Los cursos salen del export de Educamos (`2ESOB` → curso `2ESO`,
+letra `B`; ver [`02-integracion-educamos.md`](./02-integracion-educamos.md#etapas-y-clases-cómo-se-lee-clase-2026-09-30)).
 
 | Tu centro tiene… | ¿Funciona? | Detalle |
 |---|---|---|
-| **Varias líneas por curso** (A, B, C, D…: 2, 3, 4 o más clases) | ✅ | La letra es una sola letra A-Z que viene de Educamos; no hay límite ni lista fija, y se ordenan por letra. Cursos sin letra (típico en infantil): también |
-| **PDC** (diversificación) | ✅ | Se trata como ESO con letra `PDC` |
-| **Bachillerato** | ❌ todavía | Horarios reconoce el código `BACH` (etapa prevista, desactivada), pero en el resto (alumnado, tutorías, cuaderno, números, banco de libros, promoción de curso) esos alumnos salen «sin etapa», al final de las listas y sin promocionar. No es configuración: unos 30 ficheros dependen de las tres etapas |
-| **FP** (CFGM/CFGS) o **escuela infantil 0-3** | ❌ | Igual que Bachillerato |
-| Promoción de curso a la manera de Consolación | ⚠️ | Infantil rota 3→4→5→3, Primaria en ciclos de dos años (1↔2, 3↔4, 5↔6, misma letra) y ESO sube con 4º egresando. Si tu colegio promociona 1º→2º de forma normal, el botón «promocionar» de tutorías dará destinos equivocados: se cambia en `cursoSiguiente()` de `src/lib/cursos.ts` |
-| Banco de libros | ⚠️ | Solo desde 3º de Primaria (`cursoEnBanco()`, mismo fichero) |
+| **Varias líneas por curso** (A, B, C, D…: 2, 3, 4 o más clases) | ✅ | La letra viene de Educamos; no hay límite ni lista fija, y se ordenan por letra. Cursos de una sola línea (sin letra): también |
+| **PDC** (diversificación) | ✅ | Vale `PPDC` (como lo manda Educamos aquí) o `PDC`; se trata como ESO con letra `PDC` |
+| **Bachillerato** | ✅ (⚠️ sin probar con un export real) | Se guarda como `1BACH`/`2BACH` (+ letra o modalidad); se leen también `BAT`, `BTO` y `Bachillerato`. Sale en Alumnado, Horarios, Tutorías, Cuaderno, Números y Evaluaciones. **No entra** en Banco de libros, Licencias, Puntualidad, Oratorios ni AUTOASM (decisiones en [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)). Si tu Educamos lo nombra de otra forma, se ajusta en `parseBachillerato()` (`src/lib/cursos.ts`) |
+| **Una clase de una etapa que no conocemos** (FP, aula de enlace…) | ✅ no rompe | Esos alumnos **no se importan**, se avisa en la vista previa (una vez por clase) y el resto del fichero entra igual |
+| **FP** (CFGM/CFGS) o **escuela infantil 0-3** | ❌ | Añadir una etapa es tocar `src/lib/cursos.ts` (receta en su cabecera) |
+| Promoción de curso a la manera de Consolación | ⚠️ | Infantil rota 3→4→5→3, Primaria en ciclos de dos años (1↔2, 3↔4, 5↔6, misma letra), ESO sube y 4º egresa, Bachillerato sube y 2º egresa. Si tu colegio promociona 1º→2º de forma normal, el botón «promocionar» de tutorías dará destinos equivocados en Primaria e Infantil: se cambia en `cursoSiguiente()` de `src/lib/cursos.ts` |
+| Banco de libros | ⚠️ | Solo desde 3º de Primaria hasta 4º de ESO (`cursoEnBanco()`, mismo fichero) |
 | Licencias | ⚠️ | El formulario cubre de 6º de Primaria a 4º de ESO (`CURSOS_FORM` en `src/lib/licencias.ts`) |
 | Puntualidad | ⚠️ | Solo ESO y PDC ([`17-puntualidad.md`](./17-puntualidad.md)) |
 | AUTOASM | ⚠️ | Lista fija de cursos de 3INF a 4ESO, con alcance desde 6º (`autoasm-construir.ts`) |
 
-Lo pendiente para dar soporte a Bachillerato está apuntado en
-[`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md).
+Para que un profe vea a Bachillerato en Alumnado, márcale la etapa «Bachillerato» en
+`/gestion/profes` (o dale una tutoría o un horario en un curso de Bachillerato); dirección y quien
+ve el centro entero lo ven sin más.
 
 ## 8 · Quitar lo que no uses
 

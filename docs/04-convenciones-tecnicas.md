@@ -225,6 +225,25 @@ src/components/<modulo>/          # componentes propios del módulo
   el ZIP y `word/document.xml` se recorre con el árbol mínimo de `src/lib/horarios-lectores.ts`.
   No añadas `mammoth` ni `jszip` para esto.
 
+## Etapas y cursos
+
+Las etapas (`Etapa`: Infantil, Primaria, ESO, Bachillerato) y todo lo que se decide por curso
+—reconocerlo, promocionarlo, si entra en el banco— viven en `src/lib/cursos.ts`. Reglas:
+
+- **Nunca escribas `'EI' | 'EP' | 'ESO'` a mano** (ni `['EI','EP','ESO']`, ni `z.enum([...])`):
+  importa `Etapa`, `ETAPAS` y `ETAPA_LABEL`. Así una etapa nueva entra sola.
+- **Cuidado con lo que el compilador no ve**: un `Record<string, …>` inicializado con tres claves, o
+  un `find(...)` sobre una lista fija, descartan en silencio las clases de una etapa nueva
+  (pasó con `tutorias-panel` y con Evaluaciones). Recorre `ETAPAS`.
+- **Cuidado con `else` = ESO** (`CASE … ELSE 2`, `return '… ESO'` al final): ahora hay una etapa
+  detrás de la ESO. Números tenía varios.
+- **No compares letras con `includes`**: `'BACH'` contiene la A, la B y la C.
+- Una etapa nueva se añade a `ETAPAS`/`ETAPA_LABEL` y a `etapaDeCurso`, `cursoSiguiente` y
+  `cursoEnBanco`; `tsc` señala los `Record<Etapa, …>` que faltan. Prueba de humo: los tests de
+  `etapas-bachillerato.test.ts`.
+- Al importar de Educamos, una etapa que no se reconoce **no importa** a ese alumno pero **no
+  rompe** el fichero (ver `docs/02-integracion-educamos.md`).
+
 ## Identidad del colegio
 
 El dominio de Workspace, el nombre, el host y los buzones (Licencias, no-responder, soporte) viven

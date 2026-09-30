@@ -495,7 +495,7 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
    materias de horarios dejaría a Puntualidad sin catálogo editable unos días, sin ganar
    nada. Orden: primero la pantalla de `hor_materias` (Fase 1), después la migración de
    Puntualidad en su propio commit.
-2. **Etapas: EI, EP y ESO activas; BACH, CFGM y CFGS previstas y desactivadas.** Están en
+2. **Etapas: EI, EP y ESO activas; BACH, CFGM y CFGS previstas y desactivadas.** *(Actualización 30-sep-2026: BACH ya está activa y forma parte de `Etapa` en `cursos.ts`; CFGM y CFGS siguen previstas.)* Están en
    `ETAPAS_HORARIO` con su `active`. La resolución de etapa para horarios vive en
    `etapaDeCursoHorario()` y **no** en `cursos.ts`: ampliar el tipo `Etapa` compartido
    obligaría a inventar reglas de promoción (`cursoSiguiente`) y de banco de libros

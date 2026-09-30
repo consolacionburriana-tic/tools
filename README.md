@@ -9,8 +9,8 @@ mismo patrón:
 Hecho para funcionar bien en un **iPad compartido** (se instala como app) y pensado para que lo
 puedan **desplegar otros colegios** con sus propias cuentas. La gracia: **importas el alumnado y
 el profesorado desde Educamos y todos los módulos ya los tienen**. Por eso está pensado para
-colegios con **Educamos** y **Google Workspace for Education**, con Infantil, Primaria y ESO
-(Bachillerato todavía no; ver el §7 de la guía).
+colegios con **Educamos** y **Google Workspace for Education**, con Infantil, Primaria, ESO y Bachillerato
+(ver el §7 de la guía para lo que soporta cada módulo).
 
 ## ¿Quieres tu propia copia para tu colegio?
 

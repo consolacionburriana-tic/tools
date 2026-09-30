@@ -186,6 +186,11 @@ conexión). Auditoría de cambios y dashboard de dirección siguen como ideas en
   no hay nada, lo dice y ofrece la entrada del profesorado. Un módulo con pantalla pública
   y auto-explicativa se asoma a la portada declarándose en `src/lib/portada.ts`; ver
   [`22-portada.md`](./22-portada.md). Ningún módulo se enlaza "a pelo" desde la portada.
+- **Etapas y cursos, en un solo sitio: `src/lib/cursos.ts`.** Infantil, Primaria, ESO y
+  Bachillerato (`Etapa`, `ETAPAS`, `ETAPA_LABEL`), cómo se reconoce un curso, cómo se promociona
+  y si entra en el banco. Ningún módulo enumera las etapas a mano: importa de ahí (ver
+  [`04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md#etapas-y-cursos)). Nombre, dominio
+  y buzones del colegio: `src/lib/colegio.ts`.
 - **Identificación pública de familias SIN datos personales**: los formularios de familias
   nunca buscan por nombre/apellidos ni muestran datos sin enmascarar. Patrón común en
   `src/lib/familias{,-server}.ts`: DNI/NIE del tutor → sus hijos como "Fra. M. Luc." · NIA →
