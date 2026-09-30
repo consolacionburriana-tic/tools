@@ -5,7 +5,7 @@
 // «¿a quién llamo?», «¿este es del banco de libros / tiene el pedido hecho?» y «dame su NIA».
 // Todo lo que hay aquí está al servicio de eso.
 // Ficha del módulo: docs/21-alumnado.md
-import { cursoBaseEso, etapaDeCurso } from '@/lib/cursos';
+import { cursoBaseEso, ETAPA_LABEL, etapaDeCurso } from '@/lib/cursos';
 
 // ─── Búsqueda ─────────────────────────────────────────────────────────────────
 
@@ -218,7 +218,10 @@ export function claseLarga(curso: string | null | undefined, letra: string | nul
   const m = /^(\d+)\s*[ºo°]?\s*(.*)$/.exec(curso);
   const resto = (m?.[2] ?? '').trim().replace(/^PPDC$/i, 'PDC');
   const base = m ? `${m[1]}º ${resto}`.trim() : curso;
-  const cola = letra && !base.toUpperCase().includes(letra.toUpperCase()) ? ` ${letra}` : '';
+  // La letra solo sobra si ya es la última palabra del curso (`3º PDC` + `PDC`). Ojo: NO vale
+  // «contenida en»: `BACH` contiene la A, la B y la C, y las clases de Bachillerato perderían la letra.
+  const ultima = base.split(/\s+/).pop()?.toUpperCase();
+  const cola = letra && ultima !== letra.toUpperCase() ? ` ${letra}` : '';
   return `${base}${cola}`;
 }
 
@@ -449,7 +452,7 @@ export function aplicaMaterial(
   });
 }
 
-const ETAPA_NOMBRE: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'Secundaria' };
+const ETAPA_NOMBRE: Record<string, string> = ETAPA_LABEL;
 
 /** «Primaria · 1º ESO · 2º ESO B», para decir a quién va sin abrir nada. */
 export function describirDestinos(destinos: readonly DestinoMaterial[]): string {

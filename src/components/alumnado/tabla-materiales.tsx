@@ -27,6 +27,7 @@ import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista, ClaseListado, MaterialLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
 import { BarraTabla, Celda, CeldaAlumno, ColumnaBoton, useGuardado, type TonoTabla } from './piezas-tabla';
+import { ETAPA_LABEL, ETAPAS as TODAS_LAS_ETAPAS, type Etapa } from '@/lib/cursos';
 
 const TONO: Record<string, TonoTabla> = { pagado: 'si', no: 'no', becado: 'beca', no_aplica: 'gris', null: 'gris' };
 
@@ -293,11 +294,7 @@ export function TablaMateriales({
 
 // ─── Crear / editar un material ───────────────────────────────────────────────
 
-const ETAPAS: { etapa: 'EI' | 'EP' | 'ESO'; texto: string }[] = [
-  { etapa: 'EI', texto: 'Infantil' },
-  { etapa: 'EP', texto: 'Primaria' },
-  { etapa: 'ESO', texto: 'Secundaria' },
-];
+const ETAPAS: { etapa: Etapa; texto: string }[] = TODAS_LAS_ETAPAS.map((etapa) => ({ etapa, texto: ETAPA_LABEL[etapa] }));
 
 const claveDestino = (d: DestinoMaterial) =>
   d.tipo === 'etapa' ? `e:${d.etapa}` : d.tipo === 'curso' ? `c:${d.curso}` : `k:${d.curso}|${d.letra ?? ''}`;

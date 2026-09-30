@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ETAPAS } from '@/lib/cursos';
 
 /** Lo que se manda al crear o editar un material. Compartido por las dos rutas. */
 export const esquemaMaterial = z.object({
@@ -8,7 +9,7 @@ export const esquemaMaterial = z.object({
   destinos: z
     .array(
       z.discriminatedUnion('tipo', [
-        z.object({ tipo: z.literal('etapa'), etapa: z.enum(['EI', 'EP', 'ESO']) }),
+        z.object({ tipo: z.literal('etapa'), etapa: z.enum(ETAPAS) }),
         z.object({ tipo: z.literal('curso'), curso: z.string().min(1).max(20) }),
         z.object({ tipo: z.literal('clase'), curso: z.string().min(1).max(20), letra: z.string().max(10).nullable() }),
       ]),

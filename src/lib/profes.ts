@@ -3,7 +3,7 @@
 // Criterio (acordado con David): por ETAPA primero (infantil → primaria → secundaria),
 // dentro de cada etapa los TUTORES por orden de su clase y luego el resto de profes
 // ("otros") alfabéticos por nombre. Los profes sin etapa caen en una sección "General".
-import { ordenCurso, type Etapa } from '@/lib/cursos';
+import { ordenCurso, parseBachillerato, type Etapa } from '@/lib/cursos';
 import { nombresDe, type NombrePersona } from '@/lib/personas';
 
 export interface ProfeItem {
@@ -27,6 +27,7 @@ const GRUPOS: { clave: Etapa | 'General'; label: string }[] = [
   { clave: 'EI', label: 'Infantil' },
   { clave: 'EP', label: 'Primaria' },
   { clave: 'ESO', label: 'Secundaria' },
+  { clave: 'BACH', label: 'Bachillerato' },
   { clave: 'General', label: 'General' },
 ];
 
@@ -46,10 +47,14 @@ export function claseTutorAKey(claseTutor: string | null): string | null {
   if (!claseTutor) return null;
   const limpio = claseTutor.toUpperCase().replace(/[º°.\s]/g, '');
   const m = limpio.match(/^(\d+)(INF|PRI|ESO|PPDC|PDC)([A-Z]?)$/);
-  if (!m) return null;
-  const [, nivel, tramo, letra] = m;
-  if (tramo === 'PPDC' || tramo === 'PDC') return `${nivel}ºPPDC|PDC`;
-  return `${nivel}${tramo}|${letra}`;
+  if (m) {
+    const [, nivel, tramo, letra] = m;
+    if (tramo === 'PPDC' || tramo === 'PDC') return `${nivel}ºPPDC|PDC`;
+    return `${nivel}${tramo}|${letra}`;
+  }
+  // Bachillerato se guarda siempre como `1BACH` (ver `cursos.ts`), venga como venga escrito.
+  const bach = parseBachillerato(limpio);
+  return bach ? `${bach.curso}|${bach.letra ?? ''}` : null;
 }
 
 /** Agrupa el profesorado por etapa siguiendo el criterio del repo. */

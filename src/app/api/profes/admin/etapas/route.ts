@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { fijarEtapasProfe } from '@/lib/educamos-server';
+import { ETAPAS } from '@/lib/cursos';
 
 export const dynamic = 'force-dynamic';
 
 const cuerpo = z.object({
   teacherId: z.string().uuid(),
-  etapas: z.array(z.enum(['EI', 'EP', 'ESO'])).max(3),
+  etapas: z.array(z.enum(ETAPAS)).max(ETAPAS.length),
 });
 
 /**

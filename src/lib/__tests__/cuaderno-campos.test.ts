@@ -187,13 +187,20 @@ describe('etapas de una plantilla', () => {
   });
 
   it('ignora lo que no sea una etapa del colegio', () => {
-    expect(etapasDePlantilla({ etapas: ['ESO', 'BACH'] })).toEqual(['ESO']);
-    expect(etapasDePlantilla({ etapa: 'BACH' })).toEqual([]);
+    expect(etapasDePlantilla({ etapas: ['ESO', 'CFGM'] })).toEqual(['ESO']);
+    expect(etapasDePlantilla({ etapa: 'CFGM' })).toEqual([]);
+  });
+
+  it('Bachillerato es una etapa más', () => {
+    expect(etapasDePlantilla({ etapas: ['BACH', 'ESO'] })).toEqual(['ESO', 'BACH']);
+    expect(etapasDePlantilla({ etapa: 'BACH' })).toEqual(['BACH']);
   });
 
   it('lo cuenta en el panel de forma legible', () => {
     expect(etiquetaEtapas({ etapas: [] })).toBe('todas las etapas');
-    expect(etiquetaEtapas({ etapas: ['EI', 'EP', 'ESO'] })).toBe('todas las etapas');
+    expect(etiquetaEtapas({ etapas: ['EI', 'EP', 'ESO', 'BACH'] })).toBe('todas las etapas');
+    // Las tres de antes ya no son «todas»: dejan fuera Bachillerato.
+    expect(etiquetaEtapas({ etapas: ['EI', 'EP', 'ESO'] })).toBe('Infantil + Primaria + Secundaria');
     expect(etiquetaEtapas({ etapas: ['EP'] })).toBe('Primaria');
     expect(etiquetaEtapas({ etapas: ['ESO', 'EP'] })).toBe('Primaria + Secundaria');
   });

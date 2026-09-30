@@ -12,6 +12,7 @@ import { claseDeAlumno, normalizaNia, siglasDeAlumno } from '@/lib/abc';
 import { academicYearActual } from '@/lib/constants';
 import { getTeacherByEmail } from '@/lib/educamos-server';
 import { nombreProfe } from '@/lib/profes';
+import { ETAPA_LABEL } from '@/lib/cursos';
 
 /** Alumno tal y como sale en el formulario: dos iniciales y su clase, nada más. */
 export interface AlumnoSeguimiento {
@@ -206,7 +207,6 @@ export interface DirectorioDestinatarios {
   claustro: PersonaDestinataria[]; // buscador (incluye a los sugeridos)
 }
 
-const ETAPA_LABEL: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'Secundaria' };
 
 /**
  * Opciones de destinatarios para un alumno del ABC: el claustro con etiqueta y los
@@ -256,7 +256,7 @@ export async function getDirectorioDestinatarios(abcStudentId: string): Promise<
         ? 'Orientación'
         : esTutorDelAlumno
           ? `Tutor/a de ${clase || 'su clase'}`
-          : (ETAPA_LABEL[p.etapa ?? ''] ?? 'Claustro'),
+          : ((ETAPA_LABEL as Record<string, string>)[p.etapa ?? ''] ?? 'Claustro'),
       motivo: esOrientacion ? 'orientacion' : esTutorDelAlumno ? 'tutor' : 'claustro',
     });
   }

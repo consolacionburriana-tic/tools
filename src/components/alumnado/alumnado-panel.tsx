@@ -37,9 +37,10 @@ import { casaBusqueda, colorAvatar, iniciales, type EstadoMaterial } from '@/lib
 import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista, ClaseListado, FichaAlumno, MaterialLista, ProteccionLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
+import { ETAPA_LABEL as ETAPA_LABEL_ETAPAS, ETAPAS, type Etapa } from '@/lib/cursos';
 
-const ETAPA_ORDEN = ['EI', 'EP', 'ESO'] as const;
-const ETAPA_LABEL: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'Secundaria', otras: 'Otras' };
+const ETAPA_ORDEN = ETAPAS;
+const ETAPA_LABEL: Record<string, string> = { ...ETAPA_LABEL_ETAPAS, otras: 'Otras' };
 
 const claveClase = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
 
@@ -60,7 +61,7 @@ export function AlumnadoPanel({
   alumnos: AlumnoLista[];
   clases: ClaseListado[];
   /** Etapas que alcanza quien mira. Vacío = todo el centro. */
-  etapas: readonly ('EI' | 'EP' | 'ESO')[];
+  etapas: readonly Etapa[];
   /** Sus tutorías: se entra directamente en la primera. */
   propias: readonly { curso: string; letra: string | null }[];
   /** La ficha de `?alumno=…`, ya resuelta en el servidor. Ver el comentario de arriba. */
@@ -548,7 +549,7 @@ export function AlumnadoPanel({
 }
 
 /** «Secundaria», «Infantil y Primaria»… tal y como se dice en voz alta. */
-export function listaEtapas(etapas: readonly ('EI' | 'EP' | 'ESO')[]): string {
+export function listaEtapas(etapas: readonly Etapa[]): string {
   const nombres = ETAPA_ORDEN.filter((e) => etapas.includes(e)).map((e) => ETAPA_LABEL[e]);
   if (nombres.length <= 1) return nombres[0] ?? 'tu etapa';
   return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
@@ -566,7 +567,7 @@ export function ResumenAlumnado({
 }: {
   total: number;
   clases: number;
-  etapas: readonly ('EI' | 'EP' | 'ESO')[];
+  etapas: readonly Etapa[];
 }) {
   return (
     <p className="inline-flex items-center gap-1.5 text-xs text-zinc-500">

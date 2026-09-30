@@ -17,6 +17,7 @@ import {
 import { Celebracion, sortearCelebracion, type IdCelebracion } from '@/components/evaluaciones/celebraciones';
 import { ProgresoAnillo } from '@/components/evaluaciones/progreso-anillo';
 import { EstrellasInput } from '@/components/evaluaciones/estrellas-input';
+import { ETAPA_LABEL, ETAPAS as ETAPAS_CENTRO } from '@/lib/cursos';
 
 export interface PreguntaPublica {
   id: string;
@@ -65,11 +66,7 @@ interface ResultadoQuiz {
   feedback: string | null;
 }
 
-const ETAPAS = [
-  { value: 'EI', label: 'Infantil' },
-  { value: 'EP', label: 'Primaria' },
-  { value: 'ESO', label: 'Secundaria' },
-];
+const ETAPAS = ETAPAS_CENTRO.map((value) => ({ value, label: ETAPA_LABEL[value] }));
 
 // Los dos campos de cabecera se validan como una pregunta más y se marcan igual en
 // rojo: así no hace falta ningún alert() en todo el formulario.

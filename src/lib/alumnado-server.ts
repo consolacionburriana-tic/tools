@@ -39,7 +39,7 @@ import {
   salTrips,
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
-import { compararClases, etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { compararClases, ETAPAS, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import { correoBonito, mayusculasBellas, nombresDe } from '@/lib/personas';
 import {
   CAMPOS_PROTECCION,
@@ -142,7 +142,6 @@ export function veTodoElCentro(user: Acceso): boolean {
   return Boolean(user.role && VE_TODO.includes(user.role)) || canAccess(user, 'comunicacion');
 }
 
-const ETAPAS: readonly Etapa[] = ['EI', 'EP', 'ESO'];
 
 function unirEtapas(lista: readonly (string | null | undefined)[]): Etapa[] {
   const set = new Set(lista);

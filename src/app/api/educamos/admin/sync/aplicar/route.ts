@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       filename: file.name,
       formato: parsed.formato,
       parseWarnings: parsed.warnings,
+      omitidas: parsed.omitidas,
     });
     return NextResponse.json({ ok: true, ...resultado });
   } catch (error) {

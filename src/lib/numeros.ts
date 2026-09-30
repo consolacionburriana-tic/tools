@@ -5,7 +5,7 @@
 // columnas de cada pestaña, «solo lo básico», las frases para pegar y los formatos de copiar.
 // Así cambiar de pestaña o de nivel no cuesta ni una petición, y una foto del histórico se
 // lee con las mismas funciones que la tabla de hoy.
-import { compararClases, cursoBaseEso, cursoEnBanco, etapaDeCurso, nivelDeCurso, type Etapa } from '@/lib/cursos';
+import { compararClases, cursoBaseEso, cursoEnBanco, esPdc, ETAPA_LABEL, ETAPAS, etapaDeCurso, nivelDeCurso, type Etapa } from '@/lib/cursos';
 
 // ─── Los datos ────────────────────────────────────────────────────────────────
 
@@ -47,7 +47,8 @@ export interface DatosNumeros {
   filas: FilaClase[];
   materiales: MaterialNumeros[];
   campana: CampanaNumeros | null;
-  profes: { EI: number; EP: number; ESO: number; sinEtapa: number };
+  // `BACH` es opcional: las fotos anteriores a Bachillerato no lo traen y se leen como 0.
+  profes: { EI: number; EP: number; ESO: number; BACH?: number; sinEtapa: number };
 }
 
 export const g = (v: Valores, clave: string): number => v[clave] ?? 0;
@@ -60,17 +61,17 @@ export function sumar(filas: readonly { v: Valores }[]): Valores {
 
 // ─── Nombres ──────────────────────────────────────────────────────────────────
 
-export const ETAPA_NOMBRE: Record<Etapa, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'Secundaria' };
-export const ETAPAS_ORDEN: readonly Etapa[] = ['EI', 'EP', 'ESO'];
+export const ETAPA_NOMBRE: Record<Etapa, string> = ETAPA_LABEL;
+export const ETAPAS_ORDEN: readonly Etapa[] = ETAPAS;
 
 /** Colores de etapa para SVG y canvas (validados para daltonismo en claro y oscuro). */
 export const ETAPA_HEX: Record<Etapa, { claro: string; oscuro: string }> = {
   EI: { claro: '#d97316', oscuro: '#d4772c' },
   EP: { claro: '#2563eb', oscuro: '#4f80ee' },
   ESO: { claro: '#0e9f6e', oscuro: '#1f9f6d' },
+  BACH: { claro: '#475569', oscuro: '#94a3b8' }, // pizarra: el violeta ya es «protección de datos»
 };
 
-const esPdc = (curso: string, letra: string | null) => /PDC/i.test(curso) || letra?.toUpperCase() === 'PDC';
 
 /** «3 años A», «1º EP A», «1º ESO A», «3º PDC». */
 export function nombreClase(curso: string, letra: string | null): string {
@@ -79,6 +80,7 @@ export function nombreClase(curso: string, letra: string | null): string {
   const l = letra ? ` ${letra}` : '';
   if (etapa === 'EI') return `${nivel} años${l}`;
   if (etapa === 'EP') return `${nivel}º EP${l}`;
+  if (etapa === 'BACH') return `${nivel}º Bach${l}`;
   if (esPdc(curso, letra)) return `${nivel}º PDC`;
   return `${nivel}º ESO${l}`;
 }
@@ -89,6 +91,7 @@ export function nombreCurso(curso: string): string {
   const nivel = nivelDeCurso(curso);
   if (etapa === 'EI') return `Infantil ${nivel} años`;
   if (etapa === 'EP') return `${nivel}º Primaria`;
+  if (etapa === 'BACH') return `${nivel}º Bachillerato`;
   return `${nivel}º ESO`;
 }
 
@@ -680,7 +683,7 @@ export const METRICAS_HISTORICO: readonly MetricaHistorico[] = [
 
 /** Un número por etapa (y el total) de una foto. */
 export function porEtapa(filas: readonly FilaClase[], valor: (v: Valores) => number): Record<Etapa | 'total', number> {
-  const out = { EI: 0, EP: 0, ESO: 0, total: 0 } as Record<Etapa | 'total', number>;
+  const out = { EI: 0, EP: 0, ESO: 0, BACH: 0, total: 0 } as Record<Etapa | 'total', number>;
   for (const f of filas) {
     const n = valor(f.v);
     out[f.etapa] += n;
@@ -707,6 +710,7 @@ export function anioQueToca(curso: string, inicio: number): number | null {
   if (!etapa || nivel === 99) return null;
   if (etapa === 'EI') return inicio - nivel;
   if (etapa === 'EP') return inicio - (nivel + 5);
+  if (etapa === 'BACH') return inicio - (nivel + 15); // 1º de Bachillerato: 16 años
   return inicio - (nivel + 11);
 }
 
@@ -717,6 +721,7 @@ export function anioDeEmpezar3(curso: string, inicio: number): number | null {
   if (!etapa || nivel === 99) return null;
   if (etapa === 'EI') return inicio - (nivel - 3);
   if (etapa === 'EP') return inicio - (nivel + 2);
+  if (etapa === 'BACH') return inicio - (nivel + 12);
   return inicio - (nivel + 8);
 }
 

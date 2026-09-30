@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Lightbulb, MessageSquareQuote, Users } from 'lu
 import { LetraBadge } from '@/components/evaluaciones/color-picker';
 import { claseLabel, escalaDe, tonoDe } from '@/lib/evaluaciones';
 import type { Resultados } from '@/lib/evaluaciones-server';
+import { ETAPA_LABEL, esEtapa } from '@/lib/cursos';
 
 const TONO_BARRA: Record<string, string> = {
   bien: 'bg-emerald-500',
@@ -205,7 +206,7 @@ export function ResultadosPanel({
             {resultados.etapas.map((e) => (
               <div key={e.etapa} className="flex items-center gap-3">
                 <span className="w-24 shrink-0 text-sm text-zinc-600 dark:text-zinc-300">
-                  {e.etapa === 'EI' ? 'Infantil' : e.etapa === 'EP' ? 'Primaria' : 'Secundaria'}
+                  {esEtapa(e.etapa) ? ETAPA_LABEL[e.etapa] : 'Secundaria'}
                 </span>
                 <Barra pct={e.mediaPct} />
                 <span className="w-16 shrink-0 text-right text-xs tabular-nums text-zinc-500">

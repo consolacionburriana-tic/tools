@@ -22,6 +22,7 @@ const ETAPAS: { clave: Etapa; label: string }[] = [
   { clave: 'EI', label: 'Infantil' },
   { clave: 'EP', label: 'Primaria' },
   { clave: 'ESO', label: 'ESO' },
+  { clave: 'BACH', label: 'Bachillerato' },
 ];
 
 export function EtapasPanel({ profes }: { profes: ProfeEtapasUI[] }) {

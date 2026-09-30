@@ -3,7 +3,7 @@
 // que no sabe de temas, y con los colores de etapa para leerla de un vistazo.
 import { ETAPA_HEX, type TablaCopiable } from '@/lib/numeros';
 
-const FONDO_ETAPA = { EI: '#fdf2e7', EP: '#edf2fe', ESO: '#e7f6f0' } as const;
+const FONDO_ETAPA = { EI: '#fdf2e7', EP: '#edf2fe', ESO: '#e7f6f0', BACH: '#eef1f5' } as const;
 
 export function tablaAImagen(t: TablaCopiable, color: string): Promise<Blob | null> {
   const dpr = 2;

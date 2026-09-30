@@ -62,11 +62,13 @@ const PUNTO_ETAPA: Record<Etapa, string> = {
   EI: 'bg-[#d97316] dark:bg-[#d4772c]',
   EP: 'bg-[#2563eb] dark:bg-[#4f80ee]',
   ESO: 'bg-[#0e9f6e] dark:bg-[#1f9f6d]',
+  BACH: 'bg-[#475569] dark:bg-[#94a3b8]',
 };
 const FONDO_ETAPA: Record<Etapa, string> = {
   EI: 'bg-orange-50 dark:bg-orange-500/10',
   EP: 'bg-blue-50 dark:bg-blue-500/10',
   ESO: 'bg-emerald-50 dark:bg-emerald-500/10',
+  BACH: 'bg-slate-100 dark:bg-slate-500/10',
 };
 
 interface Props {

@@ -2,7 +2,7 @@
 // mapeo de cabeceras, cascada de matching y generación de código interno.
 // Sin IO: las queries Drizzle viven en educamos-server.ts.
 import * as XLSX from 'xlsx';
-import { cursoBaseEso } from './cursos';
+import { cursoBaseEso, etapaDeCurso, parseBachillerato } from './cursos';
 import { CURSOS_FORM } from './licencias';
 import { COLEGIO } from '@/lib/colegio';
 
@@ -86,6 +86,12 @@ export interface ParseResult {
   /** Cabeceras del bloque pagadores, descartadas por completo (no van ni a extra). */
   cabecerasDescartadas: string[];
   warnings: string[];
+  /**
+   * Alumnos cuya clase no es de ninguna etapa conocida (`etapaDeCurso` devuelve null): NO están
+   * en `rows`, así que no se importan ni ellos ni sus tutores, pero el resto del fichero sí.
+   * Se guardan aparte para que la vista previa no los dé por «desaparecidos» si ya existían.
+   */
+  omitidas: ParsedStudentRow[];
 }
 
 // ─── Mapa de cabeceras (por nombre normalizado, nunca por posición) ───────────
@@ -192,11 +198,29 @@ export function parseBooleano(valor: string | null): boolean | null {
   return null;
 }
 
-/** 'CLASE' → { curso, letra }: '2ESOB' → 2ESO/B · '3ESOPDC' → 3ESOPDC con letra 'PDC'. */
+/**
+ * Clase con una etapa que sabemos leer: `2ESOB`, `3INFA`, `1PRIA` y, si es una sola línea, `2ESO`.
+ * El ordinal (`2ºESOB`) se conserva tal cual viene.
+ */
+const RE_CLASE_ETAPA = /^(\d+º?(?:INF|PRI|ESO))([A-Z]?)$/;
+
+/**
+ * 'CLASE' → { curso, letra }: '2ESOB' → 2ESO/B · '3ESOPDC' → 3ESOPDC con letra 'PDC'
+ * (vale igual `3ºPPDC`, `3ºPDC` o `3PDC`: cualquier cosa que acabe en `PDC`) ·
+ * '1BACHA' → 1BACH/A y '1BACH' (una sola línea) → 1BACH sin letra.
+ *
+ * Bachillerato se guarda SIEMPRE como `{1|2}BACH` aunque llegue como `BAT` o `Bachillerato`
+ * (convención en `cursos.ts`). Lo que no encaja con ninguna etapa cae al reparto genérico
+ * de siempre y `parseEducamosFile` lo deja fuera si `etapaDeCurso` no lo reconoce.
+ */
 export function parseClase(clase: string | null): { curso: string | null; letra: string | null } {
   if (!clase) return { curso: null, letra: null };
   const c = normalizar(clase).replace(/\s+/g, '');
   if (c.endsWith('PDC')) return { curso: c, letra: 'PDC' };
+  const bach = parseBachillerato(c);
+  if (bach) return bach;
+  const etapa = c.match(RE_CLASE_ETAPA);
+  if (etapa) return { curso: etapa[1], letra: etapa[2] || null };
   const m = c.match(/^(.*\d[A-Z]*?)([A-Z])$/);
   if (m && /\d/.test(m[1])) return { curso: m[1], letra: m[2] };
   return { curso: c, letra: null };
@@ -322,6 +346,8 @@ export function parseEducamosFile(buffer: ArrayBuffer | Buffer, filename: string
   }
 
   const rows: ParsedStudentRow[] = [];
+  const omitidas: ParsedStudentRow[] = [];
+  const sinEtapa = new Map<string, number>(); // clase → cuántos alumnos, para un solo aviso por clase
 
   for (let i = 1; i < matriz.length; i++) {
     const filaValores = matriz[i];
@@ -393,7 +419,7 @@ export function parseEducamosFile(buffer: ArrayBuffer | Buffer, filename: string
       });
     }
 
-    rows.push({
+    const fila: ParsedStudentRow = {
       fila: i + 1,
       codigo,
       educamosPersonaId: alumno.educamosPersonaId ?? null,
@@ -419,10 +445,26 @@ export function parseEducamosFile(buffer: ArrayBuffer | Buffer, filename: string
       familiaId: alumno.familiaId ?? null,
       extra: extraAlumno,
       tutores,
-    });
+    };
+    // Una clase que no es de ninguna etapa conocida (FP, aula específica, un código raro…) no
+    // se importa, pero el fichero NO falla: se avisa y se sigue con el resto. Sin clase (curso
+    // null) sí se importa, como siempre.
+    if (alumno.clase && etapaDeCurso(curso) === null) {
+      omitidas.push(fila);
+      const clave = normalizar(alumno.clase);
+      sinEtapa.set(clave, (sinEtapa.get(clave) ?? 0) + 1);
+    } else {
+      rows.push(fila);
+    }
   }
 
-  return { formato, rows, cabecerasExtra, cabecerasDescartadas, warnings };
+  for (const [clase, n] of sinEtapa) {
+    warnings.push(
+      `${n} ${n === 1 ? 'alumno' : 'alumnos'} de la clase "${clase}" no se ${n === 1 ? 'importa' : 'importan'}: no es de ninguna etapa conocida (Infantil, Primaria, ESO o Bachillerato). El resto del fichero sí.`,
+    );
+  }
+
+  return { formato, rows, cabecerasExtra, cabecerasDescartadas, warnings, omitidas };
 }
 
 // ─── Export de profesorado ────────────────────────────────────────────────────
@@ -730,6 +772,12 @@ export function computeSyncPlan(
   parseWarnings: string[] = [],
   /** Si la campaña de Licencias está abierta ahora mismo (para avisar de altas en su rango). */
   licenciasAbierta = false,
+  /**
+   * Filas que el parseo dejó fuera por su etapa (`ParseResult.omitidas`). No generan altas ni
+   * cambios, pero si casan con un alumno que ya existe se le libra de salir como «desaparecido»:
+   * que hoy no sepamos leer su clase no quiere decir que se haya ido.
+   */
+  omitidas: ParsedStudentRow[] = [],
 ): SyncPlan {
   const warnings = [...parseWarnings];
   const targets: MatchTarget[] = existentes.map((e) => ({
@@ -824,6 +872,11 @@ export function computeSyncPlan(
         row,
       });
     }
+  }
+
+  for (const row of omitidas) {
+    const { target } = matchStudent(row, targets);
+    if (target) matcheados.add(target.id);
   }
 
   // Desaparecidos: activos de la BBDD, del mismo ámbito (cursos presentes en el fichero),

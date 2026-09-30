@@ -253,7 +253,7 @@ describe('años que tocan', () => {
 
 describe('histórico', () => {
   it('suma por etapa', () => {
-    expect(porEtapa(FILAS, (v) => v.alumnos ?? 0)).toEqual({ EI: 23, EP: 23, ESO: 61, total: 107 });
+    expect(porEtapa(FILAS, (v) => v.alumnos ?? 0)).toEqual({ EI: 23, EP: 23, ESO: 61, BACH: 0, total: 107 });
   });
   it('sumar junta todas las claves', () => {
     expect(sumar([{ v: { a: 1 } }, { v: { a: 2, b: 3 } }])).toEqual({ a: 3, b: 3 });

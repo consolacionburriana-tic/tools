@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Copy, Loader2, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
-import { etapaDeCurso } from '@/lib/cursos';
+import { ETAPA_LABEL, ETAPAS, etapaDeCurso } from '@/lib/cursos';
 import {
   AUDIENCIAS,
   CATEGORIAS,
@@ -267,11 +267,11 @@ export function NuevaEvaluacion({
   const clasesPorEtapa = useMemo(() => {
     // Secundaria primero: es quien responde de verdad las evaluaciones. Infantil,
     // que casi nunca aplica, queda abajo en vez de comerse la primera pantalla.
-    const grupos: { etapa: string; label: string; clases: typeof clases }[] = [
-      { etapa: 'ESO', label: 'Secundaria', clases: [] },
-      { etapa: 'EP', label: 'Primaria', clases: [] },
-      { etapa: 'EI', label: 'Infantil', clases: [] },
-    ];
+    // Bachillerato, aún más arriba: son los mayores. Se recorre ETAPAS al revés para que una etapa
+    // nueva entre sola (si no, sus clases se descartarían en silencio).
+    const grupos: { etapa: string; label: string; clases: typeof clases }[] = [...ETAPAS]
+      .reverse()
+      .map((etapa) => ({ etapa, label: ETAPA_LABEL[etapa], clases: [] }));
     for (const c of clases) {
       const g = grupos.find((x) => x.etapa === etapaDeCurso(c.curso));
       if (g) g.clases.push(c);

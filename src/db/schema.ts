@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { boolean, date, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+// Solo el tipo (se borra al compilar) y ruta relativa: drizzle-kit no resuelve el alias '@/'.
+import type { Etapa } from '../lib/cursos';
 
 // ─── Recurso global (compartido entre todas las tools) ────────────────────────
 export const teachers = pgTable('teachers', {
@@ -309,13 +311,13 @@ export const eduTeachers = pgTable('edu_teachers', {
   fechaBaja: date('fecha_baja'),
   esTutor: boolean('es_tutor').notNull().default(false),
   claseTutor: text('clase_tutor'), // p. ej. '3º INFA'
-  // Etapa a la que pertenece el profe: 'EI' | 'EP' | 'ESO' (o null si sin asignar).
+  // Etapa a la que pertenece el profe: 'EI' | 'EP' | 'ESO' | 'BACH' (o null si sin asignar).
   // En tutores se deriva de claseTutor; en no-tutores se asigna a mano (no está en Educamos).
   etapa: text('etapa'),
   // Multiselección a mano (desde /gestion/profes): hay quien da clase en dos etapas. El
   // alcance por etapa (Alumnado, Banco de libros) une esto con `etapa`, sus tutorías y su
   // horario. Nunca lo toca el sync de Educamos.
-  etapas: jsonb('etapas').$type<('EI' | 'EP' | 'ESO')[]>(),
+  etapas: jsonb('etapas').$type<Etapa[]>(),
   active: boolean('active').notNull().default(true), // false si tiene fecha de baja
   extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN pagadores/bancos/SS/retribuciones)
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -1112,7 +1114,7 @@ export const cuadPlantillas = pgTable('cuad_plantillas', {
   // Etapas a las que aplica la plantilla: `['EP','ESO']`. Vacío o null = vale para todas.
   // Es una lista porque la misma hoja sirve a menudo para más de una etapa (y no queremos
   // duplicar la plantilla en Docs solo para eso). Se lee siempre con `etapasDePlantilla()`.
-  etapas: jsonb('etapas').$type<('EI' | 'EP' | 'ESO')[]>(),
+  etapas: jsonb('etapas').$type<Etapa[]>(),
   // LEGACY: la etapa única de antes. Ya no se escribe; `etapasDePlantilla()` la lee como
   // respaldo para las filas que existían antes de `etapas`. Se podrá borrar la columna
   // cuando David dé el ok (ver src/db/sql/cuaderno-plantillas-etapas.sql).

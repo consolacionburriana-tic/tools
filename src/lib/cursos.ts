@@ -1,15 +1,40 @@
 // Helpers puros de cursos y etapas (sin IO, testeables).
 //
 // Los códigos de curso de la BBDD central (edu_students.curso) tienen esta forma:
-//   Infantil : 3INF, 4INF, 5INF          → etapa EI (3-4-5 años)
-//   Primaria : 1PRI … 6PRI               → etapa EP
-//   ESO      : 1ESO … 4ESO               → etapa ESO
-//   PDC      : 3ºPPDC, 4ºPPDC (letra PDC) → etapa ESO
+//   Infantil    : 3INF, 4INF, 5INF          → etapa EI (3-4-5 años)
+//   Primaria    : 1PRI … 6PRI               → etapa EP
+//   ESO         : 1ESO … 4ESO               → etapa ESO
+//   PDC         : 3ºPPDC, 4ºPPDC (letra PDC) → etapa ESO (vale también 3ºPDC, 3ESOPDC, 3PDC)
+//   Bachillerato: 1BACH, 2BACH              → etapa BACH
+//
+// **Convención de Bachillerato** (David, 30-sep-2026: aún no hay un export real con
+// Bachillerato, así que esto está deducido de cómo Educamos nombra el resto): `{1|2}BACH` y,
+// si hay más de una línea, la letra aparte (`1BACHA`). Se reconocen también `BAT`, `BTO`,
+// `BAC` y `BACHILLERATO` (con o sin `º`), y al importar se guardan siempre como `1BACH`/`2BACH`.
+// Cuando llegue un fichero real, se ajusta SOLO aquí y en `parseClase` (educamos.ts).
 //
 // El orden natural para mostrar clases al claustro es SIEMPRE por etapa
-// (infantil → primaria → secundaria) y, dentro de cada etapa, por curso.
+// (infantil → primaria → secundaria → bachillerato) y, dentro de cada etapa, por curso.
+//
+// **Para añadir otra etapa (FP, escuela infantil…)**: añadirla a `ETAPAS` (en su orden), a
+// `ETAPA_LABEL`, y darle sitio en `etapaDeCurso`, `cursoSiguiente` y `cursoEnBanco`. El
+// compilador señala el resto: todo lo que es un `Record<Etapa, …>` no compila hasta que la tenga.
 
-export type Etapa = 'EI' | 'EP' | 'ESO';
+/** Las etapas que la plataforma sabe trabajar, en el orden en que se enseñan. */
+export const ETAPAS = ['EI', 'EP', 'ESO', 'BACH'] as const;
+export type Etapa = (typeof ETAPAS)[number];
+
+/** Cómo se llama cada etapa en pantalla. */
+export const ETAPA_LABEL: Record<Etapa, string> = {
+  EI: 'Infantil',
+  EP: 'Primaria',
+  ESO: 'Secundaria',
+  BACH: 'Bachillerato',
+};
+
+export function esEtapa(valor: unknown): valor is Etapa {
+  return typeof valor === 'string' && (ETAPAS as readonly string[]).includes(valor);
+}
 
 /** Etapa a la que pertenece un código de curso (o null si no se reconoce). */
 export function etapaDeCurso(curso: string | null | undefined): Etapa | null {
@@ -18,7 +43,27 @@ export function etapaDeCurso(curso: string | null | undefined): Etapa | null {
   if (c.includes('INF')) return 'EI';
   if (c.includes('PRI')) return 'EP';
   if (c.includes('ESO') || c.includes('PDC')) return 'ESO';
+  if (c.includes('BAC') || c.includes('BAT') || c.includes('BTO')) return 'BACH';
   return null;
+}
+
+/**
+ * Bachillerato en todas sus grafías → `{ curso: '1BACH'|'2BACH', letra }`, o `null` si no lo es.
+ * Recibe el código ya en MAYÚSCULAS y sin espacios ni acentos. La letra (o modalidad) puede ser
+ * de 0 a 3 caracteres: `1BACH` (una línea), `1BACHA`, `2BACHCT`. Es EL sitio donde se decide
+ * cómo se lee Bachillerato: Educamos, Horarios y las tutorías pasan por aquí.
+ */
+export function parseBachillerato(codigo: string): { curso: string; letra: string | null } | null {
+  const m = codigo.match(/^(\d)[º°]?(?:BACHILLERATO|BACH|BATX|BAT|BTO|BAC)([A-Z]{0,3})$/);
+  return m ? { curso: `${m[1]}BACH`, letra: m[2] || null } : null;
+}
+
+/**
+ * ¿Es un curso o clase de PDC? Educamos lo llama `3ºPPDC` (por su programa), pero otro colegio
+ * puede tenerlo como `3ºPDC`, `3ESOPDC` o `3PDC`, o solo con la letra `PDC`. Todas valen.
+ */
+export function esPdc(curso: string | null | undefined, letra?: string | null): boolean {
+  return /PDC/i.test(curso ?? '') || (letra ?? '').toUpperCase() === 'PDC';
 }
 
 /**
@@ -43,7 +88,7 @@ export function nivelDeCurso(curso: string | null | undefined): number {
   return m ? Number(m[0]) : 99;
 }
 
-const ETAPA_ORDEN: Record<Etapa, number> = { EI: 0, EP: 1, ESO: 2 };
+const ETAPA_ORDEN: Record<Etapa, number> = { EI: 0, EP: 1, ESO: 2, BACH: 3 };
 
 /**
  * Clave de orden global de un curso: etapa (infantil→primaria→secundaria) y
@@ -90,12 +135,15 @@ export function compararClasesMayoresPrimero(
  * - **Primaria** rota dentro del ciclo de dos años: `1↔2`, `3↔4`, `5↔6` (misma letra).
  * - **ESO** sube de verdad (`1→2→3→4`) y **4º egresa**. Los PDC siguen la misma regla
  *   por su nivel (`3ºPPDC→4ºPPDC`, `4ºPPDC` egresa).
+ * - **Bachillerato** sube `1→2` y **2º egresa**. (Regla por defecto, sin decidir con David:
+ *   es la de cualquier Bachillerato de dos cursos.)
  * El código de curso se reconstruye cambiando solo el número inicial, así que respeta
  * los formatos raros (`3ºPPDC`) tal cual vienen de Educamos.
  */
 export function cursoSiguiente(curso: string | null | undefined): string | null {
   const etapa = etapaDeCurso(curso);
-  if (!curso || !etapa) return null;
+  // El destino se construye cambiando el número inicial: sin número delante (`BACH1`) no hay a dónde ir.
+  if (!curso || !etapa || !/^\d/.test(curso)) return null;
   const nivel = nivelDeCurso(curso);
   let destino: number | null;
   if (etapa === 'EI') {
@@ -104,9 +152,13 @@ export function cursoSiguiente(curso: string | null | undefined): string | null 
   } else if (etapa === 'EP') {
     if (nivel < 1 || nivel > 6) return null;
     destino = nivel % 2 === 1 ? nivel + 1 : nivel - 1;
-  } else {
+  } else if (etapa === 'ESO') {
     if (nivel < 1 || nivel > 4) return null;
     destino = nivel === 4 ? null : nivel + 1;
+  } else {
+    // Bachillerato: dos cursos, sube 1º → 2º y 2º egresa.
+    if (nivel < 1 || nivel > 2) return null;
+    destino = nivel === 2 ? null : nivel + 1;
   }
   return destino === null ? null : curso.replace(/^\d+/, String(destino));
 }
@@ -116,7 +168,7 @@ export function cursoEnBanco(curso: string | null | undefined): boolean {
   if (etapa === 'EI') return false;
   if (etapa === 'EP') return nivelDeCurso(curso) >= 3;
   if (etapa === 'ESO') return true;
-  return false;
+  return false; // Bachillerato no entra en el banco (la Xarxa de Llibres llega hasta 4º ESO)
 }
 
 /**

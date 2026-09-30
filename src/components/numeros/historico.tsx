@@ -40,9 +40,10 @@ const PUNTO_ETAPA: Record<Etapa, string> = {
   EI: 'bg-[#d97316] dark:bg-[#d4772c]',
   EP: 'bg-[#2563eb] dark:bg-[#4f80ee]',
   ESO: 'bg-[#0e9f6e] dark:bg-[#1f9f6d]',
+  BACH: 'bg-[#475569] dark:bg-[#94a3b8]',
 };
 // El trazo sale de una variable CSS para que cambie con el tema sin repintar nada.
-const TRAZO: Record<Etapa, string> = { EI: 'var(--num-ei)', EP: 'var(--num-ep)', ESO: 'var(--num-eso)' };
+const TRAZO: Record<Etapa, string> = { EI: 'var(--num-ei)', EP: 'var(--num-ep)', ESO: 'var(--num-eso)', BACH: 'var(--num-bach)' };
 
 const corta = (iso: string) =>
   new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'Europe/Madrid' });
@@ -191,7 +192,7 @@ export function Historico({
 
   return (
     <section
-      className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm [--num-ei:#d97316] [--num-ep:#2563eb] [--num-eso:#0e9f6e] dark:border-zinc-800 dark:bg-zinc-900 dark:[--num-ei:#d4772c] dark:[--num-ep:#4f80ee] dark:[--num-eso:#1f9f6d]"
+      className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm [--num-ei:#d97316] [--num-ep:#2563eb] [--num-eso:#0e9f6e] [--num-bach:#475569] dark:border-zinc-800 dark:bg-zinc-900 dark:[--num-ei:#d4772c] dark:[--num-ep:#4f80ee] dark:[--num-eso:#1f9f6d] dark:[--num-bach:#94a3b8]"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
         <div role="group" aria-label="Qué número" className="inline-flex flex-wrap gap-0.5 rounded-xl border border-zinc-200 bg-zinc-100 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">

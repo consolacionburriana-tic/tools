@@ -8,7 +8,7 @@ import { and, asc, desc, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { licCampaigns, numFotos } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
-import { compararClases, cursoEnBanco, etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { compararClases, cursoEnBanco, esEtapa, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import { nombresDe } from '@/lib/personas';
 import { aplicaMaterial } from '@/lib/alumnado';
 import { listaMateriales } from '@/lib/materiales-server';
@@ -100,7 +100,8 @@ function conMarcas(inicio: number, academicYear: string) {
         upper(coalesce(s.extra->>'FAM.NUMEROSA', '')) AS fnum,
         upper(coalesce(s.extra->>'ESHIJODEEMPLEADO', '')) AS hemp,
         coalesce(nullif(s.familia_id, ''), s.id::text) AS fam,
-        CASE WHEN s.curso ILIKE '%INF%' THEN 0 WHEN s.curso ILIKE '%PRI%' THEN 1 ELSE 2 END AS etapa_n,
+        CASE WHEN s.curso ILIKE '%INF%' THEN 0 WHEN s.curso ILIKE '%PRI%' THEN 1
+             WHEN s.curso ILIKE '%BAC%' OR s.curso ILIKE '%BAT%' OR s.curso ILIKE '%BTO%' THEN 3 ELSE 2 END AS etapa_n,
         coalesce(substring(s.curso from '[0-9]+')::int, 0) AS nivel
       FROM edu_students s
       WHERE s.active AND s.curso IS NOT NULL
@@ -109,8 +110,8 @@ function conMarcas(inicio: number, academicYear: string) {
         row_number() OVER (PARTITION BY fam ORDER BY etapa_n DESC, nivel DESC, fecha_nacimiento ASC NULLS LAST, letra, id) AS rn_cole,
         row_number() OVER (PARTITION BY fam, etapa_n ORDER BY nivel DESC, fecha_nacimiento ASC NULLS LAST, letra, id) AS rn_etapa,
         count(*) OVER (PARTITION BY fam) AS hijos,
-        CASE etapa_n WHEN 0 THEN ${inicio}::int - nivel WHEN 1 THEN ${inicio}::int - (nivel + 5) ELSE ${inicio}::int - (nivel + 11) END AS anio_toca,
-        CASE etapa_n WHEN 0 THEN ${inicio}::int - (nivel - 3) WHEN 1 THEN ${inicio}::int - (nivel + 2) ELSE ${inicio}::int - (nivel + 8) END AS anio_3
+        CASE etapa_n WHEN 0 THEN ${inicio}::int - nivel WHEN 1 THEN ${inicio}::int - (nivel + 5) WHEN 3 THEN ${inicio}::int - (nivel + 15) ELSE ${inicio}::int - (nivel + 11) END AS anio_toca,
+        CASE etapa_n WHEN 0 THEN ${inicio}::int - (nivel - 3) WHEN 1 THEN ${inicio}::int - (nivel + 2) WHEN 3 THEN ${inicio}::int - (nivel + 12) ELSE ${inicio}::int - (nivel + 8) END AS anio_3
       FROM s
     ), loc AS (
       SELECT DISTINCT ON (sg.student_id) sg.student_id, upper(trim(coalesce(g.localidad, ''))) AS localidad
@@ -372,9 +373,9 @@ export async function recuentosPorClase(ahora = new Date()): Promise<DatosNumero
     f.v = Object.fromEntries(Object.entries(v).filter(([, x]) => x !== 0));
   }
 
-  const p = { EI: 0, EP: 0, ESO: 0, sinEtapa: 0 };
+  const p = { EI: 0, EP: 0, ESO: 0, BACH: 0, sinEtapa: 0 };
   for (const r of profes.rows) {
-    if (r.etapa === 'EI' || r.etapa === 'EP' || r.etapa === 'ESO') p[r.etapa] += n(r.n);
+    if (esEtapa(r.etapa)) p[r.etapa] += n(r.n);
     else p.sinEtapa += n(r.n);
   }
 

@@ -8,7 +8,7 @@
 //
 // Todo es puro y testeado en `src/lib/__tests__/cuaderno-campos.test.ts`.
 
-import { type Etapa } from '@/lib/cursos';
+import { ETAPA_LABEL, ETAPAS as TODAS_LAS_ETAPAS, type Etapa } from '@/lib/cursos';
 
 export const AMBITOS = ['alumno', 'clase', 'asignatura', 'familiar', 'centro', 'trimestre'] as const;
 export type Ambito = (typeof AMBITOS)[number];
@@ -281,13 +281,9 @@ export const REPETICION_AYUDA: Record<Repeticion, string> = {
 // significa TODAS (es lo que hay en la mayoría) y así una etapa nueva no obliga a repasar
 // las plantillas de una en una.
 
-export const ETAPAS: readonly Etapa[] = ['EI', 'EP', 'ESO'];
+export const ETAPAS: readonly Etapa[] = TODAS_LAS_ETAPAS;
 
-export const ETAPA_LABELS: Record<Etapa, string> = {
-  EI: 'Infantil',
-  EP: 'Primaria',
-  ESO: 'Secundaria',
-};
+export const ETAPA_LABELS: Record<Etapa, string> = ETAPA_LABEL;
 
 /** Lo que hace falta para saber a qué etapas aplica una plantilla (fila o UI). */
 export interface PlantillaConEtapas {
