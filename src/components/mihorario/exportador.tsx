@@ -8,17 +8,21 @@ import { CalendarPlus, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { haptic } from '@/lib/haptics';
-import { PLANTILLA_TITULO_DEFECTO } from '@/lib/mihorario';
+import { PLANTILLA_TITULO_DEFECTO, RANGOS_CURSO, type RangoCurso } from '@/lib/mihorario';
+import { SelectorEmoji } from '@/components/mihorario/selector-emoji';
 import { cn } from '@/lib/utils';
 
 interface Categoria {
   clave: string;
   etiqueta: string;
   emoji: string;
+  abrev: string;
 }
 
 interface Previa {
   periodo: string;
+  desde: string;
+  hasta: string;
   totalEventos: number;
   ejemplos: { titulo: string; primeraFecha: string }[];
   calendarConfigurado: boolean;
@@ -33,6 +37,8 @@ export function Exportador({ periodoId }: { periodoId: string }) {
   const [plantillaDescripcion, setPlantillaDescripcion] = useState('');
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [emojis, setEmojis] = useState<Record<string, string>>({});
+  const [abreviaturas, setAbreviaturas] = useState<Record<string, string>>({});
+  const [rangoCurso, setRangoCurso] = useState<RangoCurso>('sep-jun');
   const [calendarios, setCalendarios] = useState<{ id: string; nombre: string; esPrincipal: boolean }[]>([]);
   const [calendarConfigurado, setCalendarConfigurado] = useState(false);
   const [calendarioElegido, setCalendarioElegido] = useState<string>('primary');
@@ -53,6 +59,8 @@ export function Exportador({ periodoId }: { periodoId: string }) {
           setPlantillaTitulo(pref.preferencias.plantillaTitulo);
           setPlantillaDescripcion(pref.preferencias.plantillaDescripcion ?? '');
           setEmojis(pref.preferencias.emojis ?? {});
+          setAbreviaturas(pref.preferencias.abreviaturas ?? {});
+          if (pref.preferencias.rangoCurso === 'oct-may') setRangoCurso('oct-may');
           setCategorias(pref.categorias ?? []);
           if (pref.preferencias.calendarioGoogleId) setCalendarioElegido(pref.preferencias.calendarioGoogleId);
         }
@@ -73,7 +81,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
     await fetch('/api/mi-horario/preferencias', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plantillaTitulo, plantillaDescripcion, emojis, calendarioGoogleId: calendarioElegido }),
+      body: JSON.stringify({ plantillaTitulo, plantillaDescripcion, emojis, abreviaturas, rangoCurso, calendarioGoogleId: calendarioElegido }),
     });
   }
 
@@ -174,15 +182,21 @@ export function Exportador({ periodoId }: { periodoId: string }) {
 
       {categorias.length > 0 && (
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Tus emojis</h2>
+          <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Tus emojis y abreviaturas</h2>
           <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {categorias.map((c) => (
               <div key={c.clave} className="flex items-center gap-2 rounded-lg bg-zinc-50 px-2.5 py-1.5 dark:bg-zinc-800/60">
+                <SelectorEmoji
+                  valor={emojis[c.clave] ?? c.emoji}
+                  onChange={(e) => setEmojis((prev) => ({ ...prev, [c.clave]: e }))}
+                />
                 <input
-                  value={emojis[c.clave] ?? c.emoji}
-                  onChange={(e) => setEmojis((prev) => ({ ...prev, [c.clave]: e.target.value }))}
-                  className="w-10 rounded border border-zinc-200 bg-white text-center text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  maxLength={4}
+                  value={abreviaturas[c.clave] ?? ''}
+                  onChange={(e) => setAbreviaturas((prev) => ({ ...prev, [c.clave]: e.target.value }))}
+                  placeholder={c.abrev}
+                  aria-label={`Abreviatura de ${c.etiqueta}`}
+                  maxLength={12}
+                  className="h-10 w-20 shrink-0 rounded-lg border border-zinc-200 bg-white px-2 text-center text-sm dark:border-zinc-700 dark:bg-zinc-900"
                 />
                 <span className="truncate text-sm text-zinc-700 dark:text-zinc-300">{c.etiqueta}</span>
               </div>
@@ -190,6 +204,30 @@ export function Exportador({ periodoId }: { periodoId: string }) {
           </div>
         </div>
       )}
+
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">¿Qué parte del curso?</h2>
+        <div className="flex flex-wrap gap-2">
+          {RANGOS_CURSO.map((r) => (
+            <button
+              key={r.valor}
+              type="button"
+              onClick={() => setRangoCurso(r.valor)}
+              className={cn(
+                'rounded-lg border px-3 py-2 text-sm transition-colors',
+                rangoCurso === r.valor
+                  ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-200'
+                  : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800',
+              )}
+            >
+              {r.etiqueta}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Los eventos empiezan y acaban dentro de ese tramo, sin salirse nunca de las fechas del periodo.
+        </p>
+      </div>
 
       <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">¿En qué calendario?</h2>
@@ -212,6 +250,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
           <h2 className="mb-2 text-sm font-semibold text-indigo-900 dark:text-indigo-200">
             Esto es lo que va a entrar: {previa.totalEventos} eventos recurrentes
           </h2>
+          <p className="mb-2 text-xs text-indigo-600 dark:text-indigo-400">Del {previa.desde} al {previa.hasta}</p>
           <ul className="space-y-0.5 text-sm text-indigo-800 dark:text-indigo-300">
             {previa.ejemplos.map((e, i) => (
               <li key={i}>

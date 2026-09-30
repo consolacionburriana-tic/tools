@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth-guards';
-import { construirEventoGoogle, emojiDeCelda } from '@/lib/mihorario';
+import { abreviaturaDeCelda, construirEventoGoogle, emojiDeCelda, rangoExportacion, type RangoCurso } from '@/lib/mihorario';
 import { getCeldas, getPeriodos } from '@/lib/horarios-server';
 import { calendarConfigurado, crearEventos, borrarEventosDeOrigen } from '@/lib/mihorario-google';
 import { getFestivos, getPreferencias, getProfePorEmail, getUltimaExportacion, registrarExportacion } from '@/lib/mihorario-server';
@@ -44,6 +44,11 @@ export async function POST(req: Request) {
   // "Todo lo que tenga el profesor": lectivas y no lectivas, guardias, reuniones,
   // atención a familias... El recreo y el comedor no aparecen aquí porque no son
   // sesiones de nadie, son huecos de la rejilla — ya quedan fuera sin filtrar nada.
+  const rango = rangoExportacion(
+    periodo.academicYear,
+    preferencias.rangoCurso as RangoCurso,
+    { fechaInicio: periodo.fechaInicio, fechaFin: periodo.fechaFin },
+  );
   const rangoFestivos = festivos.map((f) => ({ fechaInicio: f.fechaInicio, fechaFin: f.fechaFin }));
   const construidos = celdas
     .map((c) =>
@@ -51,7 +56,8 @@ export async function POST(req: Request) {
         plantillaTitulo: preferencias.plantillaTitulo,
         plantillaDescripcion: preferencias.plantillaDescripcion ?? undefined,
         emoji: emojiDeCelda(c, preferencias.emojis),
-        periodo: { fechaInicio: periodo.fechaInicio, fechaFin: periodo.fechaFin },
+        abreviatura: abreviaturaDeCelda(c, preferencias.abreviaturas),
+        periodo: rango,
         festivos: rangoFestivos,
         periodoId,
       }),
@@ -60,6 +66,8 @@ export async function POST(req: Request) {
 
   const previa = {
     periodo: `${periodo.nombre} · ${periodo.academicYear}`,
+    desde: rango.fechaInicio,
+    hasta: rango.fechaFin,
     totalEventos: construidos.length,
     ejemplos: construidos.slice(0, 8).map((r) => ({
       titulo: (r.evento as { summary: string }).summary,
