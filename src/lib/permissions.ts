@@ -8,6 +8,7 @@
 //      módulo al rol tutor, les llega a todos los tutores menos a quien lo tuviera
 //      bloqueado explícitamente — que es lo que uno espera.
 
+import { COLEGIO } from '@/lib/colegio';
 export const MODULES = [
   'abc',
   'licencias',
@@ -311,4 +312,4 @@ export function puedeEditarHorarios(role: Role | null): boolean {
   return role === 'direccion' || role === 'jefe' || role === 'secretaria' || role === 'tic' || role === 'supertic';
 }
 
-export const DOMINIO_LOGIN = 'consolacionburriana.com';
+export const DOMINIO_LOGIN: string = COLEGIO.dominio;

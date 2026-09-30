@@ -19,6 +19,7 @@ import {
   cursoLimite,
   type ClaseFila,
 } from '@/lib/calendarios';
+import { COLEGIO } from '@/lib/colegio';
 
 type FiltroEstado = 'todas' | 'ARCHIVED' | 'ACTIVE' | 'otras';
 const FILTROS_ESTADO: [FiltroEstado, string][] = [
@@ -470,7 +471,7 @@ function DialogoProfe({
   onConfirmar: (email: string) => void;
 }) {
   const [email, setEmail] = useState('');
-  const valido = /^[^\s@]+@consolacionburriana\.com$/i.test(email.trim());
+  const valido = new RegExp(`^[^\\s@]+@${COLEGIO.dominio.replace(/\./g, '\\.')}$`, 'i').test(email.trim());
   return (
     <Dialog open={abierto} onOpenChange={(o) => !o && onCerrar()}>
       <DialogContent className="sm:max-w-md">
@@ -486,7 +487,7 @@ function DialogoProfe({
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="alguien@consolacionburriana.com"
+            placeholder={`alguien@${COLEGIO.dominio}`}
             autoFocus
             className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-900"
           />

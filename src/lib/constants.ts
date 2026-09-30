@@ -1,3 +1,4 @@
+import { COLEGIO } from '@/lib/colegio';
 // Contextos del incidente
 export const CONTEXTS = [
   { value: 'aula', label: 'Aula' },
@@ -91,7 +92,7 @@ export const STAGE_LABELS: Record<StageValue, string> = {
  * dominio de producción. Sin barra final.
  */
 export function appBaseUrl(): string {
-  return (process.env.APP_BASE_URL || 'https://tools.consolacionburriana.com').replace(/\/+$/, '');
+  return (process.env.APP_BASE_URL || COLEGIO.web).replace(/\/+$/, '');
 }
 
 // Curso académico en vigor (sep-ago): en julio de 2026 → '2025-26'.

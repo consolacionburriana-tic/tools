@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
 import Image from 'next/image';
 import { auth, signIn } from '@/auth';
+import { COLEGIO } from '@/lib/colegio';
 
 export const metadata = { title: 'Entrar · Tools Consolación' };
 
-// Login único con Google (solo cuentas @consolacionburriana.com). Sustituye al
+// Login único con Google (solo cuentas del dominio del colegio, ver `COLEGIO`). Sustituye al
 // password fijo del panel de licencias.
 export default async function LoginPage({
   searchParams,
@@ -46,7 +47,7 @@ export default async function LoginPage({
             </svg>
             Entrar con Google
           </button>
-          <p className="mt-3 text-center text-xs text-zinc-400">Solo cuentas @consolacionburriana.com · la sesión dura todo el curso</p>
+          <p className="mt-3 text-center text-xs text-zinc-400">Solo cuentas @{COLEGIO.dominio} · la sesión dura todo el curso</p>
         </form>
       </div>
     </div>

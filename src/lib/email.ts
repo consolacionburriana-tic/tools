@@ -18,6 +18,7 @@
 // Los módulos NO leen estas variables ni instancian clientes: usan `enviar` / `enviarLote`.
 import { Resend } from 'resend';
 import { enviarGmail, enviarLoteGmail, direccion, gmailConfigurado, type MensajeGmail } from '@/lib/email-gmail';
+import { COLEGIO } from '@/lib/colegio';
 
 export type Transporte = 'gmail' | 'resend';
 export type PerfilCorreo =
@@ -53,27 +54,27 @@ export interface Mensaje {
   como?: { nombre: string; email: string };
 }
 
-const DOMINIO = 'consolacionburriana.com';
+const DOMINIO = COLEGIO.dominio;
 
 // Identidades por defecto. Cambiarlas en producción no requiere deploy: EMAIL_FROM_<PERFIL>.
 // `transporte` fija el de un módulo por código (pisa el global, pero no EMAIL_TRANSPORTE_<PERFIL>).
 const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: string; transporte?: Transporte }> = {
   licencias: {
-    nombre: 'Licencias · Colegio Consolación',
+    nombre: `Licencias · ${COLEGIO.nombre}`,
     email: `licencias@${DOMINIO}`,
     replyTo: `licencias@${DOMINIO}`, // centralizado: todo lo de licencias vuelve a ese buzón
   },
-  salidas: { nombre: 'Salidas · Colegio Consolación', email: `no-responder@${DOMINIO}` },
-  abc: { nombre: 'Registro ABC · Colegio Consolación', email: `no-responder@${DOMINIO}` },
+  salidas: { nombre: `Salidas · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
+  abc: { nombre: `Registro ABC · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   // Resend (decisión de David, 2026-09-24): los envíos de evaluaciones van a todo un colectivo
   // a la vez (alumnado + profesorado + familias en una conjunta) y Resend los manda en lotes
   // de 100; por Gmail irían de uno en uno.
-  evaluaciones: { nombre: 'Evaluaciones · Colegio Consolación', email: `no-responder@${DOMINIO}`, transporte: 'resend' },
-  puntualidad: { nombre: 'Puntualidad · Colegio Consolación', email: `no-responder@${DOMINIO}` },
-  cuaderno: { nombre: 'Cuaderno de tutor · Colegio Consolación', email: `no-responder@${DOMINIO}` },
+  evaluaciones: { nombre: `Evaluaciones · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}`, transporte: 'resend' },
+  puntualidad: { nombre: `Puntualidad · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
+  cuaderno: { nombre: `Cuaderno de tutor · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   // Casi siempre sale con `como` (del buzón de quien lo lleva); esto es solo el respaldo.
-  oratorios: { nombre: 'Oratorios · Colegio Consolación', email: `no-responder@${DOMINIO}` },
-  general: { nombre: 'Colegio Consolación', email: `no-responder@${DOMINIO}` },
+  oratorios: { nombre: `Oratorios · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
+  general: { nombre: COLEGIO.nombre, email: `no-responder@${DOMINIO}` },
 };
 
 /** Parsea `"Nombre <buzon@dominio>"` (o un correo suelto) en sus dos partes. */

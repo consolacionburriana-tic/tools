@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { stepAnim } from '@/lib/motion';
+import { COLEGIO } from '@/lib/colegio';
 
 interface Hijo {
   eduStudentId: string;
@@ -609,8 +610,8 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
 
       <p className="text-center text-xs text-zinc-400">
         ¿Dudas? Escríbenos a{' '}
-        <a href="mailto:tic@consolacionburriana.com" className="underline hover:text-zinc-600 dark:hover:text-zinc-300">
-          tic@consolacionburriana.com
+        <a href={`mailto:${COLEGIO.correoTic}`} className="underline hover:text-zinc-600 dark:hover:text-zinc-300">
+          {COLEGIO.correoTic}
         </a>
       </p>
     </div>

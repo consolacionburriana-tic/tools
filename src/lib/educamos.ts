@@ -4,6 +4,7 @@
 import * as XLSX from 'xlsx';
 import { cursoBaseEso } from './cursos';
 import { CURSOS_FORM } from './licencias';
+import { COLEGIO } from '@/lib/colegio';
 
 // Cursos que cubre la campaña de Licencias (6PRI-4ESO/PDC, ver CURSOS_FORM). Se usa solo para
 // avisar en el sync de Educamos — este fichero no depende de nada de Licencias más allá de esto.
@@ -426,7 +427,7 @@ export function parseEducamosFile(buffer: ArrayBuffer | Buffer, filename: string
 
 // ─── Export de profesorado ────────────────────────────────────────────────────
 
-export const DOMINIO_COLE = 'consolacionburriana.com';
+export const DOMINIO_COLE: string = COLEGIO.dominio;
 
 export interface ParsedTeacherRow {
   fila: number;

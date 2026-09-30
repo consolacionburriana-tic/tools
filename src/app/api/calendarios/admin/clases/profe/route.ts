@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { anadirProfeEnClases, buzonAdmin } from '@/lib/calendarios-server';
+import { COLEGIO } from '@/lib/colegio';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -14,7 +15,7 @@ const cuerpo = z.object({
     .trim()
     .toLowerCase()
     .email()
-    .refine((e) => e.endsWith('@consolacionburriana.com'), 'Tiene que ser una cuenta del colegio'),
+    .refine((e) => e.endsWith(`@${COLEGIO.dominio}`), 'Tiene que ser una cuenta del colegio'),
 });
 
 // Matricula a alguien como PROFE en las clases elegidas.

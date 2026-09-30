@@ -8,6 +8,7 @@ import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones';
 import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-plantillas';
 import { Segmentado } from '@/components/evaluaciones/ui';
+import { COLEGIO } from '@/lib/colegio';
 
 interface Plantilla {
   id: string;
@@ -425,7 +426,7 @@ export function EnviarPanel({
             <input
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
-              placeholder="tu@consolacionburriana.com"
+              placeholder={`tu@${COLEGIO.dominio}`}
               className={inputCls}
             />
           </div>

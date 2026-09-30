@@ -32,6 +32,7 @@ import {
   type ClasePlantilla,
   type TipoClase,
 } from '@/lib/autoasm-plantilla';
+import { COLEGIO } from '@/lib/colegio';
 
 // ─── El proyecto ──────────────────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ export const OPCIONES_POR_DEFECTO: OpcionesProyecto = {
   desdeCurso: '6PRI', // alcance del curso 2026-27
 
   passwordPolicy: '4',
-  dominio: 'consolacionburriana.com',
+  dominio: COLEGIO.dominio,
   csv: OPCIONES_CSV_ASM,
 };
 
