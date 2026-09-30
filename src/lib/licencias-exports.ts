@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { eduStudents, licBooks, licOrderItems, licOrders, licStudents } from '@/db/schema';
-import { cursoEfectivo, isPdcLetra, resolveBilingual, toPdcCurso } from '@/lib/licencias';
+import { cursoEfectivo, resolveBilingual } from '@/lib/licencias';
 
 export interface EnviarRow {
   grupo: 'SI' | 'NO';

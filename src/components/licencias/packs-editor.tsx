@@ -34,6 +34,7 @@ export function PacksEditor() {
 
   useEffect(() => {
     if (!curso) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga al montar/cambiar el filtro: el spinner tiene que encenderse aquí
     setLoading(true);
     setSaved(false);
     fetch(`/api/licencias/admin/packs?curso=${encodeURIComponent(curso)}`)

@@ -137,6 +137,7 @@ export default function RegistrosPage() {
       params.set('limit', '20');
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga al montar/cambiar el filtro: el spinner tiene que encenderse aquí
     setLoading(true);
     fetch(`/api/reports?${params}`)
       .then((r) => r.json())
