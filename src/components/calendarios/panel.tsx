@@ -28,12 +28,13 @@ import {
 } from '@/lib/calendarios';
 
 type Pestana = GrupoCalendario | 'borrados';
-const PESTANAS: Pestana[] = ['anteriores', 'huerfano', 'este', 'otro', 'borrados'];
+const PESTANAS: Pestana[] = ['anteriores', 'huerfano', 'este', 'otro', 'limbo', 'borrados'];
 const PESTANA_LABELS: Record<Pestana, string> = {
   anteriores: 'Cursos anteriores',
   huerfano: 'Clase ya borrada',
   este: 'Este curso',
   otro: 'Otros',
+  limbo: 'Inborrables',
   borrados: 'Borrados',
 };
 
@@ -137,6 +138,22 @@ export function PanelCalendarios({ iniciales, errorInicial }: { iniciales: Calen
       toast.error(e instanceof Error ? e.message : 'No se ha podido comprobar');
     } finally {
       setComprobando(false);
+    }
+  }
+
+  async function vaciar() {
+    if (!window.confirm('¿Quitar de aquí el registro de lo ya borrado? En Google no se toca nada.')) return;
+    try {
+      const r = await post<{ calendarios: number; clases: number; seQuedan: number }>(`${API}/vaciar`, { confirmacion: 'VACIAR' });
+      haptic.success();
+      toast.success(
+        `Registro vaciado: ${r.calendarios} calendarios y ${r.clases} clases` +
+          (r.seQuedan ? ` · se quedan ${r.seQuedan} de clases que siguen en Classroom` : ''),
+      );
+      await recargar();
+    } catch (e) {
+      haptic.warning();
+      toast.error(e instanceof Error ? e.message : 'No se ha podido vaciar');
     }
   }
 
@@ -341,6 +358,34 @@ export function PanelCalendarios({ iniciales, errorInicial }: { iniciales: Calen
           />
         </div>
       </div>
+
+      {pestana === 'limbo' && (
+        <p className="flex items-start gap-2 rounded-xl border border-zinc-200 bg-zinc-100/70 p-3 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/50 dark:text-zinc-300">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          No hay ninguna cuenta activa del dominio a la que suplantar para borrarlos: o se intentó y su dueño no es nadie
+          activo, o directamente no se sabe de quién son. Casi siempre son calendarios de clases viejas cuyo creador ya no
+          está en el centro (cuenta suspendida o borrada), y Google solo deja borrarlos a su dueño. Aquí se quedan apartados
+          para que no estorben. Si alguno molesta de verdad, se puede reactivar esa cuenta un momento, o transferir la
+          clase, y volver a escanear.
+        </p>
+      )}
+
+      {pestana === 'borrados' && cuenta('borrados') > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-3 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <span>
+            El registro de lo ya borrado. Vaciarlo lo quita de aquí (en Google no toca nada). Se quedan los de clases que
+            siguen en Classroom: si no, el próximo escaneo los traería otra vez como vivos.
+          </span>
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={vaciar}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <Trash2 className="h-4 w-4" /> Vaciar el registro
+          </button>
+        </div>
+      )}
 
       {pestana === 'este' && vivos.some((c) => c.grupo === 'este') && (
         <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-500/10 dark:text-amber-200">

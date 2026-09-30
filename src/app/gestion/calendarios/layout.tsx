@@ -14,7 +14,7 @@ export default async function CalendariosLayout({ children }: { children: React.
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="container mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
           <Link href="/gestion/calendarios" className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Calendarios del dominio
+            Classrooms y calendarios
           </Link>
           <Link
             href="/gestion"

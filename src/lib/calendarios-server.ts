@@ -8,7 +8,7 @@
 //   2. usuarios  → el calendarList de cada usuario, de 30 en 30 (opcional pero recomendado:
 //                  es lo único que encuentra los calendarios de clases ya borradas)
 //   3. eventos   → cuántos eventos tiene cada calendario, de 12 en 12
-import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { calCalendarios, calClases, calSuscripciones } from '@/db/schema';
 import {
@@ -17,12 +17,15 @@ import {
   cursoDeCalendario,
   cursoDeClase,
   type ClaseFila,
+  esInborrable,
   grupoDeCalendario,
   pareceDeClassroom,
   type CalendarioFila,
 } from '@/lib/calendarios';
 import {
+  anadirProfe,
   borrarCalendario,
+  borrarClase,
   calendariosDeUsuario,
   contarEventos,
   enParalelo,
@@ -333,7 +336,14 @@ export async function listarCalendarios(hoy = new Date()): Promise<CalendarioFil
       courseOwnerEmail: c.courseOwnerEmail,
       clasePresente,
       curso: cursoDeCalendario(datos),
-      grupo: grupoDeCalendario(datos, hoy),
+      grupo: esInborrable({
+        borradoAt: iso(c.borradoAt),
+        borradoError: c.borradoError,
+        propietarios: propietarios ?? [],
+        courseOwnerEmail: c.courseOwnerEmail,
+      })
+        ? 'limbo'
+        : grupoDeCalendario(datos, hoy),
       eventos: c.eventos,
       eventosFuturos: c.eventosFuturos,
       primerEventoAt: iso(c.primerEventoAt),
@@ -430,4 +440,84 @@ export async function borrarCalendarios(ids: string[], quien: string): Promise<R
     await db.update(calCalendarios).set({ borradoError: mensaje, updatedAt: new Date() }).where(eq(calCalendarios.id, f.id));
     return { id: f.id, ok: false, como: null, mensaje };
   });
+}
+
+// ── Clases: borrar y matricular profe ─────────────────────────────────────────
+
+export interface ResultadoClase {
+  id: string;
+  ok: boolean;
+  mensaje: string;
+}
+
+/**
+ * Elimina clases de Classroom (no se deshace) y, si `conCalendario`, también su calendario
+ * cuando siga vivo. Archiva antes las que no lo estén (ver `borrarClase`).
+ */
+export async function borrarClases(admin: string, ids: string[], quien: string, conCalendario: boolean): Promise<ResultadoClase[]> {
+  const filas = await db
+    .select({ id: calClases.id, estado: calClases.estado, calendarId: calClases.calendarId, borradoAt: calClases.borradoAt })
+    .from(calClases)
+    .where(inArray(calClases.id, ids));
+
+  return enParalelo(filas, 3, async (f): Promise<ResultadoClase> => {
+    if (f.borradoAt) return { id: f.id, ok: true, mensaje: 'Ya estaba borrada' };
+    const r = await borrarClase(admin, f.id, f.estado);
+    const ahora = new Date();
+    if (!r.ok) {
+      await db.update(calClases).set({ borradoError: r.error, updatedAt: ahora }).where(eq(calClases.id, f.id));
+      return { id: f.id, ok: false, mensaje: r.error };
+    }
+    await db
+      .update(calClases)
+      .set({ borradoAt: ahora, borradoPor: quien, borradoError: null, updatedAt: ahora })
+      .where(eq(calClases.id, f.id));
+    let mensaje = r.yaNoExistia ? 'Ya no existía en Classroom' : 'Clase borrada';
+    if (conCalendario && f.calendarId) {
+      const [cal] = await borrarCalendarios([f.calendarId], quien);
+      if (cal && !cal.ok) mensaje += ` · su calendario no se pudo borrar: ${cal.mensaje}`;
+      else if (cal) mensaje += ' · y su calendario';
+    }
+    return { id: f.id, ok: true, mensaje };
+  });
+}
+
+/** Mete a `email` como profe en cada clase (para que pueda publicar ahí, p. ej. evaluaciones). */
+export async function anadirProfeEnClases(admin: string, ids: string[], email: string): Promise<ResultadoClase[]> {
+  return enParalelo(ids, 4, async (id): Promise<ResultadoClase> => {
+    const r = await anadirProfe(admin, id, email);
+    if (!r.ok) return { id, ok: false, mensaje: r.error };
+    return { id, ok: true, mensaje: r.yaEstaba ? 'Ya era profe' : 'Añadido como profe' };
+  });
+}
+
+// ── Vaciar el registro de borrados ─────────────────────────────────────────────
+
+/**
+ * Quita de Neon lo ya borrado (David, 30-sep-2026: «pa qué los queremos»). Una excepción, y
+ * no es capricho: el calendario borrado de una clase que SIGUE en Classroom se queda. Si se
+ * quitara, el siguiente escaneo lo volvería a traer desde la clase como si estuviera vivo.
+ * En cuanto esa clase se borre, sale también.
+ */
+export async function vaciarBorrados(): Promise<{ calendarios: number; clases: number; seQuedan: number }> {
+  const clasesVivas = db
+    .select({ id: calClases.id })
+    .from(calClases)
+    .where(and(isNull(calClases.borradoAt), sql`${calClases.estado} is distinct from ${CLASE_DESAPARECIDA}`));
+  const vaciables = and(
+    isNotNull(calCalendarios.borradoAt),
+    or(isNull(calCalendarios.courseId), sql`${calCalendarios.courseId} not in (${clasesVivas})`),
+  );
+  const ids = (await db.select({ id: calCalendarios.id }).from(calCalendarios).where(vaciables)).map((r) => r.id);
+  for (let i = 0; i < ids.length; i += 500) {
+    const trozo = ids.slice(i, i + 500);
+    await db.delete(calSuscripciones).where(inArray(calSuscripciones.calendarId, trozo));
+    await db.delete(calCalendarios).where(inArray(calCalendarios.id, trozo));
+  }
+  const clases = await db.delete(calClases).where(isNotNull(calClases.borradoAt)).returning({ id: calClases.id });
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(calCalendarios)
+    .where(isNotNull(calCalendarios.borradoAt));
+  return { calendarios: ids.length, clases: clases.length, seQuedan: n };
 }

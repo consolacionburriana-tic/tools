@@ -48,12 +48,13 @@ export function pareceDeClassroom(id: string): boolean {
   return id.startsWith('c_classroom');
 }
 
-export type GrupoCalendario = 'este' | 'anteriores' | 'huerfano' | 'otro';
+export type GrupoCalendario = 'este' | 'anteriores' | 'huerfano' | 'otro' | 'limbo';
 
 export const GRUPO_LABELS: Record<GrupoCalendario, string> = {
   este: 'Classroom · este curso',
   anteriores: 'Classroom · cursos anteriores',
   huerfano: 'Classroom · clase ya borrada',
+  limbo: 'Inborrables (sin dueño activo)',
   otro: 'Otros calendarios',
 };
 
@@ -164,8 +165,11 @@ export interface CalendarioFila {
  * Por qué NO se puede borrar desde aquí, o null si se puede. Sin nadie a quien suplantar no
  * hay forma: la API solo deja borrar un calendario secundario a su propietario.
  */
-export function motivoNoBorrable(c: Pick<CalendarioFila, 'borradoAt' | 'propietarios' | 'courseOwnerEmail'>): string | null {
+export function motivoNoBorrable(
+  c: Pick<CalendarioFila, 'borradoAt' | 'propietarios' | 'courseOwnerEmail' | 'borradoError'>,
+): string | null {
   if (c.borradoAt) return 'Ya está borrado';
+  if (enLimbo(c)) return 'Su dueño no es ninguna cuenta activa del dominio';
   if (c.propietarios.length === 0 && !c.courseOwnerEmail) return 'No se sabe quién es su propietario: haz el barrido por usuarios';
   return null;
 }
@@ -224,4 +228,28 @@ export interface ClaseFila {
   borradoAt: string | null;
   borradoPor: string | null;
   borradoError: string | null;
+}
+
+/**
+ * «En el limbo»: se intentó borrar, ninguna cuenta activa es su propietaria (el barrido no
+ * vio ningún `owner`) y el profe de la clase tampoco pudo. Casi siempre es un calendario de
+ * una clase vieja cuyo creador ya no está en el centro (cuenta suspendida o borrada: el
+ * barrido se las salta porque no se pueden suplantar). No se puede borrar suplantando a
+ * nadie, así que se aparta a su propia pestaña para que no estorbe.
+ */
+export function enLimbo(c: Pick<CalendarioFila, 'borradoAt' | 'propietarios' | 'borradoError'>): boolean {
+  return !c.borradoAt && !!c.borradoError && c.propietarios.length === 0;
+}
+
+/**
+ * Inborrables: los del limbo y, además, los que no tienen ningún dueño conocido (ni `owner`
+ * visto en el barrido ni profe de la clase), aunque no se hayan intentado borrar: sin nadie a
+ * quien suplantar no hay forma. Van todos a su pestaña, para que no estorben (David,
+ * 30-sep-2026).
+ */
+export function esInborrable(
+  c: Pick<CalendarioFila, 'borradoAt' | 'propietarios' | 'borradoError' | 'courseOwnerEmail'>,
+): boolean {
+  if (c.borradoAt) return false;
+  return enLimbo(c) || (c.propietarios.length === 0 && !c.courseOwnerEmail);
 }

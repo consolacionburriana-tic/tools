@@ -193,14 +193,6 @@ export default async function EscritorioPage() {
               desc="Horario por clase, por profesor y por aula, e importación desde Educamos"
             />
           )}
-          {veOratorios && (
-            <ModuleCard
-              href="/gestion/oratorios"
-              icon={<HandHeart className="h-6 w-6" />}
-              title="Oratorios y Godly Play"
-              desc={puede('oratorios') ? 'Planificar por clase sin molestar siempre al mismo profe, con Calendar y aviso por correo' : 'Los momentos que te quitan una hora de clase'}
-            />
-          )}
           {puede('mi-horario') && (
             <ModuleCard
               href="/mi-horario"
@@ -223,6 +215,14 @@ export default async function EscritorioPage() {
               icon={<Bus className="h-6 w-6" />}
               title="Salidas y pagos"
               desc="Excursiones, justificantes de pago y seguimiento por clase"
+            />
+          )}
+          {veOratorios && (
+            <ModuleCard
+              href="/gestion/oratorios"
+              icon={<HandHeart className="h-6 w-6" />}
+              title="Oratorios y Godly Play"
+              desc={puede('oratorios') ? 'Planificar por clase sin molestar siempre al mismo profe, con Calendar y aviso por correo' : 'Los momentos que te quitan una hora de clase'}
             />
           )}
           {puede('evaluaciones') && (
@@ -285,8 +285,8 @@ export default async function EscritorioPage() {
               <ModuleCard
                 href="/gestion/calendarios"
                 icon={<CalendarX2 className="h-6 w-6" />}
-                title="Calendarios del dominio"
-                desc="Los calendarios que deja cada clase de Classroom: ver cuáles tienen eventos y borrarlos en bloque"
+                title="Classrooms y calendarios"
+                desc="Todas las clases y calendarios del dominio: meter profes en clases ajenas y limpiar lo viejo en bloque"
               />
             )}
             {puede('tareas') && (

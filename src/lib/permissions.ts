@@ -56,7 +56,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   comunicacion: 'Comunicación (protección de datos de todo el centro)',
   oratorios: 'Oratorios y Godly Play (planificar)',
   'oratorios-ver': 'Oratorios y Godly Play (ver lo mío)',
-  calendarios: 'Calendarios del dominio',
+  calendarios: 'Classrooms y calendarios',
 };
 
 /**
