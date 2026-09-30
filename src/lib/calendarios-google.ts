@@ -104,7 +104,7 @@ export function explicarError(e: unknown): string {
     return 'La API no está habilitada en el proyecto de Google Cloud de la cuenta de servicio';
   if (/invalid_grant/i.test(m)) return 'No se puede suplantar a ese buzón (¿no existe, está suspendido o no tiene el servicio?)';
   if (/Not Authorized to access this resource|insufficient permissions|forbidden/i.test(m) || statusDe(e) === 403)
-    return 'Ese buzón no tiene permisos para esto (para Directory y Classroom tiene que ser administrador)';
+    return 'Ese buzón no tiene permiso para esto (si es Directory o Classroom, tiene que ser administrador)';
   return m.slice(0, 300);
 }
 
@@ -328,7 +328,10 @@ export async function borrarCalendario(buzon: string, calendarId: string): Promi
     await conReintentos(() => cal(buzon).calendars.delete({ calendarId }));
     return { ok: true };
   } catch (e) {
-    return { ok: false, status: statusDe(e), error: explicarError(e) };
+    // Aquí un 403 no es cosa de administradores: es que ese buzón no es el dueño.
+    const status = statusDe(e);
+    const error = status === 403 ? 'No es el propietario del calendario (Google no le deja borrarlo)' : explicarError(e);
+    return { ok: false, status, error };
   }
 }
 

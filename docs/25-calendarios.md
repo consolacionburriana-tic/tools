@@ -55,6 +55,14 @@ Cuidado con el 404: Calendar lo devuelve tanto si el calendario ya no existe com
 cuenta no llega a verlo. Solo se da por "ya no existía" si lo dice un `owner` que lo tenía
 en su lista; si no, queda como error con el motivo.
 
+**Sin dueño activo** (visto el 30-sep-2026 en el primer borrado real: 850 borrados, ~75 así):
+calendarios de clases viejas (2018-2022) en los que el barrido no encontró ningún `owner`
+entre las cuentas activas, y el profe que tiene hoy la clase recibe un 403 porque no es el
+dueño. Casi seguro que el dueño es quien creó la clase y ya no está (cuenta suspendida o
+borrada, que el barrido se salta). Se apartan solos a la pestaña «Sin dueño activo» y no se
+pueden seleccionar. Casi no tienen eventos, así que se dejan ahí; si alguno molesta, se
+reactiva esa cuenta un momento o se transfiere, y se vuelve a escanear.
+
 La fila en Neon **nunca se borra**: se queda con `borrado_at`, quién lo borró y como quién.
 Es el registro de lo que se ha limpiado.
 

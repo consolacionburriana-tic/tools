@@ -17,6 +17,7 @@ import {
   cursoDeCalendario,
   cursoDeClase,
   type ClaseFila,
+  enLimbo,
   grupoDeCalendario,
   pareceDeClassroom,
   type CalendarioFila,
@@ -333,7 +334,9 @@ export async function listarCalendarios(hoy = new Date()): Promise<CalendarioFil
       courseOwnerEmail: c.courseOwnerEmail,
       clasePresente,
       curso: cursoDeCalendario(datos),
-      grupo: grupoDeCalendario(datos, hoy),
+      grupo: enLimbo({ borradoAt: c.borradoAt ? 'x' : null, borradoError: c.borradoError, propietarios: propietarios ?? [] })
+        ? 'limbo'
+        : grupoDeCalendario(datos, hoy),
       eventos: c.eventos,
       eventosFuturos: c.eventosFuturos,
       primerEventoAt: iso(c.primerEventoAt),

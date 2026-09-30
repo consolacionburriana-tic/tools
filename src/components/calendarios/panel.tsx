@@ -28,12 +28,13 @@ import {
 } from '@/lib/calendarios';
 
 type Pestana = GrupoCalendario | 'borrados';
-const PESTANAS: Pestana[] = ['anteriores', 'huerfano', 'este', 'otro', 'borrados'];
+const PESTANAS: Pestana[] = ['anteriores', 'huerfano', 'este', 'otro', 'limbo', 'borrados'];
 const PESTANA_LABELS: Record<Pestana, string> = {
   anteriores: 'Cursos anteriores',
   huerfano: 'Clase ya borrada',
   este: 'Este curso',
   otro: 'Otros',
+  limbo: 'Sin dueño activo',
   borrados: 'Borrados',
 };
 
@@ -341,6 +342,16 @@ export function PanelCalendarios({ iniciales, errorInicial }: { iniciales: Calen
           />
         </div>
       </div>
+
+      {pestana === 'limbo' && (
+        <p className="flex items-start gap-2 rounded-xl border border-zinc-200 bg-zinc-100/70 p-3 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/50 dark:text-zinc-300">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          Se intentaron borrar y no se pudo: ninguna cuenta activa del dominio es su dueña. Casi siempre son calendarios de
+          clases viejas cuyo creador ya no está en el centro (cuenta suspendida o borrada), y Google solo deja borrarlos a
+          su dueño. Aquí se quedan apartados para que no estorben. Si alguno molesta de verdad, se puede reactivar esa
+          cuenta un momento, o transferir la clase, y volver a escanear.
+        </p>
+      )}
 
       {pestana === 'este' && vivos.some((c) => c.grupo === 'este') && (
         <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-500/10 dark:text-amber-200">

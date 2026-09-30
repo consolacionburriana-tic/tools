@@ -4,6 +4,7 @@ import {
   antiguedadCurso,
   cursoDeClase,
   cursoLimite,
+  enLimbo,
   candidatosParaBorrar,
   cursoAcademicoDeClase,
   cursoEnNombre,
@@ -119,9 +120,9 @@ describe('acumularEventos', () => {
 
 describe('borrado', () => {
   it('sin propietario conocido no se puede', () => {
-    expect(motivoNoBorrable({ borradoAt: null, propietarios: [], courseOwnerEmail: null })).toMatch(/propietario/);
-    expect(motivoNoBorrable({ borradoAt: null, propietarios: [], courseOwnerEmail: 'profe@x.com' })).toBeNull();
-    expect(motivoNoBorrable({ borradoAt: '2026-09-30', propietarios: ['a@x.com'], courseOwnerEmail: null })).toMatch(/borrado/);
+    expect(motivoNoBorrable({ borradoAt: null, propietarios: [], courseOwnerEmail: null, borradoError: null })).toMatch(/propietario/);
+    expect(motivoNoBorrable({ borradoAt: null, propietarios: [], courseOwnerEmail: 'profe@x.com', borradoError: null })).toBeNull();
+    expect(motivoNoBorrable({ borradoAt: '2026-09-30', propietarios: ['a@x.com'], courseOwnerEmail: null, borradoError: null })).toMatch(/borrado/);
   });
   it('candidatos: los owner vistos y detrás el dueño de la clase, sin repetir', () => {
     expect(candidatosParaBorrar(['a@x.com'], 'b@x.com')).toEqual(['a@x.com', 'b@x.com']);
@@ -144,5 +145,19 @@ describe('antigüedad de las clases', () => {
     expect(cursoDeClase('1ESOA (2022/2023)', new Date('2025-09-01T00:00:00Z'))).toBe('2022-23');
     expect(cursoDeClase('Robótica', new Date('2023-10-01T00:00:00Z'))).toBe('2023-24');
     expect(cursoDeClase('Robótica', null)).toBeNull();
+  });
+});
+
+describe('enLimbo', () => {
+  it('falló el borrado y no hay ningún dueño activo', () => {
+    expect(enLimbo({ borradoAt: null, borradoError: 'x: no es el propietario', propietarios: [] })).toBe(true);
+    expect(
+      motivoNoBorrable({ borradoAt: null, borradoError: 'x', propietarios: [], courseOwnerEmail: 'profe@x.com' }),
+    ).toMatch(/ninguna cuenta activa/);
+  });
+  it('no, si hay un dueño visto (puede ser un fallo puntual) o si nunca se intentó', () => {
+    expect(enLimbo({ borradoAt: null, borradoError: 'x', propietarios: ['a@x.com'] })).toBe(false);
+    expect(enLimbo({ borradoAt: null, borradoError: null, propietarios: [] })).toBe(false);
+    expect(enLimbo({ borradoAt: '2026-09-30', borradoError: 'x', propietarios: [] })).toBe(false);
   });
 });
