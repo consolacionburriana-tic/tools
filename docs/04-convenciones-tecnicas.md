@@ -225,6 +225,14 @@ src/components/<modulo>/          # componentes propios del módulo
   el ZIP y `word/document.xml` se recorre con el árbol mínimo de `src/lib/horarios-lectores.ts`.
   No añadas `mammoth` ni `jszip` para esto.
 
+## Identidad del colegio
+
+El dominio de Workspace, el nombre, el host y los buzones (Licencias, no-responder, soporte) viven
+**solo** en `src/lib/colegio.ts` (`COLEGIO`), sin imports para que lo puedan usar servidor y cliente.
+No escribas `consolacionburriana.com` a pelo en código nuevo: importa `COLEGIO`. Los tests sí
+pueden usarlo como dato de ejemplo. Lo que no sale de ahí (logo, iconos, títulos, `manifest.json`)
+está listado en el §6 de [`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md).
+
 ## Datos personales (esto no es negociable)
 
 - **Ningún export con datos reales se commitea.** `.gitignore` ya bloquea `*educamos*`; ante

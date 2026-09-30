@@ -4,6 +4,12 @@ Esta guía dice **dónde se hace cada cosa** para tener tu propia copia funciona
 No explica los módulos (eso es [`plataforma.md`](./plataforma.md)) ni cómo se programa aquí
 ([`04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md)).
 
+> **Para quién es:** colegios con **Google Workspace for Education** y **Educamos**. La gracia
+> de la plataforma es importar alumnado y profesorado del export de Educamos y que todos los
+> módulos ya lo tengan (decisión de diseño, 30-sep-2026: no hay lector para otros programas de
+> gestión). Antes de empezar, mira el **§7**: la estructura de etapas y cursos para la que está
+> hecha (Infantil, Primaria y ESO; **Bachillerato aún no**).
+
 > **Estado de esta guía:** escrita leyendo el código y la configuración reales del repo. El
 > despliegue desde cero en un colegio ajeno **todavía no se ha ensayado de punta a punta**: si
 > un paso falla, corrígelo aquí mismo para el siguiente.
@@ -17,7 +23,7 @@ No explica los módulos (eso es [`plataforma.md`](./plataforma.md)) ni cómo se 
 | Cuenta de **Neon** | Base de datos Postgres | Sí | [neon.tech](https://neon.tech) → *Sign up* (con GitHub o Google) |
 | **Google Workspace for Education** con dominio propio y acceso de **superadministrador** | Login del claustro (solo cuentas del dominio) y todo lo que use Gmail/Calendar/Classroom/Drive | Sí — el login está hecho solo para Google | La cuenta del colegio ya la tiene; para Google Cloud entra con ella en [console.cloud.google.com](https://console.cloud.google.com) y acepta las condiciones |
 | Cuenta de **Resend** | Correo saliente si no quieres usar Gmail | No (alternativa) | [resend.com/signup](https://resend.com/signup) |
-| Exportación de alumnado/profesorado de **Educamos** | Cargar la BBDD central | Para casi todos los módulos (ver §4) | La saca secretaría desde Educamos |
+| Exportación de alumnado/profesorado de **Educamos** | Cargar la BBDD central | Sí: es la base de casi todos los módulos (ver §4) | La saca secretaría desde Educamos |
 | Node 20+ y `pnpm` en tu ordenador | Aplicar la base de datos y probar en local | Sí | [nodejs.org](https://nodejs.org) y `npm i -g pnpm` |
 
 > Los tres servicios de pago por uso (Vercel, Neon, Resend) tienen plan gratuito; los límites
@@ -49,21 +55,20 @@ al escritorio con todas las tarjetas (eres `supertic`).
 
 ## 2 · Crear las tablas (paso 11) — el orden importa
 
-`src/db/schema.ts` define casi todas las tablas, pero **cuatro (`lic_licencias`, `lic_envios`,
-`lic_pedidos_editorial`, `lic_ajustes_pedido`) solo existen como SQL** en `src/db/sql/`. Por eso,
-en una base **vacía**, son dos comandos y en este orden:
+`src/db/schema.ts` define todas las tablas, pero los **datos base** (tipos de actividad y espacios
+de Horarios, asignaturas y tipos de consecuencia de Puntualidad, tipos de Oratorios…) solo viven
+en los SQL de `src/db/sql/`. Por eso, en una base **vacía**, son dos comandos y en este orden:
 
 ```bash
-pnpm db:push                                                    # 1) tablas de schema.ts
-pnpm db:sql $(ls src/db/sql/*.sql | xargs -n1 basename)         # 2) TODO el SQL aditivo (idempotente)
+pnpm db:push                                                    # 1) crea las tablas de schema.ts
+pnpm db:sql $(ls src/db/sql/*.sql | xargs -n1 basename)         # 2) aplica TODO el SQL (datos base y ajustes)
 ```
 
-- El 2 también mete los datos semilla imprescindibles (tipos de actividad de horarios, asignaturas
-  y consecuencias de Puntualidad, Oratorios…). Los ficheros son idempotentes: repetirlo no rompe nada.
+- Los ficheros SQL son idempotentes: repetir el 2 no rompe nada.
 - `tutorias-2026-27.sql` es específico del curso de Consolación: sobre una base vacía no hace nada.
-- ⚠️ **Después de esto, no vuelvas a lanzar `pnpm db:push`** contra esa base: no conoce esas
-  cuatro tablas y propondrá borrarlas. Los cambios de schema posteriores se aplican con SQL
-  aditivo (`pnpm db:sql`, ver [`04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md#base-de-datos-drizzle--neon)).
+- ⚠️ `db:push` **borra lo que no esté en `schema.ts`**. Solo lo usas así, en una base vacía. Con
+  datos reales, los cambios de schema se aplican con SQL aditivo (`pnpm db:sql`), como explica
+  [`04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md#base-de-datos-drizzle--neon).
 - Para traer novedades del repo original: `git remote add upstream <url-del-repo-original>`,
   `git pull upstream main` y luego `pnpm db:sql --pendientes` (el fichero `src/db/sql/pendientes.txt` lista lo que falta).
 
@@ -103,14 +108,13 @@ https://www.googleapis.com/auth/classroom.rosters
 Casi todos los módulos leen de la **BBDD central** (`edu_*`), que se carga desde un export de
 **Educamos** en `/gestion/educamos` (vista previa → confirmar → upsert; se repite cuando cambia
 el alumnado). Los ficheros con datos personales **nunca se commitean** (`.gitignore` ya bloquea
-`*educamos*`). Si tu colegio **no usa Educamos**, tienes que adaptar el lector
-[`src/lib/educamos.ts`](../src/lib/educamos.ts) para que produzca las mismas filas — el resto
-de la app no cambia. Después: asigna tutorías y cursos en `/gestion/profes`.
+`*educamos*`). El lector es [`src/lib/educamos.ts`](../src/lib/educamos.ts). Después: asigna
+tutorías en `/gestion/profes`.
 
 ## 5 · Primer administrador (paso 12)
 
 La app no trae un usuario inicial: alguien tiene que insertarlo a mano una vez. En Neon →
-*SQL Editor* (cambia el correo, tiene que ser del dominio que pusiste en §6):
+*SQL Editor* (cambia el correo, tiene que ser del dominio que pusiste en `colegio.ts`, §6):
 
 ```sql
 INSERT INTO auth_users (id, email, nombre, role)
@@ -120,50 +124,72 @@ VALUES (gen_random_uuid(), 'tu.nombre@tu-colegio.es', 'Tu nombre', 'supertic');
 A partir de ahí, el resto del claustro se da de alta desde `/gestion/usuarios`. Quien sea
 profesor activo en la BBDD central (paso 16) entra solo como `profe`, sin alta manual.
 
-## 6 · Lo que está atado a Consolación en el código (paso 13)
+## 6 · Tu identidad en el código (paso 13)
 
-Hoy la identidad del colegio **no está centralizada**: son constantes repartidas. Busca y
-sustituye estas (`grep -rIn "consolacionburriana" src` te las encuentra todas):
+**Un solo fichero para lo importante: [`src/lib/colegio.ts`](../src/lib/colegio.ts).** Cambia ahí
+el dominio de tu Workspace, el nombre del colegio, el host y los tres buzones (Licencias,
+no-responder y soporte). De ese fichero salen el dominio del login, los remitentes de los
+correos, el filtro de «añadir profe a clase», el correo corporativo que se busca al importar
+profesores, los correos de los ficheros de Apple School Manager, la URL por defecto y los
+contactos que ven las familias.
 
-| Qué | Dónde | Por qué importa |
+⚠️ Sin cambiar `dominio`, **nadie de tu colegio puede entrar**: el login solo admite ese dominio.
+
+Lo que **no** sale de ahí y se cambia a mano (son marca y ficheros estáticos):
+
+| Qué | Dónde |
+|---|---|
+| Títulos y descripción de la web y de la app instalada | `src/app/layout.tsx`, `public/manifest.json` |
+| Portada pública y pantalla de login («Colegio Consolación Burriana», «Tools Consolación») | `src/components/home/home-landing.tsx`, `src/app/gestion/login/page.tsx` |
+| Logo | `public/logobur.png` |
+| Iconos de la PWA (los actuales son el emblema de Consolación) | `scripts/iconos-pwa.py` y `scripts/icono-app.py` (necesitan Pillow) |
+| Nombre del repo en los textos de «Tareas» | `src/lib/tareas.ts` |
+| IDs de Drive de Licencias (plantilla y carpeta de pedidos): se pisan con las variables del §3, pero mejor cámbialos también | `src/lib/licencias-pedidos.ts`, `src/lib/licencias-pedidos-server.ts` |
+| Módulos propios del colegio (*Oratorios y Godly Play*, *AMPA*, *ONG*, banco de libros) | Si no aplican, no se dan permisos al módulo y desaparece del escritorio (§8) |
+
+Los tests usan `@consolacionburriana.com` como dato de ejemplo y no dependen de `colegio.ts`:
+tras cambiar, `pnpm lint && pnpm build && pnpm test` deben seguir pasando.
+
+## 7 · Etapas y clases: qué soporta tu centro
+
+La estructura para la que está hecha es la de un colegio de **Infantil (3-4-5 años), Primaria
+(1º-6º) y ESO (1º-4º)**. Los cursos salen del export de Educamos (`2ESOB` → curso `2ESO`, letra `B`).
+
+| Tu centro tiene… | ¿Funciona? | Detalle |
 |---|---|---|
-| **Dominio del login** `DOMINIO_LOGIN` | `src/lib/permissions.ts` | Sin cambiarlo, **nadie de tu colegio puede entrar** |
-| Dominio de correo `DOMINIO` y **remitentes por defecto** (`DEFECTOS`) | `src/lib/email.ts` | De dónde salen los correos si no fijas `EMAIL_FROM_*` |
-| `DOMINIO_COLE` | `src/lib/educamos.ts` | Reconoce el correo corporativo al importar profes |
-| `dominio` de `OPCIONES_POR_DEFECTO` | `src/lib/autoasm-construir.ts` | Correos de los ficheros de Apple School Manager |
-| Filtro `@consolacionburriana.com` de «añadir profe a clase» | `src/app/api/calendarios/admin/clases/profe/route.ts` | Rechaza cuentas de otro dominio |
-| Dominio por defecto de `appBaseUrl()` | `src/lib/constants.ts` | Solo si no fijas `APP_BASE_URL` (fíjala y da igual) |
-| Correo de gestores por defecto y pies de correo | `src/lib/licencias-email.ts`, `src/lib/*-email.ts`, `src/lib/email-template.ts` | Firmas y buzones que ven las familias |
-| Correos de contacto que ven las familias en pantalla | `src/components/licencias/licencias-form.tsx`, `src/components/salidas/salidas-familia.tsx` | `licencias@…`, `tic@…` |
-| IDs de Drive del colegio (plantilla y carpeta de pedidos) | `src/lib/licencias-pedidos.ts`, `src/lib/licencias-pedidos-server.ts` | Se pisan con las variables del §3; mejor cámbialos también aquí |
-| Nombre, logo y textos («Colegio Consolación», «Tools Consolación») | `src/app/layout.tsx`, `src/components/home/home-landing.tsx`, `src/app/gestion/login/page.tsx`, `public/manifest.json`, `public/logobur.png` | Lo que ven usuarios y lo que se instala en el iPad |
-| **Iconos de la PWA** | `scripts/iconos-pwa.py` y `scripts/icono-app.py` (necesitan Pillow) | Los actuales son el emblema de Consolación |
-| Etapas, cursos y asignaturas | `src/lib/constants.ts`, `src/lib/educamos.ts` | Si tu centro tiene otra estructura (aquí: EI, EP, ESO) |
-| Datos y pantallas propias del colegio | *Oratorios y Godly Play* (`ora_*`), *AMPA*, *ONG*, *banco de libros* | Si no aplican, no se dan permisos al módulo y desaparece del escritorio (§7) |
+| **Varias líneas por curso** (A, B, C, D…: 2, 3, 4 o más clases) | ✅ | La letra es una sola letra A-Z que viene de Educamos; no hay límite ni lista fija, y se ordenan por letra. Cursos sin letra (típico en infantil): también |
+| **PDC** (diversificación) | ✅ | Se trata como ESO con letra `PDC` |
+| **Bachillerato** | ❌ todavía | Horarios reconoce el código `BACH` (etapa prevista, desactivada), pero en el resto (alumnado, tutorías, cuaderno, números, banco de libros, promoción de curso) esos alumnos salen «sin etapa», al final de las listas y sin promocionar. No es configuración: unos 30 ficheros dependen de las tres etapas |
+| **FP** (CFGM/CFGS) o **escuela infantil 0-3** | ❌ | Igual que Bachillerato |
+| Promoción de curso a la manera de Consolación | ⚠️ | Infantil rota 3→4→5→3, Primaria en ciclos de dos años (1↔2, 3↔4, 5↔6, misma letra) y ESO sube con 4º egresando. Si tu colegio promociona 1º→2º de forma normal, el botón «promocionar» de tutorías dará destinos equivocados: se cambia en `cursoSiguiente()` de `src/lib/cursos.ts` |
+| Banco de libros | ⚠️ | Solo desde 3º de Primaria (`cursoEnBanco()`, mismo fichero) |
+| Licencias | ⚠️ | El formulario cubre de 6º de Primaria a 4º de ESO (`CURSOS_FORM` en `src/lib/licencias.ts`) |
+| Puntualidad | ⚠️ | Solo ESO y PDC ([`17-puntualidad.md`](./17-puntualidad.md)) |
+| AUTOASM | ⚠️ | Lista fija de cursos de 3INF a 4ESO, con alcance desde 6º (`autoasm-construir.ts`) |
 
-Tras cambiar: `pnpm lint && pnpm build && pnpm test` deben pasar (algunos tests usan el dominio
-del colegio como dato de ejemplo).
+Lo pendiente para dar soporte a Bachillerato está apuntado en
+[`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md).
 
-## 7 · Quitar lo que no uses
+## 8 · Quitar lo que no uses
 
 No hace falta borrar código: en `/gestion/usuarios` cada persona tiene sus módulos, y un módulo
 que nadie tiene no aparece en el escritorio. La portada pública (`/`) solo enseña trámites
 abiertos (campaña de licencias, salidas cobrando), así que sin campañas queda vacía y dice que
 no hay nada.
 
-## 8 · Si algo no funciona
+## 9 · Si algo no funciona
 
 | Síntoma | Casi seguro |
 |---|---|
 | Google dice `redirect_uri_mismatch` | Falta la URL exacta `https://TU-DOMINIO/api/auth/callback/google` en el paso 5 |
 | Entras con Google y sale «pide acceso al TIC» | No hiciste el paso 12, o el correo de §5 no coincide con el que usas |
-| «Acceso denegado» al iniciar sesión | `DOMINIO_LOGIN` (§6) sigue siendo el de Consolación |
+| «Acceso denegado» al iniciar sesión | `dominio` de `src/lib/colegio.ts` (§6) sigue siendo el de Consolación |
 | Los correos no salen y no hay error | Falta `RESEND_API_KEY` **o** la cuenta de servicio con `gmail.send`: sin transporte se saltan en silencio |
 | `insufficient permissions` / `unauthorized_client` en Google | Falta el scope en la delegación (paso 8), o la API no está habilitada (paso 7). Cambios de delegación: hasta unos minutos en aplicarse |
 | Pedidos de Licencias dan 403/404 en Drive | Plantilla/carpeta sin compartir con el `client_email`, o siguen los IDs de Consolación (§3) |
 | Los enlaces de los correos apuntan a otro sitio | `APP_BASE_URL` sin fijar o mal fijada en Vercel |
 
-## 9 · Ver qué hay guardado y qué está pasando
+## 10 · Ver qué hay guardado y qué está pasando
 
 Cuando algo no cuadra, se mira en tres sitios, de más cercano a más lejano:
 
@@ -182,12 +208,13 @@ Cuando algo no cuadra, se mira en tres sitios, de más cercano a más lejano:
 **Consultas para comprobar que la instalación está bien** (pégalas en el SQL Editor):
 
 ```sql
--- ¿Se crearon las tablas? (debería salir un número alto, unas 90)
+-- ¿Se crearon las tablas? (debería salir 88 o más)
 SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';
 
--- ¿Están las cuatro tablas que solo existen como SQL?
-SELECT table_name FROM information_schema.tables
-WHERE table_name IN ('lic_licencias','lic_envios','lic_pedidos_editorial','lic_ajustes_pedido');
+-- ¿Se aplicaron los datos base del paso 2? (las tres deberían dar más de 0)
+SELECT (SELECT count(*) FROM hor_actividades)  AS actividades_horario,
+       (SELECT count(*) FROM pun_subjects)     AS asignaturas_puntualidad,
+       (SELECT count(*) FROM ora_tipos)        AS tipos_oratorio;
 
 -- ¿Eres administrador?
 SELECT email, role, active FROM auth_users;

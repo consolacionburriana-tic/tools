@@ -7,14 +7,18 @@ mismo patrón:
 > **formulario o pantalla de gestión → datos centralizados en Postgres → aviso por correo a quien tiene que enterarse**
 
 Hecho para funcionar bien en un **iPad compartido** (se instala como app) y pensado para que lo
-puedan **desplegar otros colegios** con sus propias cuentas.
+puedan **desplegar otros colegios** con sus propias cuentas. La gracia: **importas el alumnado y
+el profesorado desde Educamos y todos los módulos ya los tienen**. Por eso está pensado para
+colegios con **Educamos** y **Google Workspace for Education**, con Infantil, Primaria y ESO
+(Bachillerato todavía no; ver el §7 de la guía).
 
 ## ¿Quieres tu propia copia para tu colegio?
 
 👉 **[`docs/08-despliegue-y-fork.md`](./docs/08-despliegue-y-fork.md)** — guía esquemática de
 *dónde se hace cada cosa* (GitHub, Neon, Vercel, Google, correo) y qué cambiar en el código.
 
-Lo imprescindible para arrancar es poco: **Neon** (base de datos) + **Vercel** (hosting) + un
+Cambiar la identidad (dominio, nombre, buzones) es editar un solo fichero:
+[`src/lib/colegio.ts`](./src/lib/colegio.ts). Lo imprescindible para arrancar es poco: **Neon** (base de datos) + **Vercel** (hosting) + un
 **Google Workspace** para el login del claustro. Lo demás (correo, Drive, Calendar, Classroom,
 archivos adjuntos) se va activando módulo a módulo.
 
@@ -91,6 +95,13 @@ El alumnado es menor de edad. Reglas que no se negocian (detalle en las convenci
 **ningún export con datos reales se sube al repo** (`.gitignore` bloquea `*educamos*`), los
 formularios públicos **no buscan por nombre** (DNI del tutor, NIA o enlace personal) y muestran
 los nombres enmascarados, y no se guardan datos bancarios.
+
+## Licencia
+
+[**GNU AGPL-3.0**](./LICENSE). Puedes usar, adaptar y desplegar este código en tu colegio. Si lo
+modificas y lo ofreces como servicio a otras personas, tienes que compartir tus cambios bajo la
+misma licencia. El nombre, el logo y el emblema del Colegio Consolación
+(`public/logobur.png`, `public/icons/`) **no** se ceden con la licencia: sustitúyelos por los tuyos.
 
 ## Instalar en el iPad como app
 
