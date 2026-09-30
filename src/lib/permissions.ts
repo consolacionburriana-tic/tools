@@ -52,7 +52,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   tareas: 'Tareas de la plataforma',
   'tareas-reportar': 'Reportar fallitos',
   comunicacion: 'Comunicación (protección de datos de todo el centro)',
-  calendarios: 'Calendarios del dominio',
+  calendarios: 'Classrooms y calendarios',
 };
 
 /**

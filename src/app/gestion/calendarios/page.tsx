@@ -4,7 +4,7 @@ import { listarCalendarios, listarClases } from '@/lib/calendarios-server';
 import { VistaCalendarios } from '@/components/calendarios/vista';
 import type { CalendarioFila, ClaseFila } from '@/lib/calendarios';
 
-export const metadata = { title: 'Calendarios del dominio · Tools Consolación' };
+export const metadata = { title: 'Classrooms y calendarios · Tools Consolación' };
 
 // Ficha: docs/25-calendarios.md. El inventario sale de Neon (lo que dejó el último escaneo);
 // escanear, contar eventos y borrar lo hace la pantalla contra /api/calendarios/admin/*.

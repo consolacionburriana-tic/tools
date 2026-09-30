@@ -5,6 +5,7 @@ import {
   cursoDeClase,
   cursoLimite,
   enLimbo,
+  esInborrable,
   candidatosParaBorrar,
   cursoAcademicoDeClase,
   cursoEnNombre,
@@ -159,5 +160,20 @@ describe('enLimbo', () => {
     expect(enLimbo({ borradoAt: null, borradoError: 'x', propietarios: ['a@x.com'] })).toBe(false);
     expect(enLimbo({ borradoAt: null, borradoError: null, propietarios: [] })).toBe(false);
     expect(enLimbo({ borradoAt: '2026-09-30', borradoError: 'x', propietarios: [] })).toBe(false);
+  });
+});
+
+describe('esInborrable', () => {
+  const base = { borradoAt: null, borradoError: null, propietarios: [] as string[], courseOwnerEmail: null };
+  it('sin ningún dueño conocido, aunque no se haya intentado', () => {
+    expect(esInborrable(base)).toBe(true);
+  });
+  it('el limbo también', () => {
+    expect(esInborrable({ ...base, borradoError: 'x', courseOwnerEmail: 'profe@x.com' })).toBe(true);
+  });
+  it('no, si hay a quién suplantar y no ha fallado, o si ya está borrado', () => {
+    expect(esInborrable({ ...base, courseOwnerEmail: 'profe@x.com' })).toBe(false);
+    expect(esInborrable({ ...base, propietarios: ['a@x.com'] })).toBe(false);
+    expect(esInborrable({ ...base, borradoAt: '2026-09-30' })).toBe(false);
   });
 });

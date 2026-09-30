@@ -54,7 +54,7 @@ export const GRUPO_LABELS: Record<GrupoCalendario, string> = {
   este: 'Classroom · este curso',
   anteriores: 'Classroom · cursos anteriores',
   huerfano: 'Classroom · clase ya borrada',
-  limbo: 'Sin dueño activo (no se pueden borrar desde aquí)',
+  limbo: 'Inborrables (sin dueño activo)',
   otro: 'Otros calendarios',
 };
 
@@ -239,4 +239,17 @@ export interface ClaseFila {
  */
 export function enLimbo(c: Pick<CalendarioFila, 'borradoAt' | 'propietarios' | 'borradoError'>): boolean {
   return !c.borradoAt && !!c.borradoError && c.propietarios.length === 0;
+}
+
+/**
+ * Inborrables: los del limbo y, además, los que no tienen ningún dueño conocido (ni `owner`
+ * visto en el barrido ni profe de la clase), aunque no se hayan intentado borrar: sin nadie a
+ * quien suplantar no hay forma. Van todos a su pestaña, para que no estorben (David,
+ * 30-sep-2026).
+ */
+export function esInborrable(
+  c: Pick<CalendarioFila, 'borradoAt' | 'propietarios' | 'borradoError' | 'courseOwnerEmail'>,
+): boolean {
+  if (c.borradoAt) return false;
+  return enLimbo(c) || (c.propietarios.length === 0 && !c.courseOwnerEmail);
 }

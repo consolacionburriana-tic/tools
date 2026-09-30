@@ -235,6 +235,10 @@ Recopilados de las fichas, para verlos de un vistazo:
   del 2026-09-09, que no tenía `DATABASE_URL`: plantilla del cuaderno para varias etapas,
   nombre visible del profesorado y `autoasm.sql` (histórico, FTP y `asm_ajustes`). Basta con
   lanzarlo desde un entorno que tenga la conexión.
+- **Classrooms y calendarios** (ficha `25`, 30-sep-2026, segunda tanda): añadir a la
+  delegación `https://www.googleapis.com/auth/classroom.courses` (borrar clases) y
+  `https://www.googleapis.com/auth/classroom.rosters` (añadir profes). Y decidir **a quién**
+  se mete de profe en las tutorías para publicar las evaluaciones.
 - **Calendarios del dominio** (ficha `25`, 30-sep-2026): en la delegación de dominio del
   mismo Client ID, añadir `admin.directory.user.readonly`, `classroom.courses.readonly` y
   `calendar` (este último lo comparte con Mi horario), y habilitar en Google Cloud *Admin SDK

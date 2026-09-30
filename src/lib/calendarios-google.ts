@@ -21,6 +21,10 @@ import { acumularEventos, esCalendarioSecundario, RESUMEN_VACIO, type ResumenEve
 
 export const SCOPE_DIRECTORY = 'https://www.googleapis.com/auth/admin.directory.user.readonly';
 export const SCOPE_CLASSROOM = 'https://www.googleapis.com/auth/classroom.courses.readonly';
+// Cada acción de Classroom con su scope, para que falte lo que falte, lo demás siga funcionando:
+// leer (el escaneo) no deja de ir porque todavía no se haya delegado el de borrar.
+export const SCOPE_CLASSROOM_GESTION = 'https://www.googleapis.com/auth/classroom.courses';
+export const SCOPE_CLASSROOM_ROSTERS = 'https://www.googleapis.com/auth/classroom.rosters';
 export const SCOPE_CALENDAR = 'https://www.googleapis.com/auth/calendar';
 
 function credenciales(): { clientEmail: string; privateKey: string } | null {
@@ -57,8 +61,8 @@ function cal(buzon: string): calendar_v3.Calendar {
 function directory(admin: string): admin_directory_v1.Admin {
   return google.admin({ version: 'directory_v1', auth: jwt(SCOPE_DIRECTORY, admin) });
 }
-function classroom(admin: string): classroom_v1.Classroom {
-  return google.classroom({ version: 'v1', auth: jwt(SCOPE_CLASSROOM, admin) });
+function classroom(admin: string, scope = SCOPE_CLASSROOM): classroom_v1.Classroom {
+  return google.classroom({ version: 'v1', auth: jwt(scope, admin) });
 }
 
 // ── Errores y reintentos (mismo criterio que email-gmail.ts: 429 y 5xx) ─────────
@@ -111,7 +115,7 @@ export function explicarError(e: unknown): string {
 // ── Diagnóstico ────────────────────────────────────────────────────────────────
 
 export interface ComprobacionPermiso {
-  clave: 'directory' | 'classroom' | 'calendar';
+  clave: 'directory' | 'classroom' | 'classroom-gestion' | 'classroom-rosters' | 'calendar';
   nombre: string;
   scope: string;
   api: string;
@@ -143,6 +147,27 @@ export async function comprobarPermisos(admin: string): Promise<ComprobacionPerm
       async () => {
         const { data } = await classroom(admin).courses.list({ pageSize: 1, fields: 'courses(id)' });
         return data.courses?.length ? 'Se leen las clases' : 'Responde, pero no ve ninguna clase';
+      },
+    ],
+    [
+      'classroom-gestion',
+      'Classroom · borrar clases',
+      SCOPE_CLASSROOM_GESTION,
+      'Google Classroom API',
+      // Sin llamada de verdad (sería escribir): basta con que Google dé el token con ese scope.
+      async () => {
+        await jwt(SCOPE_CLASSROOM_GESTION, admin).authorize();
+        return 'Se pueden archivar y borrar clases';
+      },
+    ],
+    [
+      'classroom-rosters',
+      'Classroom · añadir profes',
+      SCOPE_CLASSROOM_ROSTERS,
+      'Google Classroom API',
+      async () => {
+        await jwt(SCOPE_CLASSROOM_ROSTERS, admin).authorize();
+        return 'Se puede matricular profesorado';
       },
     ],
     [
@@ -256,6 +281,52 @@ export async function paginaClases(
       })),
     siguiente: data.nextPageToken ?? null,
   };
+}
+
+export type ResultadoBorrarClase = { ok: true; yaNoExistia: boolean } | { ok: false; error: string };
+
+/**
+ * Elimina una clase de Classroom suplantando al admin (David lo pidió el 30-sep-2026 para
+ * limpiar las de hace años). Classroom solo deja eliminar clases ARCHIVADAS —en la web es
+ * igual: primero archivar, luego eliminar—, así que si no lo está se archiva antes. Aquí el
+ * 404 sí es fiable: un admin ve todas las clases del dominio.
+ *
+ * No se lleva la carpeta de la clase en Drive (se queda en el Drive del profe) ni su
+ * calendario, que se borra aparte (ver `borrarClases` en calendarios-server.ts).
+ */
+export async function borrarClase(admin: string, courseId: string, estado: string | null): Promise<ResultadoBorrarClase> {
+  const c = classroom(admin, SCOPE_CLASSROOM_GESTION);
+  try {
+    if (estado !== 'ARCHIVED') {
+      await conReintentos(() =>
+        c.courses.patch({ id: courseId, updateMask: 'courseState', requestBody: { courseState: 'ARCHIVED' } }),
+      );
+    }
+    await conReintentos(() => c.courses.delete({ id: courseId }));
+    return { ok: true, yaNoExistia: false };
+  } catch (e) {
+    if (statusDe(e) === 404) return { ok: true, yaNoExistia: true };
+    return { ok: false, error: explicarError(e) };
+  }
+}
+
+export type ResultadoProfe = { ok: true; yaEstaba: boolean } | { ok: false; error: string };
+
+/**
+ * Mete a `email` como PROFE de una clase, suplantando al admin. Un administrador del dominio
+ * puede añadir directamente (sin invitación) a cualquier cuenta del dominio. Si ya era profe,
+ * Google da 409 y se cuenta como hecho.
+ */
+export async function anadirProfe(admin: string, courseId: string, email: string): Promise<ResultadoProfe> {
+  try {
+    await conReintentos(() =>
+      classroom(admin, SCOPE_CLASSROOM_ROSTERS).courses.teachers.create({ courseId, requestBody: { userId: email } }),
+    );
+    return { ok: true, yaEstaba: false };
+  } catch (e) {
+    if (statusDe(e) === 409) return { ok: true, yaEstaba: true };
+    return { ok: false, error: explicarError(e) };
+  }
 }
 
 // ── Calendar ───────────────────────────────────────────────────────────────────

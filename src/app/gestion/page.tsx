@@ -272,8 +272,8 @@ export default async function EscritorioPage() {
               <ModuleCard
                 href="/gestion/calendarios"
                 icon={<CalendarX2 className="h-6 w-6" />}
-                title="Calendarios del dominio"
-                desc="Los calendarios que deja cada clase de Classroom: ver cuáles tienen eventos y borrarlos en bloque"
+                title="Classrooms y calendarios"
+                desc="Todas las clases y calendarios del dominio: meter profes en clases ajenas y limpiar lo viejo en bloque"
               />
             )}
             {puede('tareas') && (
