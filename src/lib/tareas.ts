@@ -100,6 +100,7 @@ const FICHAS: Partial<Record<Module, string>> = {
   profes: 'docs/02-integracion-educamos.md',
   autoasm: 'docs/19-autoasm.md',
   tareas: 'docs/23-tareas.md',
+  calendarios: 'docs/25-calendarios.md',
 };
 
 export function fichaDeModulo(modulo: string | null | undefined): string | null {

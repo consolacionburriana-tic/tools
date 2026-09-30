@@ -10,6 +10,7 @@ import {
   ChartColumnBig,
   CalendarCheck,
   CalendarDays,
+  CalendarX2,
   ClipboardCheck,
   ClipboardList,
   Database,
@@ -51,7 +52,7 @@ export default async function EscritorioPage() {
   const ahora = new Date();
   const licenciasArriba = puede('licencias') && esTemporadaLicencias(ahora);
   const configuracion =
-    puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas');
+    puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas') || puede('calendarios');
 
   // Stats solo de los módulos que el rol puede ver
   const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm] = await Promise.all([
@@ -265,6 +266,14 @@ export default async function EscritorioPage() {
                 icon={<Apple className="h-6 w-6" />}
                 title="AUTOASM (Apple School Manager)"
                 desc="Generar y revisar los seis CSV de ASM y descargarlos en un ZIP"
+              />
+            )}
+            {puede('calendarios') && (
+              <ModuleCard
+                href="/gestion/calendarios"
+                icon={<CalendarX2 className="h-6 w-6" />}
+                title="Calendarios del dominio"
+                desc="Los calendarios que deja cada clase de Classroom: ver cuáles tienen eventos y borrarlos en bloque"
               />
             )}
             {puede('tareas') && (

@@ -72,7 +72,7 @@ pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotente
 Al aplicarlos: quitarlos de `pendientes.txt` y marcar las casillas `[~]` → `[x]` de la ficha
 del módulo, en el mismo commit.
 
-**Ahora mismo no queda nada pendiente.** `numeros-fotos.sql` (la tabla `num_fotos` del histórico de Números del cole) se aplicó y verificó el 28-sep-2026. `licencias-banco-report.sql`
+**Ahora mismo no queda nada pendiente.** `calendarios.sql` (las tablas `cal_*` de Calendarios del dominio) se aplicó y verificó el 30-sep-2026. `numeros-fotos.sql` (la tabla `num_fotos` del histórico de Números del cole) se aplicó y verificó el 28-sep-2026. `licencias-banco-report.sql`
 (`lic_campaigns.banco_report_at`) y `licencias-pedidos-editorial.sql` (la tabla de tiradas de
 pedidos a editoriales) se aplicaron y verificaron el 16-sep-2026; los tres de la sesión del
 9-sep-2026 (`cuaderno-plantillas-etapas.sql`, `profes-nombre-mostrado.sql` y `autoasm.sql`), ese
@@ -106,6 +106,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Mi horario (ver el mío y llevarlo a Google Calendar) | ✅ | ✅ | 🟡 (Fases 0-3 hechas y en Neon; falta que David añada el scope de Calendar en Workspace y la primera prueba real) | [`20-mi-horario.md`](./20-mi-horario.md) |
 | Tareas de la plataforma (fallitos e ideas de módulos) | ✅ | ✅ | ✅ (botón flotante en `/gestion` para apuntar en dos segundos, tablero a pantalla completa en `/gestion/tareas`, copiar para pegar a un agente; TIC lo lleva, dirección/secretaría/orientación reportan) | [`23-tareas.md`](./23-tareas.md) |
 | Números del cole (recuentos por clase, curso, etapa y colegio, copiables, con fotos mensuales) | ✅ | ✅ | ✅ (en `/gestion/numeros`: ocho pestañas, tocar un número enseña quiénes son, copiar / WhatsApp / imprimir A4, fotos mensuales; ideas para más adelante en su ficha) | [`24-numeros.md`](./24-numeros.md) |
+| Calendarios del dominio (inventario de los calendarios que deja Classroom y borrado en bloque) | ✅ | ✅ | 🟡 (en `/gestion/calendarios`, solo TIC: escaneo por Classroom + barrido por usuarios, eventos por calendario, pestañas por curso y borrado con confirmación; tablas en Neon. Falta que David añada los scopes en Workspace y la primera prueba real) | [`25-calendarios.md`](./25-calendarios.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 empezado y en uso, pero le falta algo (lo que falta va entre
