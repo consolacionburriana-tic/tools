@@ -42,6 +42,10 @@ describe('cursoEnNombre', () => {
     expect(cursoEnNombre('Inglés 2023-2024')).toBe('2023-24');
     expect(cursoEnNombre('Lengua 25 – 26')).toBe('2025-26');
   });
+  it('el formato que pone Classroom en el colegio: «1ESOA (2024/2025)»', () => {
+    expect(cursoEnNombre('1ESOA (2024/2025)')).toBe('2024-25');
+    expect(cursoEnNombre('Matemáticas 3PRIB (2025/2026)')).toBe('2025-26');
+  });
   it('no confunde otros números con un curso', () => {
     expect(cursoEnNombre('Matemáticas 3-4 ESO')).toBeNull();
     expect(cursoEnNombre('Grupo 10-12')).toBeNull();

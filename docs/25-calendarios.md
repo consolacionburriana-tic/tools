@@ -66,8 +66,10 @@ Pestañas de la pantalla: **Cursos anteriores · Clase ya borrada · Este curso 
 Borrados**, cada una con filtro de eventos (todos / sin eventos / con eventos / con eventos
 por venir) y buscador.
 
-- **Si el nombre de la clase dice el curso** («Música 2024-25», «Tutoría 24/25»), manda el
-  nombre: hay profes que reutilizan una clase vieja y la renombran.
+- **Si el nombre de la clase dice el curso**, manda el nombre. En el colegio es lo normal:
+  las clases se llaman como «1ESOA (2024/2025)», y el calendario igual que la clase. También
+  vale «Música 2024-25» o «Tutoría 24/25». Así, una clase vieja reutilizada y renombrada sale
+  en su curso.
 - Si no, **la fecha de creación de la clase, con corte el 1 de julio** (no el 1 de
   septiembre como `academicYearActual`): las clases del curso que viene se crean en julio y
   agosto, y con el corte en septiembre saldrían como «del curso pasado» justo cuando más se
