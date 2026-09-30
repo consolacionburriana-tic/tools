@@ -10,22 +10,25 @@ No explica los módulos (eso es [`plataforma.md`](./plataforma.md)) ni cómo se 
 
 ## 0 · Qué necesitas antes de empezar
 
-| Necesitas | Para qué | ¿Obligatorio? |
-|---|---|---|
-| Cuenta de **GitHub** | Tu fork | Sí |
-| Cuenta de **Vercel** | Hosting, crons y almacenamiento de archivos (Blob) | Sí |
-| Cuenta de **Neon** | Base de datos Postgres | Sí |
-| **Google Workspace for Education** con dominio propio y acceso de **superadministrador** | Login del claustro (solo cuentas del dominio) y todo lo que use Gmail/Calendar/Classroom/Drive | Sí — el login está hecho solo para Google |
-| Cuenta de **Resend** | Correo saliente si no quieres usar Gmail | No (alternativa) |
-| Exportación de alumnado/profesorado de **Educamos** | Cargar la BBDD central | Para casi todos los módulos (ver §4) |
-| Node 20+ y `pnpm` en tu ordenador | Aplicar la base de datos y probar en local | Sí |
+| Necesitas | Para qué | ¿Obligatorio? | Cómo registrarte |
+|---|---|---|---|
+| Cuenta de **GitHub** | Tu fork | Sí | [github.com/signup](https://github.com/signup) |
+| Cuenta de **Vercel** | Hosting, crons y almacenamiento de archivos (Blob) | Sí | [vercel.com/signup](https://vercel.com/signup) → *Continue with GitHub* (así ya queda enlazado a tu fork) |
+| Cuenta de **Neon** | Base de datos Postgres | Sí | [neon.tech](https://neon.tech) → *Sign up* (con GitHub o Google) |
+| **Google Workspace for Education** con dominio propio y acceso de **superadministrador** | Login del claustro (solo cuentas del dominio) y todo lo que use Gmail/Calendar/Classroom/Drive | Sí — el login está hecho solo para Google | La cuenta del colegio ya la tiene; para Google Cloud entra con ella en [console.cloud.google.com](https://console.cloud.google.com) y acepta las condiciones |
+| Cuenta de **Resend** | Correo saliente si no quieres usar Gmail | No (alternativa) | [resend.com/signup](https://resend.com/signup) |
+| Exportación de alumnado/profesorado de **Educamos** | Cargar la BBDD central | Para casi todos los módulos (ver §4) | La saca secretaría desde Educamos |
+| Node 20+ y `pnpm` en tu ordenador | Aplicar la base de datos y probar en local | Sí | [nodejs.org](https://nodejs.org) y `npm i -g pnpm` |
+
+> Los tres servicios de pago por uso (Vercel, Neon, Resend) tienen plan gratuito; los límites
+> cambian, míralos en su web antes de decidir.
 
 ## 1 · Los pasos, en orden: qué se hace y dónde
 
 | # | Paso | Dónde | Qué haces | Te llevas |
 |---|---|---|---|---|
 | 1 | **Fork** | github.com → botón *Fork* | Crea tu copia. Clónala: `git clone <tu-fork> && cd tools && pnpm install` | Repo tuyo |
-| 2 | **Base de datos** | [neon.tech](https://neon.tech) → *New project* | Copia la *connection string* **pooled** | `DATABASE_URL` |
+| 2 | **Base de datos** | [neon.tech](https://neon.tech) → *New project* | Elige una **región de la UE** (son datos de menores). Luego botón *Connect* del proyecto → activa *Connection pooling* y copia la *connection string* | `DATABASE_URL` |
 | 3 | **Proyecto en Vercel** | [vercel.com/new](https://vercel.com/new) | Importa tu fork (Next.js, sin tocar nada del build). El primer deploy compilará pero no funcionará hasta el paso 10 (faltan variables) | Proyecto + URL `*.vercel.app` |
 | 4 | **Almacén de archivos** | Vercel → proyecto → *Storage* → *Blob* → *Create* y conectar al proyecto | Sirve para los justificantes de Salidas | `BLOB_READ_WRITE_TOKEN` (se añade sola) |
 | 5 | **Login con Google** | [console.cloud.google.com](https://console.cloud.google.com) → proyecto nuevo → *APIs y servicios* → *Pantalla de consentimiento OAuth* (tipo **Interno**) → *Credenciales* → *ID de cliente OAuth* (tipo *Aplicación web*) | Redirecciones autorizadas: `https://TU-DOMINIO/api/auth/callback/google` **y** `http://localhost:3000/api/auth/callback/google` | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` |
@@ -159,3 +162,41 @@ no hay nada.
 | `insufficient permissions` / `unauthorized_client` en Google | Falta el scope en la delegación (paso 8), o la API no está habilitada (paso 7). Cambios de delegación: hasta unos minutos en aplicarse |
 | Pedidos de Licencias dan 403/404 en Drive | Plantilla/carpeta sin compartir con el `client_email`, o siguen los IDs de Consolación (§3) |
 | Los enlaces de los correos apuntan a otro sitio | `APP_BASE_URL` sin fijar o mal fijada en Vercel |
+
+## 9 · Ver qué hay guardado y qué está pasando
+
+Cuando algo no cuadra, se mira en tres sitios, de más cercano a más lejano:
+
+| Quieres ver… | Dónde | Cómo |
+|---|---|---|
+| **Los datos** (filas de una tabla, quién es `supertic`, cuántos alumnos hay) | **Neon** → tu proyecto → **Tables** | Elige la tabla (`edu_students`, `auth_users`, `lic_orders`…) y navega/filtra las filas. Los prefijos dicen a qué módulo pertenece cada una (`abc_`, `lic_`, `edu_`…, ver `src/db/schema.ts`) |
+| Lo mismo, pero **con consultas** | Neon → **SQL Editor** | Escribe `SELECT`. Es también donde se ejecuta el `INSERT` del §5 |
+| Lo mismo, **desde tu ordenador** | Terminal | `pnpm db:studio` abre Drizzle Studio en el navegador (usa `DATABASE_URL` de `.env.local`) |
+| Qué **ficheros SQL** faltan por aplicar | Terminal | `pnpm db:sql --lista` |
+| **Cuánto usa** la base y qué consultas van lentas | Neon → **Monitoring** | Solo lectura; no hace falta para el día a día |
+| Un **dato borrado por error** | Neon → **Backup & Restore** | Permite volver a un momento anterior (el tiempo disponible depende de tu plan). Ante una duda, crea antes una *branch* desde ahí en vez de restaurar encima |
+| **Errores de la app** (una pantalla que falla, un correo que no sale) | **Vercel** → proyecto → **Logs** | Filtra por *Error*; cada fallo trae la ruta y el mensaje. Los despliegues fallidos: pestaña *Deployments* → el deploy → *Build Logs* |
+| Si los **crons** se ejecutan | Vercel → *Settings* → **Cron Jobs** | Lista los cuatro de `vercel.json` y permite lanzarlos a mano |
+| **Quién ha entrado y con qué rol** | La propia app: `/gestion/usuarios` | O en Neon: `SELECT email, role, active FROM auth_users;` |
+
+**Consultas para comprobar que la instalación está bien** (pégalas en el SQL Editor):
+
+```sql
+-- ¿Se crearon las tablas? (debería salir un número alto, unas 90)
+SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';
+
+-- ¿Están las cuatro tablas que solo existen como SQL?
+SELECT table_name FROM information_schema.tables
+WHERE table_name IN ('lic_licencias','lic_envios','lic_pedidos_editorial','lic_ajustes_pedido');
+
+-- ¿Eres administrador?
+SELECT email, role, active FROM auth_users;
+
+-- ¿Se cargó el alumnado? (tras el paso 16)
+SELECT count(*) FILTER (WHERE active) AS activos, count(*) AS total FROM edu_students;
+```
+
+> ⚠️ Neon es la base **de producción**: un `UPDATE` o `DELETE` sin `WHERE` en el SQL Editor no
+> se puede deshacer con un botón. Para probar cosas, crea una *branch* de Neon (copia
+> instantánea) y apunta ahí un `.env.local`. Las tablas de alumnado tienen datos personales:
+> no copies resultados a chats, documentos ni issues públicos.
