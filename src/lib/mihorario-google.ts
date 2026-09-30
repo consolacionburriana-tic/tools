@@ -30,10 +30,11 @@ export function calendarConfigurado(): boolean {
 }
 
 // Un cliente por buzón suplantado, igual que en email-gmail.ts (el JWT lleva el `subject`
-// dentro, no se puede reutilizar entre personas).
+// dentro, no se puede reutilizar entre personas). Exportado: Oratorios escribe con el mismo
+// cliente (ver oratorios-google.ts).
 const clientes = new Map<string, calendar_v3.Calendar>();
 
-function getCalendar(buzon: string): calendar_v3.Calendar {
+export function getCalendar(buzon: string): calendar_v3.Calendar {
   const cacheado = clientes.get(buzon);
   if (cacheado) return cacheado;
   const cred = credenciales();
@@ -60,7 +61,7 @@ function esReintentable(e: unknown): boolean {
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function conReintentos<T>(fn: () => Promise<T>, intentos = 3): Promise<T> {
+export async function conReintentos<T>(fn: () => Promise<T>, intentos = 3): Promise<T> {
   let ultimo: unknown;
   for (let i = 0; i < intentos; i++) {
     try {
