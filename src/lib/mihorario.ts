@@ -13,6 +13,7 @@
 
 import { normalizarNombreMateria } from '@/lib/horarios-import';
 import { aMinutos, diaSemanaDeFecha, type CeldaHorario } from '@/lib/horarios';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 // ─── Emojis por defecto ────────────────────────────────────────────────────────
 
@@ -320,7 +321,7 @@ export function construirEventoGoogle(
   celda: CeldaHorario,
   opciones: { plantillaTitulo: string; plantillaDescripcion?: string; emoji: string; abreviatura?: string; periodo: RangoFechas; festivos: readonly RangoFechas[]; periodoId: string; timeZone?: string },
 ): { evento: Record<string, unknown>; primeraFecha: string | null } {
-  const tz = opciones.timeZone ?? 'Europe/Madrid';
+  const tz = opciones.timeZone ?? CONFIGURACION.calendario.zonaHoraria;
   const { primeraFecha, fechasExcluidas } = ocurrenciasSemanales(celda.dia, opciones.periodo, opciones.festivos);
   const datos = datosPlantillaDeCelda(celda, opciones.emoji, opciones.abreviatura);
   const summary = renderizarPlantilla(opciones.plantillaTitulo, datos);

@@ -10,6 +10,7 @@
 // pegárselo tal cual a un agente, con el contexto que necesita para no empezar a ciegas.
 import { z } from 'zod';
 import { MODULES, MODULE_LABELS, type Module } from '@/lib/permissions';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 export const TIPOS_TAREA = ['fallo', 'modulo'] as const;
 export type TipoTarea = (typeof TIPOS_TAREA)[number];
@@ -112,7 +113,7 @@ const FORMATO_FECHA = new Intl.DateTimeFormat('es-ES', {
   day: 'numeric',
   month: 'short',
   year: 'numeric',
-  timeZone: 'Europe/Madrid',
+  timeZone: CONFIGURACION.calendario.zonaHoraria,
 });
 
 export function fechaCorta(iso: string): string {

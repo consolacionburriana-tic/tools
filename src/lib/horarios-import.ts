@@ -32,7 +32,7 @@
 // no adivinando. Lo que no esté en ninguna leyenda se reporta como incidencia en vez de
 // colarse mal.
 
-import { compararClases } from '@/lib/cursos';
+import { compararClases, parseBachillerato } from '@/lib/cursos';
 import { type TipoTramo } from '@/lib/horarios';
 
 /** Una celda ya interpretada: lo que se convertirá en asignación + sesión. */
@@ -126,7 +126,9 @@ export function parsearCodigoGrupo(codigo: string): { curso: string; letra: stri
   const c = (codigo ?? '').trim().toUpperCase().replace(/\s+/g, '');
   const pdc = /^(\d+)[ºO]?P?PDC$/.exec(c);
   if (pdc) return { curso: `${pdc[1]}ESO`, letra: 'PDC' };
-  const m = /^(\d+\s*[ºO]?\s*(?:INF|PRI|ESO|BACH|CFGM|CFGS))\s*([A-Z])?$/.exec(c);
+  const bach = parseBachillerato(c.replace(/^(\d)O(?=B)/, '$1'));
+  if (bach) return bach;
+  const m = /^(\d+\s*[ºO]?\s*(?:INF|PRI|ESO|CFGM|CFGS))\s*([A-Z])?$/.exec(c);
   if (!m) return null;
   return { curso: m[1].replace(/[ºO](?=[A-Z])/, ''), letra: m[2] ?? null };
 }

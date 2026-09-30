@@ -15,11 +15,12 @@ export async function POST(request: Request) {
     const respetarCursoDe = form.get('respetarCursoDe') === 'excel' ? 'excel' : 'bbdd';
 
     const parsed = parseEducamosFile(Buffer.from(await file.arrayBuffer()), file.name);
-    const plan = await buildSyncPlan(parsed.rows, { respetarCursoDe }, parsed.warnings);
+    const plan = await buildSyncPlan(parsed.rows, { respetarCursoDe }, parsed.warnings, parsed.omitidas);
     return NextResponse.json({
       ok: true,
       formato: parsed.formato,
       totalFilas: parsed.rows.length,
+      filasOmitidas: parsed.omitidas.length, // etapa no reconocida: fuera del import, ver plan.warnings
       cabecerasExtra: parsed.cabecerasExtra,
       cabecerasDescartadas: parsed.cabecerasDescartadas,
       plan,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { cursoBaseEso, etapaDeCurso } from '@/lib/cursos';
 import {
   claveGuardian,
   computeSyncPlan,
@@ -158,16 +159,61 @@ describe('parseClase', () => {
     expect(parseClase('')).toEqual({ curso: null, letra: null });
   });
 
-  it('gotcha conocido: un valor sin letra de clase separada se parte igualmente (ej. "6PRI" -> curso "6PR", letra "I")', () => {
-    // Documenta un comportamiento real, no necesariamente deseado: el regex de
-    // curso+letra no distingue "clase sin letra" de "los 2 últimos caracteres
-    // parecen curso+letra". No se corrige aquí (fuera de alcance de este plan);
-    // este test solo evita que cambie en silencio.
-    expect(parseClase('6PRI')).toEqual({ curso: '6PR', letra: 'I' });
+  it('una sola línea (sin letra) no se parte: "6PRI" es el curso 6PRI', () => {
+    // Antes salía curso "6PR" + letra "I" (el regex genérico no distinguía «sin letra» de
+    // «los dos últimos caracteres»). Se corrigió al soportar colegios con cursos de una línea.
+    expect(parseClase('6PRI')).toEqual({ curso: '6PRI', letra: null });
+    expect(parseClase('2ESO')).toEqual({ curso: '2ESO', letra: null });
+    expect(parseClase('3INF')).toEqual({ curso: '3INF', letra: null });
   });
 
-  it('gotcha conocido: el símbolo "º" no es una letra ni un dígito y rompe el split de letra', () => {
-    expect(parseClase('2º ESO B')).toEqual({ curso: '2ºESOB', letra: null });
+  it('con "º" y espacios se lee bien y se conserva el ordinal', () => {
+    expect(parseClase('2º ESO B')).toEqual({ curso: '2ºESO', letra: 'B' });
+  });
+
+  it('varias líneas por curso: cualquier letra A-Z', () => {
+    for (const l of ['A', 'B', 'C', 'D', 'E']) {
+      expect(parseClase(`3PRI${l}`)).toEqual({ curso: '3PRI', letra: l });
+      expect(parseClase(`4ESO${l}`)).toEqual({ curso: '4ESO', letra: l });
+    }
+  });
+});
+
+describe('parseClase · PDC', () => {
+  it('vale PPDC (Educamos), PDC, con ordinal, con espacios y con curso de ESO delante', () => {
+    for (const clase of ['3ºPPDC', '3º PPDC', '3ºPDC', '3º PDC', '3PDC', '3ESOPDC', '3 ESO PDC']) {
+      const { curso, letra } = parseClase(clase);
+      expect(letra, clase).toBe('PDC');
+      expect(etapaDeCurso(curso), clase).toBe('ESO');
+      expect(cursoBaseEso(curso), clase).toBe('3ESO');
+    }
+  });
+});
+
+describe('parseClase · Bachillerato', () => {
+  it('se guarda siempre como {1|2}BACH, venga como venga escrito', () => {
+    for (const clase of ['1BACH', '1 BACH', '1ºBACH', '1º Bachillerato', '1BAT', '1BTO', '1BAC']) {
+      expect(parseClase(clase), clase).toEqual({ curso: '1BACH', letra: null });
+    }
+  });
+
+  it('con letra (o con modalidad de hasta tres letras)', () => {
+    expect(parseClase('2BACHA')).toEqual({ curso: '2BACH', letra: 'A' });
+    expect(parseClase('1º Bachillerato B')).toEqual({ curso: '1BACH', letra: 'B' });
+    expect(parseClase('1BATA')).toEqual({ curso: '1BACH', letra: 'A' });
+    expect(parseClase('2BACHCT')).toEqual({ curso: '2BACH', letra: 'CT' });
+  });
+
+  it('lo que sale es una etapa conocida', () => {
+    expect(etapaDeCurso(parseClase('2BACHA').curso)).toBe('BACH');
+  });
+});
+
+describe('parseClase · etapas desconocidas', () => {
+  it('no se reconocen como etapa: el import las deja fuera', () => {
+    for (const clase of ['CFGM1A', '1FPB', 'AULA ENLACE', 'XYZ']) {
+      expect(etapaDeCurso(parseClase(clase).curso), clase).toBeNull();
+    }
   });
 });
 

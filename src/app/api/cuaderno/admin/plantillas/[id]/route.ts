@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { ETAPAS, REPETICIONES } from '@/lib/cuaderno/campos';
+import { ETAPAS as TODAS_LAS_ETAPAS } from '@/lib/cursos';
 import { extraerIdDrive } from '@/lib/cuaderno/drive';
 import { actualizarPlantilla, borrarPlantilla, historialDePlantilla } from '@/lib/cuaderno-server';
 
@@ -17,7 +18,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         nombre: z.string().trim().min(2).max(120).optional(),
         url: z.string().trim().max(500).optional(),
         repeticion: z.enum(REPETICIONES).optional(),
-        etapas: z.array(z.enum(['EI', 'EP', 'ESO'])).max(ETAPAS.length).optional(),
+        etapas: z.array(z.enum(TODAS_LAS_ETAPAS)).max(ETAPAS.length).optional(),
         orden: z.number().int().min(1).max(99).optional(),
         generaPdf: z.boolean().optional(),
         saltoDePagina: z.boolean().optional(),

@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { AlertTriangle, BarChart3, BookOpen, Check, ChevronLeft, Loader2, NotebookPen, Users, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { ETAPA_LABEL, ETAPAS, type Etapa } from '@/lib/cursos';
 
 interface ClaseOpt {
   curso: string;
   letra: string | null;
   label: string;
-  etapa: 'EI' | 'EP' | 'ESO' | null;
+  etapa: Etapa | null;
 }
 interface ResumenClase {
   curso: string;
@@ -24,12 +25,7 @@ function claseKey(curso: string, letra: string | null): string {
   return `${curso}|${letra ?? ''}`;
 }
 
-const ETAPA_LABEL: Record<'EI' | 'EP' | 'ESO', string> = {
-  EI: 'Infantil',
-  EP: 'Primaria',
-  ESO: 'Secundaria',
-};
-const ETAPA_ORDEN: ('EI' | 'EP' | 'ESO')[] = ['EI', 'EP', 'ESO'];
+const ETAPA_ORDEN = ETAPAS;
 interface AlumnoRow {
   eduStudentId: string;
   nombre: string;

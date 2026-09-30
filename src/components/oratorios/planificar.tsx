@@ -46,7 +46,7 @@ import {
   type RangoFechas,
   type SesionOra,
 } from '@/lib/oratorios';
-import { nombreClase } from '@/lib/cursos';
+import { ETAPAS, nombreClase } from '@/lib/cursos';
 import { Accion, api, Avisos, capital, ChipVista, Pastilla, SelectChip } from './comun';
 import type { Estado } from './panel';
 
@@ -119,7 +119,7 @@ export function Planificar({ e }: { e: Estado }) {
 
   const franjas = useMemo(() => {
     if (!tipo) return [];
-    const deRejilla = franjasDeEtapas(e.datos.tramos, tipo.etapas.length ? tipo.etapas : ['EI', 'EP', 'ESO']);
+    const deRejilla = franjasDeEtapas(e.datos.tramos, tipo.etapas.length ? tipo.etapas : ETAPAS);
     const mapa = new Map(deRejilla.map((f) => [`${f.horaInicio}-${f.horaFin}`, f]));
     for (const d of disp) if (![...mapa.values()].some((f) => f.horaInicio === d.horaInicio)) mapa.set(`${d.horaInicio}-${d.horaFin}`, { horaInicio: d.horaInicio, horaFin: d.horaFin });
     return [...mapa.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio));

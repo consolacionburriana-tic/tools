@@ -7,14 +7,12 @@ import { getClasesConTutores } from '@/lib/tutorias-server';
 import { TutoriasPanel } from '@/components/profes/tutorias-panel';
 import { EtapasPanel } from '@/components/profes/etapas-panel';
 import { etapasAutomaticasPorProfe } from '@/lib/alumnado-server';
-import type { Etapa } from '@/lib/cursos';
+import { esEtapa } from '@/lib/cursos';
 import { NombresPanel } from '@/components/profes/nombres-panel';
 import { nombreProfeBreve, nombresDeProfe } from '@/lib/profes';
 import { mayusculasBellas, nombreDePila } from '@/lib/personas';
 
 export const metadata = { title: 'Profesorado · Gestión' };
-
-const esEtapa = (e: string | null): e is Etapa => e === 'EI' || e === 'EP' || e === 'ESO';
 
 export default async function ProfesPage() {
   const [clases, profes, automaticas] = await Promise.all([

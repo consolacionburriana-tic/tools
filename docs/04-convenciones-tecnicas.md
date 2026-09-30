@@ -49,6 +49,9 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `LICENCIAS_GESTORES` | Lista de correos de aviso de Licencias |
 | `GOOGLE_SA_CLIENT_EMAIL` · `GOOGLE_SA_PRIVATE_KEY` (antes `GOOGLE_SHEETS_*`, siguen valiendo) · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio: Sheet de Licencias **y** envío por la API de Gmail |
 | `GOOGLE_ADMIN_BUZON` | Opcional. Buzón **administrador** del dominio que suplanta Calendarios del dominio para leer Directory y Classroom. Sin fijar, se usa el de quien está en la pantalla (docs/25-calendarios.md) |
+| `LICENCIAS_PLANTILLA_PEDIDO` · `LICENCIAS_CARPETA_PEDIDOS` | IDs de Drive de la plantilla de pedido (Google Sheet) y de la carpeta donde se dejan los pedidos a editoriales de Licencias. Ambas compartidas con la cuenta de servicio. **Sin ellas se usan los IDs del colegio original** (`PLANTILLA_POR_DEFECTO`, `CARPETA_PEDIDOS_POR_DEFECTO`), así que un fork tiene que fijarlas |
+| `GOOGLE_CALENDAR_CONCURRENCIA` | Opcional. Llamadas a Calendar en paralelo al exportar «Mi horario» (1-10, por defecto 3) |
+| `AUTOASM_CRYPTO_KEY` | Opcional. Clave para cifrar la contraseña del FTP de Apple School Manager; sin ella se deriva de `AUTH_SECRET` |
 | `APP_BASE_URL` | URL pública que usa **todo** el código para construir enlaces (`appBaseUrl()` en `src/lib/constants.ts`) — magic links, avisos por correo, botones de plantillas. **El único sitio donde cambiar de dominio es Vercel → Settings → Environment Variables, nunca el código.** Mientras `tools.consolacionburriana.com` no esté enganchado, va aquí la URL real de Vercel (p. ej. `https://consolacionburriana-tools1.vercel.app`); el día que el dominio esté listo, se cambia este valor y se redeploya. Sin fijar, cae a `https://tools.consolacionburriana.com`. En local, `http://localhost:3000` |
 
 | `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
@@ -59,7 +62,8 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, foto mensual de Números del cole y avisos programados de Oratorios. El worker también lo usa para re-despertarse a sí mismo |
 
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
-código que la usa.
+código que la usa. Los pasos para conseguir cada credencial (dónde se crea, qué se copia) están
+en [`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md).
 Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2).
 
 ## Base de datos (Drizzle + Neon)
@@ -220,6 +224,43 @@ src/components/<modulo>/          # componentes propios del módulo
 - Parseo de **.docx**: también con SheetJS, sin dependencias nuevas — `XLSX.CFB.read()` abre
   el ZIP y `word/document.xml` se recorre con el árbol mínimo de `src/lib/horarios-lectores.ts`.
   No añadas `mammoth` ni `jszip` para esto.
+
+## Etapas y cursos
+
+Las etapas (`Etapa`: Infantil, Primaria, ESO, Bachillerato) y todo lo que se decide por curso
+—reconocerlo, promocionarlo, si entra en el banco— viven en `src/lib/cursos.ts`. Reglas:
+
+- **Nunca escribas `'EI' | 'EP' | 'ESO'` a mano** (ni `['EI','EP','ESO']`, ni `z.enum([...])`):
+  importa `Etapa`, `ETAPAS` y `ETAPA_LABEL`. Así una etapa nueva entra sola.
+- **Cuidado con lo que el compilador no ve**: un `Record<string, …>` inicializado con tres claves, o
+  un `find(...)` sobre una lista fija, descartan en silencio las clases de una etapa nueva
+  (pasó con `tutorias-panel` y con Evaluaciones). Recorre `ETAPAS`.
+- **Cuidado con `else` = ESO** (`CASE … ELSE 2`, `return '… ESO'` al final): ahora hay una etapa
+  detrás de la ESO. Números tenía varios.
+- **No compares letras con `includes`**: `'BACH'` contiene la A, la B y la C.
+- Una etapa nueva se añade a `ETAPAS`/`ETAPA_LABEL` y a `etapaDeCurso`, `cursoSiguiente` y
+  `cursoEnBanco`; `tsc` señala los `Record<Etapa, …>` que faltan. Prueba de humo: los tests de
+  `etapas-bachillerato.test.ts`.
+- Al importar de Educamos, una etapa que no se reconoce **no importa** a ese alumno pero **no
+  rompe** el fichero (ver `docs/02-integracion-educamos.md`).
+
+## Parámetros del centro
+
+Los valores que dependen de **cómo es el colegio** (niveles de cada etapa, promoción, desde dónde
+hay banco de libros, hora límite de Puntualidad, calendario escolar, sesión, tamaño máximo de
+archivo) viven en `src/lib/configuracion.ts` (`CONFIGURACION`), sin imports de valores para que
+lo usen servidor y cliente. **No los escribas a pelo en código nuevo**, y si un texto de pantalla
+repite un valor (`08:05`, `10 MB`), léelo de ahí. Lo que aún no está movido, y por qué, está en
+[`09-parametros-del-centro.md`](./09-parametros-del-centro.md). Un test por parámetro fija los
+valores de Consolación (`configuracion.test.ts`).
+
+## Identidad del colegio
+
+El dominio de Workspace, el nombre, el host y los buzones (Licencias, no-responder, soporte) viven
+**solo** en `src/lib/colegio.ts` (`COLEGIO`), sin imports para que lo puedan usar servidor y cliente.
+No escribas `consolacionburriana.com` a pelo en código nuevo: importa `COLEGIO`. Los tests sí
+pueden usarlo como dato de ejemplo. Lo que no sale de ahí (logo, iconos, títulos, `manifest.json`)
+está listado en el §6 de [`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md).
 
 ## Datos personales (esto no es negociable)
 

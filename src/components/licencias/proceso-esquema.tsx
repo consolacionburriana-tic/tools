@@ -15,6 +15,7 @@ import {
   TriangleAlert,
   Users,
 } from 'lucide-react';
+import { COLEGIO } from '@/lib/colegio';
 
 type Paso = {
   n: number;
@@ -408,7 +409,7 @@ export function ProcesoEsquema() {
       </p>
       <p className="flex items-start gap-1.5 text-xs text-zinc-400">
         <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Los correos a familias salen de <strong>licencias@consolacionburriana.com</strong>, que es también donde
+        Los correos a familias salen de <strong>{COLEGIO.correoLicencias}</strong>, que es también donde
         contestan.
       </p>
     </div>

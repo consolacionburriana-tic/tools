@@ -42,6 +42,7 @@ import {
   Stat,
   ToolDoble,
 } from '@/components/home/escritorio-cards';
+import { CONFIGURACION } from '@/lib/configuracion';
 
 export const metadata = { title: 'Escritorio · Tools Consolación' };
 
@@ -142,7 +143,7 @@ export default async function EscritorioPage() {
           <ToolDoble
             icon={<AlarmClock className="h-6 w-6" />}
             title="Puntualidad"
-            desc="Quién llega tarde a las 8:05 y sus consecuencias"
+            desc={`Quién llega tarde a las ${CONFIGURACION.puntualidad.horaLimite.replace(/^0/, '')} y sus consecuencias`}
             registrar="/puntualidad"
             registrarLabel="Registrar retraso"
             panel={puede('puntualidad') ? '/gestion/puntualidad' : undefined}

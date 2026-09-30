@@ -1,8 +1,9 @@
 // Helper único de Vercel Blob (acceso PRIVADO): los archivos jamás son públicos,
 // se sirven por rutas API que comprueban permisos. Requiere BLOB_READ_WRITE_TOKEN.
 import { del, get, put } from '@vercel/blob';
+import { CONFIGURACION } from '@/lib/configuracion';
 
-export const BLOB_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+export const BLOB_MAX_BYTES = CONFIGURACION.archivos.maxMB * 1024 * 1024;
 
 const TIPOS_PERMITIDOS: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -25,7 +26,7 @@ function requireToken() {
 /** Sube un archivo privado. Devuelve el pathname (lo que se guarda en BBDD). */
 export async function subirPrivado(pathname: string, file: File): Promise<string> {
   requireToken();
-  if (file.size > BLOB_MAX_BYTES) throw new Error('El archivo supera los 10 MB');
+  if (file.size > BLOB_MAX_BYTES) throw new Error(`El archivo supera los ${CONFIGURACION.archivos.maxMB} MB`);
   const ext = extensionPermitida(file.type);
   if (!ext) throw new Error('Formato no permitido (usa jpg, png, heic o pdf)');
   const blob = await put(`${pathname}.${ext}`, file, {

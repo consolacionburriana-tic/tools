@@ -8,6 +8,8 @@ import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones';
 import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-plantillas';
 import { Segmentado } from '@/components/evaluaciones/ui';
+import { COLEGIO } from '@/lib/colegio';
+import { ETAPA_LABEL, ETAPAS as ETAPAS_CENTRO } from '@/lib/cursos';
 
 interface Plantilla {
   id: string;
@@ -76,11 +78,7 @@ const ESTADO_ENVIO: Record<Envio['estado'], string> = {
   cancelado: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300',
 };
 
-const ETAPAS = [
-  { value: 'EI', label: 'Infantil' },
-  { value: 'EP', label: 'Primaria' },
-  { value: 'ESO', label: 'Secundaria' },
-];
+const ETAPAS = ETAPAS_CENTRO.map((value) => ({ value, label: ETAPA_LABEL[value] }));
 
 const inputCls =
   'w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100';
@@ -425,7 +423,7 @@ export function EnviarPanel({
             <input
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
-              placeholder="tu@consolacionburriana.com"
+              placeholder={`tu@${COLEGIO.dominio}`}
               className={inputCls}
             />
           </div>

@@ -2,6 +2,7 @@ import { emailConfigurado, enviar } from '@/lib/email';
 import { euros, fechaLimiteLabel, procesadoAntesDeCurso } from '@/lib/licencias';
 import type { Recipient } from '@/lib/licencias-server';
 import { applyVars, sendChunks, wrapHtml } from '@/lib/correos';
+import { COLEGIO } from '@/lib/colegio';
 
 export interface OrderEmailData {
   alumno: string;
@@ -15,7 +16,7 @@ export interface OrderEmailData {
 }
 
 function gestores(): string[] {
-  return (process.env.LICENCIAS_GESTORES ?? 'licencias@consolacionburriana.com')
+  return (process.env.LICENCIAS_GESTORES ?? COLEGIO.correoLicencias)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -372,7 +373,7 @@ export function htmlLicencia(cuerpo: string, d: DatosCorreoLicencia): string {
       ${ficha ? `<div style="margin-top:20px;border-top:1px solid #f4f4f5;padding-top:14px;font-size:13px;color:#52525b;line-height:1.7;">${ficha}</div>` : ''}
     </div>
     <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:16px 32px;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#9ca3af;"><strong>Consolación Burriana</strong> · licencias@consolacionburriana.com</p>
+      <p style="margin:0;font-size:12px;color:#9ca3af;"><strong>${COLEGIO.nombreCorto}</strong> · ${COLEGIO.correoLicencias}</p>
     </div>
   </div>
 </body>
@@ -400,7 +401,7 @@ Te mandamos la licencia de <b>{asignatura}</b>
 ⬇️ <b>CÓDIGO LICENCIA</b> ⬇️
 {codigo}
 
-Para cualquier duda, pregunta primero a tu profesor/a que te ayudará a poner la licencia en clase, después puedes consultarnos en licencias@consolacionburriana.com
+Para cualquier duda, pregunta primero a tu profesor/a que te ayudará a poner la licencia en clase, después puedes consultarnos en ${COLEGIO.correoLicencias}
 
 Equipo TIC
 Amparo, Jose Miguel, Bárbara y David`,
@@ -416,7 +417,7 @@ Te mandamos la licencia de <b>{asignatura}</b>, incluida en el <b>Banco de Libro
 ⬇️ <b>CÓDIGO LICENCIA</b> ⬇️
 {codigo}
 
-Para cualquier duda, pregunta primero a tu profesor/a que te ayudará a poner la licencia en clase, después puedes consultarnos en licencias@consolacionburriana.com
+Para cualquier duda, pregunta primero a tu profesor/a que te ayudará a poner la licencia en clase, después puedes consultarnos en ${COLEGIO.correoLicencias}
 
 Equipo TIC
 Amparo, Jose Miguel, Bárbara y David`,

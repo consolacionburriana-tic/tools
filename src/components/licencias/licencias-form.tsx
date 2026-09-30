@@ -12,6 +12,7 @@ import {
 } from '@/lib/licencias';
 import { stepAnim } from '@/lib/motion';
 import { haptic } from '@/lib/haptics';
+import { COLEGIO } from '@/lib/colegio';
 
 interface Pack {
   name: string;
@@ -304,7 +305,7 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
       setStep('done');
     } catch {
       haptic.warning();
-      setError('No se pudo registrar el pedido. Inténtalo de nuevo y si continua contacta con licencias@consolacionburriana.com');
+      setError(`No se pudo registrar el pedido. Inténtalo de nuevo y si continua contacta con ${COLEGIO.correoLicencias}`);
     } finally {
       setLoading(false);
     }
@@ -451,8 +452,8 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
 
               <p className="mt-6 text-xs text-zinc-400">
                 ¿Dudas o algún error? Escríbenos a{' '}
-                <a href="mailto:tic@consolacionburriana.com" className="underline hover:text-zinc-600 dark:hover:text-zinc-300">
-                  licencias@consolacionburriana.com
+                <a href={`mailto:${COLEGIO.correoTic}`} className="underline hover:text-zinc-600 dark:hover:text-zinc-300">
+                  {COLEGIO.correoLicencias}
                 </a>
               </p>
             </Card>
@@ -539,7 +540,7 @@ export function LicenciasForm({ deadline, noteText, processedBeforeStart, tokenA
               {!(bancoLibros && catalog.length === 0) && (
                 <div className="mt-4 space-y-4">
                   {catalog.length === 0 && (
-                    <p className="text-sm text-zinc-500">No hay licencias disponibles para este curso, es posible que sea un error. Contacta con licencias@consolacionburriana.com</p>
+                    <p className="text-sm text-zinc-500">No hay licencias disponibles para este curso, es posible que sea un error. Contacta con {COLEGIO.correoLicencias}</p>
                   )}
                   {grupos.map((g, gi) => (
                     <div key={gi} className="space-y-2">

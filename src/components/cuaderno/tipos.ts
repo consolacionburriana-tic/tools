@@ -1,6 +1,7 @@
 // Tipos compartidos entre las pantallas del Cuaderno de tutor. Son la forma en la que el
 // server component pasa los datos al panel (fechas ya en string, nada de objetos Drizzle).
 import { ETAPA_LABELS, ETAPAS, type EtiquetaAnalizada } from '@/lib/cuaderno/campos';
+import type { Etapa } from '@/lib/cursos';
 
 export interface AjustesUI {
   carpetaBaseId: string | null;
@@ -20,7 +21,7 @@ export interface PlantillaUI {
   googleDocId: string;
   repeticion: string;
   /** Etapas a las que aplica. Vacío = todas (ver `etapasDePlantilla`). */
-  etapas: ('EI' | 'EP' | 'ESO')[];
+  etapas: Etapa[];
   orden: number;
   generaPdf: boolean;
   saltoDePagina: boolean;
@@ -35,7 +36,7 @@ export interface ClaseUI {
   curso: string;
   letra: string | null;
   clase: string;
-  etapa: 'EI' | 'EP' | 'ESO' | null;
+  etapa: Etapa | null;
   numAlumnos: number;
   tutores: { nombre: string; corto: string; email: string | null }[];
   sinTutorPersonal: number;

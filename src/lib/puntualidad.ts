@@ -6,12 +6,13 @@
 // retrasos esta semana que con quien llegó tarde por última vez hace cinco meses.
 import { z } from 'zod';
 import { etapaDeCurso } from '@/lib/cursos';
+import { CONFIGURACION } from '@/lib/configuracion';
 
-/** Hora a la que se cierran las puertas: a partir de aquí es retraso. */
-export const HORA_LIMITE = '08:05';
+/** Hora a la que se cierran las puertas: a partir de aquí es retraso. Ver `configuracion.ts`. */
+export const HORA_LIMITE: string = CONFIGURACION.puntualidad.horaLimite;
 
-/** Cada cuántos retrasos NO justificados se avisa al tutor y se pone consecuencia. */
-export const RETRASOS_POR_CONSECUENCIA = 3;
+/** Cada cuántos retrasos NO justificados se avisa al tutor y se pone consecuencia. Ver `configuracion.ts`. */
+export const RETRASOS_POR_CONSECUENCIA: number = CONFIGURACION.puntualidad.retrasosPorConsecuencia;
 
 /**
  * Quién recibe el aviso del tercer retraso de UN alumno concreto.
@@ -88,9 +89,13 @@ export function formatoRetraso(minutos: number): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
-/** ¿Este curso entra en el módulo? Decisión de David: solo secundaria (ESO y PDC). */
+/**
+ * ¿Este curso entra en el módulo? Lo dice `CONFIGURACION.puntualidad.etapas`: hoy ESO (con su
+ * PDC) y Bachillerato (David, 30-sep-2026).
+ */
 export function cursoEnPuntualidad(curso: string | null | undefined): boolean {
-  return etapaDeCurso(curso) === 'ESO';
+  const etapa = etapaDeCurso(curso);
+  return etapa !== null && CONFIGURACION.puntualidad.etapas.includes(etapa);
 }
 
 /** Lo mínimo de un retraso para poder resumir un historial. */

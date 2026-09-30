@@ -8,12 +8,12 @@ import { z } from 'zod';
 
 import { etapaDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
 
-/** Etapas del centro. Las tres primeras están en uso; el resto, previstas y desactivadas. */
+/** Etapas del centro. Las cuatro primeras están en uso; el resto, previstas y desactivadas. */
 export const ETAPAS_HORARIO = [
   { codigo: 'EI', nombre: 'Infantil', active: true },
   { codigo: 'EP', nombre: 'Primaria', active: true },
   { codigo: 'ESO', nombre: 'Secundaria', active: true },
-  { codigo: 'BACH', nombre: 'Bachillerato', active: false },
+  { codigo: 'BACH', nombre: 'Bachillerato', active: true },
   { codigo: 'CFGM', nombre: 'CFGM', active: false },
   { codigo: 'CFGS', nombre: 'CFGS', active: false },
 ] as const;
@@ -21,14 +21,13 @@ export const ETAPAS_HORARIO = [
 export type EtapaHorario = (typeof ETAPAS_HORARIO)[number]['codigo'];
 
 /**
- * Etapa de un curso **para horarios**. Delega en `etapaDeCurso()` (la compartida) y añade
- * las etapas previstas y hoy desactivadas.
+ * Etapa de un curso **para horarios**. Delega en `etapaDeCurso()` (la compartida: Infantil,
+ * Primaria, ESO y Bachillerato) y añade las etapas previstas y hoy desactivadas (FP).
  *
- * Vive aquí y no en `cursos.ts` a propósito: ampliar el tipo `Etapa` compartido obligaría a
- * dar respuesta a BACH/CFGM/CFGS en `cursoSiguiente()` y `cursoEnBanco()`, que son reglas
- * de promoción y de banco de libros que nadie ha decidido todavía y que tocarían módulos en
- * producción. Cuando esas etapas existan de verdad, esto se sube a `cursos.ts` con sus
- * reglas; hasta entonces, el alcance se queda en horarios.
+ * Vive aquí y no en `cursos.ts` a propósito: ampliar el tipo `Etapa` compartido con FP obligaría
+ * a dar respuesta a CFGM/CFGS en `cursoSiguiente()` y `cursoEnBanco()` y en los ~30 sitios que
+ * enumeran las etapas, y nadie ha decidido esas reglas. Cuando FP exista de verdad, se sube a
+ * `cursos.ts` con sus reglas (receta en la cabecera de ese fichero).
  */
 export function etapaDeCursoHorario(curso: string | null | undefined): EtapaHorario | null {
   const base = etapaDeCurso(curso);
@@ -37,7 +36,6 @@ export function etapaDeCursoHorario(curso: string | null | undefined): EtapaHora
   const c = curso.toUpperCase();
   if (c.includes('CFGS')) return 'CFGS';
   if (c.includes('CFGM')) return 'CFGM';
-  if (c.includes('BACH') || c.includes('BAC')) return 'BACH';
   return null;
 }
 

@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Aviso, Tarjeta } from '@/components/cuaderno/cuaderno-panel';
 import { claseKey, ETAPA_LABEL, ETAPA_ORDEN, type ClaseUI } from '@/components/cuaderno/tipos';
 import { haptic } from '@/lib/haptics';
+import type { Etapa } from '@/lib/cursos';
 
 interface ListaGenerada {
   clase: string;
@@ -136,7 +137,7 @@ export function ListasPanel({
               <div key={etapa}>
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                    {ETAPA_LABEL[etapa as 'EI' | 'EP' | 'ESO'] ?? 'Sin etapa'}
+                    {ETAPA_LABEL[etapa as Etapa] ?? 'Sin etapa'}
                   </p>
                   <button
                     type="button"

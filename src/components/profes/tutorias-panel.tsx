@@ -4,15 +4,13 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, ChevronDown, Eraser, Loader2, Plus, Search, TriangleAlert, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
-import { etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { ETAPA_LABEL, ETAPAS, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import type { ProfeItem } from '@/lib/profes';
 import { type CambioPromocion, type ClaseConTutoresUI, planPromocion, resumenPlan } from '@/lib/tutorias';
 import { RepartoAlumnos } from '@/components/profes/reparto-alumnos';
 
 export type ClaseConTutoresProp = ClaseConTutoresUI;
 
-const ETAPA_LABEL: Record<'EI' | 'EP' | 'ESO', string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'Secundaria' };
-const ETAPA_ORDEN: ('EI' | 'EP' | 'ESO')[] = ['EI', 'EP', 'ESO'];
 
 function claseLabel(curso: string, letra: string | null) {
   return letra && letra !== 'PDC' ? `${curso} ${letra}` : curso;
@@ -45,7 +43,7 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
   const [reparto, setReparto] = useState<string | null>(null); // clase con el reparto de alumnos abierto
 
   const porEtapa = useMemo(() => {
-    const grupos: Record<string, ClaseConTutoresProp[]> = { EI: [], EP: [], ESO: [], General: [] };
+    const grupos: Record<string, ClaseConTutoresProp[]> = { ...Object.fromEntries(ETAPAS.map((e) => [e, []])), General: [] };
     for (const c of clases) grupos[etapaDeCurso(c.curso) ?? 'General'].push(c);
     return grupos;
   }, [clases]);
@@ -156,7 +154,7 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
           </button>
           <span className="mx-1 text-zinc-300 dark:text-zinc-600">|</span>
           <span className="text-zinc-400">Limpiar:</span>
-          {(['todas', 'EI', 'EP', 'ESO'] as const).map((q) => (
+          {(['todas', ...ETAPAS] as const).map((q) => (
             <button
               key={q}
               type="button"
@@ -217,7 +215,7 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
             <p className="text-sm text-zinc-700 dark:text-zinc-200">
               <strong>{resumenPlan(previa).movidas}</strong> tutorías cambian de clase y{' '}
               <strong>{resumenPlan(previa).liberadas}</strong> se quedan libres. Infantil y Primaria rotan dentro de su
-              ciclo; en la ESO se sube de curso y 4º egresa.
+              ciclo; en la ESO se sube de curso y 4º egresa, y en Bachillerato 2º egresa.
             </p>
             <ul className="mt-2 max-h-64 space-y-0.5 overflow-y-auto text-xs">
               {previa.map((c) => (
@@ -261,7 +259,7 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
         )}
       </div>
 
-      {ETAPA_ORDEN.filter((et) => porEtapa[et]?.length).map((et) => (
+      {ETAPAS.filter((et) => porEtapa[et]?.length).map((et) => (
         <section key={et}>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{ETAPA_LABEL[et]}</h2>
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">

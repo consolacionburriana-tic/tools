@@ -16,6 +16,7 @@ import {
   type Module,
   type Role,
 } from '@/lib/permissions';
+import { COLEGIO } from '@/lib/colegio';
 
 export interface FilaUsuario {
   email: string;
@@ -331,7 +332,7 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
         <input
           value={nuevoEmail}
           onChange={(e) => setNuevoEmail(e.target.value)}
-          placeholder="añadir-correo@consolacionburriana.com"
+          placeholder={`añadir-correo@${COLEGIO.dominio}`}
           type="email"
           className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-blue-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
         />

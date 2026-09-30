@@ -1,3 +1,5 @@
+import { COLEGIO } from '@/lib/colegio';
+import { CONFIGURACION } from '@/lib/configuracion';
 // Contextos del incidente
 export const CONTEXTS = [
   { value: 'aula', label: 'Aula' },
@@ -68,6 +70,7 @@ export const STAGES = [
   { value: 'EI', label: 'EI' },
   { value: 'EP', label: 'EP' },
   { value: 'ESO', label: 'ESO' },
+  { value: 'BACH', label: 'BACH' },
   { value: 'PAS', label: 'PAS' },
   { value: 'Direccion', label: 'Dirección' },
   { value: 'Orientacion', label: 'Orientación' },
@@ -80,6 +83,7 @@ export const STAGE_LABELS: Record<StageValue, string> = {
   EI: 'EI',
   EP: 'EP',
   ESO: 'ESO',
+  BACH: 'Bachillerato',
   PAS: 'PAS',
   Direccion: 'Dirección',
   Orientacion: 'Orientación',
@@ -91,12 +95,12 @@ export const STAGE_LABELS: Record<StageValue, string> = {
  * dominio de producción. Sin barra final.
  */
 export function appBaseUrl(): string {
-  return (process.env.APP_BASE_URL || 'https://tools.consolacionburriana.com').replace(/\/+$/, '');
+  return (process.env.APP_BASE_URL || COLEGIO.web).replace(/\/+$/, '');
 }
 
-// Curso académico en vigor (sep-ago): en julio de 2026 → '2025-26'.
+// Curso académico en vigor (sep-ago): en julio de 2026 → '2025-26'. El mes de inicio, en `configuracion.ts`.
 export function academicYearActual(fecha = new Date()): string {
   const y = fecha.getFullYear();
-  const inicio = fecha.getMonth() + 1 >= 9 ? y : y - 1;
+  const inicio = fecha.getMonth() + 1 >= CONFIGURACION.calendario.mesInicioCurso ? y : y - 1;
   return `${inicio}-${String((inicio + 1) % 100).padStart(2, '0')}`;
 }

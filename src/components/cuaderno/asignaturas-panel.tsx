@@ -28,7 +28,7 @@ import { toast } from 'sonner';
 import { Aviso, Tarjeta } from '@/components/cuaderno/cuaderno-panel';
 import { ETAPA_LABEL, ETAPA_ORDEN } from '@/components/cuaderno/tipos';
 import { ASIGNATURAS_MAX } from '@/lib/cuaderno/campos';
-import { etapaDeCurso } from '@/lib/cursos';
+import { etapaDeCurso, type Etapa } from '@/lib/cursos';
 import { haptic } from '@/lib/haptics';
 
 interface AsignaturaUI {
@@ -205,7 +205,7 @@ export function AsignaturasPanel({ cursoEscolar }: { cursoEscolar: string }) {
         return (
           <div key={etapa} className="space-y-2">
             <p className="px-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              {ETAPA_LABEL[etapa as 'EI' | 'EP' | 'ESO'] ?? 'Sin etapa'}
+              {ETAPA_LABEL[etapa as Etapa] ?? 'Sin etapa'}
             </p>
             {cursos.map(({ curso, alumnos }) => (
               <FilaCurso

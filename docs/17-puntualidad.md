@@ -46,8 +46,9 @@ alumno se queda sin patio.
   explícita: una consecuencia no siempre nace de un retraso (mañana puede venir de
   convivencia o crearse a mano, y ya se puede hoy), así que el día que las consecuencias
   sean su propio módulo se mudan esas tres tablas sin renombrar nada.
-- **Alcance: solo secundaria** (ESO y PDC). El buscador filtra por curso contra
-  `edu_students`; infantil y primaria no entran.
+- **Alcance: secundaria y Bachillerato** (ESO, PDC y Bachillerato; David añadió Bachillerato el
+  30-sep-2026). Lo dice `CONFIGURACION.puntualidad.etapas`; el buscador filtra por curso contra
+  `edu_students` con esa misma lista; infantil y primaria no entran.
 - **Hora límite 08:05**, constante `HORA_LIMITE` en `src/lib/puntualidad.ts`. El retraso en
   minutos **y el límite vigente** se guardan en cada fila: cambiar la constante mañana no
   reescribe el histórico.

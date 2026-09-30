@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
+import { ETAPAS } from '@/lib/cursos';
 import { getClasesConTutores, limpiarTutorias, promocionarTutores } from '@/lib/tutorias-server';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // promoción se recalcula en servidor: la vista previa del cliente es solo para mirar.
 const schema = z.discriminatedUnion('accion', [
   z.object({ accion: z.literal('promocionar') }),
-  z.object({ accion: z.literal('limpiar'), etapa: z.enum(['EI', 'EP', 'ESO']).nullable().default(null) }),
+  z.object({ accion: z.literal('limpiar'), etapa: z.enum(ETAPAS).nullable().default(null) }),
 ]);
 
 export async function POST(request: Request) {

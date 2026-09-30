@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { ETAPAS, REPETICIONES } from '@/lib/cuaderno/campos';
+import { ETAPAS as TODAS_LAS_ETAPAS } from '@/lib/cursos';
 import { extraerIdDrive, infoArchivo, MIME_GDOC } from '@/lib/cuaderno/drive';
 import { crearPlantilla, getPlantillas } from '@/lib/cuaderno-server';
 
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
         nombre: z.string().trim().max(120).optional(),
         repeticion: z.enum(REPETICIONES).default('alumno'),
         // Lista vacía = vale para todas las etapas.
-        etapas: z.array(z.enum(['EI', 'EP', 'ESO'])).max(ETAPAS.length).default([]),
+        etapas: z.array(z.enum(TODAS_LAS_ETAPAS)).max(ETAPAS.length).default([]),
         generaPdf: z.boolean().default(true),
         saltoDePagina: z.boolean().default(true),
       })

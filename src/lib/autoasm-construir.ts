@@ -23,7 +23,7 @@ import {
   type OpcionesCsv,
   OPCIONES_CSV_ASM,
 } from '@/lib/autoasm';
-import { cursoBaseEso, ordenCurso } from '@/lib/cursos';
+import { cursoBaseEso, etapaDeCurso, ordenCurso } from '@/lib/cursos';
 import { pilaProfe } from '@/lib/profes';
 import {
   CENTRO_PLANTILLA,
@@ -32,6 +32,7 @@ import {
   type ClasePlantilla,
   type TipoClase,
 } from '@/lib/autoasm-plantilla';
+import { COLEGIO } from '@/lib/colegio';
 
 // ─── El proyecto ──────────────────────────────────────────────────────────────
 
@@ -117,6 +118,10 @@ export function labelCurso(curso: string | null): string {
  * por su curso de verdad (`3ºPPDC` → 3º de ESO).
  */
 export function entraEnAlcance(curso: string | null | undefined, desdeCurso: string | null): boolean {
+  // Bachillerato queda fuera aunque «desde 6º» lo incluya por orden: la plantilla de ASM no tiene
+  // sus cursos ni clases, y nadie ha decidido su `grade_level`. Sale en el aviso de «fuera de
+  // alcance». Cuando se decida, se quita esta línea y se añade a `gradeLevelDe`.
+  if (etapaDeCurso(curso) === 'BACH') return false;
   if (!desdeCurso) return true;
   if (!curso) return false;
   return ordenCurso(cursoBaseEso(curso)) >= ordenCurso(desdeCurso);
@@ -128,7 +133,7 @@ export const OPCIONES_POR_DEFECTO: OpcionesProyecto = {
   desdeCurso: '6PRI', // alcance del curso 2026-27
 
   passwordPolicy: '4',
-  dominio: 'consolacionburriana.com',
+  dominio: COLEGIO.dominio,
   csv: OPCIONES_CSV_ASM,
 };
 

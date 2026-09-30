@@ -39,6 +39,7 @@ import {
 } from '@/components/cuaderno/tipos';
 import { etiquetaEtapas } from '@/lib/cuaderno/campos';
 import { haptic } from '@/lib/haptics';
+import type { Etapa } from '@/lib/cursos';
 
 interface DocumentoPrevisto {
   plantillaNombre: string;
@@ -277,7 +278,7 @@ export function GenerarPanel({
               <div key={etapa}>
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                    {ETAPA_LABEL[etapa as 'EI' | 'EP' | 'ESO'] ?? 'Sin etapa'}
+                    {ETAPA_LABEL[etapa as Etapa] ?? 'Sin etapa'}
                   </p>
                   <button
                     type="button"

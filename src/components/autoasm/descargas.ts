@@ -5,6 +5,7 @@
 
 import { ORDEN_ARCHIVOS, serializarArchivo, ESPEC, type ArchivoAsm, type FilaCsv, type OpcionesCsv } from '@/lib/autoasm';
 import type { ProyectoAsm } from '@/lib/autoasm-construir';
+import { COLEGIO } from '@/lib/colegio';
 
 function descargarBlob(blob: Blob, nombre: string): void {
   const url = URL.createObjectURL(blob);
@@ -45,7 +46,7 @@ function leeme(proyecto: ProyectoAsm): string {
   const filas = ORDEN_ARCHIVOS.map((a) => `  ${ESPEC[a].fichero.padEnd(15)} ${String(proyecto.archivos[a].length).padStart(6)} filas — ${ESPEC[a].titulo}`);
   return [
     'Apple School Manager · ficheros SIS del Colegio Consolación Burriana',
-    `Generados con AUTOASM (tools.consolacionburriana.com) el ${fecha}.`,
+    `Generados con AUTOASM (${COLEGIO.host}) el ${fecha}.`,
     '',
     'Contenido:',
     ...filas,

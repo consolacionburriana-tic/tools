@@ -16,7 +16,7 @@ import {
   type NewEduStudent,
 } from '@/db/schema';
 import { getSessionUser, hasModule } from '@/lib/auth-guards';
-import { bancoTrasCambioDeCurso, etapaDeCurso } from '@/lib/cursos';
+import { bancoTrasCambioDeCurso, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import {
   CODIGO_INTERNO_RE,
   computeSyncPlan,
@@ -113,9 +113,10 @@ export async function buildSyncPlan(
   rows: ParsedStudentRow[],
   opciones: SyncOpciones,
   parseWarnings: string[] = [],
+  omitidas: ParsedStudentRow[] = [],
 ): Promise<SyncPlan> {
   const [existentes, licenciasAbierta] = await Promise.all([getStudentsForSync(), hayLicenciasAbierta()]);
-  return computeSyncPlan(rows, existentes, opciones, parseWarnings, licenciasAbierta);
+  return computeSyncPlan(rows, existentes, opciones, parseWarnings, licenciasAbierta, omitidas);
 }
 
 export interface SyncDecisiones {
@@ -150,10 +151,11 @@ export async function aplicarSync(input: {
   filename: string;
   formato: string;
   parseWarnings?: string[];
+  omitidas?: ParsedStudentRow[];
 }): Promise<AplicarResultado> {
   const { rows, opciones, decisiones, filename, formato } = input;
   const [existentes, licenciasAbierta] = await Promise.all([getStudentsForSync(), hayLicenciasAbierta()]);
-  const plan = computeSyncPlan(rows, existentes, opciones, input.parseWarnings ?? [], licenciasAbierta);
+  const plan = computeSyncPlan(rows, existentes, opciones, input.parseWarnings ?? [], licenciasAbierta, input.omitidas ?? []);
   const errores = [...plan.warnings];
   const ahora = new Date();
 
@@ -407,7 +409,7 @@ export async function fijarNombreMostrado(teacherId: string, nombre: string | nu
 }
 
 /** Las etapas elegidas a mano de un profe (multiselección). Lista vacía = ninguna. */
-export async function fijarEtapasProfe(teacherId: string, etapas: ('EI' | 'EP' | 'ESO')[]): Promise<EduTeacher | null> {
+export async function fijarEtapasProfe(teacherId: string, etapas: Etapa[]): Promise<EduTeacher | null> {
   const [fila] = await db
     .update(eduTeachers)
     .set({ etapas, updatedAt: new Date() })
