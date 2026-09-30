@@ -39,7 +39,7 @@ import {
   salTrips,
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
-import { compararClases, ETAPAS, etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { ampliarEtapasConjuntas, compararClases, ETAPAS, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import { correoBonito, mayusculasBellas, nombresDe } from '@/lib/personas';
 import {
   CAMPOS_PROTECCION,
@@ -145,7 +145,8 @@ export function veTodoElCentro(user: Acceso): boolean {
 
 function unirEtapas(lista: readonly (string | null | undefined)[]): Etapa[] {
   const set = new Set(lista);
-  return ETAPAS.filter((e) => set.has(e));
+  // ESO y Bachillerato son una etapa conjunta (`CONFIGURACION.etapasConjuntas`): quien tiene una ve las dos.
+  return ampliarEtapasConjuntas(ETAPAS.filter((e) => set.has(e)));
 }
 
 /**

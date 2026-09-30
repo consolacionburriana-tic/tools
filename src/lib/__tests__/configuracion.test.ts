@@ -29,11 +29,12 @@ function siguienteAntes(curso: string | null | undefined): string | null {
   }
   return destino === null ? null : curso.replace(/^\d+/, String(destino));
 }
+// (Bachillerato entra desde el 30-sep-2026: David, «Bachillerato sí tiene banco de libros».)
 function bancoAntes(curso: string | null | undefined): boolean {
   const etapa = etapaDeCurso(curso);
   if (etapa === 'EI') return false;
   if (etapa === 'EP') return nivelDeCurso(curso) >= 3;
-  if (etapa === 'ESO') return true;
+  if (etapa === 'ESO' || etapa === 'BACH') return true;
   return false;
 }
 
@@ -58,7 +59,9 @@ describe('las reglas de curso leen de la configuración sin cambiar de comportam
       ESO: { min: 1, max: 4 },
       BACH: { min: 1, max: 2 },
     });
-    expect(CONFIGURACION.bancoLibros).toEqual({ EP: { desdeNivel: 3 }, ESO: { desdeNivel: 1 } });
+    expect(CONFIGURACION.bancoLibros).toEqual({ EP: { desdeNivel: 3 }, ESO: { desdeNivel: 1 }, BACH: { desdeNivel: 1 } });
+    expect(CONFIGURACION.etapasConjuntas).toEqual([['ESO', 'BACH']]);
+    expect(CONFIGURACION.puntualidad.etapas).toEqual(['ESO', 'BACH']);
   });
 });
 

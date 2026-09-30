@@ -9,7 +9,7 @@
 // de días va en UTC a propósito: `new Date('2026-10-05')` en España es el domingo anterior.
 import { z } from 'zod';
 
-import { cursoBaseEso, etapaDeCurso, nombreClase } from '@/lib/cursos';
+import { cursoBaseEso, ETAPAS, etapaDeCurso, nombreClase } from '@/lib/cursos';
 import { CONFIGURACION } from '@/lib/configuracion';
 
 // ─── Catálogos ───────────────────────────────────────────────────────────────
@@ -42,11 +42,11 @@ export function siguienteNivel(n: Nivel | null): Nivel | null {
   return null;
 }
 
-export const ETAPAS_ORA = ['EI', 'EP', 'ESO'] as const;
+export const ETAPAS_ORA = ETAPAS;
 
 /** Pestañas del panel (aquí y no en el componente: la página las valida en el servidor). */
 export const PESTANAS_ORA = ['planificar', 'sesiones', 'numeros', 'huecos', 'ajustes'] as const;
-export const ETAPA_LABELS: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'ESO' };
+export const ETAPA_LABELS: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'ESO', BACH: 'Bachillerato' };
 
 // ─── Tipos de datos (lo que viaja entre servidor y pantalla) ────────────────────
 

@@ -51,6 +51,29 @@ export function etapaDeCurso(curso: string | null | undefined): Etapa | null {
 }
 
 /**
+ * Las mismas etapas más las que van con ellas (`CONFIGURACION.etapasConjuntas`: hoy ESO y
+ * Bachillerato son una etapa conjunta). Sin repetir y en el orden de `ETAPAS`.
+ */
+export function ampliarEtapasConjuntas(etapas: readonly Etapa[]): Etapa[] {
+  const set = new Set<Etapa>(etapas);
+  for (const grupo of CONFIGURACION.etapasConjuntas) {
+    if (grupo.some((e) => set.has(e))) for (const e of grupo) set.add(e);
+  }
+  return ETAPAS.filter((e) => set.has(e));
+}
+
+/**
+ * Los mismos criterios que `etapaDeCurso`, como patrones de `ILIKE` para las consultas SQL
+ * (que no pueden llamar a esa función). Un test comprueba que dicen lo mismo.
+ */
+export const PATRONES_CURSO_SQL: Record<Etapa, readonly string[]> = {
+  EI: ['%INF%'],
+  EP: ['%PRI%'],
+  ESO: ['%ESO%', '%PDC%'],
+  BACH: ['%BAC%', '%BAT%', '%BTO%'],
+};
+
+/**
  * Bachillerato en todas sus grafías → `{ curso: '1BACH'|'2BACH', letra }`, o `null` si no lo es.
  * Recibe el código ya en MAYÚSCULAS y sin espacios ni acentos. La letra (o modalidad) puede ser
  * de 0 a 3 caracteres: `1BACH` (una línea), `1BACHA`, `2BACHCT`. Es EL sitio donde se decide
@@ -164,8 +187,8 @@ export function cursoSiguiente(curso: string | null | undefined): string | null 
 
 /**
  * ¿Este curso entra en el banco de libros? Lo dice `CONFIGURACION.bancoLibros`: hoy de 3º de
- * Primaria a 4º de ESO. Infantil, 1º-2º de Primaria y Bachillerato quedan fuera; el PDC entra
- * con su curso de ESO.
+ * Primaria a 2º de Bachillerato. Infantil y 1º-2º de Primaria quedan fuera; el PDC entra con su
+ * curso de ESO.
  */
 export function cursoEnBanco(curso: string | null | undefined): boolean {
   const etapa = etapaDeCurso(curso);

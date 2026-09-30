@@ -51,20 +51,30 @@ export const CONFIGURACION = {
 
   /**
    * Banco de libros: desde qué nivel de cada etapa participa. Una etapa que no está aquí no
-   * entra en el banco. Hoy: de 3º de Primaria a 4º de ESO (la Xarxa de Llibres).
+   * entra en el banco. Hoy: de 3º de Primaria a 2º de Bachillerato (David, 30-sep-2026: «Bachillerato
+   * sí tiene banco de libros»).
    * Lo leen: Banco de libros, Alumnado, el sync de Educamos (casilla `banco_libros` de un alta).
    */
   bancoLibros: {
     EP: { desdeNivel: 3 },
     ESO: { desdeNivel: 1 },
+    BACH: { desdeNivel: 1 },
   } satisfies Partial<Record<Etapa, { desdeNivel: number }>>,
 
   /**
+   * Etapas que van juntas a efectos de **quién ve a quién** en Alumnado, Banco de libros y
+   * Números: quien tiene una de las de un grupo las tiene todas. Hoy ESO y Bachillerato son una
+   * etapa conjunta (David, 30-sep-2026). Un profe de ESO ve a Bachillerato y al revés.
+   */
+  etapasConjuntas: [['ESO', 'BACH']] as readonly (readonly Etapa[])[],
+
+  /**
    * Puntualidad (retrasos de entrada). Lo leen: el formulario, el panel, el aviso al tutor y el
-   * resumen semanal. OJO: a qué etapas afecta NO se cambia aquí (está en `cursoEnPuntualidad()`
-   * y en una consulta SQL de `puntualidad-server.ts`): hoy solo ESO y PDC.
+   * resumen semanal.
    */
   puntualidad: {
+    /** A qué etapas afecta. Hoy ESO (con su PDC) y Bachillerato (David, 30-sep-2026). */
+    etapas: ['ESO', 'BACH'] as readonly Etapa[],
     /** Hora a la que se cierran las puertas: a partir de aquí es retraso. */
     horaLimite: '08:05',
     /** Cada cuántos retrasos NO justificados se avisa al tutor y se pone consecuencia. */

@@ -53,6 +53,7 @@ describe('alcance del módulo', () => {
   it('solo entra secundaria (ESO y PDC)', () => {
     expect(cursoEnPuntualidad('2ESO')).toBe(true);
     expect(cursoEnPuntualidad('3ºPPDC')).toBe(true);
+    expect(cursoEnPuntualidad('1BACH')).toBe(true); // Bachillerato entra (30-sep-2026)
     expect(cursoEnPuntualidad('5PRI')).toBe(false);
     expect(cursoEnPuntualidad('4INF')).toBe(false);
     expect(cursoEnPuntualidad(null)).toBe(false);

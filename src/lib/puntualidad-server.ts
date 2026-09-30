@@ -19,7 +19,8 @@ import {
   type PunSubject,
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
-import { nombreClase } from '@/lib/cursos';
+import { CONFIGURACION } from '@/lib/configuracion';
+import { nombreClase, PATRONES_CURSO_SQL } from '@/lib/cursos';
 import { vePuntualidadCompleta, type Role } from '@/lib/permissions';
 import { nombreProfe, nombreProfeBreve } from '@/lib/profes';
 import { tutorPersonalDeAlumno } from '@/lib/tutorias-server';
@@ -130,7 +131,11 @@ export interface AlumnoBusqueda {
   nia: string | null;
 }
 
-const CURSOS_MODULO = sql`(${eduStudents.curso} ILIKE '%ESO%' OR ${eduStudents.curso} ILIKE '%PDC%')`;
+// Las mismas etapas que `cursoEnPuntualidad` (config.), en SQL: los patrones salen de `PATRONES_CURSO_SQL`.
+const CURSOS_MODULO = sql`(${sql.join(
+  CONFIGURACION.puntualidad.etapas.flatMap((e) => PATRONES_CURSO_SQL[e]).map((p) => sql`${eduStudents.curso} ILIKE ${p}`),
+  sql` OR `,
+)})`;
 
 /**
  * Buscador del formulario: nombre y/o apellido, desde 2 caracteres. Devuelve nombre

@@ -11,6 +11,7 @@ import {
   cursoBaseEso,
   cursoEnBanco,
   cursoSiguiente,
+  ampliarEtapasConjuntas,
   esEtapa,
   esPdc,
   ETAPA_LABEL,
@@ -19,11 +20,14 @@ import {
   nombreClase as nombreClaseCursos,
   ordenCurso,
   parseBachillerato,
+  PATRONES_CURSO_SQL,
 } from '@/lib/cursos';
 import { computeSyncPlan, parseClase, parseEducamosFile, type ParsedStudentRow, type StudentLike } from '@/lib/educamos';
 import { parsearCodigoGrupo } from '@/lib/horarios-import';
 import { anioDeEmpezar3, anioQueToca, nombreClase, nombreCurso, porEtapa } from '@/lib/numeros';
+import { ETAPA_LABELS, ETAPAS_ORA } from '@/lib/oratorios';
 import { claseTutorAKey } from '@/lib/profes';
+import { cursoEnPuntualidad } from '@/lib/puntualidad';
 
 describe('las etapas', () => {
   it('son cuatro, en orden, y todas tienen nombre', () => {
@@ -90,14 +94,58 @@ describe('Bachillerato · reglas', () => {
     expect(cursoSiguiente('BACH1')).toBeNull();
   });
 
-  it('no entra en el banco de libros', () => {
-    expect(cursoEnBanco('1BACH')).toBe(false);
+  it('entra en el banco de libros (David, 30-sep-2026)', () => {
+    expect(cursoEnBanco('1BACH')).toBe(true);
+    expect(cursoEnBanco('2BACH')).toBe(true);
     expect(cursoEnBanco('4ESO')).toBe(true);
+    expect(cursoEnBanco('2PRI')).toBe(false);
+  });
+
+  it('entra en Puntualidad, igual que la ESO y el PDC', () => {
+    expect(cursoEnPuntualidad('1BACH')).toBe(true);
+    expect(cursoEnPuntualidad('2ESO')).toBe(true);
+    expect(cursoEnPuntualidad('3ºPDC')).toBe(true);
+    expect(cursoEnPuntualidad('6PRI')).toBe(false);
+  });
+
+  it('se puede elegir en Oratorios y Godly Play', () => {
+    expect(ETAPAS_ORA).toContain('BACH');
+    expect(ETAPA_LABELS.BACH).toBe('Bachillerato');
   });
 
   it('se escribe como una clase más', () => {
     expect(nombreClaseCursos('1BACH', 'A')).toBe('1BACH A');
   });
+});
+
+describe('ESO y Bachillerato son una etapa conjunta (quién ve a quién)', () => {
+  it('quien tiene una, tiene las dos', () => {
+    expect(ampliarEtapasConjuntas(['ESO'])).toEqual(['ESO', 'BACH']);
+    expect(ampliarEtapasConjuntas(['BACH'])).toEqual(['ESO', 'BACH']);
+    expect(ampliarEtapasConjuntas(['BACH', 'EI'])).toEqual(['EI', 'ESO', 'BACH']);
+  });
+
+  it('no inventa etapas a quien no tiene ninguna de las dos', () => {
+    expect(ampliarEtapasConjuntas([])).toEqual([]);
+    expect(ampliarEtapasConjuntas(['EI', 'EP'])).toEqual(['EI', 'EP']);
+  });
+
+  it('no repite y respeta el orden de las etapas', () => {
+    expect(ampliarEtapasConjuntas(['BACH', 'ESO', 'EP'])).toEqual(['EP', 'ESO', 'BACH']);
+  });
+});
+
+describe('los patrones SQL dicen lo mismo que etapaDeCurso', () => {
+  // `ILIKE '%X%'` = «contiene X» sin mirar mayúsculas. Se reproduce aquí para no tener dos criterios.
+  const ilike = (texto: string, patron: string) => texto.toUpperCase().includes(patron.replaceAll('%', '').toUpperCase());
+  const etapaPorPatrones = (curso: string) => ETAPAS.find((e) => PATRONES_CURSO_SQL[e].some((p) => ilike(curso, p))) ?? null;
+
+  it.each(['3INF', '1PRI', '6PRI', '2ESO', '3ºPPDC', '3ºPDC', '3ESOPDC', '1BACH', '2BACH', '1ºBAT', '1BTO', '2bach'])(
+    '%s',
+    (curso) => {
+      expect(etapaPorPatrones(curso)).toBe(etapaDeCurso(curso));
+    },
+  );
 });
 
 describe('la letra de la clase se ve en TODAS las etapas', () => {

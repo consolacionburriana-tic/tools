@@ -89,9 +89,13 @@ export function formatoRetraso(minutos: number): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
-/** ¿Este curso entra en el módulo? Decisión de David: solo secundaria (ESO y PDC). */
+/**
+ * ¿Este curso entra en el módulo? Lo dice `CONFIGURACION.puntualidad.etapas`: hoy ESO (con su
+ * PDC) y Bachillerato (David, 30-sep-2026).
+ */
 export function cursoEnPuntualidad(curso: string | null | undefined): boolean {
-  return etapaDeCurso(curso) === 'ESO';
+  const etapa = etapaDeCurso(curso);
+  return etapa !== null && CONFIGURACION.puntualidad.etapas.includes(etapa);
 }
 
 /** Lo mínimo de un retraso para poder resumir un historial. */
