@@ -72,7 +72,8 @@ pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotente
 Al aplicarlos: quitarlos de `pendientes.txt` y marcar las casillas `[~]` → `[x]` de la ficha
 del módulo, en el mismo commit.
 
-**Ahora mismo no queda nada pendiente.** `calendarios.sql` y `calendarios-clases.sql` (las tablas `cal_*` de Calendarios del dominio) se aplicaron y verificó el 30-sep-2026. `numeros-fotos.sql` (la tabla `num_fotos` del histórico de Números del cole) se aplicó y verificó el 28-sep-2026. `licencias-banco-report.sql`
+**Ahora mismo no queda nada pendiente.** `oratorios.sql` (las cuatro tablas `ora_*` y la semilla
+de Oratorio y Godly Play) se aplicó y verificó el 30-sep-2026. `calendarios.sql` y `calendarios-clases.sql` (las tablas `cal_*` de Calendarios del dominio) se aplicaron y verificó el 30-sep-2026. `numeros-fotos.sql` (la tabla `num_fotos` del histórico de Números del cole) se aplicó y verificó el 28-sep-2026. `licencias-banco-report.sql`
 (`lic_campaigns.banco_report_at`) y `licencias-pedidos-editorial.sql` (la tabla de tiradas de
 pedidos a editoriales) se aplicaron y verificaron el 16-sep-2026; los tres de la sesión del
 9-sep-2026 (`cuaderno-plantillas-etapas.sql`, `profes-nombre-mostrado.sql` y `autoasm.sql`), ese
@@ -107,6 +108,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Tareas de la plataforma (fallitos e ideas de módulos) | ✅ | ✅ | ✅ (botón flotante en `/gestion` para apuntar en dos segundos, tablero a pantalla completa en `/gestion/tareas`, copiar para pegar a un agente; TIC lo lleva, dirección/secretaría/orientación reportan) | [`23-tareas.md`](./23-tareas.md) |
 | Números del cole (recuentos por clase, curso, etapa y colegio, copiables, con fotos mensuales) | ✅ | ✅ | ✅ (en `/gestion/numeros`: ocho pestañas, tocar un número enseña quiénes son, copiar / WhatsApp / imprimir A4, fotos mensuales; ideas para más adelante en su ficha) | [`24-numeros.md`](./24-numeros.md) |
 | Calendarios del dominio (inventario de los calendarios que deja Classroom y borrado en bloque) | ✅ | ✅ | 🟡 (en `/gestion/calendarios`, solo TIC: escaneo por Classroom + barrido por usuarios, eventos por calendario, pestañas por curso y borrado con confirmación; inventario de clases de Classroom con filtro por antigüedad (borrarlas, pendiente); tablas en Neon. Falta que David añada los scopes en Workspace y la primera prueba real) | [`25-calendarios.md`](./25-calendarios.md) |
+| Oratorios y Godly Play (planificar momentos en la hora de otro profe, con Calendar y aviso por correo) | ✅ | ✅ | 🟡 (en `/gestion/oratorios`: disponibilidad, asistente semana a semana con avisos 🔴/×N, autocompletar, estados, Google Calendar probado de verdad, correos agrupados por profe con cron diario, números y vista del claustro; falta el primer correo real y que David repase las decisiones 🤖) | [`26-oratorios.md`](./26-oratorios.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 empezado y en uso, pero le falta algo (lo que falta va entre
@@ -160,7 +162,7 @@ conexión). Auditoría de cambios y dashboard de dirección siguen como ideas en
 - **Una base de datos (Neon + Drizzle), un schema por módulo con prefijo de tabla propio**:
   `abc_*` Registro ABC · `lic_*` Licencias · `edu_*` BBDD central Educamos · `auth_*` usuarios y
   roles · `sal_*` Salidas y pagos · `bl_*` Banco de libros · `eval_*` Evaluaciones ·
-  `hor_*` Horarios · `num_*` Números del cole · `pun_*` Puntualidad y `con_*` consecuencias (prefijo aparte a propósito: una consecuencia no
+  `hor_*` Horarios · `num_*` Números del cole · `ora_*` Oratorios y Godly Play · `pun_*` Puntualidad y `con_*` consecuencias (prefijo aparte a propósito: una consecuencia no
   siempre nace de un retraso, ver [`17-puntualidad.md`](./17-puntualidad.md)). Así
   cualquiera puede ver en `src/db/schema.ts` a qué módulo pertenece cada tabla sin leer código.
 - **Alumnos y tutores como recurso compartido en `edu_*`.** La fuente de verdad administrativa

@@ -23,6 +23,25 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Oratorios y Godly Play: lo que decidí yo al construirlo (30-sep-2026) — revisar con David
+
+Están todas en «Decisiones cerradas» de [`26-oratorios.md`](./26-oratorios.md), marcadas 🤖. Las
+que más conviene mirar:
+
+1. **Godly Play arranca con infantil y primaria**, y Oratorio con ESO. Se cambia en Ajustes.
+2. ~~Sin PDC~~ ✅ David (30-sep): **PDC dentro**, 10 clases de ESO. ~~Trimestres~~ ✅ «muy bien».
+3. **El 🔴 mira todos los tipos**, no solo el mismo: a un profe le da igual qué le quite la hora.
+4. **Un tercer nivel de disponibilidad, 🤏 último recurso**, que el autocompletar no usa nunca.
+5. **Acceso común apagado** hasta que David lo encienda.
+
+⚠️ **Y un hallazgo que no es de este módulo: en Neon solo está el horario de la ESO, y sin el
+PDC.** Las
+rejillas de infantil y primaria existen, pero sus sesiones no (313 sesiones, todas de ESO; la
+ficha de horarios dice 597 de EI y EP importadas el 5-sep). Mientras no se reimporten, el
+asistente no puede proponer huecos en infantil ni primaria —que es donde va Godly Play— y hay
+que usar ➕ A mano. Probablemente es el fallo de «importar la ESO borraba el horario de primaria»
+que se arregló el 7-sep: el arreglo evita que vuelva a pasar, pero lo borrado no vuelve solo.
+
 ### Protección de datos: ¿cómo se cargan las 639 fichas? (17-sep-2026)
 
 La ficha de Alumnado ya tiene los cuatro permisos (imagen y voz, redes, AMPA, ONG), tri-estado,

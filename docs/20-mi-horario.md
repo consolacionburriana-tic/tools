@@ -246,7 +246,9 @@ src/app/(public)/mi-horario/  # la pantalla
 - [x] Vista previa → confirmar (igual que el importador de horarios), con selector de
       calendario de destino
 - [x] Reexportar = borrar lo de ese periodo y volver a crear; botón de deshacer
-- [ ] **David**: añadir el scope `calendar` al Client ID en la consola de Workspace
+- [x] **David**: añadir el scope `calendar` al Client ID en la consola de Workspace —
+      comprobado el 30-sep-2026 desde Oratorios: la delegación y la API de Calendar ya
+      funcionan (se creó y se anuló un evento real en un calendario compartido)
 - [ ] **Primera prueba real** contra un calendario de verdad — esta sesión no tiene
       credenciales para ejecutarlo en vivo, así que el camino feliz está escrito y
       tipado pero no verificado con Google de por medio
