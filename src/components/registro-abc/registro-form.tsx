@@ -14,7 +14,7 @@ import { DateQuickPicker } from './date-quick-picker';
 import { ChipSelect } from './chip-select';
 import { ChipMultiselect } from './chip-multiselect';
 import { EffectivenessSlider } from './effectiveness-slider';
-import { FormSection, OptionalDivider } from './form-section';
+import { FormSection, OptionalBlock } from './form-section';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ const schema = z.object({
   presentNames: z.string().optional(),
   behaviors: z.array(z.string()).min(1, 'Selecciona al menos una conducta'),
   involvedWith: z.string().optional(),
+  situationDescription: z.string().optional(),
   reasons: z.array(z.string()),
   reasonOther: z.string().optional(),
   antecedents: z.string().optional(),
@@ -60,6 +61,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
   const alumnoInicial = alumnos.find((a) => a.porDefecto) ?? (alumnos.length === 1 ? alumnos[0] : null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [opcionalAbierto, setOpcionalAbierto] = useState(false);
 
   const {
     control,
@@ -80,6 +82,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
       presentNames: '',
       behaviors: [],
       involvedWith: '',
+      situationDescription: '',
       reasons: [],
       reasonOther: '',
       antecedents: '',
@@ -101,6 +104,11 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
       } else {
         setValue(key, val as FormValues[typeof key]);
       }
+    }
+    // Si el borrador ya traía algo del bloque opcional, se deja abierto para que se vea
+    const opcionales = ['antecedents', 'consequences', 'redirectActions', 'effectivenessRating', 'comments'] as const;
+    if (opcionales.some((k) => draft[k] !== null && draft[k] !== undefined && draft[k] !== '')) {
+      setOpcionalAbierto(true);
     }
   }, [setValue]);
 
@@ -368,75 +376,93 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         </AnimatePresence>
       </FormSection>
 
-      <OptionalDivider />
-
-      {/* ── Análisis A-B-C completo (opcional) ────────────────────── */}
-
-      <FormSection title="Antecedentes">
+      <FormSection title="Describe la situación problemática">
         <Controller
-          name="antecedents"
+          name="situationDescription"
           control={control}
           render={({ field }) => (
             <Textarea
               {...field}
-              placeholder="¿Qué ocurre antes de que se desarrolle esta conducta?"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+              placeholder="¿Qué ha pasado? Cuéntalo con tus palabras…"
+              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[120px]"
             />
           )}
         />
       </FormSection>
 
-      <FormSection title="Consecuencias">
-        <Controller
-          name="consequences"
-          control={control}
-          render={({ field }) => (
-            <Textarea
-              {...field}
-              placeholder="¿Qué ocurre después?"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
-            />
-          )}
-        />
-      </FormSection>
+      {/* ── Análisis A-B-C completo (opcional, plegado) ───────────── */}
 
-      <FormSection title="Acciones para reconducir">
-        <Controller
-          name="redirectActions"
-          control={control}
-          render={({ field }) => (
-            <Textarea
-              {...field}
-              placeholder="¿Qué hiciste para reconducir la situación?"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
-            />
-          )}
-        />
-      </FormSection>
+      <OptionalBlock
+        title="Comentarios opcionales que nos ayudan a entender la situación"
+        open={opcionalAbierto}
+        onToggle={() => setOpcionalAbierto((v) => !v)}
+      >
+        <FormSection title="Antecedentes">
+          <Controller
+            name="antecedents"
+            control={control}
+            render={({ field }) => (
+              <Textarea
+                {...field}
+                placeholder="¿Qué ocurre antes de que se desarrolle esta conducta?"
+                className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+              />
+            )}
+          />
+        </FormSection>
 
-      <FormSection title="¿Ha servido para reconducir?">
-        <Controller
-          name="effectivenessRating"
-          control={control}
-          render={({ field }) => (
-            <EffectivenessSlider value={field.value} onChange={field.onChange} />
-          )}
-        />
-      </FormSection>
+        <FormSection title="Consecuencias">
+          <Controller
+            name="consequences"
+            control={control}
+            render={({ field }) => (
+              <Textarea
+                {...field}
+                placeholder="¿Qué ocurre después?"
+                className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+              />
+            )}
+          />
+        </FormSection>
 
-      <FormSection title="Otros comentarios">
-        <Controller
-          name="comments"
-          control={control}
-          render={({ field }) => (
-            <Textarea
-              {...field}
-              placeholder="Cualquier otra observación relevante…"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
-            />
-          )}
-        />
-      </FormSection>
+        <FormSection title="Acciones para reconducir">
+          <Controller
+            name="redirectActions"
+            control={control}
+            render={({ field }) => (
+              <Textarea
+                {...field}
+                placeholder="¿Qué hiciste para reconducir la situación?"
+                className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+              />
+            )}
+          />
+        </FormSection>
+
+        <FormSection title="¿Ha servido para reconducir?">
+          <Controller
+            name="effectivenessRating"
+            control={control}
+            render={({ field }) => (
+              <EffectivenessSlider value={field.value} onChange={field.onChange} />
+            )}
+          />
+        </FormSection>
+
+        <FormSection title="Otros comentarios">
+          <Controller
+            name="comments"
+            control={control}
+            render={({ field }) => (
+              <Textarea
+                {...field}
+                placeholder="Cualquier otra observación relevante…"
+                className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+              />
+            )}
+          />
+        </FormSection>
+      </OptionalBlock>
 
       {/* Botón guardar sticky */}
       <div className="fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 z-50">

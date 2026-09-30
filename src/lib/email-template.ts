@@ -17,6 +17,7 @@ interface ReportEmailData {
   presentPeople: string[];
   behaviors: string[];
   involvedWith?: string | null;
+  situationDescription?: string | null;
   reasons: string[];
   reasonOther?: string | null;
   antecedents?: string | null;
@@ -116,6 +117,8 @@ export function buildReportEmail(data: ReportEmailData): { subject: string; html
         <div>${behaviorPills}</div>
         ${data.involvedWith ? `<p style="margin:10px 0 0;font-size:13px;color:#7f1d1d;"><strong>Con:</strong> ${data.involvedWith}</p>` : ''}
       </div>
+
+      ${data.situationDescription ? section('Situación problemática', `<span style="color:#374151;">${data.situationDescription}</span>`) : ''}
 
       ${section('Hipótesis · ¿Por qué?', reasonPills, true)}
 
