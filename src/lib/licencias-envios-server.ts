@@ -381,6 +381,39 @@ export async function quitarCodigo(campaignId: string, licenciaId: string): Prom
 }
 
 /**
+ * Quita el código a varias licencias de golpe (envío masivo equivocado, Excel que no era). A
+ * diferencia de `quitarCodigo`, aquí SÍ se pueden incluir las ya enviadas: vuelven a «pendiente»
+ * y pierden el rastro del envío, para poder asignarles el código bueno y reenviar. Quien llama
+ * avisa antes de pedirlo. Los sobrantes (sin alumno) no se tocan.
+ */
+export async function quitarCodigos(campaignId: string, ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
+  const hechas = await db
+    .update(licLicencias)
+    .set({
+      codigo: null,
+      codigoAt: null,
+      codigoPorEmail: null,
+      estado: 'pendiente',
+      error: null,
+      enviadoAt: null,
+      enviadoA: null,
+      envioId: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(licLicencias.campaignId, campaignId),
+        inArray(licLicencias.id, ids),
+        sql`${licLicencias.studentId} is not null`,
+        sql`${licLicencias.codigo} is not null`,
+      ),
+    )
+    .returning({ id: licLicencias.id });
+  return hechas.length;
+}
+
+/**
  * Pone o cambia el código de UNA licencia, a mano desde la tabla. Es la vía de escape para lo
  * que el pegado en bloque no cubre: una licencia suelta que manda la editorial por correo, un
  * código mal tecleado, el alumno que llega tarde.

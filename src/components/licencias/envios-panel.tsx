@@ -257,6 +257,7 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
   }
 
   const seleccionadas = useMemo(() => visibles.filter((f) => seleccion.has(f.id)), [visibles, seleccion]);
+  const conCodigo = useMemo(() => seleccionadas.filter((f) => f.codigo), [seleccionadas]);
 
   /** Reenvía el mismo código a una licencia ya enviada, sin tocarlo (ver `ponerCodigo` para el
    * camino de «ha cambiado el código»). Abre el mismo diálogo de envío, forzado a esa única fila. */
@@ -570,20 +571,25 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
                 >
                   <RotateCcw className="h-3.5 w-3.5" /> Deshacer descarte
                 </button>
-                {seleccionadas.length === 1 && seleccionadas[0].codigo && seleccionadas[0].estado !== 'enviado' && (
+                {conCodigo.length > 0 && (
                   <button
                     type="button"
-                    onClick={() =>
-                      accionSobreSeleccion(
+                    onClick={() => {
+                      const enviadas = conCodigo.filter((f) => f.estado === 'enviado').length;
+                      const aviso = enviadas
+                        ? `\n\n${enviadas} ya se enviaron: volverán a «pendiente» y habrá que reenviarlas con el código nuevo.`
+                        : '';
+                      if (!confirm(`¿Desasignar el código de ${conCodigo.length} licencia(s)?${aviso}`)) return;
+                      void accionSobreSeleccion(
                         '/api/licencias/admin/licencias/codigo',
-                        { id: seleccionadas[0].id },
-                        'Código quitado',
+                        { ids: conCodigo.map((f) => f.id) },
+                        `${conCodigo.length} código(s) quitado(s)`,
                         'DELETE',
-                      )
-                    }
-                    className="flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
+                      );
+                    }}
+                    className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600 dark:border-red-500/30 dark:text-red-400"
                   >
-                    <Trash2 className="h-3.5 w-3.5" /> Quitar código
+                    <Trash2 className="h-3.5 w-3.5" /> Desasignar códigos ({conCodigo.length})
                   </button>
                 )}
               </div>
