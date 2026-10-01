@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSessionUser, hasModule } from '@/lib/auth-guards';
 import { getCurrentCampaign } from '@/lib/licencias-server';
-import { ponerCodigo, quitarCodigo } from '@/lib/licencias-envios-server';
+import { ponerCodigo, quitarCodigo, quitarCodigos } from '@/lib/licencias-envios-server';
 
 /** Quitar un código mal pegado. Una licencia ya enviada no se toca: el alumno ya lo tiene. */
 export async function DELETE(request: Request) {
@@ -10,7 +10,13 @@ export async function DELETE(request: Request) {
   const campaign = await getCurrentCampaign();
   if (!campaign) return NextResponse.json({ error: 'Sin campaña activa' }, { status: 404 });
   try {
-    const { id } = z.object({ id: z.string().uuid() }).parse(await request.json());
+    const body = await request.json();
+    // En bloque (`ids`) también se quitan las ya enviadas: es el «me enviaron mal 200».
+    if (Array.isArray(body?.ids)) {
+      const { ids } = z.object({ ids: z.array(z.string().uuid()).min(1).max(5000) }).parse(body);
+      return NextResponse.json({ ok: true, quitados: await quitarCodigos(campaign.id, ids) });
+    }
+    const { id } = z.object({ id: z.string().uuid() }).parse(body);
     const ok = await quitarCodigo(campaign.id, id);
     return ok
       ? NextResponse.json({ ok: true })
