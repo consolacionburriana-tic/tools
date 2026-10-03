@@ -465,6 +465,25 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
 
+- **Acceso rápido y tareas por correo** (idea de David, 3-oct-2026; solo anotado, sin decidir):
+  - **Paleta de comandos transversal** (⌘K / Ctrl+K en todo `/gestion`, `cmdk` ya está en el
+    repo): saltar a cualquier módulo, buscar un alumno o un tablero, y **crear una tarea en dos
+    segundos** («t proyector 3ºB @amparo viernes !alta» → tarjeta en el tablero elegido).
+    Podría sustituir o completar al botón flotante de fallitos. En iPad, mismo panel desde un
+    botón o un atajo de la PWA.
+  - **Tareas por correo**: reenviar un correo a `tarea+tic@consolacionburriana.com` (alias con
+    `+` del buzón compartido) y que aparezca como tarjeta en el tablero del equipo TIC, con el
+    asunto de título, el cuerpo de descripción y el enlace al hilo de Gmail. Primera idea: un
+    cron que lea ese buzón con la API de Gmail (la cuenta de servicio ya suplanta buzones; haría
+    falta el scope `gmail.modify`) filtrando por `to:tarea+…`, la etiqueta tras el `+` elige
+    equipo/tablero, y se marca el correo con una etiqueta «En tablero» para no duplicar.
+  - **Seguimiento del buzón compartido**: saber quién contesta a qué. Primera idea: cada
+    tarjeta creada desde un correo guarda el `threadId`; el cron mira si en el hilo hay
+    respuesta enviada desde el buzón y de quién (o por quién se firmó), y lo apunta en el
+    seguimiento de la tarjeta («Ana respondió el 4 oct»), moviéndola a «En curso». Lo que no
+    tenga respuesta en N días sale como pendiente. Antes de nada: decidir si el buzón es un
+    grupo o un buzón real (los grupos no se pueden suplantar, ver «Email» en `04`).
+
 - **Tableros: siguientes pasos** ([`27-tableros.md`](./27-tableros.md), 3-oct-2026). Ideas que
   salieron al construirlo y que no se hicieron para no inflar la primera versión:
   - **Menciones** en los comentarios (`@Ana`) con aviso por correo, y avisar a los responsables
