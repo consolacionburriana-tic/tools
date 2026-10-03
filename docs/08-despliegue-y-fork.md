@@ -66,6 +66,10 @@ pnpm db:sql $(ls src/db/sql/*.sql | xargs -n1 basename)         # 2) aplica TODO
 
 - Los ficheros SQL son idempotentes: repetir el 2 no rompe nada.
 - `tutorias-2026-27.sql` es específico del curso de Consolación: sobre una base vacía no hace nada.
+- `tableros.sql` crea un equipo **TIC** en Tableros con dos tableros de ejemplo y mete en él a
+  quien tenga rol `tic`/`supertic` y sea profe activo. Sobre una base vacía el equipo nace sin
+  nadie (y nadie lo ve): o se relanza `pnpm db:sql tableros` cuando ya haya usuarios y
+  profesorado, o se borra la fila de `tab_equipos` y cada uno se crea los suyos.
 - ⚠️ `db:push` **borra lo que no esté en `schema.ts`**. Solo lo usas así, en una base vacía. Con
   datos reales, los cambios de schema se aplican con SQL aditivo (`pnpm db:sql`), como explica
   [`04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md#base-de-datos-drizzle--neon).
@@ -87,7 +91,7 @@ correos). El resto se activa añadiendo piezas cuando las necesites:
 | **Cuaderno de tutor** (documentos en Drive) | Pasos 7-8 | scopes `drive`, `spreadsheets` |
 | **Mi horario** / **Oratorios** (Google Calendar) | Pasos 7-8 | scope `calendar` |
 | **Calendarios y Classrooms** (limpieza del dominio) | Pasos 7-8 con un buzón administrador | scopes Directory + Classroom + Calendar, `GOOGLE_ADMIN_BUZON` |
-| **Crons** (resumen semanal, worker del cuaderno, foto mensual, avisos de Oratorios) | Nada: ya están en `vercel.json` | `CRON_SECRET` (el plan *Hobby* de Vercel limita los crons a una ejecución al día; los cuatro actuales lo cumplen — comprueba los límites de tu plan) |
+| **Crons** (resumen semanal, worker del cuaderno, foto mensual, avisos de Oratorios, vencimientos de Tableros) | Nada: ya están en `vercel.json` | `CRON_SECRET` (el plan *Hobby* de Vercel limita los crons a una ejecución al día; los cinco actuales lo cumplen — comprueba los límites de tu plan) |
 | **AUTOASM** (Apple School Manager) | Cuenta ASM del colegio | `AUTOASM_CRYPTO_KEY` (opcional) |
 
 **Scopes de la delegación (paso 8)** — añade solo los de los módulos que uses, separados por comas:
@@ -211,7 +215,7 @@ Cuando algo no cuadra, se mira en tres sitios, de más cercano a más lejano:
 | **Cuánto usa** la base y qué consultas van lentas | Neon → **Monitoring** | Solo lectura; no hace falta para el día a día |
 | Un **dato borrado por error** | Neon → **Backup & Restore** | Permite volver a un momento anterior (el tiempo disponible depende de tu plan). Ante una duda, crea antes una *branch* desde ahí en vez de restaurar encima |
 | **Errores de la app** (una pantalla que falla, un correo que no sale) | **Vercel** → proyecto → **Logs** | Filtra por *Error*; cada fallo trae la ruta y el mensaje. Los despliegues fallidos: pestaña *Deployments* → el deploy → *Build Logs* |
-| Si los **crons** se ejecutan | Vercel → *Settings* → **Cron Jobs** | Lista los cuatro de `vercel.json` y permite lanzarlos a mano |
+| Si los **crons** se ejecutan | Vercel → *Settings* → **Cron Jobs** | Lista los cinco de `vercel.json` y permite lanzarlos a mano |
 | **Quién ha entrado y con qué rol** | La propia app: `/gestion/usuarios` | O en Neon: `SELECT email, role, active FROM auth_users;` |
 
 **Consultas para comprobar que la instalación está bien** (pégalas en el SQL Editor):

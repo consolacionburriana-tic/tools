@@ -12,7 +12,7 @@ ficha, gana la ficha (y se anota la excepción en ella).
 Next.js 16 App Router + TypeScript estricto · Tailwind v4 + shadcn/ui sobre **@base-ui/react**
 · `motion/react` · Drizzle ORM + Neon (`@neondatabase/serverless`) · Zod + react-hook-form ·
 Resend · date-fns (locale `es`) · recharts (gráficos) · sonner (toasts) · lucide-react (iconos)
-· ios-haptics · pnpm.
+· ios-haptics · @dnd-kit (arrastrar tarjetas en Tableros, con ratón, táctil y teclado) · pnpm.
 
 > **Next 16 no es el Next de tu entrenamiento.** Antes de usar cualquier API de Next, mira la
 > guía en `node_modules/next/dist/docs/`. Esto incluye dónde vive el middleware/proxy.
@@ -59,7 +59,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
 | `PUNTUALIDAD_AVISOS_COPIA` | Correos (separados por comas) que reciben copia del aviso del tercer retraso, además del tutor/a. Vacío = solo el tutor |
-| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, foto mensual de Números del cole y avisos programados de Oratorios. El worker también lo usa para re-despertarse a sí mismo |
+| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, foto mensual de Números del cole, avisos programados de Oratorios y aviso diario de vencimientos de Tableros. El worker también lo usa para re-despertarse a sí mismo |
 
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
 código que la usa. Los pasos para conseguir cada credencial (dónde se crea, qué se copia) están
@@ -69,7 +69,7 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
 ## Base de datos (Drizzle + Neon)
 
 - **Todas las tablas en `src/db/schema.ts`**, agrupadas por módulo con su prefijo (`abc_`,
-  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`) y un comentario separador
+  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`, `tab_`) y un comentario separador
   por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
 - ⚠️ **Antes de `pnpm db:push`, mira qué hay en Neon.** Push borra lo que no esté en
@@ -160,7 +160,7 @@ src/components/<modulo>/          # componentes propios del módulo
   son `src/lib/email-gmail.ts` (API de Gmail, cuenta de servicio con delegación de dominio) y
   el bloque Resend de `email.ts`. Se elige por env (`EMAIL_TRANSPORTE[_<PERFIL>]`), sin deploy.
 - **Perfiles de remitente** (`PerfilCorreo`: `licencias`, `salidas`, `abc`, `evaluaciones`,
-  `puntualidad`, `cuaderno`, `oratorios`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
+  `puntualidad`, `cuaderno`, `oratorios`, `tableros`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
   `licencias@consolacionburriana.com` (centralizado, buzón real); el resto sale del buzón
   genérico y **el `Reply-To` lo pone quien envía** (`guard.email` del tutor/gestor en los
   routes de recordatorio y de evaluaciones), para que las familias no contesten al vacío.

@@ -23,6 +23,20 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Tableros: lo que decidí yo al construirlo (3-oct-2026) — revisar con David
+
+Están todas en «Decisiones cerradas» de [`27-tableros.md`](./27-tableros.md), marcadas 🤖. Las
+que más conviene mirar:
+
+1. **Equipos → tableros**: se mete a la gente en el equipo y ve todos sus tableros. No hay
+   tableros compartidos con alguien de fuera del equipo (para eso, otro equipo).
+2. **Admin y miembro**: el miembro puede hacerlo casi todo (también borrar tarjetas); el admin,
+   además, lleva los miembros y archiva o borra tableros. En TIC, las cuatro personas son admin.
+3. **Al sacar a alguien de un equipo se le quita de sus tarjetas** de allí.
+4. **Correo diario de vencimientos de lunes a viernes, una vez por tarjeta y fecha** («vence ya»
+   y «se ha pasado»), y el de asignación al momento. Cada uno los puede apagar.
+5. **El aviso flotante va abajo a la izquierda** y solo sale con lo vencido, de hoy o de mañana.
+
 ### Oratorios y Godly Play: lo que decidí yo al construirlo (30-sep-2026) — revisar con David
 
 Están todas en «Decisiones cerradas» de [`26-oratorios.md`](./26-oratorios.md), marcadas 🤖. Las
@@ -450,6 +464,21 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
 ---
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
+
+- **Tableros: siguientes pasos** ([`27-tableros.md`](./27-tableros.md), 3-oct-2026). Ideas que
+  salieron al construirlo y que no se hicieron para no inflar la primera versión:
+  - **Menciones** en los comentarios (`@Ana`) con aviso por correo, y avisar a los responsables
+    cuando alguien comenta en su tarjeta (hoy el seguimiento no manda correos).
+  - **Adjuntos** (fotos de la avería, PDF de un presupuesto) con Vercel Blob, como Salidas.
+  - **Tarjetas recurrentes** («revisar los carros de iPads cada lunes») y **plantillas** de
+    tablero o de checklist.
+  - **Vincular una tarjeta a cosas de la plataforma** con algo más que un enlace: una clase, un
+    alumno (con cuidado: datos personales) o un fallito de [Tareas](./23-tareas.md). Lo natural
+    sería que los fallitos de la plataforma pudieran pasar al tablero «Desarrollo interno» de TIC.
+  - **Mover una tarjeta a otro tablero** del mismo equipo (hoy se mueve solo entre listas).
+  - **Vista calendario** de lo que tiene fecha, y llevar los deadlines a Google Calendar como
+    hace Mi horario.
+  - **Resumen semanal** por correo («esta semana tienes…») además del aviso diario.
 
 - **Que otros colegios puedan usar el repo** ([`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md),
   30-sep-2026). Hecho y decidido con David:

@@ -54,3 +54,8 @@ completa). Pedido por David el 24-sep-2026. Evolucionará a un kanban de tareas.
 - [x] Copiar fallito / definición funcional / todos los pendientes para pegar a un agente
 - [x] Tarjeta en el escritorio (Configuración general)
 - [ ] Kanban: columnas por estado con arrastrar (siguiente paso, ver `00-desarrollos-futuros.md`)
+
+> **Ojo:** el kanban general de la plataforma ya existe y es otro módulo, [Tableros](./27-tableros.md)
+> (`tab_*`), con equipos, arrastrar y avisos. Antes de construir el kanban de aquí, mirar si no
+> es mejor que los fallitos pasen al tablero «Desarrollo interno» del equipo TIC (idea apuntada
+> en `00-desarrollos-futuros.md`).
