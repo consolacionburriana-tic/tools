@@ -21,12 +21,15 @@ export function ModuleCard({
   title,
   desc,
   badge,
+  badgeTono = 'azul',
 }: {
   href: string;
   icon: React.ReactNode;
   title: string;
   desc: string;
   badge?: string;
+  /** Rojo para lo que urge (tareas vencidas en Tableros). */
+  badgeTono?: 'azul' | 'rojo';
 }) {
   return (
     <Link
@@ -38,7 +41,13 @@ export function ModuleCard({
         <span className="flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
           {title}
           {badge && (
-            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+            <span
+              className={
+                badgeTono === 'rojo'
+                  ? 'rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white'
+                  : 'rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
+              }
+            >
               {badge}
             </span>
           )}

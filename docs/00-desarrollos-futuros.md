@@ -23,6 +23,20 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Tableros: lo que decidí yo al construirlo (3-oct-2026) — revisar con David
+
+Están todas en «Decisiones cerradas» de [`27-tableros.md`](./27-tableros.md), marcadas 🤖. Las
+que más conviene mirar:
+
+1. **Equipos → tableros**: se mete a la gente en el equipo y ve todos sus tableros. No hay
+   tableros compartidos con alguien de fuera del equipo (para eso, otro equipo).
+2. **Admin y miembro**: el miembro puede hacerlo casi todo (también borrar tarjetas); el admin,
+   además, lleva los miembros y archiva o borra tableros. En TIC, las cuatro personas son admin.
+3. **Al sacar a alguien de un equipo se le quita de sus tarjetas** de allí.
+4. **Correo diario de vencimientos de lunes a viernes, una vez por tarjeta y fecha** («vence ya»
+   y «se ha pasado»), y el de asignación al momento. Cada uno los puede apagar.
+5. **El aviso flotante va abajo a la izquierda** y solo sale con lo vencido, de hoy o de mañana.
+
 ### Oratorios y Godly Play: lo que decidí yo al construirlo (30-sep-2026) — revisar con David
 
 Están todas en «Decisiones cerradas» de [`26-oratorios.md`](./26-oratorios.md), marcadas 🤖. Las
@@ -450,6 +464,40 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
 ---
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
+
+- **Acceso rápido y tareas por correo** (idea de David, 3-oct-2026; solo anotado, sin decidir):
+  - **Paleta de comandos transversal** (⌘K / Ctrl+K en todo `/gestion`, `cmdk` ya está en el
+    repo): saltar a cualquier módulo, buscar un alumno o un tablero, y **crear una tarea en dos
+    segundos** («t proyector 3ºB @amparo viernes !alta» → tarjeta en el tablero elegido).
+    Podría sustituir o completar al botón flotante de fallitos. En iPad, mismo panel desde un
+    botón o un atajo de la PWA.
+  - **Tareas por correo**: reenviar un correo a `tarea+tic@consolacionburriana.com` (alias con
+    `+` del buzón compartido) y que aparezca como tarjeta en el tablero del equipo TIC, con el
+    asunto de título, el cuerpo de descripción y el enlace al hilo de Gmail. Primera idea: un
+    cron que lea ese buzón con la API de Gmail (la cuenta de servicio ya suplanta buzones; haría
+    falta el scope `gmail.modify`) filtrando por `to:tarea+…`, la etiqueta tras el `+` elige
+    equipo/tablero, y se marca el correo con una etiqueta «En tablero» para no duplicar.
+  - **Seguimiento del buzón compartido**: saber quién contesta a qué. Primera idea: cada
+    tarjeta creada desde un correo guarda el `threadId`; el cron mira si en el hilo hay
+    respuesta enviada desde el buzón y de quién (o por quién se firmó), y lo apunta en el
+    seguimiento de la tarjeta («Ana respondió el 4 oct»), moviéndola a «En curso». Lo que no
+    tenga respuesta en N días sale como pendiente. Antes de nada: decidir si el buzón es un
+    grupo o un buzón real (los grupos no se pueden suplantar, ver «Email» en `04`).
+
+- **Tableros: siguientes pasos** ([`27-tableros.md`](./27-tableros.md), 3-oct-2026). Ideas que
+  salieron al construirlo y que no se hicieron para no inflar la primera versión:
+  - **Menciones** en los comentarios (`@Ana`) con aviso por correo, y avisar a los responsables
+    cuando alguien comenta en su tarjeta (hoy el seguimiento no manda correos).
+  - **Adjuntos** (fotos de la avería, PDF de un presupuesto) con Vercel Blob, como Salidas.
+  - **Tarjetas recurrentes** («revisar los carros de iPads cada lunes») y **plantillas** de
+    tablero o de checklist.
+  - **Vincular una tarjeta a cosas de la plataforma** con algo más que un enlace: una clase, un
+    alumno (con cuidado: datos personales) o un fallito de [Tareas](./23-tareas.md). Lo natural
+    sería que los fallitos de la plataforma pudieran pasar al tablero «Desarrollo interno» de TIC.
+  - **Mover una tarjeta a otro tablero** del mismo equipo (hoy se mueve solo entre listas).
+  - **Vista calendario** de lo que tiene fecha, y llevar los deadlines a Google Calendar como
+    hace Mi horario.
+  - **Resumen semanal** por correo («esta semana tienes…») además del aviso diario.
 
 - **Que otros colegios puedan usar el repo** ([`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md),
   30-sep-2026). Hecho y decidido con David:

@@ -75,7 +75,7 @@ pnpm db:sql --pendientes         # aplicarlo (todos los ficheros son idempotente
 Al aplicarlos: quitarlos de `pendientes.txt` y marcar las casillas `[~]` → `[x]` de la ficha
 del módulo, en el mismo commit.
 
-**Ahora mismo no queda nada pendiente.** `oratorios.sql` (las cuatro tablas `ora_*` y la semilla
+**Ahora mismo no queda nada pendiente.** `tableros.sql` (las siete tablas `tab_*` y la semilla del equipo TIC con sus dos tableros) se aplicó y verificó el 3-oct-2026. `oratorios.sql` (las cuatro tablas `ora_*` y la semilla
 de Oratorio y Godly Play) se aplicó y verificó el 30-sep-2026. `calendarios.sql` y `calendarios-clases.sql` (las tablas `cal_*` de Calendarios del dominio) se aplicaron y verificó el 30-sep-2026. `numeros-fotos.sql` (la tabla `num_fotos` del histórico de Números del cole) se aplicó y verificó el 28-sep-2026. `licencias-banco-report.sql`
 (`lic_campaigns.banco_report_at`) y `licencias-pedidos-editorial.sql` (la tabla de tiradas de
 pedidos a editoriales) se aplicaron y verificaron el 16-sep-2026; los tres de la sesión del
@@ -112,6 +112,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Números del cole (recuentos por clase, curso, etapa y colegio, copiables, con fotos mensuales) | ✅ | ✅ | ✅ (en `/gestion/numeros`: ocho pestañas, tocar un número enseña quiénes son, copiar / WhatsApp / imprimir A4, fotos mensuales; ideas para más adelante en su ficha) | [`24-numeros.md`](./24-numeros.md) |
 | Classrooms y calendarios (clases de Classroom y calendarios del dominio: limpieza en bloque y meter profes en clases ajenas) | ✅ | ✅ | 🟡 (en `/gestion/calendarios`, solo TIC. Calendarios: escaneo, pestañas por curso, inborrables y borrado en bloque, **en uso** (~1.400 borrados). Clases: filtros por antigüedad, texto y fecha de creación; borrar clases y añadir profe escritos, falta que David delegue `classroom.courses` y `classroom.rosters` y estrenarlos) | [`25-calendarios.md`](./25-calendarios.md) |
 | Oratorios y Godly Play (planificar momentos en la hora de otro profe, con Calendar y aviso por correo) | ✅ | ✅ | 🟡 (en `/gestion/oratorios`: disponibilidad, asistente semana a semana con avisos 🔴/×N, autocompletar, estados, Google Calendar probado de verdad, correos agrupados por profe con cron diario, números y vista del claustro; falta el primer correo real y que David repase las decisiones 🤖) | [`26-oratorios.md`](./26-oratorios.md) |
+| Tableros (tareas por equipos, estilo Trello: tableros kanban con prioridad, fecha, responsables, checklist, enlaces y seguimiento) | ✅ | ✅ | ✅ (en `/gestion/tableros`, todo el claustro, pero **solo se ve lo de los equipos en los que estás**: ni dirección ni TIC ven tableros ajenos. Arrastrar en iPad, aviso flotante de lo vencido, tarjeta en el escritorio y correos de asignación y diario de vencimientos. Equipo TIC sembrado con Desarrollo interno y Mantenimiento de aulas. Falta el primer correo real) | [`27-tableros.md`](./27-tableros.md) |
 | 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 empezado y en uso, pero le falta algo (lo que falta va entre
@@ -165,7 +166,7 @@ conexión). Auditoría de cambios y dashboard de dirección siguen como ideas en
 - **Una base de datos (Neon + Drizzle), un schema por módulo con prefijo de tabla propio**:
   `abc_*` Registro ABC · `lic_*` Licencias · `edu_*` BBDD central Educamos · `auth_*` usuarios y
   roles · `sal_*` Salidas y pagos · `bl_*` Banco de libros · `eval_*` Evaluaciones ·
-  `hor_*` Horarios · `num_*` Números del cole · `ora_*` Oratorios y Godly Play · `pun_*` Puntualidad y `con_*` consecuencias (prefijo aparte a propósito: una consecuencia no
+  `hor_*` Horarios · `num_*` Números del cole · `ora_*` Oratorios y Godly Play · `tab_*` Tableros · `pun_*` Puntualidad y `con_*` consecuencias (prefijo aparte a propósito: una consecuencia no
   siempre nace de un retraso, ver [`17-puntualidad.md`](./17-puntualidad.md)). Así
   cualquiera puede ver en `src/db/schema.ts` a qué módulo pertenece cada tabla sin leer código.
 - **Alumnos y tutores como recurso compartido en `edu_*`.** La fuente de verdad administrativa

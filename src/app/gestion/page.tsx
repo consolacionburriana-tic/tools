@@ -16,6 +16,7 @@ import {
   Database,
   GraduationCap,
   HandHeart,
+  KanbanSquare,
   KeyRound,
   Library,
   ListTodo,
@@ -33,6 +34,8 @@ import { canAccess, ROLE_LABELS, type Module } from '@/lib/permissions';
 import { getCurrentCampaign } from '@/lib/licencias-server';
 import { getEstadoAutoasm } from '@/lib/autoasm-entregas';
 import { accesoComunActivo } from '@/lib/oratorios-server';
+import { misTarjetas } from '@/lib/tableros-server';
+import { hoyISO, resumenUrgente, textoResumenUrgente } from '@/lib/tableros';
 import { esTemporadaLicencias } from '@/lib/licencias';
 import {
   AutoasmDestacada,
@@ -58,7 +61,7 @@ export default async function EscritorioPage() {
     puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas') || puede('calendarios');
 
   // Stats solo de los módulos que el rol puede ver
-  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun] = await Promise.all([
+  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas] = await Promise.all([
     puede('educamos') ? db.select({ n: count() }).from(eduStudents).where(eq(eduStudents.active, true)) : null,
     puede('educamos') ? db.select({ n: count() }).from(eduTeachers).where(eq(eduTeachers.active, true)) : null,
     puede('educamos') ? db.select().from(eduSyncRuns).orderBy(desc(eduSyncRuns.createdAt)).limit(1) : null,
@@ -78,7 +81,10 @@ export default async function EscritorioPage() {
     puede('autoasm') ? getEstadoAutoasm(ahora).catch(() => null) : null,
     // Oratorios: el claustro solo ve la tarjeta si quien lo lleva ha abierto el acceso común.
     !puede('oratorios') && puede('oratorios-ver') ? accesoComunActivo().catch(() => false) : false,
+    // Tableros: lo que tengo asignado, para decir en la tarjeta si algo se ha pasado de fecha.
+    puede('tableros') ? misTarjetas(user.email).catch(() => null) : null,
   ]);
+  const urgenteTableros = misTareas ? resumenUrgente(misTareas, hoyISO(ahora)) : null;
   const veOratorios = puede('oratorios') || oratoriosComun;
 
   const asm = estadoAsm ?? null;
@@ -162,6 +168,20 @@ export default async function EscritorioPage() {
 
         {/* ── 3. El resto de la gestión ──────────────────────────────────── */}
         <section className="anim-stagger space-y-3">
+          {puede('tableros') && (
+            <ModuleCard
+              href="/gestion/tableros"
+              icon={<KanbanSquare className="h-6 w-6" />}
+              title="Tableros"
+              desc={
+                misTareas && misTareas.length > 0
+                  ? `Tienes ${misTareas.length} tarea${misTareas.length === 1 ? '' : 's'} pendiente${misTareas.length === 1 ? '' : 's'} en tus equipos`
+                  : 'Tareas por equipos, estilo Trello: por hacer, en curso y hecho'
+              }
+              badge={(urgenteTableros && textoResumenUrgente(urgenteTableros)) || undefined}
+              badgeTono={urgenteTableros?.vencidas ? 'rojo' : 'azul'}
+            />
+          )}
           {puede('alumnado') && (
             <ModuleCard
               href="/gestion/alumnado"

@@ -102,6 +102,8 @@ const FICHAS: Partial<Record<Module, string>> = {
   autoasm: 'docs/19-autoasm.md',
   tareas: 'docs/23-tareas.md',
   calendarios: 'docs/25-calendarios.md',
+  oratorios: 'docs/26-oratorios.md',
+  tableros: 'docs/27-tableros.md',
 };
 
 export function fichaDeModulo(modulo: string | null | undefined): string | null {

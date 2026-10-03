@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, date, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, doublePrecision, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 // Solo el tipo (se borra al compilar) y ruta relativa: drizzle-kit no resuelve el alias '@/'.
 import type { Etapa } from '../lib/cursos';
 
@@ -2025,3 +2025,141 @@ export const calClases = pgTable('cal_clases', {
   index('cal_clases_borrado_idx').on(t.borradoAt),
 ]);
 export type CalClase = typeof calClases.$inferSelect;
+
+// ─── Tableros (kanban por equipos, prefijo tab_) ──────────────────────────────
+// Ficha: docs/27-tableros.md. Tareas pendientes al estilo Trello: EQUIPOS con sus miembros
+// (añadidos a mano), y dentro TABLEROS con columnas y tarjetas. Lo que manda es ser MIEMBRO
+// del equipo: ningún rol —ni dirección ni TIC— ve un tablero en el que no está. Por eso aquí
+// no hay ninguna comprobación de rol: todo pasa por `tab_miembros`.
+export const tabEquipos = pgTable('tab_equipos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombre: text('nombre').notNull(),
+  emoji: text('emoji').notNull().default('👥'),
+  color: text('color').notNull().default('azul'), // clave de COLORES_TABLERO
+  descripcion: text('descripcion'),
+  archivado: boolean('archivado').notNull().default(false),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+export type TabEquipo = typeof tabEquipos.$inferSelect;
+
+// Quién está en cada equipo. `admin` cambia el equipo y sus miembros y borra tableros; el
+// resto (`miembro`) lo usa todo lo demás. El nombre es FOTO del momento en que se añadió.
+export const tabMiembros = pgTable('tab_miembros', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  equipoId: uuid('equipo_id').notNull().references(() => tabEquipos.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  nombre: text('nombre'),
+  rol: text('rol').notNull().default('miembro'), // 'admin' | 'miembro'
+  addedBy: text('added_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('tab_miembros_equipo_email_idx').on(t.equipoId, t.email),
+  index('tab_miembros_email_idx').on(t.email),
+]);
+export type TabMiembro = typeof tabMiembros.$inferSelect;
+
+export interface EtiquetaTablero {
+  id: string;
+  nombre: string;
+  color: string; // clave de COLORES_ETIQUETA
+}
+
+export const tabTableros = pgTable('tab_tableros', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  equipoId: uuid('equipo_id').notNull().references(() => tabEquipos.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  emoji: text('emoji').notNull().default('📋'),
+  color: text('color').notNull().default('azul'),
+  descripcion: text('descripcion'),
+  etiquetas: jsonb('etiquetas').$type<EtiquetaTablero[]>().notNull().default([]),
+  orden: integer('orden').notNull().default(0),
+  archivado: boolean('archivado').notNull().default(false),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('tab_tableros_equipo_idx').on(t.equipoId),
+]);
+export type TabTablero = typeof tabTableros.$inferSelect;
+
+// Las listas del tablero. Se llaman como se quiera; `hecho` dice cuál (o cuáles) significan
+// «terminado»: lo que está ahí no avisa, no sale en «lo tuyo» y cuenta como completado.
+export const tabColumnas = pgTable('tab_columnas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tableroId: uuid('tablero_id').notNull().references(() => tabTableros.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  orden: integer('orden').notNull().default(0),
+  hecho: boolean('hecho').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('tab_columnas_tablero_idx').on(t.tableroId),
+]);
+export type TabColumna = typeof tabColumnas.$inferSelect;
+
+export interface ItemChecklistTab {
+  id: string;
+  texto: string;
+  hecho: boolean;
+}
+export interface EnlaceTab {
+  id: string;
+  url: string;
+  titulo: string | null;
+}
+
+export const tabTarjetas = pgTable('tab_tarjetas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tableroId: uuid('tablero_id').notNull().references(() => tabTableros.id, { onDelete: 'cascade' }),
+  columnaId: uuid('columna_id').notNull().references(() => tabColumnas.id),
+  titulo: text('titulo').notNull(),
+  descripcion: text('descripcion'),
+  prioridad: text('prioridad'), // 'baja' | 'media' | 'alta' | 'urgente' | null
+  vence: date('vence'), // deadline (día, sin hora)
+  // Posición dentro de la columna: número con decimales para meter una tarjeta entre otras
+  // dos sin renumerar la columna entera.
+  orden: doublePrecision('orden').notNull().default(0),
+  responsables: jsonb('responsables').$type<string[]>().notNull().default([]), // correos
+  etiquetas: jsonb('etiquetas').$type<string[]>().notNull().default([]), // ids de tab_tableros.etiquetas
+  checklist: jsonb('checklist').$type<ItemChecklistTab[]>().notNull().default([]),
+  enlaces: jsonb('enlaces').$type<EnlaceTab[]>().notNull().default([]),
+  completadaAt: timestamp('completada_at'),
+  archivadaAt: timestamp('archivada_at'),
+  // Avisos por correo de vencimiento ya mandados, con la fecha de `vence` que se avisó: si el
+  // deadline cambia, vuelve a tocar avisar.
+  avisoProximoPara: date('aviso_proximo_para'),
+  avisoVencidoPara: date('aviso_vencido_para'),
+  createdBy: text('created_by'),
+  createdByNombre: text('created_by_nombre'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('tab_tarjetas_tablero_idx').on(t.tableroId),
+  index('tab_tarjetas_columna_idx').on(t.columnaId),
+  index('tab_tarjetas_vence_idx').on(t.vence),
+]);
+export type TabTarjeta = typeof tabTarjetas.$inferSelect;
+
+// El seguimiento de una tarjeta: comentarios de la gente y, mezclado, lo que ha ido pasando
+// («Pepe la movió a En curso», «asignada a Ana»).
+export const tabSeguimiento = pgTable('tab_seguimiento', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tarjetaId: uuid('tarjeta_id').notNull().references(() => tabTarjetas.id, { onDelete: 'cascade' }),
+  tipo: text('tipo').notNull().default('comentario'), // 'comentario' | 'actividad'
+  texto: text('texto').notNull(),
+  autorEmail: text('autor_email'),
+  autorNombre: text('autor_nombre'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('tab_seguimiento_tarjeta_idx').on(t.tarjetaId),
+]);
+export type TabSeguimiento = typeof tabSeguimiento.$inferSelect;
+
+// Los correos que cada uno quiere recibir. Sin fila = todo encendido.
+export const tabPreferencias = pgTable('tab_preferencias', {
+  email: text('email').primaryKey(),
+  correoAsignacion: boolean('correo_asignacion').notNull().default(true),
+  correoVencimientos: boolean('correo_vencimientos').notNull().default(true),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

@@ -16,7 +16,16 @@ const Picker = dynamic(() => import('emoji-picker-react'), {
   loading: () => <div className="h-[320px] animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />,
 });
 
-export function SelectorEmoji({ valor, onChange }: { valor: string; onChange: (emoji: string) => void }) {
+export function SelectorEmoji({
+  valor,
+  onChange,
+  sugeridos = EMOJIS_ACADEMICOS,
+}: {
+  valor: string;
+  onChange: (emoji: string) => void;
+  /** Los de la primera fila (por defecto, los de colegio de Mi horario). */
+  sugeridos?: readonly string[];
+}) {
   const [abierto, setAbierto] = useState(false);
   const { resolvedTheme } = useTheme();
 
@@ -35,7 +44,7 @@ export function SelectorEmoji({ valor, onChange }: { valor: string; onChange: (e
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[22rem] max-w-[calc(100vw-1.5rem)] p-2">
         <div className="grid grid-cols-8 gap-0.5">
-          {EMOJIS_ACADEMICOS.map((e) => (
+          {sugeridos.map((e) => (
             <button
               key={e}
               type="button"

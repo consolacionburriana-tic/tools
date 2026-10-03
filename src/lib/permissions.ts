@@ -32,6 +32,7 @@ export const MODULES = [
   'oratorios',
   'oratorios-ver',
   'calendarios',
+  'tableros',
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -58,6 +59,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   oratorios: 'Oratorios y Godly Play (planificar)',
   'oratorios-ver': 'Oratorios y Godly Play (ver lo mío)',
   calendarios: 'Classrooms y calendarios',
+  tableros: 'Tableros (tareas por equipos)',
 };
 
 /**
@@ -116,9 +118,10 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'autoasm',
     'tareas-reportar',
     'oratorios-ver',
+    'tableros',
   ],
-  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'oratorios-ver'],
-  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver'],
+  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'oratorios-ver', 'tableros'],
+  orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»)…
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
   // fallitos, no los gestiona (David, 24-sep-2026). Tampoco los calendarios del dominio:
@@ -127,19 +130,22 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // Tutor y profe entran en Alumnado, pero solo ven SU ETAPA (entrando en su tutoría si la
   // tienen): `alcanceAlumnado` en alumnado-server.ts. Profe, desde el 28-sep-2026 (David).
   // Números del cole, con el mismo alcance, solo el tutor (docs/24-numeros.md).
-  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros', 'oratorios-ver'],
-  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario', 'alumnado', 'oratorios-ver'],
+  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros', 'oratorios-ver', 'tableros'],
+  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario', 'alumnado', 'oratorios-ver', 'tableros'],
+  // Tableros: lo tiene TODO el claustro, porque el módulo solo deja crear equipos y entrar en
+  // los tableros de los equipos en los que estás. Tener el módulo no enseña nada de nadie: ni
+  // dirección ni TIC ven un tablero ajeno (docs/27-tableros.md). Se quita a mano si hace falta.
   // Oratorios: `oratorios` (planificar) no va en ningún rol — es de poca gente y se da a mano;
   // `oratorios-ver` es de todo el claustro, pero la pantalla solo se abre si quien lo lleva
   // enciende el «acceso común» (docs/26-oratorios.md).
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
   // 'tutor' y darle 'evaluaciones' como módulo extra.
-  evaluaciones: ['evaluaciones', 'mi-horario'],
+  evaluaciones: ['evaluaciones', 'mi-horario', 'tableros'],
   // Comunicación publica fotos y vídeos de todo el centro: ve la ficha y la protección de
   // datos de TODAS las etapas (David, 28-sep-2026). A quien además es tutor/profe se le deja
   // su rol y se le da el módulo `comunicacion` como extra: el efecto es el mismo.
-  comunicacion: ['alumnado', 'comunicacion', 'horarios', 'mi-horario', 'tareas-reportar'],
+  comunicacion: ['alumnado', 'comunicacion', 'horarios', 'mi-horario', 'tareas-reportar', 'tableros'],
 };
 // Nota: el FORMULARIO del ABC lo puede enviar cualquier persona autenticada del claustro
 // (basta sesión); el módulo 'abc' de esta matriz es su panel de gestión.
