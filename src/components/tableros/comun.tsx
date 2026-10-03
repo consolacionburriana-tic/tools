@@ -71,19 +71,33 @@ export const nuevoId = () => crypto.randomUUID();
 // ─── Colores ─────────────────────────────────────────────────────────────────
 // Clases escritas enteras (Tailwind solo genera las que ve en el código).
 
-/** Degradado intenso: las baldosas de tablero y la cabecera de cada equipo. */
-export const FONDO_FUERTE: Record<ColorTablero, string> = {
-  azul: 'bg-gradient-to-br from-blue-500 to-indigo-600',
-  violeta: 'bg-gradient-to-br from-violet-500 to-fuchsia-600',
-  verde: 'bg-gradient-to-br from-emerald-500 to-green-600',
-  naranja: 'bg-gradient-to-br from-orange-400 to-red-500',
-  rosa: 'bg-gradient-to-br from-pink-400 to-rose-500',
-  teal: 'bg-gradient-to-br from-teal-400 to-cyan-600',
-  ambar: 'bg-gradient-to-br from-amber-400 to-orange-500',
-  gris: 'bg-gradient-to-br from-zinc-500 to-slate-700',
+/**
+ * Fuera del tablero, el color va en poco sitio y sin degradados: un cuadrado suave detrás del
+ * emoji (`TINTE`) y una raya fina arriba de cada baldosa (`ACENTO`). Lo limpio se lee mejor.
+ */
+export const TINTE: Record<ColorTablero, string> = {
+  azul: 'bg-blue-50 ring-blue-100 dark:bg-blue-500/10 dark:ring-blue-500/20',
+  violeta: 'bg-violet-50 ring-violet-100 dark:bg-violet-500/10 dark:ring-violet-500/20',
+  verde: 'bg-emerald-50 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20',
+  naranja: 'bg-orange-50 ring-orange-100 dark:bg-orange-500/10 dark:ring-orange-500/20',
+  rosa: 'bg-pink-50 ring-pink-100 dark:bg-pink-500/10 dark:ring-pink-500/20',
+  teal: 'bg-teal-50 ring-teal-100 dark:bg-teal-500/10 dark:ring-teal-500/20',
+  ambar: 'bg-amber-50 ring-amber-100 dark:bg-amber-500/10 dark:ring-amber-500/20',
+  gris: 'bg-zinc-100 ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700',
 };
 
-/** Degradado suave: el fondo del tablero abierto, para que las tarjetas blancas destaquen. */
+export const ACENTO: Record<ColorTablero, string> = {
+  azul: 'bg-blue-500',
+  violeta: 'bg-violet-500',
+  verde: 'bg-emerald-500',
+  naranja: 'bg-orange-500',
+  rosa: 'bg-pink-500',
+  teal: 'bg-teal-500',
+  ambar: 'bg-amber-400',
+  gris: 'bg-zinc-400',
+};
+
+/** Degradado muy suave: el fondo del tablero abierto, para que las tarjetas blancas destaquen. */
 export const FONDO_SUAVE: Record<ColorTablero, string> = {
   azul: 'bg-gradient-to-br from-blue-100 via-indigo-50 to-sky-100 dark:from-blue-950/60 dark:via-zinc-950 dark:to-indigo-950/60',
   violeta: 'bg-gradient-to-br from-violet-100 via-fuchsia-50 to-purple-100 dark:from-violet-950/60 dark:via-zinc-950 dark:to-fuchsia-950/60',
@@ -123,7 +137,7 @@ export const PRIORIDAD_CLASES: Record<Prioridad, string> = {
   baja: 'bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300',
   media: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200',
   alta: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-200',
-  urgente: 'bg-red-600 text-white dark:bg-red-500',
+  urgente: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-500/15 dark:text-red-300 dark:ring-red-500/30',
 };
 
 /** El borde izquierdo de la tarjeta según su prioridad: se lee de lejos. */
@@ -231,10 +245,10 @@ export function ChipPrioridad({ prioridad, className }: { prioridad: Prioridad; 
 }
 
 const VENCE_CLASES = {
-  vencida: 'bg-red-600 text-white dark:bg-red-500',
-  hoy: 'bg-orange-500 text-white',
-  manana: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200',
-  pronto: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200',
+  vencida: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-500/15 dark:text-red-300 dark:ring-red-500/30',
+  hoy: 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:ring-orange-500/30',
+  manana: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',
+  pronto: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',
   futura: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
   hecha: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200 line-through decoration-emerald-600/40',
   sin: '',

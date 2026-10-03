@@ -52,7 +52,6 @@ import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import {
   COLORES_ETIQUETA,
-  estadoVence,
   ordenEntre,
   porOrden,
   PRIORIDAD_LABELS,
@@ -297,7 +296,9 @@ export function VistaTablero({ inicial, tarjetaInicial }: { inicial: DatosTabler
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={() => setAjustes(true)} className="group flex min-w-0 items-center gap-3 text-left">
-            <span className="text-3xl">{tablero.emoji}</span>
+            <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/70 text-2xl ring-1 ring-black/5 dark:bg-zinc-900/70 dark:ring-white/10')}>
+              {tablero.emoji}
+            </span>
             <span className="min-w-0">
               <span className="flex items-center gap-2 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
                 <span className="truncate">{tablero.nombre}</span>
@@ -785,13 +786,11 @@ export function TarjetaVista({ t, datos, hecha, elevada }: { t: Tarjeta; datos: 
     .map((id) => datos.tablero.etiquetas.find((e) => e.id === id))
     .filter((e): e is Etiqueta => Boolean(e));
   const { hechos, total } = progresoChecklist(t.checklist);
-  const { estado } = estadoVence(t.vence, datos.hoy, hecha);
   return (
     <article
       className={cn(
-        'cursor-pointer rounded-xl border-l-4 bg-white p-3 shadow-sm ring-1 ring-black/5 transition-shadow select-none hover:shadow-md dark:bg-zinc-800 dark:ring-white/10',
+        'cursor-pointer rounded-xl border-l-[3px] bg-white p-3 shadow-sm ring-1 ring-black/5 transition-shadow select-none hover:shadow-md dark:bg-zinc-800 dark:ring-white/10',
         t.prioridad ? PRIORIDAD_BORDE[t.prioridad] : 'border-l-transparent',
-        estado === 'vencida' && 'ring-red-300 dark:ring-red-500/40',
         elevada && 'shadow-2xl ring-2 ring-blue-400',
       )}
     >

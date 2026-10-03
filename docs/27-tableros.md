@@ -44,8 +44,8 @@ renderizadas, sin mandarlas) y que David repase las decisiones marcadas 🤖.
 - **Lo tuyo**: todo lo que tienes asignado y sin terminar, en todos tus equipos, agrupado en
   *Vencidas · Hoy y mañana · Próximos días · Más adelante · Sin fecha*, con su prioridad y su
   fecha. Un toque abre la tarjeta en su tablero.
-- **Tus equipos**, cada uno con sus tableros en **baldosas de colores** (cuántas quedan por hacer
-  y cuántas vencidas) y una baldosa «+ Nuevo tablero». Los archivados, plegados debajo.
+- **Tus equipos**, cada uno con sus tableros en **baldosas** blancas con una raya fina de su
+  color y el emoji en un cuadrado suave (cuántas quedan por hacer y cuántas vencidas) y una baldosa «+ Nuevo tablero». Los archivados, plegados debajo.
 - **Nuevo equipo** (nombre, emoji, color, descripción y gente del claustro) y, en cada equipo,
   el engranaje: **miembros** (añadir, quitar, hacer admin), editar, salir y borrar.
 - **Avisos por correo**: dos interruptores por persona (asignaciones y vencimientos).
@@ -87,7 +87,7 @@ quien esté en el equipo. Todo se guarda solo al tocarlo.
 
 | Dónde | Qué | Cuándo |
 |---|---|---|
-| **Pastilla de abajo a la izquierda** en todo `/gestion` | «2 vencidas · 1 para hoy» (roja si hay vencidas, naranja si no); al tocarla, la lista con enlace a cada tarjeta | Solo si hay algo tuyo vencido, para hoy o para mañana. Se oculta «hasta mañana» (vuelve si aparece algo nuevo). No sale dentro de los tableros, que ya lo enseñan. En el móvil, solo el número |
+| **Pastilla de abajo a la izquierda** en todo `/gestion` | «2 vencidas · 1 para hoy» (blanca, como el botón de fallitos; el texto en rojo si hay vencidas, en naranja si no); al tocarla, la lista con enlace a cada tarjeta | Solo si hay algo tuyo vencido, para hoy o para mañana. Se oculta «hasta mañana» (vuelve si aparece algo nuevo). No sale dentro de los tableros, que ya lo enseñan. En el móvil, solo el número |
 | **Escritorio** | La tarjeta «Tableros» con «Tienes N tareas pendientes» y el chip rojo de vencidas | Siempre que tengas el módulo |
 | **Correo de asignación** | «Tarea para ti: …» con el tablero, la prioridad, la fecha, la descripción y un botón | Al asignar a alguien (no a uno mismo). El `Reply-To` es quien asigna |
 | **Correo de equipo** | «Te han añadido al equipo TIC» con sus tableros | Al meter a alguien en un equipo |
@@ -123,6 +123,10 @@ también en [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md) para revi
   con lo urgente (vencido, hoy, mañana): un aviso que sale siempre deja de leerse.
 - 🤖 **Correo diario solo de lunes a viernes** y una vez por tarjeta y fecha: mejor un aviso
   perdido que uno repetido cada mañana. El viernes avisa también de lo que vence el lunes.
+- 🤖 **Diseño sobrio fuera del tablero** (David, 3-oct-2026: «que esté guapo porque es limpio»):
+  sin degradados en baldosas, iconos ni avisos; el color va en una raya fina, en el cuadrado
+  suave del emoji y en chips claros. El degradado muy suave se queda solo de fondo dentro del
+  tablero abierto.
 - 🤖 **Borrar es de verdad** (tarjetas, tableros y equipos), con confirmación — escribiendo el
   nombre para tableros y equipos. Para lo terminado está **archivar**, que es lo que se ofrece
   primero. No son datos con valor histórico como los de alumnado.

@@ -47,7 +47,8 @@ import {
   ChipVence,
   EMOJIS_TABLERO,
   ESTILO_CAMPO,
-  FONDO_FUERTE,
+  ACENTO,
+  TINTE,
   SelectorColor,
 } from './comun';
 import { SelectorPersonas } from './selector-personas';
@@ -217,7 +218,7 @@ function LoTuyo({ mias, hoy }: { mias: TarjetaMia[]; hoy: string }) {
 function SinEquipos({ onCrear }: { onCrear: () => void }) {
   return (
     <div className="rounded-3xl border border-zinc-200 bg-white p-8 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-3xl shadow-lg">
+      <div className={cn('mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-3xl ring-1', TINTE.azul)}>
         📋
       </div>
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Todavía no estás en ningún equipo</h2>
@@ -261,7 +262,7 @@ function SeccionEquipo({
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-3">
-        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm', FONDO_FUERTE[equipo.color])}>
+        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ring-1', TINTE[equipo.color])}>
           {equipo.emoji}
         </span>
         <div className="min-w-0 flex-1">
@@ -286,7 +287,7 @@ function SeccionEquipo({
         <button
           type="button"
           onClick={onNuevoTablero}
-          className="flex min-h-28 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-500 transition-colors hover:border-blue-400 hover:bg-blue-50/50 hover:text-blue-600 dark:border-zinc-700 dark:hover:border-blue-600 dark:hover:bg-blue-500/5 dark:hover:text-blue-400"
+          className="flex min-h-28 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-zinc-300 text-sm font-medium text-zinc-500 transition-colors hover:border-blue-400 hover:bg-blue-50/50 hover:text-blue-600 dark:border-zinc-700 dark:hover:border-blue-600 dark:hover:bg-blue-500/5 dark:hover:text-blue-400"
         >
           <Plus className="h-5 w-5" /> Nuevo tablero
         </button>
@@ -333,27 +334,25 @@ function BaldosaTablero({ tablero: t }: { tablero: TableroResumen }) {
   return (
     <Link
       href={`/gestion/tableros/${t.id}`}
-      className={cn(
-        'group relative flex min-h-28 flex-col justify-between overflow-hidden rounded-2xl p-4 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0',
-        FONDO_FUERTE[t.color],
-      )}
+      className="group relative flex min-h-28 flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 transition-all hover:-translate-y-px hover:border-zinc-300 hover:shadow-md active:translate-y-0 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
     >
-      {/* Un brillo suave arriba a la derecha: le da volumen sin distraer */}
-      <span className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
-      <span className="relative flex items-start gap-2">
-        <span className="text-2xl drop-shadow-sm">{t.emoji}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold drop-shadow-sm">{t.nombre}</span>
-          {t.descripcion && <span className="line-clamp-2 text-xs text-white/80">{t.descripcion}</span>}
+      {/* El color del tablero, en una raya fina arriba: se reconoce sin gritar */}
+      <span className={cn('absolute inset-x-0 top-0 h-1', ACENTO[t.color])} />
+      <span className="flex items-start gap-3">
+        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ring-1', TINTE[t.color])}>
+          {t.emoji}
         </span>
-        <NavPending className="[&_svg]:text-white" />
+        <span className="min-w-0 flex-1 pt-0.5">
+          <span className="block truncate font-semibold text-zinc-900 dark:text-zinc-100">{t.nombre}</span>
+          {t.descripcion && <span className="line-clamp-2 text-xs text-zinc-500">{t.descripcion}</span>}
+        </span>
+        <NavPending />
       </span>
-      <span className="relative mt-3 flex items-center gap-1.5 text-xs font-medium">
-        <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur-sm">
-          {t.abiertas === 0 ? 'Todo hecho ✨' : `${t.abiertas} por hacer`}
-        </span>
+      <span className="mt-4 flex items-center gap-3 text-xs text-zinc-500">
+        <span>{t.abiertas === 0 ? 'Todo hecho' : `${t.abiertas} por hacer`}</span>
         {t.vencidas > 0 && (
-          <span className="rounded-full bg-red-600 px-2 py-0.5 shadow-sm">
+          <span className="inline-flex items-center gap-1 font-medium text-red-600 dark:text-red-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
             {t.vencidas} vencida{t.vencidas === 1 ? '' : 's'}
           </span>
         )}

@@ -106,15 +106,22 @@ export function AvisoTableros() {
             style={{ transformOrigin: 'bottom left' }}
             className="w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
           >
-            <div
-              className={cn(
-                'flex items-center gap-2 px-4 py-3 text-white',
-                rojo ? 'bg-gradient-to-r from-red-600 to-rose-500' : 'bg-gradient-to-r from-orange-500 to-amber-500',
-              )}
-            >
-              <AlarmClock className="h-5 w-5" />
-              <p className="flex-1 text-sm font-semibold">{texto}</p>
-              <button type="button" onClick={() => setAbierto(false)} aria-label="Cerrar" className="rounded-lg p-1 hover:bg-white/20">
+            <div className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+              <span
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-full',
+                  rojo ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400' : 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400',
+                )}
+              >
+                <AlarmClock className="h-4 w-4" />
+              </span>
+              <p className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{texto}</p>
+              <button
+                type="button"
+                onClick={() => setAbierto(false)}
+                aria-label="Cerrar"
+                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -169,13 +176,18 @@ export function AvisoTableros() {
             aria-label={texto}
             title={texto}
             className={cn(
-              'flex items-center gap-2 rounded-full py-2 pr-3.5 pl-2.5 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-[1.03] active:scale-95',
-              rojo ? 'bg-gradient-to-r from-red-600 to-rose-500 shadow-red-500/30' : 'bg-gradient-to-r from-orange-500 to-amber-500 shadow-orange-500/30',
+              // Blanca, como el botón de fallitos de la derecha; el color va solo en el punto y el texto.
+              'flex items-center gap-2 rounded-full border border-zinc-200 bg-white/95 py-1.5 pr-3.5 pl-2 text-sm font-medium shadow-md backdrop-blur transition-colors hover:bg-white active:scale-95 dark:border-zinc-700 dark:bg-zinc-900/95 dark:hover:bg-zinc-900',
+              rojo ? 'text-red-700 dark:text-red-300' : 'text-orange-700 dark:text-orange-300',
             )}
           >
-            <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-white/20">
-              <AlarmClock className="h-4 w-4" />
-              {rojo && <span className="absolute inset-0 animate-ping rounded-full bg-white/30" />}
+            <span
+              className={cn(
+                'flex h-6 w-6 items-center justify-center rounded-full',
+                rojo ? 'bg-red-50 dark:bg-red-500/15' : 'bg-orange-50 dark:bg-orange-500/15',
+              )}
+            >
+              <AlarmClock className="h-3.5 w-3.5" />
             </span>
             {/* En el móvil, solo el número: el texto entero tapaba media pantalla */}
             <span className="sm:hidden">{r.vencidas + r.hoy + r.manana}</span>
