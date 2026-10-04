@@ -17,6 +17,10 @@ import {
   nombreProfe,
   repartirColores,
   resumirGrupos,
+  fusionarSimultaneas,
+  reubicarManuales,
+  type Franja,
+  type SesionFusionable,
   situarAhora,
   tramoSiguiente,
   type CeldaHorario,
@@ -518,13 +522,22 @@ describe('resumirGrupos', () => {
   it('enumera cuando falta alguna clase del curso', () => {
     expect(
       resumirGrupos([{ curso: '3ESO', letra: 'A' }, { curso: '3ESO', letra: 'PDC' }], CENSO),
-    ).toEqual(['3ESO A', '3ESO PDC']);
+    ).toEqual(['3ESO A, PDC']);
   });
 
   it('sin censo no se resume nunca: mejor enumerar de más que mentir', () => {
     expect(
       resumirGrupos([{ curso: '4ESO', letra: 'A' }, { curso: '4ESO', letra: 'B' }]),
-    ).toEqual(['4ESO A', '4ESO B']);
+    ).toEqual(['4ESO A, B']);
+  });
+
+  it('las letras del mismo curso van juntas: \'3ESO A, B, PDC\', no el curso repetido', () => {
+    expect(
+      resumirGrupos([{ curso: '3ESO', letra: 'A' }, { curso: '3ESO', letra: 'B' }]),
+    ).toEqual(['3ESO A, B']);
+    expect(
+      resumirGrupos([{ curso: '3ESO', letra: 'A' }, { curso: '3ESO', letra: 'B' }, { curso: '4ESO', letra: 'A' }]),
+    ).toEqual(['3ESO A, B', '4ESO A']);
   });
 
   it('un solo grupo se queda como está', () => {
@@ -542,5 +555,170 @@ describe('resumirGrupos', () => {
         CENSO,
       ),
     ).toEqual(['4ESO A · 1', '4ESO B']);
+  });
+});
+
+// ─── Fusión de clases simultáneas al pintar ───────────────────────────────────
+describe('fusionarSimultaneas', () => {
+  const sesion = (grupo: { curso: string; letra: string | null; subgrupo?: string | null }, extra: Partial<SesionFusionable> = {}): SesionFusionable => ({
+    dia: 1, horaInicio: '08:00', horaFin: '08:55', actividad: 'clase',
+    materiaId: 'm-taller', titulo: 'Taller de profundización', detalle: null, espacio: null,
+    profes: [{ id: 'p-david', rol: 'titular' }],
+    grupos: [grupo],
+    ...extra,
+  });
+
+  it('junta 4ESO A y 4ESO B con la misma materia, profe y hora en una sola celda', () => {
+    const r = fusionarSimultaneas([
+      sesion({ curso: '4ESO', letra: 'B' }),
+      sesion({ curso: '4ESO', letra: 'A' }),
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].grupos.map((g) => g.letra)).toEqual(['A', 'B']);
+  });
+
+  it('junta A, B y PDC, sin repetir grupos', () => {
+    const r = fusionarSimultaneas([
+      sesion({ curso: '3ESO', letra: 'A' }),
+      sesion({ curso: '3ESO', letra: 'PDC' }),
+      sesion({ curso: '3ESO', letra: 'B' }),
+      sesion({ curso: '3ESO', letra: 'A' }),
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].grupos.map((g) => g.letra)).toEqual(['A', 'B', 'PDC']);
+  });
+
+  it('no toca el original: devuelve copias', () => {
+    const a = sesion({ curso: '4ESO', letra: 'A' });
+    fusionarSimultaneas([a, sesion({ curso: '4ESO', letra: 'B' })]);
+    expect(a.grupos).toHaveLength(1);
+  });
+
+  it('un solape de verdad se queda apilado: otro profe, otra hora, otro día u otra materia', () => {
+    const base = sesion({ curso: '3ESO', letra: 'A' });
+    const otra = (extra: Partial<SesionFusionable>) => sesion({ curso: '3ESO', letra: 'B' }, extra);
+    for (const extra of [
+      { profes: [{ id: 'p-otra', rol: 'titular' }] },
+      { profes: [{ id: 'p-david', rol: 'apoyo' }] },
+      { horaInicio: '08:55', horaFin: '09:50' },
+      { dia: 2 },
+      { materiaId: 'm-otra', titulo: 'Otra' },
+      { detalle: 'Biología y Geología' },
+    ] satisfies Partial<SesionFusionable>[]) {
+      expect(fusionarSimultaneas([base, otra(extra)])).toHaveLength(2);
+    }
+  });
+
+  it('no junta cursos distintos ni desdobles con subgrupo', () => {
+    expect(fusionarSimultaneas([sesion({ curso: '3ESO', letra: 'A' }), sesion({ curso: '4ESO', letra: 'A' })])).toHaveLength(2);
+    expect(
+      fusionarSimultaneas([
+        sesion({ curso: '4ESO', letra: 'A', subgrupo: '1' }),
+        sesion({ curso: '4ESO', letra: 'B', subgrupo: '1' }),
+      ]),
+    ).toHaveLength(2);
+  });
+
+  it('sin profe no junta nunca: no identifica a nadie', () => {
+    expect(
+      fusionarSimultaneas([
+        sesion({ curso: '4ESO', letra: 'A' }, { profes: [] }),
+        sesion({ curso: '4ESO', letra: 'B' }, { profes: [] }),
+      ]),
+    ).toHaveLength(2);
+  });
+
+  it('las aulas distintas se conservan, sin repetir', () => {
+    const r = fusionarSimultaneas([
+      sesion({ curso: '4ESO', letra: 'A' }, { espacio: 'Aula 1' }),
+      sesion({ curso: '4ESO', letra: 'B' }, { espacio: 'Aula 2' }),
+      sesion({ curso: '4ESO', letra: 'PDC' }, { espacio: 'Aula 1' }),
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].espacio).toBe('Aula 1 · Aula 2');
+  });
+});
+
+// ─── Franjas: el recreo y las horas sin clase también se ven ──────────────────
+describe('construirCuadricula con franjas', () => {
+  const celda = (o: Partial<CeldaHorario> & { dia: number; horaInicio: string; horaFin: string }): CeldaHorario => ({
+    sesionId: `${o.dia}-${o.horaInicio}`, tramoId: 't', tipoTramo: 'sesion', titulo: 'Mates', subtitulo: null, detalle: null,
+    materiaId: null, abreviatura: null, actividad: 'clase', actividadNombre: 'Clase', lectiva: true, espacio: null,
+    profes: [], grupos: [], notas: null, ...o,
+  });
+  const franja = (dia: number, horaInicio: string, horaFin: string, tipo: Franja['tipo'] = 'sesion', tramoId = `t-${dia}-${horaInicio}`): Franja => ({
+    tramoId, dia, horaInicio, horaFin, tipo,
+  });
+  // La mañana de un profe de ESO: él solo tiene clase a 1ª y 6ª, pero la rejilla tiene más.
+  const REJILLA: Franja[] = [1, 2].flatMap((d) => [
+    franja(d, '08:00', '08:55'), franja(d, '08:55', '09:50'), franja(d, '10:45', '11:05', 'recreo'),
+    franja(d, '11:05', '12:10'), franja(d, '12:10', '13:05'),
+  ]);
+
+  it('pinta el recreo y las horas vacías aunque no haya ninguna celda', () => {
+    const filas = construirCuadricula([], REJILLA);
+    expect(filas.map((f) => `${f.horaInicio}${f.tipo === 'recreo' ? ' patio' : ''}`)).toEqual([
+      '08:00', '08:55', '10:45 patio', '11:05', '12:10',
+    ]);
+  });
+
+  // El bug de «Mi horario»: faltaba la franja de 12:10 a 13:05 porque nunca había clase, y
+  // la siguiente salía como «5ª» cuando era la 6ª.
+  it('la numeración cuenta las horas vacías: no se salta la 12:10-13:05', () => {
+    const filas = construirCuadricula([celda({ dia: 1, horaInicio: '13:05', horaFin: '14:00' })], [...REJILLA, franja(1, '13:05', '14:00')]);
+    expect(filas.filter((f) => f.tipo === 'sesion').map((f) => f.etiqueta)).toEqual(['1ª', '2ª', '3ª', '4ª', '5ª']);
+    expect(filas.at(-1)?.horaInicio).toBe('13:05');
+    expect(filas.at(-1)?.etiqueta).toBe('5ª');
+    expect(filas.find((f) => f.horaInicio === '10:45')?.etiqueta).toBe('Patio');
+  });
+
+  it('guarda el tramo de cada día de una franja lectiva (para anotar en el hueco) y no el del recreo', () => {
+    const filas = construirCuadricula([], REJILLA);
+    const cuarta = filas.find((f) => f.horaInicio === '11:05')!;
+    expect(cuarta.tramos).toEqual(['t-1-11:05', 't-2-11:05', null, null, null]);
+    expect(filas.find((f) => f.horaInicio === '10:45')!.tramos).toEqual([null, null, null, null, null]);
+  });
+
+  it('una celda sigue mandando sobre la franja y no se duplica la fila', () => {
+    const filas = construirCuadricula([celda({ dia: 1, horaInicio: '08:00', horaFin: '08:55', sesionId: 'x' })], REJILLA);
+    expect(filas.filter((f) => f.horaInicio === '08:00')).toHaveLength(1);
+    expect(filas[0].dias[0].map((c) => c.sesionId)).toEqual(['x']);
+  });
+
+  it('respeta la ventana visible y los fines de semana', () => {
+    const filas = construirCuadricula([], [franja(6, '09:00', '10:00'), franja(1, '18:30', '19:30'), franja(1, '07:00', '07:50')]);
+    expect(filas).toEqual([]);
+  });
+});
+
+describe('reubicarManuales', () => {
+  const nuevos = [
+    { id: 'n1', diaSemana: 1, orden: 1, horaInicio: '08:00', horaFin: '08:55', tipo: 'sesion', etapa: 'ESO' },
+    { id: 'n2', diaSemana: 1, orden: 5, horaInicio: '12:10', horaFin: '13:05', tipo: 'sesion', etapa: 'ESO' },
+    { id: 'n3', diaSemana: 1, orden: 1, horaInicio: '12:10', horaFin: '13:05', tipo: 'sesion', etapa: 'EP' },
+    { id: 'n4', diaSemana: 1, orden: 4, horaInicio: '10:45', horaFin: '11:05', tipo: 'recreo', etapa: 'ESO' },
+  ];
+
+  it('vuelve a colocar lo anotado en el tramo nuevo del mismo día y hora, con su orden', () => {
+    const r = reubicarManuales([{ dia: 1, horaInicio: '12:10', horaFin: '13:05', etapa: 'ESO', asignacionId: 'a' }], nuevos);
+    expect(r.perdidas).toEqual([]);
+    expect(r.colocadas.map((c) => [c.previa.asignacionId, c.tramoId, c.orden])).toEqual([['a', 'n2', 5]]);
+  });
+
+  it('no mezcla etapas: la misma hora en primaria no es el mismo hueco', () => {
+    const r = reubicarManuales([{ dia: 1, horaInicio: '12:10', horaFin: '13:05', etapa: 'EP', asignacionId: 'b' }], nuevos);
+    expect(r.colocadas[0].tramoId).toBe('n3');
+  });
+
+  it('lo que ya no tiene hueco (la rejilla cambió) se devuelve aparte, no se pierde en silencio', () => {
+    const r = reubicarManuales(
+      [
+        { dia: 1, horaInicio: '09:00', horaFin: '09:55', etapa: 'ESO', asignacionId: 'c' },
+        { dia: 1, horaInicio: '10:45', horaFin: '11:05', etapa: 'ESO', asignacionId: 'd' }, // ahora es un recreo
+      ],
+      nuevos,
+    );
+    expect(r.colocadas).toEqual([]);
+    expect(r.perdidas.map((p) => p.asignacionId)).toEqual(['c', 'd']);
   });
 });

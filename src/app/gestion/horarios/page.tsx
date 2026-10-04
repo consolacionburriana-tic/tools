@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess } from '@/lib/permissions';
 import {
   getCeldas,
+  getFranjasDeProfe,
   getOpcionesNavegador,
   getPeriodos,
   getTramosNoLectivos,
@@ -101,14 +102,17 @@ async function Horario({
   // sin ellos la mañana parece seguida y no se entiende dónde está el patio. Las dos
   // consultas son independientes, así que van a la vez: encadenadas costaban ~650 ms.
   const [curso, letra] = clave.split('|');
-  const [celdas, noLectivos] = await Promise.all([
+  // En la de un profe, las franjas de su rejilla: sin ellas se pierden el recreo y las horas
+  // en las que no da clase, porque ahí solo hay celdas donde hay sesiones.
+  const [celdas, noLectivos, franjas] = await Promise.all([
     clave ? getCeldas(periodoId, vista, clave) : Promise.resolve([]),
     vista === 'clase' && clave
       ? getTramosNoLectivos(periodoId, { curso, letra: letra || null })
       : Promise.resolve([]),
+    vista === 'profe' && clave ? getFranjasDeProfe(periodoId, clave) : Promise.resolve([]),
   ]);
 
-  return <Navegador celdas={[...celdas, ...noLectivos]} titulo={titulo} />;
+  return <Navegador celdas={[...celdas, ...noLectivos]} franjas={franjas} titulo={titulo} />;
 }
 
 function EsqueletoHorario() {

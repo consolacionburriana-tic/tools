@@ -23,6 +23,34 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Horarios y Mi horario: lo que decidí yo (4-oct-2026) — revisar con David
+
+Pedido de David: juntar en una sola celda las clases simultáneas del mismo curso, que en Mi
+horario falten el recreo y la hora de 12:10 a 13:05, y poder anotar cosas a mano en los huecos.
+Detalle en [`07-horarios.md`](./07-horarios.md) y [`20-mi-horario.md`](./20-mi-horario.md). Lo que
+no estaba dicho y decidí:
+
+1. **Los grupos se enumeran con sus letras («3ESO A, B, PDC»), ya no se colapsan a «3ESO»** aunque
+   estén todas las clases del curso. Revierte la regla del 7-sep (que sigue en `resumirGrupos()` si
+   se le pasa el censo; solo hay que volver a pasárselo en `getCeldas()`).
+2. **Se junta al pintar, no solo al importar**: los horarios ya cargados en Neon se importaron antes
+   de que el importador fundiera, y no tengo los `.docx` para reimportar. Misma regla que el
+   importador (mismo curso + materia + profes + detalle + hora). Lo que de verdad solapa sigue
+   apilado, como pidió David.
+3. **Las anotaciones son solo del propio profe y desde Mi horario.** Jefatura no puede anotar en el
+   horario de otro todavía (queda en la casilla de la Fase 2 de `07`).
+4. **Qué se puede anotar**: tutoría individual, atención a familias, guardia, reunión, coordinación,
+   departamento y preparación/libre. «Tutoría individual» no tiene actividad propia: es «Atención a
+   alumnado» con ese texto, para no tocar el catálogo. Lo de «lectiva» queda el del catálogo (no hay
+   interruptor).
+5. **Solo en franjas lectivas**: no se puede anotar en el recreo ni en el comedor. Una guardia de
+   patio es normal en un cole; si hace falta, es dejar pulsar también el Patio.
+6. **Se repiten cada semana del periodo**, como todo el horario (no hay anotación de «solo este día»).
+7. **Reimportar conserva las anotaciones** recolocándolas por día y hora; las que ya no tengan
+   hueco se quitan y el importador lo cuenta en sus notas.
+8. **El horario de un profe se pinta con la rejilla de los tramos donde tiene sesiones**, así que
+   quien no tenga ninguna clase importada (todo manual) no ve cuadrícula.
+
 ### Tableros: lo que decidí yo al construirlo (3-oct-2026) — revisar con David
 
 Están todas en «Decisiones cerradas» de [`27-tableros.md`](./27-tableros.md), marcadas 🤖. Las

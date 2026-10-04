@@ -31,9 +31,12 @@ import {
   nombreCorto,
   nombreProfe,
   elegirPeriodoVigente,
+  fusionarSimultaneas,
   rejillaDeGrupo,
+  reubicarManuales,
   resumirGrupos,
   type CeldaHorario,
+  type Franja,
 } from '@/lib/horarios';
 import {
   agruparSesiones,
@@ -170,12 +173,16 @@ export async function importarBloques(
     cursosPorEtapa.set(etapa, [...(cursosPorEtapa.get(etapa) ?? []), curso]);
   }
 
+  // Lo que cada persona ha anotado a mano en su horario cuelga de los tramos que se van a
+  // borrar: se apunta ahora y se vuelve a colocar cuando existan los nuevos.
+  const manualesPrevias = await sesionesManualesEnEtapas(periodoId, [...cursosPorEtapa.keys()]);
   await borrarRejillasDeEtapas(periodoId, [...cursosPorEtapa.keys()]);
 
   const tramoId = new Map<string, string>(); // `${curso}|${dia}|${orden}` → id
   const filasRejilla: (typeof horRejillas.$inferInsert)[] = [];
   const filasAmbito: (typeof horRejillaAmbitos.$inferInsert)[] = [];
   const filasTramo: (typeof horTramos.$inferInsert)[] = [];
+  const etapaDeTramo = new Map<string, string>(); // id de tramo → etapa, para recolocar lo manual
 
   for (const [etapa, cursos] of cursosPorEtapa) {
     const porFirma = new Map<string, string[]>();
@@ -212,6 +219,7 @@ export async function importarBloques(
             horaFin: t.horaFin,
             tipo: t.tipo,
           });
+          etapaDeTramo.set(id, etapa);
           for (const curso of cursosOrden) tramoId.set(`${curso}|${dia}|${t.orden}`, id);
         }
       }
@@ -276,6 +284,30 @@ export async function importarBloques(
   for (const t of trozos(filasGrupo)) await db.insert(horAsignacionGrupos).values(t);
   for (const t of trozos(filasProfe)) await db.insert(horAsignacionProfes).values(t);
   for (const t of trozos(filasSesion)) await db.insert(horSesiones).values(t);
+
+  // Las anotaciones manuales vuelven a su sitio; las que ya no tengan hueco se quitan y se
+  // CUENTAN, que perder en silencio lo que alguien se apuntó es lo peor que puede pasar aquí.
+  const { colocadas, perdidas } = reubicarManuales(
+    manualesPrevias,
+    filasTramo.map((t) => ({
+      id: t.id!, diaSemana: t.diaSemana, orden: t.orden, horaInicio: t.horaInicio, horaFin: t.horaFin, tipo: t.tipo, etapa: etapaDeTramo.get(t.id!),
+    })),
+  );
+  for (const c of trozos(colocadas)) {
+    await db.insert(horSesiones).values(
+      c.map((x) => ({ asignacionId: x.previa.asignacionId, tramoId: x.tramoId, diaSemana: x.previa.dia, orden: x.orden })),
+    );
+  }
+  if (perdidas.length) {
+    const ids = [...new Set(perdidas.map((x) => x.asignacionId))];
+    await db.delete(horAsignacionProfes).where(inArray(horAsignacionProfes.asignacionId, ids));
+    await db.delete(horAsignaciones).where(inArray(horAsignaciones.id, ids));
+    resumen.notas.push(
+      `${perdidas.length} anotación(es) manual(es) de profesorado se han quitado porque la franja donde estaban ya no existe en la rejilla nueva.`,
+    );
+  }
+  if (colocadas.length) resumen.notas.push(`${colocadas.length} anotación(es) manual(es) de profesorado se han conservado.`);
+
   resumen.asignaciones = filasAsig.length;
   resumen.profesVinculados = filasProfe.length;
   resumen.sesiones = filasSesion.length;
@@ -477,6 +509,37 @@ async function asegurarEspacios(bloques: readonly ResultadoBloque[]): Promise<Ma
 }
 
 /**
+ * Las sesiones que una persona ha puesto a mano (origen 'manual') sobre las rejillas de estas
+ * etapas, con el día y la hora de su tramo. Es lo único que sobrevive a reimportar: la rejilla
+ * se rehace entera y los tramos nuevos tienen otros ids.
+ */
+async function sesionesManualesEnEtapas(periodoId: string, etapas: readonly string[]) {
+  if (etapas.length === 0) return [];
+  const filas = await db
+    .selectDistinct({
+      sesionId: horSesiones.id,
+      asignacionId: horSesiones.asignacionId,
+      dia: horTramos.diaSemana,
+      horaInicio: horTramos.horaInicio,
+      horaFin: horTramos.horaFin,
+      etapa: horRejillaAmbitos.etapa,
+    })
+    .from(horSesiones)
+    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
+    .innerJoin(horTramos, eq(horTramos.id, horSesiones.tramoId))
+    .innerJoin(horRejillas, eq(horRejillas.id, horTramos.rejillaId))
+    .innerJoin(horRejillaAmbitos, eq(horRejillaAmbitos.rejillaId, horRejillas.id))
+    .where(
+      and(
+        eq(horAsignaciones.periodoId, periodoId),
+        eq(horAsignaciones.origen, 'manual'),
+        inArray(horRejillaAmbitos.etapa, [...etapas]),
+      ),
+    );
+  return filas.map((f) => ({ asignacionId: f.asignacionId, dia: f.dia, horaInicio: f.horaInicio, horaFin: f.horaFin, etapa: f.etapa ?? undefined }));
+}
+
+/**
  * Borra las rejillas de un periodo que son de LAS ETAPAS que trae el fichero.
  *
  * Por etapa y no por nombre: la rejilla de la ESO se llamaba de una forma cuando había una
@@ -663,6 +726,7 @@ export async function getCeldas(
     lectivaAsignacion: horAsignaciones.lectiva,
     espacio: horEspacios.nombre,
     aulaTexto: horAsignaciones.aula,
+    origen: horAsignaciones.origen,
   };
 
   interface FilaAncha {
@@ -671,7 +735,7 @@ export async function getCeldas(
     materiaAbreviatura: string | null;
     etiqueta: string | null; notas: string | null; actividad: string; actividadNombre: string;
     lectivaActividad: boolean; lectivaAsignacion: boolean | null;
-    espacio: string | null; aulaTexto: string | null;
+    espacio: string | null; aulaTexto: string | null; origen: string;
   }
 
   const conJoins = () =>
@@ -745,23 +809,41 @@ export async function getCeldas(
   }
   for (const lista of profesPor.values()) lista.sort((a, b) => Number(b.principal) - Number(a.principal));
 
-  const gruposPor = new Map<string, string[]>();
   const crudosPor = new Map<string, { curso: string; letra: string | null; subgrupo: string | null }[]>();
   for (const g of gruposFilas) {
     crudosPor.set(g.asignacionId, [...(crudosPor.get(g.asignacionId) ?? []), { curso: g.curso, letra: g.letra, subgrupo: g.subgrupo }]);
   }
-  // Una optativa de 4º A + 4º B + PDC se llama '4ESO', no '4ESO A, 4ESO B, 4ESO PDC'. Hace
-  // falta el censo de clases del periodo para saber si están TODAS: cuando el PDC hace
-  // Educación Física con 3º ESO A y B no está, la celda tiene que enumerarlas.
-  const censo = await getClasesDelPeriodo(periodoId);
-  for (const [id, crudos] of crudosPor) gruposPor.set(id, resumirGrupos([...crudos].sort(compararClases), censo));
 
-  return filas.map((f) => {
-    const profes = profesPor.get(f.asignacionId) ?? [];
-    const grupos = gruposPor.get(f.asignacionId) ?? [];
+  // A la misma hora, la misma materia con el mismo profe para 4ESO A y para 4ESO B es UNA
+  // clase (una optativa, una agrupación), no dos tarjetas apiladas que parecen un choque. Se
+  // junta aquí, con los grupos todavía en crudo, para que el nombre ('4ESO A, B') y el
+  // subtítulo se calculen ya sobre el conjunto. Lo que de verdad choca se sigue viendo apilado.
+  const sesiones = fusionarSimultaneas(
+    filas.map((f) => ({
+      fila: f,
+      dia: f.dia,
+      horaInicio: f.horaInicio,
+      horaFin: f.horaFin,
+      actividad: f.actividad,
+      materiaId: f.materiaId,
+      titulo: f.materia ?? f.etiqueta ?? f.actividadNombre,
+      detalle: f.materia ? f.etiqueta : null,
+      espacio: f.espacio ?? f.aulaTexto,
+      profes: profesPor.get(f.asignacionId) ?? [],
+      grupos: [...(crudosPor.get(f.asignacionId) ?? [])].sort(compararClases),
+    })),
+  );
+
+  // Los grupos se nombran con sus letras ('3ESO A, B, PDC'), no colapsados al curso ('3ESO'):
+  // se ve de un vistazo QUÉ grupos se han juntado. `resumirGrupos()` sabe colapsar si se le pasa
+  // el censo de clases (`getClasesDelPeriodo()`), pero aquí no se pasa a propósito (David,
+  // 4-oct-2026), y de paso nos ahorramos un viaje a Neon.
+  return sesiones.map((s) => {
+    const f = s.fila;
+    const grupos = resumirGrupos(s.grupos);
     // El subtítulo es lo que NO se está mirando: en el horario de una clase interesa quién
     // la da; en el de un profe, a quién se la da; en el de un aula, las dos cosas.
-    const enCorto = profes.map((p) => p.corto).join(', ');
+    const enCorto = s.profes.map((p) => p.corto).join(', ');
     const subtitulo =
       vista === 'clase'
         ? (enCorto || null)
@@ -775,22 +857,49 @@ export async function getCeldas(
       horaInicio: f.horaInicio,
       horaFin: f.horaFin,
       tipoTramo: (f.tipoTramo ?? 'sesion') as CeldaHorario['tipoTramo'],
-      titulo: f.materia ?? f.etiqueta ?? f.actividadNombre,
+      titulo: s.titulo,
       subtitulo,
       // Con materia, la etiqueta es el detalle de la hora ('Matemáticas' dentro del Ámbito
       // Científico); sin materia ya se ha usado como título y aquí sobraría.
-      detalle: f.materia ? f.etiqueta : null,
+      detalle: s.detalle,
       materiaId: f.materiaId,
       abreviatura: f.materiaAbreviatura,
       actividad: f.actividad,
       actividadNombre: f.actividadNombre,
       lectiva: f.lectivaAsignacion ?? f.lectivaActividad,
-      espacio: f.espacio ?? f.aulaTexto,
-      profes,
+      espacio: s.espacio,
+      profes: s.profes,
       grupos,
       notas: f.notas,
+      asignacionId: f.asignacionId,
+      origen: f.origen,
+      etiqueta: f.etiqueta,
     };
   });
+}
+
+/**
+ * Las franjas de la rejilla en la que vive un profe, ocupadas o no.
+ *
+ * `getCeldas()` solo devuelve sesiones, así que el horario de un profe se quedaba sin el recreo
+ * y sin las horas en las que no da clase: una mañana con huecos parecía más corta de lo que es.
+ * La rejilla de un profe es la de los tramos donde TIENE sesiones (no la de «su etapa»: así
+ * funciona también con quien da clase a 1º y a 4º, que acaban a horas distintas) y todo se
+ * resuelve en UNA consulta con subconsulta, sin viaje previo.
+ */
+export async function getFranjasDeProfe(periodoId: string, profeId: string): Promise<Franja[]> {
+  const rejillasDelProfe = db
+    .selectDistinct({ id: horTramos.rejillaId })
+    .from(horSesiones)
+    .innerJoin(horTramos, eq(horTramos.id, horSesiones.tramoId))
+    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
+    .innerJoin(horAsignacionProfes, eq(horAsignacionProfes.asignacionId, horAsignaciones.id))
+    .where(and(eq(horAsignaciones.periodoId, periodoId), eq(horAsignacionProfes.eduTeacherId, profeId)));
+  const filas = await db
+    .select({ tramoId: horTramos.id, dia: horTramos.diaSemana, horaInicio: horTramos.horaInicio, horaFin: horTramos.horaFin, tipo: horTramos.tipo })
+    .from(horTramos)
+    .where(inArray(horTramos.rejillaId, rejillasDelProfe));
+  return filas.map((t) => ({ ...t, tipo: (t.tipo ?? 'sesion') as Franja['tipo'] }));
 }
 
 /**
