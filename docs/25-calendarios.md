@@ -113,7 +113,7 @@ siempre antes de noviembre).
 - **A) Añadir profe** — mete una cuenta del colegio como profesor/a de cada clase elegida,
   directamente, sin invitación (un admin puede: `courses.teachers.create`). Pensado para
   «colarse» en las tutorías y publicar ahí, p. ej., las evaluaciones. Si ya era profe, se deja.
-  Todavía no está decidido a quién (David). Scope: `classroom.rosters`.
+  Decidido el 4-oct-2026: se mete a **`tic@`**, que es la cuenta con la que Evaluaciones publica en las tutorías. Scope: `classroom.rosters`.
 - **B) Borrar** — elimina las clases (con sus tareas, comentarios y notas; no se deshace). Las
   que no estén archivadas se archivan antes, porque Classroom solo deja eliminar archivadas.
   Casilla «borrar también su calendario», marcada por defecto. La carpeta de Drive de la clase
@@ -137,6 +137,15 @@ Cada acción usa su propio scope, así que el escaneo sigue funcionando aunque f
 
    Los dos últimos, para borrar clases y para añadir profes (se añadieron el 30-sep-2026;
    los tres primeros ya estaban).
+
+   Para que **Evaluaciones publique en las tutorías** (docs/16-evaluaciones.md) hacen falta
+   otros tres, que no se usan aquí:
+
+   ```
+   https://www.googleapis.com/auth/classroom.coursework.students
+   https://www.googleapis.com/auth/classroom.announcements
+   https://www.googleapis.com/auth/classroom.topics
+   ```
 
    (El de `calendar` es el mismo que pide Mi horario: con añadirlo una vez vale para los dos.)
    Se añaden a la lista existente separados por comas, **sin quitar los que ya hay**.
@@ -208,7 +217,7 @@ Cada acción usa su propio scope, así que el escaneo sigue funcionando aunque f
 - [x] Borrado de calendarios en real (~1.400)
 - [ ] Añadir `classroom.courses` y `classroom.rosters` a la delegación («Comprobar permisos» en verde)
 - [ ] Primer borrado de clases con una o dos viejas, y luego las de 3 años o más
-- [ ] Decidir a quién se mete de profe en las tutorías, y hacerlo
+- [~] Meter a `tic@` de profe en las tutorías (decidido el 4-oct-2026: lo hace David con «Añadir profe»; es la cuenta con la que Evaluaciones publica en Classroom)
 
 ## Para más adelante
 

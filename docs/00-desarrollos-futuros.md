@@ -254,21 +254,21 @@ surgieron y **no** se implementaron, por si interesan:
   remitente `no-responder@consolacionburriana.com` esté verificado en Resend (el de
   `licencias@` seguía pendiente de cosas del dominio).
 
-### Evaluaciones: publicarlas también en Google Classroom (idea de David, 24-sep-2026)
-Además del correo, que la evaluación salga como anuncio o tarea en el Classroom de cada
-clase. No está hecho: "hay que gestionar esa gestión". Lo que habrá que decidir y montar:
-- **Permisos**: la cuenta de servicio ya tiene delegación de dominio (Gmail/Calendar), pero
-  hay que añadir los scopes de Classroom (`classroom.announcements` o `classroom.coursework.students`)
-  y decidir **en nombre de quién** se publica (el tutor de la clase, o una cuenta del cole que
-  sea co-profesora de todos los cursos — la API solo deja publicar a quien es profe del curso).
-- **Mapeo curso de Classroom ↔ clase** (1ESO A…): no existe hoy. O se guarda a mano una vez
-  por curso escolar, o se deduce del nombre del curso de Classroom con la lista de
-  `courses.list` y se confirma en pantalla.
-- **Anuncio o tarea**: el anuncio es lo sencillo; la tarea da fecha límite y "entregado", pero
-  el enlace personalizado `?a=…` no cabe (el material es el mismo para toda la clase), así que
-  en Classroom iría el enlace común y se perdería la trazabilidad por alumno.
-- **Programado**: Classroom sí admite `scheduledTime` en anuncios y tareas, así que encaja con
-  los envíos programados sin cron, igual que Resend.
+### ~~Evaluaciones: publicarlas también en Google Classroom~~ ✅ construido (4-oct-2026) — falta estrenarlo
+Idea de David (24-sep-2026), decidida y montada el 4-oct-2026. Cómo quedó está en
+[`16-evaluaciones.md`](./16-evaluaciones.md#classroom-4-oct-2026). Lo que decidí yo por el camino
+y conviene que David confirme:
+- ~~No se guarda historial de lo publicado~~ ✅ resuelto el mismo día (David dijo que sí a la
+  tabla): `eval_classroom_posts`, con «Retirar» desde la app y sin duplicados.
+- **Programar en Classroom** usa `state: DRAFT` + `scheduledTime`, como dice la documentación de
+  la API, pero **no está probado en vivo**. Probar con una clase de prueba antes de fiarse.
+- **Tareas sin nota**, con «marcar como hecha» (no entregan nada): valen para perseguir, no
+  prueban que se haya respondido.
+- Si una clase tiene varias candidatas a tutoría sin desempate, **no se publica** y se avisa en
+  pantalla (preferimos no publicar a publicar en la clase equivocada); David puede pegar el enlace de la
+  clase a mano y se recuerda todo el curso (`eval_classroom_destinos`).
+- Un anuncio no puede llevar tema (la API no lo permite): el tema «Evaluamos 🔍 Tu opinión cuenta»
+  es solo de las tareas.
 
 ### Evaluaciones: familias
 El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link

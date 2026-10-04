@@ -168,20 +168,6 @@ export default async function EscritorioPage() {
 
         {/* ── 3. El resto de la gestión ──────────────────────────────────── */}
         <section className="anim-stagger space-y-3">
-          {puede('tableros') && (
-            <ModuleCard
-              href="/gestion/tableros"
-              icon={<KanbanSquare className="h-6 w-6" />}
-              title="Tableros"
-              desc={
-                misTareas && misTareas.length > 0
-                  ? `Tienes ${misTareas.length} tarea${misTareas.length === 1 ? '' : 's'} pendiente${misTareas.length === 1 ? '' : 's'} en tus equipos`
-                  : 'Tareas por equipos, estilo Trello: por hacer, en curso y hecho'
-              }
-              badge={(urgenteTableros && textoResumenUrgente(urgenteTableros)) || undefined}
-              badgeTono={urgenteTableros?.vencidas ? 'rojo' : 'azul'}
-            />
-          )}
           {puede('alumnado') && (
             <ModuleCard
               href="/gestion/alumnado"
@@ -196,6 +182,20 @@ export default async function EscritorioPage() {
               icon={<ChartColumnBig className="h-6 w-6" />}
               title="Números del cole"
               desc="Cuántos hay por clase, curso y etapa: familias, banco, materiales… listos para copiar"
+            />
+          )}
+          {puede('tableros') && (
+            <ModuleCard
+              href="/gestion/tableros"
+              icon={<KanbanSquare className="h-6 w-6" />}
+              title="Tableros"
+              desc={
+                misTareas && misTareas.length > 0
+                  ? `Tienes ${misTareas.length} tarea${misTareas.length === 1 ? '' : 's'} pendiente${misTareas.length === 1 ? '' : 's'} en tus equipos`
+                  : 'Tareas por equipos, estilo Trello: por hacer, en curso y hecho'
+              }
+              badge={(urgenteTableros && textoResumenUrgente(urgenteTableros)) || undefined}
+              badgeTono={urgenteTableros?.vencidas ? 'rojo' : 'azul'}
             />
           )}
           {puede('licencias') && !licenciasArriba && (

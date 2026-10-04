@@ -1,6 +1,7 @@
 // Capa de servidor de Evaluaciones: actividades, formularios, estructura (bloques y
 // preguntas), respuestas y agregados del dashboard. Lee alumnado/profesorado de la
 // BBDD central (edu_*), nunca mantiene listado propio.
+import { retirarPostsAntesDeBorrar } from '@/lib/evaluaciones-classroom-server';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
@@ -634,6 +635,8 @@ export async function borrarForm(
   for (const e of pendientes) {
     if (e.programadoPara && e.programadoPara.getTime() > Date.now()) await cancelarProgramados(e.resendIds);
   }
+  // Lo mismo con lo publicado en Classroom: se retira (si se puede) para no dejar un enlace muerto.
+  await retirarPostsAntesDeBorrar(ids);
   // Las respuestas, respuestas sueltas, invitaciones y envíos caen en cascada con el formulario.
   await db.delete(evalForms).where(inArray(evalForms.id, ids));
   return { ok: true, borrados: ids.length };

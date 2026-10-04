@@ -848,6 +848,43 @@ export const evalEnvios = pgTable('eval_envios', {
   index('eval_envios_form_idx').on(t.formId),
 ]);
 
+// Lo que se ha publicado en Google Classroom desde un formulario (una fila por clase). Sirve para
+// no publicar dos veces y para retirarlo desde la app. Solo guarda ids de Classroom, nada de personas.
+export const evalClassroomPosts = pgTable('eval_classroom_posts', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
+  etiqueta: text('etiqueta').notNull(), // «1ESO B», para pantalla
+  courseId: text('course_id').notNull(), // la clase de Classroom
+  courseNombre: text('course_nombre'),
+  tipo: text('tipo').notNull(), // tarea | anuncio
+  postId: text('post_id'), // id de la tarea/anuncio en Classroom (sin él no se puede retirar)
+  enlace: text('enlace'),
+  titulo: text('titulo').notNull(),
+  programadoPara: timestamp('programado_para'), // null = publicada al momento
+  createdByEmail: text('created_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  retiradoAt: timestamp('retirado_at'),
+  retiradoPor: text('retirado_por'),
+}, (t) => [
+  index('eval_classroom_posts_form_idx').on(t.formId),
+]);
+
+// A qué clase de Classroom es la tutoría de cada clase del cole, cuando se ha dicho A MANO (la
+// deducción por el nombre no la encontró). Vale para todo el curso escolar y todas las
+// evaluaciones; `letra` va vacía, no null, para que la clave única funcione.
+export const evalClassroomDestinos = pgTable('eval_classroom_destinos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  curso: text('curso').notNull(),
+  letra: text('letra').notNull().default(''),
+  courseId: text('course_id').notNull(),
+  courseNombre: text('course_nombre'),
+  updatedByEmail: text('updated_by_email'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('eval_classroom_destinos_clase_uq').on(t.academicYear, t.curso, t.letra),
+]);
+
 export const evalBlocks = pgTable('eval_blocks', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
@@ -956,6 +993,8 @@ export type EvalActivity = typeof evalActivities.$inferSelect;
 export type NewEvalActivity = typeof evalActivities.$inferInsert;
 export type EvalForm = typeof evalForms.$inferSelect;
 export type EvalEnvio = typeof evalEnvios.$inferSelect;
+export type EvalClassroomPost = typeof evalClassroomPosts.$inferSelect;
+export type EvalClassroomDestino = typeof evalClassroomDestinos.$inferSelect;
 export type NewEvalForm = typeof evalForms.$inferInsert;
 export type EvalBlock = typeof evalBlocks.$inferSelect;
 export type NewEvalBlock = typeof evalBlocks.$inferInsert;
