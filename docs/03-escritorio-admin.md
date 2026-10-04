@@ -37,7 +37,9 @@ por antigüedad del módulo:
    del día a día y no deben costar más de un toque. Cada una lleva el acento de su módulo
    (naranja y teal) para reconocerlas de un vistazo. En móvil se apilan.
 3. **El resto de la gestión**, en este orden: Banco de libros, Salidas y pagos y
-   **Evaluaciones al final** (es la menos frecuente de las tres).
+   **Evaluaciones al final** (es la menos frecuente de las tres). Desde el 4-oct-2026
+   **Tableros es la tercera tarjeta** de la lista (tras Alumnado y Números del cole; David
+   lo quiso ahí y no el primero).
 4. **Configuración general**, separada con su rótulo: Tutorías, Usuarios y roles y BBDD
    central. Se toca de mes en mes, no a diario; abajo y agrupada.
 
