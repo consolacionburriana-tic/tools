@@ -5,8 +5,14 @@ import { and, desc, eq, gte, lte, or } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   eduTeachers,
+  horActividades,
+  horAsignacionProfes,
+  horAsignaciones,
   horFestivos,
   horPeriodos,
+  horRejillas,
+  horSesiones,
+  horTramos,
   mihExportaciones,
   mihPreferencias,
   type EduTeacher,
@@ -14,6 +20,7 @@ import {
   type MihPreferencias,
 } from '@/db/schema';
 import { PLANTILLA_TITULO_DEFECTO } from '@/lib/mihorario';
+import type { CrearAnotacion, EditarAnotacion } from '@/lib/mihorario-anotaciones';
 
 /** El profe que hay detrás de un login, por correo. `null` = no está en `edu_teachers`. */
 export async function getProfePorEmail(email: string): Promise<EduTeacher | null> {
@@ -135,4 +142,112 @@ export async function getPeriodosQueSolapan(fechaInicio: string, fechaFin: strin
     .select()
     .from(horPeriodos)
     .where(and(eq(horPeriodos.active, true), or(and(lte(horPeriodos.fechaInicio, fechaFin), gte(horPeriodos.fechaFin, fechaInicio)))));
+}
+
+// ─── Anotaciones propias en el horario ────────────────────────────────────────
+
+/** Por qué no se pudo hacer algo con una anotación: el endpoint lo traduce a un código HTTP. */
+export class ErrorAnotacion extends Error {
+  constructor(message: string, readonly estado: 400 | 403 | 404 | 409 = 400) {
+    super(message);
+  }
+}
+
+/**
+ * Pone algo a mano en un hueco del horario de `profeId`. Es una asignación `manual` sin
+ * grupo, con una sesión en ese tramo. Tres inserciones en un solo `batch`: o están las tres o
+ * ninguna (no hay transacciones interactivas sobre neon-http, pero el batch sí es atómico).
+ */
+export async function crearAnotacion(profeId: string, datos: CrearAnotacion): Promise<{ sesionId: string }> {
+  const [tramo] = await db
+    .select({
+      id: horTramos.id, dia: horTramos.diaSemana, orden: horTramos.orden, tipo: horTramos.tipo,
+      horaInicio: horTramos.horaInicio, horaFin: horTramos.horaFin,
+      periodoId: horRejillas.periodoId, academicYear: horPeriodos.academicYear,
+    })
+    .from(horTramos)
+    .innerJoin(horRejillas, eq(horRejillas.id, horTramos.rejillaId))
+    .innerJoin(horPeriodos, eq(horPeriodos.id, horRejillas.periodoId))
+    .where(eq(horTramos.id, datos.tramoId))
+    .limit(1);
+  if (!tramo || tramo.periodoId !== datos.periodoId) throw new ErrorAnotacion('Ese hueco no existe en este horario', 404);
+  if ((tramo.tipo ?? 'sesion') !== 'sesion') throw new ErrorAnotacion('Solo se puede anotar en una franja lectiva, no en el recreo ni en el comedor');
+
+  // Lo mismo que se ve en pantalla: si a esa hora (mismo día, mismas horas) ya tienes algo, ese
+  // hueco no está libre. Se mira por hora y no por tramo porque dos rejillas pueden compartirla.
+  const [ocupado] = await db
+    .select({ id: horSesiones.id })
+    .from(horSesiones)
+    .innerJoin(horTramos, eq(horTramos.id, horSesiones.tramoId))
+    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
+    .innerJoin(horAsignacionProfes, eq(horAsignacionProfes.asignacionId, horAsignaciones.id))
+    .where(
+      and(
+        eq(horAsignaciones.periodoId, datos.periodoId),
+        eq(horAsignacionProfes.eduTeacherId, profeId),
+        eq(horTramos.diaSemana, tramo.dia),
+        eq(horTramos.horaInicio, tramo.horaInicio),
+        eq(horTramos.horaFin, tramo.horaFin),
+      ),
+    )
+    .limit(1);
+  if (ocupado) throw new ErrorAnotacion('Ya tienes algo a esa hora', 409);
+
+  const [actividad] = await db.select({ id: horActividades.id }).from(horActividades).where(eq(horActividades.codigo, datos.actividad)).limit(1);
+  if (!actividad) throw new ErrorAnotacion('Esa actividad no existe en el catálogo: ¿se ejecutó la semilla de horarios?');
+
+  const asignacionId = crypto.randomUUID();
+  const sesionId = crypto.randomUUID();
+  await db.batch([
+    db.insert(horAsignaciones).values({
+      id: asignacionId,
+      periodoId: datos.periodoId,
+      academicYear: tramo.academicYear,
+      actividadId: actividad.id,
+      etiqueta: datos.etiqueta,
+      aula: datos.aula,
+      notas: datos.notas,
+      origen: 'manual',
+    }),
+    db.insert(horAsignacionProfes).values({ asignacionId, eduTeacherId: profeId, rol: 'titular', principal: true }),
+    db.insert(horSesiones).values({ id: sesionId, asignacionId, tramoId: tramo.id, diaSemana: tramo.dia, orden: tramo.orden }),
+  ]);
+  return { sesionId };
+}
+
+/** La anotación de una sesión, solo si es MANUAL y de esta persona; si no, no se toca. */
+async function anotacionPropia(profeId: string, sesionId: string): Promise<{ asignacionId: string }> {
+  const [fila] = await db
+    .select({ asignacionId: horSesiones.asignacionId, origen: horAsignaciones.origen })
+    .from(horSesiones)
+    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
+    .innerJoin(horAsignacionProfes, eq(horAsignacionProfes.asignacionId, horAsignaciones.id))
+    .where(and(eq(horSesiones.id, sesionId), eq(horAsignacionProfes.eduTeacherId, profeId)))
+    .limit(1);
+  if (!fila) throw new ErrorAnotacion('Esa anotación no existe', 404);
+  if (fila.origen !== 'manual') throw new ErrorAnotacion('Esto viene del horario importado y no se puede cambiar desde aquí', 403);
+  return { asignacionId: fila.asignacionId };
+}
+
+export async function editarAnotacion(profeId: string, datos: EditarAnotacion): Promise<void> {
+  const { asignacionId } = await anotacionPropia(profeId, datos.sesionId);
+  const [actividad] = await db.select({ id: horActividades.id }).from(horActividades).where(eq(horActividades.codigo, datos.actividad)).limit(1);
+  if (!actividad) throw new ErrorAnotacion('Esa actividad no existe en el catálogo');
+  await db
+    .update(horAsignaciones)
+    .set({ actividadId: actividad.id, etiqueta: datos.etiqueta, aula: datos.aula, notas: datos.notas, updatedAt: new Date() })
+    .where(eq(horAsignaciones.id, asignacionId));
+}
+
+/**
+ * Quita una anotación propia. Es un borrado de verdad (no `active=false`): son datos de una
+ * sola persona sin significado histórico, y los pone y quita ella misma.
+ */
+export async function borrarAnotacion(profeId: string, sesionId: string): Promise<void> {
+  const { asignacionId } = await anotacionPropia(profeId, sesionId);
+  await db.batch([
+    db.delete(horSesiones).where(eq(horSesiones.asignacionId, asignacionId)),
+    db.delete(horAsignacionProfes).where(eq(horAsignacionProfes.asignacionId, asignacionId)),
+    db.delete(horAsignaciones).where(eq(horAsignaciones.id, asignacionId)),
+  ]);
 }

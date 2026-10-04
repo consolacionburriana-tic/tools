@@ -10,7 +10,7 @@ tiene datos propios más allá de las preferencias de cada uno y el calendario d
 
 ---
 
-## Estado: 🟡 Fase 0-3 escritas, sin probar en vivo
+## Estado: 🟡 Fase 0-3 escritas, sin probar en vivo · Fase 6 (anotaciones propias) hecha el 4-oct-2026
 
 Las tres decisiones pendientes están cerradas (2026-09-06, con David) y el código está
 escrito: schema en Neon, permisos, helpers puros con tests, cliente de Google Calendar y
@@ -266,6 +266,37 @@ src/app/(public)/mi-horario/  # la pantalla
 - [ ] Vista previa de a quién se le va a escribir antes de lanzarlo
 
 ---
+
+### Fase 6 · Anotar cosas a mano en mi horario — 🟡 (4-oct-2026, hecha; falta probarla con sesión real)
+
+Petición de David: *«haciendo clic en un hueco o evento… que te puedas poner ahí cosas, porque hay
+cosas como tutorías individuales que nos ponemos los profesores a mano»*. Y, con ella, dos fallos
+que se veían en la misma pantalla: **faltaba el recreo y faltaba la hora de 12:10 a 13:05** (la
+cuadrícula solo tenía filas donde había alguna clase; ahora pinta toda la rejilla del profe).
+
+- [x] Las franjas vacías y el recreo se ven en Mi horario y en el horario de un profe de
+      `/gestion/horarios`
+- [x] Pulsar un **hueco libre** (un «+» en pantalla grande, una fila «Libre · toca para anotar
+      algo» en el móvil) abre un diálogo: qué es (tutoría individual, atención a familias, guardia,
+      reunión, coordinación, departamento, preparación/libre), cómo se llama, dónde y notas
+- [x] Pulsar una anotación propia → detalle → **cambiar o quitar**; lo importado no se puede tocar
+      desde aquí (403 en el servidor, y ni se ofrece el botón)
+- [x] `POST/PATCH/DELETE /api/mi-horario/anotaciones`: el profe sale del correo del login, nunca del
+      cuerpo (no hay forma de escribir en el horario de otro); Zod compartido con el diálogo
+- [x] Una anotación es una asignación `origen='manual'` sin grupo (decisión 5 de
+      [`07-horarios.md`](./07-horarios.md)) con una sesión; tres inserciones en un `batch`
+      atómico. Si ya tienes algo a esa hora, 409
+- [x] Sale también en la exportación a Google Calendar (se exportan TODAS las horas)
+- [x] **Reimportar un horario conserva las anotaciones** (se recolocan por día y hora)
+- [x] Verificado contra Neon con datos reales: crear, choque (409), editar, intentar editar lo
+      importado (403) y borrar, dejando la BBDD como estaba. Captura de la pantalla en escritorio,
+      móvil y oscuro con una página temporal ya borrada
+- [ ] **Probar con sesión real en el navegador**: lo verificado salta el login (se llamó a las
+      funciones del servidor directamente), así que el tramo HTTP con la sesión de Google no está
+      probado de punta a punta
+- [ ] Anotar en el recreo o el comedor (guardia de patio) — hoy solo franjas lectivas
+- [ ] Anotaciones «solo este día» o quincenales (hoy se repiten cada semana del periodo)
+- [ ] Que jefatura pueda anotar en el horario de otro profe
 
 ## Decisiones cerradas (2026-09-06, con David)
 

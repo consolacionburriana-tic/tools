@@ -614,7 +614,19 @@ necesitar tres joins.
 - [ ] Informe de conflictos y de huecos
 - [ ] Editar a mano el horario de un profe (horas no lectivas: atención a padres, guardias).
       **Es el hueco real**: solo se importan los horarios de CLASE, así que lo que existe
-      únicamente en el horario del profe (guardia, departamento, atención a padres) no entra
+      únicamente en el horario del profe (guardia, departamento, atención a padres) no entra.
+      **Hecho para uno mismo** desde «Mi horario» (ver [`20`](./20-mi-horario.md), Fase 6);
+      falta que jefatura pueda editar el de otros
+- [x] **El horario de un profe pinta todas las franjas de su rejilla** (4-oct-2026): el recreo y
+      las horas en las que no da clase. Antes solo había filas donde había una sesión, y a un
+      profe le faltaba el Patio y la hora de 12:10-13:05 (y la siguiente salía numerada una
+      menos). `getFranjasDeProfe()` + `construirCuadricula(celdas, franjas)`
+- [x] **Las clases simultáneas se funden en una celda** (4-oct-2026): misma materia, mismo
+      profe, misma hora y mismo curso en varios grupos = una clase para «3ESO A, B, PDC», no dos
+      tarjetas apiladas que parecen un choque (`fusionarSimultaneas()`, con tests). Lo que de
+      verdad solapa (otro profe, otra hora, otro curso, un desdoble) sigue apilado para poder
+      compararlo. Se hace al pintar porque los datos ya cargados se importaron antes de que el
+      importador fundiera; reimportar con el código actual da el mismo resultado de origen
 - [ ] Pantalla de materias y espacios, para renombrar, fusionar y marcar `admite_solapes`
 - [ ] **Exportar a Google Calendar**: se ha ido a su propia ficha, [`20-mi-horario.md`](./20-mi-horario.md)
 
@@ -694,7 +706,13 @@ alias, así que una materia arreglada a mano nunca se pierde.
 - [x] **Secundaria**: adaptador probado contra `Horarios_ESO_2627.docx` (10 clases, PDC
       incluidos, 406 sesiones, jornada continua con dos rejillas dentro de la etapa)
 - [ ] Reimportar la ESO en Neon desde `/gestion/horarios/importar` con el código nuevo
-      (la anterior se hizo con el volcado que borraba el periodo entero)
+      (la anterior se hizo con el volcado que borraba el periodo entero). **Es lo que hace que
+      4ESO A y 4ESO B sean UNA asignación en la BBDD**: hoy en Neon son dos (misma materia, mismo
+      profe, mismas horas) y solo se ven juntas porque se fusionan al pintar
+- [x] **Reimportar conserva lo anotado a mano** (4-oct-2026): al rehacer una rejilla se borran sus
+      tramos y con ellos las sesiones; las anotaciones manuales se recolocan por día y hora en
+      el tramo nuevo de la misma etapa (`reubicarManuales()`), y las que ya no tengan hueco se
+      quitan **y se cuentan** en las notas de la importación
 - [x] **PDC**: ámbitos con el detalle de cada hora, y el auxiliar de conversación de primaria
       (ver "El PDC: la celda de dos líneas")
 - [x] ~~Pantalla de importación (arrastrar el fichero) en vez del script~~ hecha

@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 
-import { etapaDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
+import { compararClases, etapaDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
 
 /** Etapas del centro. Las cuatro primeras están en uso; el resto, previstas y desactivadas. */
 export const ETAPAS_HORARIO = [
@@ -394,6 +394,21 @@ export interface CeldaHorario {
   profes: { id: string; nombre: string; corto: string; rol: string; principal: boolean }[];
   grupos: string[];
   notas: string | null;
+  /** La asignación de la que sale (para editar o quitar una anotación propia). */
+  asignacionId?: string;
+  /** 'manual' = la puso una persona en su horario; 'importado' = viene del fichero. */
+  origen?: string;
+  /** Texto libre de la asignación, tal cual (en `titulo` puede haberse sustituido por la materia). */
+  etiqueta?: string | null;
+}
+
+/** Un hueco de la rejilla, esté ocupado o no. Es lo que da las filas vacías y el recreo. */
+export interface Franja {
+  tramoId: string;
+  dia: number;
+  horaInicio: string;
+  horaFin: string;
+  tipo: TipoTramo;
 }
 
 export interface FilaHorario {
@@ -403,6 +418,11 @@ export interface FilaHorario {
   etiqueta: string | null;
   /** Una entrada por día (1-5); varias celdas en el mismo hueco = desdoble o apoyo. */
   dias: CeldaHorario[][];
+  /**
+   * El tramo de la rejilla que hay en cada día (1-5) si la franja es lectiva, o null. Es lo
+   * que permite poner algo a mano en un hueco vacío: hay que saber a qué tramo se ata.
+   */
+  tramos: (string | null)[];
 }
 
 /**
@@ -415,30 +435,39 @@ export interface FilaHorario {
  *
  * Se recortan las franjas fuera de la ventana visible y los días de fin de semana.
  */
-export function construirCuadricula(celdas: readonly CeldaHorario[]): FilaHorario[] {
+export function construirCuadricula(celdas: readonly CeldaHorario[], franjas: readonly Franja[] = []): FilaHorario[] {
   const filas = new Map<string, FilaHorario>();
-  for (const c of celdas) {
-    if (c.dia < 1 || c.dia > 5) continue;
-    const ini = aMinutos(c.horaInicio);
-    const fin = aMinutos(c.horaFin);
-    if (ini === null || fin === null) continue;
-    if (fin <= (aMinutos(HORA_MIN) ?? 0) || ini >= (aMinutos(HORA_MAX) ?? 1440)) continue;
-
-    const clave = `${c.horaInicio}-${c.horaFin}`;
+  const enVentana = (horaInicio: string, horaFin: string): boolean => {
+    const ini = aMinutos(horaInicio);
+    const fin = aMinutos(horaFin);
+    if (ini === null || fin === null) return false;
+    return !(fin <= (aMinutos(HORA_MIN) ?? 0) || ini >= (aMinutos(HORA_MAX) ?? 1440));
+  };
+  const filaDe = (horaInicio: string, horaFin: string, tipo: TipoTramo): FilaHorario => {
+    const clave = `${horaInicio}-${horaFin}`;
     let fila = filas.get(clave);
     if (!fila) {
-      fila = {
-        horaInicio: c.horaInicio,
-        horaFin: c.horaFin,
-        tipo: c.tipoTramo,
-        etiqueta: null,
-        dias: [[], [], [], [], []],
-      };
+      fila = { horaInicio, horaFin, tipo, etiqueta: null, dias: [[], [], [], [], []], tramos: [null, null, null, null, null] };
       filas.set(clave, fila);
     }
     // Si en la misma franja conviven un recreo y una clase, manda la clase: el hueco se
     // pinta como lectivo y el recreo se ve en su propia franja.
-    if (fila.tipo !== 'sesion' && c.tipoTramo === 'sesion') fila.tipo = 'sesion';
+    if (fila.tipo !== 'sesion' && tipo === 'sesion') fila.tipo = 'sesion';
+    return fila;
+  };
+
+  // Primero las franjas de la rejilla: una hora en la que NO das clase sigue existiendo, y
+  // sin ella la mañana parece más corta de lo que es (y el recreo desaparece del horario de
+  // un profe, que solo tiene celdas donde tiene clase).
+  for (const f of franjas) {
+    if (f.dia < 1 || f.dia > 5 || !enVentana(f.horaInicio, f.horaFin)) continue;
+    const fila = filaDe(f.horaInicio, f.horaFin, f.tipo);
+    if (f.tipo === 'sesion') fila.tramos[f.dia - 1] ??= f.tramoId;
+  }
+  for (const c of celdas) {
+    if (c.dia < 1 || c.dia > 5 || !enVentana(c.horaInicio, c.horaFin)) continue;
+    const fila = filaDe(c.horaInicio, c.horaFin, c.tipoTramo);
+    if (c.tipoTramo === 'sesion') fila.tramos[c.dia - 1] ??= c.tramoId;
     fila.dias[c.dia - 1].push(c);
   }
 
@@ -453,6 +482,36 @@ export function construirCuadricula(celdas: readonly CeldaHorario[]): FilaHorari
     else f.etiqueta = f.tipo === 'recreo' ? 'Patio' : f.tipo === 'comedor' ? 'Comedor' : null;
   }
   return ordenadas;
+}
+
+/**
+ * Al reimportar una etapa se borran sus tramos y se crean otros nuevos, y con ellos las
+ * sesiones que colgaban de los viejos. Lo que una persona anotó a mano en su horario no puede
+ * perderse por eso: se vuelve a colocar en el tramo nuevo que cae el mismo día a la misma hora.
+ *
+ * Lo que ya no tenga hueco (la rejilla cambió y esa hora no existe) se devuelve aparte para
+ * que el importador lo cuente en vez de tirarlo en silencio.
+ */
+export function reubicarManuales<P extends { dia: number; horaInicio: string; horaFin: string; etapa?: string }>(
+  previas: readonly P[],
+  tramosNuevos: readonly { id: string; diaSemana: number; orden: number; horaInicio: string; horaFin: string; tipo?: string | null; etapa?: string }[],
+): { colocadas: { previa: P; tramoId: string; orden: number }[]; perdidas: P[] } {
+  const colocadas: { previa: P; tramoId: string; orden: number }[] = [];
+  const perdidas: P[] = [];
+  for (const previa of previas) {
+    const t = tramosNuevos.find(
+      (n) =>
+        (n.tipo ?? 'sesion') === 'sesion' &&
+        // Misma etapa: dos etapas pueden coincidir en una hora y no por eso son el mismo hueco.
+        (n.etapa ?? null) === (previa.etapa ?? null) &&
+        n.diaSemana === previa.dia &&
+        n.horaInicio === previa.horaInicio &&
+        n.horaFin === previa.horaFin,
+    );
+    if (t) colocadas.push({ previa, tramoId: t.id, orden: t.orden });
+    else perdidas.push(previa);
+  }
+  return { colocadas, perdidas };
 }
 
 // ─── Nombres de profesorado para pantalla ────────────────────────────────────
@@ -485,8 +544,19 @@ export function resumirGrupos(
   // propia cuadrícula y esconderlo dejaría dos filas llamadas '3ESO' que no son la misma.
   const etiquetaDe = (g: { curso: string; letra: string | null; subgrupo?: string | null }) =>
     (g.letra === 'PDC' ? `${g.curso} PDC` : nombreClase(g.curso, g.letra)) + (g.subgrupo ? ` · ${g.subgrupo}` : '');
-  const enumerados = grupos.map(etiquetaDe);
-  if (grupos.length < 2 || grupos.some((g) => g.subgrupo)) return enumerados;
+  const sueltos = grupos.map(etiquetaDe);
+  if (grupos.length < 2 || grupos.some((g) => g.subgrupo)) return sueltos;
+
+  // Varias clases del MISMO curso se leen mejor juntas ('3ESO A, B, PDC') que repitiendo el
+  // curso en cada una: es una sola clase para varios grupos, no una lista de choques. Cada
+  // curso es un elemento, así que '3ESO A, B' y '4ESO A' siguen siendo dos.
+  const porCurso = new Map<string, typeof grupos[number][]>();
+  for (const g of grupos) porCurso.set(g.curso, [...(porCurso.get(g.curso) ?? []), g]);
+  const enumerados = [...porCurso].map(([curso, suyos]) =>
+    suyos.length > 1 && suyos.every((g) => g.letra)
+      ? `${curso} ${suyos.map((g) => g.letra).join(', ')}`
+      : suyos.map(etiquetaDe).join(', '),
+  );
   const cursos = new Set(grupos.map((g) => g.curso));
   if (cursos.size > 1) return enumerados;
 
@@ -498,6 +568,73 @@ export function resumirGrupos(
   const presentes = new Set(grupos.map((g) => g.letra ?? ''));
   if (!delCurso.every((c) => presentes.has(c.letra ?? ''))) return enumerados;
   return [nombreClase(grupos[0].curso, null)];
+}
+
+/** Lo mínimo de una sesión para decidir si es la misma clase que otra puesta a la vez. */
+export interface SesionFusionable {
+  dia: number;
+  horaInicio: string;
+  horaFin: string;
+  actividad: string;
+  materiaId: string | null;
+  titulo: string;
+  detalle: string | null;
+  espacio: string | null;
+  profes: readonly { id: string; rol: string }[];
+  grupos: readonly { curso: string; letra: string | null; subgrupo?: string | null }[];
+}
+
+/**
+ * Junta en UNA celda las sesiones que son la misma clase dada a varios grupos a la vez.
+ *
+ * En un horario casi nunca hay dos clases simultáneas de verdad: cuando a la misma hora
+ * aparecen '4ESO A' y '4ESO B' con la misma materia y el mismo profe, es una optativa o una
+ * agrupación, **una** clase para varios grupos, y pintarla como dos tarjetas apiladas se lee
+ * como un choque que no existe. El argumento es el mismo que el del importador
+ * (`agruparSesiones`): *un profe no puede estar en dos sitios a la vez*.
+ *
+ * Se hace al **pintar** y no solo al importar porque los horarios ya cargados en Neon se
+ * importaron antes de que el importador fundiera, y así se ven bien sin reimportar.
+ *
+ * Qué NO se junta (y se queda apilado, a la vista, para poder compararlo):
+ * - Sesiones sin profe: no identifican a nadie, y juntarlas sería fundir por parecido.
+ * - Profes distintos o con otro rol (el inglés de 3º PDC lo da otra persona que el de 3º B).
+ * - Distinto detalle: Mates y Biología del mismo ámbito son horas distintas.
+ * - Cursos distintos y desdobles con subgrupo: ahí los grupos hay que verlos por separado.
+ *
+ * Devuelve las sesiones en su orden de aparición; la fusionada ocupa el sitio de la primera
+ * y lleva los grupos de todas (sin repetir, ordenados) y las aulas distintas que haya.
+ */
+export function fusionarSimultaneas<T extends SesionFusionable>(sesiones: readonly T[]): T[] {
+  const salida: T[] = [];
+  const fusionadas = new Map<string, T>();
+  for (const s of sesiones) {
+    const fusionable =
+      s.profes.length > 0 &&
+      s.grupos.length > 0 &&
+      s.grupos.every((g) => !g.subgrupo && g.curso === s.grupos[0].curso);
+    if (!fusionable) { salida.push(s); continue; }
+
+    const clave = [
+      s.dia, s.horaInicio, s.horaFin, s.actividad, s.materiaId ?? s.titulo, s.detalle ?? '', s.grupos[0].curso,
+      s.profes.map((p) => `${p.id}:${p.rol}`).sort().join('+'),
+    ].join('|');
+    const previa = fusionadas.get(clave);
+    if (!previa) {
+      const copia = { ...s };
+      fusionadas.set(clave, copia);
+      salida.push(copia);
+      continue;
+    }
+    const vistos = new Set(previa.grupos.map((g) => `${g.curso}|${g.letra ?? ''}`));
+    const todos = [...previa.grupos];
+    for (const g of s.grupos) if (!vistos.has(`${g.curso}|${g.letra ?? ''}`)) todos.push(g);
+    previa.grupos = todos.sort(compararClases);
+    if (s.espacio && !(previa.espacio ?? '').split(' · ').includes(s.espacio)) {
+      previa.espacio = previa.espacio ? `${previa.espacio} · ${s.espacio}` : s.espacio;
+    }
+  }
+  return salida;
 }
 
 /**

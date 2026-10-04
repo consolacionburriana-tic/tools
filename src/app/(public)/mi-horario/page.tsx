@@ -5,7 +5,7 @@ import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess } from '@/lib/permissions';
 import { getProfePorEmail } from '@/lib/mihorario-server';
-import { getCeldas, getPeriodos, getPeriodoVigente } from '@/lib/horarios-server';
+import { getCeldas, getFranjasDeProfe, getPeriodos, getPeriodoVigente } from '@/lib/horarios-server';
 import { Navegador } from '@/components/horarios/navegador';
 import { SelectorPeriodo } from '@/components/horarios/selector-periodo';
 import { Exportador } from '@/components/mihorario/exportador';
@@ -29,7 +29,12 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
   const vigente = await getPeriodoVigente();
   const periodo = periodos.find((p) => p.id === sp.periodo) ?? vigente;
 
-  const celdas = profe && periodo ? await getCeldas(periodo.id, 'profe', profe.id) : [];
+  // Las franjas (recreo y horas sin clase) van en paralelo a las celdas: son dos consultas
+  // independientes y un viaje a Neon cuesta ~127 ms.
+  const [celdas, franjas] =
+    profe && periodo
+      ? await Promise.all([getCeldas(periodo.id, 'profe', profe.id), getFranjasDeProfe(periodo.id, profe.id)])
+      : [[], []];
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -74,7 +79,7 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
               {periodos.length > 1 && <SelectorPeriodo periodos={periodos} actual={periodo.id} basePath="/mi-horario" />}
             </div>
 
-            <Navegador celdas={celdas} titulo="tu horario" />
+            <Navegador celdas={celdas} franjas={franjas} titulo="tu horario" editable={{ periodoId: periodo.id }} />
 
             <Exportador periodoId={periodo.id} />
           </>
