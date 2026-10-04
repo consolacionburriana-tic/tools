@@ -9,8 +9,10 @@ import type {
   AvisoCandidato,
   Chip,
   Disponibilidad,
+  EntradaSesionCatalogo,
   EntradaTipo,
   NuevaSesion,
+  SesionCatalogo,
   SesionOra,
   TipoMomento,
   Trimestre,
@@ -57,6 +59,10 @@ export const api = {
     }).then((r) => r.ajustes),
   tipo: (id: string | null, tipo: EntradaTipo) =>
     pedir<{ tipo: TipoMomento }>('/api/oratorios/tipos', { method: 'POST', body: JSON.stringify({ id, tipo }) }).then((r) => r.tipo),
+  /** Crear o editar una sesión del abanico (lo que se hace en el momento). */
+  sesionAbanico: (id: string | null, sesion: EntradaSesionCatalogo) =>
+    pedir<{ sesion: SesionCatalogo }>('/api/oratorios/catalogo', { method: 'POST', body: JSON.stringify({ id, sesion }) }).then((r) => r.sesion),
+  borrarSesionAbanico: (id: string) => pedir<{ ok: true }>(`/api/oratorios/catalogo/${id}`, { method: 'DELETE' }),
 };
 
 /** 'lunes, 5 de octubre' → 'Lunes, 5 de octubre' (el `capitalize` de CSS pone «De Octubre»). */

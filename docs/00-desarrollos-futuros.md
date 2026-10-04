@@ -37,6 +37,32 @@ que más conviene mirar:
    y «se ha pasado»), y el de asignación al momento. Cada uno los puede apagar.
 5. **El aviso flotante va abajo a la izquierda** y solo sale con lo vencido, de hoy o de mañana.
 
+### Oratorios · Sesiones del abanico: lo que decidí yo al construirlo (4-oct-2026) — revisar con David
+
+Detalle y razones en [`26-oratorios.md`](./26-oratorios.md) (decisiones 14-20, marcadas 🤖). Las que
+más conviene mirar:
+
+1. **Dos cosas se llaman «sesión».** David llama Sesión a *lo que se hace* en el oratorio; el código
+   y la primera ficha llamaban así al *momento planificado* (el «S2» de cada clase). Para no tener dos
+   pestañas con el mismo nombre, **«Sesiones» es ahora el abanico y la lista de momentos pasó a
+   «Agenda»**. El «S1, S2…» de cada momento no se ha tocado: si confunde, se puede pasar a «nº 1»
+   (cambio de texto en `planificar.tsx`, `detalle.tsx`, `sesiones.tsx` y los avisos de `oratorios.ts`).
+2. **«Los 4 anteriores» se entendió como los 4 cursos académicos anteriores** (2022-23…2025-26) en el
+   selector «curso en que se creó». Si quería otra cosa (p. ej. 4 sesiones de ejemplo ya creadas), es
+   un cambio pequeño.
+3. **No repetir se mide por generaciones** (el grupo que avanza junto), no ficha a ficha: no ve
+   repetidores ni alumnos que llegan a mitad de etapa. Para ficha a ficha haría falta el histórico de
+   cursos de cada alumno en `edu_*`, que hoy no se guarda (y es parte de lo que arregla la
+   [fuente única de alumnado](./06-fuente-unica-alumnado.md)).
+4. **La revisión es por tipo, no por sesión.** Si alguna sesión concreta se puede repetir siempre, hoy
+   no hay forma de decirlo (idea anotada en la ficha).
+5. **La sesión no va todavía ni en el evento de Calendar ni en el correo al profe.**
+
+⚠️ **El PDC no sale en los huecos porque su horario no está en Neon** (la ESO se importó sin sus
+bloques). Ya sale como «Sin horario importado» para apuntarlo a mano; para que el asistente y el
+autocompletar lo propongan solos hay que **reimportar el `.docx` de la ESO** (`pnpm horarios:importar`),
+que el importador ya sabe leer. Lo mismo pasa con infantil y primaria (Godly Play).
+
 ### Oratorios y Godly Play: lo que decidí yo al construirlo (30-sep-2026) — revisar con David
 
 Están todas en «Decisiones cerradas» de [`26-oratorios.md`](./26-oratorios.md), marcadas 🤖. Las

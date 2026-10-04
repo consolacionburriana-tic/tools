@@ -3,7 +3,7 @@
 // La pantalla recibe TODO de una vez (tipos, horario, sesiones del curso, disponibilidad…)
 // y calcula los candidatos en el cliente con `oratorios.ts`: así pasar de semana no cuesta
 // un viaje a Neon. Aquí solo se lee en una tanda y se escribe.
-import { and, asc, eq, inArray, isNotNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, lte, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@/db';
 import {
@@ -22,11 +22,13 @@ import {
   horSesiones,
   horTramos,
   oraAjustes,
+  oraCatalogo,
   oraDisponibilidad,
   oraSesiones,
   oraTipos,
   salTrips,
   type EntradaHistorialOra,
+  type OraCatalogo,
   type OraSesion,
   type OraTipo,
 } from '@/db/schema';
@@ -40,6 +42,7 @@ import {
   claveClase,
   etiquetaClase,
   hoyEnEspana,
+  nivelDe,
   profesDe,
   siguienteNumero,
   trimestresPorDefecto,
@@ -47,6 +50,7 @@ import {
   type AccionSesion,
   type Clase,
   type Disponibilidad,
+  type EntradaSesionCatalogo,
   type EntradaTipo,
   type Frecuencia,
   type HuecoHorario,
@@ -56,15 +60,20 @@ import {
   type ProfeAfectado,
   type RangoFechas,
   type SalidaDia,
+  type SesionCatalogo,
   type SesionOra,
   type TipoCorreo,
   type TipoMomento,
   type TramoRejilla,
   type Trimestre,
+  type UsoSesion,
 } from '@/lib/oratorios';
 import { correoProfe } from '@/lib/oratorios-email';
 import { borrarEvento, guardarEvento } from '@/lib/oratorios-google';
 import { nombreProfeBreve, pilaProfe } from '@/lib/profes';
+
+/** Un error por algo que ha enviado la persona (va a la pantalla tal cual, con un 400). */
+export class ErrorDeEntrada extends Error {}
 
 // ─── Mapeos ──────────────────────────────────────────────────────────────────
 
@@ -81,6 +90,7 @@ export function aSesion(f: OraSesion): SesionOra {
     curso: f.curso,
     letra: f.letra,
     numero: f.numero,
+    catalogoId: f.catalogoId,
     fecha: f.fecha,
     horaInicio: f.horaInicio,
     horaFin: f.horaFin,
@@ -120,8 +130,22 @@ function aTipo(t: OraTipo): TipoMomento {
     clases: t.clases ?? null,
     textoCorreo: t.textoCorreo,
     avisoDias: t.avisoDias,
+    sinRepetir: t.sinRepetir,
     orden: t.orden,
     activo: t.activo,
+  };
+}
+
+function aCatalogo(f: OraCatalogo): SesionCatalogo {
+  return {
+    id: f.id,
+    tipoId: f.tipoId,
+    nombre: f.nombre,
+    enlace: f.enlace,
+    academicYear: f.academicYear,
+    cursos: f.cursos && f.cursos.length > 0 ? f.cursos : null,
+    orden: f.orden,
+    activo: f.activo,
   };
 }
 
@@ -130,6 +154,21 @@ function aTipo(t: OraTipo): TipoMomento {
 export async function getTipos(): Promise<TipoMomento[]> {
   const filas = await db.select().from(oraTipos).orderBy(asc(oraTipos.orden), asc(oraTipos.nombre));
   return filas.map(aTipo);
+}
+
+/** El abanico de sesiones de todos los tipos (lo que se hace en cada momento). */
+export async function getCatalogo(): Promise<SesionCatalogo[]> {
+  const filas = await db.select().from(oraCatalogo).orderBy(asc(oraCatalogo.orden), asc(oraCatalogo.createdAt));
+  return filas.map(aCatalogo);
+}
+
+/** Lo que se hizo en OTROS cursos con la app (momentos confirmados con sesión del abanico). */
+export async function getUsosPrevios(academicYear = academicYearActual()): Promise<UsoSesion[]> {
+  const filas = await db
+    .select({ catalogoId: oraSesiones.catalogoId, academicYear: oraSesiones.academicYear, curso: oraSesiones.curso, letra: oraSesiones.letra })
+    .from(oraSesiones)
+    .where(and(isNotNull(oraSesiones.catalogoId), ne(oraSesiones.academicYear, academicYear), eq(oraSesiones.estado, 'confirmado')));
+  return filas.map((f) => ({ catalogoId: f.catalogoId!, academicYear: f.academicYear, curso: nivelDe(f.curso), letra: f.letra }));
 }
 
 export interface AjustesOra {
@@ -338,11 +377,13 @@ export interface DatosPanel {
   festivos: RangoFechas[];
   salidas: SalidaDia[];
   disponibilidad: Record<string, Disponibilidad[]>; // por correo de responsable
+  catalogo: SesionCatalogo[];
+  usosPrevios: UsoSesion[];
 }
 
 /** Todo lo que necesita el panel de quien lo lleva, en una tanda. */
 export async function getDatosPanel(user: { email: string; nombre: string | null }, academicYear = academicYearActual()): Promise<DatosPanel> {
-  const [tipos, ajustes, sesiones, horario, clases, profes, festivos, salidas, disp] = await Promise.all([
+  const [tipos, ajustes, sesiones, horario, clases, profes, festivos, salidas, disp, catalogo, usosPrevios] = await Promise.all([
     getTipos(),
     getAjustes(academicYear),
     getSesiones(academicYear),
@@ -352,6 +393,8 @@ export async function getDatosPanel(user: { email: string; nombre: string | null
     getFestivos(academicYear),
     getSalidas(academicYear),
     db.select().from(oraDisponibilidad),
+    getCatalogo(),
+    getUsosPrevios(academicYear),
   ]);
   const disponibilidad: Record<string, Disponibilidad[]> = {};
   for (const f of disp) {
@@ -372,6 +415,8 @@ export async function getDatosPanel(user: { email: string; nombre: string | null
     festivos,
     salidas,
     disponibilidad,
+    catalogo,
+    usosPrevios,
   };
 }
 
@@ -442,6 +487,7 @@ export async function guardarTipo(id: string | null, e: EntradaTipo): Promise<Ti
     clases: e.clases && e.clases.length > 0 ? e.clases : null,
     textoCorreo: e.textoCorreo?.trim() || null,
     avisoDias: e.avisoDias,
+    sinRepetir: e.sinRepetir,
     activo: e.activo,
     updatedAt: new Date(),
   };
@@ -467,6 +513,38 @@ export async function guardarDisponibilidad(email: string, huecos: Disponibilida
     );
   }
   return getDisponibilidad(correo);
+}
+
+// ─── Escrituras: el abanico de sesiones ──────────────────────────────────────
+
+export async function guardarSesionCatalogo(id: string | null, e: EntradaSesionCatalogo, por: string): Promise<SesionCatalogo> {
+  const valores = {
+    nombre: e.nombre.trim(),
+    enlace: e.enlace?.trim() || null,
+    academicYear: e.academicYear,
+    cursos: e.cursos && e.cursos.length > 0 ? e.cursos : null,
+    activo: e.activo,
+    updatedAt: new Date(),
+  };
+  if (id) {
+    // El tipo no se cambia: lo que ya se ha planificado con ella es de ese tipo.
+    const [fila] = await db.update(oraCatalogo).set(valores).where(eq(oraCatalogo.id, id)).returning();
+    if (!fila) throw new ErrorDeEntrada('Esa sesión ya no existe');
+    return aCatalogo(fila);
+  }
+  const [{ n }] = await db
+    .select({ n: sql<number>`coalesce(max(${oraCatalogo.orden}), 0) + 1` })
+    .from(oraCatalogo)
+    .where(eq(oraCatalogo.tipoId, e.tipoId));
+  const [fila] = await db.insert(oraCatalogo).values({ ...valores, tipoId: e.tipoId, orden: Number(n), createdBy: por }).returning();
+  return aCatalogo(fila);
+}
+
+/** Solo se borra una sesión que nadie ha elegido; si no, se archiva (así no se pierde lo que se vio). */
+export async function borrarSesionCatalogo(id: string): Promise<void> {
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(oraSesiones).where(eq(oraSesiones.catalogoId, id));
+  if (n > 0) throw new ErrorDeEntrada(`Ya está elegida en ${n} ${n === 1 ? 'momento' : 'momentos'}: archívala en vez de borrarla`);
+  await db.delete(oraCatalogo).where(eq(oraCatalogo.id, id));
 }
 
 // ─── Escrituras: sesiones ────────────────────────────────────────────────────
@@ -509,7 +587,17 @@ function sinResponsable(profes: readonly ProfeAfectado[], responsableId: string 
 }
 
 export async function crearSesiones(entradas: NuevaSesion[], por: Quien, academicYear = academicYearActual()): Promise<SesionOra[]> {
-  const existentes = await getSesiones(academicYear);
+  const catalogoIds = [...new Set(entradas.map((e) => e.catalogoId).filter((x): x is string => Boolean(x)))];
+  const [existentes, delCatalogo] = await Promise.all([
+    getSesiones(academicYear),
+    catalogoIds.length
+      ? db.select({ id: oraCatalogo.id, tipoId: oraCatalogo.tipoId }).from(oraCatalogo).where(inArray(oraCatalogo.id, catalogoIds))
+      : Promise.resolve([]),
+  ]);
+  const tipoDeCatalogo = new Map(delCatalogo.map((c) => [c.id, c.tipoId]));
+  for (const e of entradas) {
+    if (e.catalogoId && tipoDeCatalogo.get(e.catalogoId) !== e.tipoId) throw new ErrorDeEntrada('Esa sesión no es de este tipo');
+  }
   const nombres = new Map<string, string>();
   const ids = new Map<string, string | null>();
   for (const e of new Set(entradas.map((x) => x.responsableEmail.toLowerCase()))) {
@@ -531,6 +619,7 @@ export async function crearSesiones(entradas: NuevaSesion[], por: Quien, academi
       curso: e.curso,
       letra: e.letra,
       numero,
+      catalogoId: e.catalogoId ?? null,
       fecha: e.fecha,
       horaInicio: e.horaInicio,
       horaFin: e.horaFin,
@@ -595,6 +684,16 @@ export async function accionSesion(id: string, a: AccionSesion, por: Quien): Pro
   const hoy = hoyEnEspana();
 
   if (a.accion === 'notas') return actualizar(id, { notas: a.notas?.trim() || null });
+
+  if (a.accion === 'catalogo') {
+    let nombre: string | null = null;
+    if (a.catalogoId) {
+      const [fila] = await db.select({ tipoId: oraCatalogo.tipoId, nombre: oraCatalogo.nombre }).from(oraCatalogo).where(eq(oraCatalogo.id, a.catalogoId)).limit(1);
+      if (!fila || fila.tipoId !== s.tipoId) throw new ErrorDeEntrada('Esa sesión no es de este tipo');
+      nombre = fila.nombre;
+    }
+    return actualizar(id, { catalogoId: a.catalogoId, historial: [...(s.historial ?? []), entrada(por, nombre ? `sesión: ${nombre}` : 'sesión: quitada')] });
+  }
 
   if (a.accion === 'profes' || a.accion === 'mover') {
     const profes = sinResponsable(a.profes, await profeIdDe(s.responsableEmail));

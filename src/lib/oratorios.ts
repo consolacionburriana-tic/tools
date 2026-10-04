@@ -9,7 +9,7 @@
 // de días va en UTC a propósito: `new Date('2026-10-05')` en España es el domingo anterior.
 import { z } from 'zod';
 
-import { cursoBaseEso, ETAPAS, etapaDeCurso, nombreClase } from '@/lib/cursos';
+import { cursoBaseEso, ETAPAS, etapaDeCurso, nivelDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
 import { CONFIGURACION } from '@/lib/configuracion';
 
 // ─── Catálogos ───────────────────────────────────────────────────────────────
@@ -44,8 +44,12 @@ export function siguienteNivel(n: Nivel | null): Nivel | null {
 
 export const ETAPAS_ORA = ETAPAS;
 
-/** Pestañas del panel (aquí y no en el componente: la página las valida en el servidor). */
-export const PESTANAS_ORA = ['planificar', 'sesiones', 'numeros', 'huecos', 'ajustes'] as const;
+/**
+ * Pestañas del panel (aquí y no en el componente: la página las valida en el servidor).
+ * Ojo con los nombres: `sesiones` es la AGENDA de momentos planificados (lo que se llamó así
+ * primero) y `abanico` es lo que David llama «Sesiones»: lo que se hace en cada momento.
+ */
+export const PESTANAS_ORA = ['planificar', 'sesiones', 'abanico', 'numeros', 'huecos', 'ajustes'] as const;
 export const ETAPA_LABELS: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'ESO', BACH: 'Bachillerato' };
 
 // ─── Tipos de datos (lo que viaja entre servidor y pantalla) ────────────────────
@@ -63,6 +67,8 @@ export interface TipoMomento {
   clases: string[] | null;
   textoCorreo: string | null;
   avisoDias: number;
+  /** Revisar que ninguna sesión del abanico se repita en la vida escolar del alumno. */
+  sinRepetir: boolean;
   orden: number;
   activo: boolean;
 }
@@ -80,6 +86,8 @@ export interface SesionOra {
   curso: string;
   letra: string | null;
   numero: number;
+  /** La sesión del abanico que se hace en este momento (null = sin elegir). */
+  catalogoId: string | null;
   fecha: string;
   horaInicio: string;
   horaFin: string;
@@ -622,6 +630,14 @@ export interface ContextoPlan {
   hoy: string;
   /** Quien lo lleva: si da clase a ese grupo a esa hora, no es un profe «molestado». */
   responsableProfeId?: string | null;
+  // El abanico de sesiones (lo que se hace en cada momento). Sin él, todo funciona como antes.
+  /** Curso en el que se planifica ('2026-27'). */
+  academicYear?: string;
+  catalogo?: readonly SesionCatalogo[];
+  /** Niveles de cada tipo ('1ESO'…), para dar por vistas las sesiones de cursos anteriores. */
+  nivelesPorTipo?: Readonly<Record<string, readonly string[]>>;
+  /** Lo que se hizo en OTROS cursos (momentos confirmados de años anteriores). */
+  usosPrevios?: readonly UsoSesion[];
 }
 
 export function crearContexto(datos: Omit<ContextoPlan, 'idx'>): ContextoPlan {
@@ -790,6 +806,7 @@ export interface Propuesta {
   horaInicio: string;
   horaFin: string;
   profes: ProfeAfectado[];
+  catalogoId?: string | null;
 }
 
 /**
@@ -805,6 +822,8 @@ export function autocompletar(
   rango: RangoFechas,
   disp: readonly Disponibilidad[],
   responsable: { email: string; profeId: string | null },
+  /** Una sesión del abanico para todas las propuestas; si no, la de por defecto de cada clase. */
+  forzada: SesionCatalogo | null = null,
 ): Propuesta[] {
   const propuestas: Propuesta[] = [];
   const sesiones: SesionOra[] = [...ctx.sesiones];
@@ -826,6 +845,7 @@ export function autocompletar(
           (c) => c.necesita > 0 && !c.avisos.some((a) => a.codigo === 'mismo_hueco' || a.codigo === 'mismo_dia'),
         );
         if (!elegido) continue;
+        const sesionElegida = forzada ?? sesionPorDefecto(opcionesSesion(local, tipo, elegido.clase, fecha));
         const p: Propuesta = {
           tipoId: tipo.id,
           curso: elegido.clase.curso,
@@ -834,9 +854,10 @@ export function autocompletar(
           horaInicio: elegido.hora.horaInicio,
           horaFin: elegido.hora.horaFin,
           profes: elegido.hora.profes,
+          catalogoId: sesionElegida?.id ?? null,
         };
         propuestas.push(p);
-        sesiones.push(sesionDePropuesta(p, responsable.email, `prop-${propuestas.length}`));
+        sesiones.push(sesionDePropuesta(p, responsable.email, `prop-${propuestas.length}`, ctx.academicYear));
       }
     }
   }
@@ -844,14 +865,15 @@ export function autocompletar(
 }
 
 /** Una propuesta con forma de sesión en borrador (para que cuente en los cálculos). */
-export function sesionDePropuesta(p: Propuesta, responsableEmail: string, id: string): SesionOra {
+export function sesionDePropuesta(p: Propuesta, responsableEmail: string, id: string, academicYear = ''): SesionOra {
   return {
     id,
     tipoId: p.tipoId,
-    academicYear: '',
+    academicYear,
     curso: p.curso,
     letra: p.letra,
     numero: 0,
+    catalogoId: p.catalogoId ?? null,
     fecha: p.fecha,
     horaInicio: p.horaInicio,
     horaFin: p.horaFin,
@@ -875,6 +897,251 @@ export function sesionDePropuesta(p: Propuesta, responsableEmail: string, id: st
     createdAt: '',
     updatedAt: '',
   };
+}
+
+// ─── El abanico: lo que se hace en cada momento ──────────────────────────────────
+//
+// Cada tipo tiene un abanico de 10-15 SESIONES (lo que se hace en el oratorio, no el momento en
+// sí) y la regla es que ningún alumno vea la misma dos veces en su vida escolar. «Su vida
+// escolar» se mide por GENERACIONES: un grupo de alumnos que avanza junto (el que hoy está en
+// 3º de ESO estuvo en 2º el curso pasado y en 1º el anterior) tiene siempre el mismo
+// «año de inicio − posición en el camino». Una sesión choca con una clase si esa generación ya
+// la hizo, en el curso que sea; así «la primera vez» se puede repetir cada año en 1º (alumnos
+// nuevos) y una sesión que se hace en todos los cursos queda fuera de juego hasta que esos
+// alumnos se han ido.
+
+/** Una sesión del abanico de un tipo: lo que se hace en el momento. */
+export interface SesionCatalogo {
+  id: string;
+  tipoId: string;
+  nombre: string;
+  enlace: string | null;
+  /** Curso en que se hizo ('2024-25'); null = todavía no. */
+  academicYear: string | null;
+  /** Niveles a los que va ('1ESO'…); null = todos los del tipo. */
+  cursos: string[] | null;
+  orden: number;
+  activo: boolean;
+}
+
+/** Un nivel concreto que hizo una sesión del abanico en un curso. */
+export interface UsoSesion {
+  catalogoId: string;
+  academicYear: string;
+  curso: string; // nivel: '3ESO'
+  letra: string | null; // null = todas las clases de ese nivel
+}
+
+/** Cuántos cursos anteriores se pueden elegir como mínimo (David: «los 4 anteriores»). */
+export const ANIOS_ATRAS = 4;
+
+/** Nivel de un curso del alumnado: '3ºPPDC' → '3ESO'; el resto, tal cual. */
+export function nivelDe(curso: string): string {
+  return cursoBaseEso(curso) ?? curso;
+}
+
+const ETAPA_CORTA: Record<Etapa, string> = { EI: 'Inf.', EP: 'Prim.', ESO: 'ESO', BACH: 'Bach.' };
+
+/** '3ESO' → '3º ESO'; '4INF' → '4º Inf.'. */
+export function etiquetaNivel(nivel: string): string {
+  const etapa = etapaDeCurso(nivel);
+  const n = nivelDeCurso(nivel);
+  return etapa && n !== 99 ? `${n}º ${ETAPA_CORTA[etapa]}` : nivel;
+}
+
+/** Posición de un nivel en el camino entero del alumno (infantil → bachillerato), o null. */
+export function ordinalNivel(curso: string): number | null {
+  const nivel = nivelDe(curso);
+  const etapa = etapaDeCurso(nivel);
+  if (!etapa) return null;
+  const n = nivelDeCurso(nivel);
+  const { min, max } = CONFIGURACION.niveles[etapa];
+  if (n < min || n > max) return null;
+  let antes = 0;
+  for (const e of ETAPAS) {
+    if (e === etapa) break;
+    antes += CONFIGURACION.niveles[e].max - CONFIGURACION.niveles[e].min + 1;
+  }
+  return antes + (n - min);
+}
+
+/** Los niveles de un tipo, en orden: los de sus clases ('3ºPPDC' cuenta como 3ESO). */
+export function nivelesDeTipo(tipo: Pick<TipoMomento, 'clases' | 'etapas'>, alumnado: readonly Clase[]): string[] {
+  const niveles = new Set(clasesDeTipo(tipo, alumnado).map((c) => nivelDe(c.curso)));
+  return [...niveles].sort((a, b) => (ordinalNivel(a) ?? 99) - (ordinalNivel(b) ?? 99));
+}
+
+export function anioInicio(academicYear: string): number {
+  return Number(academicYear.slice(0, 4));
+}
+
+/** 2024 → '2024-25'. */
+export function cursoAcademico(inicio: number): string {
+  return `${inicio}-${String((inicio + 1) % 100).padStart(2, '0')}`;
+}
+
+/**
+ * Los cursos que se pueden elegir como «el curso en que se hizo»: los anteriores (cuatro como
+ * mínimo, y tantos como niveles tenga el camino del tipo menos uno: en Godly Play, de infantil a
+ * 6º, un alumno lleva hasta ocho cursos), el actual y el siguiente.
+ */
+export function cursosAcademicosElegibles(actual: string, niveles = 0): string[] {
+  const y = anioInicio(actual);
+  const atras = Math.max(ANIOS_ATRAS, niveles - 1);
+  const cursos: string[] = [];
+  for (let i = y - atras; i <= y + 1; i++) cursos.push(cursoAcademico(i));
+  return cursos;
+}
+
+/** La generación de un grupo: constante mientras los mismos alumnos avanzan juntos. */
+export function generacion(curso: string, academicYear: string): number | null {
+  const o = ordinalNivel(curso);
+  const y = anioInicio(academicYear);
+  return o === null || Number.isNaN(y) ? null : y - o;
+}
+
+/** Los usos de una sesión que ya vieron los alumnos de esta clase (en este curso o en otro). */
+export function usosQueChocan(usos: readonly UsoSesion[], catalogoId: string, clase: Clase, academicYear: string): UsoSesion[] {
+  const g = generacion(clase.curso, academicYear);
+  if (g === null) return [];
+  return usos.filter((u) => {
+    if (u.catalogoId !== catalogoId || generacion(u.curso, u.academicYear) !== g) return false;
+    // En el mismo curso, 1º A y 1º B son alumnos distintos; de un curso a otro los grupos se mezclan.
+    return !(u.academicYear === academicYear && u.letra !== null && clase.letra !== null && u.letra !== clase.letra);
+  });
+}
+
+/** 'La vio 3º ESO en 2025-26 · 4º ESO en 2025-26'. */
+export function describirUsos(usos: readonly UsoSesion[]): string {
+  return usos.map((u) => `${etiquetaNivel(u.curso)}${u.letra ? ` ${u.letra}` : ''} (${u.academicYear})`).join(' · ');
+}
+
+/** Lo planificado en la app (borradores y confirmadas) como usos de sesiones del abanico. */
+export function usosDeSesiones(
+  sesiones: readonly Pick<SesionOra, 'catalogoId' | 'estado' | 'academicYear' | 'curso' | 'letra'>[],
+  academicYear: string,
+): UsoSesion[] {
+  const usos: UsoSesion[] = [];
+  for (const s of sesiones) {
+    if (!s.catalogoId || !estaActiva(s)) continue;
+    usos.push({ catalogoId: s.catalogoId, academicYear: s.academicYear || academicYear, curso: nivelDe(s.curso), letra: s.letra });
+  }
+  return usos;
+}
+
+/**
+ * Lo que se hizo ANTES de que la app lo supiera: una sesión con curso anterior al actual cuenta
+ * como hecha ese curso por los niveles a los que va (o por todos los del tipo). El curso en
+ * marcha cuenta por lo que se planifica, no por esto.
+ */
+export function usosHistoricos(
+  catalogo: readonly SesionCatalogo[],
+  nivelesPorTipo: Readonly<Record<string, readonly string[]>>,
+  academicYear: string,
+): UsoSesion[] {
+  const usos: UsoSesion[] = [];
+  for (const s of catalogo) {
+    if (!s.academicYear || anioInicio(s.academicYear) >= anioInicio(academicYear)) continue;
+    for (const nivel of s.cursos ?? nivelesPorTipo[s.tipoId] ?? []) {
+      usos.push({ catalogoId: s.id, academicYear: s.academicYear, curso: nivel, letra: null });
+    }
+  }
+  return usos;
+}
+
+/**
+ * Todo lo que ya se ha hecho: otros cursos, el historial del abanico y lo planificado ahora.
+ * Sin caché a propósito: `autocompletar` va añadiendo propuestas a `ctx.sesiones` y cada una
+ * tiene que contar para la siguiente.
+ */
+export function usosVigentes(ctx: ContextoPlan, excluirId?: string): UsoSesion[] {
+  const anio = ctx.academicYear ?? '';
+  return [
+    ...(ctx.usosPrevios ?? []),
+    ...usosHistoricos(ctx.catalogo ?? [], ctx.nivelesPorTipo ?? {}, anio),
+    ...usosDeSesiones(excluirId ? ctx.sesiones.filter((s) => s.id !== excluirId) : ctx.sesiones, anio),
+  ];
+}
+
+export interface OpcionSesion {
+  sesion: SesionCatalogo;
+  /** ¿Va a este nivel? */
+  aplicable: boolean;
+  /** Quién la vio ya (vacío si el tipo no revisa repeticiones). */
+  choques: UsoSesion[];
+  /** Cuántas veces se ha elegido ya en esta unidad (mes / trimestre) del tipo. */
+  enLaUnidad: number;
+  /** Último curso en que se hizo, con cualquier clase. */
+  ultimoUso: string | null;
+}
+
+/** Las sesiones del abanico de un tipo, con lo que importa para elegir una para esta clase y fecha. */
+export function opcionesSesion(ctx: ContextoPlan, tipo: TipoMomento, clase: Clase, fecha: string, excluirId?: string): OpcionSesion[] {
+  const abanico = (ctx.catalogo ?? []).filter((s) => s.tipoId === tipo.id && s.activo);
+  if (abanico.length === 0) return [];
+  const anio = ctx.academicYear ?? '';
+  const usos = usosVigentes(ctx, excluirId);
+  const unidad = unidadDeFecha(unidadesCurso(tipo.frecuencia, ctx.trimestres), fecha);
+  const nivel = nivelDe(clase.curso);
+  return abanico.map((sesion) => {
+    const suyos = usos.filter((u) => u.catalogoId === sesion.id);
+    const enLaUnidad = unidad
+      ? ctx.sesiones.filter(
+          (s) => s.id !== excluirId && s.tipoId === tipo.id && s.catalogoId === sesion.id && estaActiva(s) && s.fecha >= unidad.inicio && s.fecha <= unidad.fin,
+        ).length
+      : 0;
+    return {
+      sesion,
+      aplicable: sesion.cursos === null || sesion.cursos.includes(nivel),
+      choques: tipo.sinRepetir ? usosQueChocan(suyos, sesion.id, clase, anio) : [],
+      enLaUnidad,
+      ultimoUso: suyos.reduce<string | null>((ultimo, u) => (ultimo === null || u.academicYear > ultimo ? u.academicYear : ultimo), null),
+    };
+  });
+}
+
+/**
+ * De mejor a peor para esa clase: las que van a su nivel y no ha visto nadie; las hechas a
+ * medida para ese nivel («la primera vez»); la que ya se ha elegido para otras clases en la misma
+ * unidad (lo normal es que se repita lo mismo en todas); la que lleva más tiempo sin hacerse.
+ */
+export function ordenarOpciones(opciones: readonly OpcionSesion[]): OpcionSesion[] {
+  return [...opciones].sort(
+    (a, b) =>
+      Number(b.aplicable) - Number(a.aplicable) ||
+      Number(a.choques.length > 0) - Number(b.choques.length > 0) ||
+      Number(b.sesion.cursos !== null) - Number(a.sesion.cursos !== null) ||
+      b.enLaUnidad - a.enLaUnidad ||
+      (a.ultimoUso ?? '').localeCompare(b.ultimoUso ?? '') ||
+      a.sesion.orden - b.sesion.orden ||
+      a.sesion.nombre.localeCompare(b.sesion.nombre, 'es'),
+  );
+}
+
+/** La que se propone sola: la primera que va a ese nivel y no se repite; si no hay, ninguna. */
+export function sesionPorDefecto(opciones: readonly OpcionSesion[]): SesionCatalogo | null {
+  const mejor = ordenarOpciones(opciones)[0];
+  return mejor && mejor.aplicable && mejor.choques.length === 0 ? mejor.sesion : null;
+}
+
+/** ¿Es una URL que se puede enseñar como enlace? Solo http(s): nunca `javascript:`. */
+export function esEnlaceSeguro(valor: string): boolean {
+  try {
+    const u = new URL(valor);
+    return u.protocol === 'https:' || u.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Clases del tipo que no están en NINGÚN horario importado (hoy el PDC, y en Godly Play todo
+ * infantil y primaria): el asistente no sabe a qué hora tienen clase y no las puede proponer.
+ */
+export function clasesSinHorario(clases: readonly Clase[], horario: readonly Pick<HuecoHorario, 'curso' | 'letra'>[]): Clase[] {
+  const conHorario = new Set<string>();
+  for (const h of horario) if (h.curso) conHorario.add(claveClase(h));
+  return clases.filter((c) => !conHorario.has(claveHorario(c)));
 }
 
 // ─── Evento y aviso ──────────────────────────────────────────────────────────
@@ -943,6 +1210,7 @@ export const nuevaSesionSchema = z.object({
   profes: z.array(profeAfectado).max(10),
   responsableEmail: z.string().email(),
   notas: z.string().max(1000).nullable().optional(),
+  catalogoId: z.string().uuid().nullable().optional(),
 });
 export const crearSesionesSchema = z.object({ sesiones: z.array(nuevaSesionSchema).min(1).max(300) });
 export type NuevaSesion = z.infer<typeof nuevaSesionSchema>;
@@ -953,6 +1221,7 @@ export const accionSesionSchema = z.discriminatedUnion('accion', [
   z.object({ accion: z.literal('anular') }),
   z.object({ accion: z.literal('notas'), notas: z.string().max(1000).nullable() }),
   z.object({ accion: z.literal('profes'), profes: z.array(profeAfectado).max(10) }),
+  z.object({ accion: z.literal('catalogo'), catalogoId: z.string().uuid().nullable() }),
 ]);
 export type AccionSesion = z.infer<typeof accionSesionSchema>;
 
@@ -983,6 +1252,7 @@ export const tipoSchema = z.object({
   clases: z.array(z.string().max(30)).nullable(),
   textoCorreo: z.string().max(2000).nullable(),
   avisoDias: z.number().int().min(0).max(60),
+  sinRepetir: z.boolean(),
   activo: z.boolean(),
 });
 export type EntradaTipo = z.infer<typeof tipoSchema>;
@@ -992,3 +1262,18 @@ export const ajustesSchema = z.object({
   trimestres: z.array(z.object({ inicio: fechaIso, fin: fechaIso })).length(3).optional(),
   accesoComun: z.boolean().optional(),
 });
+
+export const sesionCatalogoSchema = z.object({
+  tipoId: z.string().uuid(),
+  nombre: z.string().trim().min(1, 'Ponle un nombre').max(120),
+  enlace: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === '' || esEnlaceSeguro(v), 'El enlace tiene que empezar por https://')
+    .nullable(),
+  academicYear: z.string().regex(/^\d{4}-\d{2}$/).nullable(),
+  cursos: z.array(z.string().regex(/^\d(INF|PRI|ESO|BACH)$/)).max(20).nullable(),
+  activo: z.boolean(),
+});
+export type EntradaSesionCatalogo = z.infer<typeof sesionCatalogoSchema>;
