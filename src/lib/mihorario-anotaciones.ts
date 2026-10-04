@@ -4,7 +4,8 @@
 //
 // Una anotación es una asignación `origen='manual'` SIN grupo (decisión 5 de
 // docs/07-horarios.md: las horas sin grupo son de primera clase) con una sola sesión, colgada
-// del tramo donde se pulsó. Como todo horario, se repite cada semana.
+// del tramo donde se pulsó (una hora lectiva, el patio o el comedor, esté libre o no: puede
+// convivir con una clase, como una codocencia). Como todo horario, se repite cada semana.
 
 import { z } from 'zod';
 
@@ -21,6 +22,10 @@ export const OPCIONES_ANOTACION = [
   { id: 'coordinacion', nombre: 'Coordinación', actividad: 'coordinacion', etiqueta: null, pista: 'Cuál (opcional)' },
   { id: 'departamento', nombre: 'Departamento', actividad: 'departamento', etiqueta: null, pista: 'Cuál (opcional)' },
   { id: 'libre', nombre: 'Preparación / libre', actividad: 'libre_disposicion', etiqueta: null, pista: 'Qué (opcional)' },
+  // Codocencia es «apoyo en aula» del catálogo con ese texto, como la tutoría individual: así no
+  // hace falta tocar el catálogo. «Otra cosa» es para lo que no esté en la lista.
+  { id: 'codocencia', nombre: 'Codocencia', actividad: 'auxiliar', etiqueta: 'Codocencia', pista: 'Con quién o en qué clase (opcional)' },
+  { id: 'otra', nombre: 'Otra cosa', actividad: 'otros', etiqueta: null, pista: 'Qué es' },
 ] as const;
 
 export type CodigoActividadAnotacion = (typeof OPCIONES_ANOTACION)[number]['actividad'];

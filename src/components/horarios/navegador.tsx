@@ -70,10 +70,15 @@ export function Navegador({
   // Anotar en un hueco libre, o reabrir una anotación propia para cambiarla o quitarla.
   const [hueco, setHueco] = useState<HuecoAnotable | null>(null);
   const [anotada, setAnotada] = useState<CeldaHorario | null>(null);
+  // `sumar` = el hueco ya tiene algo (una clase, una codocencia…) y lo nuevo convive con ello.
   const alHueco = editable
-    ? (dia: number, f: FilaHorario) => {
+    ? (dia: number, f: FilaHorario, sumar = false) => {
         const tramoId = f.tramos[dia - 1];
-        if (tramoId) setHueco({ periodoId: editable.periodoId, tramoId, dia, horaInicio: f.horaInicio, horaFin: f.horaFin });
+        if (!tramoId) return;
+        setHueco({
+          periodoId: editable.periodoId, tramoId, dia, horaInicio: f.horaInicio, horaFin: f.horaFin,
+          lugar: f.tipo === 'sesion' ? null : f.etiqueta, sumar,
+        });
       }
     : undefined;
   const [ahora, setAhora] = useState<ReturnType<typeof situarAhora> | null>(null);
@@ -192,7 +197,8 @@ export function Navegador({
 
       {alHueco && (
         <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-          Toca un hueco libre para anotar algo a mano: una tutoría individual, atención a familias, una guardia…
+          Toca un hueco libre, o el patio, para anotar algo a mano (una tutoría individual, una guardia…). Toca una clase para
+          añadir otra cosa en esa misma hora, como una codocencia.
         </p>
       )}
 
@@ -201,6 +207,15 @@ export function Navegador({
           celda={detalle}
           onCerrar={() => setDetalle(null)}
           onEditar={editable && detalle.origen === 'manual' ? () => { setAnotada(detalle); setDetalle(null); } : undefined}
+          onAnadir={
+            alHueco && detalle.asignacionId
+              ? () => {
+                  const f = filas.find((x) => x.horaInicio === detalle.horaInicio && x.horaFin === detalle.horaFin);
+                  if (f) alHueco(detalle.dia, f, true);
+                  setDetalle(null);
+                }
+              : undefined
+          }
         />
       )}
       {editable && hueco && (
@@ -234,11 +249,38 @@ function FilaMovil({
   dia: number;
   enCurso: boolean;
   onCelda: (c: CeldaHorario) => void;
-  onHueco?: (dia: number, fila: FilaHorario) => void;
+  onHueco?: (dia: number, fila: FilaHorario, sumar?: boolean) => void;
   colorDe2: (c: CeldaHorario) => ColorCategoria | null;
 }) {
   const celdas = fila.dias[dia - 1];
-  if (fila.tipo !== 'sesion') return <Separador fila={fila} />;
+  if (fila.tipo !== 'sesion') {
+    // El patio y el comedor se quedan como una línea fina, igual que siempre. Solo cuando hay
+    // algo anotado (o se puede anotar) cuelga debajo, con el mismo formato que una clase.
+    const anotadas = celdas.filter((c) => c.asignacionId);
+    const anotable = Boolean(onHueco && fila.tramos[dia - 1]);
+    if (!anotable && anotadas.length === 0) return <Separador fila={fila} />;
+    return (
+      <div>
+        <Separador fila={fila} />
+        <div className="flex gap-2 px-1.5 pb-1.5">
+          <div className="w-16 shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            {anotadas.map((c) => <Celda key={c.sesionId} celda={c} onClick={() => onCelda(c)} grande color={colorDe2(c)} />)}
+            {anotable && (
+              <button
+                type="button"
+                onClick={() => { haptic.tap(); onHueco!(dia, fila, anotadas.length > 0); }}
+                className="flex min-h-10 w-full items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-left text-xs text-zinc-500 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
+                aria-label={`Anotar algo en ${fila.etiqueta ?? 'el descanso'} el ${DIAS[dia - 1]}, de ${fila.horaInicio} a ${fila.horaFin}`}
+              >
+                <Plus className="h-3.5 w-3.5" /> {anotadas.length > 0 ? 'Añadir otra cosa' : `Anotar algo en ${(fila.etiqueta ?? 'el descanso').toLowerCase()}`}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={cn('flex gap-2 rounded-lg p-1.5', enCurso && 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-500/10 dark:ring-indigo-500/40')}>
       <div className="w-16 shrink-0 pt-1.5 text-right">
@@ -281,10 +323,49 @@ function FilaSemana({
   ahora: ReturnType<typeof situarAhora> | null;
   enCurso: boolean;
   onCelda: (c: CeldaHorario) => void;
-  onHueco?: (dia: number, fila: FilaHorario) => void;
+  onHueco?: (dia: number, fila: FilaHorario, sumar?: boolean) => void;
   colorDe2: (c: CeldaHorario) => ColorCategoria | null;
 }) {
   if (fila.tipo !== 'sesion') {
+    const anotadas = fila.dias.map((d) => d.filter((c) => c.asignacionId));
+    const anotable = Boolean(onHueco && fila.tramos.some(Boolean));
+    // Con algo anotado, o anotable, el patio pasa de línea a fila con sus cinco días, pero
+    // conserva el tono apagado y la altura mínima: sigue leyéndose como un descanso.
+    if (anotable || anotadas.some((d) => d.length > 0)) {
+      return (
+        <tr className="bg-zinc-50 dark:bg-zinc-800/50">
+          <td className="border-b border-zinc-200 p-2 align-middle dark:border-zinc-800">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{fila.etiqueta}</p>
+            <p className="text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">{fila.horaInicio}–{fila.horaFin}</p>
+          </td>
+          {fila.dias.map((_, i) => (
+            <td
+              key={i}
+              className={cn(
+                'group/celda border-b border-l border-zinc-200 p-1 align-middle dark:border-zinc-800',
+                ahora?.dia === i + 1 && 'bg-indigo-50/40 dark:bg-indigo-500/5',
+              )}
+            >
+              <div className="space-y-1">
+                {anotadas[i].map((c) => (
+                  <Celda key={c.sesionId} celda={c} onClick={() => onCelda(c)} color={colorDe2(c)} />
+                ))}
+                {onHueco && fila.tramos[i] && (
+                  <button
+                    type="button"
+                    onClick={() => { haptic.tap(); onHueco(i + 1, fila, anotadas[i].length > 0); }}
+                    className="flex h-7 w-full items-center justify-center rounded-lg border border-dashed border-transparent text-zinc-300 transition-colors hover:border-indigo-300 hover:bg-indigo-50/60 hover:text-indigo-600 focus-visible:border-indigo-300 dark:text-zinc-700 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
+                    aria-label={`Anotar algo en ${fila.etiqueta ?? 'el descanso'} el ${DIAS[i]}, de ${fila.horaInicio} a ${fila.horaFin}`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </td>
+          ))}
+        </tr>
+      );
+    }
     return (
       <tr>
         <td colSpan={6} className="border-b border-zinc-200 bg-zinc-50 px-3 py-1 dark:border-zinc-800 dark:bg-zinc-800/50">
@@ -308,7 +389,7 @@ function FilaSemana({
         <td
           key={i}
           className={cn(
-            'border-b border-l border-zinc-200 p-1 align-top dark:border-zinc-800',
+            'group/celda border-b border-l border-zinc-200 p-1 align-top dark:border-zinc-800',
             ahora?.dia === i + 1 && 'bg-indigo-50/40 dark:bg-indigo-500/5',
             enCurso && ahora?.dia === i + 1 && 'bg-indigo-100/70 dark:bg-indigo-500/15',
           )}
@@ -327,6 +408,19 @@ function FilaSemana({
                 aria-label={`Anotar algo el ${DIAS[i]} de ${fila.horaInicio} a ${fila.horaFin}`}
               >
                 <Plus className="h-4 w-4" />
+              </button>
+            )}
+            {/* Sumar otra cosa a una hora que ya tiene algo (una codocencia, una reunión…). Con
+                ratón aparece al pasar por encima; en el iPad se hace desde el detalle de la
+                clase, para no llenar la cuadrícula de «+» que no se usan casi nunca. */}
+            {celdas.length > 0 && onHueco && fila.tramos[i] && (
+              <button
+                type="button"
+                onClick={() => { haptic.tap(); onHueco(i + 1, fila, true); }}
+                className="hidden h-6 w-full items-center justify-center rounded-md text-zinc-300 opacity-0 transition-opacity hover:bg-indigo-50 hover:text-indigo-600 focus-visible:opacity-100 group-hover/celda:opacity-100 dark:text-zinc-600 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300 [@media(hover:hover)]:flex"
+                aria-label={`Añadir otra cosa el ${DIAS[i]} de ${fila.horaInicio} a ${fila.horaFin}`}
+              >
+                <Plus className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
@@ -449,7 +543,17 @@ function Celda({
   );
 }
 
-function Detalle({ celda, onCerrar, onEditar }: { celda: CeldaHorario; onCerrar: () => void; onEditar?: () => void }) {
+function Detalle({
+  celda,
+  onCerrar,
+  onEditar,
+  onAnadir,
+}: {
+  celda: CeldaHorario;
+  onCerrar: () => void;
+  onEditar?: () => void;
+  onAnadir?: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onCerrar}>
       <motion.div
@@ -511,11 +615,20 @@ function Detalle({ celda, onCerrar, onEditar }: { celda: CeldaHorario; onCerrar:
           {celda.notas && <Dato titulo="Notas">{celda.notas}</Dato>}
         </dl>
 
+        {onAnadir && (
+          <button
+            type="button"
+            onClick={() => { haptic.tap(); onAnadir(); }}
+            className="mt-4 flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-200"
+          >
+            <Plus className="h-4 w-4" /> Añadir otra cosa a esta hora
+          </button>
+        )}
         {onEditar && (
           <button
             type="button"
             onClick={() => { haptic.tap(); onEditar(); }}
-            className="mt-4 flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             <Pencil className="h-4 w-4" /> Cambiar o quitar mi anotación
           </button>

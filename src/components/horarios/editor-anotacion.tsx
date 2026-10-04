@@ -26,6 +26,10 @@ export interface HuecoAnotable {
   dia: number;
   horaInicio: string;
   horaFin: string;
+  /** 'Patio', 'Comedor'… cuando el hueco no es una hora lectiva. */
+  lugar?: string | null;
+  /** El hueco ya tiene algo y lo que se anote convive con ello (una codocencia, por ejemplo). */
+  sumar?: boolean;
 }
 
 /** Lo que hace falta de una anotación ya existente para reabrirla. */
@@ -45,7 +49,7 @@ export function EditorAnotacion({
   onCerrar,
   onGuardado,
 }: {
-  hueco: Pick<HuecoAnotable, 'dia' | 'horaInicio' | 'horaFin'> & Partial<Pick<HuecoAnotable, 'periodoId' | 'tramoId'>>;
+  hueco: Pick<HuecoAnotable, 'dia' | 'horaInicio' | 'horaFin'> & Partial<Pick<HuecoAnotable, 'periodoId' | 'tramoId' | 'lugar' | 'sumar'>>;
   existente?: AnotacionExistente;
   onCerrar: () => void;
   /** Se llama tras guardar o quitar con éxito, para que quien pinta recargue el horario. */
@@ -116,11 +120,15 @@ export function EditorAnotacion({
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-              {existente ? 'Tu anotación' : 'Añadir a tu horario'}
+              {existente ? 'Tu anotación' : hueco.sumar ? 'Añadir otra cosa' : 'Añadir a tu horario'}
             </h3>
-            <p className="mt-0.5 text-sm capitalize text-zinc-500 dark:text-zinc-400">
-              {DIAS[hueco.dia - 1]} · {hueco.horaInicio}–{hueco.horaFin}
+            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+              <span className="capitalize">{DIAS[hueco.dia - 1]}</span> · {hueco.lugar ? `${hueco.lugar} · ` : ''}
+              {hueco.horaInicio}–{hueco.horaFin}
             </p>
+            {hueco.sumar && !existente && (
+              <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">Se suma a lo que ya tienes a esta hora.</p>
+            )}
           </div>
           <button
             type="button"

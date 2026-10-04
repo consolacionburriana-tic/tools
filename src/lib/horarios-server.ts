@@ -522,6 +522,7 @@ async function sesionesManualesEnEtapas(periodoId: string, etapas: readonly stri
       dia: horTramos.diaSemana,
       horaInicio: horTramos.horaInicio,
       horaFin: horTramos.horaFin,
+      tipo: horTramos.tipo,
       etapa: horRejillaAmbitos.etapa,
     })
     .from(horSesiones)
@@ -536,7 +537,7 @@ async function sesionesManualesEnEtapas(periodoId: string, etapas: readonly stri
         inArray(horRejillaAmbitos.etapa, [...etapas]),
       ),
     );
-  return filas.map((f) => ({ asignacionId: f.asignacionId, dia: f.dia, horaInicio: f.horaInicio, horaFin: f.horaFin, etapa: f.etapa ?? undefined }));
+  return filas.map((f) => ({ asignacionId: f.asignacionId, dia: f.dia, horaInicio: f.horaInicio, horaFin: f.horaFin, tipo: f.tipo, etapa: f.etapa ?? undefined }));
 }
 
 /**

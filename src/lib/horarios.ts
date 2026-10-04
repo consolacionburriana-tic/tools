@@ -419,8 +419,8 @@ export interface FilaHorario {
   /** Una entrada por día (1-5); varias celdas en el mismo hueco = desdoble o apoyo. */
   dias: CeldaHorario[][];
   /**
-   * El tramo de la rejilla que hay en cada día (1-5) si la franja es lectiva, o null. Es lo
-   * que permite poner algo a mano en un hueco vacío: hay que saber a qué tramo se ata.
+   * El tramo de la rejilla que hay en cada día (1-5), o null. Es lo que permite poner algo a
+   * mano en un hueco —lectivo, patio o comedor—: hay que saber a qué tramo se ata.
    */
   tramos: (string | null)[];
 }
@@ -459,15 +459,18 @@ export function construirCuadricula(celdas: readonly CeldaHorario[], franjas: re
   // Primero las franjas de la rejilla: una hora en la que NO das clase sigue existiendo, y
   // sin ella la mañana parece más corta de lo que es (y el recreo desaparece del horario de
   // un profe, que solo tiene celdas donde tiene clase).
-  for (const f of franjas) {
+  // Las lectivas primero: si dos rejillas comparten hora y una la tiene de recreo, el hueco
+  // anotable es el de la sesión.
+  const lectivasPrimero = [...franjas].sort((a, b) => Number(b.tipo === 'sesion') - Number(a.tipo === 'sesion'));
+  for (const f of lectivasPrimero) {
     if (f.dia < 1 || f.dia > 5 || !enVentana(f.horaInicio, f.horaFin)) continue;
     const fila = filaDe(f.horaInicio, f.horaFin, f.tipo);
-    if (f.tipo === 'sesion') fila.tramos[f.dia - 1] ??= f.tramoId;
+    fila.tramos[f.dia - 1] ??= f.tramoId;
   }
   for (const c of celdas) {
     if (c.dia < 1 || c.dia > 5 || !enVentana(c.horaInicio, c.horaFin)) continue;
     const fila = filaDe(c.horaInicio, c.horaFin, c.tipoTramo);
-    if (c.tipoTramo === 'sesion') fila.tramos[c.dia - 1] ??= c.tramoId;
+    fila.tramos[c.dia - 1] ??= c.tramoId;
     fila.dias[c.dia - 1].push(c);
   }
 
@@ -492,7 +495,7 @@ export function construirCuadricula(celdas: readonly CeldaHorario[], franjas: re
  * Lo que ya no tenga hueco (la rejilla cambió y esa hora no existe) se devuelve aparte para
  * que el importador lo cuente en vez de tirarlo en silencio.
  */
-export function reubicarManuales<P extends { dia: number; horaInicio: string; horaFin: string; etapa?: string }>(
+export function reubicarManuales<P extends { dia: number; horaInicio: string; horaFin: string; etapa?: string; tipo?: string | null }>(
   previas: readonly P[],
   tramosNuevos: readonly { id: string; diaSemana: number; orden: number; horaInicio: string; horaFin: string; tipo?: string | null; etapa?: string }[],
 ): { colocadas: { previa: P; tramoId: string; orden: number }[]; perdidas: P[] } {
@@ -501,7 +504,7 @@ export function reubicarManuales<P extends { dia: number; horaInicio: string; ho
   for (const previa of previas) {
     const t = tramosNuevos.find(
       (n) =>
-        (n.tipo ?? 'sesion') === 'sesion' &&
+        (n.tipo ?? 'sesion') === (previa.tipo ?? 'sesion') &&
         // Misma etapa: dos etapas pueden coincidir en una hora y no por eso son el mismo hueco.
         (n.etapa ?? null) === (previa.etapa ?? null) &&
         n.diaSemana === previa.dia &&

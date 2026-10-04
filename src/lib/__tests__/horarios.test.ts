@@ -672,11 +672,27 @@ describe('construirCuadricula con franjas', () => {
     expect(filas.find((f) => f.horaInicio === '10:45')?.etiqueta).toBe('Patio');
   });
 
-  it('guarda el tramo de cada día de una franja lectiva (para anotar en el hueco) y no el del recreo', () => {
+  it('guarda el tramo de cada día de una franja (para anotar en el hueco), también el del patio', () => {
     const filas = construirCuadricula([], REJILLA);
-    const cuarta = filas.find((f) => f.horaInicio === '11:05')!;
-    expect(cuarta.tramos).toEqual(['t-1-11:05', 't-2-11:05', null, null, null]);
-    expect(filas.find((f) => f.horaInicio === '10:45')!.tramos).toEqual([null, null, null, null, null]);
+    expect(filas.find((f) => f.horaInicio === '11:05')!.tramos).toEqual(['t-1-11:05', 't-2-11:05', null, null, null]);
+    expect(filas.find((f) => f.horaInicio === '10:45')!.tramos).toEqual(['t-1-10:45', 't-2-10:45', null, null, null]);
+  });
+
+  it('si dos rejillas comparten hora y una la tiene de recreo, el tramo anotable es el de la sesión', () => {
+    const filas = construirCuadricula([], [
+      franja(1, '10:45', '11:05', 'recreo', 'tramo-recreo'),
+      franja(1, '10:45', '11:05', 'sesion', 'tramo-sesion'),
+    ]);
+    expect(filas).toHaveLength(1);
+    expect(filas[0].tipo).toBe('sesion');
+    expect(filas[0].tramos[0]).toBe('tramo-sesion');
+  });
+
+  it('una celda anotada en el patio guarda su tramo y la fila sigue siendo de recreo', () => {
+    const filas = construirCuadricula([celda({ dia: 2, horaInicio: '10:45', horaFin: '11:05', tipoTramo: 'recreo', tramoId: 'tr' })], []);
+    expect(filas[0].tipo).toBe('recreo');
+    expect(filas[0].tramos[1]).toBe('tr');
+    expect(filas[0].dias[1]).toHaveLength(1);
   });
 
   it('una celda sigue mandando sobre la franja y no se duplica la fila', () => {
@@ -708,6 +724,14 @@ describe('reubicarManuales', () => {
   it('no mezcla etapas: la misma hora en primaria no es el mismo hueco', () => {
     const r = reubicarManuales([{ dia: 1, horaInicio: '12:10', horaFin: '13:05', etapa: 'EP', asignacionId: 'b' }], nuevos);
     expect(r.colocadas[0].tramoId).toBe('n3');
+  });
+
+  it('una anotación del patio vuelve al patio, no a una hora lectiva que coincida', () => {
+    const r = reubicarManuales(
+      [{ dia: 1, horaInicio: '10:45', horaFin: '11:05', etapa: 'ESO', tipo: 'recreo', asignacionId: 'e' }],
+      nuevos,
+    );
+    expect(r.colocadas.map((c) => c.tramoId)).toEqual(['n4']);
   });
 
   it('lo que ya no tiene hueco (la rejilla cambió) se devuelve aparte, no se pierde en silencio', () => {
