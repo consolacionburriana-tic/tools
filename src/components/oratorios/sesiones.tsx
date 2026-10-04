@@ -1,6 +1,6 @@
 'use client';
 
-// 📋 Sesiones: la lista del curso con sus estados, y los avisos en bloque (enviar todos los
+// 📋 Agenda: la lista de momentos del curso con sus estados, y los avisos en bloque (enviar todos los
 // pendientes, programarlos a 7 días). Las acciones en bloque van sobre lo que se ve con el
 // filtro puesto: sin casillas que marcar una a una.
 import { AlarmClock, CheckCheck, Send, TriangleAlert, User } from 'lucide-react';
@@ -157,6 +157,7 @@ export function ListaSesiones({ e }: { e: Estado }) {
                       <span className="block truncate text-xs text-zinc-500">
                         {profesDe(s).map((p) => p.nombre).join(', ') || '—'}
                         {s.responsableEmail !== e.datos.yo.email && ` · lo lleva ${s.responsableNombre ?? s.responsableEmail}`}
+                        {s.catalogoId && ` · ${e.catalogo.find((c) => c.id === s.catalogoId)?.nombre ?? ''}`}
                       </span>
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-0.5">

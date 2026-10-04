@@ -3,7 +3,7 @@
 // 🗓️ Planificar: el asistente. Semana a semana, los huecos de quien lo lleva y quién cabe en
 // cada uno (con la materia y el profe que pierde la hora y sus avisos en símbolos). Dos
 // toques por sesión: el hueco y la clase. Ficha: docs/26-oratorios.md
-import { ArrowRightLeft, BookOpen, ChevronLeft, ChevronRight, CalendarClock, Check, CheckCheck, Plus, Sparkles, Target, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, BookOpen, BookOpenText, CalendarClock, CalendarOff, ChevronLeft, ChevronRight, Check, CheckCheck, Plus, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -18,6 +18,7 @@ import {
   claseDeClave,
   claveClase,
   clasesDeTipo,
+  clasesSinHorario,
   diaCorto,
   diaSemana,
   esDiaLectivo,
@@ -30,11 +31,14 @@ import {
   horaBonita,
   horaDeClase,
   lunesDe,
+  necesidadEnFecha,
   NIVEL_INFO,
   nivelEn,
   ocupacionPropia,
+  opcionesSesion,
   progresoTipo,
   rangosRapidos,
+  sesionPorDefecto,
   sumarDias,
   unidadesCurso,
   unidadesEnRango,
@@ -44,6 +48,7 @@ import {
   type Nivel,
   type ProfeAfectado,
   type RangoFechas,
+  type SesionCatalogo,
   type SesionOra,
 } from '@/lib/oratorios';
 import { ETAPAS, nombreClase } from '@/lib/cursos';
@@ -100,14 +105,31 @@ export function Planificar({ e }: { e: Estado }) {
   const [{ clave: claveRango, rango }, setRango] = useState(() => rangoInicial(e));
   const [semana, setSemana] = useState(() => lunesDe(e.datos.hoy < rango.inicio ? rango.inicio : e.datos.hoy));
   const [hueco, setHueco] = useState<{ fecha: string; franja: Franja } | null>(null);
-  const [manual, setManual] = useState<{ fecha: string; franja: Franja | null } | null>(null);
+  const [manual, setManual] = useState<{ fecha: string; franja: Franja | null; clave?: string } | null>(null);
   const [trabajando, setTrabajando] = useState(false);
+  // La sesión del abanico que se fuerza para los momentos nuevos; sin forzar, cada clase lleva
+  // la suya por defecto (lo normal: la misma en todas, salvo las hechas a medida para un nivel).
+  const [forzadaEn, setForzadaEn] = useState<{ tipoId: string; id: string } | null>(null);
 
   const clases = useMemo(() => (tipo ? clasesDeTipo(tipo, e.datos.clases) : []), [tipo, e.datos.clases]);
+  const sinHorario = useMemo(() => clasesSinHorario(clases, e.datos.horario), [clases, e.datos.horario]);
+  const abanico = useMemo(() => (tipo ? e.catalogo.filter((c) => c.tipoId === tipo.id && c.activo) : []), [tipo, e.catalogo]);
+  const forzada = (tipo && forzadaEn?.tipoId === tipo.id ? abanico.find((c) => c.id === forzadaEn.id) : null) ?? null;
   const disp = useMemo(() => e.disponibilidad[e.responsable] ?? [], [e.disponibilidad, e.responsable]);
   const profeResp = e.datos.profes.find((p) => p.email === e.responsable)?.id ?? null;
   const moviendo = e.moviendo ? (e.sesiones.find((s) => s.id === e.moviendo) ?? null) : null;
   const ctx = useMemo(() => ({ ...e.ctx, responsableProfeId: profeResp }), [e.ctx, profeResp]);
+
+  // Qué sesión se propondría sola para la semana que se está mirando (la más repetida entre las clases).
+  const propuestaAuto = useMemo(() => {
+    if (!tipo || abanico.length === 0) return null;
+    const cuenta = new Map<string, { sesion: SesionCatalogo; n: number }>();
+    for (const c of clases) {
+      const d = sesionPorDefecto(opcionesSesion(ctx, tipo, c, semana));
+      if (d) cuenta.set(d.id, { sesion: d, n: (cuenta.get(d.id)?.n ?? 0) + 1 });
+    }
+    return [...cuenta.values()].sort((a, b) => b.n - a.n)[0]?.sesion ?? null;
+  }, [tipo, abanico, clases, ctx, semana]);
 
   // Al empezar a mover, la semana salta a la de la sesión (ajuste de estado en el render, no
   // en un efecto: es el patrón de React para «cuando cambia esta prop»).
@@ -135,6 +157,11 @@ export function Planificar({ e }: { e: Estado }) {
 
   if (!tipo) return <p className="text-sm text-zinc-500">No hay ningún tipo activo. Créalo en Ajustes.</p>;
 
+  /** La sesión del abanico para esta clase y fecha: la forzada, o la que toca por defecto. */
+  function sesionPara(clase: Clase, fecha: string): SesionCatalogo | null {
+    return forzada ?? sesionPorDefecto(opcionesSesion(ctx, tipo, clase, fecha));
+  }
+
   function elegirRango(clave: string, r: RangoFechas) {
     setRango({ clave, rango: r });
     setSemana(lunesDe(e.datos.hoy >= r.inicio && e.datos.hoy <= r.fin ? e.datos.hoy : r.inicio));
@@ -153,6 +180,7 @@ export function Planificar({ e }: { e: Estado }) {
           horaFin: candidato.hora.horaFin,
           profes: candidato.hora.profes,
           responsableEmail: e.responsable,
+          catalogoId: sesionPara(candidato.clase, fecha)?.id ?? null,
         },
       ]);
       e.guardarSesiones([nueva]);
@@ -193,7 +221,7 @@ export function Planificar({ e }: { e: Estado }) {
   }
 
   async function autocompletarRango() {
-    const propuestas = autocompletar(ctx, tipo, clases, rango, disp, { email: e.responsable, profeId: profeResp });
+    const propuestas = autocompletar(ctx, tipo, clases, rango, disp, { email: e.responsable, profeId: profeResp }, forzada);
     if (propuestas.length === 0) {
       toast.info(disp.length === 0 ? 'Primero marca tus huecos en «Mis huecos»' : 'Nada que proponer: está cubierto o no hay huecos libres');
       return;
@@ -232,6 +260,20 @@ export function Planificar({ e }: { e: Estado }) {
       <div className="flex flex-wrap items-center gap-2">
         <SelectorTipo e={e} />
         <SelectorResponsable e={e} />
+        {abanico.length > 0 && (
+          <SelectChip
+            value={forzada?.id ?? ''}
+            onChange={(v) => setForzadaEn(v ? { tipoId: tipo.id, id: v } : null)}
+            title="Qué sesión se hace en los momentos que crees: la automática elige la que toca para cada clase"
+          >
+            <option value="">Sesión: automática{propuestaAuto ? ` · ${propuestaAuto.nombre}` : ''}</option>
+            {abanico.map((c) => (
+              <option key={c.id} value={c.id}>
+                Sesión: {c.nombre}
+              </option>
+            ))}
+          </SelectChip>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {rapidos.map((r) => (
@@ -259,7 +301,7 @@ export function Planificar({ e }: { e: Estado }) {
       </div>
 
       {/* El objetivo del rango, clase a clase */}
-      <BarraObjetivo progreso={progreso} unidades={unidades.length} />
+      <BarraObjetivo progreso={progreso} unidades={unidades.length} sinHorario={new Set(sinHorario.map(claveClase))} />
 
       {/* Acciones */}
       <div className="flex flex-wrap gap-2">
@@ -378,23 +420,25 @@ export function Planificar({ e }: { e: Estado }) {
           franja={hueco.franja}
           nivel={nivelEn(disp, diaSemana(hueco.fecha), hueco.franja)}
           candidatos={candidatosHueco(ctx, tipo, clases, hueco.fecha, hueco.franja)}
+          sinHorario={sinHorario.filter((c) => necesidadEnFecha(ctx, tipo, c, hueco.fecha) > 0)}
+          sesionDe={(c) => (abanico.length > 0 ? { sesion: sesionPara(c.clase, hueco.fecha) } : null)}
           trabajando={trabajando}
           onElegir={(c) => void crear(c, hueco.fecha)}
-          onManual={() => {
-            setManual({ fecha: hueco.fecha, franja: hueco.franja });
+          onManual={(clave) => {
+            setManual({ fecha: hueco.fecha, franja: hueco.franja, clave });
             setHueco(null);
           }}
           onClose={() => setHueco(null)}
         />
       )}
-      {manual && <DialogoManual e={e} tipoId={tipo.id} fecha={manual.fecha} franja={manual.franja} onClose={() => setManual(null)} />}
+      {manual && <DialogoManual e={e} tipoId={tipo.id} fecha={manual.fecha} franja={manual.franja} claveInicial={manual.clave} forzadaId={forzada?.id ?? null} onClose={() => setManual(null)} />}
     </div>
   );
 }
 
 // ─── El objetivo ─────────────────────────────────────────────────────────────
 
-function BarraObjetivo({ progreso, unidades }: { progreso: ReturnType<typeof progresoTipo>; unidades: number }) {
+function BarraObjetivo({ progreso, unidades, sinHorario }: { progreso: ReturnType<typeof progresoTipo>; unidades: number; sinHorario: Set<string> }) {
   if (progreso.length === 0 || unidades === 0) return null;
   const pendientes = progreso.reduce((n, f) => n + f.total.porHacer, 0);
   return (
@@ -404,8 +448,9 @@ function BarraObjetivo({ progreso, unidades }: { progreso: ReturnType<typeof pro
           <Target className="mr-1 h-3.5 w-3.5" /> {pendientes || <Check className="h-3.5 w-3.5" />}
         </span>
         {progreso.map((f) => (
-          <span key={f.clave} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900" title={`✔️ ${f.total.hechas} · 📅 ${f.total.programadas} · 📝 ${f.total.borradores} · ○ ${f.total.porHacer}`}>
+          <span key={f.clave} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900" title={`✔️ ${f.total.hechas} · 📅 ${f.total.programadas} · 📝 ${f.total.borradores} · ○ ${f.total.porHacer}${sinHorario.has(f.clave) ? ' · sin horario importado: se apunta a mano' : ''}`}>
             <span className="font-semibold">{nombreClase(f.clase.curso, f.clase.letra)}</span>
+            {sinHorario.has(f.clave) && <CalendarOff className="h-3 w-3 text-zinc-400" aria-label="Sin horario importado: se apunta a mano" />}
             <Puntos t={f.total} />
           </span>
         ))}
@@ -517,7 +562,7 @@ function FilaFranja({
                     ev.stopPropagation();
                     e.abrir(s.id);
                   }}
-                  title={`${t?.nombre ?? ''} · ${s.profes.map((p) => p.nombre).join(', ')}${ajena ? ` · lo lleva ${s.responsableNombre ?? s.responsableEmail}` : ''}`}
+                  title={`${t?.nombre ?? ''} · ${s.profes.map((p) => p.nombre).join(', ')}${ajena ? ` · lo lleva ${s.responsableNombre ?? s.responsableEmail}` : ''}${s.catalogoId ? ` · ${e.catalogo.find((c) => c.id === s.catalogoId)?.nombre ?? ''}` : ''}`}
                   className={cn(
                     'flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left font-medium',
                     s.estado === 'borrador'
@@ -563,6 +608,8 @@ function DialogoHueco({
   franja,
   nivel,
   candidatos,
+  sinHorario,
+  sesionDe,
   trabajando,
   onElegir,
   onManual,
@@ -573,9 +620,13 @@ function DialogoHueco({
   franja: Franja;
   nivel: Nivel | null;
   candidatos: Candidato[];
+  /** Clases del tipo que no están en ningún horario importado y aún necesitan sesión. */
+  sinHorario: Clase[];
+  /** La sesión del abanico que llevaría cada clase (null = el tipo no tiene abanico). */
+  sesionDe: (c: Candidato) => { sesion: SesionCatalogo | null } | null;
   trabajando: boolean;
   onElegir: (c: Candidato) => void;
-  onManual: () => void;
+  onManual: (clave?: string) => void;
   onClose: () => void;
 }) {
   const aqui = e.sesiones.filter((s) => estaActiva(s) && s.fecha === fecha && aMin(s.horaInicio) < aMin(franja.horaFin) && aMin(franja.horaInicio) < aMin(s.horaFin));
@@ -642,6 +693,19 @@ function DialogoHueco({
                   </span>
                   <Avisos avisos={c.avisos} className="ml-auto" />
                 </span>
+                {(() => {
+                  const delAbanico = sesionDe(c);
+                  if (!delAbanico) return null;
+                  return delAbanico.sesion ? (
+                    <span className="flex items-center gap-1 text-xs text-zinc-500">
+                      <BookOpenText className="h-3.5 w-3.5 shrink-0" aria-hidden /> <span className="truncate">{delAbanico.sesion.nombre}</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300">
+                      <BookOpenText className="h-3.5 w-3.5 shrink-0" aria-hidden /> Sin sesión libre para esta clase
+                    </span>
+                  );
+                })()}
                 <span className="flex flex-col text-sm text-zinc-600 dark:text-zinc-300">
                   {c.hora.profes.length
                     ? c.hora.profes.map((p) => (
@@ -656,11 +720,25 @@ function DialogoHueco({
           ))}
         </ul>
         {candidatos.length === 0 && <p className="text-sm text-zinc-500">Ninguna clase de este tipo tiene clase a esa hora.</p>}
+        {sinHorario.length > 0 && (
+          <div className="space-y-1">
+            <p className="flex items-center gap-1 text-xs text-zinc-500">
+              <CalendarOff className="h-3.5 w-3.5" aria-hidden /> Sin horario importado: se apuntan a mano
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {sinHorario.map((c) => (
+                <Pastilla key={claveClase(c)} onClick={() => onManual(claveClase(c))} disabled={trabajando}>
+                  {nombreClase(c.curso, c.letra)}
+                </Pastilla>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           {utiles.length > 0 && utiles.length < candidatos.length && (
             <Accion onClick={() => setVerTodas(!verTodas)}>{verTodas ? 'Solo las que faltan' : `+ ${candidatos.length - utiles.length} ya cubiertas`}</Accion>
           )}
-          <Accion onClick={onManual}>
+          <Accion onClick={() => onManual()}>
             <Plus className="h-4 w-4" /> A mano
           </Accion>
         </div>
@@ -674,8 +752,24 @@ function DialogoHueco({
 
 // ─── A mano ──────────────────────────────────────────────────────────────────
 
-function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e: Estado; tipoId: string; fecha: string; franja: Franja | null; onClose: () => void }) {
-  const [clave, setClave] = useState(e.datos.clases[0] ? claveClase(e.datos.clases[0]) : '');
+function DialogoManual({
+  e,
+  tipoId,
+  fecha: fechaInicial,
+  franja,
+  claveInicial,
+  forzadaId,
+  onClose,
+}: {
+  e: Estado;
+  tipoId: string;
+  fecha: string;
+  franja: Franja | null;
+  claveInicial?: string;
+  forzadaId: string | null;
+  onClose: () => void;
+}) {
+  const [clave, setClave] = useState(claveInicial ?? (e.datos.clases[0] ? claveClase(e.datos.clases[0]) : ''));
   const [fecha, setFecha] = useState(fechaInicial);
   const [inicio, setInicio] = useState(franja?.horaInicio ?? '09:00');
   const [fin, setFin] = useState(franja?.horaFin ?? '10:00');
@@ -688,6 +782,13 @@ function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e:
   const delHorario = clase ? horaDeClase(e.ctx.idx, e.datos.periodos, clase, fecha, { horaInicio: inicio, horaFin: fin }) : null;
   const profeIds = elegidos ?? delHorario?.profes.map((p) => p.id) ?? [];
 
+  // La sesión del abanico: la forzada o la que toca por defecto, hasta que se toque el selector.
+  const tipo = e.tipos.find((t) => t.id === tipoId);
+  const abanico = e.catalogo.filter((c) => c.tipoId === tipoId && c.activo);
+  const [catalogoElegido, setCatalogoElegido] = useState<string | null>(null);
+  const porDefecto = forzadaId ?? (clase && tipo ? (sesionPorDefecto(opcionesSesion(e.ctx, tipo, clase, fecha))?.id ?? null) : null);
+  const catalogoId = catalogoElegido ?? porDefecto ?? '';
+
   async function guardar() {
     if (!clase || aMin(fin) <= aMin(inicio)) {
       toast.error('Revisa la clase y las horas');
@@ -699,7 +800,7 @@ function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e:
         const h = delHorario?.profes.find((p) => p.id === id);
         return { id, nombre: h?.nombre ?? e.datos.profes.find((p) => p.id === id)?.nombre ?? '', materia: h?.materia ?? null };
       });
-      const [nueva] = await api.crear([{ tipoId, curso: clase.curso, letra: clase.letra, fecha, horaInicio: inicio, horaFin: fin, profes, responsableEmail: e.responsable }]);
+      const [nueva] = await api.crear([{ tipoId, curso: clase.curso, letra: clase.letra, fecha, horaInicio: inicio, horaFin: fin, profes, responsableEmail: e.responsable, catalogoId: catalogoId || null }]);
       e.guardarSesiones([nueva]);
       haptic.success();
       toast.success(`Borrador: ${etiquetaClase(nueva)} · S${nueva.numero}`);
@@ -740,6 +841,19 @@ function DialogoManual({ e, tipoId, fecha: fechaInicial, franja, onClose }: { e:
             a
             <input type="time" value={fin} onChange={(ev) => setFin(ev.target.value)} className={campo} />
           </label>
+          {abanico.length > 0 && (
+            <label className="col-span-2 text-xs text-zinc-500">
+              Sesión
+              <select value={catalogoId} onChange={(ev) => setCatalogoElegido(ev.target.value)} className={campo}>
+                <option value="">— sin elegir —</option>
+                {abanico.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="col-span-2 text-xs text-zinc-500">
             Profe que pierde la hora {delHorario && <span className="text-emerald-600">· del horario</span>}
             <select

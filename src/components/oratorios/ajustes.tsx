@@ -139,9 +139,10 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
           clases: tipo.clases,
           textoCorreo: tipo.textoCorreo,
           avisoDias: tipo.avisoDias,
+          sinRepetir: tipo.sinRepetir,
           activo: tipo.activo,
         }
-      : { codigo: '', nombre: '', nombreCorreo: '', emoji: '✨', calendarioId: null, frecuencia: 'trimestre', cantidad: 1, etapas: ['ESO'], clases: null, textoCorreo: null, avisoDias: 7, activo: true },
+      : { codigo: '', nombre: '', nombreCorreo: '', emoji: '✨', calendarioId: null, frecuencia: 'trimestre', cantidad: 1, etapas: ['ESO'], clases: null, textoCorreo: null, avisoDias: 7, sinRepetir: true, activo: true },
   );
   const [guardando, setGuardando] = useState(false);
   const set = <K extends keyof EntradaTipo>(k: K, v: EntradaTipo[K]) => setF((prev) => ({ ...prev, [k]: v }));
@@ -235,6 +236,15 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
           <label className="col-span-4 text-xs text-zinc-500">
             Texto extra del correo
             <textarea value={f.textoCorreo ?? ''} onChange={(ev) => set('textoCorreo', ev.target.value || null)} rows={3} className={cn(campo, 'py-1.5')} />
+          </label>
+          <label className="col-span-4 flex items-start gap-3 rounded-xl border border-zinc-200 p-2 text-sm dark:border-zinc-700">
+            <input type="checkbox" checked={f.sinRepetir} onChange={(ev) => set('sinRepetir', ev.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
+            <span>
+              <b>Que no se repita una sesión en la vida escolar del alumno</b>
+              <span className="block text-xs text-zinc-500">
+                Al elegir la sesión de cada momento, las que ya vieron los alumnos de esa clase (este curso o antes) salen avisadas y no se proponen solas.
+              </span>
+            </span>
           </label>
           <label className="col-span-2 text-xs text-zinc-500">
             Aviso, días antes

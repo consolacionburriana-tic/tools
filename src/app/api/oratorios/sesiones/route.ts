@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { crearSesionesSchema } from '@/lib/oratorios';
-import { crearSesiones } from '@/lib/oratorios-server';
+import { crearSesiones, ErrorDeEntrada } from '@/lib/oratorios-server';
 
 // Borradores nuevos (uno a uno desde el hueco, o en bloque desde «Autocompletar»).
 export async function POST(request: Request) {
@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const sesiones = await crearSesiones(parsed.data.sesiones, { email: guard.email, nombre: guard.nombre });
     return NextResponse.json({ sesiones });
   } catch (error) {
+    if (error instanceof ErrorDeEntrada) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error('Oratorios · crear:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'No se ha podido guardar' }, { status: 500 });
   }

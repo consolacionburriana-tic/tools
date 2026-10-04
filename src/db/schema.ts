@@ -1898,17 +1898,41 @@ export const oraTipos = pgTable('ora_tipos', {
   frecuencia: text('frecuencia').notNull().default('mes'),
   cantidad: integer('cantidad').notNull().default(1),
   // A qué clases va: `clases` (claves 'curso|letra') manda si está; si es null, todas las de
-  // `etapas` sacadas del alumnado activo, sin PDC.
+  // `etapas` sacadas del alumnado activo, con el PDC dentro.
   etapas: jsonb('etapas').$type<string[]>().notNull().default([]),
   clases: jsonb('clases').$type<string[]>(),
   textoCorreo: text('texto_correo'), // párrafo extra del correo («Será primero la mitad…»)
   avisoDias: integer('aviso_dias').notNull().default(7), // aviso programado N días antes
+  // Revisar que ninguna sesión del abanico se repita en la vida escolar del alumno.
+  sinRepetir: boolean('sin_repetir').notNull().default(true),
   orden: integer('orden').notNull().default(0),
   activo: boolean('activo').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 export type OraTipo = typeof oraTipos.$inferSelect;
+
+// El abanico de SESIONES de cada tipo: lo que se hace en el momento (no confundir con
+// `ora_sesiones`, los momentos planificados). Una sesión del abanico se puede hacer en muchos
+// momentos, y la regla es que un alumno no vea la misma dos veces en su vida escolar.
+export const oraCatalogo = pgTable('ora_catalogo', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tipoId: uuid('tipo_id').notNull().references(() => oraTipos.id),
+  nombre: text('nombre').notNull(),
+  enlace: text('enlace'), // al documento donde está escrita; solo http(s)
+  // Curso en que se hizo ('2024-25'); null = aún no. Las de cursos anteriores cuentan como
+  // vistas por los niveles de `cursos` aunque no estén planificadas en la app.
+  academicYear: text('academic_year'),
+  cursos: jsonb('cursos').$type<string[]>(), // niveles ('1ESO'…); null = todos los del tipo
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('ora_catalogo_tipo_idx').on(t.tipoId),
+]);
+export type OraCatalogo = typeof oraCatalogo.$inferSelect;
 
 // Una fila por curso: los trimestres (para el objetivo y los recuentos) y si el claustro
 // puede entrar a ver lo suyo (`oratorios-ver`).
@@ -1950,6 +1974,8 @@ export const oraSesiones = pgTable('ora_sesiones', {
   curso: text('curso').notNull(),
   letra: text('letra'),
   numero: integer('numero').notNull(), // «Sesión 2» de esa clase y tipo en el curso
+  // Qué sesión del abanico (`ora_catalogo`) se hace en este momento; null = sin elegir.
+  catalogoId: uuid('catalogo_id').references(() => oraCatalogo.id),
   fecha: date('fecha').notNull(),
   horaInicio: text('hora_inicio').notNull(),
   horaFin: text('hora_fin').notNull(),
@@ -1985,6 +2011,7 @@ export const oraSesiones = pgTable('ora_sesiones', {
   index('ora_sesiones_fecha_idx').on(t.fecha),
   index('ora_sesiones_profe_idx').on(t.profeId),
   index('ora_sesiones_aviso_idx').on(t.avisoEstado, t.avisoProgramadoPara),
+  index('ora_sesiones_catalogo_idx').on(t.catalogoId),
 ]);
 export type OraSesion = typeof oraSesiones.$inferSelect;
 

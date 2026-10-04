@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { accionSesionSchema } from '@/lib/oratorios';
-import { accionSesion, borrarSesion } from '@/lib/oratorios-server';
+import { accionSesion, borrarSesion, ErrorDeEntrada } from '@/lib/oratorios-server';
 
-// Mover, reprogramar, anular, cambiar profes o notas de UNA sesión.
+// Mover, reprogramar, anular, cambiar profes, notas o la sesión del abanico de UN momento.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireModule('oratorios');
   if (isGuardResponse(guard)) return guard;
@@ -17,6 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!sesion) return NextResponse.json({ error: 'No existe' }, { status: 404 });
     return NextResponse.json({ sesion });
   } catch (error) {
+    if (error instanceof ErrorDeEntrada) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error('Oratorios · acción:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'No se ha podido guardar' }, { status: 500 });
   }

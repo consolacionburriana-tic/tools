@@ -1,12 +1,12 @@
 'use client';
 
 // Una sesión: qué es, en qué estado está y todo lo que se le puede hacer, con iconos.
-import { AlarmClock, ArrowRightLeft, Ban, BellOff, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, Hand, Mail, RefreshCw, Send, Trash2, User } from 'lucide-react';
+import { AlarmClock, ArrowRightLeft, Ban, BellOff, BookOpen, BookOpenText, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, ExternalLink, Hand, Mail, RefreshCw, Send, Trash2, User } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { haptic } from '@/lib/haptics';
-import { chipAviso, chipEstado, etiquetaClase, fechaLarga, horaBonita, profesDe, type AccionSesion } from '@/lib/oratorios';
+import { chipAviso, chipEstado, describirUsos, esEnlaceSeguro, etiquetaClase, fechaLarga, horaBonita, opcionesSesion, ordenarOpciones, profesDe, type AccionSesion } from '@/lib/oratorios';
 import { Accion, api, capital, ChipVista } from './comun';
 import type { Estado } from './panel';
 
@@ -16,6 +16,10 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
   if (!s) return null;
   const tipo = e.tipos.find((t) => t.id === s.tipoId);
   const aviso = chipAviso(s);
+  const abanico = e.catalogo.filter((c) => c.tipoId === s.tipoId && (c.activo || c.id === s.catalogoId));
+  const delAbanico = s.catalogoId ? e.catalogo.find((c) => c.id === s.catalogoId) : null;
+  // Las del abanico, con las que esta clase no ha visto primero y las ya vistas avisadas.
+  const opciones = tipo && abanico.length > 0 ? ordenarOpciones(opcionesSesion(e.ctx, tipo, { curso: s.curso, letra: s.letra }, s.fecha, s.id)) : [];
   const avisable = (s.estado === 'confirmado' && s.avisoEstado !== 'enviado') || (s.estado === 'anulado' && s.avisoEstado === 'pendiente');
 
   async function accion(a: AccionSesion, confirmar?: string) {
@@ -87,6 +91,33 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
             <User className="h-4 w-4" /> {s.responsableNombre ?? s.responsableEmail}
           </div>
         </dl>
+
+        {abanico.length > 0 && (
+          <div className="space-y-1">
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <BookOpenText className="h-4 w-4" aria-hidden /> Sesión
+              {delAbanico?.enlace && esEnlaceSeguro(delAbanico.enlace) && (
+                <a href={delAbanico.enlace} target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                  Abrir <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </label>
+            <select
+              value={s.catalogoId ?? ''}
+              disabled={ocupado}
+              onChange={(ev) => void accion({ accion: 'catalogo', catalogoId: ev.target.value || null })}
+              className="min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              <option value="">— sin elegir —</option>
+              {opciones.map((o) => (
+                <option key={o.sesion.id} value={o.sesion.id}>
+                  {o.sesion.nombre}
+                  {!o.aplicable ? ' · no es de este nivel' : o.choques.length ? ` · ⚠️ ya la vieron: ${describirUsos(o.choques)}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {s.calendarioError && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Calendar: {s.calendarioError}</p>

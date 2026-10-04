@@ -3,25 +3,29 @@
 // /gestion/oratorios para quien lo lleva: cinco pestañas sobre el mismo estado. Todo el curso
 // viaja de una vez y los candidatos se calculan aquí (`oratorios.ts`), así que pasar de
 // semana o de pestaña no cuesta un viaje al servidor. Ficha: docs/26-oratorios.md
-import { CalendarRange, ChartColumnBig, Clock, List, Settings2, type LucideIcon } from 'lucide-react';
+import { BookOpenText, CalendarRange, ChartColumnBig, Clock, List, Settings2, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
-import { crearContexto, PESTANAS_ORA, type Disponibilidad, type SesionOra, type TipoMomento } from '@/lib/oratorios';
+import { crearContexto, nivelesDeTipo, PESTANAS_ORA, type Disponibilidad, type SesionCatalogo, type SesionOra, type TipoMomento } from '@/lib/oratorios';
 import type { AjustesOra, DatosPanel } from '@/lib/oratorios-server';
 import { api } from './comun';
 import { Planificar } from './planificar';
 import { ListaSesiones } from './sesiones';
+import { Abanico } from './abanico';
 import { Numeros } from './numeros';
 import { EditorDisponibilidad } from './disponibilidad';
 import { Ajustes } from './ajustes';
 import { DetalleSesion } from './detalle';
 
 export type Pestana = (typeof PESTANAS_ORA)[number];
+// «Sesiones» es lo que se hace en cada momento (el abanico); la lista de momentos planificados,
+// que se llamó así primero, es la «Agenda».
 const PESTANAS: { clave: Pestana; Icono: LucideIcon; texto: string }[] = [
   { clave: 'planificar', Icono: CalendarRange, texto: 'Planificar' },
-  { clave: 'sesiones', Icono: List, texto: 'Sesiones' },
+  { clave: 'sesiones', Icono: List, texto: 'Agenda' },
+  { clave: 'abanico', Icono: BookOpenText, texto: 'Sesiones' },
   { clave: 'numeros', Icono: ChartColumnBig, texto: 'Números' },
   { clave: 'huecos', Icono: Clock, texto: 'Mis huecos' },
   { clave: 'ajustes', Icono: Settings2, texto: 'Ajustes' },
@@ -32,6 +36,9 @@ export interface Estado {
   datos: DatosPanel;
   tipos: TipoMomento[];
   sesiones: SesionOra[];
+  /** El abanico de sesiones de todos los tipos (lo que se hace en cada momento). */
+  catalogo: SesionCatalogo[];
+  setCatalogo: (c: SesionCatalogo[]) => void;
   ajustes: AjustesOra;
   disponibilidad: Record<string, Disponibilidad[]>;
   ctx: ReturnType<typeof crearContexto>;
@@ -54,6 +61,7 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
   const [pestana, setPestana] = useState<Pestana>(tabInicial);
   const [tipos, setTipos] = useState(datos.tipos);
   const [sesiones, setSesiones] = useState(datos.sesiones);
+  const [catalogo, setCatalogo] = useState(datos.catalogo);
   const [ajustes, setAjustes] = useState(datos.ajustes);
   const [disponibilidad, setDisp] = useState(datos.disponibilidad);
   const activos = tipos.filter((t) => t.activo);
@@ -63,6 +71,7 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
   const [moviendo, setMoviendo] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
+  const nivelesPorTipo = useMemo(() => Object.fromEntries(tipos.map((t) => [t.id, nivelesDeTipo(t, datos.clases)])), [tipos, datos.clases]);
   const ctx = useMemo(
     () =>
       crearContexto({
@@ -74,8 +83,12 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
         festivos: datos.festivos,
         salidas: datos.salidas,
         hoy: datos.hoy,
+        academicYear: datos.academicYear,
+        catalogo,
+        nivelesPorTipo,
+        usosPrevios: datos.usosPrevios,
       }),
-    [tipos, sesiones, datos.horario, datos.periodos, ajustes.trimestres, datos.festivos, datos.salidas, datos.hoy],
+    [tipos, sesiones, datos.horario, datos.periodos, ajustes.trimestres, datos.festivos, datos.salidas, datos.hoy, datos.academicYear, catalogo, nivelesPorTipo, datos.usosPrevios],
   );
 
   function guardarSesiones(nuevas: SesionOra[], borradas: string[] = []) {
@@ -117,6 +130,8 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
     datos,
     tipos,
     sesiones,
+    catalogo,
+    setCatalogo,
     ajustes,
     disponibilidad,
     ctx,
@@ -162,6 +177,7 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
 
       {pestana === 'planificar' && <Planificar e={estado} />}
       {pestana === 'sesiones' && <ListaSesiones e={estado} />}
+      {pestana === 'abanico' && <Abanico e={estado} />}
       {pestana === 'numeros' && <Numeros e={estado} />}
       {pestana === 'huecos' && <EditorDisponibilidad key={responsable} e={estado} />}
       {pestana === 'ajustes' && <Ajustes e={estado} />}

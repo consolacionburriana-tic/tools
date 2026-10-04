@@ -15,7 +15,7 @@ calendario de Google y su texto de correo.
 
 ---
 
-## Estado: plan funcional ✅ · plan técnico ✅ · implementado 🟡 (30-sep-2026)
+## Estado: plan funcional ✅ · plan técnico ✅ · implementado 🟡 (30-sep-2026; las **Sesiones del abanico**, 4-oct-2026)
 
 Código entero escrito y **probado contra Neon y contra Google Calendar de verdad**, con sesión de
 TIC en el navegador (iPad en horizontal y móvil): disponibilidad, asistente, autocompletar (24
@@ -32,9 +32,15 @@ de Madrid, creado por David y con la profe invitada. ⚠️ **Esa invitación le
 Paola Gómez**, y al anularla desde la app, la cancelación (evento `cancelled`). Si pregunta, era
 una prueba.
 
+**4-oct-2026 · Sesiones del abanico.** David se dio cuenta de que faltaba un concepto: la **Sesión**,
+*lo que se hace* en el oratorio (tiene un abanico de 10-15) y que **no se puede repetir en la vida
+escolar del alumno**. Ver [«Las Sesiones (el abanico)»](#las-sesiones-el-abanico). Está hecha, con el
+SQL aplicado en Neon (`oratorios-catalogo.sql`) y probada contra la BBDD real.
+
 **Lo que falta:** el primer envío real de un correo de aviso (plantilla revisada en render, sin
-mandar a nadie), que David confirme las decisiones marcadas 🤖 más abajo y reimportar el horario
-del PDC (y el de infantil y primaria) para que el asistente proponga huecos también ahí.
+mandar a nadie), que David confirme las decisiones marcadas 🤖 más abajo, **meter las sesiones de su
+abanico** y reimportar el horario del PDC (y el de infantil y primaria) para que el asistente
+proponga huecos también ahí.
 
 **Iconos**: como el resto de la app, `lucide-react` en pestañas, botones y etiquetas. Emojis solo
 donde son un dato: el de cada tipo (lo elige quien lo crea), los tres niveles de disponibilidad,
@@ -44,12 +50,13 @@ los avisos de cada hueco (🔴 ×2 🟡 📅 ⏱️ 🚌) y los estados — igua
 
 ## Cómo funciona (lo que ve quien lo lleva)
 
-`/gestion/oratorios`, cinco pestañas con iconos y poco texto:
+`/gestion/oratorios`, seis pestañas con iconos y poco texto:
 
 | Pestaña | Para qué |
 |---|---|
 | 🗓️ **Planificar** | El asistente: semana a semana, tus huecos y quién cabe en cada uno |
-| 📋 **Sesiones** | La lista: estados, avisos por correo, reprogramar, anular |
+| 📋 **Agenda** | La lista de momentos planificados: estados, avisos por correo, reprogramar, anular (antes «Sesiones») |
+| 📖 **Sesiones** | El abanico: lo que se hace en cada momento, con su enlace, su curso y qué niveles aún no la han visto |
 | 📊 **Números** | Hechas / programadas / por hacer por clase, y a qué profes se ha molestado más |
 | ⏰ **Disponibilidad** | Tu rejilla: ⭐ óptima · 👍 alternativa · 🤏 último recurso |
 | ⚙️ **Ajustes** | Tipos (objetivo, calendario, texto del correo), trimestres, acceso común |
@@ -99,6 +106,60 @@ planificar en nombre de otra persona) y **rango** (Este mes · T1 · T2 · T3 ·
   sitio nuevo), cambiar de profe si a esa hora hay dos, anular, borrar (solo borradores).
 - **➕ A mano**: para una clase sin horario importado (infantil, primaria hoy) o una hora rara:
   clase, fecha, hora y profe a mano.
+
+### Las Sesiones (el abanico)
+
+> **Dos cosas se llaman «sesión» en este módulo.** Lo que David llama **Sesión** es *lo que se
+> hace* en el oratorio (el contenido: «El silencio», «La primera vez»…). Lo que el código y la
+> primera versión de esta ficha llamaban «sesión» es **el momento planificado** (una clase, un día,
+> una hora: `ora_sesiones`, el «S2» de las pastillas). En pantalla, **«Sesiones» es el abanico** y
+> **«Agenda» es la lista de momentos**; el «S2» sigue siendo el número del momento de esa clase.
+> En el código: `ora_catalogo` / `SesionCatalogo` = el abanico; `ora_sesiones` / `SesionOra` = los momentos.
+
+Cada tipo (Oratorio, Godly Play, el que venga) tiene su abanico. Una **Sesión** lleva:
+
+- **Nombre** y **enlace** (al documento donde la tiene escrita; solo `http(s)`).
+- **Curso en que se creó** (`2025-26`…): se pueden elegir los **4 cursos anteriores**, el actual y
+  el siguiente (más atrás si el camino del tipo es largo: Godly Play, de infantil a 6º, llega a 8).
+  Es lo que permite dar por vistas las sesiones de antes de que existiera la app.
+- **Para qué niveles**: *todos* o solo algunos (`cursos`). «La primera vez» es solo de 1º.
+- **Activa / archivada**: una archivada no se propone, pero lo que se hizo con ella sigue contando.
+
+Se gestionan en **📖 Sesiones**: cada fila se **despliega** para editarla (y verá más cosas el día
+que David quiera escribir y seguir la sesión desde ahí: es una tabla propia, `ora_catalogo`, a la
+que se le pueden añadir columnas sin tocar nada más) y enseña de un vistazo, **por nivel**, si los
+alumnos de ahora ya la han visto (✓ libre · ⚠ ya vista, con el curso al pasar el dedo).
+
+**Al planificar**, cada momento lleva su sesión **ya elegida**: lo normal es que se repita la misma
+en todas las clases, así que el asistente propone, para cada clase, por este orden:
+
+1. Solo las que van a su nivel y **no ha visto nadie de esa clase** (la regla de abajo).
+2. Las hechas a medida para ese nivel («la primera vez» en 1º).
+3. **La que ya se ha elegido para otras clases ese mes** (o trimestre, según el objetivo del tipo).
+4. La que lleva más tiempo sin hacerse.
+
+Está en el selector **Sesión: automática · …** de Planificar (enseña la que propone para la semana
+que miras; elegir otra la fuerza para todo lo que crees hasta que vuelvas a «automática»), en cada
+clase del hueco, en **A mano**, en el **Autocompletar** y en el detalle del momento (para cambiarla
+después). Si a una clase no le queda ninguna libre, el hueco dice «Sin sesión libre para esta clase».
+
+**La regla: no se repite en la vida escolar del alumno** — activada por defecto en cada tipo
+(casilla en Ajustes → el tipo) y **avisa, no prohíbe**: lo vetado no se propone solo, pero se puede
+elegir a mano. Se mide por **generaciones**: el grupo que hoy está en 3º estuvo en 2º el curso pasado
+y en 1º el anterior, así que *«año de inicio − posición en el camino»* es constante mientras
+avanzan juntos. Una sesión choca con una clase si **esa generación ya la hizo, en el curso que
+fuera**:
+
+- Hecha en 2025-26 por todos los cursos → este curso la han visto 2º, 3º y 4º; **1º no** (alumnos
+  nuevos). «Dentro de 4 años» vuelve a estar libre para todos.
+- «La primera vez», solo en 1º: se puede repetir **cada curso** en 1º, y nunca en 2º.
+- En el mismo curso, 1º A y 1º B son alumnos distintos: lo que hace una no veta a la otra (pero sí
+  a sí misma). De un curso a otro los grupos se mezclan, así que ahí se mira por nivel.
+- El PDC cuenta como el curso de ESO que le corresponde (`3ºPPDC` = 3º).
+- Cuentan los borradores y confirmados de la app, los momentos confirmados de **cursos anteriores**
+  que se hicieron con la app y las sesiones **«creadas» en un curso anterior** (se dan por hechas
+  ese curso por sus niveles). El curso en marcha cuenta por lo que se planifica, no por el curso de
+  creación. Los repetidores, que lo ven dos veces, no se modelan.
 
 ### 3. Estados
 
@@ -206,7 +267,9 @@ Lo que pidió David, tal cual, y lo que decidí yo al construirlo (marcado con �
    y así cuentan en el objetivo y en los números. Se puede fijar la lista a mano en Ajustes.
    Oratorio arranca con **ESO**; Godly Play con **infantil y primaria**.
    ⚠️ El horario del PDC no está en Neon (el de la ESO se importó sin sus bloques), así que el
-   asistente no propone huecos para 3º y 4º PDC hasta que se reimporte: mientras, «A mano».
+   asistente no propone huecos para 3º y 4º PDC hasta que se reimporte. Mientras, en cada hueco
+   salen como **«Sin horario importado: se apuntan a mano»** (un toque abre «A mano» con la clase,
+   el día y la hora puestos) y en la barra del objetivo llevan un calendario tachado.
 8. **Trimestres por defecto** (editables en Ajustes; David, 30-sep-2026: «muy bien»): T1 del inicio del periodo ordinario al
    22 de diciembre; T2 del 7 de enero al viernes anterior al Domingo de Ramos; T3 del martes
    después de Pascua al 19 de junio. Sirven para el objetivo por trimestre, el recuento de
@@ -221,28 +284,55 @@ Lo que pidió David, tal cual, y lo que decidí yo al construirlo (marcado con �
 13. 🤖 **La hora que queda en la sesión es la del tramo de la clase**, no la del hueco de
     disponibilidad: si 1º ESO sale a las 14:00 y 3º a las 15:05, cada una lleva la suya.
 
+### Las Sesiones del abanico (4-oct-2026)
+
+Lo que pidió David: una Sesión por tipo (el abanico de 10-15), con nombre, enlace y el curso en
+que se creó (los 4 anteriores a mano), **preseleccionada** al planificar porque lo normal es repetir
+la misma en todas las clases, con la revisión de «no se repite en la vida escolar del alumno»
+activada por defecto, y **ampliable** (escribir y seguir la sesión desde ahí, más adelante). Y lo
+que decidí yo al construirlo (🤖, para revisar):
+
+14. 🤖 **«Los 4 anteriores» = los 4 cursos académicos anteriores** en el selector «curso en que se
+    creó» (2022-23…2025-26), más el actual y el siguiente. No hay tabla de cursos: es una lista.
+15. 🤖 **La revisión es por tipo** (casilla en Ajustes, `ora_tipos.sin_repetir`, activada) y
+    **avisa, no prohíbe**, como el 🔴. Godly Play también arranca activada; si ahí repetir es
+    parte del método, se apaga en Ajustes.
+16. 🤖 **Cohortes por nivel, no por alumno**: se mide por la generación del grupo (ver arriba), no
+    ficha a ficha. Es exacta mientras los grupos avanzan juntos; no ve a los repetidores ni a los
+    que llegan en mitad de la etapa.
+17. 🤖 **«Curso en que se creó» cuenta como «curso en que se hizo»** si es anterior al actual
+    (esa sesión se da por vista por esos niveles). Para el curso en marcha cuenta lo planificado.
+    Si una sesión se creó pero no se llegó a hacer, se deja **sin curso**.
+18. 🤖 **Una sesión por momento, y opcional**: sin elegir, el momento sale como siempre. No se
+    manda en el correo ni en el evento de Calendar (decisión pendiente, ver futuros).
+19. 🤖 **Se llama «Sesiones» en pantalla y la lista de momentos pasa a «Agenda»**, para que no haya
+    dos pestañas con el mismo nombre. El «S2» de cada momento se queda como está.
+20. 🤖 **Una sesión que está elegida en algún momento no se borra, se archiva.**
+
 ## Plan técnico
 
-### Datos (prefijo `ora_`, SQL aditivo en `src/db/sql/oratorios.sql`)
+### Datos (prefijo `ora_`, SQL aditivo en `src/db/sql/oratorios.sql` y `oratorios-catalogo.sql`)
 
 | Tabla | Para qué |
 |---|---|
-| `ora_tipos` | Tipo de momento: nombre, emoji, nombre en el correo, calendario, frecuencia + cantidad, etapas / clases, texto extra del correo, días de aviso |
+| `ora_tipos` | Tipo de momento: nombre, emoji, nombre en el correo, calendario, frecuencia + cantidad, etapas / clases, texto extra del correo, días de aviso, `sin_repetir` |
+| `ora_catalogo` | **El abanico**: las Sesiones de cada tipo (nombre, enlace, curso en que se creó, niveles, activa) |
 | `ora_ajustes` | Una fila por curso: trimestres y acceso común |
 | `ora_disponibilidad` | Responsable (correo) × día × hora inicio/fin × nivel |
-| `ora_sesiones` | La sesión: tipo, clase, número, fecha y horas, responsable, profe (+ materia de foto), estado, aviso, evento de Google, historial |
+| `ora_sesiones` | El **momento** planificado: tipo, clase, número, fecha y horas, responsable, profe (+ materia de foto), estado, aviso, evento de Google, historial, `catalogo_id` (la Sesión del abanico) |
 
 ### Código
 
 ```
 src/lib/oratorios.ts          # puro: estados, trimestres, objetivo, avisos, candidatos,
-                              #   autocompletar, título del evento (con tests)
+                              #   autocompletar, título del evento, el abanico y la regla de
+                              #   no repetir por generaciones (con tests)
 src/lib/oratorios-email.ts    # plantillas aviso / cambio / anulación (con tests)
 src/lib/oratorios-google.ts   # crear / mover / borrar el evento en el calendario del tipo
 src/lib/oratorios-server.ts   # consultas y acciones
 src/app/gestion/oratorios/    # la pantalla
-src/app/api/oratorios/...     # API (guard `oratorios`) + cron de avisos
-src/components/oratorios/     # asistente, lista, números, disponibilidad, ajustes
+src/app/api/oratorios/...     # API (guard `oratorios`) + cron de avisos; `catalogo` = el abanico
+src/components/oratorios/     # asistente, agenda, abanico, números, disponibilidad, ajustes
 ```
 
 ## Fases
@@ -280,7 +370,31 @@ src/components/oratorios/     # asistente, lista, números, disponibilidad, ajus
 - [x] Vista de solo lectura con acceso común, solo lo que afecta a cada uno
 - [x] Tarjeta en el escritorio
 
+### Fase 5 · Sesiones del abanico — ✅
+- [x] `ora_catalogo` + `ora_sesiones.catalogo_id` + `ora_tipos.sin_repetir`, aplicados en Neon
+      (`oratorios-catalogo.sql`, 4-oct-2026)
+- [x] Helpers puros con tests: generaciones, qué choca, de dónde salen los usos, cuál se propone,
+      autocompletar con sesión, enlaces seguros
+- [x] Pestaña **Sesiones** (alta, edición desplegable, archivar, borrar si no se usa, estado por nivel)
+- [x] Sesión elegida al planificar: selector automático/forzado, en cada clase del hueco, A mano,
+      Autocompletar y detalle del momento
+- [x] Casilla «no se repite en la vida escolar» por tipo (Ajustes)
+- [x] Probado contra Neon (crear, cambiar, rechazar la de otro tipo, no borrar una en uso, limpiar)
+- [ ] **David**: meter las sesiones de su abanico (nombre, enlace y curso en que se crearon)
+
+### El PDC en los huecos (4-oct-2026)
+- [x] El PDC **sí cuenta** en el objetivo, los números y «A mano» (10 clases en la ESO), pero **no
+      salía en los huecos**: su horario no está en Neon (ver «Estado»), y el asistente solo
+      propone clases con horario. Ahora las clases **sin horario importado** salen en cada hueco
+      («Sin horario importado: se apuntan a mano») y en la barra del objetivo se marcan con
+      un icono de calendario tachado; un toque abre «A mano» con la clase, el día y la hora ya puestos.
+- [ ] **David**: reimportar el horario de la ESO con el PDC (y el de infantil y primaria) para que el
+      asistente y el autocompletar también lo propongan. Sin el `.docx`, no se puede desde aquí.
+
 ### Quizá, más adelante
+- Escribir y seguir la sesión desde la propia app (hoy: nombre + enlace).
+- Poner la sesión (y su enlace) en el evento de Calendar y/o en el correo al profe.
+- «Esta sesión se puede repetir» por sesión, además de por tipo.
 - Avisar si el horario de la clase ha cambiado desde que se planificó (otro profe a esa hora).
 - Mirar el ocupado/libre del Google Calendar del responsable al proponer huecos.
 - Copiar la semana planificada para WhatsApp.
