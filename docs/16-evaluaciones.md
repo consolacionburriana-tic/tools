@@ -302,8 +302,22 @@ En «Enviar», selector **Correo · Classroom · Los dos** (solo en formularios 
   [`25-calendarios.md`](./25-calendarios.md)): `classroom.coursework.students`,
   `classroom.announcements` y `classroom.topics`. «Comprobar permisos» en Classrooms los lista.
   Sin `classroom.topics` la tarea se publica igualmente, sin tema, y lo dice.
-- **Sin historial ni cancelación desde la app** (ver `00-desarrollos-futuros.md`): lo publicado se
-  retira desde la propia clase.
+- **Historial y retirada** (`eval_classroom_posts`, `evaluaciones-classroom.sql` aplicado en Neon el
+  4-oct-2026): cada publicación se apunta con los ids de Classroom. Debajo de la tarjeta sale
+  «Publicado en Classroom» (publicada · programada · retirada, con «abrir») y **«Retirar»** por
+  clase o «Retirar todas» (confirmación en el sitio): borra la tarea/anuncio de Classroom como
+  `tic@` y la marca retirada. **No duplica**: una clase que ya tiene una publicación activa se
+  salta al publicar; para volver a publicar, se retira antes. Si Classroom da 403 al borrar (la
+  creó otra cuenta), lo dice y se quita desde la propia clase. **Borrar la evaluación retira
+  antes lo publicado** (si se puede; si no, no impide borrarla) para no dejar enlaces muertos.
+- **Si no encuentro la tutoría de una clase** (David: «la deducción por el nombre, jugándosela»):
+  en la tarjeta de Classroom hay una línea discreta y plegada, «Tutorías encontradas: 7 de 8»
+  (en ámbar si falta alguna). Desplegada, cada clase con su destino, y las que faltan con
+  «pegar enlace»: se pega el enlace de la clase de Classroom (`…/c/NzQx…`; el id va en base64,
+  `courseIdDeEnlace`) y se comprueba que `tic@` es profe de ella. **Se recuerda para todo el
+  curso escolar** (`eval_classroom_destinos`, también para otras evaluaciones) y se puede
+  «quitar» para volver a deducirla. Si lo fijado deja de estar entre las activas de `tic@`, lo
+  dice y no deduce otra por debajo.
 - Código: `POST /api/evaluaciones/admin/classroom` (`preview` y `publicar`),
   `clasesDondeEsProfe` / `publicarEnClase` en `src/lib/calendarios-google.ts`.
 
@@ -437,7 +451,9 @@ queda a medias entre dos peticiones.
 - [~] Publicar en Classroom (tarea o anuncio, en el tema «Evaluamos 🔍 Tu opinión cuenta») desde
       «Enviar», solo alumnado — escrito, con tests del emparejamiento y verificado con
       typecheck/lint/build; **falta estrenarlo**: `tic@` como profe de las tutorías, los tres
-      scopes en la delegación y probarlo con una clase de prueba (incluido programar).
+      scopes en la delegación y probarlo con una clase de prueba (incluido programar). Tablas
+      del historial y de tutorías fijadas aplicadas en Neon y verificadas con una prueba de
+      humo (limpiada después); lo que habla con Google sigue sin probarse en vivo.
 
 ### Fase 4 · Dashboard de resultados
 - [x] KPIs, medias por pregunta y por fila, distribución, respuestas de texto agrupadas

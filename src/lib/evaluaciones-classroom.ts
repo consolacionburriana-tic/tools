@@ -56,17 +56,29 @@ export function nombreDiceClase(nombre: string | null | undefined, clase: ClaseD
 export interface EmparejamientoClase {
   clase: ClaseDeForm;
   etiqueta: string;
-  /** La clase de Classroom elegida, si hay una sola candidata clara. */
+  /** La clase de Classroom elegida: la fijada a mano o, si no, la única candidata clara. */
   destino: ClaseClassroomMin | null;
-  /** Por qué no hay destino: ninguna candidata o varias sin desempate. */
-  motivo: 'sin-clase' | 'ambigua' | null;
+  /** De dónde sale el destino: lo dijo alguien (`manual`) o se dedujo del nombre (`auto`). */
+  origen: 'manual' | 'auto' | null;
+  /**
+   * Por qué no hay destino: ninguna candidata, varias sin desempate, o una fijada a mano que
+   * ya no está entre las clases activas de la cuenta (la archivaron, o ya no es profe).
+   */
+  motivo: 'sin-clase' | 'ambigua' | 'fijada-sin-acceso' | null;
   /** Las candidatas cuando es ambigua, para enseñarlas. */
   candidatas: ClaseClassroomMin[];
+}
+
+/** Clave de una clase del cole para guardar su tutoría fijada a mano. */
+export function claveClase(c: ClaseDeForm): string {
+  return `${c.curso}|${c.letra ?? ''}`;
 }
 
 /**
  * Casa cada clase del formulario con su tutoría entre las clases de Classroom de la cuenta
  * publicadora. Reglas, en este orden:
+ *  0. Si alguien la fijó a mano (`fijados`: clave de clase → courseId), manda eso. Si esa clase
+ *     ya no está entre las de la cuenta, NO se vuelve a deducir por el nombre: se dice.
  *  1. Si el nombre dice un curso escolar, tiene que ser el de la evaluación (las de años
  *     pasados que sigan activas no cuentan).
  *  2. Si queda más de una, gana la que dice «tutoría» en el nombre.
@@ -76,9 +88,17 @@ export function emparejarClases(
   clases: readonly ClaseDeForm[],
   deClassroom: readonly ClaseClassroomMin[],
   academicYear: string,
+  fijados: ReadonlyMap<string, string> = new Map(),
 ): EmparejamientoClase[] {
   return clases.map((clase) => {
     const etiqueta = claseLabel(clase);
+    const fijada = fijados.get(claveClase(clase));
+    if (fijada) {
+      const c = deClassroom.find((x) => x.id === fijada);
+      return c
+        ? { clase, etiqueta, destino: c, origen: 'manual', motivo: null, candidatas: [] }
+        : { clase, etiqueta, destino: null, origen: null, motivo: 'fijada-sin-acceso', candidatas: [] };
+    }
     let candidatas = deClassroom.filter((c) => nombreDiceClase(c.nombre, clase));
     candidatas = candidatas.filter((c) => {
       const curso = cursoEnNombre(c.nombre);
@@ -88,10 +108,31 @@ export function emparejarClases(
       const tutorias = candidatas.filter((c) => /TUTOR/.test(compactar(c.nombre)));
       if (tutorias.length > 0) candidatas = tutorias;
     }
-    if (candidatas.length === 0) return { clase, etiqueta, destino: null, motivo: 'sin-clase', candidatas: [] };
-    if (candidatas.length > 1) return { clase, etiqueta, destino: null, motivo: 'ambigua', candidatas };
-    return { clase, etiqueta, destino: candidatas[0], motivo: null, candidatas: [] };
+    if (candidatas.length === 0) return { clase, etiqueta, destino: null, origen: null, motivo: 'sin-clase', candidatas: [] };
+    if (candidatas.length > 1) return { clase, etiqueta, destino: null, origen: null, motivo: 'ambigua', candidatas };
+    return { clase, etiqueta, destino: candidatas[0], origen: 'auto', motivo: null, candidatas: [] };
   });
+}
+
+/**
+ * El id de una clase de Classroom a partir de lo que se pega: el enlace de la clase
+ * (`https://classroom.google.com/c/NzQxMjM0NTY3ODkw`, con o sin `/u/1/`, con `?cjc=…` detrás) o
+ * el id a secas. En el enlace, el id va en base64 del número de la clase; la API usa el número.
+ * `null` si no parece nada de eso.
+ */
+export function courseIdDeEnlace(texto: string): string | null {
+  const t = texto.trim();
+  if (/^\d{5,}$/.test(t)) return t;
+  const m = t.match(/classroom\.google\.com\/(?:u\/\d+\/)?c\/([A-Za-z0-9_-]+)/);
+  const b64 = m?.[1] ?? (/^[A-Za-z0-9_-]{8,}$/.test(t) ? t : null);
+  if (!b64) return null;
+  try {
+    const base = b64.replace(/-/g, '+').replace(/_/g, '/');
+    const dec = atob(base.padEnd(Math.ceil(base.length / 4) * 4, '='));
+    return /^\d{5,}$/.test(dec) ? dec : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Sustituye `{titulo}`, `{curso}`, `{curso_escolar}` y `{enlace}`; lo desconocido se deja tal cual. */

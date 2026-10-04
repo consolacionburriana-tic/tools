@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BookmarkPlus, CalendarClock, CheckCircle2, GraduationCap, Link2, Loader2, Send, Trash2, TriangleAlert, Users, X } from 'lucide-react';
+import { BookmarkPlus, CalendarClock, CheckCircle2, ChevronRight, GraduationCap, Link2, Loader2, Send, Trash2, TriangleAlert, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones';
@@ -55,15 +55,31 @@ type Canal = 'correo' | 'classroom' | 'ambos';
 
 interface EmparejamientoVista {
   etiqueta: string;
+  curso: string;
+  letra: string | null;
   destino: { id: string; nombre: string | null } | null;
-  motivo: 'sin-clase' | 'ambigua' | null;
+  origen: 'manual' | 'auto' | null;
+  motivo: 'sin-clase' | 'ambigua' | 'fijada-sin-acceso' | null;
   candidatas: string[];
+  yaPublicada: boolean;
+}
+
+interface PostVista {
+  id: string;
+  etiqueta: string;
+  tipo: 'tarea' | 'anuncio';
+  enlace: string | null;
+  programadoPara: string | null;
+  createdAt: string;
+  retiradoAt: string | null;
+  retirable: boolean;
 }
 
 interface ResultadoClassroom {
   publicadas: number;
   resultados: { etiqueta: string; clase: string | null; ok: boolean; error: string | null; aviso: string | null; enlace: string | null }[];
-  sinClase: { etiqueta: string; motivo: 'sin-clase' | 'ambigua' | null }[];
+  sinClase: { etiqueta: string; motivo: string | null }[];
+  posts: PostVista[];
 }
 
 const fmtFecha = (iso: string) =>
@@ -140,9 +156,15 @@ export function EnviarPanel({
   const [emp, setEmp] = useState<{ buzon: string; emparejamientos: EmparejamientoVista[] } | null>(null);
   const [empError, setEmpError] = useState<string | null>(null);
   const [ultimoCr, setUltimoCr] = useState<ResultadoClassroom | null>(null);
+  const [posts, setPosts] = useState<PostVista[]>([]);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [enlaceManual, setEnlaceManual] = useState('');
+  const [confirmRetirar, setConfirmRetirar] = useState<string | null>(null);
+  const [busyCr, setBusyCr] = useState(false);
   const usaCorreo = canal !== 'classroom';
   const usaCr = audiencia === 'alumnos' && canal !== 'correo';
-  const clasesConDestino = emp?.emparejamientos.filter((m) => m.destino).length ?? 0;
+  // Las que ya tienen una publicación activa se saltan al publicar (no se duplica).
+  const clasesConDestino = emp?.emparejamientos.filter((m) => m.destino && !m.yaPublicada).length ?? 0;
 
   // "Ahora" como estado (y no Date.now() en el render): se refresca cada medio minuto para
   // que los límites del selector y la validación no se queden viejos con la pestaña abierta.
@@ -253,13 +275,75 @@ export function EnviarPanel({
       .then((d) => {
         if (!vivo) return;
         setEmpError(d.error ?? null);
-        if (!d.error) setEmp(d);
+        if (!d.error) {
+          setEmp(d);
+          setPosts(d.posts ?? []);
+        }
       })
       .catch(() => vivo && setEmpError('No se pudo consultar Classroom'));
     return () => {
       vivo = false;
     };
   }, [formId, usaCr]);
+
+  // Fijar a mano (o quitar lo fijado) la tutoría de una clase, y retirar lo publicado.
+  async function llamarClassroom(cuerpo: Record<string, unknown>) {
+    setBusyCr(true);
+    try {
+      const res = await fetch('/api/evaluaciones/admin/classroom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formId, ...cuerpo }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? 'No se pudo');
+      return d;
+    } catch (e) {
+      haptic.warning();
+      toast.error(e instanceof Error ? e.message : 'Error inesperado');
+      return null;
+    } finally {
+      setBusyCr(false);
+    }
+  }
+
+  async function gestionarDestino(c: { accion: 'fijar' | 'olvidar'; curso: string; letra: string | null; enlace?: string }) {
+    const d = await llamarClassroom(c);
+    if (!d) return;
+    setEmp(d);
+    setPosts(d.posts ?? []);
+    setEditando(null);
+    setEnlaceManual('');
+    haptic.success();
+    toast.success(c.accion === 'fijar' ? 'Tutoría fijada para todo el curso' : 'Quitada: se vuelve a buscar por el nombre');
+  }
+
+  async function retirar(ids: string[] | null) {
+    const d = await llamarClassroom({ accion: 'retirar', ids });
+    setConfirmRetirar(null);
+    if (!d) return;
+    setPosts(d.posts ?? []);
+    const mal = (d.resultados as { ok: boolean }[]).filter((r) => !r.ok).length;
+    // Lo retirado deja de contar como «ya publicada»: se refresca el emparejamiento.
+    setEmp((prev) =>
+      prev
+        ? {
+            ...prev,
+            emparejamientos: prev.emparejamientos.map((m) => ({
+              ...m,
+              yaPublicada: !!m.destino && (d.posts as PostVista[]).some((p) => !p.retiradoAt && p.etiqueta === m.etiqueta),
+            })),
+          }
+        : prev,
+    );
+    if (mal > 0) {
+      haptic.warning();
+      toast.error(`${mal} no se pudo retirar: ${(d.resultados as { ok: boolean; mensaje: string }[]).find((r) => !r.ok)?.mensaje}`);
+    } else {
+      haptic.success();
+      toast.success('Retirado de Classroom');
+    }
+  }
 
   async function publicarEnClassroom(): Promise<ResultadoClassroom> {
     const res = await fetch('/api/evaluaciones/admin/classroom', {
@@ -278,6 +362,19 @@ export function EnviarPanel({
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error ?? 'No se pudo publicar en Classroom');
+    setPosts(d.posts ?? []);
+    // Lo recién publicado cuenta ya como «ya publicada».
+    setEmp((prev) =>
+      prev
+        ? {
+            ...prev,
+            emparejamientos: prev.emparejamientos.map((m) => ({
+              ...m,
+              yaPublicada: m.yaPublicada || (d.resultados as { etiqueta: string; ok: boolean }[]).some((r) => r.ok && r.etiqueta === m.etiqueta),
+            })),
+          }
+        : prev,
+    );
     return d as ResultadoClassroom;
   }
 
@@ -602,76 +699,197 @@ export function EnviarPanel({
             </div>
           )}
 
-          <div className="mt-4 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              Dónde se publica{emp ? ` · como ${emp.buzon}` : ''}
-            </p>
-            {empError ? (
-              <p className="flex items-start gap-2 text-xs text-rose-700 dark:text-rose-300">
-                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {empError}
-              </p>
-            ) : emp === null ? (
-              <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {emp.emparejamientos.map((m) => (
-                  <li key={m.etiqueta} className="flex items-start gap-2">
-                    {m.destino ? (
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                    ) : (
-                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                    )}
-                    <span className="text-zinc-700 dark:text-zinc-200">
-                      <strong>{m.etiqueta}</strong>{' '}
-                      {m.destino ? (
-                        <span className="text-zinc-500">→ {m.destino.nombre}</span>
-                      ) : m.motivo === 'ambigua' ? (
-                        <span className="text-amber-700 dark:text-amber-300">
-                          varias candidatas, no se publica: {m.candidatas.join(' · ')}. Deja solo una activa o llama «Tutoría» a la buena.
-                        </span>
-                      ) : (
-                        <span className="text-amber-700 dark:text-amber-300">
-                          {emp.buzon} no es profe de su tutoría (o no se llama como la clase): no se publica.
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {/* Zona discreta: ¿se ha encontrado la tutoría de cada clase? Plegada de serie; si falta
+              alguna, el resumen se vuelve ámbar y dentro se pega el enlace de la clase a mano. */}
+          <details className="group mt-4">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-zinc-500 [&::-webkit-details-marker]:hidden">
+              <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+              {empError ? (
+                <span className="text-rose-700 dark:text-rose-300">No se pudo consultar Classroom</span>
+              ) : emp === null ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Buscando las tutorías…
+                </span>
+              ) : emp.emparejamientos.every((m) => m.destino) ? (
+                <span>
+                  Tutorías encontradas: {emp.emparejamientos.length} de {emp.emparejamientos.length}
+                </span>
+              ) : (
+                <span className="text-amber-700 dark:text-amber-300">
+                  Tutorías encontradas: {emp.emparejamientos.filter((m) => m.destino).length} de {emp.emparejamientos.length} · faltan{' '}
+                  {emp.emparejamientos.filter((m) => !m.destino).length}
+                </span>
+              )}
+            </summary>
+            <div className="mt-2 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
+              {empError ? (
+                <p className="flex items-start gap-2 text-xs text-rose-700 dark:text-rose-300">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {empError}
+                </p>
+              ) : emp === null ? null : (
+                <>
+                  <p className="mb-1.5 text-[11px] text-zinc-400">
+                    Se publica como {emp.buzon}, solo en las clases donde es profe. Si una no sale, pega aquí el enlace de su tutoría (se
+                    recuerda para todo el curso).
+                  </p>
+                  <ul className="space-y-1.5 text-sm">
+                    {emp.emparejamientos.map((m) => (
+                      <li key={m.etiqueta}>
+                        <div className="flex items-start gap-2">
+                          {m.destino ? (
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                          ) : (
+                            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                          )}
+                          <span className="min-w-0 flex-1 text-zinc-700 dark:text-zinc-200">
+                            <strong>{m.etiqueta}</strong>{' '}
+                            {m.destino ? (
+                              <span className="text-zinc-500">
+                                → {m.destino.nombre}
+                                {m.origen === 'manual' && ' (a mano)'}
+                                {m.yaPublicada && ' · ya publicada'}
+                              </span>
+                            ) : m.motivo === 'ambigua' ? (
+                              <span className="text-amber-700 dark:text-amber-300">varias candidatas: {m.candidatas.join(' · ')}</span>
+                            ) : m.motivo === 'fijada-sin-acceso' ? (
+                              <span className="text-amber-700 dark:text-amber-300">
+                                la que se pegó ya no está entre las activas de {emp.buzon}
+                              </span>
+                            ) : (
+                              <span className="text-amber-700 dark:text-amber-300">no la encuentro entre las de {emp.buzon}</span>
+                            )}
+                          </span>
+                          {(m.destino ? m.origen === 'manual' : true) && (
+                            <button
+                              type="button"
+                              disabled={busyCr}
+                              onClick={() => {
+                                if (m.destino && m.origen === 'manual') void gestionarDestino({ accion: 'olvidar', curso: m.curso, letra: m.letra });
+                                else {
+                                  setEditando(editando === m.etiqueta ? null : m.etiqueta);
+                                  setEnlaceManual('');
+                                }
+                              }}
+                              className="shrink-0 text-xs text-zinc-500 underline disabled:opacity-50"
+                            >
+                              {m.destino && m.origen === 'manual' ? 'quitar' : 'pegar enlace'}
+                            </button>
+                          )}
+                        </div>
+                        {editando === m.etiqueta && (
+                          <form
+                            className="mt-1.5 flex gap-2 pl-6"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              void gestionarDestino({ accion: 'fijar', curso: m.curso, letra: m.letra, enlace: enlaceManual });
+                            }}
+                          >
+                            <input
+                              value={enlaceManual}
+                              onChange={(e) => setEnlaceManual(e.target.value)}
+                              placeholder="https://classroom.google.com/c/…"
+                              className={`${inputCls} !py-1.5 text-xs`}
+                              autoFocus
+                            />
+                            <button
+                              type="submit"
+                              disabled={busyCr || !enlaceManual.trim()}
+                              className="shrink-0 rounded-lg bg-zinc-800 px-3 text-xs font-medium text-white disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900"
+                            >
+                              Fijar
+                            </button>
+                          </form>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </details>
 
-          {ultimoCr && (
-            <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs dark:bg-emerald-500/10">
-              <p className="mb-1 font-semibold text-emerald-800 dark:text-emerald-300">Último envío a Classroom</p>
+          {ultimoCr && (ultimoCr.resultados.some((r) => !r.ok || r.aviso) || ultimoCr.sinClase.length > 0) && (
+            <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs dark:bg-amber-500/10">
+              <p className="mb-1 font-semibold text-amber-800 dark:text-amber-300">Lo que no salió del todo en Classroom</p>
               <ul className="space-y-0.5 text-zinc-700 dark:text-zinc-200">
-                {ultimoCr.resultados.map((r) => (
-                  <li key={r.etiqueta}>
-                    {r.ok ? '✅' : '⚠️'} <strong>{r.etiqueta}</strong>
-                    {r.ok ? (
-                      r.enlace && (
-                        <>
-                          {' '}
-                          <a href={r.enlace} target="_blank" rel="noreferrer" className="underline">
-                            abrir
-                          </a>
-                        </>
-                      )
-                    ) : (
-                      <span className="text-rose-700 dark:text-rose-300"> {r.error}</span>
-                    )}
-                    {r.ok && r.aviso && <span className="text-amber-700 dark:text-amber-300"> · {r.aviso}</span>}
-                  </li>
-                ))}
+                {ultimoCr.resultados
+                  .filter((r) => !r.ok || r.aviso)
+                  .map((r) => (
+                    <li key={r.etiqueta}>
+                      ⚠️ <strong>{r.etiqueta}</strong> {r.ok ? r.aviso : r.error}
+                    </li>
+                  ))}
                 {ultimoCr.sinClase.map((s) => (
                   <li key={s.etiqueta}>
-                    ⚠️ <strong>{s.etiqueta}</strong> sin tutoría clara: no se publicó
+                    ⚠️ <strong>{s.etiqueta}</strong> sin tutoría encontrada: no se publicó
                   </li>
                 ))}
               </ul>
-              <p className="mt-1.5 text-zinc-500">
-                Lo publicado en Classroom no se puede retirar desde aquí: se borra desde la propia clase.
-              </p>
+            </div>
+          )}
+
+          {posts.length > 0 && (
+            <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+              <div className="mb-1.5 flex items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Publicado en Classroom</p>
+                {posts.some((p) => p.retirable) &&
+                  (confirmRetirar === 'todas' ? (
+                    <span className="ml-auto flex items-center gap-2 text-xs">
+                      <span className="text-zinc-600 dark:text-zinc-300">¿Retirar todas?</span>
+                      <button type="button" disabled={busyCr} onClick={() => void retirar(null)} className="font-semibold text-rose-700 underline dark:text-rose-300">
+                        Sí
+                      </button>
+                      <button type="button" onClick={() => setConfirmRetirar(null)} className="text-zinc-500 underline">
+                        No
+                      </button>
+                    </span>
+                  ) : (
+                    <button type="button" onClick={() => setConfirmRetirar('todas')} className="ml-auto text-xs text-zinc-500 underline">
+                      Retirar todas
+                    </button>
+                  ))}
+              </div>
+              <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {posts.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5 text-xs">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        p.retiradoAt
+                          ? 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
+                          : p.programadoPara && new Date(p.programadoPara).getTime() > ahora
+                            ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300'
+                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                      }`}
+                    >
+                      {p.retiradoAt ? 'retirada' : p.programadoPara && new Date(p.programadoPara).getTime() > ahora ? 'programada' : 'publicada'}
+                    </span>
+                    <strong className="text-zinc-800 dark:text-zinc-200">{p.etiqueta}</strong>
+                    <span className="text-zinc-500">
+                      {p.tipo} · {fmtFecha(p.programadoPara ?? p.createdAt)}
+                    </span>
+                    {p.enlace && !p.retiradoAt && (
+                      <a href={p.enlace} target="_blank" rel="noreferrer" className="text-zinc-500 underline">
+                        abrir
+                      </a>
+                    )}
+                    {p.retirable &&
+                      (confirmRetirar === p.id ? (
+                        <span className="ml-auto flex items-center gap-2">
+                          <button type="button" disabled={busyCr} onClick={() => void retirar([p.id])} className="font-semibold text-rose-700 underline dark:text-rose-300">
+                            Sí, retirar
+                          </button>
+                          <button type="button" onClick={() => setConfirmRetirar(null)} className="text-zinc-500 underline">
+                            No
+                          </button>
+                        </span>
+                      ) : (
+                        <button type="button" onClick={() => setConfirmRetirar(p.id)} className="ml-auto text-zinc-500 underline">
+                          Retirar
+                        </button>
+                      ))}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

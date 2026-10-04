@@ -230,18 +230,15 @@ surgieron y **no** se implementaron, por si interesan:
 Idea de David (24-sep-2026), decidida y montada el 4-oct-2026. Cómo quedó está en
 [`16-evaluaciones.md`](./16-evaluaciones.md#classroom-4-oct-2026). Lo que decidí yo por el camino
 y conviene que David confirme:
-- **No se guarda historial de lo publicado en Classroom** (a diferencia de `eval_envios` para el
-  correo): evitaba otra tabla en Neon. Consecuencia: nada impide publicar dos veces si se pulsa
-  dos veces, y **no se puede retirar desde aquí** (se borra desde la propia clase). Si molesta,
-  una tabla `eval_classroom_posts` (form, curso de Classroom, id de la publicación) resolvería
-  ambas cosas — y Classroom solo deja modificar/borrar lo que creó el mismo proyecto de Cloud,
-  que aquí es el mismo, así que borrar desde la app sería posible.
+- ~~No se guarda historial de lo publicado~~ ✅ resuelto el mismo día (David dijo que sí a la
+  tabla): `eval_classroom_posts`, con «Retirar» desde la app y sin duplicados.
 - **Programar en Classroom** usa `state: DRAFT` + `scheduledTime`, como dice la documentación de
   la API, pero **no está probado en vivo**. Probar con una clase de prueba antes de fiarse.
 - **Tareas sin nota**, con «marcar como hecha» (no entregan nada): valen para perseguir, no
   prueban que se haya respondido.
 - Si una clase tiene varias candidatas a tutoría sin desempate, **no se publica** y se avisa en
-  pantalla (preferimos no publicar a publicar en la clase equivocada).
+  pantalla (preferimos no publicar a publicar en la clase equivocada); David puede pegar el enlace de la
+  clase a mano y se recuerda todo el curso (`eval_classroom_destinos`).
 - Un anuncio no puede llevar tema (la API no lo permite): el tema «Evaluamos 🔍 Tu opinión cuenta»
   es solo de las tareas.
 

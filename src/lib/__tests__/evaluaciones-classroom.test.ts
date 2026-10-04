@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  claveClase,
   compactar,
+  courseIdDeEnlace,
   emparejarClases,
   fechaLimiteUtc,
   nombreDiceClase,
@@ -72,6 +74,47 @@ describe('emparejarClases', () => {
     expect(a[0].destino).toBeNull();
     expect(a[0].motivo).toBe('ambigua');
     expect(a[0].candidatas).toHaveLength(2);
+  });
+});
+
+describe('emparejarClases · fijadas a mano', () => {
+  const clase = { curso: '2ESO', letra: 'A' };
+  const lista = [c('10', 'Algo raro de la tutora'), c('11', 'Tutoría 2ESOA')];
+  it('lo fijado manda sobre el nombre', () => {
+    const r = emparejarClases([clase], lista, '2026-27', new Map([[claveClase(clase), '10']]));
+    expect(r[0].destino?.id).toBe('10');
+    expect(r[0].origen).toBe('manual');
+  });
+  it('si lo fijado ya no está entre las de la cuenta, lo dice y no deduce otra', () => {
+    const r = emparejarClases([clase], lista, '2026-27', new Map([[claveClase(clase), '99']]));
+    expect(r[0].destino).toBeNull();
+    expect(r[0].motivo).toBe('fijada-sin-acceso');
+  });
+  it('sin fijar, deduce por el nombre', () => {
+    const r = emparejarClases([clase], lista, '2026-27');
+    expect(r[0].destino?.id).toBe('11');
+    expect(r[0].origen).toBe('auto');
+  });
+  it('la clave distingue letra y sin letra', () => {
+    expect(claveClase({ curso: '1ESO', letra: null })).not.toBe(claveClase({ curso: '1ESO', letra: 'A' }));
+  });
+});
+
+describe('courseIdDeEnlace', () => {
+  const id = '741234567890';
+  const b64 = Buffer.from(id).toString('base64').replace(/=+$/, '');
+  it('saca el id del enlace de la clase', () => {
+    expect(courseIdDeEnlace(`https://classroom.google.com/c/${b64}`)).toBe(id);
+    expect(courseIdDeEnlace(`https://classroom.google.com/u/1/c/${b64}?cjc=abc123`)).toBe(id);
+    expect(courseIdDeEnlace(`  https://classroom.google.com/c/${b64}  `)).toBe(id);
+  });
+  it('vale también el id numérico', () => {
+    expect(courseIdDeEnlace(id)).toBe(id);
+  });
+  it('lo que no es de una clase, null', () => {
+    expect(courseIdDeEnlace('https://example.com/c/abc')).toBeNull();
+    expect(courseIdDeEnlace('hola')).toBeNull();
+    expect(courseIdDeEnlace('')).toBeNull();
   });
 });
 

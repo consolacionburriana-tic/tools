@@ -509,6 +509,36 @@ export async function publicarEnClase(profe: string, courseId: string, p: Public
   }
 }
 
+export type ResultadoRetirar = { ok: true; yaNoExistia: boolean } | { ok: false; error: string };
+
+/**
+ * Borra de Classroom una tarea o un anuncio publicados por la app, suplantando a `profe`. Un
+ * 404 se cuenta como hecho (ya la habían borrado a mano); un 403 casi siempre es que lo creó
+ * otra cuenta u otro proyecto, y Classroom solo deja borrar lo propio.
+ */
+export async function retirarPublicacion(
+  profe: string,
+  courseId: string,
+  tipo: 'tarea' | 'anuncio',
+  postId: string,
+): Promise<ResultadoRetirar> {
+  try {
+    if (tipo === 'tarea') {
+      await conReintentos(() => classroom(profe, SCOPE_CLASSROOM_TAREAS).courses.courseWork.delete({ courseId, id: postId }));
+    } else {
+      await conReintentos(() => classroom(profe, SCOPE_CLASSROOM_ANUNCIOS).courses.announcements.delete({ courseId, id: postId }));
+    }
+    return { ok: true, yaNoExistia: false };
+  } catch (e) {
+    if (statusDe(e) === 404) return { ok: true, yaNoExistia: true };
+    const delegacion = /unauthorized_client|accessNotConfigured|has not been used in project|is disabled|invalid_grant/i.test(mensajeDe(e));
+    if (!delegacion && statusDe(e) === 403) {
+      return { ok: false, error: 'Classroom no deja borrarla desde aquí (la creó otra cuenta o no es de esta app): se quita desde la propia clase' };
+    }
+    return { ok: false, error: explicarError(e) };
+  }
+}
+
 // ── Calendar ───────────────────────────────────────────────────────────────────
 
 export interface EntradaLista {
