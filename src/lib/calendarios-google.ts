@@ -26,6 +26,10 @@ export const SCOPE_CLASSROOM = 'https://www.googleapis.com/auth/classroom.course
 export const SCOPE_CLASSROOM_GESTION = 'https://www.googleapis.com/auth/classroom.courses';
 export const SCOPE_CLASSROOM_ROSTERS = 'https://www.googleapis.com/auth/classroom.rosters';
 export const SCOPE_CALENDAR = 'https://www.googleapis.com/auth/calendar';
+// Evaluaciones → Classroom: publicar como la cuenta que es profe de la tutoría (ver `publicarEnClase`).
+export const SCOPE_CLASSROOM_TAREAS = 'https://www.googleapis.com/auth/classroom.coursework.students';
+export const SCOPE_CLASSROOM_ANUNCIOS = 'https://www.googleapis.com/auth/classroom.announcements';
+export const SCOPE_CLASSROOM_TEMAS = 'https://www.googleapis.com/auth/classroom.topics';
 
 function credenciales(): { clientEmail: string; privateKey: string } | null {
   const clientEmail = process.env.GOOGLE_SA_CLIENT_EMAIL ?? process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
@@ -115,7 +119,15 @@ export function explicarError(e: unknown): string {
 // ── Diagnóstico ────────────────────────────────────────────────────────────────
 
 export interface ComprobacionPermiso {
-  clave: 'directory' | 'classroom' | 'classroom-gestion' | 'classroom-rosters' | 'calendar';
+  clave:
+    | 'directory'
+    | 'classroom'
+    | 'classroom-gestion'
+    | 'classroom-rosters'
+    | 'classroom-tareas'
+    | 'classroom-anuncios'
+    | 'classroom-temas'
+    | 'calendar';
   nombre: string;
   scope: string;
   api: string;
@@ -168,6 +180,36 @@ export async function comprobarPermisos(admin: string): Promise<ComprobacionPerm
       async () => {
         await jwt(SCOPE_CLASSROOM_ROSTERS, admin).authorize();
         return 'Se puede matricular profesorado';
+      },
+    ],
+    [
+      'classroom-tareas',
+      'Classroom · publicar tareas (Evaluaciones)',
+      SCOPE_CLASSROOM_TAREAS,
+      'Google Classroom API',
+      async () => {
+        await jwt(SCOPE_CLASSROOM_TAREAS, admin).authorize();
+        return 'Se pueden publicar tareas en las tutorías';
+      },
+    ],
+    [
+      'classroom-anuncios',
+      'Classroom · publicar anuncios (Evaluaciones)',
+      SCOPE_CLASSROOM_ANUNCIOS,
+      'Google Classroom API',
+      async () => {
+        await jwt(SCOPE_CLASSROOM_ANUNCIOS, admin).authorize();
+        return 'Se pueden publicar anuncios en las tutorías';
+      },
+    ],
+    [
+      'classroom-temas',
+      'Classroom · temas de las tareas (Evaluaciones)',
+      SCOPE_CLASSROOM_TEMAS,
+      'Google Classroom API',
+      async () => {
+        await jwt(SCOPE_CLASSROOM_TEMAS, admin).authorize();
+        return 'Se crea el tema «Evaluamos» en cada tutoría';
       },
     ],
     [
@@ -325,6 +367,144 @@ export async function anadirProfe(admin: string, courseId: string, email: string
     return { ok: true, yaEstaba: false };
   } catch (e) {
     if (statusDe(e) === 409) return { ok: true, yaEstaba: true };
+    return { ok: false, error: explicarError(e) };
+  }
+}
+
+// ── Publicar en Classroom (Evaluaciones) ───────────────────────────────────────
+
+/**
+ * Las clases ACTIVAS de las que `profe` es profe, suplantándolo a él. Una cuenta solo puede
+ * publicar en las clases donde es profe, así que esta lista ES el universo de tutorías
+ * donde se puede publicar: quien las da de alta es quien decide dónde sale la evaluación.
+ */
+export async function clasesDondeEsProfe(profe: string): Promise<ClaseClassroom[]> {
+  const c = classroom(profe);
+  const out: ClaseClassroom[] = [];
+  let token: string | undefined;
+  do {
+    const { data } = await conReintentos(() =>
+      c.courses.list({
+        teacherId: 'me',
+        courseStates: ['ACTIVE'],
+        pageSize: 200,
+        pageToken: token,
+        fields: 'nextPageToken,courses(id,name,section,courseState,creationTime,updateTime,ownerId,calendarId,alternateLink)',
+      }),
+    );
+    for (const x of data.courses ?? []) {
+      if (!x.id) continue;
+      out.push({
+        id: x.id,
+        nombre: x.name ?? null,
+        seccion: x.section ?? null,
+        estado: x.courseState ?? null,
+        creadaAt: x.creationTime ? new Date(x.creationTime) : null,
+        actualizadaAt: x.updateTime ? new Date(x.updateTime) : null,
+        ownerId: x.ownerId ?? null,
+        calendarId: x.calendarId ?? null,
+        enlace: x.alternateLink ?? null,
+      });
+    }
+    token = data.nextPageToken ?? undefined;
+  } while (token);
+  return out;
+}
+
+export interface PublicacionClassroom {
+  tipo: 'tarea' | 'anuncio';
+  titulo: string;
+  texto: string;
+  /** El enlace va como material adjunto (sale como tarjeta clicable en Classroom). */
+  enlace: string;
+  /** Solo tarea: fecha límite en UTC. */
+  limite?: { dueDate: { year: number; month: number; day: number }; dueTime: { hours: number; minutes: number } } | null;
+  /** Si va en el futuro, Classroom la guarda como borrador programado y la publica él. */
+  programadoPara?: Date | null;
+  /** Solo tarea: nombre del tema donde colgarla (los anuncios no tienen temas). */
+  tema?: string | null;
+}
+
+export type ResultadoPublicar =
+  | { ok: true; id: string | null; enlace: string | null; /** Qué ha fallado sin impedir publicar (p. ej. el tema). */ aviso?: string }
+  | { ok: false; error: string };
+
+/**
+ * El id del tema `nombre` en la clase (se crea si no existe), suplantando a `profe`. El tema es
+ * orden, no contenido: si falla (falta el scope `classroom.topics`, por ejemplo) devuelve el
+ * motivo y la tarea se publica igualmente, sin tema.
+ */
+async function temaDeClase(profe: string, courseId: string, nombre: string): Promise<{ id: string } | { error: string }> {
+  try {
+    const c = classroom(profe, SCOPE_CLASSROOM_TEMAS);
+    let token: string | undefined;
+    do {
+      const { data } = await conReintentos(() =>
+        c.courses.topics.list({ courseId, pageSize: 100, pageToken: token, fields: 'nextPageToken,topic(topicId,name)' }),
+      );
+      const hay = (data.topic ?? []).find((t) => t.name === nombre && t.topicId);
+      if (hay?.topicId) return { id: hay.topicId };
+      token = data.nextPageToken ?? undefined;
+    } while (token);
+    const { data } = await conReintentos(() => c.courses.topics.create({ courseId, requestBody: { name: nombre } }));
+    return data.topicId ? { id: data.topicId } : { error: 'Classroom no devolvió el tema creado' };
+  } catch (e) {
+    return { error: explicarError(e) };
+  }
+}
+
+/**
+ * Publica la evaluación en una clase suplantando a `profe`, que tiene que ser profe de ella. Una
+ * TAREA sin nota ni entrega: el alumno ve «Marcar como hecha» y el profe, quién la ha marcado.
+ * Un ANUNCIO es un aviso en el tablón, sin fecha ni seguimiento.
+ *
+ * Ojo: Classroom solo deja modificar o borrar lo creado por el mismo proyecto de Google Cloud
+ * (el de la cuenta de servicio), y de eso no hay nada que hacer desde aquí; lo que se publique
+ * se retira a mano desde Classroom.
+ */
+export async function publicarEnClase(profe: string, courseId: string, p: PublicacionClassroom): Promise<ResultadoPublicar> {
+  const programada = p.programadoPara && p.programadoPara.getTime() > Date.now() + 60_000 ? p.programadoPara : null;
+  const estado = programada ? { state: 'DRAFT', scheduledTime: programada.toISOString() } : { state: 'PUBLISHED' };
+  const materials = [{ link: { url: p.enlace, title: p.titulo.slice(0, 200) } }];
+  try {
+    if (p.tipo === 'tarea') {
+      let topicId: string | undefined;
+      let aviso: string | undefined;
+      if (p.tema) {
+        const t = await temaDeClase(profe, courseId, p.tema);
+        if ('id' in t) topicId = t.id;
+        else aviso = `Publicada sin tema «${p.tema}»: ${t.error}`;
+      }
+      const { data } = await conReintentos(() =>
+        classroom(profe, SCOPE_CLASSROOM_TAREAS).courses.courseWork.create({
+          courseId,
+          requestBody: {
+            title: p.titulo.slice(0, 3000),
+            description: p.texto,
+            workType: 'ASSIGNMENT',
+            materials,
+            topicId,
+            ...(p.limite ?? {}),
+            ...estado,
+          },
+        }),
+      );
+      return { ok: true, id: data.id ?? null, enlace: data.alternateLink ?? null, aviso };
+    }
+    const { data } = await conReintentos(() =>
+      classroom(profe, SCOPE_CLASSROOM_ANUNCIOS).courses.announcements.create({
+        courseId,
+        requestBody: { text: `${p.titulo}\n\n${p.texto}`.slice(0, 30000), materials, ...estado },
+      }),
+    );
+    return { ok: true, id: data.id ?? null, enlace: data.alternateLink ?? null };
+  } catch (e) {
+    // Los fallos de delegación (scope sin dar, API apagada…) ya los traduce `explicarError`; un
+    // 403/404 que llega de verdad a Classroom es casi siempre «esta cuenta no es profe de esa clase».
+    const delegacion = /unauthorized_client|accessNotConfigured|has not been used in project|is disabled|invalid_grant/i.test(mensajeDe(e));
+    if (!delegacion && (statusDe(e) === 403 || statusDe(e) === 404)) {
+      return { ok: false, error: `${profe} no es profe de esta clase (o la clase ya no está activa)` };
+    }
     return { ok: false, error: explicarError(e) };
   }
 }

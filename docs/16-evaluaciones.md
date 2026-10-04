@@ -269,6 +269,44 @@ Dos niveles de color, deliberadamente independientes:
 - En alumnado se puede enviar **solo a quien todavía no ha respondido**; en profesorado no
   (ver anonimato).
 
+### Classroom (4-oct-2026)
+Además del correo, la evaluación del **alumnado** se puede publicar en la tutoría de cada clase.
+En «Enviar», selector **Correo · Classroom · Los dos** (solo en formularios de alumnado).
+- **Quién publica**: una cuenta del colegio suplantada con la delegación de dominio —**`tic@`**
+  (decisión de David, 4-oct-2026), o la de `EVALUACIONES_CLASSROOM_BUZON`—. Tiene que ser un
+  usuario real y **profe de cada tutoría**: la API solo deja publicar a un profe de la clase.
+  **David da de alta a `tic@` en las tutorías** (botón «Añadir profe» de «Classrooms y
+  calendarios»). La lista de clases de las que `tic@` es profe es a la vez el catálogo de
+  destinos: no se publica en ninguna otra.
+- **Qué clase de Classroom es la tutoría de «1ESO B»**: se deduce del nombre (`1ESOB (2026/2027)`,
+  `Tutoría 1º ESO B`…), solo entre las ACTIVAS de `tic@` y descartando las que dicen otro curso
+  escolar; si quedan varias gana la que dice «tutoría»; si aun así hay varias, **no se publica**
+  y se avisa. Pantalla: cada clase con su destino (✅) o el motivo (⚠️) antes de enviar. Helpers
+  puros y tests en `src/lib/evaluaciones-classroom.ts`.
+- **Formato** (David): tema **«Evaluamos 🔍 Tu opinión cuenta»** (se busca por nombre en cada
+  clase y se crea si falta; solo las tareas admiten tema), título **«Evalúa 🔎 {titulo}»** (el
+  título del formulario sin el « · Alumnado» de las conjuntas), texto «Ayúdanos a mejorar
+  evaluando la tutoría que hemos hecho 🤗» y el **enlace como adjunto** clicable. Los tres se
+  editan en pantalla.
+- **Tarea o anuncio**: **tarea por defecto**, con fecha límite (por defecto a 7 días, 23:59) y
+  sin nota: el alumnado ve «Marcar como hecha» y el profe, quién la ha marcado, que es lo más
+  parecido a «quién falta» que hay en Classroom. El anuncio es solo un aviso en el tablón.
+- **Enlace general, no personalizado**: el material de Classroom es el mismo para toda la clase,
+  así que no hay `?a=…`. El formulario pide la clase al empezar (`pedir_clase`, activo por
+  defecto en alumnado) y no se sabe quién falta. En «Los dos», el correo mantiene su enlace
+  personal y Classroom va con el general.
+- **Programar** vale para los dos canales: el correo lo programa Resend y Classroom lo guarda
+  como borrador con `scheduledTime`. En «Los dos» sale primero el correo; si Classroom falla, se
+  avisa y no se puede repetir el correo por error.
+- **Permisos** nuevos en la delegación de dominio de la cuenta de servicio (ver
+  [`25-calendarios.md`](./25-calendarios.md)): `classroom.coursework.students`,
+  `classroom.announcements` y `classroom.topics`. «Comprobar permisos» en Classrooms los lista.
+  Sin `classroom.topics` la tarea se publica igualmente, sin tema, y lo dice.
+- **Sin historial ni cancelación desde la app** (ver `00-desarrollos-futuros.md`): lo publicado se
+  retira desde la propia clase.
+- Código: `POST /api/evaluaciones/admin/classroom` (`preview` y `publicar`),
+  `clasesDondeEsProfe` / `publicarEnClase` en `src/lib/calendarios-google.ts`.
+
 ## Plan técnico
 
 ### Schema (`eval_*`, en `src/db/schema.ts`)
@@ -396,6 +434,10 @@ queda a medias entre dos peticiones.
 - [x] Profesorado: enlace común y filtro por etapa
 - [~] Familias: el modelo y el envío a los correos de tutores están listos; falta pulir el
       flujo con magic link propio (`fam_access_tokens`) cuando se estrene de verdad
+- [~] Publicar en Classroom (tarea o anuncio, en el tema «Evaluamos 🔍 Tu opinión cuenta») desde
+      «Enviar», solo alumnado — escrito, con tests del emparejamiento y verificado con
+      typecheck/lint/build; **falta estrenarlo**: `tic@` como profe de las tutorías, los tres
+      scopes en la delegación y probarlo con una clase de prueba (incluido programar).
 
 ### Fase 4 · Dashboard de resultados
 - [x] KPIs, medias por pregunta y por fila, distribución, respuestas de texto agrupadas

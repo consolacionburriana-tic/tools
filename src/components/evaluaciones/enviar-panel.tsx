@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BookmarkPlus, CalendarClock, Link2, Loader2, Send, Trash2, TriangleAlert, Users, X } from 'lucide-react';
+import { BookmarkPlus, CalendarClock, CheckCircle2, GraduationCap, Link2, Loader2, Send, Trash2, TriangleAlert, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones';
 import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-plantillas';
+import { TEMA_CLASSROOM, TEXTO_CLASSROOM_POR_DEFECTO, type TipoPublicacion } from '@/lib/evaluaciones-classroom';
 import { Segmentado } from '@/components/evaluaciones/ui';
 import { COLEGIO } from '@/lib/colegio';
 import { ETAPA_LABEL, ETAPAS as ETAPAS_CENTRO } from '@/lib/cursos';
@@ -48,6 +49,21 @@ interface Envio {
   soloPendientes: boolean;
   createdByEmail: string | null;
   createdAt: string;
+}
+
+type Canal = 'correo' | 'classroom' | 'ambos';
+
+interface EmparejamientoVista {
+  etiqueta: string;
+  destino: { id: string; nombre: string | null } | null;
+  motivo: 'sin-clase' | 'ambigua' | null;
+  candidatas: string[];
+}
+
+interface ResultadoClassroom {
+  publicadas: number;
+  resultados: { etiqueta: string; clase: string | null; ok: boolean; error: string | null; aviso: string | null; enlace: string | null }[];
+  sinClase: { etiqueta: string; motivo: 'sin-clase' | 'ambigua' | null }[];
 }
 
 const fmtFecha = (iso: string) =>
@@ -110,6 +126,24 @@ export function EnviarPanel({
   const [envios, setEnvios] = useState<Envio[]>([]);
   const [cancelando, setCancelando] = useState<string | null>(null);
 
+  // Classroom (solo alumnado): la evaluación se publica en la tutoría de cada clase.
+  const [canal, setCanal] = useState<Canal>('correo');
+  const [tipoCr, setTipoCr] = useState<TipoPublicacion>('tarea');
+  const [tituloCr, setTituloCr] = useState<string>(TEXTO_CLASSROOM_POR_DEFECTO.titulo);
+  const [textoCr, setTextoCr] = useState<string>(TEXTO_CLASSROOM_POR_DEFECTO.cuerpo);
+  const [limite, setLimite] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    d.setHours(23, 59, 0, 0);
+    return aLocal(d);
+  });
+  const [emp, setEmp] = useState<{ buzon: string; emparejamientos: EmparejamientoVista[] } | null>(null);
+  const [empError, setEmpError] = useState<string | null>(null);
+  const [ultimoCr, setUltimoCr] = useState<ResultadoClassroom | null>(null);
+  const usaCorreo = canal !== 'classroom';
+  const usaCr = audiencia === 'alumnos' && canal !== 'correo';
+  const clasesConDestino = emp?.emparejamientos.filter((m) => m.destino).length ?? 0;
+
   // "Ahora" como estado (y no Date.now() en el render): se refresca cada medio minuto para
   // que los límites del selector y la validación no se queden viejos con la pestaña abierta.
   const [ahora, setAhora] = useState(() => Date.now());
@@ -124,8 +158,24 @@ export function EnviarPanel({
     cuandoFecha.getTime() > ahora + 60_000 &&
     cuandoFecha.getTime() < ahora + 29.5 * 864e5;
   // Enviar ya exige que esté abierta; programar vale también en borrador si se abre sola.
-  const puedeEnviar =
+  const puedeEnviarBase =
     modo === 'ahora' ? estado === 'abierto' : cuandoValido && estado !== 'cerrado' && (estado === 'abierto' || abrirSola);
+  const limiteFecha = limite ? new Date(limite) : null;
+  const limiteValido =
+    tipoCr !== 'tarea' ||
+    !limiteFecha ||
+    (!Number.isNaN(limiteFecha.getTime()) && limiteFecha.getTime() > (modo === 'programar' && cuandoFecha ? cuandoFecha.getTime() : ahora));
+  const destinosListos =
+    (!usaCorreo || (preview?.total ?? 0) > 0) &&
+    (!usaCr || (clasesConDestino > 0 && !!tituloCr.trim() && !!textoCr.trim() && limiteValido));
+  const puedeEnviar = puedeEnviarBase && destinosListos;
+  // «12 correo(s) y 3 clase(s) de Classroom»: lo que va a salir, para el botón y la confirmación.
+  const resumenEnvio = [
+    usaCorreo ? `${preview?.total ?? 0} correo(s)` : null,
+    usaCr ? `${clasesConDestino} clase(s) de Classroom` : null,
+  ]
+    .filter(Boolean)
+    .join(' y ');
 
   function cargarEnvios() {
     fetch('/api/evaluaciones/admin/enviar', {
@@ -189,36 +239,101 @@ export function EnviarPanel({
   const vars = preview?.ejemplo ?? { nombre: 'María', curso: '1ESO', titulo, enlace, curso_escolar: academicYear };
   const rellenar = (t: string) => (t ?? '').replace(/\{(\w+)\}/g, (m, k: string) => vars[k.toLowerCase()] ?? m);
 
+  // Carga a qué clase de Classroom iría cada clase del formulario (lee las clases de la cuenta
+  // publicadora, así que solo se pide cuando el canal lo usa).
+  useEffect(() => {
+    if (!usaCr) return;
+    let vivo = true;
+    fetch('/api/evaluaciones/admin/classroom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formId, accion: 'preview' }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!vivo) return;
+        setEmpError(d.error ?? null);
+        if (!d.error) setEmp(d);
+      })
+      .catch(() => vivo && setEmpError('No se pudo consultar Classroom'));
+    return () => {
+      vivo = false;
+    };
+  }, [formId, usaCr]);
+
+  async function publicarEnClassroom(): Promise<ResultadoClassroom> {
+    const res = await fetch('/api/evaluaciones/admin/classroom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        formId,
+        accion: 'publicar',
+        tipo: tipoCr,
+        titulo: tituloCr,
+        texto: textoCr,
+        limite: tipoCr === 'tarea' && limiteFecha ? limiteFecha.toISOString() : null,
+        programadoPara: modo === 'programar' && cuandoFecha ? cuandoFecha.toISOString() : null,
+        abrirSola,
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error ?? 'No se pudo publicar en Classroom');
+    return d as ResultadoClassroom;
+  }
+
   async function accion(tipo: 'test' | 'enviar' | 'programar') {
     setBusy(true);
     try {
-      const res = await fetch('/api/evaluaciones/admin/enviar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          formId,
-          accion: tipo,
-          subject,
-          body,
-          testEmail: testEmail.trim() || null,
-          soloPendientes,
-          etapas,
-          programadoPara: tipo === 'programar' && cuandoFecha ? cuandoFecha.toISOString() : null,
-          abrirSola,
-        }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? 'No se pudo enviar');
+      let mensajeCorreo: string | null = null;
+      if (tipo === 'test' || usaCorreo) {
+        const res = await fetch('/api/evaluaciones/admin/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            formId,
+            accion: tipo,
+            subject,
+            body,
+            testEmail: testEmail.trim() || null,
+            soloPendientes,
+            etapas,
+            programadoPara: tipo === 'programar' && cuandoFecha ? cuandoFecha.toISOString() : null,
+            abrirSola,
+          }),
+        });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error ?? 'No se pudo enviar');
+        mensajeCorreo =
+          tipo === 'test'
+            ? `Prueba enviada a ${d.destino}`
+            : tipo === 'programar'
+              ? `${d.enviados} correos programados para ${fmtFecha(d.programadoPara)}`
+              : `Enviados ${d.enviados} correos`;
+      }
+      // El correo va primero: si falla, no se ha publicado nada en Classroom; y un correo
+      // programado todavía se puede cancelar, una tarea ya publicada no desde aquí.
+      let mensajeCr: string | null = null;
+      if (tipo !== 'test' && usaCr) {
+        try {
+          const r = await publicarEnClassroom();
+          setUltimoCr(r);
+          const fallos = r.resultados.filter((x) => !x.ok).length + r.sinClase.length;
+          mensajeCr = `${r.publicadas} clase(s) en Classroom${fallos > 0 ? ` (${fallos} sin publicar, mira abajo)` : ''}`;
+          if (r.publicadas === 0) throw new Error('No se ha publicado en ninguna clase de Classroom: mira el detalle abajo');
+        } catch (e) {
+          // Si el correo ya salió, que no se pueda repetir con otro clic en «Sí, enviar».
+          if (mensajeCorreo) {
+            setConfirmando(false);
+            cargarEnvios();
+            throw new Error(`${mensajeCorreo}, pero Classroom ha fallado: ${e instanceof Error ? e.message : 'error inesperado'}`);
+          }
+          throw e;
+        }
+      }
       haptic.success();
-      toast.success(
-        tipo === 'test'
-          ? `Prueba enviada a ${d.destino}`
-          : tipo === 'programar'
-            ? `${d.enviados} correos programados para ${fmtFecha(d.programadoPara)}`
-            : `Enviados ${d.enviados} correos`,
-      );
+      toast.success([mensajeCorreo, mensajeCr].filter(Boolean).join(' · '));
       setConfirmando(false);
-      if (tipo !== 'test') cargarEnvios();
+      if (tipo !== 'test' && usaCorreo) cargarEnvios();
     } catch (e) {
       haptic.warning();
       toast.error(e instanceof Error ? e.message : 'Error inesperado');
@@ -276,14 +391,35 @@ export function EnviarPanel({
             </Link>
           </p>
         )}
+        {audiencia === 'alumnos' && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Por dónde</span>
+            <Segmentado
+              valor={canal}
+              onChange={(c) => {
+                setCanal(c);
+                setConfirmando(false);
+              }}
+              opciones={[
+                { valor: 'correo', label: 'Correo' },
+                { valor: 'classroom', label: 'Classroom' },
+                { valor: 'ambos', label: 'Los dos' },
+              ]}
+            />
+          </div>
+        )}
         <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500">
           <Link2 className="h-3.5 w-3.5" />
-          {personalizado
-            ? 'Cada alumno/a recibirá su propio enlace (queda registrado internamente de quién viene cada respuesta).'
-            : 'Todos reciben el mismo enlace, sin identificar a nadie.'}
+          {canal === 'classroom'
+            ? 'En Classroom sale el enlace general, el mismo para toda la clase: se pide la clase al empezar y no se sabe quién falta.'
+            : personalizado
+              ? `Cada alumno/a recibirá su propio enlace por correo (queda registrado internamente de quién viene cada respuesta)${canal === 'ambos' ? '. En Classroom va el enlace general' : ''}.`
+              : 'Todos reciben el mismo enlace, sin identificar a nadie.'}
         </p>
       </div>
 
+      {usaCorreo && (
+        <>
       <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -415,8 +551,134 @@ export function EnviarPanel({
           </div>
         </div>
       </div>
+        </>
+      )}
+
+      {usaCr && (
+        <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <div className="flex flex-wrap items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Classroom</p>
+            <span className="ml-auto">
+              <Segmentado
+                valor={tipoCr}
+                onChange={setTipoCr}
+                opciones={[
+                  { valor: 'tarea', label: 'Tarea', pista: 'Con fecha límite y «marcar como hecha»: el profe ve quién la ha marcado' },
+                  { valor: 'anuncio', label: 'Anuncio', pista: 'Un aviso en el tablón de la clase, sin fecha ni seguimiento' },
+                ]}
+              />
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">
+            {tipoCr === 'tarea'
+              ? `Sale en «Tareas» de cada alumno/a, dentro del tema «${TEMA_CLASSROOM}» (se crea solo si falta), con fecha límite y «marcar como hecha». Quien la marca no demuestra que haya respondido, pero ayuda a perseguir.`
+              : 'Sale en el tablón de la clase, sin fecha límite ni seguimiento. Más discreto, pero se pierde entre otros mensajes.'}
+          </p>
+
+          <label className="mb-1 mt-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Título</label>
+          <input value={tituloCr} onChange={(e) => setTituloCr(e.target.value)} className={inputCls} />
+          <label className="mb-1 mt-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Texto</label>
+          <textarea value={textoCr} onChange={(e) => setTextoCr(e.target.value)} rows={5} className={`${inputCls} text-sm`} />
+          <p className="mt-1 text-xs text-zinc-500">
+            El enlace va solo, como adjunto. Variables: <code>{'{titulo}'}</code> <code>{'{curso}'}</code> <code>{'{curso_escolar}'}</code>
+          </p>
+
+          {tipoCr === 'tarea' && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Fecha límite</label>
+              <input
+                type="datetime-local"
+                value={limite}
+                onChange={(e) => setLimite(e.target.value)}
+                className={`${inputCls} !w-auto`}
+              />
+              {limite && (
+                <button type="button" onClick={() => setLimite('')} className="text-xs text-zinc-500 underline">
+                  sin fecha
+                </button>
+              )}
+              {!limiteValido && <span className="text-xs text-rose-600 dark:text-rose-400">Tiene que ser posterior al momento de publicar.</span>}
+            </div>
+          )}
+
+          <div className="mt-4 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              Dónde se publica{emp ? ` · como ${emp.buzon}` : ''}
+            </p>
+            {empError ? (
+              <p className="flex items-start gap-2 text-xs text-rose-700 dark:text-rose-300">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {empError}
+              </p>
+            ) : emp === null ? (
+              <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {emp.emparejamientos.map((m) => (
+                  <li key={m.etiqueta} className="flex items-start gap-2">
+                    {m.destino ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    ) : (
+                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    )}
+                    <span className="text-zinc-700 dark:text-zinc-200">
+                      <strong>{m.etiqueta}</strong>{' '}
+                      {m.destino ? (
+                        <span className="text-zinc-500">→ {m.destino.nombre}</span>
+                      ) : m.motivo === 'ambigua' ? (
+                        <span className="text-amber-700 dark:text-amber-300">
+                          varias candidatas, no se publica: {m.candidatas.join(' · ')}. Deja solo una activa o llama «Tutoría» a la buena.
+                        </span>
+                      ) : (
+                        <span className="text-amber-700 dark:text-amber-300">
+                          {emp.buzon} no es profe de su tutoría (o no se llama como la clase): no se publica.
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {ultimoCr && (
+            <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs dark:bg-emerald-500/10">
+              <p className="mb-1 font-semibold text-emerald-800 dark:text-emerald-300">Último envío a Classroom</p>
+              <ul className="space-y-0.5 text-zinc-700 dark:text-zinc-200">
+                {ultimoCr.resultados.map((r) => (
+                  <li key={r.etiqueta}>
+                    {r.ok ? '✅' : '⚠️'} <strong>{r.etiqueta}</strong>
+                    {r.ok ? (
+                      r.enlace && (
+                        <>
+                          {' '}
+                          <a href={r.enlace} target="_blank" rel="noreferrer" className="underline">
+                            abrir
+                          </a>
+                        </>
+                      )
+                    ) : (
+                      <span className="text-rose-700 dark:text-rose-300"> {r.error}</span>
+                    )}
+                    {r.ok && r.aviso && <span className="text-amber-700 dark:text-amber-300"> · {r.aviso}</span>}
+                  </li>
+                ))}
+                {ultimoCr.sinClase.map((s) => (
+                  <li key={s.etiqueta}>
+                    ⚠️ <strong>{s.etiqueta}</strong> sin tutoría clara: no se publicó
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-zinc-500">
+                Lo publicado en Classroom no se puede retirar desde aquí: se borra desde la propia clase.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
+        {usaCorreo && (
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[200px] flex-1">
             <label className="mb-1 block text-xs font-medium text-zinc-500">Enviar una prueba a</label>
@@ -436,8 +698,9 @@ export function EnviarPanel({
             Probar
           </button>
         </div>
+        )}
 
-        <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+        <div className={`space-y-3 ${usaCorreo ? 'mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800' : ''}`}>
           <Segmentado
             valor={modo}
             onChange={(m) => {
@@ -488,10 +751,12 @@ export function EnviarPanel({
                 </label>
               )}
               <p className="text-xs text-zinc-500">
-                {audiencia === 'alumnos' && soloPendientes
-                  ? 'Los destinatarios se calculan ahora: "quien falta" es quien falta en este momento.'
-                  : 'Los destinatarios se calculan ahora, al programarlo.'}{' '}
-                Se puede cancelar hasta la hora del envío.
+                {usaCorreo &&
+                  (audiencia === 'alumnos' && soloPendientes
+                    ? 'Los destinatarios se calculan ahora: "quien falta" es quien falta en este momento. '
+                    : 'Los destinatarios se calculan ahora, al programarlo. ')}
+                {usaCorreo && 'Los correos se pueden cancelar hasta la hora del envío. '}
+                {usaCr && 'Lo de Classroom queda como borrador programado en cada clase y lo publica Classroom a esa hora; se retira desde la propia clase.'}
               </p>
             </div>
           )}
@@ -501,14 +766,14 @@ export function EnviarPanel({
               <p className="text-sm text-zinc-700 dark:text-zinc-200">
                 {modo === 'programar' && cuandoFecha ? (
                   <>
-                    Se programarán <strong>{preview?.total ?? 0}</strong> correos para el{' '}
-                    <strong>{fmtFecha(cuandoFecha.toISOString())}</strong>. ¿Seguimos?
+                    Se programarán <strong>{resumenEnvio}</strong> para el <strong>{fmtFecha(cuandoFecha.toISOString())}</strong>. ¿Seguimos?
                   </>
                 ) : (
                   <>
-                    Se enviarán <strong>{preview?.total ?? 0}</strong> correos. ¿Seguimos?
+                    Se enviarán <strong>{resumenEnvio}</strong>. ¿Seguimos?
                   </>
                 )}
+                {usaCr && modo === 'ahora' && ' Lo de Classroom no se puede retirar desde aquí.'}
               </p>
               <div className="flex gap-2">
                 <button
@@ -540,7 +805,7 @@ export function EnviarPanel({
           ) : (
             <button
               type="button"
-              disabled={busy || !preview?.total || !puedeEnviar}
+              disabled={busy || !puedeEnviar}
               onClick={() => setConfirmando(true)}
               className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-50 ${
                 modo === 'programar' ? 'bg-violet-600 hover:bg-violet-700' : 'bg-blue-600 hover:bg-blue-700'
@@ -548,8 +813,8 @@ export function EnviarPanel({
             >
               {modo === 'programar' ? <CalendarClock className="h-5 w-5" /> : <Send className="h-5 w-5" />}
               {modo === 'programar'
-                ? `Programar ${preview?.total ?? 0} correo(s)${cuandoValido && cuandoFecha ? ` · ${fmtFecha(cuandoFecha.toISOString())}` : ''}`
-                : `Enviar a ${preview?.total ?? 0} destinatario(s)`}
+                ? `Programar ${resumenEnvio}${cuandoValido && cuandoFecha ? ` · ${fmtFecha(cuandoFecha.toISOString())}` : ''}`
+                : `Enviar ${resumenEnvio}`}
             </button>
           )}
         </div>
