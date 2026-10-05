@@ -501,8 +501,9 @@ clases, pero no para lo demás. Ahora se importan, con el criterio en `prepararI
   [`00`](./00-desarrollos-futuros.md).
 - **Quien se apunta una clase que la hoja de la clase no nombra entra de segundo profe en ella.**
   Emilia Sebastiá no sale en ninguna hoja de clase, pero su hoja dice `MATE 1ºB` a la misma hora
-  que 1º B tiene Matemáticas con Montserrat: entra en esas 14 horas como apoyo. Igual Lucía en la
-  tutoría de 4º A. Si no hay clase que case, no se inventa: entra como hora suya y se avisa.
+  que 1º B tiene Matemáticas con Montserrat: entra en esas 13 horas como apoyo. Igual Lucía en la
+  tutoría de 4º A. **La materia tiene que casar**: su `FIS 2ºA` del martes a 13:05 cae cuando
+  2º A tiene Lengua, así que no se la mete en Lengua; entra como hora suya y se avisa.
 - **Las hojas se casan por nombre**: primero contra las leyendas del fichero y, si no está, contra
   el claustro de la BBDD (`getProfesParaCasar()`), solo con un candidato.
 - **Si el profe ya tenía algo anotado a mano a esa hora, gana lo suyo** y lo importado no entra.
@@ -772,8 +773,11 @@ alias, así que una materia arreglada a mano nunca se pierde.
       departamento, jefatura…) entra como horas del profe, y quien se apunta una clase que la hoja
       de la clase no nombra entra de segundo profe. Ver «Las hojas de profesor y el inglés del PDC»
 - [x] **Inglés del PDC**: la segunda profe al PDC, la primera al grupo de referencia
-- [ ] Reimportar la ESO con esto (desde `/gestion/horarios/importar`) y mirar en el navegador el
-      horario de David, Marta Usó, Lucía y Emilia, que son los que más cambian (**David**)
+- [x] **ESO reimportada en Neon** (5-oct-2026) con `pnpm horarios:importar`: 208 asignaciones,
+      320 sesiones de clase y 87 horas de profesorado, 0 profes sin casar y 0 asignaciones
+      huérfanas. Antes se borraron las 6 anotaciones de prueba de David. Verificado en la BBDD:
+      el inglés de 3º/4º PDC lo da solo MTIR0, Emilia es apoyo (nunca titular) en 7 asignaciones
+      de Mates/FyQ y las reuniones de David salen con su hora
 - [ ] Reconciliación de la hoja de profes sobre las asignaciones ya importadas
 - [ ] Importación de rejillas, si el fichero las trae
 
