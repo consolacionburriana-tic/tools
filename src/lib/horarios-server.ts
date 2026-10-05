@@ -42,7 +42,9 @@ import {
   agruparSesiones,
   normalizarNombreMateria,
   raizMateria,
+  type ActividadProfeAgrupada,
   type Incidencia,
+  type ProfeConocido,
   type ResultadoBloque,
 } from '@/lib/horarios-import';
 
@@ -55,6 +57,8 @@ export interface ResumenImportacion {
   asignaciones: number;
   sesiones: number;
   profesVinculados: number;
+  /** Horas de las hojas de profe (reuniones, atención a familias…) que han entrado. */
+  horasProfe: number;
   profesNoEncontrados: string[];
   incidencias: Incidencia[];
   notas: string[];
@@ -105,11 +109,12 @@ function firmaTramos(tramos: readonly { orden: number; horaInicio: string; horaF
 export async function importarBloques(
   bloques: readonly ResultadoBloque[],
   opciones: OpcionesImportacion,
+  horasProfe: readonly ActividadProfeAgrupada[] = [],
 ): Promise<ResumenImportacion> {
   const resumen: ResumenImportacion = {
     periodo: opciones.periodoNombre,
     rejillas: 0, tramos: 0, materias: 0, espacios: 0,
-    asignaciones: 0, sesiones: 0, profesVinculados: 0,
+    asignaciones: 0, sesiones: 0, profesVinculados: 0, horasProfe: 0,
     profesNoEncontrados: [], incidencias: [], notas: [],
   };
 
@@ -177,6 +182,9 @@ export async function importarBloques(
   // borrar: se apunta ahora y se vuelve a colocar cuando existan los nuevos.
   const manualesPrevias = await sesionesManualesEnEtapas(periodoId, [...cursosPorEtapa.keys()]);
   await borrarRejillasDeEtapas(periodoId, [...cursosPorEtapa.keys()]);
+  // Lo importado que se ha quedado sin ninguna sesión al caer las rejillas: las horas de
+  // profe del import anterior (no tienen grupo, así que `borrarAsignaciones` no las ve).
+  await borrarImportadasSinSesiones(periodoId);
 
   const tramoId = new Map<string, string>(); // `${curso}|${dia}|${orden}` → id
   const filasRejilla: (typeof horRejillas.$inferInsert)[] = [];
@@ -280,6 +288,77 @@ export async function importarBloques(
     }
   }
 
+  // ── Horas de las hojas de profe: reuniones, atención a familias, departamento… ──
+  // No tienen grupo, así que su tramo se busca por día y hora entre las rejillas nuevas,
+  // prefiriendo la del curso donde más clases da ese profe (en la ESO, 1º-2º y 3º-4º tienen
+  // rejillas distintas y la franja de las 14:10 solo existe en la segunda).
+  //
+  // Si el profe ya tenía algo ANOTADO A MANO a esa hora, gana lo suyo y lo importado no
+  // entra: es lo que él mismo se ha puesto, y si no, le saldrían dos cosas en el mismo hueco.
+  const clasesPorProfeYCurso = new Map<string, number>();
+  for (const a of asignaciones) {
+    for (const p of a.profeCodigos) clasesPorProfeYCurso.set(`${p}|${a.curso}`, (clasesPorProfeYCurso.get(`${p}|${a.curso}`) ?? 0) + a.sesiones.length);
+  }
+  const tramosNuevos = [...tramoId.entries()].map(([k, id]) => {
+    const [curso] = k.split('|');
+    const t = filasTramo.find((f) => f.id === id)!;
+    return { curso, id, dia: t.diaSemana, orden: t.orden, horaInicio: t.horaInicio, horaFin: t.horaFin };
+  });
+  const manualOcupa = new Set(manualesPrevias.filter((m) => m.profeId).map((m) => `${m.profeId}|${m.dia}|${m.horaInicio}|${m.horaFin}`));
+  let omitidasPorManual = 0;
+  let sinHueco = 0;
+  for (const act of horasProfe) {
+    const ids = act.profeCodigos.map((alias) => {
+      const id = profePorAlias.get(alias.toUpperCase());
+      if (!id && !resumen.profesNoEncontrados.includes(alias)) resumen.profesNoEncontrados.push(alias);
+      return id ? { alias: alias.toUpperCase(), id } : null;
+    }).filter((x): x is { alias: string; id: string } => !!x);
+    // Una asignación por conjunto de profes que de verdad están libres en cada hueco.
+    const porProfes = new Map<string, { profes: typeof ids; huecos: typeof act.sesiones }>();
+    for (const h of act.sesiones) {
+      const libres = ids.filter((p) => !manualOcupa.has(`${p.id}|${h.dia}|${h.horaInicio}|${h.horaFin}`));
+      omitidasPorManual += ids.length - libres.length;
+      if (libres.length === 0) continue;
+      const k = libres.map((p) => p.id).join('+');
+      const previa = porProfes.get(k);
+      if (previa) previa.huecos.push(h);
+      else porProfes.set(k, { profes: libres, huecos: [h] });
+    }
+    for (const { profes: suyos, huecos } of porProfes.values()) {
+      const preferido = (curso: string) => suyos.reduce((n, p) => n + (clasesPorProfeYCurso.get(`${p.alias}|${curso}`) ?? 0), 0);
+      const id = crypto.randomUUID();
+      const sesiones: (typeof horSesiones.$inferInsert)[] = [];
+      for (const h of huecos) {
+        const candidatos = tramosNuevos
+          .filter((t) => t.dia === h.dia && t.horaInicio === h.horaInicio && t.horaFin === h.horaFin)
+          .sort((a, b) => preferido(b.curso) - preferido(a.curso));
+        const t = candidatos[0];
+        if (!t) { sinHueco++; continue; }
+        if (sesiones.some((s) => s.tramoId === t.id)) continue;
+        sesiones.push({ asignacionId: id, tramoId: t.id, diaSemana: t.dia, orden: t.orden });
+      }
+      if (sesiones.length === 0) continue;
+      filasAsig.push({
+        id,
+        periodoId,
+        academicYear: opciones.academicYear,
+        actividadId: actividadPorCodigo.get(act.actividadCodigo) ?? actividadPorCodigo.get('otros') ?? idClase,
+        materiaId: null,
+        etiqueta: act.etiqueta?.slice(0, 120) ?? null,
+        notas: act.crudo !== act.etiqueta ? `En la hoja del profe: ${act.crudo.replace(/\n/g, ' · ')}` : null,
+        origen: 'importado',
+      });
+      // En una reunión no hay titular: todos van igual, y `principal` es solo el primero.
+      suyos.forEach((p, i) => filasProfe.push({ asignacionId: id, eduTeacherId: p.id, rol: 'titular', principal: i === 0 }));
+      filasSesion.push(...sesiones);
+      resumen.horasProfe += sesiones.length;
+    }
+  }
+  if (omitidasPorManual) {
+    resumen.notas.push(`${omitidasPorManual} hora(s) de las hojas de profesor no se han importado porque esa persona ya tenía algo anotado a mano a esa hora (se respeta lo suyo).`);
+  }
+  if (sinHueco) resumen.notas.push(`${sinHueco} hora(s) de las hojas de profesor caen en una franja que no existe en ninguna rejilla y no se han importado.`);
+
   for (const t of trozos(filasAsig)) await db.insert(horAsignaciones).values(t);
   for (const t of trozos(filasGrupo)) await db.insert(horAsignacionGrupos).values(t);
   for (const t of trozos(filasProfe)) await db.insert(horAsignacionProfes).values(t);
@@ -288,7 +367,7 @@ export async function importarBloques(
   // Las anotaciones manuales vuelven a su sitio; las que ya no tengan hueco se quitan y se
   // CUENTAN, que perder en silencio lo que alguien se apuntó es lo peor que puede pasar aquí.
   const { colocadas, perdidas } = reubicarManuales(
-    manualesPrevias,
+    [...new Map(manualesPrevias.map((m) => [m.sesionId, m])).values()],
     filasTramo.map((t) => ({
       id: t.id!, diaSemana: t.diaSemana, orden: t.orden, horaInicio: t.horaInicio, horaFin: t.horaFin, tipo: t.tipo, etapa: etapaDeTramo.get(t.id!),
     })),
@@ -310,7 +389,7 @@ export async function importarBloques(
 
   resumen.asignaciones = filasAsig.length;
   resumen.profesVinculados = filasProfe.length;
-  resumen.sesiones = filasSesion.length;
+  resumen.sesiones = filasSesion.length - resumen.horasProfe;
 
   await limpiarMateriasHuerfanas();
 
@@ -523,9 +602,11 @@ async function sesionesManualesEnEtapas(periodoId: string, etapas: readonly stri
       horaInicio: horTramos.horaInicio,
       horaFin: horTramos.horaFin,
       etapa: horRejillaAmbitos.etapa,
+      profeId: horAsignacionProfes.eduTeacherId,
     })
     .from(horSesiones)
     .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
+    .leftJoin(horAsignacionProfes, eq(horAsignacionProfes.asignacionId, horAsignaciones.id))
     .innerJoin(horTramos, eq(horTramos.id, horSesiones.tramoId))
     .innerJoin(horRejillas, eq(horRejillas.id, horTramos.rejillaId))
     .innerJoin(horRejillaAmbitos, eq(horRejillaAmbitos.rejillaId, horRejillas.id))
@@ -536,7 +617,12 @@ async function sesionesManualesEnEtapas(periodoId: string, etapas: readonly stri
         inArray(horRejillaAmbitos.etapa, [...etapas]),
       ),
     );
-  return filas.map((f) => ({ asignacionId: f.asignacionId, dia: f.dia, horaInicio: f.horaInicio, horaFin: f.horaFin, etapa: f.etapa ?? undefined }));
+  // Una fila por sesión y profe: quien recoloca deduplica por `sesionId`, y quien mira si un
+  // profe ya tiene algo a esa hora necesita a todos.
+  return filas.map((f) => ({
+    sesionId: f.sesionId, asignacionId: f.asignacionId, dia: f.dia, horaInicio: f.horaInicio, horaFin: f.horaFin,
+    etapa: f.etapa ?? undefined, profeId: f.profeId,
+  }));
 }
 
 /**
@@ -563,6 +649,38 @@ async function borrarRejillasDeEtapas(periodoId: string, etapas: readonly string
   }
   await db.delete(horRejillaAmbitos).where(inArray(horRejillaAmbitos.rejillaId, ids));
   await db.delete(horRejillas).where(inArray(horRejillas.id, ids));
+}
+
+/**
+ * Borra lo importado de un periodo que se ha quedado **sin ninguna sesión**. Pasa justo
+ * después de borrar las rejillas de las etapas del fichero: las horas de profe del import
+ * anterior (reuniones, atención a familias…) no tienen grupo, así que el borrado por grupos
+ * no las encuentra, pero sí se quedan sin sesiones. Lo de otras etapas sigue teniendo las
+ * suyas y no se toca; lo manual tampoco, nunca.
+ */
+async function borrarImportadasSinSesiones(periodoId: string): Promise<void> {
+  const importadas = await db
+    .select({ id: horAsignaciones.id, sesion: horSesiones.id })
+    .from(horAsignaciones)
+    .leftJoin(horSesiones, eq(horSesiones.asignacionId, horAsignaciones.id))
+    .where(and(eq(horAsignaciones.periodoId, periodoId), eq(horAsignaciones.origen, 'importado')));
+  const conSesion = new Set(importadas.filter((a) => a.sesion).map((a) => a.id));
+  const ids = [...new Set(importadas.map((a) => a.id))].filter((id) => !conSesion.has(id));
+  for (const t of trozos(ids)) {
+    await db.delete(horAsignacionProfes).where(inArray(horAsignacionProfes.asignacionId, t));
+    await db.delete(horAsignacionGrupos).where(inArray(horAsignacionGrupos.asignacionId, t));
+    await db.delete(horAsignaciones).where(inArray(horAsignaciones.id, t));
+  }
+}
+
+/** El claustro con su código, para casar por nombre las hojas de profe que no salen en ninguna leyenda. */
+export async function getProfesParaCasar(): Promise<ProfeConocido[]> {
+  const filas = await db
+    .select({ alias: eduTeachers.alias, nombre: eduTeachers.nombre, apellido1: eduTeachers.apellido1, apellido2: eduTeachers.apellido2 })
+    .from(eduTeachers);
+  return filas
+    .filter((p) => p.alias)
+    .map((p) => ({ alias: p.alias!, nombre: [p.nombre, p.apellido1, p.apellido2].filter(Boolean).join(' ') }));
 }
 
 /**

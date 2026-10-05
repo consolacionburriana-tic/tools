@@ -477,6 +477,56 @@ Comprobado contra el fichero real: **0 choques de profesorado** después de agru
 incidencias que quedan son un `0` de maquetación (se ignora) y un `NG - MREM0` al que
 Educamos se comió la I (se rescata por profe y hora).
 
+### Las hojas de profesor y el inglés del PDC (5-oct-2026, con David)
+
+Al subir el `.docx` de la ESO 2026-27, David vio que **no se importaba nada de lo que cada profe
+escribe a mano en su hoja**: TIC los lunes, innovación los miércoles, pastoral los jueves, COCOPE,
+Erasmus, atención a familias y a alumnado, departamento, jefatura… Era verdad: las hojas de
+profesor se leían y se tiraban («son la misma información vista del revés»). Lo son para las
+clases, pero no para lo demás. Ahora se importan, con el criterio en `prepararImportacion()`
+(`horarios-import.ts`, sin BBDD, con tests):
+
+- **Lo que no es clase se reconoce por patrones, no por literales**, porque lo escriben a mano:
+  `AT. PADRES`, `AT.PADRES`, `ATE. PADRES`, `At padres` y `ATENCIÓN FAMILIAS` son lo mismo
+  (`reconocerHoraProfe()`). Del fichero real salen: atención a familias (19 h), atención a
+  alumnado (16), departamento (20), reuniones (TIC, Innovación, Pastoral, COCOPE, Erasmus),
+  coordinación (jefatura de estudios, coordinación de pastoral, web), oratorio, «No lectiva» y
+  «Refuerzo». **Lo que no se reconoce no se pierde**: entra como «Otros» con su texto y sale
+  en la vista previa como aviso.
+- **Una reunión a la misma hora es UNA asignación con todos sus profes** (la TIC del lunes a 2ª
+  son Amparo, Bárbara y David). La atención a familias de dos profes a la misma hora no se junta.
+- **Las celdas con asterisco** (`COCOPE*` + `DPTO`, `TECNO 3ºB*` + `ORATORIO`) son dos cosas en la
+  misma hora y entran como **una** hora con las dos: «Departamento | COCOPE». Es como David se lo
+  había apuntado a mano en Mi horario («Oratorio | Tecno 3 ESO B»). Ver la duda abierta en
+  [`00`](./00-desarrollos-futuros.md).
+- **Quien se apunta una clase que la hoja de la clase no nombra entra de segundo profe en ella.**
+  Emilia Sebastiá no sale en ninguna hoja de clase, pero su hoja dice `MATE 1ºB` a la misma hora
+  que 1º B tiene Matemáticas con Montserrat: entra en esas 14 horas como apoyo. Igual Lucía en la
+  tutoría de 4º A. Si no hay clase que case, no se inventa: entra como hora suya y se avisa.
+- **Las hojas se casan por nombre**: primero contra las leyendas del fichero y, si no está, contra
+  el claustro de la BBDD (`getProfesParaCasar()`), solo con un candidato.
+- **Si el profe ya tenía algo anotado a mano a esa hora, gana lo suyo** y lo importado no entra.
+  Al reimportar, las horas de profe del import anterior se borran solas (se quedan sin sesiones
+  al rehacer la rejilla: `borrarImportadasSinSesiones()`).
+
+**El inglés del PDC** (`repartirProfesPdc()`). Educamos pone en la misma celda a la profe del
+grupo de referencia y a la del PDC, **igual en los dos grupos** (4º B y 4º PDC dicen los dos
+`ING - MREM0` + `MTIR0`). David: *«en PDC en inglés siempre coge solo a la segunda profe»*. Así
+que, cuando una celda del PDC con dos profes está repetida tal cual en un grupo del mismo curso,
+el PDC se queda con la segunda y el grupo de referencia con la primera. Esto **corrige lo que se
+dijo el 9-sep** («no se funde el inglés»): antes 3º A y 3º PDC se fundían en una sola clase con
+las dos profes. Y el `NG` del PDC toma la materia de la celda gemela.
+
+Y tres fallos que salieron por el camino:
+
+- 🔧 **El titular era el primero por orden alfabético**, no el primero de la celda: con Emilia
+  (`ESEB0`) de apoyo, salía ella de titular de unas Mates de Montserrat (`MPER0`). Afectaba ya a
+  todas las clases con dos profes, y `principal` es a quien avisará Puntualidad.
+- 🔧 `AP - NSAB0` + `DIG` en 4º PDC creaba una clase fantasma sin profe: `DIG` es una materia de
+  la leyenda (en 4º A y B lo es). Ahora es el detalle de esa hora del Ámbito Práctico.
+- 🔧 Los códigos que no están en la leyenda llevan **sugerencia** cuando hay una sola a una letra
+  de distancia: «Materia 'NG' no está en la leyenda. ¿Quizá 'ING'?».
+
 ### La leyenda es la que desambigua
 
 Una celda es `MATERIA - PROFE` o `MATERIA - PROFE - AULA`, y por regex no hay forma honesta
@@ -718,6 +768,12 @@ alias, así que una materia arreglada a mano nunca se pierde.
 - [x] ~~Pantalla de importación (arrastrar el fichero) en vez del script~~ hecha
 - [ ] Resolución de códigos vía `hor_alias`, preguntando solo por los nuevos
 - [ ] Vista previa → confirmar, con bitácora en `hor_import_runs`
+- [x] **Hojas de profesor** (5-oct-2026): lo escrito a mano (reuniones, atención a familias,
+      departamento, jefatura…) entra como horas del profe, y quien se apunta una clase que la hoja
+      de la clase no nombra entra de segundo profe. Ver «Las hojas de profesor y el inglés del PDC»
+- [x] **Inglés del PDC**: la segunda profe al PDC, la primera al grupo de referencia
+- [ ] Reimportar la ESO con esto (desde `/gestion/horarios/importar`) y mirar en el navegador el
+      horario de David, Marta Usó, Lucía y Emilia, que son los que más cambian (**David**)
 - [ ] Reconciliación de la hoja de profes sobre las asignaciones ya importadas
 - [ ] Importación de rejillas, si el fichero las trae
 

@@ -114,6 +114,12 @@ const RE_CABECERA = /^HORARIO DE (CLASE|PROFESOR)/i;
  * de leyenda hasta el siguiente título o la siguiente cabecera "HORARIO DE …". Lo de "la
  * primera" no es un detalle: el documento trae los 18 horarios de clase y detrás los ~31
  * de profesor, y sin ese corte el último bloque de clase se traga todos los demás.
+ *
+ * Los de **profesor** se leen igual, con una diferencia: su título es el nombre de la
+ * persona ('LUCÍA VIVES PEÑA'), así que no hay regex que lo reconozca. Es el primer párrafo
+ * que viene detrás de la cabecera "HORARIO DE PROFESOR". Hacen falta porque es el único
+ * sitio donde está lo que cada profe escribe a mano: reuniones, atención a familias,
+ * departamento… (ver `prepararImportacion()`).
  */
 export function leerDocx(datos: ArrayBuffer | Uint8Array): BloqueLeido[] {
   const cfb = XLSX.CFB.read(datos instanceof Uint8Array ? datos : new Uint8Array(datos), { type: 'buffer' });
@@ -137,6 +143,9 @@ export function leerDocx(datos: ArrayBuffer | Uint8Array): BloqueLeido[] {
           actual = null;
         } else if (RE_TITULO_CLASE.test(t) && cabecera === 'clase') {
           actual = { tipo: 'clase', titulo: t, filas: [[t]], conCuadricula: false };
+          bloques.push(actual);
+        } else if (cabecera === 'profe' && !actual) {
+          actual = { tipo: 'profe', titulo: t, filas: [[t]], conCuadricula: false };
           bloques.push(actual);
         } else if (actual) {
           actual.filas.push([t]);
