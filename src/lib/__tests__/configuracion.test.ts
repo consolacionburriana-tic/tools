@@ -62,6 +62,8 @@ describe('las reglas de curso leen de la configuración sin cambiar de comportam
     expect(CONFIGURACION.bancoLibros).toEqual({ EP: { desdeNivel: 3 }, ESO: { desdeNivel: 1 }, BACH: { desdeNivel: 1 } });
     expect(CONFIGURACION.etapasConjuntas).toEqual([['ESO', 'BACH']]);
     expect(CONFIGURACION.puntualidad.etapas).toEqual(['ESO', 'BACH']);
+    // Selectores: sin Bachillerato salvo que NEXT_PUBLIC_ETAPAS_VISIBLES lo pida.
+    expect(CONFIGURACION.etapasVisibles).toEqual(['EI', 'EP', 'ESO']);
   });
 });
 

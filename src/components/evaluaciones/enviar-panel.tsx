@@ -10,7 +10,7 @@ import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-plantillas';
 import { TEMA_CLASSROOM, TEXTO_CLASSROOM_POR_DEFECTO, type TipoPublicacion } from '@/lib/evaluaciones-classroom';
 import { Segmentado } from '@/components/evaluaciones/ui';
 import { COLEGIO } from '@/lib/colegio';
-import { ETAPA_LABEL, ETAPAS as ETAPAS_CENTRO } from '@/lib/cursos';
+import { ETAPA_LABEL, ETAPAS_VISIBLES as ETAPAS_CENTRO } from '@/lib/cursos';
 
 interface Plantilla {
   id: string;

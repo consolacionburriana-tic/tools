@@ -565,6 +565,15 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   §6 de la guía.
   ✅ **Solo para colegios con Educamos**: importar alumnado y profesorado de Educamos es la
   gracia; no habrá lector para otros programas.
+  ✅ **Bachillerato: se reconoce siempre, pero no se ofrece en los selectores (5-oct-2026)**.
+  Consolación no tiene Bachillerato, y las listas vacías con «Bachillerato» eran feísimas. Sigue
+  todo soportado: si llega en un import de Educamos o de Horarios, se importa y sale en lo que se
+  pinta a partir de datos (Alumnado, Números, Banco de libros, Horarios…). Lo que cambia es lo que
+  se **ofrece** en los selectores vacíos (etapas de un profe, de un tipo de Oratorios, de una
+  plantilla del Cuaderno, de una evaluación, filtro de tutorías): sale de `ETAPAS_VISIBLES`
+  (`cursos.ts`), que lee `CONFIGURACION.etapasVisibles` ← variable de entorno
+  `NEXT_PUBLIC_ETAPAS_VISIBLES` (por defecto `EI,EP,ESO`; con Bachillerato, `EI,EP,ESO,BACH`; se
+  cambia en Vercel y se redespliega).
   ✅ **Bachillerato soportado** (30-sep-2026), pendiente de probar con un export real: nunca ha
   llegado un fichero de Educamos con Bachillerato, así que la **convención está deducida** de
   cómo Educamos nombra el resto (`{1|2}BACH` + letra opcional; se leen también `BAT`, `BTO`,

@@ -27,6 +27,13 @@ import { CONFIGURACION } from './configuracion';
 export const ETAPAS = ['EI', 'EP', 'ESO', 'BACH'] as const;
 export type Etapa = (typeof ETAPAS)[number];
 
+/**
+ * Las etapas que se ofrecen en los **selectores** (`CONFIGURACION.etapasVisibles`: hoy Infantil,
+ * Primaria y ESO; Bachillerato solo si se activa por variable de entorno). Para recorrer etapas en
+ * pantallas que se pintan a partir de datos, `ETAPAS` (todas): lo que se importa, sale.
+ */
+export const ETAPAS_VISIBLES: readonly Etapa[] = ETAPAS.filter((e) => CONFIGURACION.etapasVisibles.includes(e));
+
 /** Cómo se llama cada etapa en pantalla. */
 export const ETAPA_LABEL: Record<Etapa, string> = {
   EI: 'Infantil',

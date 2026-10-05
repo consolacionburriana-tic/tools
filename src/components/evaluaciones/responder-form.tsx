@@ -17,7 +17,7 @@ import {
 import { Celebracion, sortearCelebracion, type IdCelebracion } from '@/components/evaluaciones/celebraciones';
 import { ProgresoAnillo } from '@/components/evaluaciones/progreso-anillo';
 import { EstrellasInput } from '@/components/evaluaciones/estrellas-input';
-import { ETAPA_LABEL, ETAPAS as ETAPAS_CENTRO } from '@/lib/cursos';
+import { ETAPA_LABEL, ETAPAS_VISIBLES as ETAPAS_CENTRO } from '@/lib/cursos';
 
 export interface PreguntaPublica {
   id: string;

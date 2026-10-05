@@ -9,8 +9,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
-import { etapaDeCurso, nombreClase } from '@/lib/cursos';
-import { aMin, diaCorto, ETAPA_LABELS, ETAPAS_ORA, franjasDeEtapas, horaBonita, NIVEL_INFO, nivelEn, periodoDeFecha, siguienteNivel, type Disponibilidad, type Nivel } from '@/lib/oratorios';
+import { ETAPAS_VISIBLES, etapaDeCurso, nombreClase } from '@/lib/cursos';
+import { aMin, diaCorto, ETAPA_LABELS, franjasDeEtapas, horaBonita, NIVEL_INFO, nivelEn, periodoDeFecha, siguienteNivel, type Disponibilidad, type Nivel } from '@/lib/oratorios';
 import { Accion, api, Pastilla } from './comun';
 import { SelectorResponsable } from './planificar';
 import type { Estado } from './panel';
@@ -102,7 +102,7 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <SelectorResponsable e={e} />
-        {ETAPAS_ORA.map((et) => (
+        {ETAPAS_VISIBLES.map((et) => (
           <Pastilla key={et} activa={etapas.includes(et)} onClick={() => setEtapas(etapas.includes(et) ? etapas.filter((x) => x !== et) : [...etapas, et])}>
             {ETAPA_LABELS[et]}
           </Pastilla>

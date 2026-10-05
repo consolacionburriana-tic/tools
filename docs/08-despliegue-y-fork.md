@@ -162,15 +162,17 @@ tras cambiar, `pnpm lint && pnpm build && pnpm test` deben seguir pasando.
 
 ## 7 · Etapas y clases: qué soporta tu centro
 
-La estructura de partida es la de un colegio de **Infantil (3-4-5 años), Primaria (1º-6º), ESO
-(1º-4º) y Bachillerato (1º-2º)**. Los cursos salen del export de Educamos (`2ESOB` → curso `2ESO`,
+La plataforma sabe trabajar **Infantil (3-4-5 años), Primaria (1º-6º), ESO (1º-4º) y Bachillerato
+(1º-2º)**. Lo que se importa, se reconoce y se muestra; y la variable `NEXT_PUBLIC_ETAPAS_VISIBLES`
+(`EI,EP,ESO` por defecto) decide qué etapas se **ofrecen** en los selectores vacíos: Consolación no
+tiene Bachillerato y por eso no sale ahí. Los cursos salen del export de Educamos (`2ESOB` → curso `2ESO`,
 letra `B`; ver [`02-integracion-educamos.md`](./02-integracion-educamos.md#etapas-y-clases-cómo-se-lee-clase-2026-09-30)).
 
 | Tu centro tiene… | ¿Funciona? | Detalle |
 |---|---|---|
 | **Varias líneas por curso** (A, B, C, D…: 2, 3, 4 o más clases) | ✅ | La letra viene de Educamos; no hay límite ni lista fija, y se ordenan por letra. Cursos de una sola línea (sin letra): también |
 | **PDC** (diversificación) | ✅ | Vale `PPDC` (como lo manda Educamos aquí) o `PDC`; se trata como ESO con letra `PDC` |
-| **Bachillerato** | ✅ (⚠️ sin probar con un export real) | Se guarda como `1BACH`/`2BACH` (+ letra o modalidad); se leen también `BAT`, `BTO` y `Bachillerato`.  Sale en Alumnado, Horarios, Tutorías, Cuaderno, Números, Evaluaciones, Banco de libros, Puntualidad y Oratorios. **No entra** en Licencias ni AUTOASM (decisiones en [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)). Si tu Educamos lo nombra de otra forma, se ajusta en `parseBachillerato()` (`src/lib/cursos.ts`) |
+| **Bachillerato** | ✅ (⚠️ sin probar con un export real) | Para ofrecerlo también en los selectores, `NEXT_PUBLIC_ETAPAS_VISIBLES=EI,EP,ESO,BACH`. Se guarda como `1BACH`/`2BACH` (+ letra o modalidad); se leen también `BAT`, `BTO` y `Bachillerato`.  Sale en Alumnado, Horarios, Tutorías, Cuaderno, Números, Evaluaciones, Banco de libros, Puntualidad y Oratorios. **No entra** en Licencias ni AUTOASM (decisiones en [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)). Si tu Educamos lo nombra de otra forma, se ajusta en `parseBachillerato()` (`src/lib/cursos.ts`) |
 | **Una clase de una etapa que no conocemos** (FP, aula de enlace…) | ✅ no rompe | Esos alumnos **no se importan**, se avisa en la vista previa (una vez por clase) y el resto del fichero entra igual |
 | **FP** (CFGM/CFGS) o **escuela infantil 0-3** | ❌ | Añadir una etapa es tocar `src/lib/cursos.ts` (receta en su cabecera) |
 | Promoción de curso a la manera de Consolación | ⚠️ | Infantil rota 3→4→5→3, Primaria en ciclos de dos años (1↔2, 3↔4, 5↔6, misma letra), ESO sube y 4º egresa, Bachillerato sube y 2º egresa. Si tu colegio promociona 1º→2º de forma normal, cámbialo en `promocion` de `src/lib/configuracion.ts` (`'sube'`) |

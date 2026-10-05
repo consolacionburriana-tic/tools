@@ -17,6 +17,7 @@ Consolación; si cambias uno a propósito, el test correspondiente te avisa.
 
 | Parámetro | Valor hoy | Lo leen |
 |---|---|---|
+| `etapasVisibles` (qué etapas se ofrecen en los selectores vacíos) | Infantil, Primaria y ESO; Bachillerato solo con `NEXT_PUBLIC_ETAPAS_VISIBLES=EI,EP,ESO,BACH` | Etapas de un profe, de un tipo de Oratorios, de una plantilla del Cuaderno, de una evaluación, filtro de tutorías. No afecta a lo que se importa |
 | `niveles` (primer y último curso de cada etapa) | Infantil 3-5 · Primaria 1-6 · ESO 1-4 · Bachillerato 1-2 | Promoción de curso |
 | `promocion` (`'rota'` · `'parejas'` · `'sube'`) | Infantil rota (3→4→5→3) · Primaria por parejas (1↔2, 3↔4, 5↔6) · ESO y Bachillerato suben y el último egresa | Botón «Promocionar +1 curso» de `/gestion/profes` |
 | `bancoLibros` (desde qué nivel de cada etapa) | Primaria desde 3º · ESO entera · Bachillerato entero · Infantil y 1º-2º de Primaria, fuera | Banco de libros, Alumnado, sync de Educamos |

@@ -24,7 +24,30 @@ export type TipoPromocion =
   /** Sube de verdad de curso y el último egresa (ESO, Bachillerato). */
   | 'sube';
 
+/**
+ * Etapas que se OFRECEN en los selectores vacíos (marcar etapas de un profe, de un tipo de Oratorios,
+ * de una plantilla…). Sale de la variable de entorno `NEXT_PUBLIC_ETAPAS_VISIBLES` (lista separada
+ * por comas, p. ej. `EI,EP,ESO,BACH`); sin fijar, `EI,EP,ESO`. Se cambia en Vercel → Environment
+ * Variables y se redespliega (es `NEXT_PUBLIC_` para que la lea también el cliente).
+ */
+function etapasVisiblesDeEntorno(): readonly Etapa[] {
+  const validas: readonly Etapa[] = ['EI', 'EP', 'ESO', 'BACH'];
+  const crudo = (process.env.NEXT_PUBLIC_ETAPAS_VISIBLES ?? 'EI,EP,ESO').split(',').map((e) => e.trim().toUpperCase());
+  const lista = validas.filter((e) => crudo.includes(e));
+  return lista.length > 0 ? lista : ['EI', 'EP', 'ESO'];
+}
+
 export const CONFIGURACION = {
+  /**
+   * Etapas que se ofrecen en los **selectores** (ver `etapasVisiblesDeEntorno`). Consolación no tiene
+   * Bachillerato, así que por defecto no sale en ningún selector vacío (lo contrario es «feísimo»).
+   * Esto NO impide trabajar con él: si llega en un import de Educamos o de Horarios, se reconoce, se
+   * guarda y sale en lo que se pinta a partir de datos (Alumnado, Números, Banco de libros, Horarios…).
+   * Para ofrecerlo también en los selectores: `NEXT_PUBLIC_ETAPAS_VISIBLES=EI,EP,ESO,BACH`.
+   * Lo lee: `ETAPAS_VISIBLES` (`cursos.ts`).
+   */
+  etapasVisibles: etapasVisiblesDeEntorno(),
+
   /**
    * Estructura de cursos: el primer y el último nivel de cada etapa (`3INF`…`5INF`, `1PRI`…`6PRI`).
    * Lo leen: promoción de curso (tutorías y Cuaderno), banco de libros.
