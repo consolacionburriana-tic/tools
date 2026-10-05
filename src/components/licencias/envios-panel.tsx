@@ -116,8 +116,8 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
   const [guardandoCodigo, setGuardandoCodigo] = useState(false);
   const [abrirAsignar, setAbrirAsignar] = useState(false);
   const [abrirEnviar, setAbrirEnviar] = useState(false);
-  /** Fila ya enviada que se quiere reenviar; abre el mismo diálogo pero solo con ella y forzado. */
-  const [reenviarId, setReenviarId] = useState<string | null>(null);
+  /** Filas ya enviadas que se quieren reenviar; abre el mismo diálogo pero solo con ellas y forzado. */
+  const [reenviarIds, setReenviarIds] = useState<string[] | null>(null);
   const [envios, setEnvios] = useState<EnvioRegistro[]>([]);
 
   const cargar = useCallback(
@@ -227,7 +227,10 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
     const elegidas = listasVisibles.filter((f) => seleccion.has(f.id));
     return elegidas.length ? elegidas : listasVisibles;
   }, [listasVisibles, seleccion]);
-  const filaReenviar = useMemo(() => visibles.find((f) => f.id === reenviarId) ?? null, [visibles, reenviarId]);
+  const filasReenviar = useMemo(
+    () => (reenviarIds ? visibles.filter((f) => reenviarIds.includes(f.id)) : null),
+    [visibles, reenviarIds],
+  );
 
   const r = resumen?.[tipo];
   const pct = r && r.total ? Math.round((r.enviadas / r.total) * 100) : 0;
@@ -258,6 +261,11 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
 
   const seleccionadas = useMemo(() => visibles.filter((f) => seleccion.has(f.id)), [visibles, seleccion]);
   const conCodigo = useMemo(() => seleccionadas.filter((f) => f.codigo), [seleccionadas]);
+  // Reenviable = ya enviada y con correo al que mandarla (el servidor vuelve a comprobarlo).
+  const reenviables = useMemo(
+    () => seleccionadas.filter((f) => f.codigo && f.estado === 'enviado' && f.destinatario),
+    [seleccionadas],
+  );
 
   /** Reenvía el mismo código a una licencia ya enviada, sin tocarlo (ver `ponerCodigo` para el
    * camino de «ha cambiado el código»). Abre el mismo diálogo de envío, forzado a esa única fila. */
@@ -265,7 +273,20 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
     if (!confirm(`${fila.alumno} ya recibió el código ${fila.codigo}.\n\n¿Reenviarle el mismo correo otra vez?`)) {
       return;
     }
-    setReenviarId(fila.id);
+    setReenviarIds([fila.id]);
+    setAbrirEnviar(true);
+  }
+
+  /** Reenvía de golpe las ya enviadas de entre las marcadas, con el mismo código. */
+  function reenviarSeleccion() {
+    if (
+      !confirm(
+        `${reenviables.length} licencia(s) ya se enviaron.\n\n¿Reenviar el mismo correo otra vez a cada una?`,
+      )
+    ) {
+      return;
+    }
+    setReenviarIds(reenviables.map((f) => f.id));
     setAbrirEnviar(true);
   }
 
@@ -545,6 +566,15 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
             {seleccionadas.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-zinc-500">{seleccionadas.length} marcadas:</span>
+                {reenviables.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={reenviarSeleccion}
+                    className="flex items-center gap-1 rounded-lg border border-amber-300 px-2 py-1 text-xs text-amber-700 dark:border-amber-500/40 dark:text-amber-300"
+                  >
+                    <Send className="h-3.5 w-3.5" /> Reenviar ({reenviables.length})
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -766,15 +796,15 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
         abierto={abrirEnviar}
         onCerrar={() => {
           setAbrirEnviar(false);
-          setReenviarId(null);
+          setReenviarIds(null);
         }}
         tipo={tipo}
         destino={destino}
-        seleccionadas={filaReenviar ? [filaReenviar] : paraEnviar}
-        forzar={Boolean(filaReenviar)}
+        seleccionadas={filasReenviar ?? paraEnviar}
+        forzar={Boolean(filasReenviar)}
         aLaVista={visibles.length}
         listasALaVista={listasVisibles.length}
-        porSeleccion={filaReenviar ? true : listasVisibles.some((f) => seleccion.has(f.id))}
+        porSeleccion={filasReenviar ? true : listasVisibles.some((f) => seleccion.has(f.id))}
         presets={presets}
         onHecho={() => cargar(false)}
       />
