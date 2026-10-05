@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, CheckCircle2, FileUp, Loader2, StickyNote } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileUp, Loader2, StickyNote, Users, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { academicYearActual } from '@/lib/constants';
@@ -19,10 +19,27 @@ interface Previa {
   bloquesTotales: number;
   deProfesor: number;
   clases: { codigo: string; nombre: string; etapa: string | null; sesiones: number; tramos: number; conAula: number; apoyos: number; incidencias: number }[];
-  incidencias: { clave: string; veces: number }[];
+  incidencias: { tipo: string; clave: string; detalle: string; veces: number }[];
   notas: string[];
+  /** Lo que el importador ha corregido solo (el inglés del PDC, un segundo profe…). */
+  ajustes: string[];
+  hojasProfe: { nombre: string; codigo: string | null; horas: number }[];
+  /** Las horas que no son clase, sacadas de las hojas de profe: 'Reunión · TIC', 8 h, 3 profes. */
+  horasProfe: { que: string; horas: number; profes: number }[];
   periodoSugerido: 'Ordinario' | 'Jornada corta';
 }
+
+/** Cómo se titula cada tipo de aviso en la vista previa. */
+const TITULO_INCIDENCIA: Record<string, string> = {
+  codigo_desconocido: 'Código que no está en la leyenda',
+  celda_ilegible: 'Texto suelto en una celda',
+  actividad_desconocida: 'Algo escrito a mano que no se reconoce',
+  profe_desconocido: 'Hoja de profesor sin dueño',
+  solo_en_hoja_profe: 'Clase que solo está en la hoja del profe',
+  dato_personal: 'Posible nombre de alumno',
+  sin_tramos: 'Bloque sin horas',
+  grupo_ilegible: 'Bloque sin título de clase',
+};
 
 /**
  * Los periodos del curso y cuándo manda cada uno.
@@ -82,7 +99,10 @@ export function Importador() {
       setPrevia(datos.previa);
       if (confirmar) {
         haptic.success();
-        toast.success(`Importadas ${datos.resumen?.sesiones ?? 0} sesiones de ${datos.previa.clases.length} clases`);
+        toast.success(
+          `Importadas ${datos.resumen?.sesiones ?? 0} sesiones de ${datos.previa.clases.length} clases` +
+            (datos.resumen?.horasProfe ? ` y ${datos.resumen.horasProfe} horas de profesorado` : ''),
+        );
         router.push('/gestion/horarios');
         router.refresh();
       } else {
@@ -105,7 +125,7 @@ export function Importador() {
    */
   async function leerJson(
     res: Response,
-  ): Promise<{ error?: string; previa?: Previa; resumen?: { sesiones: number } }> {
+  ): Promise<{ error?: string; previa?: Previa; resumen?: { sesiones: number; horasProfe?: number } }> {
     const texto = await res.text();
     try {
       return JSON.parse(texto);
@@ -162,7 +182,8 @@ export function Importador() {
             <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Esto es lo que va a entrar</h2>
             <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
               {previa.clases.length} clases · {previa.clases.reduce((n, c) => n + c.sesiones, 0)} sesiones.
-              {previa.deProfesor > 0 && ` Los ${previa.deProfesor} horarios de profesor del fichero no se importan: son la misma información vista del revés, y el horario de cada profe sale solo.`}
+              {previa.deProfesor > 0 &&
+                ` De los ${previa.deProfesor} horarios de profesor se saca lo que no está en los de clase: reuniones, atención a familias, departamento… y quién más entra en una clase.`}
             </p>
             <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
               {previa.clases.map((c) => (
@@ -177,15 +198,49 @@ export function Importador() {
             </div>
           </div>
 
-          {previa.incidencias.length > 0 && (
-            <Aviso icono={<AlertTriangle className="h-4 w-4" />} titulo="Códigos que no reconoce">
-              <p className="mb-2 text-xs">
-                No se inventan: entran como actividad genérica y se pueden arreglar luego desde el catálogo.
+          {(previa.horasProfe?.length ?? 0) > 0 && (
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              <h2 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                <Users className="h-4 w-4 text-indigo-500" />
+                Horas del profesorado que no son clase
+              </h2>
+              <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+                Salen de lo que cada uno escribe en su hoja. Si alguien ya se lo había anotado a mano en
+                Mi horario, se queda lo suyo y esto no se duplica.
               </p>
-              <ul className="space-y-0.5 text-xs">
+              <ul className="grid gap-1 text-xs sm:grid-cols-2">
+                {previa.horasProfe.map((h) => (
+                  <li key={h.que} className="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 px-2.5 py-1.5 dark:bg-zinc-800/60">
+                    <span className="min-w-0 truncate text-zinc-800 dark:text-zinc-200">{h.que}</span>
+                    <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+                      {h.horas} h · {h.profes} {h.profes === 1 ? 'profe' : 'profes'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(previa.ajustes?.length ?? 0) > 0 && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
+              <h3 className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold"><Wand2 className="h-4 w-4" />Arreglado solo</h3>
+              <ul className="space-y-1 text-xs">
+                {previa.ajustes.map((a) => <li key={a}>· {a}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {previa.incidencias.length > 0 && (
+            <Aviso icono={<AlertTriangle className="h-4 w-4" />} titulo="Cosas que conviene revisar">
+              <p className="mb-2 text-xs">
+                No se inventa nada: lo que no se reconoce entra con su texto tal cual y se puede arreglar luego.
+              </p>
+              <ul className="space-y-1.5 text-xs">
                 {previa.incidencias.map((i) => (
-                  <li key={i.clave} className="tabular-nums">
-                    <strong>{i.veces}×</strong> {i.clave}
+                  <li key={i.clave}>
+                    <span className="font-medium">{TITULO_INCIDENCIA[i.tipo] ?? i.tipo}</span>
+                    {i.veces > 1 && <span className="tabular-nums"> · {i.veces}×</span>}
+                    <span className="block opacity-80">{i.detalle}</span>
                   </li>
                 ))}
               </ul>

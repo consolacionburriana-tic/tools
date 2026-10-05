@@ -23,6 +23,26 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Horarios: las hojas de profesor (5-oct-2026) — revisar con David
+
+Lo pidió David al importar la ESO: que entren las reuniones y todo lo que cada uno escribe a mano
+en su hoja. Detalle en [`07-horarios.md`](./07-horarios.md). Lo que no estaba dicho y decidí:
+
+1. **El asterisco** (`COCOPE*` + `DPTO`, `TECNO 3ºB*` + `ORATORIO`, `TYD1: 1ESOB*` + `TIC`) lo leo
+   como «estas dos cosas se turnan en esa hora» y entra como UNA hora con las dos. **¿Es eso, o
+   significa otra cosa** (quincenal, solo algunos trimestres…)?
+2. **Emilia Sebastiá entra como segunda profe** (apoyo) en las 14 horas de Mates y FyQ que se
+   apunta. ¿Es eso (desdoble, prácticas, refuerzo) o debería ser otra actividad?
+3. **«Refuerzo» sin grupo** (Estefanía Franch y Paola, los lunes) entra como «Otros · Refuerzo».
+   ¿Refuerzo de qué grupo?
+4. **Qué actividad es cada cosa**: TIC, Innovación, Pastoral, COCOPE y Erasmus → reunión; JE,
+   C. Pastoral y Web → coordinación; «No lectiva» → libre disposición. Se cambia en
+   `reconocerHoraProfe()` sin tocar nada más.
+5. **El grupo de referencia pierde a la profe del PDC** en inglés (3º A se queda con María José,
+   4º B con María Carmen): si al PDC le da la segunda, a la vez no puede estar en el otro grupo.
+6. **Lo que te anotaste a mano en Mi horario gana** a lo importado a la misma hora, así que tus
+   seis anotaciones siguen y no salen duplicadas. Si prefieres lo importado, es borrarlas.
+
 ### Horarios y Mi horario: lo que decidí yo (4-oct-2026) — revisar con David
 
 Pedido de David: juntar en una sola celda las clases simultáneas del mismo curso, que en Mi

@@ -16,9 +16,9 @@ import { readFileSync } from 'node:fs';
 
 import 'dotenv/config';
 
-import { normalizarBloqueClase, unirLeyendas, type ResultadoBloque } from '../src/lib/horarios-import';
+import { prepararImportacion } from '../src/lib/horarios-import';
 import { leerHorarios } from '../src/lib/horarios-lectores';
-import { importarBloques } from '../src/lib/horarios-server';
+import { getProfesParaCasar, importarBloques } from '../src/lib/horarios-server';
 
 function arg(nombre: string, defecto: string): string {
   const i = process.argv.indexOf(`--${nombre}`);
@@ -36,17 +36,17 @@ async function main() {
   const bloques = leerHorarios(readFileSync(fichero), fichero);
   const deClase = bloques.filter((b) => b.tipo === 'clase');
   console.log(`Leídos ${bloques.length} bloques (${deClase.length} de clase, ${bloques.length - deClase.length} de profesor).`);
-  console.log('Solo se importan los de CLASE: los de profesor son la misma información vista del revés.\n');
+  console.log('De las hojas de profesor se importa lo que no está en las de clase: reuniones, atención a familias…\n');
 
-  // Dos pasadas: la primera junta las leyendas de todo el fichero, la segunda las usa como
-  // respaldo (los bloques de PDC no traen todas sus materias en su propia leyenda).
-  const comunes = unirLeyendas(deClase.map((b) => normalizarBloqueClase(b.filas).leyendas));
+  // El mismo criterio que la pantalla de importación (`prepararImportacion`). El claustro de
+  // la BBDD hace falta para casar por nombre las hojas de quien no sale en ninguna leyenda;
+  // sin DATABASE_URL (vista previa en local) esas hojas se avisan y no se importan.
+  const conocidos = process.env.DATABASE_URL ? await getProfesParaCasar() : [];
+  const prep = prepararImportacion(bloques, conocidos);
+  const normalizados = prep.clases;
 
-  const normalizados: ResultadoBloque[] = [];
-  for (const b of deClase) {
-    const r = normalizarBloqueClase(b.filas, comunes);
-    normalizados.push(r);
-    const cod = r.clase?.codigo ?? `?? (${b.titulo})`;
+  for (const r of normalizados) {
+    const cod = r.clase!.codigo;
     console.log(
       `  ${cod.padEnd(7)} ${String(r.sesiones.length).padStart(3)} sesiones · ${r.tramos.length} tramos` +
         ` · ${r.sesiones.filter((s) => s.aulaCodigo).length} con aula` +
@@ -54,13 +54,14 @@ async function main() {
         (r.incidencias.length ? ` · ⚠ ${r.incidencias.length} incidencias` : ''),
     );
   }
+  console.log(`\nHojas de profesor: ${prep.hojasProfe.length} · horas que no son clase: ${prep.horasProfe.reduce((n, h) => n + h.sesiones.length * h.profeCodigos.length, 0)}`);
 
-  const incidencias = normalizados.flatMap((r) => r.incidencias);
+  const incidencias = [...normalizados.flatMap((r) => r.incidencias), ...prep.incidencias];
   if (incidencias.length) {
     console.log('\nIncidencias (agrupadas):');
     const m = new Map<string, number>();
     for (const i of incidencias) {
-      const k = `${i.tipo} · ${i.crudo ?? i.detalle}`;
+      const k = `${i.tipo} · ${i.detalle}`;
       m.set(k, (m.get(k) ?? 0) + 1);
     }
     [...m.entries()].sort((a, b) => b[1] - a[1]).forEach(([k, n]) => console.log(`  ${String(n).padStart(4)} × ${k}`));
@@ -70,6 +71,11 @@ async function main() {
   if (notas.length) {
     console.log('\nNotas del fichero que no caben en la cuadrícula (se guardan, no se interpretan):');
     notas.forEach((n) => console.log(`  · ${n}`));
+  }
+
+  if (prep.ajustes.length) {
+    console.log('\nArreglado solo (conviene saberlo):');
+    prep.ajustes.forEach((a) => console.log(`  · ${a}`));
   }
 
   if (flag('dry')) {
@@ -84,7 +90,7 @@ async function main() {
     fechaFin: arg('hasta', '2027-05-31'),
     prioridad: Number(arg('prioridad', '0')),
     esOrdinario: flag('ordinario'),
-  });
+  }, prep.horasProfe);
 
   console.log('\n== Importado ==');
   console.log(`  periodo        ${resumen.periodo}`);
@@ -94,6 +100,8 @@ async function main() {
   console.log(`  asignaciones   ${resumen.asignaciones}`);
   console.log(`  sesiones       ${resumen.sesiones}`);
   console.log(`  profes atados  ${resumen.profesVinculados}`);
+  console.log(`  horas de profe ${resumen.horasProfe} (reuniones, atención a familias…)`);
+  resumen.notas.forEach((n) => console.log(`  · ${n}`));
   if (resumen.profesNoEncontrados.length) {
     console.log(`  ⚠ sin casar en edu_teachers: ${resumen.profesNoEncontrados.join(', ')}`);
   }

@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { getSessionUser } from '@/lib/auth-guards';
 import { puedeEditarHorarios } from '@/lib/permissions';
-import { normalizarBloqueClase, unirLeyendas, type ResultadoBloque } from '@/lib/horarios-import';
+import { prepararImportacion, type Incidencia, type ResultadoBloque } from '@/lib/horarios-import';
 import { leerHorarios } from '@/lib/horarios-lectores';
-import { importarBloques } from '@/lib/horarios-server';
+import { getProfesParaCasar, importarBloques } from '@/lib/horarios-server';
 import { etapaDeCursoHorario } from '@/lib/horarios';
 import { CONFIGURACION } from '@/lib/configuracion';
 
@@ -44,16 +44,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `No se ha podido leer el fichero: ${(e as Error).message}` }, { status: 400 });
   }
 
-  const deClase = bloques.filter((b) => b.tipo === 'clase');
-  // Dos pasadas: la primera junta las leyendas de todo el fichero, la segunda las usa como
-  // respaldo. Los bloques de PDC no traen todas sus materias en su propia leyenda.
-  const comunes = unirLeyendas(deClase.map((b) => normalizarBloqueClase(b.filas).leyendas));
-  const normalizados: ResultadoBloque[] = deClase.map((b) => normalizarBloqueClase(b.filas, comunes));
-  const utiles = normalizados.filter((r) => r.clase && r.sesiones.length > 0);
+  // Todo el criterio (clases, hojas de profe y el cruce entre ellas) vive en
+  // `prepararImportacion`, sin BBDD. De aquí solo sale el claustro, para casar por nombre las
+  // hojas de quien no aparece en ninguna leyenda del fichero.
+  const prep = prepararImportacion(bloques, await getProfesParaCasar());
+  const utiles = prep.clases;
 
   const previa = {
     bloquesTotales: bloques.length,
-    deProfesor: bloques.length - deClase.length,
+    deProfesor: bloques.filter((b) => b.tipo === 'profe').length,
     clases: utiles.map((r) => ({
       codigo: r.clase!.codigo,
       nombre: r.clase!.nombre,
@@ -64,8 +63,11 @@ export async function POST(req: Request) {
       apoyos: r.sesiones.filter((s) => s.actividadCodigo !== 'clase').length,
       incidencias: r.incidencias.length,
     })),
-    incidencias: agrupar(utiles.flatMap((r) => r.incidencias).map((i) => `${i.tipo} · ${i.crudo ?? i.detalle}`)),
+    incidencias: agrupar([...utiles.flatMap((r) => r.incidencias), ...prep.incidencias]),
     notas: [...new Set(utiles.flatMap((r) => r.notas))],
+    ajustes: prep.ajustes,
+    hojasProfe: prep.hojasProfe,
+    horasProfe: resumirHorasProfe(prep.horasProfe),
     // El fichero no dice si es el horario ordinario o el corto de septiembre/junio, pero
     // se nota: el corto no tiene comedor y baja de 6 franjas. Se sugiere, decide la persona.
     periodoSugerido: sugerirPeriodo(utiles),
@@ -81,7 +83,7 @@ export async function POST(req: Request) {
       fechaFin: String(form.get('hasta') ?? ''),
       prioridad: Number(form.get('prioridad') ?? 0),
       esOrdinario: form.get('ordinario') === 'true',
-    });
+    }, prep.horasProfe);
     return NextResponse.json({ previa, resumen });
   } catch (e) {
     // El mensaje sí, la traza no: el fichero lleva nombres del profesorado.
@@ -89,11 +91,36 @@ export async function POST(req: Request) {
   }
 }
 
-function agrupar(claves: string[]): { clave: string; veces: number }[] {
-  const m = new Map<string, number>();
-  for (const k of claves) m.set(k, (m.get(k) ?? 0) + 1);
-  return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([clave, veces]) => ({ clave, veces }));
+/** Las incidencias iguales juntas, con lo que se le enseña a quien importa. */
+function agrupar(incidencias: Incidencia[]): { tipo: Incidencia['tipo']; clave: string; detalle: string; veces: number }[] {
+  const m = new Map<string, { tipo: Incidencia['tipo']; clave: string; detalle: string; veces: number }>();
+  for (const i of incidencias) {
+    const clave = `${i.tipo} · ${i.crudo ?? i.detalle}`;
+    const previa = m.get(clave);
+    if (previa) previa.veces++;
+    else m.set(clave, { tipo: i.tipo, clave, detalle: i.detalle, veces: 1 });
+  }
+  return [...m.values()].sort((a, b) => b.veces - a.veces);
 }
+
+/** Cuántas horas de profe entran, por tipo y por etiqueta ('Reunión · TIC: 7'). */
+function resumirHorasProfe(horas: ReturnType<typeof prepararImportacion>['horasProfe']): { que: string; horas: number; profes: number }[] {
+  const m = new Map<string, { horas: number; profes: Set<string> }>();
+  for (const h of horas) {
+    const que = h.etiqueta ? `${NOMBRES[h.actividadCodigo] ?? h.actividadCodigo} · ${h.etiqueta}` : (NOMBRES[h.actividadCodigo] ?? h.actividadCodigo);
+    const fila = m.get(que) ?? { horas: 0, profes: new Set<string>() };
+    fila.horas += h.sesiones.length * h.profeCodigos.length;
+    h.profeCodigos.forEach((p) => fila.profes.add(p));
+    m.set(que, fila);
+  }
+  return [...m.entries()].map(([que, f]) => ({ que, horas: f.horas, profes: f.profes.size })).sort((a, b) => b.horas - a.horas);
+}
+
+const NOMBRES: Record<string, string> = {
+  atencion_padres: 'Atención a familias', atencion_alumnos: 'Atención a alumnado', departamento: 'Departamento',
+  reunion: 'Reunión', coordinacion: 'Coordinación', oratorio: 'Oratorio', guardia: 'Guardia', tutoria: 'Tutoría',
+  libre_disposicion: 'Libre disposición', otros: 'Otros', apoyo_pt: 'Apoyo PT', apoyo_al: 'Audición y lenguaje',
+};
 
 /**
  * Ordinario o jornada corta, mirando la forma del horario: el corto no tiene comedor y baja
