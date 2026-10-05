@@ -5,7 +5,7 @@ import { getSessionUser } from '@/lib/auth-guards';
 import { puedeEditarHorarios } from '@/lib/permissions';
 import { prepararImportacion, type Incidencia, type ResultadoBloque } from '@/lib/horarios-import';
 import { leerHorarios } from '@/lib/horarios-lectores';
-import { getProfesParaCasar, importarBloques } from '@/lib/horarios-server';
+import { getProfesParaCasar, importarBloques, type ReunionEtapa } from '@/lib/horarios-server';
 import { etapaDeCursoHorario } from '@/lib/horarios';
 import { CONFIGURACION } from '@/lib/configuracion';
 
@@ -68,6 +68,11 @@ export async function POST(req: Request) {
     ajustes: prep.ajustes,
     hojasProfe: prep.hojasProfe,
     horasProfe: resumirHorasProfe(prep.horasProfe),
+    // La reunión de etapa no suele venir en el fichero: se propone la de la configuración del
+    // centro para cada etapa que trae, y quien importa decide (marcada por defecto).
+    reunionesEtapa: [...new Set(utiles.map((r) => etapaDeCursoHorario(r.clase!.curso)).filter((e): e is NonNullable<typeof e> => !!e))]
+      .filter((e) => CONFIGURACION.horarios.reunionesEtapa[e])
+      .map((etapa) => ({ etapa, ...CONFIGURACION.horarios.reunionesEtapa[etapa] })),
     // El fichero no dice si es el horario ordinario o el corto de septiembre/junio, pero
     // se nota: el corto no tiene comedor y baja de 6 franjas. Se sugiere, decide la persona.
     periodoSugerido: sugerirPeriodo(utiles),
@@ -83,6 +88,7 @@ export async function POST(req: Request) {
       fechaFin: String(form.get('hasta') ?? ''),
       prioridad: Number(form.get('prioridad') ?? 0),
       esOrdinario: form.get('ordinario') === 'true',
+      reunionesEtapa: leerReuniones(form.get('reunionesEtapa')),
     }, prep.horasProfe);
     return NextResponse.json({ previa, resumen });
   } catch (e) {
@@ -131,4 +137,21 @@ function sugerirPeriodo(bloques: ResultadoBloque[]): 'Ordinario' | 'Jornada cort
   const conComedor = bloques.some((b) => b.tramos.some((t) => t.tipo === 'comedor'));
   const franjas = Math.max(0, ...bloques.map((b) => b.tramos.filter((t) => t.tipo === 'sesion').length));
   return conComedor || franjas >= 6 ? 'Ordinario' : 'Jornada corta';
+}
+
+/** Las reuniones de etapa que ha dejado marcadas quien importa (JSON del formulario), validadas. */
+function leerReuniones(valor: FormDataEntryValue | null): ReunionEtapa[] {
+  if (typeof valor !== 'string' || !valor) return [];
+  try {
+    const lista = JSON.parse(valor) as unknown;
+    if (!Array.isArray(lista)) return [];
+    const hora = /^\d{2}:\d{2}$/;
+    return lista
+      .filter((r): r is ReunionEtapa =>
+        !!r && typeof r.etapa === 'string' && Array.isArray(r.dias) && r.dias.every((d: unknown) => Number.isInteger(d) && (d as number) >= 1 && (d as number) <= 5) &&
+        hora.test(r.horaInicio) && hora.test(r.horaFin) && r.horaInicio < r.horaFin && typeof r.etiqueta === 'string')
+      .map((r) => ({ etapa: r.etapa, dias: r.dias, horaInicio: r.horaInicio, horaFin: r.horaFin, etiqueta: r.etiqueta.slice(0, 80) || 'Reunión de etapa' }));
+  } catch {
+    return [];
+  }
 }

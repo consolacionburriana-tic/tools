@@ -26,6 +26,8 @@ interface Previa {
   hojasProfe: { nombre: string; codigo: string | null; horas: number }[];
   /** Las horas que no son clase, sacadas de las hojas de profe: 'Reunión · TIC', 8 h, 3 profes. */
   horasProfe: { que: string; horas: number; profes: number }[];
+  /** La reunión de etapa de la configuración, para cada etapa del fichero: se pregunta. */
+  reunionesEtapa: { etapa: string; dias: number[]; horaInicio: string; horaFin: string; etiqueta: string }[];
   periodoSugerido: 'Ordinario' | 'Jornada corta';
 }
 
@@ -62,6 +64,8 @@ export function Importador() {
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [cargando, setCargando] = useState(false);
   const [sobre, setSobre] = useState(false);
+  // Etapas cuya reunión NO se quiere añadir. Por defecto se añaden todas (lo pidió David).
+  const [sinReunion, setSinReunion] = useState<Set<string>>(new Set());
 
   const year = academicYearActual();
   const primerAño = Number(year.slice(0, 4));
@@ -91,6 +95,7 @@ export function Importador() {
         fd.set('hasta', hasta);
         fd.set('prioridad', String(PERIODOS.find((p) => p.nombre === periodo)?.prioridad ?? 10));
         fd.set('ordinario', String(periodo === 'Ordinario'));
+        fd.set('reunionesEtapa', JSON.stringify((previa?.reunionesEtapa ?? []).filter((r) => !sinReunion.has(r.etapa))));
       }
       const res = await fetch('/api/horarios/admin/importar', { method: 'POST', body: fd });
       const datos = await leerJson(res);
@@ -221,6 +226,38 @@ export function Importador() {
             </div>
           )}
 
+          {(previa.reunionesEtapa?.length ?? 0) > 0 && (
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              <h2 className="mb-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">¿Añado la reunión de etapa?</h2>
+              <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+                No suele venir en el fichero. Se pone a todo el profesorado de la etapa que sale en él; a quien ya
+                tenga algo a esa hora no se le duplica.
+              </p>
+              <div className="space-y-2">
+                {previa.reunionesEtapa.map((r) => (
+                  <label key={r.etapa} className="flex items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-indigo-500"
+                      checked={!sinReunion.has(r.etapa)}
+                      onChange={(e) =>
+                        setSinReunion((prev) => {
+                          const n = new Set(prev);
+                          if (e.target.checked) n.delete(r.etapa);
+                          else n.add(r.etapa);
+                          return n;
+                        })
+                      }
+                    />
+                    <span>
+                      <strong>{r.etapa}</strong> · {r.dias.map((d) => DIAS[d - 1]).join(' y ')} de {r.horaInicio} a {r.horaFin}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {(previa.ajustes?.length ?? 0) > 0 && (
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
               <h3 className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold"><Wand2 className="h-4 w-4" />Arreglado solo</h3>
@@ -297,6 +334,8 @@ export function Importador() {
     </div>
   );
 }
+
+const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes'];
 
 const ESTILO_CAMPO =
   'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100';

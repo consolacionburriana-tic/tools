@@ -497,13 +497,13 @@ clases, pero no para lo demás. Ahora se importan, con el criterio en `prepararI
   son Amparo, Bárbara y David). La atención a familias de dos profes a la misma hora no se junta.
 - **Las celdas con asterisco** (`COCOPE*` + `DPTO`, `TECNO 3ºB*` + `ORATORIO`) son dos cosas en la
   misma hora y entran como **una** hora con las dos: «Departamento | COCOPE». Es como David se lo
-  había apuntado a mano en Mi horario («Oratorio | Tecno 3 ESO B»). Ver la duda abierta en
-  [`00`](./00-desarrollos-futuros.md).
+  había apuntado a mano en Mi horario («Oratorio | Tecno 3 ESO B»). David lo dio por bueno.
 - **Quien se apunta una clase que la hoja de la clase no nombra entra de segundo profe en ella.**
   Emilia Sebastiá no sale en ninguna hoja de clase, pero su hoja dice `MATE 1ºB` a la misma hora
   que 1º B tiene Matemáticas con Montserrat: entra en esas 13 horas como apoyo. Igual Lucía en la
   tutoría de 4º A. **La materia tiene que casar**: su `FIS 2ºA` del martes a 13:05 cae cuando
-  2º A tiene Lengua, así que no se la mete en Lengua; entra como hora suya y se avisa.
+  2º A tiene Lengua, así que no se la mete en Lengua; entra como hora suya y se avisa (David:
+  «viene así, está mal, pero no pasa nada»).
 - **Las hojas se casan por nombre**: primero contra las leyendas del fichero y, si no está, contra
   el claustro de la BBDD (`getProfesParaCasar()`), solo con un candidato.
 - **Si el profe ya tenía algo anotado a mano a esa hora, gana lo suyo** y lo importado no entra.
@@ -527,6 +527,22 @@ Y tres fallos que salieron por el camino:
   la leyenda (en 4º A y B lo es). Ahora es el detalle de esa hora del Ámbito Práctico.
 - 🔧 Los códigos que no están en la leyenda llevan **sugerencia** cuando hay una sola a una letra
   de distancia: «Materia 'NG' no está en la leyenda. ¿Quizá 'ING'?».
+
+**Cerrado con David (5-oct-2026)**: todo lo de arriba está bien tal cual — qué actividad es cada
+cosa, Emilia como segunda profe, «Refuerzo» como «Otros», y que el grupo de referencia pierda a la
+profe del PDC. Y dos cosas más que pidió:
+
+- **Reunión de etapa** (`CONFIGURACION.horarios.reunionesEtapa`): no suele venir en el fichero, así
+  que al importar se pregunta si se añade, **marcada por defecto**. ESO: lunes de 16:00 a 17:00;
+  primaria: martes y jueves de 12:30 a 13:30. Va a todo el profesorado de la etapa que sale en el
+  fichero, como UNA reunión, salvo a quien ya tenga algo a esa hora. Si la franja no existe en la
+  rejilla (la de las 16:00 de la ESO), se añade a la rejilla más larga de la etapa solo ese día.
+  Por script: `--sin-reunion-etapa` para no añadirla.
+- **Horas seguidas = un evento en Google Calendar** (`unirSesionesSeguidas()`, en `mihorario.ts`):
+  la pastoral del jueves de 09:50 a 12:10 (antes y después del patio) se exporta como una reunión
+  larga, no como dos. Igual cualquier cosa con dos huecos seguidos (la coordinación de pastoral de
+  Marta, una clase doble). El recreo no corta; una hora lectiva en medio, sí. En pantalla se
+  siguen viendo por franjas.
 
 ### La leyenda es la que desambigua
 

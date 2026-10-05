@@ -71,6 +71,19 @@ export interface OpcionesImportacion {
   fechaFin: string;
   prioridad?: number;
   esOrdinario?: boolean;
+  /**
+   * Reuniones de etapa de todo el profesorado que se añaden al importar (no suelen venir en
+   * el fichero). Ver `CONFIGURACION.horarios.reunionesEtapa` y la pregunta de la pantalla.
+   */
+  reunionesEtapa?: ReunionEtapa[];
+}
+
+export interface ReunionEtapa {
+  etapa: string;
+  dias: readonly number[];
+  horaInicio: string;
+  horaFin: string;
+  etiqueta: string;
 }
 
 /** Filas en trozos: Postgres traga miles por INSERT, pero no conviene abusar del tamaño. */
@@ -234,6 +247,29 @@ export async function importarBloques(
     }
   }
 
+  // ── Huecos para las reuniones de etapa ───────────────────────────────────────
+  // La de la ESO es los lunes de 16:00 a 17:00, cuando ya no hay clase: esa franja no está en
+  // ninguna rejilla. Si no existe, se añade a la rejilla más larga de la etapa como una franja
+  // más, solo ese día. En el horario de una clase no se ve (se pinta con sus sesiones), y en el
+  // del profe sale como una fila con su reunión.
+  const tramoReunion = new Map<string, { id: string; orden: number }>(); // `${etapa}|${dia}` → tramo
+  for (const r of opciones.reunionesEtapa ?? []) {
+    const deEtapa = filasTramo.filter((t) => etapaDeTramo.get(t.id!) === r.etapa);
+    if (deEtapa.length === 0) continue;
+    const porRejilla = new Map<string, number>();
+    for (const t of deEtapa) porRejilla.set(t.rejillaId, (porRejilla.get(t.rejillaId) ?? 0) + 1);
+    const rejillaLarga = [...porRejilla.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    for (const dia of r.dias) {
+      const existente = deEtapa.find((t) => t.diaSemana === dia && t.horaInicio === r.horaInicio && t.horaFin === r.horaFin);
+      if (existente) { tramoReunion.set(`${r.etapa}|${dia}`, { id: existente.id!, orden: existente.orden }); continue; }
+      const orden = Math.max(0, ...deEtapa.filter((t) => t.rejillaId === rejillaLarga && t.diaSemana === dia).map((t) => t.orden)) + 1;
+      const id = crypto.randomUUID();
+      filasTramo.push({ id, rejillaId: rejillaLarga, diaSemana: dia, orden, etiqueta: 'Reunión', horaInicio: r.horaInicio, horaFin: r.horaFin, tipo: 'sesion' });
+      etapaDeTramo.set(id, r.etapa);
+      tramoReunion.set(`${r.etapa}|${dia}`, { id, orden });
+    }
+  }
+
   for (const t of trozos(filasRejilla)) await db.insert(horRejillas).values(t);
   for (const t of trozos(filasAmbito)) await db.insert(horRejillaAmbitos).values(t);
   for (const t of trozos(filasTramo)) await db.insert(horTramos).values(t);
@@ -354,6 +390,46 @@ export async function importarBloques(
       resumen.horasProfe += sesiones.length;
     }
   }
+  // ── Reunión de etapa: todo el profesorado de la etapa que viene en el fichero ──────────
+  // Quien ya tenga algo a esa hora (lo trae su hoja o se lo anotó a mano) no se mete dos veces.
+  const solapa = (a: { horaInicio: string; horaFin: string }, b: { horaInicio: string; horaFin: string }) =>
+    a.horaInicio < b.horaFin && b.horaInicio < a.horaFin;
+  for (const r of opciones.reunionesEtapa ?? []) {
+    const huecos = r.dias.map((dia) => ({ dia, tramo: tramoReunion.get(`${r.etapa}|${dia}`) })).filter((h) => h.tramo);
+    if (huecos.length === 0) continue;
+    const aliases = new Set<string>();
+    for (const a of asignaciones) if (etapaDeCursoHorario(a.curso) === r.etapa) a.profeCodigos.forEach((p) => aliases.add(p.toUpperCase()));
+    if (cursosPorEtapa.size === 1) for (const h of horasProfe) h.profeCodigos.forEach((p) => aliases.add(p.toUpperCase()));
+    const ocupado = (alias: string, id: string, dia: number) =>
+      [...manualesPrevias].some((m) => m.profeId === id && m.dia === dia && solapa(m, r)) ||
+      horasProfe.some((h) => h.profeCodigos.some((p) => p.toUpperCase() === alias) && h.sesiones.some((s) => s.dia === dia && solapa(s, r)));
+    const porProfes = new Map<string, { ids: string[]; huecos: typeof huecos }>();
+    for (const h of huecos) {
+      const ids = [...aliases]
+        .map((alias) => ({ alias, id: profePorAlias.get(alias) }))
+        .filter((p): p is { alias: string; id: string } => !!p.id && !ocupado(p.alias, p.id, h.dia))
+        .map((p) => p.id);
+      if (ids.length === 0) continue;
+      const k = ids.join('+');
+      const previa = porProfes.get(k);
+      if (previa) previa.huecos.push(h);
+      else porProfes.set(k, { ids, huecos: [h] });
+    }
+    for (const { ids, huecos: suyos } of porProfes.values()) {
+      const id = crypto.randomUUID();
+      filasAsig.push({
+        id, periodoId, academicYear: opciones.academicYear,
+        actividadId: actividadPorCodigo.get('reunion') ?? actividadPorCodigo.get('otros') ?? idClase,
+        materiaId: null, etiqueta: r.etiqueta, origen: 'importado',
+        notas: 'Añadida al importar (reunión de etapa de todo el profesorado)',
+      });
+      ids.forEach((p, i) => filasProfe.push({ asignacionId: id, eduTeacherId: p, rol: 'titular', principal: i === 0 }));
+      for (const h of suyos) filasSesion.push({ asignacionId: id, tramoId: h.tramo!.id, diaSemana: h.dia, orden: h.tramo!.orden });
+      resumen.horasProfe += suyos.length;
+      resumen.notas.push(`${r.etiqueta} (${r.etapa}): ${ids.length} profes, ${suyos.length} hueco(s) a la semana de ${r.horaInicio} a ${r.horaFin}.`);
+    }
+  }
+
   if (omitidasPorManual) {
     resumen.notas.push(`${omitidasPorManual} hora(s) de las hojas de profesor no se han importado porque esa persona ya tenía algo anotado a mano a esa hora (se respeta lo suyo).`);
   }

@@ -5,6 +5,7 @@
  *   pnpm horarios:importar <fichero> [--year 2026-27] [--periodo Ordinario]
  *                                    [--desde 2026-09-01] [--hasta 2027-05-31]
  *                                    [--prioridad 0] [--ordinario] [--dry]
+ *                                    [--sin-reunion-etapa]
  *
  * `--dry` lee y normaliza sin escribir nada: es la vista previa, y es lo que conviene
  * mirar SIEMPRE antes de volcar sobre un horario que ya esté en uso.
@@ -19,6 +20,7 @@ import 'dotenv/config';
 import { prepararImportacion } from '../src/lib/horarios-import';
 import { leerHorarios } from '../src/lib/horarios-lectores';
 import { getProfesParaCasar, importarBloques } from '../src/lib/horarios-server';
+import { CONFIGURACION } from '../src/lib/configuracion';
 
 function arg(nombre: string, defecto: string): string {
   const i = process.argv.indexOf(`--${nombre}`);
@@ -90,6 +92,10 @@ async function main() {
     fechaFin: arg('hasta', '2027-05-31'),
     prioridad: Number(arg('prioridad', '0')),
     esOrdinario: flag('ordinario'),
+    // La reunión de etapa de la configuración del centro, salvo `--sin-reunion-etapa`.
+    reunionesEtapa: flag('sin-reunion-etapa')
+      ? []
+      : Object.entries(CONFIGURACION.horarios.reunionesEtapa).map(([etapa, r]) => ({ etapa, ...r })),
   }, prep.horasProfe);
 
   console.log('\n== Importado ==');
