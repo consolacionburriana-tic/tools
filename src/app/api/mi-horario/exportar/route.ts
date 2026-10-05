@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth-guards';
-import { abreviaturaDeCelda, construirEventoGoogle, emojiDeCelda, rangoExportacion, type RangoCurso } from '@/lib/mihorario';
-import { getCeldas, getPeriodos } from '@/lib/horarios-server';
+import { abreviaturaDeCelda, construirEventoGoogle, emojiDeCelda, rangoExportacion, unirSesionesSeguidas, type RangoCurso } from '@/lib/mihorario';
+import { getCeldas, getFranjasDeProfe, getPeriodos } from '@/lib/horarios-server';
 import { calendarConfigurado, crearEventos, borrarEventosDeOrigen } from '@/lib/mihorario-google';
 import { getFestivos, getPreferencias, getProfePorEmail, getUltimaExportacion, registrarExportacion } from '@/lib/mihorario-server';
 
@@ -35,8 +35,9 @@ export async function POST(req: Request) {
   const periodo = periodos.find((p) => p.id === periodoId);
   if (!periodo) return NextResponse.json({ error: 'Ese periodo no existe' }, { status: 404 });
 
-  const [celdas, preferencias, festivos] = await Promise.all([
+  const [celdasSueltas, franjas, preferencias, festivos] = await Promise.all([
     getCeldas(periodoId, 'profe', profe.id),
+    getFranjasDeProfe(periodoId, profe.id),
     getPreferencias(profe.id),
     getFestivos(periodo.academicYear),
   ]);
@@ -44,6 +45,9 @@ export async function POST(req: Request) {
   // "Todo lo que tenga el profesor": lectivas y no lectivas, guardias, reuniones,
   // atención a familias... El recreo y el comedor no aparecen aquí porque no son
   // sesiones de nadie, son huecos de la rejilla — ya quedan fuera sin filtrar nada.
+  // Dos horas seguidas de lo mismo (la pastoral del jueves antes y después del patio, una
+  // clase doble) son UN evento largo en el calendario, no dos pegados.
+  const celdas = unirSesionesSeguidas(celdasSueltas, franjas);
   const rango = rangoExportacion(
     periodo.academicYear,
     preferencias.rangoCurso as RangoCurso,

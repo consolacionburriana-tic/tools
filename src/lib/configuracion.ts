@@ -105,6 +105,18 @@ export const CONFIGURACION = {
     },
   },
 
+  /** Horarios. Ver `docs/07-horarios.md`. */
+  horarios: {
+    /**
+     * La reunión de etapa de todo el profesorado. No suele venir en el fichero de Educamos,
+     * así que al importar se pregunta si se añade (marcada por defecto). Días 1=lunes…5=viernes.
+     */
+    reunionesEtapa: {
+      ESO: { dias: [1], horaInicio: '16:00', horaFin: '17:00', etiqueta: 'Reunión de etapa' },
+      EP: { dias: [2, 4], horaInicio: '12:30', horaFin: '13:30', etiqueta: 'Reunión de etapa' },
+    } as Record<string, { dias: readonly number[]; horaInicio: string; horaFin: string; etiqueta: string }>,
+  },
+
   /** Sesión del claustro (Auth.js). Ver `src/auth.ts`. */
   sesion: {
     /** Cuánto dura sin volver a pedir Google: un curso, para que no se cuelgue a mitad de año. */

@@ -12,7 +12,7 @@
 //      cada festivo: los festivos no se borran después, no llegan a crearse.
 
 import { normalizarNombreMateria } from '@/lib/horarios-import';
-import { aMinutos, diaSemanaDeFecha, type CeldaHorario } from '@/lib/horarios';
+import { aMinutos, diaSemanaDeFecha, type CeldaHorario, type Franja } from '@/lib/horarios';
 import { CONFIGURACION } from '@/lib/configuracion';
 
 // ─── Emojis por defecto ────────────────────────────────────────────────────────
@@ -357,4 +357,39 @@ export function duracionMinutos(celda: Pick<CeldaHorario, 'horaInicio' | 'horaFi
   const ini = aMinutos(celda.horaInicio) ?? 0;
   const fin = aMinutos(celda.horaFin) ?? 0;
   return fin - ini;
+}
+
+/**
+ * Junta en UNA las horas seguidas de lo mismo, para que en Google Calendar salgan como un
+ * evento largo y no como dos pegados: la reunión de pastoral del jueves de 09:50 a 12:10 es
+ * una reunión, no dos (David, 5-oct-2026). Vale igual para una clase doble.
+ *
+ * "Seguidas" = la misma asignación, el mismo día, y entre una y otra no hay ninguna franja
+ * lectiva de la rejilla (el recreo no corta: la pastoral de 2ª y la de después del patio son
+ * la misma reunión). Sin franjas, solo se juntan las que se tocan (una acaba cuando empieza
+ * la otra). En pantalla se siguen viendo separadas; esto es solo para exportar.
+ */
+export function unirSesionesSeguidas(celdas: readonly CeldaHorario[], franjas: readonly Franja[] = []): CeldaHorario[] {
+  const lectivas = franjas.filter((f) => f.tipo === 'sesion');
+  const ordenadas = [...celdas].sort((a, b) => a.dia - b.dia || a.horaInicio.localeCompare(b.horaInicio));
+  const salida: CeldaHorario[] = [];
+  const ultimaDe = new Map<string, CeldaHorario>();
+  for (const c of ordenadas) {
+    const clave = c.asignacionId ? `${c.asignacionId}|${c.dia}` : null;
+    const previa = clave ? ultimaDe.get(clave) : undefined;
+    const pegada =
+      !!previa &&
+      previa.horaFin <= c.horaInicio &&
+      (previa.horaFin === c.horaInicio ||
+        (lectivas.some((f) => f.dia === c.dia) &&
+          !lectivas.some((f) => f.dia === c.dia && f.horaInicio >= previa.horaFin && f.horaFin <= c.horaInicio)));
+    if (previa && pegada) {
+      previa.horaFin = c.horaFin;
+      continue;
+    }
+    const copia = { ...c };
+    salida.push(copia);
+    if (clave) ultimaDe.set(clave, copia);
+  }
+  return salida;
 }

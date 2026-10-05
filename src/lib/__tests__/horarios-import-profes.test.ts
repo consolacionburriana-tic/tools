@@ -11,6 +11,8 @@ import {
   sugerirCodigo,
   type BloqueEntrada,
 } from '@/lib/horarios-import';
+import { type CeldaHorario, type Franja } from '@/lib/horarios';
+import { unirSesionesSeguidas } from '@/lib/mihorario';
 
 // Fixtures INVENTADOS que imitan el fichero de la ESO de Educamos: nombres y códigos de
 // profesorado ficticios (ver docs/04-convenciones-tecnicas.md). La forma de cada celda sí es
@@ -286,5 +288,35 @@ describe('prepararImportacion: el fichero entero', () => {
     const p = prepararImportacion([FICHERO[0], profe('PERSONA DESCONOCIDA', [['De 08:00 a 08:55', 'TIC', '', '', '', '']])]);
     expect(p.horasProfe).toHaveLength(0);
     expect(p.incidencias[0].tipo).toBe('profe_desconocido');
+  });
+});
+
+describe('Google Calendar: horas seguidas de lo mismo = un evento', () => {
+  const celda = (asignacionId: string, dia: number, horaInicio: string, horaFin: string) =>
+    ({ asignacionId, dia, horaInicio, horaFin, sesionId: `${asignacionId}-${horaInicio}` }) as unknown as CeldaHorario;
+  const franja = (dia: number, horaInicio: string, horaFin: string, tipo: Franja['tipo'] = 'sesion') =>
+    ({ tramoId: `${dia}-${horaInicio}`, dia, horaInicio, horaFin, tipo }) as Franja;
+  const rejilla = [
+    franja(4, '08:55', '09:50'), franja(4, '09:50', '10:45'), franja(4, '10:45', '11:05', 'recreo'),
+    franja(4, '11:05', '12:10'), franja(4, '12:10', '13:05'),
+  ];
+
+  it('la pastoral de antes y de después del patio es UNA reunión de 09:50 a 12:10', () => {
+    const r = unirSesionesSeguidas([celda('past', 4, '09:50', '10:45'), celda('past', 4, '11:05', '12:10')], rejilla);
+    expect(r).toHaveLength(1);
+    expect([r[0].horaInicio, r[0].horaFin]).toEqual(['09:50', '12:10']);
+  });
+
+  it('con una hora lectiva en medio (libre o de otra cosa) no se juntan', () => {
+    const r = unirSesionesSeguidas([celda('mat', 4, '08:55', '09:50'), celda('mat', 4, '11:05', '12:10')], rejilla);
+    expect(r).toHaveLength(2);
+  });
+
+  it('cosas distintas pegadas no se juntan, y no se toca la celda original', () => {
+    const a = celda('a', 4, '08:55', '09:50');
+    const r = unirSesionesSeguidas([a, celda('b', 4, '09:50', '10:45')], rejilla);
+    expect(r).toHaveLength(2);
+    unirSesionesSeguidas([a, celda('a', 4, '09:50', '10:45')], rejilla);
+    expect(a.horaFin).toBe('09:50');
   });
 });
