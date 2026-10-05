@@ -264,6 +264,16 @@ describe('prepararImportacion: el fichero entero', () => {
     expect(prep.incidencias.some((i) => i.tipo === 'solo_en_hoja_profe')).toBe(true);
   });
 
+  it('si lo que se apunta no casa con la clase que hay a esa hora, NO se mete en ella', () => {
+    const p = prepararImportacion([
+      clase('1ESOA: 1º ESO-A', [['De 08:00 a 08:55', 'TUT - AAAA0', '', '', '', '']], LEYENDA_COMUN),
+      profe('FABIOLA FERRER', [['De 08:00 a 08:55', 'FIS 1ºA', '', '', '', '']]),
+    ], CLAUSTRO);
+    expect(p.clases[0].sesiones[0].profeCodigos).toEqual(['AAAA0']);
+    expect(p.horasProfe[0].etiqueta).toBe('FIS 1ºA');
+    expect(p.incidencias[0].tipo).toBe('solo_en_hoja_profe');
+  });
+
   it('el titular sigue siendo el primero de la celda, no el primero por orden alfabético', () => {
     // 'TYD3 - EEEE0' + 'DDDD0': EEEE0 es la titular aunque DDDD0 vaya antes en el alfabeto.
     const asig = agruparSesiones(prep.clases, (c) => c);

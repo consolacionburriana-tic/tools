@@ -1042,7 +1042,7 @@ function casaMateria(texto: string, codigo: string, leyendas: Leyendas): boolean
  * Una clase que un profe se apunta en su hoja. Si la hoja de esa clase ya le nombra a esa
  * hora, nada. Si no le nombra pero a esa hora hay UNA clase que casa con lo que ha escrito,
  * entra como segundo profe en ella (así entra Emilia en las Matemáticas de 1º B). Si no hay
- * ninguna, o hay varias y no se sabe cuál, se devuelve para que se trate como aviso.
+ * ninguna que case, o hay varias y no se sabe cuál, se devuelve para que se trate como aviso.
  */
 function reconciliarClase(
   bloques: readonly ResultadoBloque[],
@@ -1061,8 +1061,10 @@ function reconciliarClase(
   if (enHueco.some(({ s }) => s.profeCodigos.includes(profe))) return 'ya_estaba';
   const clases = enHueco.filter(({ s }) => s.actividadCodigo === 'clase' && s.materiaCodigo);
   if (clases.length === 0) return 'sin_clase';
-  const porMateria = clases.filter(({ b, s }) => casaMateria(clase.materiaTexto, s.materiaCodigo!, b.leyendas));
-  const elegidas = porMateria.length ? porMateria : clases.length === 1 ? clases : [];
+  // La materia TIENE que casar. Coger «la única clase que hay a esa hora» metía a Emilia en
+  // una Lengua de 2º A porque su hoja dice 'FIS 2ºA' a una hora en que 2º A tiene Lengua: eso
+  // es una contradicción entre las dos hojas, y se avisa en vez de elegir por ella.
+  const elegidas = clases.filter(({ b, s }) => casaMateria(clase.materiaTexto, s.materiaCodigo!, b.leyendas));
   if (elegidas.length !== 1) return elegidas.length === 0 ? 'sin_clase' : 'ambiguo';
   elegidas[0].s.profeCodigos.push(profe);
   return 'añadido';
