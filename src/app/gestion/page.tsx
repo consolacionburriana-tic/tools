@@ -45,6 +45,7 @@ import {
   Stat,
   ToolDoble,
 } from '@/components/home/escritorio-cards';
+import { SelectorTema } from '@/components/home/selector-tema';
 import { CONFIGURACION } from '@/lib/configuracion';
 
 export const metadata = { title: 'Escritorio · Tools Consolación' };
@@ -103,16 +104,19 @@ export default async function EscritorioPage() {
               </p>
             </div>
           </div>
-          <form
-            action={async () => {
-              'use server';
-              await signOut({ redirectTo: '/gestion/login' });
-            }}
-          >
-            <button className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
-              <LogOut className="h-4 w-4" /> Salir
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            <SelectorTema />
+            <form
+              action={async () => {
+                'use server';
+                await signOut({ redirectTo: '/gestion/login' });
+              }}
+            >
+              <button className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                <LogOut className="h-4 w-4" /> Salir
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 
