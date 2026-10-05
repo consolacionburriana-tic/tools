@@ -1,9 +1,13 @@
 // Etapas extensibles: Bachillerato y las variantes de PDC, de punta a punta.
 //
+// Consolación NO tiene Bachillerato (`etapasActivas` lo deja apagado), pero la plataforma sigue
+// sabiendo trabajarlo para quien lo active. Este fichero lo prueba con la etapa ENCENDIDA (el mock
+// de abajo); lo que pasa con ella apagada, que es lo de verdad, está en `sin-bachillerato.test.ts`.
+//
 // No hay todavía un export de Educamos con Bachillerato; estos tests fijan la CONVENCIÓN que se
 // ha deducido (`{1|2}BACH` + letra opcional, ver la cabecera de `src/lib/cursos.ts`) para que,
 // cuando llegue un fichero real, el cambio sea de una línea y se vea qué se rompe.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { claseLarga } from '@/lib/alumnado';
 import { entraEnAlcance } from '@/lib/autoasm-construir';
 import {
@@ -28,6 +32,20 @@ import { anioDeEmpezar3, anioQueToca, nombreClase, nombreCurso, porEtapa } from 
 import { ETAPA_LABELS, ETAPAS_ORA } from '@/lib/oratorios';
 import { claseTutorAKey } from '@/lib/profes';
 import { cursoEnPuntualidad } from '@/lib/puntualidad';
+
+// Un colegio con Bachillerato: la etapa encendida, junta con ESO y dentro de Puntualidad.
+vi.mock('@/lib/configuracion', async (original) => {
+  const real = await original<typeof import('@/lib/configuracion')>();
+  return {
+    ...real,
+    CONFIGURACION: {
+      ...real.CONFIGURACION,
+      etapasActivas: ['EI', 'EP', 'ESO', 'BACH'],
+      etapasConjuntas: [['ESO', 'BACH']],
+      puntualidad: { ...real.CONFIGURACION.puntualidad, etapas: ['ESO', 'BACH'] },
+    },
+  };
+});
 
 describe('las etapas', () => {
   it('son cuatro, en orden, y todas tienen nombre', () => {
@@ -260,7 +278,7 @@ describe('import de Educamos con una etapa que no sabemos trabajar', () => {
   });
 
   it('avisa una vez por clase, con cuántos son', () => {
-    const avisos = parsed.warnings.filter((w) => w.includes('no es de ninguna etapa conocida'));
+    const avisos = parsed.warnings.filter((w) => w.includes('no es de ninguna etapa del colegio'));
     expect(avisos).toHaveLength(2);
     expect(avisos.find((w) => w.includes('CFGM1A'))).toMatch(/^2 alumnos de la clase "CFGM1A" no se importan/);
     expect(avisos.find((w) => w.includes('AULA ENLACE'))).toMatch(/^1 alumno de la clase "AULA ENLACE" no se importa/);

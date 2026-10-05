@@ -54,7 +54,7 @@ export function Ajustes({ e }: { e: Estado }) {
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{t.nombre}</span>
                   <span className="block truncate text-xs text-zinc-500">
-                    {t.cantidad} {FRECUENCIA_LABELS[t.frecuencia]} · {t.clases?.length ? `${t.clases.length} clases` : t.etapas.map((x) => ETAPA_LABELS[x]).join(' + ') || '—'} · aviso {t.avisoDias} días antes ·{' '}
+                    {t.cantidad} {FRECUENCIA_LABELS[t.frecuencia]} · {t.clases?.length ? `${t.clases.length} clases` : t.etapas.map((x) => ETAPA_LABELS[x]).filter(Boolean).join(' + ') || '—'} · aviso {t.avisoDias} días antes ·{' '}
                     {t.calendarioId ? 'con calendario' : 'sin calendario'}
                   </span>
                 </span>

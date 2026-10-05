@@ -510,11 +510,11 @@ describe('el abanico de sesiones', () => {
   }
 
   describe('generaciones: la vida escolar del alumno', () => {
-    it('los niveles son un solo camino de infantil a bachillerato', () => {
+    it('los niveles son un solo camino de infantil a 4º de ESO (sin Bachillerato)', () => {
       expect(ordinalNivel('4ESO')! - ordinalNivel('1ESO')!).toBe(3);
       expect(ordinalNivel('1PRI')! - ordinalNivel('5INF')!).toBe(1);
       expect(ordinalNivel('1ESO')! - ordinalNivel('6PRI')!).toBe(1);
-      expect(ordinalNivel('1BACH')! - ordinalNivel('4ESO')!).toBe(1);
+      expect(ordinalNivel('1BACH')).toBeNull();
       expect(ordinalNivel('7ESO')).toBeNull();
       expect(ordinalNivel('XYZ')).toBeNull();
     });

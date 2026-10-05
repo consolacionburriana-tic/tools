@@ -9,7 +9,7 @@
 // de días va en UTC a propósito: `new Date('2026-10-05')` en España es el domingo anterior.
 import { z } from 'zod';
 
-import { cursoBaseEso, ETAPAS, etapaDeCurso, nivelDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
+import { cursoBaseEso, ETAPA_LABEL, ETAPAS, etapaDeCurso, nivelDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
 import { CONFIGURACION } from '@/lib/configuracion';
 
 // ─── Catálogos ───────────────────────────────────────────────────────────────
@@ -50,7 +50,10 @@ export const ETAPAS_ORA = ETAPAS;
  * primero) y `abanico` es lo que David llama «Sesiones»: lo que se hace en cada momento.
  */
 export const PESTANAS_ORA = ['planificar', 'sesiones', 'abanico', 'numeros', 'huecos', 'ajustes'] as const;
-export const ETAPA_LABELS: Record<string, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'ESO', BACH: 'Bachillerato' };
+// Solo las etapas del colegio (`ETAPAS_ORA`): una `BACH` guardada antes de apagarla no se pinta.
+export const ETAPA_LABELS: Record<string, string> = Object.fromEntries(
+  ETAPAS.map((e) => [e, e === 'ESO' ? 'ESO' : ETAPA_LABEL[e]]),
+);
 
 // ─── Tipos de datos (lo que viaja entre servidor y pantalla) ────────────────────
 

@@ -26,6 +26,17 @@ export type TipoPromocion =
 
 export const CONFIGURACION = {
   /**
+   * Etapas que tiene el colegio. Una etapa que no está aquí **no existe** para la plataforma: no
+   * sale en ningún selector, panel ni texto, y al importar de Educamos sus clases se omiten con
+   * aviso (sin romper el fichero). Consolación NO tiene Bachillerato (David, 5-oct-2026), así que
+   * `BACH` está fuera; un colegio que sí lo tenga solo tiene que añadirlo aquí.
+   * Los bloques de abajo (`niveles`, `promocion`, `bancoLibros`…) conservan su entrada de `BACH`
+   * por si se activa, pero mientras no esté en esta lista no se lee en ningún sitio.
+   * Lo lee: `ETAPAS` y `etapaDeCurso` (`cursos.ts`), de donde sale todo lo demás.
+   */
+  etapasActivas: ['EI', 'EP', 'ESO'] as readonly Etapa[],
+
+  /**
    * Estructura de cursos: el primer y el último nivel de cada etapa (`3INF`…`5INF`, `1PRI`…`6PRI`).
    * Lo leen: promoción de curso (tutorías y Cuaderno), banco de libros.
    */
@@ -40,7 +51,7 @@ export const CONFIGURACION = {
    * Qué pasa con un curso al cambiar de año (botón «Promocionar +1 curso» de `/gestion/profes`).
    * Reglas fijadas por David el 1-sep-2026. Un colegio que promociona Primaria de 1º a 2º
    * «de verdad» pone `'sube'` en `EP` (y `'sube'` en `EI` si su Infantil sube de 3 a 4 a 5).
-   * Bachillerato: por defecto, sin decidir con David.
+   * Bachillerato: sin uso mientras no esté en `etapasActivas`.
    */
   promocion: {
     EI: 'rota',
@@ -51,8 +62,7 @@ export const CONFIGURACION = {
 
   /**
    * Banco de libros: desde qué nivel de cada etapa participa. Una etapa que no está aquí no
-   * entra en el banco. Hoy: de 3º de Primaria a 2º de Bachillerato (David, 30-sep-2026: «Bachillerato
-   * sí tiene banco de libros»).
+   * entra en el banco. Hoy: de 3º de Primaria a 4º de ESO (`BACH` solo cuenta si la etapa está activa).
    * Lo leen: Banco de libros, Alumnado, el sync de Educamos (casilla `banco_libros` de un alta).
    */
   bancoLibros: {
@@ -63,18 +73,19 @@ export const CONFIGURACION = {
 
   /**
    * Etapas que van juntas a efectos de **quién ve a quién** en Alumnado, Banco de libros y
-   * Números: quien tiene una de las de un grupo las tiene todas. Hoy ESO y Bachillerato son una
-   * etapa conjunta (David, 30-sep-2026). Un profe de ESO ve a Bachillerato y al revés.
+   * Números: quien tiene una de las de un grupo las tiene todas. Hoy ninguna: sin Bachillerato
+   * (ver `etapasActivas`), cada etapa va sola. Con él, sería `[['ESO', 'BACH']]` (un profe de ESO
+   * ve a Bachillerato y al revés).
    */
-  etapasConjuntas: [['ESO', 'BACH']] as readonly (readonly Etapa[])[],
+  etapasConjuntas: [] as readonly (readonly Etapa[])[],
 
   /**
    * Puntualidad (retrasos de entrada). Lo leen: el formulario, el panel, el aviso al tutor y el
    * resumen semanal.
    */
   puntualidad: {
-    /** A qué etapas afecta. Hoy ESO (con su PDC) y Bachillerato (David, 30-sep-2026). */
-    etapas: ['ESO', 'BACH'] as readonly Etapa[],
+    /** A qué etapas afecta. Hoy ESO (con su PDC). */
+    etapas: ['ESO'] as readonly Etapa[],
     /** Hora a la que se cierran las puertas: a partir de aquí es retraso. */
     horaLimite: '08:05',
     /** Cada cuántos retrasos NO justificados se avisa al tutor y se pone consecuencia. */

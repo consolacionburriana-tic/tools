@@ -2,7 +2,7 @@
 // mapeo de cabeceras, cascada de matching y generación de código interno.
 // Sin IO: las queries Drizzle viven en educamos-server.ts.
 import * as XLSX from 'xlsx';
-import { cursoBaseEso, etapaDeCurso, parseBachillerato } from './cursos';
+import { cursoBaseEso, ETAPA_LABEL, ETAPAS, etapaDeCurso, parseBachillerato } from './cursos';
 import { CURSOS_FORM } from './licencias';
 import { COLEGIO } from '@/lib/colegio';
 
@@ -458,9 +458,14 @@ export function parseEducamosFile(buffer: ArrayBuffer | Buffer, filename: string
     }
   }
 
+  // «Infantil, Primaria o ESO»: las etapas que tiene el colegio (`CONFIGURACION.etapasActivas`).
+  const listaEtapas = () => {
+    const nombres = ETAPAS.map((e) => (e === 'ESO' ? 'ESO' : ETAPA_LABEL[e]));
+    return nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} o ${nombres[nombres.length - 1]}` : nombres.join('');
+  };
   for (const [clase, n] of sinEtapa) {
     warnings.push(
-      `${n} ${n === 1 ? 'alumno' : 'alumnos'} de la clase "${clase}" no se ${n === 1 ? 'importa' : 'importan'}: no es de ninguna etapa conocida (Infantil, Primaria, ESO o Bachillerato). El resto del fichero sí.`,
+      `${n} ${n === 1 ? 'alumno' : 'alumnos'} de la clase "${clase}" no se ${n === 1 ? 'importa' : 'importan'}: no es de ninguna etapa del colegio (${listaEtapas()}). El resto del fichero sí.`,
     );
   }
 

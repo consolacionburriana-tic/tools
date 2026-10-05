@@ -385,7 +385,7 @@ export function PuntualidadForm({
               animate={{ opacity: 1 }}
               className="rounded-xl border border-dashed border-zinc-200 px-4 py-3 text-sm text-zinc-400 dark:border-zinc-700"
             >
-              Nadie de secundaria con ese nombre. (El módulo lleva ESO, PDC y Bachillerato.)
+              Nadie de secundaria con ese nombre. (El módulo lleva ESO y PDC.)
             </motion.p>
           )}
         </AnimatePresence>

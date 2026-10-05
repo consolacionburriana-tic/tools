@@ -65,12 +65,11 @@ export const REASONS = [
 
 export type ReasonValue = (typeof REASONS)[number]['value'];
 
-// Etapas del profesorado — valores sin tilde para la BD
+// Etapas del profesorado — valores sin tilde para la BD (sin Bachillerato: el colegio no lo tiene)
 export const STAGES = [
   { value: 'EI', label: 'EI' },
   { value: 'EP', label: 'EP' },
   { value: 'ESO', label: 'ESO' },
-  { value: 'BACH', label: 'BACH' },
   { value: 'PAS', label: 'PAS' },
   { value: 'Direccion', label: 'Dirección' },
   { value: 'Orientacion', label: 'Orientación' },
@@ -83,7 +82,6 @@ export const STAGE_LABELS: Record<StageValue, string> = {
   EI: 'EI',
   EP: 'EP',
   ESO: 'ESO',
-  BACH: 'Bachillerato',
   PAS: 'PAS',
   Direccion: 'Dirección',
   Orientacion: 'Orientación',

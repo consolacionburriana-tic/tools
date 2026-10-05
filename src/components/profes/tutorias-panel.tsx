@@ -215,7 +215,7 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
             <p className="text-sm text-zinc-700 dark:text-zinc-200">
               <strong>{resumenPlan(previa).movidas}</strong> tutorías cambian de clase y{' '}
               <strong>{resumenPlan(previa).liberadas}</strong> se quedan libres. Infantil y Primaria rotan dentro de su
-              ciclo; en la ESO se sube de curso y 4º egresa, y en Bachillerato 2º egresa.
+              ciclo; en la ESO se sube de curso y 4º egresa.
             </p>
             <ul className="mt-2 max-h-64 space-y-0.5 overflow-y-auto text-xs">
               {previa.map((c) => (

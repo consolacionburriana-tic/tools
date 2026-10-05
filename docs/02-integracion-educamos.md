@@ -301,7 +301,9 @@ Salió al montar la ficha de alumnado (`docs/21-alumnado.md`), inventariando los
 
 - **PDC**: vale `PPDC` (como lo manda Educamos aquí) y `PDC` (por si otro colegio lo tiene así).
   Todo el repo lo trata como ESO con letra `PDC` (`esPdc()`, `cursoBaseEso()`).
-- **Bachillerato** — ⚠️ **convención deducida, sin export real todavía**: se guarda siempre como
+- **Bachillerato** — ⚠️ **hoy apagado** (Consolación no lo tiene: `etapasActivas`, 5-oct-2026), así que
+  una clase `1BACH…` cuenta como etapa desconocida y no se importa. Si se enciende, la
+  **convención está deducida, sin export real todavía**: se guarda siempre como
   `1BACH`/`2BACH` aunque llegue como `BAT`, `BTO` o `Bachillerato`; la letra (o modalidad) puede
   tener hasta tres caracteres. Vive en `parseBachillerato()` de `cursos.ts`, que también usan el
   import de Horarios y el parser de tutorías. **Cuando llegue el primer fichero real, comprobar

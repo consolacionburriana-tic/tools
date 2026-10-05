@@ -565,7 +565,19 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   §6 de la guía.
   ✅ **Solo para colegios con Educamos**: importar alumnado y profesorado de Educamos es la
   gracia; no habrá lector para otros programas.
-  ✅ **Bachillerato soportado** (30-sep-2026), pendiente de probar con un export real: nunca ha
+  ✅ **Bachillerato APAGADO para Consolación (5-oct-2026)**: el colegio no tiene Bachillerato y
+  David pidió que no salga en ningún sitio. Se hizo configurable en vez de borrar el código:
+  `CONFIGURACION.etapasActivas` (`configuracion.ts`) es ahora `['EI', 'EP', 'ESO']`. `ETAPAS` sale
+  de ahí, así que Bachillerato no aparece en selectores, paneles, Números, Oratorios, Horarios,
+  tutorías ni textos; `etapaDeCurso()` y `parseBachillerato()` no lo reconocen, de modo que un
+  alumno con clase `1BACH…` en Educamos **no se importa** (con el aviso de siempre, que ya no lo
+  nombra). `etapasConjuntas` queda vacío y `puntualidad.etapas` solo tiene ESO. Un colegio que sí
+  lo tenga añade `'BACH'` a `etapasActivas` (y `['ESO', 'BACH']` a `etapasConjuntas` /
+  `puntualidad.etapas` si los quiere juntos): con eso vuelve todo lo descrito a continuación, que
+  sigue probado con la etapa encendida en `etapas-bachillerato.test.ts`. ⚠️ No se ha podido mirar
+  Neon desde esta sesión: si algún tipo de Oratorios (`ora_tipos.etapas`) o ficha de profe
+  llegó a marcarse con `BACH` entre el 30-sep y hoy, ya no se pinta, pero el dato sigue en la BBDD.
+  ✅ **Bachillerato soportado** (30-sep-2026; hoy desactivado, ver arriba), pendiente de probar con un export real: nunca ha
   llegado un fichero de Educamos con Bachillerato, así que la **convención está deducida** de
   cómo Educamos nombra el resto (`{1|2}BACH` + letra opcional; se leen también `BAT`, `BTO`,
   `BAC` y `Bachillerato`, y se guardan siempre como `1BACH`). Cuando llegue el primer fichero

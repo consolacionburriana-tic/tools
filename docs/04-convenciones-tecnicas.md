@@ -231,6 +231,11 @@ src/components/<modulo>/          # componentes propios del módulo
 Las etapas (`Etapa`: Infantil, Primaria, ESO, Bachillerato) y todo lo que se decide por curso
 —reconocerlo, promocionarlo, si entra en el banco— viven en `src/lib/cursos.ts`. Reglas:
 
+- **`ETAPAS` son las etapas que TIENE el colegio** (`CONFIGURACION.etapasActivas`), no todas las que
+  el tipo `Etapa` admite (`TODAS_LAS_ETAPAS`). Consolación no tiene Bachillerato, así que
+  `ETAPAS = ['EI', 'EP', 'ESO']` y `etapaDeCurso('1BACH')` es `null`. Para pintar o recorrer etapas,
+  usa `ETAPAS`; **nunca escribas `'BACH'` a mano en un selector, panel o texto**.
+
 - **Nunca escribas `'EI' | 'EP' | 'ESO'` a mano** (ni `['EI','EP','ESO']`, ni `z.enum([...])`):
   importa `Etapa`, `ETAPAS` y `ETAPA_LABEL`. Así una etapa nueva entra sola.
 - **Cuidado con lo que el compilador no ve**: un `Record<string, …>` inicializado con tres claves, o

@@ -1,6 +1,9 @@
 // Helpers puros de cursos y etapas (sin IO, testeables).
 // Los números de cada etapa (niveles, promoción, banco de libros) están en `configuracion.ts`.
 //
+// (Consolación NO tiene Bachillerato: `CONFIGURACION.etapasActivas` lo deja apagado y todo lo
+// de Bachillerato de este fichero queda inerte.)
+//
 // Los códigos de curso de la BBDD central (edu_students.curso) tienen esta forma:
 //   Infantil    : 3INF, 4INF, 5INF          → etapa EI (3-4-5 años)
 //   Primaria    : 1PRI … 6PRI               → etapa EP
@@ -23,9 +26,16 @@
 
 import { CONFIGURACION } from './configuracion';
 
-/** Las etapas que la plataforma sabe trabajar, en el orden en que se enseñan. */
-export const ETAPAS = ['EI', 'EP', 'ESO', 'BACH'] as const;
-export type Etapa = (typeof ETAPAS)[number];
+/** Todas las etapas que la plataforma sabe trabajar (el tipo), tenga el colegio las que tenga. */
+export const TODAS_LAS_ETAPAS = ['EI', 'EP', 'ESO', 'BACH'] as const;
+export type Etapa = (typeof TODAS_LAS_ETAPAS)[number];
+
+/**
+ * Las etapas que **tiene el colegio** (`CONFIGURACION.etapasActivas`), en el orden en que se
+ * enseñan. Es la lista que recorre toda la interfaz: una etapa que no está aquí no sale en
+ * ningún sitio. Consolación no tiene Bachillerato, así que hoy son Infantil, Primaria y ESO.
+ */
+export const ETAPAS: readonly Etapa[] = TODAS_LAS_ETAPAS.filter((e) => CONFIGURACION.etapasActivas.includes(e));
 
 /** Cómo se llama cada etapa en pantalla. */
 export const ETAPA_LABEL: Record<Etapa, string> = {
@@ -43,11 +53,13 @@ export function esEtapa(valor: unknown): valor is Etapa {
 export function etapaDeCurso(curso: string | null | undefined): Etapa | null {
   if (!curso) return null;
   const c = curso.toUpperCase();
-  if (c.includes('INF')) return 'EI';
-  if (c.includes('PRI')) return 'EP';
-  if (c.includes('ESO') || c.includes('PDC')) return 'ESO';
-  if (c.includes('BAC') || c.includes('BAT') || c.includes('BTO')) return 'BACH';
-  return null;
+  let etapa: Etapa | null = null;
+  if (c.includes('INF')) etapa = 'EI';
+  else if (c.includes('PRI')) etapa = 'EP';
+  else if (c.includes('ESO') || c.includes('PDC')) etapa = 'ESO';
+  else if (c.includes('BAC') || c.includes('BAT') || c.includes('BTO')) etapa = 'BACH';
+  // Una etapa que el colegio no tiene (`etapasActivas`) es una etapa que no se reconoce.
+  return etapa && ETAPAS.includes(etapa) ? etapa : null;
 }
 
 /**
@@ -77,9 +89,11 @@ export const PATRONES_CURSO_SQL: Record<Etapa, readonly string[]> = {
  * Bachillerato en todas sus grafías → `{ curso: '1BACH'|'2BACH', letra }`, o `null` si no lo es.
  * Recibe el código ya en MAYÚSCULAS y sin espacios ni acentos. La letra (o modalidad) puede ser
  * de 0 a 3 caracteres: `1BACH` (una línea), `1BACHA`, `2BACHCT`. Es EL sitio donde se decide
- * cómo se lee Bachillerato: Educamos, Horarios y las tutorías pasan por aquí.
+ * cómo se lee Bachillerato: Educamos, Horarios y las tutorías pasan por aquí. Si el colegio no
+ * tiene Bachillerato (`etapasActivas`), devuelve siempre `null`.
  */
 export function parseBachillerato(codigo: string): { curso: string; letra: string | null } | null {
+  if (!ETAPAS.includes('BACH')) return null;
   const m = codigo.match(/^(\d)[º°]?(?:BACHILLERATO|BACH|BATX|BAT|BTO|BAC)([A-Z]{0,3})$/);
   return m ? { curso: `${m[1]}BACH`, letra: m[2] || null } : null;
 }

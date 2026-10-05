@@ -3,7 +3,7 @@
 // Criterio (acordado con David): por ETAPA primero (infantil → primaria → secundaria),
 // dentro de cada etapa los TUTORES por orden de su clase y luego el resto de profes
 // ("otros") alfabéticos por nombre. Los profes sin etapa caen en una sección "General".
-import { ordenCurso, parseBachillerato, type Etapa } from '@/lib/cursos';
+import { ETAPA_LABEL, ETAPAS, esEtapa, ordenCurso, parseBachillerato, type Etapa } from '@/lib/cursos';
 import { nombresDe, type NombrePersona } from '@/lib/personas';
 
 export interface ProfeItem {
@@ -23,11 +23,9 @@ export interface ProfeGrupo<T extends ProfeItem = ProfeItem> {
   items: T[];
 }
 
+// Una etapa por cada una que tiene el colegio (`ETAPAS`), más «General».
 const GRUPOS: { clave: Etapa | 'General'; label: string }[] = [
-  { clave: 'EI', label: 'Infantil' },
-  { clave: 'EP', label: 'Primaria' },
-  { clave: 'ESO', label: 'Secundaria' },
-  { clave: 'BACH', label: 'Bachillerato' },
+  ...ETAPAS.map((e) => ({ clave: e, label: ETAPA_LABEL[e] })),
   { clave: 'General', label: 'General' },
 ];
 
@@ -60,7 +58,8 @@ export function claseTutorAKey(claseTutor: string | null): string | null {
 /** Agrupa el profesorado por etapa siguiendo el criterio del repo. */
 export function agruparProfes<T extends ProfeItem>(profes: T[]): ProfeGrupo<T>[] {
   return GRUPOS.map(({ clave, label }) => {
-    const delGrupo = profes.filter((p) => (p.etapa ?? 'General') === clave);
+    // Una etapa que el colegio no tiene (p. ej. una ficha antigua con `BACH`) cae en «General»: nadie desaparece de la lista.
+    const delGrupo = profes.filter((p) => (esEtapa(p.etapa) ? p.etapa : 'General') === clave);
     const tutores = delGrupo
       .filter((p) => p.esTutor)
       .sort((a, b) => ordenTutor(a) - ordenTutor(b));
