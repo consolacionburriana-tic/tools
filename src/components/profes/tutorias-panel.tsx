@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, ChevronDown, Eraser, Loader2, Plus, Search, TriangleAlert, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
-import { ETAPA_LABEL, ETAPAS, etapaDeCurso, type Etapa } from '@/lib/cursos';
+import { ETAPA_LABEL, ETAPAS, ETAPAS_VISIBLES, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import type { ProfeItem } from '@/lib/profes';
 import { type CambioPromocion, type ClaseConTutoresUI, planPromocion, resumenPlan } from '@/lib/tutorias';
 import { RepartoAlumnos } from '@/components/profes/reparto-alumnos';
@@ -154,7 +154,7 @@ export function TutoriasPanel({ clases: inicial, profes }: { clases: ClaseConTut
           </button>
           <span className="mx-1 text-zinc-300 dark:text-zinc-600">|</span>
           <span className="text-zinc-400">Limpiar:</span>
-          {(['todas', ...ETAPAS] as const).map((q) => (
+          {(['todas', ...ETAPAS_VISIBLES] as const).map((q) => (
             <button
               key={q}
               type="button"

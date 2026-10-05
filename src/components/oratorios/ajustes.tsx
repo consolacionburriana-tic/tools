@@ -8,8 +8,8 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
-import { nombreClase } from '@/lib/cursos';
-import { claveClase, clasesDeTipo, ETAPA_LABELS, ETAPAS_ORA, FRECUENCIA_LABELS, FRECUENCIAS, fechaCorta, type EntradaTipo, type TipoMomento, type Trimestre } from '@/lib/oratorios';
+import { ETAPAS_VISIBLES, nombreClase } from '@/lib/cursos';
+import { claveClase, clasesDeTipo, ETAPA_LABELS, FRECUENCIA_LABELS, FRECUENCIAS, fechaCorta, type EntradaTipo, type TipoMomento, type Trimestre } from '@/lib/oratorios';
 import { Accion, api, Pastilla } from './comun';
 import type { Estado } from './panel';
 
@@ -54,7 +54,7 @@ export function Ajustes({ e }: { e: Estado }) {
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{t.nombre}</span>
                   <span className="block truncate text-xs text-zinc-500">
-                    {t.cantidad} {FRECUENCIA_LABELS[t.frecuencia]} · {t.clases?.length ? `${t.clases.length} clases` : t.etapas.map((x) => ETAPA_LABELS[x]).filter(Boolean).join(' + ') || '—'} · aviso {t.avisoDias} días antes ·{' '}
+                    {t.cantidad} {FRECUENCIA_LABELS[t.frecuencia]} · {t.clases?.length ? `${t.clases.length} clases` : t.etapas.map((x) => ETAPA_LABELS[x]).join(' + ') || '—'} · aviso {t.avisoDias} días antes ·{' '}
                     {t.calendarioId ? 'con calendario' : 'sin calendario'}
                   </span>
                 </span>
@@ -200,7 +200,7 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
           <div className="col-span-4 space-y-1">
             <p className="text-xs text-zinc-500">Clases</p>
             <div className="flex flex-wrap gap-1.5">
-              {ETAPAS_ORA.map((et) => (
+              {ETAPAS_VISIBLES.map((et) => (
                 <Pastilla key={et} activa={f.etapas.includes(et)} onClick={() => set('etapas', f.etapas.includes(et) ? f.etapas.filter((x) => x !== et) : [...f.etapas, et])}>
                   {ETAPA_LABELS[et]}
                 </Pastilla>

@@ -60,10 +60,10 @@ describe('las reglas de curso leen de la configuración sin cambiar de comportam
       BACH: { min: 1, max: 2 },
     });
     expect(CONFIGURACION.bancoLibros).toEqual({ EP: { desdeNivel: 3 }, ESO: { desdeNivel: 1 }, BACH: { desdeNivel: 1 } });
-    // Consolación no tiene Bachillerato: la etapa está apagada y ninguna regla compartida la nombra.
-    expect(CONFIGURACION.etapasActivas).toEqual(['EI', 'EP', 'ESO']);
-    expect(CONFIGURACION.etapasConjuntas).toEqual([]);
-    expect(CONFIGURACION.puntualidad.etapas).toEqual(['ESO']);
+    expect(CONFIGURACION.etapasConjuntas).toEqual([['ESO', 'BACH']]);
+    expect(CONFIGURACION.puntualidad.etapas).toEqual(['ESO', 'BACH']);
+    // Selectores: sin Bachillerato salvo que NEXT_PUBLIC_ETAPAS_VISIBLES lo pida.
+    expect(CONFIGURACION.etapasVisibles).toEqual(['EI', 'EP', 'ESO']);
   });
 });
 

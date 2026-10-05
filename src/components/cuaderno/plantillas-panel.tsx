@@ -36,7 +36,7 @@ import {
   REPETICIONES,
   type Ambito,
 } from '@/lib/cuaderno/campos';
-import { type Etapa } from '@/lib/cursos';
+import { ETAPAS_VISIBLES, type Etapa } from '@/lib/cursos';
 import { haptic } from '@/lib/haptics';
 
 export function PlantillasPanel({ plantillas, cuenta }: { plantillas: PlantillaUI[]; cuenta: string | null }) {
@@ -435,14 +435,14 @@ function SelectorEtapas({ etapas, onCambio }: { etapas: Etapa[]; onCambio: (etap
   const alternar = (etapa: Etapa) => {
     const siguiente = etapas.includes(etapa) ? etapas.filter((e) => e !== etapa) : [...etapas, etapa];
     // Con las tres marcadas, «todas» es lo mismo y se lee mejor.
-    onCambio(siguiente.length === ETAPAS.length ? [] : ETAPAS.filter((e) => siguiente.includes(e)));
+    onCambio(siguiente.length === ETAPAS_VISIBLES.length ? [] : ETAPAS.filter((e) => siguiente.includes(e)));
   };
   return (
     <div className="flex flex-wrap gap-1.5">
       <Interruptor activo={etapas.length === 0} onClick={() => onCambio([])}>
         Todas
       </Interruptor>
-      {ETAPAS.map((etapa) => (
+      {ETAPAS_VISIBLES.map((etapa) => (
         <Interruptor key={etapa} activo={etapas.includes(etapa)} onClick={() => alternar(etapa)}>
           {ETAPA_LABELS[etapa]}
         </Interruptor>

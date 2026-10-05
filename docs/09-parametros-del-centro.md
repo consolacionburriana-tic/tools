@@ -17,12 +17,12 @@ Consolación; si cambias uno a propósito, el test correspondiente te avisa.
 
 | Parámetro | Valor hoy | Lo leen |
 |---|---|---|
-| `etapasActivas` (qué etapas tiene el colegio) | Infantil, Primaria y ESO. **Sin Bachillerato** (5-oct-2026); `'BACH'` lo vuelve a encender | Todo: `ETAPAS` (selectores, paneles, Números, Oratorios, Horarios, tutorías), reconocimiento de cursos e import de Educamos |
+| `etapasVisibles` (qué etapas se ofrecen en los selectores vacíos) | Infantil, Primaria y ESO; Bachillerato solo con `NEXT_PUBLIC_ETAPAS_VISIBLES=EI,EP,ESO,BACH` | Etapas de un profe, de un tipo de Oratorios, de una plantilla del Cuaderno, de una evaluación, filtro de tutorías. No afecta a lo que se importa |
 | `niveles` (primer y último curso de cada etapa) | Infantil 3-5 · Primaria 1-6 · ESO 1-4 · Bachillerato 1-2 | Promoción de curso |
 | `promocion` (`'rota'` · `'parejas'` · `'sube'`) | Infantil rota (3→4→5→3) · Primaria por parejas (1↔2, 3↔4, 5↔6) · ESO y Bachillerato suben y el último egresa | Botón «Promocionar +1 curso» de `/gestion/profes` |
-| `bancoLibros` (desde qué nivel de cada etapa) | Primaria desde 3º · ESO entera · (Bachillerato entero, si se activa) · Infantil y 1º-2º de Primaria, fuera | Banco de libros, Alumnado, sync de Educamos |
-| `etapasConjuntas` (etapas que van juntas para «quién ve a quién») | ninguna (con Bachillerato: ESO + BACH) | Alumnado, Banco de libros y Números: un profe con una de las dos ve las dos |
-| `puntualidad.etapas` | ESO (con PDC) | Buscador del formulario, lista de alumnado del módulo (TypeScript y SQL salen de la misma lista) |
+| `bancoLibros` (desde qué nivel de cada etapa) | Primaria desde 3º · ESO entera · Bachillerato entero · Infantil y 1º-2º de Primaria, fuera | Banco de libros, Alumnado, sync de Educamos |
+| `etapasConjuntas` (etapas que van juntas para «quién ve a quién») | ESO + Bachillerato | Alumnado, Banco de libros y Números: un profe con una de las dos ve las dos |
+| `puntualidad.etapas` | ESO (con PDC) y Bachillerato | Buscador del formulario, lista de alumnado del módulo (TypeScript y SQL salen de la misma lista) |
 | `puntualidad.horaLimite` / `retrasosPorConsecuencia` | `08:05` · `3` | Formulario, panel, avisos y resumen semanal (y los textos que dicen «08:05») |
 | `calendario.zonaHoraria` | `Europe/Madrid` | Todas las fechas «de hoy» (Números, Oratorios, Mi horario, Tareas) |
 | `calendario.mesInicioCurso` | `9` (septiembre) | Curso académico en vigor |

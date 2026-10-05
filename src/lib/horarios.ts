@@ -6,18 +6,14 @@
 
 import { z } from 'zod';
 
-import { CONFIGURACION } from '@/lib/configuracion';
 import { compararClases, etapaDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
 
-/**
- * Etapas del centro. Están activas las que tiene el colegio (`CONFIGURACION.etapasActivas`: hoy
- * Infantil, Primaria y ESO); el resto, previstas y desactivadas.
- */
+/** Etapas del centro. Las cuatro primeras están en uso; el resto, previstas y desactivadas. */
 export const ETAPAS_HORARIO = [
   { codigo: 'EI', nombre: 'Infantil', active: true },
   { codigo: 'EP', nombre: 'Primaria', active: true },
   { codigo: 'ESO', nombre: 'Secundaria', active: true },
-  { codigo: 'BACH', nombre: 'Bachillerato', active: CONFIGURACION.etapasActivas.includes('BACH') },
+  { codigo: 'BACH', nombre: 'Bachillerato', active: true },
   { codigo: 'CFGM', nombre: 'CFGM', active: false },
   { codigo: 'CFGS', nombre: 'CFGS', active: false },
 ] as const;

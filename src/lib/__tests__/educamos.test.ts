@@ -190,12 +190,22 @@ describe('parseClase · PDC', () => {
   });
 });
 
-describe('parseClase · Bachillerato (el colegio no lo tiene)', () => {
-  // La convención de Bachillerato (si se activa) la fija `etapas-bachillerato.test.ts`.
-  it('no se reconoce como etapa: el import lo deja fuera', () => {
-    for (const clase of ['1BACH', '1 BACH', '1º Bachillerato', '1BAT', '2BACHA', '1º Bachillerato B', '2BACHCT']) {
-      expect(etapaDeCurso(parseClase(clase).curso), clase).toBeNull();
+describe('parseClase · Bachillerato', () => {
+  it('se guarda siempre como {1|2}BACH, venga como venga escrito', () => {
+    for (const clase of ['1BACH', '1 BACH', '1ºBACH', '1º Bachillerato', '1BAT', '1BTO', '1BAC']) {
+      expect(parseClase(clase), clase).toEqual({ curso: '1BACH', letra: null });
     }
+  });
+
+  it('con letra (o con modalidad de hasta tres letras)', () => {
+    expect(parseClase('2BACHA')).toEqual({ curso: '2BACH', letra: 'A' });
+    expect(parseClase('1º Bachillerato B')).toEqual({ curso: '1BACH', letra: 'B' });
+    expect(parseClase('1BATA')).toEqual({ curso: '1BACH', letra: 'A' });
+    expect(parseClase('2BACHCT')).toEqual({ curso: '2BACH', letra: 'CT' });
+  });
+
+  it('lo que sale es una etapa conocida', () => {
+    expect(etapaDeCurso(parseClase('2BACHA').curso)).toBe('BACH');
   });
 });
 

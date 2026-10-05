@@ -282,8 +282,8 @@ describe('etapa para horarios', () => {
     expect(etapaDeCursoHorario('3ºPPDC')).toBe('ESO');
   });
 
-  it('reconoce las previstas y desactivadas (Bachillerato, ya no: el colegio no lo tiene)', () => {
-    expect(etapaDeCursoHorario('1BACH')).toBeNull();
+  it('reconoce las previstas y desactivadas', () => {
+    expect(etapaDeCursoHorario('1BACH')).toBe('BACH');
     expect(etapaDeCursoHorario('1CFGM')).toBe('CFGM');
     expect(etapaDeCursoHorario('2CFGS')).toBe('CFGS');
     expect(etapaDeCursoHorario(null)).toBeNull();

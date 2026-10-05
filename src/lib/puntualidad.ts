@@ -90,7 +90,8 @@ export function formatoRetraso(minutos: number): string {
 }
 
 /**
- * ¿Este curso entra en el módulo? Lo dice `CONFIGURACION.puntualidad.etapas`: hoy ESO (con su PDC).
+ * ¿Este curso entra en el módulo? Lo dice `CONFIGURACION.puntualidad.etapas`: hoy ESO (con su
+ * PDC) y Bachillerato (David, 30-sep-2026).
  */
 export function cursoEnPuntualidad(curso: string | null | undefined): boolean {
   const etapa = etapaDeCurso(curso);

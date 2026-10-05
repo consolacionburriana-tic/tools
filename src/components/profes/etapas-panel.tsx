@@ -9,7 +9,7 @@ import { ChevronDown, Layers, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { agruparProfes, type ProfeItem } from '@/lib/profes';
-import { ETAPA_LABEL, ETAPAS as ETAPAS_CENTRO, type Etapa } from '@/lib/cursos';
+import { ETAPA_LABEL, ETAPAS_VISIBLES, type Etapa } from '@/lib/cursos';
 
 export interface ProfeEtapasUI extends ProfeItem {
   /** Las marcadas a mano (o la etapa única de antes, si nunca se han tocado). */
@@ -18,8 +18,8 @@ export interface ProfeEtapasUI extends ProfeItem {
   automaticas: Etapa[];
 }
 
-// Las etapas que tiene el colegio (`CONFIGURACION.etapasActivas`); la Secundaria se llama «ESO» aquí.
-const ETAPAS: { clave: Etapa; label: string }[] = ETAPAS_CENTRO.map((clave) => ({
+// Solo las etapas que se ofrecen (`ETAPAS_VISIBLES`); la Secundaria se llama «ESO» aquí.
+const ETAPAS: { clave: Etapa; label: string }[] = ETAPAS_VISIBLES.map((clave) => ({
   clave,
   label: clave === 'ESO' ? 'ESO' : ETAPA_LABEL[clave],
 }));

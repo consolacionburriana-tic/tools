@@ -53,6 +53,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `EVALUACIONES_CLASSROOM_BUZON` | Opcional. Cuenta que publica las evaluaciones en las tutorías de Classroom (tiene que ser profe de ellas y un usuario real). Sin fijar, `tic@` del colegio (`COLEGIO.correoTic`). Ver `docs/16-evaluaciones.md` |
 | `GOOGLE_CALENDAR_CONCURRENCIA` | Opcional. Llamadas a Calendar en paralelo al exportar «Mi horario» (1-10, por defecto 3) |
 | `AUTOASM_CRYPTO_KEY` | Opcional. Clave para cifrar la contraseña del FTP de Apple School Manager; sin ella se deriva de `AUTH_SECRET` |
+| `NEXT_PUBLIC_ETAPAS_VISIBLES` | Opcional. Etapas que se ofrecen en los selectores vacíos, separadas por comas (`EI,EP,ESO` por defecto; `EI,EP,ESO,BACH` para ofrecer Bachillerato). No afecta a lo que se importa: lo importado siempre sale. Cambiarla exige redeploy |
 | `APP_BASE_URL` | URL pública que usa **todo** el código para construir enlaces (`appBaseUrl()` en `src/lib/constants.ts`) — magic links, avisos por correo, botones de plantillas. **El único sitio donde cambiar de dominio es Vercel → Settings → Environment Variables, nunca el código.** Mientras `tools.consolacionburriana.com` no esté enganchado, va aquí la URL real de Vercel (p. ej. `https://consolacionburriana-tools1.vercel.app`); el día que el dominio esté listo, se cambia este valor y se redeploya. Sin fijar, cae a `https://tools.consolacionburriana.com`. En local, `http://localhost:3000` |
 
 | `AUTH_SECRET` · `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | Login Google (Auth.js v5) |
@@ -231,10 +232,10 @@ src/components/<modulo>/          # componentes propios del módulo
 Las etapas (`Etapa`: Infantil, Primaria, ESO, Bachillerato) y todo lo que se decide por curso
 —reconocerlo, promocionarlo, si entra en el banco— viven en `src/lib/cursos.ts`. Reglas:
 
-- **`ETAPAS` son las etapas que TIENE el colegio** (`CONFIGURACION.etapasActivas`), no todas las que
-  el tipo `Etapa` admite (`TODAS_LAS_ETAPAS`). Consolación no tiene Bachillerato, así que
-  `ETAPAS = ['EI', 'EP', 'ESO']` y `etapaDeCurso('1BACH')` es `null`. Para pintar o recorrer etapas,
-  usa `ETAPAS`; **nunca escribas `'BACH'` a mano en un selector, panel o texto**.
+- **`ETAPAS` son todas las etapas** (lo que se importa, se reconoce); **`ETAPAS_VISIBLES`** son las que se
+  *ofrecen* en selectores vacíos (`NEXT_PUBLIC_ETAPAS_VISIBLES`, por defecto sin Bachillerato: el
+  colegio no lo tiene). Una lista de elegir etapas usa `ETAPAS_VISIBLES`; una pantalla que pinta datos,
+  `ETAPAS` filtrada por lo que hay.
 
 - **Nunca escribas `'EI' | 'EP' | 'ESO'` a mano** (ni `['EI','EP','ESO']`, ni `z.enum([...])`):
   importa `Etapa`, `ETAPAS` y `ETAPA_LABEL`. Así una etapa nueva entra sola.
