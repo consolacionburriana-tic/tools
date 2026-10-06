@@ -20,6 +20,8 @@ export interface ClaseClassroomMin {
   nombre: string | null;
   /** La «sección» de Classroom: muchas tutorías se llaman solo «Tutoría» y el curso va aquí («2ESOB (2026/2027)»). */
   seccion?: string | null;
+  /** El campo «Descripción» de la clase («1 ESO A (2026/2027)»): nadie lo toca, así que es el más fiable. */
+  descripcion?: string | null;
   enlace: string | null;
 }
 
@@ -53,6 +55,19 @@ export function nombreDiceClase(nombre: string | null | undefined, clase: ClaseD
     if (!(antes && /\d/.test(antes)) && !(despues && /[A-Z]/.test(despues))) return true;
     desde = i + 1;
   }
+}
+
+/**
+ * Forma corta de una clase de ESO dentro de un texto: «3B», «3ºB», «3 B», «3 ESO A», «3º ESO-A».
+ * Solo para ESO (en Bachillerato «1B» sería ambiguo) y respetando los límites de palabra, así que
+ * `3B` no sale de `13B` ni de `3BACH`.
+ */
+export function textoDiceClaseCorta(texto: string | null | undefined, clase: ClaseDeForm): boolean {
+  const m = /^(\d)\s*ESO$/.exec(compactar(clase.curso));
+  const letra = clase.letra && clase.letra !== 'PDC' ? compactar(clase.letra) : '';
+  if (!m || !letra) return false;
+  const t = (texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+  return new RegExp(`(?<![0-9A-Z])${m[1]}\\s*[ºª°]?\\s*(?:ESO)?\\s*[-.]?\\s*${letra}(?![0-9A-Z])`).test(t);
 }
 
 export interface EmparejamientoClase {
@@ -101,15 +116,22 @@ export function emparejarClases(
         ? { clase, etiqueta, destino: c, origen: 'manual', motivo: null, candidatas: [] }
         : { clase, etiqueta, destino: null, origen: null, motivo: 'fijada-sin-acceso', candidatas: [] };
     }
-    // Se mira el nombre y la sección por separado: pegados, el «26/27» de un nombre como
-    // «3°B Tutoría 26/27» dejaría el curso de la sección con un dígito delante.
-    let candidatas = deClassroom.filter((c) => nombreDiceClase(c.nombre, clase) || nombreDiceClase(c.seccion, clase));
+    // Se mira nombre, sección y descripción por separado: pegados, el «26/27» de un nombre como
+    // «3°B Tutoría 26/27» dejaría el curso del siguiente campo con un dígito delante. La forma
+    // corta («3°B», «3 ESO A») solo vale si la clase dice «tutoría» en algún campo.
+    const campos = (c: ClaseClassroomMin) => [c.nombre, c.seccion, c.descripcion];
+    const esTutoria = (c: ClaseClassroomMin) => /TUTOR/.test(compactar(campos(c).join(' ')));
+    let candidatas = deClassroom.filter(
+      (c) =>
+        campos(c).some((t) => nombreDiceClase(t, clase)) ||
+        (esTutoria(c) && campos(c).some((t) => textoDiceClaseCorta(t, clase))),
+    );
     candidatas = candidatas.filter((c) => {
-      const curso = cursoEnNombre(c.nombre) ?? cursoEnNombre(c.seccion);
+      const curso = campos(c).map(cursoEnNombre).find(Boolean) ?? null;
       return !curso || curso === academicYear;
     });
     if (candidatas.length > 1) {
-      const tutorias = candidatas.filter((c) => /TUTOR/.test(compactar(`${c.nombre ?? ''} ${c.seccion ?? ''}`)));
+      const tutorias = candidatas.filter(esTutoria);
       if (tutorias.length > 0) candidatas = tutorias;
     }
     if (candidatas.length === 0) return { clase, etiqueta, destino: null, origen: null, motivo: 'sin-clase', candidatas: [] };

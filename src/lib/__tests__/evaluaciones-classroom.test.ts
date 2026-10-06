@@ -99,6 +99,22 @@ describe('emparejarClases · curso en la sección', () => {
   });
 });
 
+describe('emparejarClases · descripción y formas cortas', () => {
+  const cd = (id: string, nombre: string, descripcion: string) => ({ id, nombre, descripcion, enlace: null });
+  it('casa por la descripción', () => {
+    const r = emparejarClases([{ curso: '1ESO', letra: 'A' }], [cd('1', 'Tutoría', '1 ESO A (2026/2027)')], '2026-27');
+    expect(r[0].destino?.id).toBe('1');
+  });
+  it.each(['Tutoría 3B', '3°B Tutoría', 'Tutoria 3 B', 'Tutoría 3º ESO B', 'tutoría 3 eso-b'])('forma corta: %s', (nombre) => {
+    const r = emparejarClases([{ curso: '3ESO', letra: 'B' }], [cd('1', nombre, '')], '2026-27');
+    expect(r[0].destino?.id).toBe('1');
+  });
+  it('la forma corta exige «tutoría» y no confunde 13B, 3BACH ni 3 A', () => {
+    const l = [cd('1', '3B Matemáticas', ''), cd('2', 'Tutoría 13B', ''), cd('3', 'Tutoría 3BACH B', ''), cd('4', 'Tutoría 3 A', '')];
+    expect(emparejarClases([{ curso: '3ESO', letra: 'B' }], l, '2026-27')[0].destino).toBeNull();
+  });
+});
+
 describe('emparejarClases · fijadas a mano', () => {
   const clase = { curso: '2ESO', letra: 'A' };
   const lista = [c('10', 'Algo raro de la tutora'), c('11', 'Tutoría 2ESOA')];
