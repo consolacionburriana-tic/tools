@@ -253,6 +253,15 @@ src/app/(public)/mi-horario/  # la pantalla
       credenciales para ejecutarlo en vivo, así que el camino feliz está escrito y
       tipado pero no verificado con Google de por medio
 
+### Fase 3c · Color del evento en Google Calendar — ✅
+- [x] `colorId` por materia/actividad (`mih_preferencias.colores`): Google solo admite los
+      **11 colores fijos** de su paleta de eventos, no hexadecimal libre. SQL aplicado en Neon
+- [x] Por defecto, el más parecido al de la rejilla de «Mi horario» (mismo reparto alfabético
+      de tonos, medido en OKLCH, sin repetir color mientras queden libres; Grafito no se
+      propone solo). Es una aproximación: la rejilla usa tonos continuos y Google solo 11
+- [x] Selector de color junto al emoji y la abreviatura en el exportador
+- [ ] Mirarlo con una exportación real (misma pendiente que la Fase 4)
+
 ### Fase 3b · Abreviatura, selector de emoji y tramo del curso — ✅
 - [x] Abreviatura editable por materia/actividad (`mih_preferencias.abreviaturas`); vacía = la
       de la materia o la generada

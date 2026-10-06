@@ -146,6 +146,97 @@ export function abreviaturaDeCelda(celda: CeldaHorario, propias: Record<string, 
   return propias[clave]?.trim() || celda.abreviatura || generarAbreviatura(celda.titulo);
 }
 
+// ─── Color del evento en Google Calendar ───────────────────────────────────────
+//
+// La API solo admite los 11 colores fijos de la paleta de eventos de Google (`colorId`
+// '1'..'11'); no hay hexadecimal libre. Cada persona elige uno por materia/actividad (mismas
+// claves que `emojis`). Si no ha elegido, se propone el más parecido al de la rejilla de
+// «Mi horario», que reparte el círculo de color alfabéticamente por título (ver
+// `repartirColores` en horarios.ts), y se evita repetir color mientras queden libres.
+
+export interface ColorGoogle {
+  id: string;
+  nombre: string;
+  hex: string;
+}
+
+export const COLORES_GOOGLE: readonly ColorGoogle[] = [
+  { id: '1', nombre: 'Lavanda', hex: '#a4bdfc' },
+  { id: '2', nombre: 'Salvia', hex: '#7ae7bf' },
+  { id: '3', nombre: 'Uva', hex: '#dbadff' },
+  { id: '4', nombre: 'Flamenco', hex: '#ff887c' },
+  { id: '5', nombre: 'Plátano', hex: '#fbd75b' },
+  { id: '6', nombre: 'Mandarina', hex: '#ffb878' },
+  { id: '7', nombre: 'Pavo real', hex: '#46d6db' },
+  { id: '8', nombre: 'Grafito', hex: '#e1e1e1' },
+  { id: '9', nombre: 'Arándano', hex: '#5484ed' },
+  { id: '10', nombre: 'Albahaca', hex: '#51b749' },
+  { id: '11', nombre: 'Tomate', hex: '#dc2127' },
+];
+
+const IDS_COLOR_GOOGLE = new Set(COLORES_GOOGLE.map((c) => c.id));
+/** Grafito es gris: no tiene tono, así que no se propone solo (la persona sí puede elegirlo). */
+const GRAFITO = '8';
+
+export function esColorGoogle(id: unknown): id is string {
+  return typeof id === 'string' && IDS_COLOR_GOOGLE.has(id);
+}
+
+/** Tono (0-360) en OKLCH de un color `#rrggbb`, el mismo espacio en el que la rejilla reparte los suyos. */
+function tonoOklch(hex: string): number {
+  const lin = (i: number) => {
+    const v = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const [r, g, b] = [lin(1), lin(3), lin(5)];
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const bb = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return ((Math.atan2(bb, a) * 180) / Math.PI + 360) % 360;
+}
+
+const TONOS_GOOGLE = COLORES_GOOGLE.map((c) => ({ id: c.id, tono: tonoOklch(c.hex) }));
+
+const distanciaTono = (a: number, b: number) => {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+};
+
+/**
+ * El `colorId` propuesto para cada título, con el mismo reparto de tonos que la rejilla
+ * (alfabético, arrancando en azul). Cada título coge el color de Google más cercano a su
+ * tono entre los que aún no se han usado; si se acaban (más de 10 categorías), se repiten.
+ */
+export function colorIdsPorDefecto(titulos: readonly string[]): Map<string, string> {
+  const ordenados = [...new Set(titulos)].sort((a, b) => a.localeCompare(b, 'es'));
+  const mapa = new Map<string, string>();
+  const usados = new Set<string>();
+  ordenados.forEach((titulo, i) => {
+    const tono = (255 + (i * 360) / Math.max(ordenados.length, 1)) % 360;
+    const candidatos = TONOS_GOOGLE.filter((c) => c.id !== GRAFITO);
+    const libres = candidatos.filter((c) => !usados.has(c.id));
+    const elegido = (libres.length ? libres : candidatos).reduce((mejor, c) =>
+      distanciaTono(c.tono, tono) < distanciaTono(mejor.tono, tono) ? c : mejor,
+    );
+    usados.add(elegido.id);
+    mapa.set(titulo, elegido.id);
+  });
+  return mapa;
+}
+
+/** El `colorId` de una celda: el que la persona haya elegido para su materia/actividad, si no el propuesto. */
+export function colorDeCeldaGoogle(
+  celda: CeldaHorario,
+  propios: Record<string, string>,
+  porDefecto: ReadonlyMap<string, string>,
+): string | undefined {
+  const clave = celda.materiaId ? `materia:${celda.materiaId}` : `actividad:${celda.actividad}`;
+  const elegido = propios[clave];
+  return esColorGoogle(elegido) ? elegido : porDefecto.get(celda.titulo);
+}
+
 // ─── Motor de la plantilla del título ──────────────────────────────────────────
 
 export interface DatosPlantilla {
@@ -319,7 +410,7 @@ const DIA_RRULE = ['', 'MO', 'TU', 'WE', 'TH', 'FR'];
  */
 export function construirEventoGoogle(
   celda: CeldaHorario,
-  opciones: { plantillaTitulo: string; plantillaDescripcion?: string; emoji: string; abreviatura?: string; periodo: RangoFechas; festivos: readonly RangoFechas[]; periodoId: string; timeZone?: string },
+  opciones: { plantillaTitulo: string; plantillaDescripcion?: string; emoji: string; abreviatura?: string; colorId?: string; periodo: RangoFechas; festivos: readonly RangoFechas[]; periodoId: string; timeZone?: string },
 ): { evento: Record<string, unknown>; primeraFecha: string | null } {
   const tz = opciones.timeZone ?? CONFIGURACION.calendario.zonaHoraria;
   const { primeraFecha, fechasExcluidas } = ocurrenciasSemanales(celda.dia, opciones.periodo, opciones.festivos);
@@ -342,6 +433,7 @@ export function construirEventoGoogle(
     summary,
     ...(description ? { description } : {}),
     ...(celda.espacio ? { location: celda.espacio } : {}),
+    ...(opciones.colorId ? { colorId: opciones.colorId } : {}),
     start: { dateTime: `${primeraFecha}T${celda.horaInicio}:00`, timeZone: tz },
     end: { dateTime: `${primeraFecha}T${celda.horaFin}:00`, timeZone: tz },
     recurrence,

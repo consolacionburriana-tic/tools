@@ -1668,6 +1668,10 @@ export const mihPreferencias = pgTable('mih_preferencias', {
   // Abreviatura por clave (mismas claves que `emojis`). Solo lo que la persona ha cambiado:
   // sin entrada, sale la de la materia (o la generada por respaldo).
   abreviaturas: jsonb('abreviaturas').$type<Record<string, string>>().notNull().default({}),
+  // Color del evento en Google Calendar por clave (mismas claves que `emojis`): el `colorId`
+  // '1'..'11' de la paleta de eventos de Google. Solo lo que la persona ha cambiado; sin
+  // entrada, se propone el más parecido al de la rejilla (ver colorIdsPorDefecto).
+  colores: jsonb('colores').$type<Record<string, string>>().notNull().default({}),
   // Qué tramo del curso se exporta: 'sep-jun' (septiembre a junio) o 'oct-may' (octubre a
   // mayo). Se cruza con las fechas del periodo: nunca las amplía.
   rangoCurso: text('rango_curso').notNull().default('sep-jun'),

@@ -8,7 +8,7 @@ import { CalendarPlus, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { haptic } from '@/lib/haptics';
-import { PLANTILLA_TITULO_DEFECTO, RANGOS_CURSO, type RangoCurso } from '@/lib/mihorario';
+import { COLORES_GOOGLE, PLANTILLA_TITULO_DEFECTO, RANGOS_CURSO, type RangoCurso } from '@/lib/mihorario';
 import { SelectorEmoji } from '@/components/mihorario/selector-emoji';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +17,7 @@ interface Categoria {
   etiqueta: string;
   emoji: string;
   abrev: string;
+  color: string; // colorId de Google ('1'..'11') que le toca hoy
 }
 
 interface Previa {
@@ -31,6 +32,44 @@ interface Previa {
 const ESTILO_CAMPO =
   'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100';
 
+/**
+ * Color del evento en Google Calendar. Google solo admite estos 11 colores fijos; los
+ * eventos creados se pueden recolorear luego a mano desde el propio calendario.
+ */
+function SelectorColor({ valor, onChange, etiqueta }: { valor: string; onChange: (id: string) => void; etiqueta: string }) {
+  const actual = COLORES_GOOGLE.find((c) => c.id === valor);
+  return (
+    <details className="relative shrink-0">
+      <summary
+        aria-label={`Color de ${etiqueta}`}
+        title={actual?.nombre ?? 'Color por defecto del calendario'}
+        className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 [&::-webkit-details-marker]:hidden"
+      >
+        <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: actual?.hex ?? 'transparent' }} />
+      </summary>
+      <div className="absolute left-0 z-20 mt-1 grid w-44 grid-cols-4 gap-2 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        {COLORES_GOOGLE.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            title={c.nombre}
+            aria-label={c.nombre}
+            onClick={(e) => {
+              onChange(c.id);
+              e.currentTarget.closest('details')?.removeAttribute('open');
+            }}
+            className={cn(
+              'h-8 w-8 rounded-full border border-black/10',
+              c.id === valor && 'ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-zinc-900',
+            )}
+            style={{ backgroundColor: c.hex }}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export function Exportador({ periodoId }: { periodoId: string }) {
   const [cargando, setCargando] = useState(true);
   const [plantillaTitulo, setPlantillaTitulo] = useState(PLANTILLA_TITULO_DEFECTO);
@@ -38,6 +77,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [emojis, setEmojis] = useState<Record<string, string>>({});
   const [abreviaturas, setAbreviaturas] = useState<Record<string, string>>({});
+  const [colores, setColores] = useState<Record<string, string>>({});
   const [rangoCurso, setRangoCurso] = useState<RangoCurso>('sep-jun');
   const [calendarios, setCalendarios] = useState<{ id: string; nombre: string; esPrincipal: boolean }[]>([]);
   const [calendarConfigurado, setCalendarConfigurado] = useState(false);
@@ -60,6 +100,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
           setPlantillaDescripcion(pref.preferencias.plantillaDescripcion ?? '');
           setEmojis(pref.preferencias.emojis ?? {});
           setAbreviaturas(pref.preferencias.abreviaturas ?? {});
+          setColores(pref.preferencias.colores ?? {});
           if (pref.preferencias.rangoCurso === 'oct-may') setRangoCurso('oct-may');
           setCategorias(pref.categorias ?? []);
           if (pref.preferencias.calendarioGoogleId) setCalendarioElegido(pref.preferencias.calendarioGoogleId);
@@ -81,7 +122,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
     await fetch('/api/mi-horario/preferencias', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plantillaTitulo, plantillaDescripcion, emojis, abreviaturas, rangoCurso, calendarioGoogleId: calendarioElegido }),
+      body: JSON.stringify({ plantillaTitulo, plantillaDescripcion, emojis, abreviaturas, colores, rangoCurso, calendarioGoogleId: calendarioElegido }),
     });
   }
 
@@ -182,7 +223,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
 
       {categorias.length > 0 && (
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Tus emojis y abreviaturas</h2>
+          <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Tus emojis, abreviaturas y colores</h2>
           <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {categorias.map((c) => (
               <div key={c.clave} className="flex items-center gap-2 rounded-lg bg-zinc-50 px-2.5 py-1.5 dark:bg-zinc-800/60">
@@ -197,6 +238,11 @@ export function Exportador({ periodoId }: { periodoId: string }) {
                   aria-label={`Abreviatura de ${c.etiqueta}`}
                   maxLength={12}
                   className="h-10 w-20 shrink-0 rounded-lg border border-zinc-200 bg-white px-2 text-center text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                />
+                <SelectorColor
+                  valor={colores[c.clave] ?? c.color}
+                  onChange={(id) => setColores((prev) => ({ ...prev, [c.clave]: id }))}
+                  etiqueta={c.etiqueta}
                 />
                 <span className="truncate text-sm text-zinc-700 dark:text-zinc-300">{c.etiqueta}</span>
               </div>
