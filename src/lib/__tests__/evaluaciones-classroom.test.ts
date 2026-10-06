@@ -77,6 +77,28 @@ describe('emparejarClases', () => {
   });
 });
 
+describe('emparejarClases · curso en la sección', () => {
+  const cs = (id: string, nombre: string, seccion: string) => ({ id, nombre, seccion, enlace: null });
+  const lista = [
+    cs('1', 'Tutoría', '2ESOB (2026/2027)'),
+    cs('2', '3°B Tutoría 26/27', '3ESOB (2026/2027)'),
+    cs('3', 'Tutoría', '2ESOB (2025/2026)'), // curso pasado
+    cs('4', 'Tutoría 1 ESO A', ''),
+  ];
+  it('casa por la sección cuando el nombre es solo «Tutoría»', () => {
+    const r = emparejarClases([{ curso: '2ESO', letra: 'B' }], lista, '2026-27');
+    expect(r[0].destino?.id).toBe('1');
+  });
+  it('un «26/27» en el nombre no estropea el curso de la sección', () => {
+    const r = emparejarClases([{ curso: '3ESO', letra: 'B' }], lista, '2026-27');
+    expect(r[0].destino?.id).toBe('2');
+  });
+  it('sigue casando por el nombre cuando no hay sección', () => {
+    const r = emparejarClases([{ curso: '1ESO', letra: 'A' }], lista, '2026-27');
+    expect(r[0].destino?.id).toBe('4');
+  });
+});
+
 describe('emparejarClases · fijadas a mano', () => {
   const clase = { curso: '2ESO', letra: 'A' };
   const lista = [c('10', 'Algo raro de la tutora'), c('11', 'Tutoría 2ESOA')];

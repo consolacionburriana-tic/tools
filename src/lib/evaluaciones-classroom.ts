@@ -18,6 +18,8 @@ export interface ClaseDeForm {
 export interface ClaseClassroomMin {
   id: string;
   nombre: string | null;
+  /** La «sección» de Classroom: muchas tutorías se llaman solo «Tutoría» y el curso va aquí («2ESOB (2026/2027)»). */
+  seccion?: string | null;
   enlace: string | null;
 }
 
@@ -99,13 +101,15 @@ export function emparejarClases(
         ? { clase, etiqueta, destino: c, origen: 'manual', motivo: null, candidatas: [] }
         : { clase, etiqueta, destino: null, origen: null, motivo: 'fijada-sin-acceso', candidatas: [] };
     }
-    let candidatas = deClassroom.filter((c) => nombreDiceClase(c.nombre, clase));
+    // Se mira el nombre y la sección por separado: pegados, el «26/27» de un nombre como
+    // «3°B Tutoría 26/27» dejaría el curso de la sección con un dígito delante.
+    let candidatas = deClassroom.filter((c) => nombreDiceClase(c.nombre, clase) || nombreDiceClase(c.seccion, clase));
     candidatas = candidatas.filter((c) => {
-      const curso = cursoEnNombre(c.nombre);
+      const curso = cursoEnNombre(c.nombre) ?? cursoEnNombre(c.seccion);
       return !curso || curso === academicYear;
     });
     if (candidatas.length > 1) {
-      const tutorias = candidatas.filter((c) => /TUTOR/.test(compactar(c.nombre)));
+      const tutorias = candidatas.filter((c) => /TUTOR/.test(compactar(`${c.nombre ?? ''} ${c.seccion ?? ''}`)));
       if (tutorias.length > 0) candidatas = tutorias;
     }
     if (candidatas.length === 0) return { clase, etiqueta, destino: null, origen: null, motivo: 'sin-clase', candidatas: [] };
