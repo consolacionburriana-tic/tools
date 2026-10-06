@@ -43,6 +43,7 @@ export async function getPreferencias(eduTeacherId: string): Promise<MihPreferen
     plantillaDescripcion: null,
     emojis: {},
     abreviaturas: {},
+    colores: {},
     rangoCurso: 'sep-jun',
     calendarioGoogleId: null,
     createdAt: new Date(),
@@ -55,6 +56,7 @@ export interface EntradaPreferencias {
   plantillaDescripcion?: string | null;
   emojis: Record<string, string>;
   abreviaturas?: Record<string, string>;
+  colores?: Record<string, string>;
   rangoCurso?: string;
   calendarioGoogleId?: string | null;
 }
@@ -66,6 +68,7 @@ export async function guardarPreferencias(eduTeacherId: string, entrada: Entrada
     plantillaDescripcion: entrada.plantillaDescripcion ?? null,
     emojis: entrada.emojis,
     abreviaturas: entrada.abreviaturas ?? {},
+    colores: entrada.colores ?? {},
     rangoCurso: entrada.rangoCurso === 'oct-may' ? 'oct-may' : 'sep-jun',
     calendarioGoogleId: entrada.calendarioGoogleId ?? null,
     updatedAt: new Date(),

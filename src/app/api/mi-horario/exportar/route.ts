@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth-guards';
-import { abreviaturaDeCelda, construirEventoGoogle, emojiDeCelda, rangoExportacion, unirSesionesSeguidas, type RangoCurso } from '@/lib/mihorario';
+import { abreviaturaDeCelda, colorDeCeldaGoogle, colorIdsPorDefecto, construirEventoGoogle, emojiDeCelda, rangoExportacion, unirSesionesSeguidas, type RangoCurso } from '@/lib/mihorario';
 import { getCeldas, getFranjasDeProfe, getPeriodos } from '@/lib/horarios-server';
 import { calendarConfigurado, crearEventos, borrarEventosDeOrigen } from '@/lib/mihorario-google';
 import { getFestivos, getPreferencias, getProfePorEmail, getUltimaExportacion, registrarExportacion } from '@/lib/mihorario-server';
@@ -54,6 +54,7 @@ export async function POST(req: Request) {
     { fechaInicio: periodo.fechaInicio, fechaFin: periodo.fechaFin },
   );
   const rangoFestivos = festivos.map((f) => ({ fechaInicio: f.fechaInicio, fechaFin: f.fechaFin }));
+  const colorPorDefecto = colorIdsPorDefecto(celdasSueltas.map((c) => c.titulo));
   const construidos = celdas
     .map((c) =>
       construirEventoGoogle(c, {
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
         plantillaDescripcion: preferencias.plantillaDescripcion ?? undefined,
         emoji: emojiDeCelda(c, preferencias.emojis),
         abreviatura: abreviaturaDeCelda(c, preferencias.abreviaturas),
+        colorId: colorDeCeldaGoogle(c, preferencias.colores, colorPorDefecto),
         periodo: rango,
         festivos: rangoFestivos,
         periodoId,

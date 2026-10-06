@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth-guards';
-import { abreviaturaDeCelda, emojiDeCelda } from '@/lib/mihorario';
+import { abreviaturaDeCelda, colorDeCeldaGoogle, colorIdsPorDefecto, emojiDeCelda, esColorGoogle } from '@/lib/mihorario';
 import { getPreferencias, getProfePorEmail, guardarPreferencias } from '@/lib/mihorario-server';
 import { getCeldas, getPeriodoVigente } from '@/lib/horarios-server';
 
@@ -24,11 +24,12 @@ export async function GET() {
   const periodo = await getPeriodoVigente();
   const celdas = periodo ? await getCeldas(periodo.id, 'profe', profe.id) : [];
 
-  const claves = new Map<string, { clave: string; etiqueta: string; emoji: string; abrev: string }>();
+  const colorPorDefecto = colorIdsPorDefecto(celdas.map((c) => c.titulo));
+  const claves = new Map<string, { clave: string; etiqueta: string; emoji: string; abrev: string; color: string }>();
   for (const c of celdas) {
     const clave = c.materiaId ? `materia:${c.materiaId}` : `actividad:${c.actividad}`;
     if (!claves.has(clave)) {
-      claves.set(clave, { clave, etiqueta: c.titulo, emoji: emojiDeCelda(c, preferencias.emojis), abrev: abreviaturaDeCelda(c, preferencias.abreviaturas) });
+      claves.set(clave, { clave, etiqueta: c.titulo, emoji: emojiDeCelda(c, preferencias.emojis), abrev: abreviaturaDeCelda(c, preferencias.abreviaturas), color: colorDeCeldaGoogle(c, preferencias.colores, colorPorDefecto) ?? '' });
     }
   }
 
@@ -38,6 +39,7 @@ export async function GET() {
       plantillaDescripcion: preferencias.plantillaDescripcion,
       emojis: preferencias.emojis,
       abreviaturas: preferencias.abreviaturas,
+      colores: preferencias.colores,
       rangoCurso: preferencias.rangoCurso,
       calendarioGoogleId: preferencias.calendarioGoogleId,
     },
@@ -58,6 +60,7 @@ export async function POST(req: Request) {
     plantillaDescripcion: body.plantillaDescripcion ?? null,
     emojis: body.emojis ?? {},
     abreviaturas: body.abreviaturas ?? {},
+    colores: Object.fromEntries(Object.entries((body.colores ?? {}) as Record<string, unknown>).filter(([, v]) => esColorGoogle(v))) as Record<string, string>,
     rangoCurso: body.rangoCurso,
     calendarioGoogleId: body.calendarioGoogleId ?? null,
   });

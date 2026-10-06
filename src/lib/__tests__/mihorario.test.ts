@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import type { CeldaHorario } from '@/lib/horarios';
 import {
+  colorDeCeldaGoogle,
+  colorIdsPorDefecto,
   construirEventoGoogle,
+  esColorGoogle,
   datosPlantillaDeCelda,
   duracionMinutos,
   abreviaturaDeCelda,
@@ -246,5 +249,36 @@ describe('rango del curso a exportar', () => {
   it('un periodo fuera del tramo da un rango invertido (no se crea nada)', () => {
     const r = rangoExportacion('2026-27', 'oct-may', { fechaInicio: '2027-06-01', fechaFin: '2027-06-22' });
     expect(r.fechaFin < r.fechaInicio).toBe(true);
+  });
+});
+
+describe('color del evento en Google Calendar', () => {
+  const periodo = { fechaInicio: '2026-09-14', fechaFin: '2027-05-31' };
+  const base = { plantillaTitulo: PLANTILLA_TITULO_DEFECTO, emoji: '🔢', periodo, festivos: [], periodoId: 'p' };
+
+  it('el evento lleva colorId si se da, y nada si no', () => {
+    expect(construirEventoGoogle(celda({}), { ...base, colorId: '9' }).evento.colorId).toBe('9');
+    expect(construirEventoGoogle(celda({}), base).evento.colorId).toBeUndefined();
+  });
+
+  it('el propuesto reparte colores distintos y estables mientras haya libres', () => {
+    const ids = colorIdsPorDefecto(['Lengua', 'Matemáticas', 'Inglés', 'Música']);
+    expect(new Set(ids.values()).size).toBe(4);
+    expect(colorIdsPorDefecto(['Música', 'Inglés', 'Matemáticas', 'Lengua'])).toEqual(ids);
+    expect([...ids.values()].every(esColorGoogle)).toBe(true);
+    expect([...ids.values()]).not.toContain('8'); // Grafito no se propone solo
+  });
+
+  it('con más categorías que colores, se repiten sin romper', () => {
+    const titulos = Array.from({ length: 14 }, (_, i) => `Materia ${i}`);
+    expect(colorIdsPorDefecto(titulos).size).toBe(14);
+  });
+
+  it('manda lo que la persona eligió; un valor inválido se ignora', () => {
+    const c = celda({ materiaId: 'm1', titulo: 'Matemáticas' });
+    const porDefecto = new Map([['Matemáticas', '9']]);
+    expect(colorDeCeldaGoogle(c, { 'materia:m1': '4' }, porDefecto)).toBe('4');
+    expect(colorDeCeldaGoogle(c, { 'materia:m1': '99' }, porDefecto)).toBe('9');
+    expect(colorDeCeldaGoogle(c, {}, porDefecto)).toBe('9');
   });
 });
