@@ -285,6 +285,8 @@ export interface ClaseClassroom {
   id: string;
   nombre: string | null;
   seccion: string | null;
+  /** Solo la rellena `clasesDondeEsProfe`: el campo «Descripción» de la clase, que nadie toca. */
+  descripcion?: string | null;
   estado: string | null;
   creadaAt: Date | null;
   actualizadaAt: Date | null;
@@ -304,7 +306,7 @@ export async function paginaClases(
     classroom(admin).courses.list({
       pageSize: 200,
       pageToken: pageToken ?? undefined,
-      fields: 'nextPageToken,courses(id,name,section,courseState,creationTime,updateTime,ownerId,calendarId,alternateLink)',
+      fields: 'nextPageToken,courses(id,name,section,description,courseState,creationTime,updateTime,ownerId,calendarId,alternateLink)',
     }),
   );
   return {
@@ -398,6 +400,7 @@ export async function clasesDondeEsProfe(profe: string): Promise<ClaseClassroom[
         id: x.id,
         nombre: x.name ?? null,
         seccion: x.section ?? null,
+        descripcion: x.description ?? null,
         estado: x.courseState ?? null,
         creadaAt: x.creationTime ? new Date(x.creationTime) : null,
         actualizadaAt: x.updateTime ? new Date(x.updateTime) : null,
