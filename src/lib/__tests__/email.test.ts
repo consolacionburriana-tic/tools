@@ -61,13 +61,15 @@ describe('construirMime', () => {
 describe('transporte por módulo', () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it('Evaluaciones sale por Resend aunque el global diga Gmail', () => {
+  it('Evaluaciones sale por el transporte global, como el resto', () => {
     vi.stubEnv('EMAIL_TRANSPORTE', 'gmail');
+    expect(remitente('evaluaciones').transporte).toBe('gmail');
+    vi.stubEnv('EMAIL_TRANSPORTE', 'resend');
     expect(remitente('evaluaciones').transporte).toBe('resend');
-    expect(remitente('salidas').transporte).toBe('gmail');
   });
   it('la variable del módulo sigue mandando sobre el valor por código', () => {
-    vi.stubEnv('EMAIL_TRANSPORTE_EVALUACIONES', 'gmail');
-    expect(remitente('evaluaciones').transporte).toBe('gmail');
+    vi.stubEnv('EMAIL_TRANSPORTE', 'gmail');
+    vi.stubEnv('EMAIL_TRANSPORTE_EVALUACIONES', 'resend');
+    expect(remitente('evaluaciones').transporte).toBe('resend');
   });
 });

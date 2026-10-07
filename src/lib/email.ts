@@ -10,7 +10,7 @@
 // Todo es configurable por entorno (ver tabla en docs/04-convenciones-tecnicas.md):
 //   EMAIL_TRANSPORTE=gmail|resend            · transporte por defecto de todo el sitio
 //   EMAIL_TRANSPORTE_<PERFIL>=gmail|resend   · excepción para un módulo (pisa también el
-//                                              `transporte` fijado en DEFECTOS: Evaluaciones → Resend)
+//                                              `transporte` que un perfil fije en DEFECTOS, si lo hay)
 //   EMAIL_FROM_<PERFIL>="Nombre <buzon@dominio>"
 //   EMAIL_REPLYTO_<PERFIL>=buzon@dominio
 //   EMAIL_BUZON_<PERFIL>=buzon@dominio       · solo Gmail: buzón real a suplantar si el `From`
@@ -67,10 +67,9 @@ const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: 
   },
   salidas: { nombre: `Salidas · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   abc: { nombre: `Registro ABC · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
-  // Resend (decisión de David, 2026-09-24): los envíos de evaluaciones van a todo un colectivo
-  // a la vez (alumnado + profesorado + familias en una conjunta) y Resend los manda en lotes
-  // de 100; por Gmail irían de uno en uno.
-  evaluaciones: { nombre: `Evaluaciones · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}`, transporte: 'resend' },
+  // Evaluaciones sale por el transporte global (Gmail). Estuvo en Resend entre el 24-sep y el
+  // 7-oct-2026: el plan gratuito corta a 100 correos al día y una evaluación a 200 se quedó a medias.
+  evaluaciones: { nombre: `Evaluaciones · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   puntualidad: { nombre: `Puntualidad · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   cuaderno: { nombre: `Cuaderno de tutor · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   // Casi siempre sale con `como` (del buzón de quien lo lleva); esto es solo el respaldo.

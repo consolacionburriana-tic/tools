@@ -42,10 +42,10 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | Var | Para qué |
 |---|---|
 | `DATABASE_URL` | Neon (pooled connection string) |
-| `EMAIL_TRANSPORTE` (`gmail`\|`resend`) · `EMAIL_TRANSPORTE_<PERFIL>` | Transporte de correo, global o por módulo. Sin valor: `gmail` si hay cuenta de servicio, si no `resend`. Excepción por código: **Evaluaciones va por Resend** (`DEFECTOS` de `email.ts`), salvo que se ponga `EMAIL_TRANSPORTE_EVALUACIONES` |
+| `EMAIL_TRANSPORTE` (`gmail`\|`resend`) · `EMAIL_TRANSPORTE_<PERFIL>` | Transporte de correo, global o por módulo. Sin valor: `gmail` si hay cuenta de servicio, si no `resend`. Evaluaciones también va por Gmail (estuvo en Resend por código hasta el 7-oct-2026; el plan gratuito de Resend corta a 100/día) |
 | `EMAIL_FROM_<PERFIL>` · `EMAIL_REPLYTO_<PERFIL>` · `EMAIL_BUZON_<PERFIL>` | Remitente, Reply-To y buzón suplantado por módulo (perfiles: `LICENCIAS`, `SALIDAS`, `ABC`, `EVALUACIONES`, `GENERAL`) |
 | `GMAIL_CONCURRENCIA` | Correos en paralelo en los masivos por Gmail (por defecto 3; la cuota real es ≈ 2,5/s por buzón) |
-| `RESEND_API_KEY` · `RESEND_FROM` | Transporte Resend (alternativa/respaldo) |
+| `RESEND_API_KEY` · `RESEND_FROM` | Transporte Resend (alternativa/respaldo; el plan gratuito **corta a 100 correos al día**) |
 | `LICENCIAS_GESTORES` | Lista de correos de aviso de Licencias |
 | `GOOGLE_SA_CLIENT_EMAIL` · `GOOGLE_SA_PRIVATE_KEY` (antes `GOOGLE_SHEETS_*`, siguen valiendo) · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio: Sheet de Licencias **y** envío por la API de Gmail |
 | `GOOGLE_ADMIN_BUZON` | Opcional. Buzón **administrador** del dominio que suplanta Calendarios del dominio para leer Directory y Classroom. Sin fijar, se usa el de quien está en la pantalla (docs/25-calendarios.md) |
@@ -61,7 +61,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
 | `PUNTUALIDAD_AVISOS_COPIA` | Correos (separados por comas) que reciben copia del aviso del tercer retraso, además del tutor/a. Vacío = solo el tutor |
-| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, foto mensual de Números del cole, avisos programados de Oratorios y aviso diario de vencimientos de Tableros. El worker también lo usa para re-despertarse a sí mismo |
+| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, worker del envío de Evaluaciones, foto mensual de Números del cole, avisos programados de Oratorios y aviso diario de vencimientos de Tableros. El worker también lo usa para re-despertarse a sí mismo |
 
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
 código que la usa. Los pasos para conseguir cada credencial (dónde se crea, qué se copia) están
@@ -172,9 +172,11 @@ src/components/<modulo>/          # componentes propios del módulo
   y su `Reply-To`. Lo estrenó Oratorios: el aviso al profe es de compañero a compañero.
 - Envíos masivos: `sendChunks` de `src/lib/correos.ts` con `{ perfil, replyTo }` — variables
   `{nombre}`, `{apellidos}`, `{curso}`, vista previa y envío de prueba antes del masivo.
-  Ojo al transporte: Resend manda 100 por llamada; **Gmail va de uno en uno** (≈ 2,5/s y
-  ~2.000/día por buzón), así que un masivo de 300 familias tarda ~2 min — si algún envío
-  crece mucho, ahí es donde toca volver a Resend con ese perfil o partir el envío.
+  Ojo al transporte: Resend manda 100 por llamada pero su plan gratuito **corta a 100 al día**;
+  **Gmail va de uno en uno** (≈ 2,5/s y ~2.000/día por buzón), así que un masivo de 300 familias
+  tarda ~2 min. Eso no cabe en una petición con el navegador esperando: un masivo grande va
+  **en segundo plano** con cola en BBDD y progreso en vivo — el patrón está en
+  `evaluaciones-envios-server.ts` (cola + `after()` + worker que se vuelve a llamar).
 - **Alta en Workspace** (una vez, consola de admin): en Seguridad → Control de API →
   Delegación de todo el dominio, añadir al Client ID de la cuenta de servicio el scope
   `https://www.googleapis.com/auth/gmail.send`. El `From` tiene que ser el buzón suplantado o

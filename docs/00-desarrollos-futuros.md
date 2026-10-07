@@ -276,9 +276,13 @@ surgieron y **no** se implementaron, por si interesan:
 - ~~Copiar una conjunta entera a otro curso~~ ✅ hecho el mismo día (`duplicarGrupo`).
 - **Eliminar con respuestas** (pedido por David): se permite escribiendo ELIMINAR. Si en la
   práctica se prefiere que lo respondido no se pueda borrar nunca, es quitar `forzar` del route.
-- Evaluaciones sale por **Resend** por código, aunque el global sea Gmail. Revisar que el
-  remitente `no-responder@consolacionburriana.com` esté verificado en Resend (el de
-  `licencias@` seguía pendiente de cosas del dominio).
+- ~~Evaluaciones sale por Resend por código~~ ✅ vuelto a Gmail el 7-oct-2026: el plan gratuito
+  de Resend corta a 100 correos/día y un envío de 200 se quedó a medias (ver `16-evaluaciones.md`).
+  Consecuencia que se aceptó: **Programar envíos ya no se ofrece** (era cosa de Resend). Si hiciera
+  falta programar sin Resend, habría que montar un cron propio — hoy no cabe en el plan Hobby.
+- Recordar: el envío de Evaluaciones en segundo plano no tiene botón «solo a quien no ha recibido el
+  correo» (el filtro sigue siendo «quien no ha respondido»). Con la cola ya no hace falta para los
+  fallos (se reintentan), pero sí para un reenvío a quien nunca lo recibió.
 
 ### ~~Evaluaciones: publicarlas también en Google Classroom~~ ✅ construido (4-oct-2026) — falta estrenarlo
 Idea de David (24-sep-2026), decidida y montada el 4-oct-2026. Cómo quedó está en

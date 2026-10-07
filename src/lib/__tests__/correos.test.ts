@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyVars, enlazarUrls, escapar, wrapHtml } from '@/lib/correos';
+import { applyVars, armarMensaje, enlazarUrls, escapar, wrapHtml } from '@/lib/correos';
 
 describe('applyVars', () => {
   it('sustituye variables conocidas, insensible a mayúsculas', () => {
@@ -58,5 +58,22 @@ describe('wrapHtml', () => {
 
     const sinBoton = wrapHtml('cuerpo');
     expect(sinBoton).not.toContain('<a href="https://x.test"');
+  });
+});
+
+describe('armarMensaje', () => {
+  it('sustituye las variables en asunto y cuerpo y pone el botón con el enlace', () => {
+    const m = armarMensaje(
+      { email: 'a@b.com', vars: { nombre: 'Ana', enlace: 'https://x.test/e?a=1' }, cta: { url: 'https://x.test/e?a=1', label: 'Ir' } },
+      'Hola {nombre}',
+      'Entra en {enlace}',
+      { perfil: 'evaluaciones', replyTo: 'tutor@b.com' },
+    );
+    expect(m.to).toBe('a@b.com');
+    expect(m.subject).toBe('Hola Ana');
+    expect(m.replyTo).toBe('tutor@b.com');
+    expect(m.html).toContain('Entra en');
+    expect(m.html).toContain('href="https://x.test/e?a=1"');
+    expect(m.html).toContain('Evaluaciones');
   });
 });

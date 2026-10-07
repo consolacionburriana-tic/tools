@@ -834,18 +834,45 @@ export const evalForms = pgTable('eval_forms', {
 export const evalEnvios = pgTable('eval_envios', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
-  estado: text('estado').notNull().default('programado'), // programado | enviado | cancelado
+  estado: text('estado').notNull().default('programado'), // programado | enviando | enviado | cancelado
   programadoPara: timestamp('programado_para'), // null = inmediato
   asunto: text('asunto').notNull(),
-  total: integer('total').notNull().default(0),
+  total: integer('total').notNull().default(0), // correos ya SALIDOS
   errores: integer('errores').notNull().default(0),
   resendIds: jsonb('resend_ids').$type<string[]>().notNull().default([]),
   soloPendientes: boolean('solo_pendientes').notNull().default(false),
   createdByEmail: text('created_by_email'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   canceladoAt: timestamp('cancelado_at'),
+  // Envío en segundo plano (cola): lo que hace falta para seguir sin la ventana abierta.
+  previstos: integer('previstos').notNull().default(0), // destinatarios del envío (0 = envío antiguo)
+  cuerpo: text('cuerpo'), // plantilla del cuerpo, con {variables}
+  titulo: text('titulo'),
+  academicYear: text('academic_year'),
+  replyTo: text('reply_to'),
+  aviso: text('aviso'), // lo último que ha ido mal en la cola, para enseñarlo en el panel
+  ultimaActividadAt: timestamp('ultima_actividad_at'), // latido: cada tanda que sale
+  terminadoAt: timestamp('terminado_at'),
 }, (t) => [
   index('eval_envios_form_idx').on(t.formId),
+]);
+
+// Cola de un envío en segundo plano: una fila por correo. Guarda el magic link del destinatario
+// (es una credencial: no se muestra ni se loguea) y se BORRA al salir; solo se quedan las filas
+// con error, que son las que se pueden reintentar.
+export const evalEnvioDestinos = pgTable('eval_envio_destinos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  envioId: uuid('envio_id').notNull().references(() => evalEnvios.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  nombre: text('nombre').notNull().default(''),
+  curso: text('curso'),
+  enlace: text('enlace').notNull(),
+  tokenInvitacion: text('token_invitacion'), // para marcar la invitación como enviada SOLO si sale
+  estado: text('estado').notNull().default('pendiente'), // pendiente | haciendo | enviado | error | cancelado
+  error: text('error'),
+  claimedAt: timestamp('claimed_at'),
+}, (t) => [
+  index('eval_envio_destinos_envio_idx').on(t.envioId, t.estado),
 ]);
 
 // Lo que se ha publicado en Google Classroom desde un formulario (una fila por clase). Sirve para
@@ -993,6 +1020,7 @@ export type EvalActivity = typeof evalActivities.$inferSelect;
 export type NewEvalActivity = typeof evalActivities.$inferInsert;
 export type EvalForm = typeof evalForms.$inferSelect;
 export type EvalEnvio = typeof evalEnvios.$inferSelect;
+export type EvalEnvioDestino = typeof evalEnvioDestinos.$inferSelect;
 export type EvalClassroomPost = typeof evalClassroomPosts.$inferSelect;
 export type EvalClassroomDestino = typeof evalClassroomDestinos.$inferSelect;
 export type NewEvalForm = typeof evalForms.$inferInsert;
