@@ -12,6 +12,8 @@ export interface DestinatarioCorreo {
   curso?: string | null;
   /** Enlace ya montado: personalizado en alumnado, común en profesorado. */
   enlace: string;
+  /** Invitación personalizada del alumno: se marca como enviada solo si su correo sale. */
+  tokenInvitacion?: string;
 }
 
 export interface EnvioInput {
@@ -26,7 +28,7 @@ export interface EnvioInput {
   programadoPara?: Date;
 }
 
-const CTA_LABEL = 'Rellenar la evaluación';
+export const CTA_LABEL = 'Rellenar la evaluación';
 
 export async function enviarEvaluacion(
   input: EnvioInput,

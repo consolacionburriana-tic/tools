@@ -1,6 +1,13 @@
 // Envío de la evaluación por correo. Acciones sobre el mismo cálculo de destinatarios:
 // `preview` (recuento antes de disparar), `test` (una prueba a mi dirección), `enviar`
-// (ya) y `programar` (a una hora). Más `envios` (historial) y `cancelar` (un programado).
+// (ya) y `programar` (a una hora). Más `envios` (historial y progreso), `cancelar` (un
+// programado, o parar uno en marcha), `reintentar` (los que fallaron) y `seguir` (empujar un
+// envío que se ha quedado parado).
+//
+// `enviar` NO manda nada en esta petición: deja la cola en la BBDD y responde al momento; el
+// envío sigue en el servidor sin que nadie tenga la ventana abierta y el panel enseña el
+// progreso (ver `evaluaciones-envios-server.ts`). Por eso el `maxDuration`: el trabajo de
+// `after()` vive dentro de esta misma función.
 //
 // Programar NO usa cron: el lote se entrega a Resend con `scheduled_at` y lo dispara Resend
 // (hasta 30 días vista). Los destinatarios se calculan AL PROGRAMAR — "solo a quien falta"
@@ -16,8 +23,9 @@ import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { appBaseUrl } from '@/lib/constants';
 import { getFamiliasDeAlumnos } from '@/lib/fam-tokens-server';
 import { claseLabel, varsDeDestinatario } from '@/lib/evaluaciones';
-import { remitente } from '@/lib/email';
+import { emailConfigurado, remitente } from '@/lib/email';
 import { enviarEvaluacion, type DestinatarioCorreo } from '@/lib/evaluaciones-email';
+import { arrancarEnvio, crearEnvioEnCola, pararEnvio, reintentarFallidos } from '@/lib/evaluaciones-envios-server';
 import {
   actualizarForm,
   cancelarEnvio,
@@ -35,7 +43,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 const schema = z.object({
   formId: z.string().uuid(),
-  accion: z.enum(['preview', 'test', 'enviar', 'programar', 'envios', 'cancelar']),
+  accion: z.enum(['preview', 'test', 'enviar', 'programar', 'envios', 'cancelar', 'reintentar', 'seguir']),
   programadoPara: z.string().datetime({ offset: true }).nullable().default(null),
   /** Si sigue en borrador, abrirla sola a la hora del envío. */
   abrirSola: z.boolean().default(true),
@@ -47,13 +55,14 @@ const schema = z.object({
   etapas: z.array(z.string()).default([]),
 });
 
+export const maxDuration = 60;
+
 // Resend admite hasta 30 días; se deja margen para que no rebote por segundos.
 const MAX_PROGRAMAR_MS = 29.5 * 24 * 60 * 60 * 1000;
 const MIN_PROGRAMAR_MS = 60 * 1000;
 
 interface Calculo {
   destinatarios: DestinatarioCorreo[];
-  tokensInvitacion: string[];
   sinCorreo: string[];
   yaRespondieron: number;
 }
@@ -67,10 +76,29 @@ export async function POST(request: Request) {
     if (!form) return NextResponse.json({ error: 'Formulario no encontrado' }, { status: 404 });
 
     if (input.accion === 'envios') {
-      return NextResponse.json({ envios: await getEnvios(form.id), abrirEn: form.abrirEn });
+      return NextResponse.json({
+        envios: await getEnvios(form.id),
+        abrirEn: form.abrirEn,
+        puedeProgramar: remitente('evaluaciones').transporte === 'resend',
+      });
+    }
+    if (input.accion === 'reintentar') {
+      if (!input.envioId) return NextResponse.json({ error: 'Falta el envío' }, { status: 400 });
+      const r = await reintentarFallidos(input.envioId);
+      if (!r.ok) return NextResponse.json({ error: r.motivo }, { status: 409 });
+      arrancarEnvio(input.envioId);
+      return NextResponse.json({ ok: true, reintentados: r.reintentados });
+    }
+    if (input.accion === 'seguir') {
+      if (!input.envioId) return NextResponse.json({ error: 'Falta el envío' }, { status: 400 });
+      arrancarEnvio(input.envioId);
+      return NextResponse.json({ ok: true });
     }
     if (input.accion === 'cancelar') {
       if (!input.envioId) return NextResponse.json({ error: 'Falta el envío' }, { status: 400 });
+      // Uno en marcha se para; uno programado en Resend se cancela allí.
+      const parado = await pararEnvio(input.envioId);
+      if (parado.ok) return NextResponse.json({ ok: true, parado: true });
       const r = await cancelarEnvio(input.envioId);
       if (!r.ok) return NextResponse.json({ error: r.motivo }, { status: 409 });
       return NextResponse.json({ ok: true, cancelados: r.cancelados, noCancelables: r.noCancelables });
@@ -86,6 +114,7 @@ export async function POST(request: Request) {
         sinCorreo: calculo.sinCorreo,
         yaRespondieron: calculo.yaRespondieron,
         personalizado: form.audiencia === 'alumnos' && form.identificaAlumno,
+        puedeProgramar: remitente('evaluaciones').transporte === 'resend',
         ejemplo: calculo.destinatarios[0]
           ? varsDeDestinatario({
               nombre: calculo.destinatarios[0].nombre,
@@ -149,6 +178,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No hay destinatarios con correo' }, { status: 400 });
     }
 
+    if (input.accion === 'enviar') {
+      if (!emailConfigurado()) return NextResponse.json({ error: 'No hay transporte de correo configurado (Gmail/Workspace o Resend)' }, { status: 500 });
+      const envioId = await crearEnvioEnCola({
+        formId: form.id,
+        asunto: input.subject,
+        cuerpo: input.body,
+        titulo: form.titulo,
+        academicYear: form.academicYear,
+        replyTo: guard.email, // quien manda la evaluación recibe las respuestas
+        soloPendientes: form.audiencia === 'alumnos' && input.soloPendientes,
+        createdByEmail: guard.email,
+        destinatarios: calculo.destinatarios,
+      });
+      arrancarEnvio(envioId);
+      return NextResponse.json({ ok: true, enviando: true, envioId, previstos: calculo.destinatarios.length, sinCorreo: calculo.sinCorreo.length });
+    }
+
     const res = await enviarEvaluacion({
       destinatarios: calculo.destinatarios,
       subject: input.subject,
@@ -162,7 +208,8 @@ export async function POST(request: Request) {
     if (res.sent === 0 && res.errors > 0) {
       return NextResponse.json({ error: 'El servicio de correo ha rechazado el envío' }, { status: 502 });
     }
-    if (calculo.tokensInvitacion.length > 0) await marcarInvitacionesEnviadas(calculo.tokensInvitacion);
+    const tokens = calculo.destinatarios.map((d) => d.tokenInvitacion).filter((t): t is string => !!t);
+    if (tokens.length > 0) await marcarInvitacionesEnviadas(tokens);
     if (abrirEn) await actualizarForm(form.id, { abrirEn });
     await registrarEnvio({
       formId: form.id,
@@ -200,7 +247,6 @@ async function calcularDestinatarios(
       destinatarios: profes
         .filter((p) => p.email)
         .map((p) => ({ email: p.email!, nombre: p.nombre, curso: null, enlace: enlaceComun })),
-      tokensInvitacion: [],
       sinCorreo: profes.filter((p) => !p.email).map((p) => p.nombre),
       yaRespondieron: 0,
     };
@@ -220,7 +266,6 @@ async function calcularDestinatarios(
     const { familias, alumnosSinCorreo } = await getFamiliasDeAlumnos(idsClase);
     return {
       destinatarios: familias.map((f) => ({ email: f.email, nombre: f.tutorNombre ?? 'familia', curso: null, enlace: enlaceComun })),
-      tokensInvitacion: [],
       sinCorreo: alumnosSinCorreo.map(() => 'alumno/a sin correo de familia'),
       yaRespondieron: 0,
     };
@@ -237,8 +282,8 @@ async function calcularDestinatarios(
       // El enlace personalizado es lo que permite guardar de qué alumno viene la
       // respuesta sin pedirle ningún dato en pantalla.
       enlace: form.identificaAlumno ? `${enlaceComun}?a=${i.token}` : enlaceComun,
+      tokenInvitacion: form.identificaAlumno ? i.token : undefined,
     })),
-    tokensInvitacion: form.identificaAlumno ? conCorreo.map((i) => i.token) : [],
     sinCorreo: pendientes.filter((i) => !i.email).map((i) => i.nombre),
     yaRespondieron: invitados.filter((i) => i.yaRespondio).length,
   };

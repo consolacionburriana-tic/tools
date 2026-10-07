@@ -235,11 +235,28 @@ Dos niveles de color, deliberadamente independientes:
   array, así que un borrado pendiente en mitad de la lista no descuadra nada.
 
 ### Correo
-- **Sale por Resend** (2026-09-24, decisión de David): el perfil `evaluaciones` fija
-  `transporte: 'resend'` en `DEFECTOS` de `src/lib/email.ts`, que pisa el `EMAIL_TRANSPORTE`
-  global. `EMAIL_TRANSPORTE_EVALUACIONES` sigue mandando si algún día se quiere volver a Gmail.
-  Motivo: los envíos van a colectivos enteros (y en una conjunta, a varios), y Resend manda en
-  lotes de 100 mientras que Gmail va de uno en uno.
+- **Sale por Gmail** (2026-10-07, decisión de David), desde `no-responder@`, como el resto del
+  sitio. Del 24-sep al 7-oct estuvo en Resend por código y el **plan gratuito de Resend corta a
+  100 correos al día**: una evaluación a 200 alumnos se quedó a medias. Gmail aguanta ~2.000 al
+  día por buzón (`no-responder@` lo comparten varios módulos, pero con holgura). Si algún día
+  hiciera falta Resend, `EMAIL_TRANSPORTE_EVALUACIONES=resend` lo vuelve a poner sin deploy.
+- **«Enviar ahora» va en segundo plano** (2026-10-07, pedido de David: poder cerrar la ventana y
+  ver cómo va). El route no manda nada: guarda una cola en `eval_envio_destinos` (una fila por
+  correo) y responde al momento. El trabajo sigue en el servidor con `after()` (mismo patrón que
+  el worker del Cuaderno: `src/lib/evaluaciones-envios-server.ts`, `/api/evaluaciones/worker`):
+  cada invocación manda ~100 correos en 45 s y pide otra vuelta hasta acabar la cola. El panel
+  solo MIRA: pregunta cada 2 s y pinta la barra («Enviando… 120 de 250 · faltan unos 2 min»);
+  se puede **Parar**, y los que fallaron se **reintentan** con un botón.
+  - Cada correo se reclama de forma atómica (`FOR UPDATE SKIP LOCKED`): dos pases a la vez no
+    duplican. Un reclamo sin resolver en 90 s (la función murió) vuelve a la cola.
+  - La invitación del alumno se marca como enviada **solo si su correo sale** (antes se marcaban
+    todas aunque un lote fallara).
+  - La cola lleva el magic link (credencial): lo que sale se **borra**; solo quedan los fallidos.
+  - Si una vuelta se corta, el panel abierto la empuja solo (>100 s sin señales) y hay un cron
+    diario (`vercel.json`, 04:20) como última red. Sin panel abierto y sin cron aún, un envío
+    parado espera hasta la mañana: por eso conviene mirar que acabe.
+  - **Programar solo existe con Resend** (lo guarda y dispara Resend): con Gmail el selector
+    «Programar» no se ofrece.
 - **Envíos programados, sin cron** (2026-09-24). En "Enviar", el selector "Enviar ahora /
   Programar" con fecha y hora (atajos "Mañana 8:30" y "El lunes 8:30"). Cómo va, y por qué así:
   - Vercel Hobby solo deja **dos crons diarios** y ya están gastados (Puntualidad y Cuaderno):
@@ -258,12 +275,12 @@ Dos niveles de color, deliberadamente independientes:
     que alguien carga el formulario pasada la hora, se abre (`hidratarForm`). Nunca con frases
     a medias. Abrirla o cerrarla a mano quita la apertura automática; cancelar el último envío
     programado, también.
-  - Solo con Resend (el perfil de Evaluaciones ya va por Resend); con Gmail se rechaza.
+  - Solo con Resend (`EMAIL_TRANSPORTE_EVALUACIONES=resend`); con Gmail se rechaza y el panel no lo ofrece.
 - **Arreglo de paso en `enviarLote`**: el SDK de Resend no lanza cuando falla un lote, devuelve
   `{ error }`, y se contaba como enviado. Ahora cuenta como error (afecta a todos los módulos).
 - Reutiliza el motor de envío masivo común (`src/lib/correos.ts`): variables `{nombre}`,
-  `{curso}`, `{titulo}`, `{enlace}`, `{curso_escolar}`, escapado, enlaces clicables y batch
-  de 100 vía Resend.
+  `{curso}`, `{titulo}`, `{enlace}`, `{curso_escolar}`, escapado, enlaces clicables y plantilla
+  visual (`armarMensaje`).
 - **Plantillas de fábrica editables + guardables** (`eval_email_templates`), visibles para todo
   el claustro con acceso al módulo — mismo patrón que las de Licencias.
 - En alumnado se puede enviar **solo a quien todavía no ha respondido**; en profesorado no
@@ -402,6 +419,12 @@ queda a medias entre dos peticiones.
       (`eval_envios`), apertura automática perezosa (`abrir_en`) y cancelación al borrar.
       `evaluaciones-envios.sql` aplicado en Neon. Verificado contra Neon y Resend con un
       correo real programado a 20 días y cancelado (y otro cancelado al borrar el formulario).
+- [~] Envío en segundo plano con progreso en vivo, Gmail por defecto, reintento de fallidos y
+      «Parar» (`evaluaciones-envios-cola.sql`, en `pendientes.txt`). Verificado contra un
+      Postgres local con el transporte simulado: 25 correos con dos pases a la vez (sin
+      duplicados), 2 fallos que no marcan su invitación, reintento y parada. **Falta aplicar el
+      SQL en Neon y probarlo con un envío real** (primero a uno mismo con «Probar», luego el
+      masivo).
 - [x] "Eliminar" a la vista: icono en la botonera del editor y en cada fila de sector del
       listado (antes solo estaba dentro de Ajustes, plegado).
 - [x] Color DOMINANTE por formulario (mismo catálogo, independiente del de cada actividad):

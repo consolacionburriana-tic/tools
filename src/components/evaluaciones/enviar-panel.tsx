@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { BookmarkPlus, CalendarClock, CheckCircle2, ChevronRight, GraduationCap, Link2, Loader2, Send, Trash2, TriangleAlert, Users, X } from 'lucide-react';
+import { BookmarkPlus, CalendarClock, CheckCircle2, ChevronRight, GraduationCap, Link2, Loader2, RotateCw, Send, Trash2, TriangleAlert, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones';
@@ -36,16 +36,22 @@ interface Preview {
   sinCorreo: string[];
   yaRespondieron: number;
   personalizado: boolean;
+  puedeProgramar?: boolean;
   ejemplo: Record<string, string>;
 }
 
 interface Envio {
   id: string;
-  estado: 'programado' | 'enviado' | 'cancelado';
+  estado: 'programado' | 'enviando' | 'enviado' | 'cancelado';
   programadoPara: string | null;
   asunto: string;
+  /** Correos ya salidos. */
   total: number;
   errores: number;
+  /** Destinatarios del envío en segundo plano (0 en los envíos antiguos). */
+  previstos: number;
+  aviso: string | null;
+  ultimaActividadAt: string | null;
   soloPendientes: boolean;
   createdByEmail: string | null;
   createdAt: string;
@@ -106,9 +112,73 @@ function atajos(ahora: number): { label: string; fecha: Date }[] {
 
 const ESTADO_ENVIO: Record<Envio['estado'], string> = {
   programado: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+  enviando: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   enviado: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
   cancelado: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300',
 };
+
+/** «230 de 250 correos · 20 con error». Los envíos antiguos no guardan `previstos` y `total` son los salidos. */
+function resumenCorreos(e: Envio): string {
+  const parcial = e.previstos > 0 && (e.estado === 'enviando' || e.estado === 'cancelado');
+  const base = parcial ? `${e.total} de ${e.previstos} correo(s)` : `${e.total} correo(s)`;
+  return e.errores > 0 ? `${base} · ${e.errores} con error` : base;
+}
+
+function duracion(ms: number): string {
+  const min = Math.max(1, Math.round(ms / 60_000));
+  return min < 2 ? 'menos de 2 min' : `unos ${min} min`;
+}
+
+/** El envío que está saliendo ahora mismo, con su barra en vivo. Se puede cerrar la ventana. */
+function EnvioEnMarcha({
+  envio,
+  ahora,
+  ocupado,
+  onParar,
+  onSeguir,
+}: {
+  envio: Envio;
+  ahora: number;
+  ocupado: boolean;
+  onParar: () => void;
+  onSeguir: () => void;
+}) {
+  const hechos = envio.total + envio.errores;
+  const pct = envio.previstos > 0 ? Math.min(100, Math.round((hechos / envio.previstos) * 100)) : 0;
+  const transcurrido = ahora - new Date(envio.createdAt).getTime();
+  const quedan = envio.previstos - hechos;
+  const restante = hechos >= 5 && transcurrido > 0 && quedan > 0 ? duracion((transcurrido / hechos) * quedan) : null;
+  const sinSenales = !!envio.ultimaActividadAt && ahora - new Date(envio.ultimaActividadAt).getTime() > 100_000;
+  return (
+    <div role="status" aria-live="polite" className="rounded-2xl bg-blue-50 p-4 ring-1 ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/30">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-300" />
+        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Enviando… {envio.total} de {envio.previstos}</p>
+        <span className="text-xs text-blue-700/80 dark:text-blue-200/70">
+          {pct}%{restante && ` · faltan ${restante}`}
+          {envio.errores > 0 && ` · ${envio.errores} con error`}
+        </span>
+        <div className="ml-auto flex gap-1">
+          {sinSenales && (
+            <button type="button" disabled={ocupado} onClick={onSeguir} className="rounded-lg px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 dark:text-blue-200 dark:hover:bg-blue-500/20">
+              Seguir ahora
+            </button>
+          )}
+          <button type="button" disabled={ocupado} onClick={onParar} className="rounded-lg px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-500/10">
+            Parar
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-500/20" aria-hidden>
+        <div className="h-full rounded-full bg-blue-600 transition-[width] duration-700 dark:bg-blue-400" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="mt-2 text-xs text-blue-800/80 dark:text-blue-200/70">
+        Sigue en el servidor: puedes cerrar esta ventana y el envío no se para.
+      </p>
+      {envio.aviso && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">{envio.aviso}</p>}
+    </div>
+  );
+}
 
 const ETAPAS = ETAPAS_CENTRO.map((value) => ({ value, label: ETAPA_LABEL[value] }));
 
@@ -141,6 +211,9 @@ export function EnviarPanel({
   const [abrirSola, setAbrirSola] = useState(true);
   const [envios, setEnvios] = useState<Envio[]>([]);
   const [cancelando, setCancelando] = useState<string | null>(null);
+  // Programar solo existe con Resend; con Gmail no se ofrece. Hasta saberlo, tampoco.
+  const [puedeProgramar, setPuedeProgramar] = useState(false);
+  const empujados = useRef<Record<string, number>>({});
 
   // Classroom (solo alumnado): la evaluación se publica en la tutoría de cada clase.
   const [canal, setCanal] = useState<Canal>('correo');
@@ -206,28 +279,69 @@ export function EnviarPanel({
       body: JSON.stringify({ formId, accion: 'envios' }),
     })
       .then((r) => r.json())
-      .then((d) => setEnvios(d.envios ?? []))
+      .then((d) => {
+        setEnvios(d.envios ?? []);
+        setPuedeProgramar(!!d.puedeProgramar);
+        setAhora(Date.now());
+      })
       .catch(() => {});
   }
 
-  async function cancelarEnvio(id: string) {
-    setCancelando(id);
+  // Mientras haya un envío en marcha se mira cómo va cada par de segundos. El envío NO depende
+  // de esta ventana: corre en el servidor; esto solo lo enseña.
+  const enMarcha = envios.some((e) => e.estado === 'enviando');
+  useEffect(() => {
+    if (!enMarcha) return;
+    const t = setInterval(cargarEnvios, 2000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enMarcha, formId]);
+
+  // Si un envío lleva rato sin dar señales (se cortó una vuelta), este panel lo empuja solo.
+  useEffect(() => {
+    for (const e of envios) {
+      if (e.estado !== 'enviando' || !e.ultimaActividadAt) continue;
+      const parado = Date.now() - new Date(e.ultimaActividadAt).getTime() > 100_000;
+      if (parado && Date.now() - (empujados.current[e.id] ?? 0) > 60_000) {
+        empujados.current[e.id] = Date.now();
+        void accionEnvio(e.id, 'seguir', true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envios]);
+
+  async function accionEnvio(id: string, tipo: 'cancelar' | 'reintentar' | 'seguir', silencioso = false) {
+    if (!silencioso) setCancelando(id);
     try {
       const res = await fetch('/api/evaluaciones/admin/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formId, accion: 'cancelar', envioId: id }),
+        body: JSON.stringify({ formId, accion: tipo, envioId: id }),
       });
       const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? 'No se pudo cancelar');
-      haptic.success();
-      toast.success(d.noCancelables > 0 ? `Cancelado (${d.noCancelables} ya habían salido)` : 'Envío cancelado: no saldrá ningún correo');
+      if (!res.ok) throw new Error(d.error ?? 'No se pudo');
+      if (!silencioso) {
+        haptic.success();
+        toast.success(
+          tipo === 'reintentar'
+            ? `Reintentando ${d.reintentados} correo(s)`
+            : tipo === 'seguir'
+              ? 'Siguiendo con el envío'
+              : d.parado
+                ? 'Envío parado: lo que no ha salido ya no saldrá'
+                : d.noCancelables > 0
+                  ? `Cancelado (${d.noCancelables} ya habían salido)`
+                  : 'Envío cancelado: no saldrá ningún correo',
+        );
+      }
       cargarEnvios();
     } catch (e) {
-      haptic.warning();
-      toast.error(e instanceof Error ? e.message : 'Error inesperado');
+      if (!silencioso) {
+        haptic.warning();
+        toast.error(e instanceof Error ? e.message : 'Error inesperado');
+      }
     } finally {
-      setCancelando(null);
+      if (!silencioso) setCancelando(null);
     }
   }
 
@@ -405,7 +519,7 @@ export function EnviarPanel({
             ? `Prueba enviada a ${d.destino}`
             : tipo === 'programar'
               ? `${d.enviados} correos programados para ${fmtFecha(d.programadoPara)}`
-              : `Enviados ${d.enviados} correos`;
+              : `Envío en marcha: ${d.previstos} correos. Puedes cerrar esta ventana: sigue solo en el servidor`;
       }
       // El correo va primero: si falla, no se ha publicado nada en Classroom; y un correo
       // programado todavía se puede cancelar, una tarea ya publicada no desde aquí.
@@ -467,6 +581,11 @@ export function EnviarPanel({
 
   return (
     <div className="anim-stagger space-y-4">
+      {envios
+        .filter((e) => e.estado === 'enviando')
+        .map((e) => (
+          <EnvioEnMarcha key={e.id} envio={e} ahora={ahora} ocupado={cancelando === e.id} onParar={() => void accionEnvio(e.id, 'cancelar')} onSeguir={() => void accionEnvio(e.id, 'seguir')} />
+        ))}
       <div className="rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 p-4 dark:bg-zinc-900 dark:ring-zinc-800">
         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</p>
         <p className="mt-0.5 text-xs text-zinc-500">
@@ -919,6 +1038,7 @@ export function EnviarPanel({
         )}
 
         <div className={`space-y-3 ${usaCorreo ? 'mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800' : ''}`}>
+          {puedeProgramar && (
           <Segmentado
             valor={modo}
             onChange={(m) => {
@@ -931,6 +1051,7 @@ export function EnviarPanel({
               { valor: 'programar', label: 'Programar' },
             ]}
           />
+          )}
 
           {/* Programar: la hora la guarda Resend y lo dispara él. Aquí no queda nada
              corriendo: por eso no hay cron, y por eso se puede cerrar la pestaña. */}
@@ -1049,13 +1170,24 @@ export function EnviarPanel({
                   {fmtFecha(e.programadoPara ?? e.createdAt)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-zinc-500">
-                  {e.total} correo(s){e.errores > 0 && ` · ${e.errores} con error`} · {e.asunto}
+                  {resumenCorreos(e)} · {e.asunto}
                 </span>
+                {e.estado === 'enviado' && e.errores > 0 && e.previstos > 0 && (
+                  <button
+                    type="button"
+                    disabled={cancelando !== null}
+                    onClick={() => void accionEnvio(e.id, 'reintentar')}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                  >
+                    {cancelando === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+                    Reintentar los {e.errores} fallidos
+                  </button>
+                )}
                 {e.estado === 'programado' && (
                   <button
                     type="button"
                     disabled={cancelando !== null}
-                    onClick={() => void cancelarEnvio(e.id)}
+                    onClick={() => void accionEnvio(e.id, 'cancelar')}
                     className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
                   >
                     {cancelando === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}

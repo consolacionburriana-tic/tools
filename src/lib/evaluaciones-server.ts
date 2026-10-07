@@ -1364,9 +1364,10 @@ export async function getClasesDisponibles(): Promise<Clase[]> {
 
 // ─── Envíos por correo (inmediatos y programados) ─────────────────────────────
 
-export type EstadoEnvio = 'programado' | 'enviado' | 'cancelado';
+export type EstadoEnvio = 'programado' | 'enviando' | 'enviado' | 'cancelado';
 
-export interface EnvioResumen extends Omit<EvalEnvio, 'estado' | 'resendIds'> {
+export interface EnvioResumen
+  extends Omit<EvalEnvio, 'estado' | 'resendIds' | 'cuerpo' | 'titulo' | 'academicYear' | 'replyTo'> {
   /** Un programado cuya hora ya pasó se enseña como enviado: Resend ya lo ha disparado. */
   estado: EstadoEnvio;
 }
@@ -1405,6 +1406,10 @@ export async function getEnvios(formId: string): Promise<EnvioResumen[]> {
     asunto: f.asunto,
     total: f.total,
     errores: f.errores,
+    previstos: f.previstos,
+    aviso: f.aviso,
+    ultimaActividadAt: f.ultimaActividadAt,
+    terminadoAt: f.terminadoAt,
     soloPendientes: f.soloPendientes,
     createdByEmail: f.createdByEmail,
     createdAt: f.createdAt,

@@ -4,7 +4,7 @@
 // "correos masivos a pendientes" de otro módulo) parte de aquí en vez de reimplementar su
 // propia versión. El transporte (API de Gmail o Resend) y el remitente los decide
 // `src/lib/email.ts` según el perfil del módulo.
-import { emailConfigurado, enviarLote, type PerfilCorreo } from '@/lib/email';
+import { emailConfigurado, enviarLote, type Mensaje, type PerfilCorreo } from '@/lib/email';
 
 // Identidad visual por módulo: mismo esqueleto de tarjeta en todos los correos masivos,
 // con el degradado del color de cada módulo (tan sutil que apenas se nota, a propósito).
@@ -91,6 +91,21 @@ export interface BlastItem {
   cta?: { url: string; label: string };
 }
 
+/** El correo de UN destinatario: variables sustituidas y plantilla visual del perfil. */
+export function armarMensaje(
+  item: BlastItem,
+  subject: string,
+  body: string,
+  opciones: { perfil?: PerfilCorreo; replyTo?: string } = {},
+): Mensaje {
+  return {
+    to: item.email,
+    subject: applyVars(subject, item.vars),
+    html: wrapHtml(applyVars(body, item.vars), item.cta, opciones.perfil),
+    replyTo: opciones.replyTo,
+  };
+}
+
 /**
  * Envío masivo genérico: un correo por destinatario, con variables, escapado y enlaces
  * clicables. `perfil` decide desde qué identidad sale (por defecto, la genérica) y `replyTo`
@@ -105,12 +120,7 @@ export async function sendChunks(
   if (!emailConfigurado()) return { sent: 0, errors: 0, skipped: true, ids: [] };
   const { sent, errors, ids } = await enviarLote(
     opciones.perfil ?? 'general',
-    items.map((r) => ({
-      to: r.email,
-      subject: applyVars(subject, r.vars),
-      html: wrapHtml(applyVars(body, r.vars), r.cta, opciones.perfil),
-      replyTo: opciones.replyTo,
-    })),
+    items.map((r) => armarMensaje(r, subject, body, opciones)),
     { programadoPara: opciones.programadoPara },
   );
   return { sent, errors, skipped: false, ids };
