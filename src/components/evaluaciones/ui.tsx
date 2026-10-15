@@ -87,10 +87,13 @@ export function Segmentado<T extends string>({
   opciones,
   valor,
   onChange,
+  capitalizar = true,
 }: {
   opciones: { valor: T; label: string; deshabilitada?: boolean; pista?: string; tono?: 'normal' | 'verde' }[];
   valor: T;
   onChange: (v: T) => void;
+  /** Los estados ("borrador", "abierto") van en minúscula y se capitalizan; frases, no. */
+  capitalizar?: boolean;
 }) {
   return (
     <div className="inline-flex rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
@@ -103,7 +106,7 @@ export function Segmentado<T extends string>({
             disabled={o.deshabilitada}
             title={o.pista}
             onClick={() => onChange(o.valor)}
-            className={`rounded-[7px] px-3 py-1 text-xs font-semibold capitalize transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`rounded-[7px] px-3 py-1 text-xs font-semibold ${capitalizar ? 'capitalize' : ''} transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
               activa
                 ? o.tono === 'verde'
                   ? 'bg-emerald-600 text-white shadow-sm'

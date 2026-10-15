@@ -32,9 +32,9 @@ const ESTADO_PUNTO: Record<string, string> = {
 
 type Destino = 'editor' | 'enviar' | 'resultados';
 
-function hrefSector(id: string, destino: Destino): string {
+function hrefSector(id: string, destino: Destino, query?: string): string {
   if (destino === 'editor') return `/gestion/evaluaciones/${id}`;
-  return `/gestion/evaluaciones/${id}/${destino}`;
+  return `/gestion/evaluaciones/${id}/${destino}${query ? `?${query}` : ''}`;
 }
 
 /**
@@ -47,10 +47,13 @@ export function SectoresTabs({
   actualId,
   destino,
   anadirDesde,
+  query,
 }: {
   sectores: SectorGrupo[];
   actualId: string;
   destino: Destino;
+  /** Parámetros que se conservan al saltar al otro sector (en resultados, la etapa). */
+  query?: string;
   /** Si se pasa, se ofrecen los colectivos que faltan (copiando la estructura desde este form). */
   anadirDesde?: { formId: string; audiencia: Audiencia };
 }) {
@@ -145,7 +148,7 @@ export function SectoresTabs({
           ) : (
             <Link
               key={s.id}
-              href={hrefSector(s.id, destino)}
+              href={hrefSector(s.id, destino, query)}
               className={`${base} bg-zinc-100/70 hover:bg-white hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:bg-zinc-800/40 dark:hover:bg-zinc-900`}
             >
               {barra}

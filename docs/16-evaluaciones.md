@@ -338,6 +338,38 @@ En «Enviar», selector **Correo · Classroom · Los dos** (solo en formularios 
 - Código: `POST /api/evaluaciones/admin/classroom` (`preview` y `publicar`),
   `clasesDondeEsProfe` / `publicarEnClase` en `src/lib/calendarios-google.ts`.
 
+### Pantalla de resultados: de un vistazo (15-oct-2026)
+Pedido de David: *"se ve un poquito complicado todo y tiene que ser de un vistazo"*; filtrar por
+etapa, ver a los más "enfadados" (sobre todo en profesorado) y leer los comentarios sin abrirlos
+uno a uno, quitando los "no" y "nada".
+
+- **Filtro por etapa** (`?etapa=EI|EP|ESO|BACH`) en los dos colectivos: el profesorado la marca
+  al responder; al alumnado se le saca de la clase (`3ESO` → ESO). Con una etapa elegida se
+  recalcula TODO (cifras, medias, comentarios, críticos) y las clases de debajo se reducen a las
+  de esa etapa. La clase manda sobre la etapa. Al saltar de sector (alumnado ↔ profesorado) la
+  etapa se conserva: "Secundaria según los alumnos" → "Secundaria según los profes" en un clic.
+- **"Cómo sale la gente"**: cada persona cuenta según SU media (≥70 contenta, 45-70 regular,
+  <45 descontenta, los mismos cortes que `tonoDe`). Una barra de tres colores dice más que la
+  media sola: un 63 puede ser "todos regular" o "la mayoría bien y un grupo muy enfadado".
+- **Tres pestañas**: Resumen · Comentarios · Los más críticos. El estado de la pestaña es local
+  (no va a la URL): cambiar de etapa no te saca de la pestaña en la que estabas.
+- **Resumen**: avisos, *lo mejor valorado / lo que menos* (3 y 3 filas, de todo el formulario),
+  barras por etapa (clicables, filtran) y el detalle por pregunta de siempre. Las preguntas
+  abiertas enseñan ya sus 3 comentarios más críticos, sin desplegar nada.
+- **Comentarios útiles** (`comentarioUtil` en `src/lib/evaluaciones.ts`, con tests): se ocultan
+  los de menos de 4 letras y una lista corta de fórmulas vacías ("nada", "ninguna", "no tengo",
+  "sin comentarios"… también "res"/"cap" en valenciano). Lista corta a propósito: "todo bien" o
+  "me ha gustado" SÍ se enseñan. Los ocultos se pueden mostrar con un clic (salen atenuados).
+- **Cada comentario lleva la media de quien lo escribió** (borde de color + "su media 22/100")
+  y por defecto se ordenan **críticos primero**; también "más largos". Buscador sin tildes.
+- **Los más críticos**: las 40 respuestas con peor media (`MAX_CRITICAS`), de peor a mejor, con
+  umbral elegible (<45 · <70 · todas). Cada tarjeta: su media, cuántas veces marcó lo más bajo
+  de la escala, lo que escribió y lo que valoró por debajo de 70 (lo demás, plegado).
+  **Sin identidad**: ni correo ni alumno, como mucho clase o etapa — lo mismo que ya da el CSV.
+  "Enfadado" se mide por la nota, no por el tono del texto (ver `00-desarrollos-futuros.md`).
+- Arreglo de paso: con una clase elegida, la participación ("de N") era la del total de clases;
+  ahora es la de lo que se está mirando, y los avisos también.
+
 ## Plan técnico
 
 ### Schema (`eval_*`, en `src/db/schema.ts`)
@@ -485,6 +517,11 @@ queda a medias entre dos peticiones.
 - [x] Export CSV (sin identidad de quien responde)
 - [x] Comparativas: la misma actividad curso a curso y entre colectivos (`serie_id`), y
       ranking de actividades del curso
+- [~] Resultados "de un vistazo" (15-oct-2026): filtro por etapa, ánimo por persona, pestañas
+      Resumen · Comentarios · Los más críticos, comentarios vacíos ocultos. Typecheck, lint, tests
+      y build OK; la pantalla se revisó en navegador (claro/oscuro, escritorio/móvil) con datos
+      inventados porque la BBDD de este entorno no tiene respuestas. **Falta mirarla con
+      respuestas reales** y marcar `[x]`.
 
 ### Pendiente para más adelante
 - Evaluación de **asignaturas y su profesorado** (el modelo ya lo admite: `tipo='asignatura'`).

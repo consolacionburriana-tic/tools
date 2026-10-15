@@ -4,6 +4,7 @@ import {
   aPorcentaje,
   caritaPara,
   colorAleatorio,
+  comentarioUtil,
   esEscalaEstrellas,
   estiloEstrellaDe,
   fraseConHueco,
@@ -354,5 +355,19 @@ describe('evaluación conjunta', () => {
   });
   it('cada colectivo tiene sus rasgos descritos', () => {
     for (const a of AUDIENCIAS) expect(RASGOS_AUDIENCIA[a.value].rasgos.length).toBeGreaterThan(0);
+  });
+});
+
+describe('comentarioUtil', () => {
+  it('oculta lo que no dice nada', () => {
+    for (const t of ['', 'no', 'No.', 'ok', '-', '...', 'Nada', 'nada!!', 'Ninguna', 'nada más', 'No tengo nada', 'Sin comentarios', 'NO SÉ', '  no  ']) {
+      expect(comentarioUtil(t)).toBe(false);
+    }
+    expect(comentarioUtil(null)).toBe(false);
+  });
+  it('deja los comentarios con contenido, aunque sean cortos o positivos', () => {
+    for (const t of ['Todo bien', 'Más tiempo', 'Me ha gustado mucho', 'No me ha gustado nada el sitio', 'Aburrido']) {
+      expect(comentarioUtil(t)).toBe(true);
+    }
   });
 });

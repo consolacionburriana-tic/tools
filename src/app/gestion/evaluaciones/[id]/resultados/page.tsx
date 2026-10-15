@@ -14,12 +14,13 @@ export default async function ResultadosPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ clase?: string }>;
+  searchParams: Promise<{ clase?: string; etapa?: string }>;
 }) {
   const { id } = await params;
-  const { clase } = await searchParams;
+  const { clase, etapa } = await searchParams;
   const [curso, letra] = (clase ?? '').split('|');
-  const resultados = await getResultados(id, curso ? { curso, letra: letra || null } : null);
+  // La clase manda sobre la etapa (la etapa viaja con ella solo para marcar su pestaña).
+  const resultados = await getResultados(id, curso ? { curso, letra: letra || null } : etapa ? { etapa } : null);
   if (!resultados) notFound();
 
   const serie = resultados.bloques.find((b) => b.serieId)?.serieId ?? null;
@@ -48,8 +49,19 @@ export default async function ResultadosPage({
           </a>
         </div>
       </div>
-      <SectoresTabs sectores={sectores} actualId={id} destino="resultados" />
-      <ResultadosPanel key={id} resultados={resultados} formId={id} claseActiva={clase ?? null} />
+      <SectoresTabs
+        sectores={sectores}
+        actualId={id}
+        destino="resultados"
+        query={etapa ? `etapa=${encodeURIComponent(etapa)}` : undefined}
+      />
+      <ResultadosPanel
+        key={id}
+        resultados={resultados}
+        formId={id}
+        claseActiva={curso ? (clase ?? null) : null}
+        etapaActiva={etapa ?? null}
+      />
     </div>
   );
 }

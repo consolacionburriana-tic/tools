@@ -25,7 +25,7 @@ import {
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
 import { cancelarProgramados } from '@/lib/email';
-import { compararClasesMayoresPrimero, etapaDeCurso } from '@/lib/cursos';
+import { ETAPAS, compararClasesMayoresPrimero, esEtapa, etapaDeCurso } from '@/lib/cursos';
 import { nombreProfe } from '@/lib/profes';
 import {
   AUDIENCIAS,
@@ -43,6 +43,7 @@ import {
   nuevoTokenInvitacion,
   presetActividad,
   slugClave,
+  tonoDe,
   tituloConAudiencia,
   type Audiencia,
   type Categoria,
@@ -998,7 +999,8 @@ export interface ResultadoPregunta {
   filas: ResultadoFila[];
   opciones: { clave: string; texto: string; n: number; correcta: boolean }[];
   otras: string[];
-  textos: { valor: string; clase: string | null }[];
+  /** `pct`: la media de quien lo escribió, para leer primero a los más críticos. */
+  textos: { valor: string; clase: string | null; etapa: string | null; pct: number | null }[];
 }
 
 export interface ResultadoBloque {
@@ -1019,6 +1021,19 @@ export interface ResultadoClase {
   mediaPct: number | null;
 }
 
+/** Una respuesta concreta, sin identidad: para ver de cerca a quien peor valora. */
+export interface RespuestaCritica {
+  id: string;
+  clase: string | null;
+  etapa: string | null;
+  mediaPct: number;
+  /** Cuántas veces marcó el punto más bajo de la escala ("Nada", 1, una estrella…). */
+  enLoMasBajo: number;
+  /** Sus valoraciones, de la peor a la mejor. */
+  valoraciones: { bloque: string; pregunta: string; fila: string | null; label: string; pct: number }[];
+  comentarios: { pregunta: string; valor: string }[];
+}
+
 export interface Resultados {
   form: FormCompleto;
   totalRespuestas: number;
@@ -1028,20 +1043,44 @@ export interface Resultados {
   clases: ResultadoClase[];
   etapas: { etapa: string; respuestas: number; mediaPct: number | null }[];
   avisos: string[];
+  /** Personas según su media: contentas (≥70), regular (45-70), descontentas (<45). */
+  animo: { bien: number; regular: number; flojo: number };
+  /** Las respuestas con peor media, de la peor a la mejor (máximo `MAX_CRITICAS`). */
+  criticas: RespuestaCritica[];
+}
+
+/** Clase, etapa o nada: lo que se está mirando en resultados. Clase manda sobre etapa. */
+export interface FiltroResultados {
+  curso?: string | null;
+  letra?: string | null;
+  etapa?: string | null;
+}
+
+const MAX_CRITICAS = 40;
+
+/**
+ * Etapa de una respuesta. El profesorado la marca al responder; el alumnado no, pero su
+ * clase la dice (`3ESO` → ESO), así que el filtro por etapa vale para los dos colectivos.
+ */
+function etapaDeRespuesta(r: { etapa: string | null; curso: string | null }): string | null {
+  if (esEtapa(r.etapa)) return r.etapa;
+  return etapaDeCurso(r.curso) ?? r.etapa ?? null;
 }
 
 /**
- * Agregados de un formulario. Con `filtro` se recalcula todo mirando solo a una clase:
- * es lo que permite "navegar por clases" sin duplicar la lógica de agregación.
+ * Agregados de un formulario. Con `filtro` se recalcula todo mirando solo a una clase o a
+ * una etapa: es lo que permite "navegar" sin duplicar la lógica de agregación.
  */
-export async function getResultados(formId: string, filtro?: Clase | null): Promise<Resultados | null> {
+export async function getResultados(formId: string, filtro?: FiltroResultados | null): Promise<Resultados | null> {
   const form = await getFormCompleto(formId);
   if (!form) return null;
 
   const todas = await db.select().from(evalResponses).where(eq(evalResponses.formId, formId));
-  const respuestas = filtro
+  const respuestas = filtro?.curso
     ? todas.filter((r) => r.curso === filtro.curso && (r.letra ?? null) === (filtro.letra ?? null))
-    : todas;
+    : filtro?.etapa
+      ? todas.filter((r) => etapaDeRespuesta(r) === filtro.etapa)
+      : todas;
   const idsRespuesta = new Set(respuestas.map((r) => r.id));
   const questionIds = form.bloques.flatMap((b) => b.preguntas.map((q) => q.id));
   const answersTodas = questionIds.length
@@ -1054,6 +1093,25 @@ export async function getResultados(formId: string, filtro?: Clase | null): Prom
     const r = respuestaPorId.get(responseId);
     if (!r?.curso) return null;
     return r.letra && r.letra !== 'PDC' ? `${r.curso} ${r.letra}` : r.curso;
+  };
+
+  // Media de cada respuesta sobre TODAS las suyas (no solo las del filtro): sirve para el
+  // navegador de clases/etapas, para el ánimo y para ordenar comentarios por quien critica.
+  const escalaPorPregunta = new Map(form.bloques.flatMap((b) => b.preguntas.map((q) => [q.id, q.escala] as const)));
+  const pctPorRespuestaGlobal = new Map<string, number[]>();
+  for (const a of answersTodas) {
+    if (a.valorNum === null) continue;
+    const escalaValue = escalaPorPregunta.get(a.questionId);
+    if (!escalaValue) continue;
+    const p = aPct(a.valorNum, escalaValue);
+    if (p === null) continue;
+    const lista = pctPorRespuestaGlobal.get(a.responseId) ?? [];
+    lista.push(p);
+    pctPorRespuestaGlobal.set(a.responseId, lista);
+  }
+  const mediaDe = (responseId: string): number | null => {
+    const pcts = pctPorRespuestaGlobal.get(responseId);
+    return pcts?.length ? pcts.reduce((s, p) => s + p, 0) / pcts.length : null;
   };
 
   const porPregunta = new Map<string, typeof answers>();
@@ -1110,7 +1168,17 @@ export async function getResultados(formId: string, filtro?: Clase | null): Prom
       const otras = dadas.filter((a) => a.opcionClave === 'otra' && a.valorTexto).map((a) => a.valorTexto!);
       const textos =
         q.tipo === 'texto'
-          ? dadas.filter((a) => a.valorTexto).map((a) => ({ valor: a.valorTexto!, clase: claseDe(a.responseId) }))
+          ? dadas
+              .filter((a) => a.valorTexto)
+              .map((a) => {
+                const r = respuestaPorId.get(a.responseId);
+                return {
+                  valor: a.valorTexto!,
+                  clase: claseDe(a.responseId),
+                  etapa: r ? etapaDeRespuesta(r) : null,
+                  pct: mediaDe(a.responseId),
+                };
+              })
           : [];
 
       const nRespondientes = new Set(dadas.map((a) => a.responseId)).size;
@@ -1142,21 +1210,6 @@ export async function getResultados(formId: string, filtro?: Clase | null): Prom
     };
   });
 
-  // Aporte medio de cada respuesta, calculado sobre TODAS (no solo las del filtro):
-  // el navegador de clases tiene que seguir mostrando la media de las demás.
-  const escalaPorPregunta = new Map(form.bloques.flatMap((b) => b.preguntas.map((q) => [q.id, q.escala] as const)));
-  const pctPorRespuestaGlobal = new Map<string, number[]>();
-  for (const a of answersTodas) {
-    if (a.valorNum === null) continue;
-    const escalaValue = escalaPorPregunta.get(a.questionId);
-    if (!escalaValue) continue;
-    const p = aPct(a.valorNum, escalaValue);
-    if (p === null) continue;
-    const lista = pctPorRespuestaGlobal.get(a.responseId) ?? [];
-    lista.push(p);
-    pctPorRespuestaGlobal.set(a.responseId, lista);
-  }
-
   // Segmentación por clase (alumnado) y etapa (profesorado)
   const alumnado =
     form.audiencia === 'alumnos'
@@ -1183,26 +1236,110 @@ export async function getResultados(formId: string, filtro?: Clase | null): Prom
     })
     .sort(compararClasesMayoresPrimero);
 
-  const etapasSet = [...new Set(respuestas.map((r) => r.etapa).filter((e): e is string => !!e))];
-  const etapas = etapasSet.map((etapa) => {
-    const suyas = respuestas.filter((r) => r.etapa === etapa);
-    const pcts = suyas.flatMap((r) => pctPorRespuesta.get(r.id) ?? []);
-    return { etapa, respuestas: suyas.length, mediaPct: pcts.length ? pcts.reduce((s, p) => s + p, 0) / pcts.length : null };
-  });
+  // Igual que las clases: sobre TODAS, para que al entrar en una etapa sigan las demás.
+  const etapaPorRespuesta = new Map(todas.map((r) => [r.id, etapaDeRespuesta(r)]));
+  const ordenEtapa = (e: string) => {
+    const i = (ETAPAS as readonly string[]).indexOf(e);
+    return i === -1 ? ETAPAS.length : i;
+  };
+  const etapas = [...new Set([...etapaPorRespuesta.values()].filter((e): e is string => !!e))]
+    .sort((a, b) => ordenEtapa(a) - ordenEtapa(b))
+    .map((etapa) => {
+      const suyas = todas.filter((r) => etapaPorRespuesta.get(r.id) === etapa);
+      const pcts = suyas.flatMap((r) => pctPorRespuestaGlobal.get(r.id) ?? []);
+      return { etapa, respuestas: suyas.length, mediaPct: pcts.length ? pcts.reduce((s, p) => s + p, 0) / pcts.length : null };
+    });
 
   const todosPcts = [...pctPorRespuesta.values()].flat();
   const mediaPct = todosPcts.length ? todosPcts.reduce((s, p) => s + p, 0) / todosPcts.length : null;
 
+  // Las clases que caen dentro de lo que se mira: la participación y los avisos se
+  // calculan sobre ellas (antes, con una clase elegida, el objetivo seguía siendo el total).
+  const clasesDelFiltro = filtro?.curso
+    ? clases.filter((c) => c.curso === filtro.curso && (c.letra ?? null) === (filtro.letra ?? null))
+    : filtro?.etapa
+      ? clases.filter((c) => etapaDeCurso(c.curso) === filtro.etapa)
+      : clases;
+
+  const animo = { bien: 0, regular: 0, flojo: 0 };
+  for (const r of respuestas) {
+    const t = tonoDe(mediaDe(r.id));
+    if (t !== 'sin') animo[t]++;
+  }
+
   return {
     form,
     totalRespuestas: respuestas.length,
-    objetivo: clases.length ? clases.reduce((s, c) => s + c.objetivo, 0) || null : null,
+    objetivo: clasesDelFiltro.length ? clasesDelFiltro.reduce((s, c) => s + c.objetivo, 0) || null : null,
     mediaPct,
     bloques,
     clases,
     etapas,
-    avisos: construirAvisos(clases, bloques),
+    avisos: construirAvisos(clasesDelFiltro, bloques),
+    animo,
+    criticas: construirCriticas(form, respuestas, answers, mediaDe, claseDe, etapaDeRespuesta),
   };
+}
+
+/**
+ * Las respuestas de quien peor valora, de la peor a la mejor. Es la vista de "¿quién está
+ * enfadado y por qué?": su media, lo que puntuó más bajo y lo que escribió. Sin identidad
+ * (ni correo ni alumno): como mucho su clase o su etapa, lo mismo que ya sale en el CSV.
+ */
+function construirCriticas(
+  form: FormCompleto,
+  respuestas: { id: string; etapa: string | null; curso: string | null }[],
+  answers: { responseId: string; questionId: string; filaClave: string | null; valorNum: number | null; valorTexto: string | null }[],
+  mediaDe: (responseId: string) => number | null,
+  claseDe: (responseId: string) => string | null,
+  etapaDe: (r: { etapa: string | null; curso: string | null }) => string | null,
+): RespuestaCritica[] {
+  const preguntas = new Map(
+    form.bloques.flatMap((b) => b.preguntas.map((q) => [q.id, { bloque: b.titulo, q }] as const)),
+  );
+  const candidatas = respuestas
+    .map((r) => ({ r, media: mediaDe(r.id) }))
+    .filter((x): x is { r: (typeof respuestas)[number]; media: number } => x.media !== null)
+    .sort((a, b) => a.media - b.media)
+    .slice(0, MAX_CRITICAS);
+  const ids = new Set(candidatas.map((c) => c.r.id));
+  const porRespuesta = new Map<string, typeof answers>();
+  for (const a of answers) {
+    if (!ids.has(a.responseId)) continue;
+    const lista = porRespuesta.get(a.responseId) ?? [];
+    lista.push(a);
+    porRespuesta.set(a.responseId, lista);
+  }
+
+  return candidatas
+    .map(({ r, media }) => {
+      const valoraciones: RespuestaCritica['valoraciones'] = [];
+      const comentarios: RespuestaCritica['comentarios'] = [];
+      let enLoMasBajo = 0;
+      for (const a of porRespuesta.get(r.id) ?? []) {
+        const info = preguntas.get(a.questionId);
+        if (!info) continue;
+        const { q, bloque } = info;
+        if (q.tipo === 'escala' && a.valorNum !== null) {
+          const pct = aPct(a.valorNum, q.escala);
+          if (pct === null) continue;
+          if (pct === 0) enLoMasBajo++;
+          const punto = escalaDe(q.escala).puntos.find((p) => p.valor === a.valorNum);
+          valoraciones.push({
+            bloque,
+            pregunta: q.texto,
+            fila: a.filaClave ? (q.filas.find((f) => f.clave === a.filaClave)?.texto ?? null) : null,
+            label: punto?.label ?? String(a.valorNum),
+            pct,
+          });
+        } else if (q.tipo === 'texto' && a.valorTexto) {
+          comentarios.push({ pregunta: q.texto, valor: a.valorTexto });
+        }
+      }
+      valoraciones.sort((x, y) => x.pct - y.pct);
+      return { id: r.id, clase: claseDe(r.id), etapa: etapaDe(r), mediaPct: media, enLoMasBajo, valoraciones, comentarios };
+    })
+    .sort((a, b) => a.mediaPct - b.mediaPct || b.enLoMasBajo - a.enLoMasBajo);
 }
 
 function aPct(valor: number, escalaValue: string): number | null {

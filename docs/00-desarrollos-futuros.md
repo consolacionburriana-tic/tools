@@ -300,6 +300,13 @@ y conviene que David confirme:
 - Un anuncio no puede llevar tema (la API no lo permite): el tema «Evaluamos 🔍 Tu opinión cuenta»
   es solo de las tareas.
 
+### Evaluaciones: detectar el enfado en el TEXTO, no solo en la nota (15-oct-2026)
+"Los más críticos" ordena por la media de cada respuesta. Quien pone todo "Bastante" y escribe
+un comentario muy duro no sale arriba. Se podría clasificar el tono de los comentarios (con un
+modelo de lenguaje, en el servidor y sin mandar identidad) y mezclarlo con la nota. No lo hice:
+añade coste y una dependencia externa para algo que de momento la nota resuelve bastante bien.
+Decidir si merece la pena cuando haya evaluaciones grandes de profesorado.
+
 ### Evaluaciones: familias
 El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link
 de familias (`fam_access_tokens`, ya usado por Licencias y Salidas) con su propio propósito

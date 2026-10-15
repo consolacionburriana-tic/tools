@@ -193,6 +193,64 @@ export function mediaBruta(valores: number[]): number | null {
   return valores.reduce((s, v) => s + v, 0) / valores.length;
 }
 
+// ─── Comentarios útiles ───────────────────────────────────────────────────────
+
+/**
+ * Respuestas de texto que no dicen nada: el "no", "nada", "ninguna" que se escribe para
+ * poder enviar. Se comparan ya normalizadas (minúsculas, sin tildes ni signos). Lista
+ * corta a propósito: un "todo bien" o un "me ha gustado" sí dicen algo y se quedan.
+ */
+const COMENTARIOS_VACIOS = new Set([
+  'nada',
+  'ninguna',
+  'ninguno',
+  'nope',
+  'nada mas',
+  'nada que decir',
+  'nada que anadir',
+  'nada que comentar',
+  'nada mas que decir',
+  'nada mas que anadir',
+  'no tengo',
+  'no tengo nada',
+  'no tengo ninguna',
+  'no se',
+  'no hay',
+  'no nada',
+  'no gracias',
+  'sin comentarios',
+  'ningun comentario',
+  'ninguna sugerencia',
+  'ninguna observacion',
+  'res',
+  'cap',
+  'no res',
+  'gens',
+]);
+
+function normalizarComentario(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9ñ ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * ¿Merece la pena leer este comentario? No, si tiene menos de 4 letras ("no", "ok", "-")
+ * o es una de las fórmulas de "no tengo nada que decir". En resultados se ocultan por
+ * defecto (se pueden mostrar con un clic): leer cuarenta "nada" seguidos esconde los
+ * tres comentarios que importan.
+ */
+export function comentarioUtil(texto: string | null | undefined): boolean {
+  if (!texto) return false;
+  const limpio = normalizarComentario(texto);
+  if (limpio.replace(/ /g, '').length < 4) return false;
+  return !COMENTARIOS_VACIOS.has(limpio);
+}
+
 /** Etiqueta de color para un 0-100: verde bien, ámbar regular, rojo flojo. */
 export function tonoDe(pct: number | null): 'bien' | 'regular' | 'flojo' | 'sin' {
   if (pct === null) return 'sin';
