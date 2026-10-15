@@ -356,12 +356,60 @@ uno a uno, quitando los "no" y "nada".
 - **Resumen**: avisos, *lo mejor valorado / lo que menos* (3 y 3 filas, de todo el formulario),
   barras por etapa (clicables, filtran) y el detalle por pregunta de siempre. Las preguntas
   abiertas enseñan ya sus 3 comentarios más críticos, sin desplegar nada.
-- **Comentarios útiles** (`comentarioUtil` en `src/lib/evaluaciones.ts`, con tests): se ocultan
-  los de menos de 4 letras y una lista corta de fórmulas vacías ("nada", "ninguna", "no tengo",
-  "sin comentarios"… también "res"/"cap" en valenciano). Lista corta a propósito: "todo bien" o
-  "me ha gustado" SÍ se enseñan. Los ocultos se pueden mostrar con un clic (salen atenuados).
+- **Comentarios en tres montones** (`clasificarComentario` en `src/lib/evaluaciones.ts`, con
+  tests sacados de la forma de las respuestas reales). Afinado el 15-oct con la evaluación real de
+  ESO (315 comentarios: 83 vacíos, 41 "sin cambios", 191 para leer):
+  - *vacío*: menos de 4 letras o una fórmula de "no tengo nada que decir" ("nada", "nose", "lo que
+    queráis", "res"/"cap" en valenciano…). Ocultos, a un clic.
+  - *sin cambios*: "no cambiaría nada", "nada, todo bien", "me ha gustado todo". Dicen algo (están
+    contentos) pero no hace falta leerlos uno a uno: una línea verde "17 dicen que no cambiarían
+    nada" que se despliega. Cualquier matiz ("…pero", "aunque", "más…") lo devuelve a *útil*.
+  - *útil*: el resto. Los idénticos se juntan en uno con ×N.
+  Se enseñan 8 por pregunta (ya ordenados) y el resto a un clic: con 70 por pregunta, la pestaña
+  era interminable y escondía las otras preguntas.
 - **Cada comentario lleva la media de quien lo escribió** (borde de color + "su media 22/100")
-  y por defecto se ordenan **críticos primero**; también "más largos". Buscador sin tildes.
+  y por defecto se ordenan **críticos primero**; también "más repetidos" y "más largos".
+  Buscador sin tildes.
+- **El Sí/No no es una nota** (`escalaValora`). Con datos reales, "¿Te gustaría hacer Godly una
+  vez al mes y quitar el oratorio?" salía como *lo peor valorado* (48) y quien contestaba "No"
+  parecía enfadado. Ahora el Sí/No se pinta como reparto neutro ("Sí 48 % · No 52 %", en azul)
+  y **no entra en ninguna media**: ni en la de cada persona, ni en la del bloque, ni en la del
+  formulario, ni en los avisos. Ojo: esto cambia (a mejor) las medias de bloque que usan la
+  comparativa y el ranking de actividades si tenían preguntas Sí/No.
+- **Por clase** en el Resumen (alumnado): barras clicables con la participación al lado (en ámbar
+  si no llega al 40 %).
+
+### Comentarios destacados (15-oct-2026)
+- Estrella en cada comentario (Resumen, Comentarios y Los más críticos). Lo marcado sube a un
+  panel **"Destacados"** justo debajo de las cifras, visible en las tres pestañas, con la clase o
+  etapa y la actividad. Pedido de David: *"que lleguen a un lugar muy visible"*.
+- Tabla `eval_destacados` (una fila por respuesta de texto; `ON DELETE CASCADE` con la respuesta
+  y el formulario). Es por formulario y se ve igual con cualquier filtro. El formulario se saca de
+  la propia respuesta en el servidor, no del navegador. Se marca al momento (optimista) y se
+  deshace si el servidor dice que no. Los destacados se le señalan a la IA con ★.
+
+### Análisis con IA: "Lo que ve la IA" (15-oct-2026)
+- Botón **Analizar con IA** arriba del Resumen. Manda a Claude un informe en texto (cifras,
+  repartos, Sí/No como %, quiz, y los comentarios *útiles* con su clase y la media de quien los
+  escribió; los vacíos y los "sin cambios" solo se cuentan) y pide una respuesta con **salida
+  estructurada** (`insightsSchema`, zod): titular, resumen, lo que funciona, lo que hay que
+  mejorar, lo que más piden (con cuántos y una cita literal), **alertas** (malestar, convivencia,
+  intimidad: lo que alguien debería mirar con cuidado), diferencias entre grupos y siguientes
+  pasos. Código: `src/lib/evaluaciones-ia.ts` (puro, con tests) y `evaluaciones-ia-server.ts`.
+- **Modelo configurable** en Ajustes del colegio (`/gestion/ajustes`): Claude Haiku 5.5 por
+  defecto (David: *"yo creo que Haiku 5.5 está bien"*), Sonnet 5.5 u Opus 5.5. También se apaga
+  del todo y se le da contexto del colegio (lema, qué es un Godly Play…) que va en cada análisis.
+- **Cuánto cuesta**: la evaluación real de ESO (204 respuestas, 186 comentarios) son ~4.600
+  tokens de entrada → con Haiku 5.5, menos de un céntimo por análisis.
+- **Se guarda cada análisis** (`eval_insights`, con modelo, tokens y nº de respuestas): abrir la
+  pantalla no vuelve a llamar a nadie. Se analiza por filtro (todo, una etapa o una clase); si han
+  llegado respuestas desde el último, lo dice ("6 nuevas desde entonces") y se pulsa "Volver a
+  analizar".
+- **Qué sale del colegio**: cifras y comentarios, sin nombres ni correos (en profesorado la BBDD
+  ni los tiene), como mucho la clase o la etapa — lo mismo que el CSV. Un comentario puede
+  contener un nombre si alguien lo escribió; se dice en la pantalla de ajustes.
+- La clave es la variable de entorno `ANTHROPIC_API_KEY` (secreto: nunca en la BBDD). Sin ella,
+  el panel lo explica y enlaza a Ajustes.
 - **Los más críticos**: las 40 respuestas con peor media (`MAX_CRITICAS`), de peor a mejor, con
   umbral elegible (<45 · <70 · todas). Cada tarjeta: su media, cuántas veces marcó lo más bajo
   de la escala, lo que escribió y lo que valoró por debajo de 70 (lo demás, plegado).
@@ -378,6 +426,8 @@ uno a uno, quitando los "no" y "nada".
 |---|---|
 | `eval_activities` | Lo que se evalúa: nombre, fecha, lugar, `categoria` (pastoral/innovación/general/otra), `tipo`, `objetivo` (profes), `resumen` (alumnos), `academic_year`, `serie_id`, `color` (acento visual), `archivada` |
 | `eval_forms` | Un envío a un colectivo: `audiencia` (quién responde), `estado` (borrador/abierto/cerrado), `token`, `anonimo`, `identifica_alumno`, `pedir_clase`, `pedir_etapa`, `requiere_login`, `aviso_anonimato`, `mensaje_final`, `color` (acento dominante), `clases`, `grupo_id` (evaluación conjunta; NULL = suelto) |
+| `eval_destacados` | Comentarios con estrella: `answer_id` (PK), `form_id`, quién y cuándo |
+| `eval_insights` | Análisis con IA guardados: `form_id`, `filtro` ('' · 'etapa:ESO' · 'clase:3ESO\|A'), `modelo`, `contenido` (jsonb), `respuestas`, tokens |
 | `eval_blocks` | Una actividad dentro de un formulario: `activity_id` (nullable), `titulo`, `intro`, `orden` |
 | `eval_questions` | `clave`, `texto`, `ayuda`, `tipo`, `escala`, `estilo` (solo estrellas), `filas[]`, `opciones[]`, `permite_otra`, `obligatoria`, `revisar`, feedback del quiz, `orden` |
 | `eval_question_templates` | Preguntas que guarda el claustro para reutilizar |
@@ -452,11 +502,10 @@ queda a medias entre dos peticiones.
       `evaluaciones-envios.sql` aplicado en Neon. Verificado contra Neon y Resend con un
       correo real programado a 20 días y cancelado (y otro cancelado al borrar el formulario).
 - [~] Envío en segundo plano con progreso en vivo, Gmail por defecto, reintento de fallidos y
-      «Parar» (`evaluaciones-envios-cola.sql`, en `pendientes.txt`). Verificado contra un
-      Postgres local con el transporte simulado: 25 correos con dos pases a la vez (sin
-      duplicados), 2 fallos que no marcan su invitación, reintento y parada. **Falta aplicar el
-      SQL en Neon y probarlo con un envío real** (primero a uno mismo con «Probar», luego el
-      masivo).
+      «Parar» (`evaluaciones-envios-cola.sql`, **aplicado en Neon el 15-oct-2026**). Verificado
+      contra un Postgres local con el transporte simulado: 25 correos con dos pases a la vez (sin
+      duplicados), 2 fallos que no marcan su invitación, reintento y parada. **Falta probarlo con
+      un envío real** (primero a uno mismo con «Probar», luego el masivo).
 - [x] "Eliminar" a la vista: icono en la botonera del editor y en cada fila de sector del
       listado (antes solo estaba dentro de Ajustes, plegado).
 - [x] Color DOMINANTE por formulario (mismo catálogo, independiente del de cada actividad):
@@ -517,11 +566,16 @@ queda a medias entre dos peticiones.
 - [x] Export CSV (sin identidad de quien responde)
 - [x] Comparativas: la misma actividad curso a curso y entre colectivos (`serie_id`), y
       ranking de actividades del curso
-- [~] Resultados "de un vistazo" (15-oct-2026): filtro por etapa, ánimo por persona, pestañas
-      Resumen · Comentarios · Los más críticos, comentarios vacíos ocultos. Typecheck, lint, tests
-      y build OK; la pantalla se revisó en navegador (claro/oscuro, escritorio/móvil) con datos
-      inventados porque la BBDD de este entorno no tiene respuestas. **Falta mirarla con
-      respuestas reales** y marcar `[x]`.
+- [x] Resultados "de un vistazo" (15-oct-2026): filtro por etapa, ánimo por persona, pestañas
+      Resumen · Comentarios · Los más críticos, comentarios clasificados (vacío / sin cambios /
+      útil) y el Sí/No fuera de las medias. Verificado en navegador (claro/oscuro,
+      escritorio/móvil) con la evaluación real de ESO (204 respuestas) y la de profesorado.
+- [x] Comentarios destacados (`eval_destacados`, `evaluaciones-destacados-ia.sql` aplicado en
+      Neon). Verificado con prueba de humo contra Neon (marcar, idempotente, listar, quitar,
+      rechazar una respuesta que no existe; limpiada después) y la API devuelve 401 sin sesión.
+- [~] Análisis con IA (`eval_insights`, mismo SQL, aplicado). Verificado: el informe con datos
+      reales, el esquema de salida estructurada con el SDK y el error claro sin clave. **Falta
+      poner `ANTHROPIC_API_KEY` en Vercel y lanzar un análisis de verdad.**
 
 ### Pendiente para más adelante
 - Evaluación de **asignaturas y su profesorado** (el modelo ya lo admite: `tipo='asignatura'`).

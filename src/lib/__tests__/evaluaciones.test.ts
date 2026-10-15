@@ -4,7 +4,9 @@ import {
   aPorcentaje,
   caritaPara,
   colorAleatorio,
+  clasificarComentario,
   comentarioUtil,
+  escalaValora,
   esEscalaEstrellas,
   estiloEstrellaDe,
   fraseConHueco,
@@ -369,5 +371,53 @@ describe('comentarioUtil', () => {
     for (const t of ['Todo bien', 'Más tiempo', 'Me ha gustado mucho', 'No me ha gustado nada el sitio', 'Aburrido']) {
       expect(comentarioUtil(t)).toBe(true);
     }
+  });
+});
+
+describe('clasificarComentario', () => {
+  // Frases con la forma de las respuestas reales del alumnado (inventadas, no copiadas).
+  it('vacío: lo que no dice nada', () => {
+    for (const t of ['.', 'Nose', 'No sé', 'No tengo ninguna', 'Lo que queráis', 'nada']) {
+      expect(clasificarComentario(t)).toBe('vacio');
+    }
+  });
+  it('sin cambios: contento, sin propuesta', () => {
+    for (const t of [
+      'No cambiaría nada',
+      'Yo creo que no cambiaria nada.',
+      'No cambiaria nadab',
+      'Nada, todo bien',
+      'Nada esta todo bien',
+      'Nada, me gusta todo',
+      'Esta todo bien',
+      'Me ha gustado todo.',
+      'Me lo pasé muy bien.',
+      'No cambiaría nada, todo es perfecto.',
+      'Están bien las actividades, yo no les haría ningún cambio',
+      'La verdad que nada porque me entretiene lo que hacemos.',
+    ]) {
+      expect(clasificarComentario(t), t).toBe('sinCambios');
+    }
+  });
+  it('útil: propuestas, quejas y cualquier "todo bien" con matiz', () => {
+    for (const t of [
+      'Más salidas',
+      'Que sea más divertido',
+      'Nada, me gustó, aunque igual actividades más interactivas',
+      'Me gustó mucho, y hacer más actividades',
+      'Currárselo más, muy aburrido',
+      'Cambiaría el tema de los vestuarios, no me gusta cambiarme con mis compañeros',
+      'El oratorio está muy bien',
+    ]) {
+      expect(clasificarComentario(t), t).toBe('util');
+    }
+  });
+});
+
+describe('escalaValora', () => {
+  it('el Sí/No no cuenta como nota', () => {
+    expect(escalaValora('si_no')).toBe(false);
+    expect(escalaValora('nada_mucho')).toBe(true);
+    expect(escalaValora('estrellas_5')).toBe(true);
   });
 });

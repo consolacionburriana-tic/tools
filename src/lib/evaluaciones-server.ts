@@ -8,6 +8,7 @@ import {
   evalActivities,
   evalAnswers,
   evalBlocks,
+  evalDestacados,
   evalEmailTemplates,
   evalEnvios,
   evalForms,
@@ -43,6 +44,7 @@ import {
   nuevoTokenInvitacion,
   presetActividad,
   slugClave,
+  escalaValora,
   tonoDe,
   tituloConAudiencia,
   type Audiencia,
@@ -1000,7 +1002,7 @@ export interface ResultadoPregunta {
   opciones: { clave: string; texto: string; n: number; correcta: boolean }[];
   otras: string[];
   /** `pct`: la media de quien lo escribió, para leer primero a los más críticos. */
-  textos: { valor: string; clase: string | null; etapa: string | null; pct: number | null }[];
+  textos: { id: string; valor: string; clase: string | null; etapa: string | null; pct: number | null }[];
 }
 
 export interface ResultadoBloque {
@@ -1031,7 +1033,7 @@ export interface RespuestaCritica {
   enLoMasBajo: number;
   /** Sus valoraciones, de la peor a la mejor. */
   valoraciones: { bloque: string; pregunta: string; fila: string | null; label: string; pct: number }[];
-  comentarios: { pregunta: string; valor: string }[];
+  comentarios: { id: string; bloque: string; pregunta: string; valor: string }[];
 }
 
 export interface Resultados {
@@ -1047,6 +1049,8 @@ export interface Resultados {
   animo: { bien: number; regular: number; flojo: number };
   /** Las respuestas con peor media, de la peor a la mejor (máximo `MAX_CRITICAS`). */
   criticas: RespuestaCritica[];
+  /** Ids de las respuestas de texto marcadas con estrella (de todo el formulario). */
+  destacadas: string[];
 }
 
 /** Clase, etapa o nada: lo que se está mirando en resultados. Clase manda sobre etapa. */
@@ -1083,9 +1087,10 @@ export async function getResultados(formId: string, filtro?: FiltroResultados | 
       : todas;
   const idsRespuesta = new Set(respuestas.map((r) => r.id));
   const questionIds = form.bloques.flatMap((b) => b.preguntas.map((q) => q.id));
-  const answersTodas = questionIds.length
-    ? await db.select().from(evalAnswers).where(inArray(evalAnswers.questionId, questionIds))
-    : [];
+  const [answersTodas, destacadas] = await Promise.all([
+    questionIds.length ? db.select().from(evalAnswers).where(inArray(evalAnswers.questionId, questionIds)) : [],
+    db.select({ answerId: evalDestacados.answerId }).from(evalDestacados).where(eq(evalDestacados.formId, formId)),
+  ]);
   const answers = filtro ? answersTodas.filter((a) => idsRespuesta.has(a.responseId)) : answersTodas;
 
   const respuestaPorId = new Map(respuestas.map((r) => [r.id, r]));
@@ -1102,7 +1107,7 @@ export async function getResultados(formId: string, filtro?: FiltroResultados | 
   for (const a of answersTodas) {
     if (a.valorNum === null) continue;
     const escalaValue = escalaPorPregunta.get(a.questionId);
-    if (!escalaValue) continue;
+    if (!escalaValue || !escalaValora(escalaValue)) continue;
     const p = aPct(a.valorNum, escalaValue);
     if (p === null) continue;
     const lista = pctPorRespuestaGlobal.get(a.responseId) ?? [];
@@ -1148,8 +1153,9 @@ export async function getResultados(formId: string, filtro?: FiltroResultados | 
             distribucion: escala.puntos.map((p) => ({ valor: p.valor, label: p.label, n: vals.filter((v) => v === p.valor).length })),
           });
         }
-        // Aporte de esta pregunta a la media de cada respuesta (para segmentar por clase)
-        for (const a of dadas) {
+        // Aporte de esta pregunta a la media de cada respuesta (para segmentar por clase).
+        // Un Sí/No es una preferencia, no una nota: no entra (`escalaValora`).
+        for (const a of escalaValora(q.escala) ? dadas : []) {
           if (a.valorNum === null) continue;
           const p = aPct(a.valorNum, q.escala);
           if (p === null) continue;
@@ -1173,6 +1179,7 @@ export async function getResultados(formId: string, filtro?: FiltroResultados | 
               .map((a) => {
                 const r = respuestaPorId.get(a.responseId);
                 return {
+                  id: a.id,
                   valor: a.valorTexto!,
                   clase: claseDe(a.responseId),
                   etapa: r ? etapaDeRespuesta(r) : null,
@@ -1198,7 +1205,10 @@ export async function getResultados(formId: string, filtro?: FiltroResultados | 
       };
     });
 
-    const pcts = preguntas.map((p) => p.mediaPct).filter((p): p is number => p !== null);
+    const pcts = preguntas
+      .filter((p) => escalaValora(p.escala))
+      .map((p) => p.mediaPct)
+      .filter((p): p is number => p !== null);
     return {
       id: b.id,
       titulo: b.titulo,
@@ -1278,7 +1288,76 @@ export async function getResultados(formId: string, filtro?: FiltroResultados | 
     avisos: construirAvisos(clasesDelFiltro, bloques),
     animo,
     criticas: construirCriticas(form, respuestas, answers, mediaDe, claseDe, etapaDeRespuesta),
+    destacadas: destacadas.map((d) => d.answerId),
   };
+}
+
+// ─── Comentarios destacados ───────────────────────────────────────────────────
+
+export interface ComentarioDestacado {
+  answerId: string;
+  valor: string;
+  pregunta: string;
+  bloque: string;
+  clase: string | null;
+  etapa: string | null;
+  createdByEmail: string | null;
+  createdAt: Date;
+}
+
+/** Los comentarios con estrella de un formulario, el último marcado primero. */
+export async function getDestacados(formId: string): Promise<ComentarioDestacado[]> {
+  const filas = await db
+    .select({
+      answerId: evalDestacados.answerId,
+      valor: evalAnswers.valorTexto,
+      pregunta: evalQuestions.texto,
+      bloque: evalBlocks.titulo,
+      curso: evalResponses.curso,
+      letra: evalResponses.letra,
+      etapa: evalResponses.etapa,
+      createdByEmail: evalDestacados.createdByEmail,
+      createdAt: evalDestacados.createdAt,
+    })
+    .from(evalDestacados)
+    .innerJoin(evalAnswers, eq(evalAnswers.id, evalDestacados.answerId))
+    .innerJoin(evalResponses, eq(evalResponses.id, evalAnswers.responseId))
+    .innerJoin(evalQuestions, eq(evalQuestions.id, evalAnswers.questionId))
+    .innerJoin(evalBlocks, eq(evalBlocks.id, evalQuestions.blockId))
+    .where(eq(evalDestacados.formId, formId))
+    .orderBy(desc(evalDestacados.createdAt));
+  return filas.map((f) => ({
+    answerId: f.answerId,
+    valor: f.valor ?? '',
+    pregunta: f.pregunta,
+    bloque: f.bloque,
+    clase: f.curso ? (f.letra && f.letra !== 'PDC' ? `${f.curso} ${f.letra}` : f.curso) : null,
+    etapa: etapaDeRespuesta({ etapa: f.etapa, curso: f.curso }),
+    createdByEmail: f.createdByEmail,
+    createdAt: f.createdAt,
+  }));
+}
+
+/**
+ * Marca o desmarca un comentario. El formulario sale de la propia respuesta (no se fía del
+ * que mande el navegador) y solo se pueden destacar respuestas de texto.
+ */
+export async function marcarDestacado(answerId: string, destacar: boolean, email: string | null): Promise<boolean> {
+  if (!destacar) {
+    await db.delete(evalDestacados).where(eq(evalDestacados.answerId, answerId));
+    return true;
+  }
+  const [fila] = await db
+    .select({ formId: evalResponses.formId, texto: evalAnswers.valorTexto })
+    .from(evalAnswers)
+    .innerJoin(evalResponses, eq(evalResponses.id, evalAnswers.responseId))
+    .where(eq(evalAnswers.id, answerId));
+  if (!fila?.texto) return false;
+  await db
+    .insert(evalDestacados)
+    .values({ answerId, formId: fila.formId, createdByEmail: email })
+    .onConflictDoNothing();
+  return true;
 }
 
 /**
@@ -1289,7 +1368,7 @@ export async function getResultados(formId: string, filtro?: FiltroResultados | 
 function construirCriticas(
   form: FormCompleto,
   respuestas: { id: string; etapa: string | null; curso: string | null }[],
-  answers: { responseId: string; questionId: string; filaClave: string | null; valorNum: number | null; valorTexto: string | null }[],
+  answers: { id: string; responseId: string; questionId: string; filaClave: string | null; valorNum: number | null; valorTexto: string | null }[],
   mediaDe: (responseId: string) => number | null,
   claseDe: (responseId: string) => string | null,
   etapaDe: (r: { etapa: string | null; curso: string | null }) => string | null,
@@ -1320,7 +1399,7 @@ function construirCriticas(
         const info = preguntas.get(a.questionId);
         if (!info) continue;
         const { q, bloque } = info;
-        if (q.tipo === 'escala' && a.valorNum !== null) {
+        if (q.tipo === 'escala' && escalaValora(q.escala) && a.valorNum !== null) {
           const pct = aPct(a.valorNum, q.escala);
           if (pct === null) continue;
           if (pct === 0) enLoMasBajo++;
@@ -1333,7 +1412,7 @@ function construirCriticas(
             pct,
           });
         } else if (q.tipo === 'texto' && a.valorTexto) {
-          comentarios.push({ pregunta: q.texto, valor: a.valorTexto });
+          comentarios.push({ id: a.id, bloque, pregunta: q.texto, valor: a.valorTexto });
         }
       }
       valoraciones.sort((x, y) => x.pct - y.pct);
@@ -1367,7 +1446,11 @@ function construirAvisos(clases: ResultadoClase[], bloques: ResultadoBloque[]): 
     avisos.push(`La clase que peor valora es ${peor.letra && peor.letra !== 'PDC' ? `${peor.curso} ${peor.letra}` : peor.curso} (${Math.round(peor.mediaPct!)} / 100).`);
   }
   const filasFlojas = bloques
-    .flatMap((b) => b.preguntas.flatMap((p) => p.filas.map((f) => ({ bloque: b.titulo, texto: f.texto, pct: f.mediaPct, n: f.n }))))
+    .flatMap((b) =>
+      b.preguntas
+        .filter((p) => escalaValora(p.escala))
+        .flatMap((p) => p.filas.map((f) => ({ bloque: b.titulo, texto: f.texto, pct: f.mediaPct, n: f.n }))),
+    )
     .filter((f) => f.pct !== null && f.n >= 3)
     .sort((a, b) => a.pct! - b.pct!);
   if (filasFlojas.length > 0 && filasFlojas[0].pct! < 65) {

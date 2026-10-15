@@ -1004,6 +1004,34 @@ export const evalAnswers = pgTable('eval_answers', {
   index('eval_answers_question_idx').on(t.questionId),
 ]);
 
+// Comentarios que alguien de coordinación marca para tenerlos a mano (estrella en
+// resultados). Uno por respuesta de texto: se marca o se desmarca.
+export const evalDestacados = pgTable('eval_destacados', {
+  answerId: uuid('answer_id').primaryKey().references(() => evalAnswers.id, { onDelete: 'cascade' }),
+  formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
+  createdByEmail: text('created_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('eval_destacados_form_idx').on(t.formId),
+]);
+
+// Análisis de resultados hecho por Claude. Se guarda cada uno (no se pisa) para no volver a
+// pagar por lo mismo y poder ver qué decía antes de las últimas respuestas.
+export const evalInsights = pgTable('eval_insights', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  formId: uuid('form_id').notNull().references(() => evalForms.id, { onDelete: 'cascade' }),
+  filtro: text('filtro').notNull().default(''), // '' | 'etapa:ESO' | 'clase:3ESO|A'
+  modelo: text('modelo').notNull(),
+  contenido: jsonb('contenido').notNull(),
+  respuestas: integer('respuestas').notNull(), // cuántas había al analizar
+  tokensEntrada: integer('tokens_entrada'),
+  tokensSalida: integer('tokens_salida'),
+  createdByEmail: text('created_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('eval_insights_form_idx').on(t.formId),
+]);
+
 export const evalEmailTemplates = pgTable('eval_email_templates', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   nombre: text('nombre').notNull(),
@@ -1019,6 +1047,7 @@ export const evalEmailTemplates = pgTable('eval_email_templates', {
 export type EvalActivity = typeof evalActivities.$inferSelect;
 export type NewEvalActivity = typeof evalActivities.$inferInsert;
 export type EvalForm = typeof evalForms.$inferSelect;
+export type EvalInsight = typeof evalInsights.$inferSelect;
 export type EvalEnvio = typeof evalEnvios.$inferSelect;
 export type EvalEnvioDestino = typeof evalEnvioDestinos.$inferSelect;
 export type EvalClassroomPost = typeof evalClassroomPosts.$inferSelect;
@@ -2259,5 +2288,15 @@ export const tabPreferencias = pgTable('tab_preferencias', {
   email: text('email').primaryKey(),
   correoAsignacion: boolean('correo_asignacion').notNull().default(true),
   correoVencimientos: boolean('correo_vencimientos').notNull().default(true),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── Ajustes del colegio (editables desde /gestion/ajustes) ──────────────────
+// Clave → valor JSON. Solo lo que tiene sentido cambiar sin tocar código; lo demás sigue
+// en `configuracion.ts` y en variables de entorno (la pantalla lo enseña igualmente).
+export const cfgAjustes = pgTable('cfg_ajustes', {
+  clave: text('clave').primaryKey(),
+  valor: jsonb('valor').notNull(),
+  updatedByEmail: text('updated_by_email'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

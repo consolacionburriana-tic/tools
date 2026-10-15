@@ -300,12 +300,20 @@ y conviene que David confirme:
 - Un anuncio no puede llevar tema (la API no lo permite): el tema «Evaluamos 🔍 Tu opinión cuenta»
   es solo de las tareas.
 
-### Evaluaciones: detectar el enfado en el TEXTO, no solo en la nota (15-oct-2026)
-"Los más críticos" ordena por la media de cada respuesta. Quien pone todo "Bastante" y escribe
-un comentario muy duro no sale arriba. Se podría clasificar el tono de los comentarios (con un
-modelo de lenguaje, en el servidor y sin mandar identidad) y mezclarlo con la nota. No lo hice:
-añade coste y una dependencia externa para algo que de momento la nota resuelve bastante bien.
-Decidir si merece la pena cuando haya evaluaciones grandes de profesorado.
+### Evaluaciones: la IA y los "más críticos" (15-oct-2026) — revisar con David
+- "Los más críticos" ordena por la NOTA media de cada respuesta. Quien pone todo "Bastante" y
+  escribe un comentario muy duro no sale arriba. El análisis con IA sí lee el tono (sus
+  "alertas"), pero no reordena esa lista. Se podría pedir a la IA que marque comentarios y
+  mezclarlo con la nota; no lo hice: de momento la nota más las alertas lo cubren.
+- **Decisión mía**: el Sí/No ya no cuenta en ninguna media (era una preferencia, no una nota).
+  Si David prefiere que alguna pregunta Sí/No SÍ cuente ("¿te gusta salir del cole?"), haría falta
+  una casilla por pregunta ("cuenta como valoración"). No la puse para no complicar el editor.
+- **Qué se manda a Anthropic**: comentarios del alumnado (menores) sin nombres ni correos. Los
+  comentarios pueden llevar un nombre propio si alguien lo escribió; no se filtran. Si hiciera
+  falta, se podría enmascarar nombres antes de mandar (lista de alumnado y claustro).
+- **Ajustes del colegio** (`/gestion/ajustes`): hoy solo la IA es editable; el resto se pinta con
+  su origen (código o variable de entorno). Candidatos a pasar a editables cuando haya caso:
+  hora de cierre de Puntualidad, etapas visibles, trimestres. Ver `09-parametros-del-centro.md`.
 
 ### Evaluaciones: familias
 El modelo y el envío a correos de tutores están listos, pero el flujo bueno sería el magic link

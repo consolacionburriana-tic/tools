@@ -198,23 +198,30 @@ export function mediaBruta(valores: number[]): number | null {
 /**
  * Respuestas de texto que no dicen nada: el "no", "nada", "ninguna" que se escribe para
  * poder enviar. Se comparan ya normalizadas (minúsculas, sin tildes ni signos). Lista
- * corta a propósito: un "todo bien" o un "me ha gustado" sí dicen algo y se quedan.
+ * corta a propósito y sacada de respuestas reales del alumnado de ESO.
  */
 const COMENTARIOS_VACIOS = new Set([
   'nada',
   'ninguna',
   'ninguno',
   'nope',
+  'nose',
+  'no lo se',
+  'la verdad que no lo se',
+  'ni idea',
   'nada mas',
   'nada que decir',
   'nada que anadir',
   'nada que comentar',
+  'nada que proponer',
   'nada mas que decir',
   'nada mas que anadir',
   'no tengo',
   'no tengo nada',
   'no tengo ninguna',
   'no se',
+  'no se me ocurre',
+  'no se me ocurre nada',
   'no hay',
   'no nada',
   'no gracias',
@@ -222,33 +229,69 @@ const COMENTARIOS_VACIOS = new Set([
   'ningun comentario',
   'ninguna sugerencia',
   'ninguna observacion',
+  'lo que querais',
+  'las que he dicho antes',
+  'lo que he dicho antes',
   'res',
   'cap',
   'no res',
   'gens',
 ]);
 
-function normalizarComentario(texto: string): string {
+/** Minúsculas, sin tildes ni signos y con los espacios colapsados. */
+export function normalizarComentario(texto: string): string {
   return texto
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9ñ ]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+// "No cambiaría nada", "no les haría ningún cambio"…
+const NO_CAMBIARIA = /\bno (le |les |lo )?(cambi|har|toc|quit)\w* (nada|ningun)/;
+// "Nada, todo bien", "La verdad que nada porque me entretiene…"
+const NADA_Y_BIEN = /^(pues |yo |la verdad (es )?que )?nada\b/;
+const POSITIVO = /\b(bien|gusta|gusto|gustado|encanta|perfect\w*|chul\w*|genial|guay|entretiene)\b/;
+// "Está todo bien", "Me ha gustado todo", "Me lo pasé muy bien"
+const TODO_BIEN = /^(yo creo que |creo que )?(esta|estan|todo|me ha gustado|me gusto|me gusta|me encanta|me lo pase|me lo he pasado)\b/;
+// Lo que convierte un "todo bien" en una propuesta: "todo bien, PERO más tiempo".
+const MATIZ = /\b(pero|aunque|aun que|sin embargo|excepto|salvo|igual|solo que|mas|menos|mejor|cambiaria que|deberia)\b/;
+
+export type TipoComentario = 'vacio' | 'sinCambios' | 'util';
+
 /**
- * ¿Merece la pena leer este comentario? No, si tiene menos de 4 letras ("no", "ok", "-")
- * o es una de las fórmulas de "no tengo nada que decir". En resultados se ocultan por
- * defecto (se pueden mostrar con un clic): leer cuarenta "nada" seguidos esconde los
- * tres comentarios que importan.
+ * Qué es un comentario, para leerlos de un vistazo:
+ * - `vacio`: menos de 4 letras ("no", "ok", "-") o una fórmula de "no tengo nada que
+ *   decir". Se oculta (se puede mostrar con un clic).
+ * - `sinCambios`: "no cambiaría nada", "todo bien", "me ha gustado todo". Dice algo
+ *   (que está contento) pero no hace falta leerlo uno a uno: se cuenta y se agrupa.
+ * - `util`: todo lo demás, incluido cualquier "todo bien" con un matiz ("…pero más tiempo").
  */
+export function clasificarComentario(texto: string | null | undefined): TipoComentario {
+  if (!texto) return 'vacio';
+  const n = normalizarComentario(texto);
+  if (n.replace(/ /g, '').length < 4 || COMENTARIOS_VACIOS.has(n)) return 'vacio';
+  if (MATIZ.test(n) || n.length > 90) return 'util';
+  if (NO_CAMBIARIA.test(n)) return 'sinCambios';
+  if (NADA_Y_BIEN.test(n) && POSITIVO.test(n)) return 'sinCambios';
+  if (TODO_BIEN.test(n) && (POSITIVO.test(n) || /\btodo\b/.test(n)) && n.length <= 70) return 'sinCambios';
+  return 'util';
+}
+
+/** ¿Tiene contenido? (`util` o `sinCambios`; lo `vacio` no). */
 export function comentarioUtil(texto: string | null | undefined): boolean {
-  if (!texto) return false;
-  const limpio = normalizarComentario(texto);
-  if (limpio.replace(/ /g, '').length < 4) return false;
-  return !COMENTARIOS_VACIOS.has(limpio);
+  return clasificarComentario(texto) !== 'vacio';
+}
+
+/**
+ * Escalas que NO miden satisfacción. Un Sí/No suele ser una preferencia ("¿quitarías el
+ * oratorio?"): contar un "No" como un 0 hacía que saliera como "lo peor valorado" y que
+ * quien contestaba "No" pareciera enfadado. Se enseñan como reparto Sí/No, sin nota.
+ */
+export function escalaValora(escalaValue: string | null | undefined): boolean {
+  return escalaValue !== 'si_no';
 }
 
 /** Etiqueta de color para un 0-100: verde bien, ámbar regular, rojo flojo. */

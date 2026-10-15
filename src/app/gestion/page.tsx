@@ -24,6 +24,7 @@ import {
   NotebookPen,
   Settings2,
   Users,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -59,7 +60,7 @@ export default async function EscritorioPage() {
   const ahora = new Date();
   const licenciasArriba = puede('licencias') && esTemporadaLicencias(ahora);
   const configuracion =
-    puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas') || puede('calendarios');
+    puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas') || puede('calendarios') || puede('ajustes');
 
   // Stats solo de los módulos que el rol puede ver
   const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas] = await Promise.all([
@@ -288,6 +289,14 @@ export default async function EscritorioPage() {
                 icon={<KeyRound className="h-6 w-6" />}
                 title="Usuarios y roles"
                 desc="Quién puede entrar y con qué permisos"
+              />
+            )}
+            {puede('ajustes') && (
+              <ModuleCard
+                href="/gestion/ajustes"
+                icon={<SlidersHorizontal className="h-6 w-6" />}
+                title="Ajustes del colegio"
+                desc="IA (Claude), etapas, calendario y qué vive en variables de entorno"
               />
             )}
             {puede('educamos') && (

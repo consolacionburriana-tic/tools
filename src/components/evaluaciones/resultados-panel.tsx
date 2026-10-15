@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import {
   ChevronDown,
   ChevronUp,
@@ -9,14 +10,26 @@ import {
   Lightbulb,
   MessageSquareQuote,
   Search,
+  Smile,
+  Star,
   ThumbsDown,
   ThumbsUp,
   Users,
 } from 'lucide-react';
 import { LetraBadge } from '@/components/evaluaciones/color-picker';
+import { PanelIA, type EstadoIA, type InsightCliente } from '@/components/evaluaciones/resultados-ia';
 import { PANEL, Rotulo, Segmentado } from '@/components/evaluaciones/ui';
-import { claseLabel, comentarioUtil, escalaDe, tonoDe } from '@/lib/evaluaciones';
-import type { RespuestaCritica, Resultados } from '@/lib/evaluaciones-server';
+import {
+  claseLabel,
+  clasificarComentario,
+  comentarioUtil,
+  escalaDe,
+  escalaValora,
+  normalizarComentario,
+  tonoDe,
+  type TipoComentario,
+} from '@/lib/evaluaciones';
+import type { ComentarioDestacado, RespuestaCritica, Resultados } from '@/lib/evaluaciones-server';
 import { ETAPA_LABEL, esEtapa, etapaDeCurso } from '@/lib/cursos';
 
 const TONO_BARRA: Record<string, string> = {
@@ -151,6 +164,28 @@ function LeyendaEscala({ escala }: { escala: string }) {
   );
 }
 
+/**
+ * Una fila de Sí/No. No es una nota (suele ser una preferencia: "¿quitarías el oratorio?"),
+ * así que no lleva verde/rojo: reparto en azul neutro y el porcentaje de cada lado.
+ */
+function FilaSiNo({ texto, mostrarTexto, f }: { texto: string; mostrarTexto: boolean; f: Resultados['bloques'][number]['preguntas'][number]['filas'][number] }) {
+  const si = f.distribucion.find((d) => d.valor === 1)?.n ?? 0;
+  const pctSi = f.n ? Math.round((si / f.n) * 100) : 0;
+  return (
+    <div>
+      {mostrarTexto && <p className="text-sm leading-snug text-zinc-600 dark:text-zinc-300">{texto}</p>}
+      <div className="mt-1 flex items-center gap-2 text-xs tabular-nums">
+        <span className="w-14 shrink-0 font-semibold text-blue-700 dark:text-blue-300">Sí {pctSi} %</span>
+        <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+          <div className="h-2 bg-blue-500" style={{ width: `${pctSi}%` }} />
+        </div>
+        <span className="w-14 shrink-0 text-right text-zinc-500">No {100 - pctSi} %</span>
+        <span className="w-8 shrink-0 text-right text-[11px] text-zinc-400">{f.n}</span>
+      </div>
+    </div>
+  );
+}
+
 /** Etiqueta de dónde viene una respuesta (clase o etapa). Nunca quién. */
 function Procedencia({ clase, etapa }: { clase: string | null; etapa: string | null }) {
   const texto = clase ?? (etapa ? etapaLabel(etapa) : null);
@@ -162,14 +197,97 @@ function Procedencia({ clase, etapa }: { clase: string | null; etapa: string | n
   );
 }
 
+// ─── Destacados (estrella) ────────────────────────────────────────────────────
+
+interface Destacables {
+  esta: (id: string) => boolean;
+  alternar: (c: { id: string; valor: string; pregunta: string; bloque: string; clase: string | null; etapa: string | null }) => void;
+}
+
+const DestacadosCtx = createContext<Destacables>({ esta: () => false, alternar: () => {} });
+
+function BotonEstrella({ c }: { c: Parameters<Destacables['alternar']>[0] }) {
+  const { esta, alternar } = useContext(DestacadosCtx);
+  const on = esta(c.id);
+  return (
+    <button
+      type="button"
+      onClick={() => alternar(c)}
+      title={on ? 'Quitar de destacados' : 'Destacar este comentario'}
+      aria-pressed={on}
+      className={`shrink-0 rounded-md p-1 transition-colors ${
+        on
+          ? 'text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+          : 'text-zinc-300 hover:bg-zinc-200/70 hover:text-amber-500 dark:text-zinc-600 dark:hover:bg-zinc-700'
+      }`}
+    >
+      <Star className="h-4 w-4" fill={on ? 'currentColor' : 'none'} />
+    </button>
+  );
+}
+
+const MAX_DESTACADOS_A_LA_VISTA = 4;
+
+/** Lo que alguien ha marcado con estrella: arriba del todo, en todas las pestañas. */
+function PanelDestacados({ lista }: { lista: ComentarioDestacado[] }) {
+  const [todos, setTodos] = useState(false);
+  if (lista.length === 0) return null;
+  const visibles = todos ? lista : lista.slice(0, MAX_DESTACADOS_A_LA_VISTA);
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+      <p className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
+        <Star className="h-4 w-4 text-amber-500" fill="currentColor" /> Destacados
+        <span className="rounded-full bg-amber-200/70 px-1.5 text-[11px] tabular-nums text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+          {lista.length}
+        </span>
+      </p>
+      <div className="grid gap-2 md:grid-cols-2">
+        {visibles.map((d) => (
+          <div key={d.answerId} className="flex gap-2 rounded-xl bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:bg-zinc-900">
+            <div className="min-w-0 flex-1">
+              <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-100">“{d.valor.trim()}”</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+                <Procedencia clase={d.clase} etapa={d.etapa} />
+                <span className="truncate" title={d.pregunta}>
+                  {d.bloque}
+                </span>
+              </div>
+            </div>
+            <BotonEstrella
+              c={{ id: d.answerId, valor: d.valor, pregunta: d.pregunta, bloque: d.bloque, clase: d.clase, etapa: d.etapa }}
+            />
+          </div>
+        ))}
+      </div>
+      {lista.length > MAX_DESTACADOS_A_LA_VISTA && (
+        <button
+          type="button"
+          onClick={() => setTodos((t) => !t)}
+          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-amber-800 hover:underline dark:text-amber-300"
+        >
+          {todos ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          {todos ? 'Ver menos' : `Ver los ${lista.length}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Tipos de la vista ────────────────────────────────────────────────────────
+
 type Pestana = 'resumen' | 'comentarios' | 'criticos';
 
 interface Comentario {
+  id: string;
   valor: string;
   clase: string | null;
   etapa: string | null;
   pct: number | null;
-  util: boolean;
+  tipo: TipoComentario;
+  /** Cuántas personas escribieron exactamente lo mismo (se pinta una vez, con ×N). */
+  repetido: number;
+  pregunta: string;
+  bloque: string;
 }
 
 interface GrupoComentarios {
@@ -178,7 +296,9 @@ interface GrupoComentarios {
   bloque: string;
   letra: string;
   color: string | null;
-  comentarios: Comentario[];
+  utiles: Comentario[];
+  sinCambios: Comentario[];
+  vacios: Comentario[];
 }
 
 /** Críticos primero (media más baja), y a igualdad, el comentario más largo. */
@@ -186,21 +306,44 @@ function ordenCriticos(a: Comentario, b: Comentario): number {
   return (a.pct ?? 101) - (b.pct ?? 101) || b.valor.length - a.valor.length;
 }
 
+/** Junta los comentarios idénticos (mismo texto normalizado) en uno con ×N. */
+function juntarRepetidos(lista: Comentario[]): Comentario[] {
+  const por = new Map<string, Comentario>();
+  for (const c of lista) {
+    const clave = normalizarComentario(c.valor);
+    const previo = por.get(clave);
+    if (previo) {
+      previo.repetido++;
+      // Se queda con la media más baja: si uno de los que lo dice está enfadado, que se vea.
+      if ((c.pct ?? 101) < (previo.pct ?? 101)) previo.pct = c.pct;
+    } else {
+      por.set(clave, { ...c });
+    }
+  }
+  return [...por.values()];
+}
+
 export function ResultadosPanel({
   resultados,
   formId,
   claseActiva,
   etapaActiva,
+  destacados: destacadosIniciales,
+  ia,
+  insight,
 }: {
   resultados: Resultados;
   formId: string;
   claseActiva: string | null;
   etapaActiva: string | null;
+  destacados: ComentarioDestacado[];
+  ia: EstadoIA;
+  insight: InsightCliente | null;
 }) {
   const [pestana, setPestana] = useState<Pestana>('resumen');
   const [preguntaFoco, setPreguntaFoco] = useState<string | null>(null);
+  const [destacados, setDestacados] = useState(destacadosIniciales);
   const pestanasRef = useRef<HTMLDivElement>(null);
-  const { form } = resultados;
   const cobertura =
     resultados.objetivo && resultados.objetivo > 0 ? Math.round((resultados.totalRespuestas / resultados.objetivo) * 100) : null;
 
@@ -212,24 +355,76 @@ export function ResultadosPanel({
     return `${base}?clase=${encodeURIComponent(clave)}${etapa ? `&etapa=${etapa}` : ''}`;
   };
 
-  // Comentarios de todas las preguntas abiertas, con lo que hace falta para leerlos bien.
+  const destacables: Destacables = useMemo(() => {
+    const ids = new Set(destacados.map((d) => d.answerId));
+    return {
+      esta: (id) => ids.has(id),
+      alternar: (c) => {
+        const destacar = !ids.has(c.id);
+        // Optimista: se pinta ya y se deshace si el servidor dice que no.
+        const antes = destacados;
+        setDestacados(
+          destacar
+            ? [
+                {
+                  answerId: c.id,
+                  valor: c.valor,
+                  pregunta: c.pregunta,
+                  bloque: c.bloque,
+                  clase: c.clase,
+                  etapa: c.etapa,
+                  createdByEmail: null,
+                  createdAt: new Date(),
+                },
+                ...antes,
+              ]
+            : antes.filter((d) => d.answerId !== c.id),
+        );
+        fetch('/api/evaluaciones/admin/destacados', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answerId: c.id, destacar }),
+        })
+          .then(async (res) => {
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'No se ha podido guardar');
+          })
+          .catch((e) => {
+            setDestacados(antes);
+            toast.error(e instanceof Error ? e.message : 'No se ha podido guardar');
+          });
+      },
+    };
+  }, [destacados]);
+
+  // Comentarios de todas las preguntas abiertas, ya clasificados y con los repetidos juntos.
   const grupos: GrupoComentarios[] = useMemo(
     () =>
       resultados.bloques.flatMap((b, bi) =>
         b.preguntas
           .filter((q) => q.tipo === 'texto')
-          .map((q) => ({
-            id: q.id,
-            texto: q.texto,
-            bloque: b.titulo,
-            letra: String.fromCharCode(65 + bi),
-            color: b.color,
-            comentarios: q.textos.map((t) => ({ ...t, util: comentarioUtil(t.valor) })),
-          })),
+          .map((q) => {
+            const todos: Comentario[] = q.textos.map((t) => ({
+              ...t,
+              tipo: clasificarComentario(t.valor),
+              repetido: 1,
+              pregunta: q.texto,
+              bloque: b.titulo,
+            }));
+            return {
+              id: q.id,
+              texto: q.texto,
+              bloque: b.titulo,
+              letra: String.fromCharCode(65 + bi),
+              color: b.color,
+              utiles: juntarRepetidos(todos.filter((c) => c.tipo === 'util')),
+              sinCambios: todos.filter((c) => c.tipo === 'sinCambios'),
+              vacios: todos.filter((c) => c.tipo === 'vacio'),
+            };
+          }),
       ),
     [resultados.bloques],
   );
-  const totalUtiles = grupos.reduce((s, g) => s + g.comentarios.filter((c) => c.util).length, 0);
+  const totalUtiles = grupos.reduce((s, g) => s + g.utiles.reduce((t, c) => t + c.repetido, 0), 0);
   const mostrarFiltroEtapa = resultados.etapas.length > 1;
   const clasesVisibles = etapaActiva
     ? resultados.clases.filter((c) => etapaDeCurso(c.curso) === etapaActiva)
@@ -243,165 +438,180 @@ export function ResultadosPanel({
   }
 
   return (
-    <div className="anim-stagger space-y-4">
-      {/* ─── Qué se mira: etapa y clase ─── */}
-      {(mostrarFiltroEtapa || resultados.clases.length > 0) && (
-        <div className={`${PANEL} space-y-3 p-4`}>
-          {mostrarFiltroEtapa && (
-            <div>
-              <Rotulo className="mb-2">Etapa</Rotulo>
-              <div className="flex flex-wrap gap-1.5">
-                <Link href={hrefEtapa(null)} className={`${CHIP} ${!etapaActiva && !claseActiva ? CHIP_ON : CHIP_OFF}`}>
-                  Todas
-                </Link>
-                {resultados.etapas.map((e) => {
-                  const activa = etapaActiva === e.etapa;
-                  return (
-                    <Link
-                      key={e.etapa}
-                      href={hrefEtapa(e.etapa)}
-                      className={`inline-flex items-center gap-1.5 ${CHIP} ${activa ? CHIP_ON : CHIP_OFF}`}
-                    >
-                      {etapaLabel(e.etapa)}
-                      <span className={`text-[11px] ${activa ? 'text-blue-100' : 'text-zinc-400'}`}>{e.respuestas}</span>
-                      {e.mediaPct !== null && (
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${TONO_BARRA[tonoDe(e.mediaPct)]}`}
-                          title={`${Math.round(e.mediaPct)}/100`}
-                        />
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {clasesVisibles.length > 0 && (
-            <div>
-              <Rotulo className="mb-2 flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5" /> Clase
-              </Rotulo>
-              <div className="flex flex-wrap gap-1.5">
-                {!mostrarFiltroEtapa && (
-                  <Link href={base} className={`${CHIP} ${!claseActiva ? CHIP_ON : CHIP_OFF}`}>
+    <DestacadosCtx.Provider value={destacables}>
+      <div className="anim-stagger space-y-4">
+        {/* ─── Qué se mira: etapa y clase ─── */}
+        {(mostrarFiltroEtapa || resultados.clases.length > 0) && (
+          <div className={`${PANEL} space-y-3 p-4`}>
+            {mostrarFiltroEtapa && (
+              <div>
+                <Rotulo className="mb-2">Etapa</Rotulo>
+                <div className="flex flex-wrap gap-1.5">
+                  <Link href={hrefEtapa(null)} className={`${CHIP} ${!etapaActiva && !claseActiva ? CHIP_ON : CHIP_OFF}`}>
                     Todas
                   </Link>
-                )}
-                {clasesVisibles.map((c) => {
-                  const clave = `${c.curso}|${c.letra ?? ''}`;
-                  const activa = claseActiva === clave;
-                  return (
-                    <Link
-                      key={clave}
-                      href={activa ? hrefEtapa(etapaActiva) : hrefClase(clave)}
-                      className={`inline-flex items-center gap-1.5 ${CHIP} ${activa ? CHIP_ON : CHIP_OFF}`}
-                    >
-                      {claseLabel(c)}
-                      <span className={`text-[11px] ${activa ? 'text-blue-100' : 'text-zinc-400'}`}>
-                        {c.respuestas}
-                        {c.objetivo > 0 && `/${c.objetivo}`}
-                      </span>
-                      {c.mediaPct !== null && (
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${TONO_BARRA[tonoDe(c.mediaPct)]}`}
-                          title={`${Math.round(c.mediaPct)}/100`}
-                        />
-                      )}
-                    </Link>
-                  );
-                })}
+                  {resultados.etapas.map((e) => {
+                    const activa = etapaActiva === e.etapa;
+                    return (
+                      <Link
+                        key={e.etapa}
+                        href={hrefEtapa(e.etapa)}
+                        className={`inline-flex items-center gap-1.5 ${CHIP} ${activa ? CHIP_ON : CHIP_OFF}`}
+                      >
+                        {etapaLabel(e.etapa)}
+                        <span className={`text-[11px] ${activa ? 'text-blue-100' : 'text-zinc-400'}`}>{e.respuestas}</span>
+                        {e.mediaPct !== null && (
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${TONO_BARRA[tonoDe(e.mediaPct)]}`}
+                            title={`${Math.round(e.mediaPct)}/100`}
+                          />
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
 
-      {/* ─── Cifras de cabecera ─── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className={`${PANEL} p-4`}>
-          <p className="text-xs text-zinc-500">Respuestas</p>
-          <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{resultados.totalRespuestas}</p>
-          {cobertura !== null && (
-            <p className="text-xs text-zinc-400">
-              de {resultados.objetivo} ({cobertura} %)
-            </p>
-          )}
-        </div>
-        <div className={`${PANEL} p-4`}>
-          <p className="text-xs text-zinc-500">Valoración media</p>
-          <p className="mt-1 text-2xl">
-            <Cien pct={resultados.mediaPct} />
-            <span className="text-sm font-normal text-zinc-400"> / 100</span>
-          </p>
-          <p className="text-xs text-zinc-400">comparable entre escalas</p>
-        </div>
-        <Animo animo={resultados.animo} onCriticos={() => setPestana('criticos')} />
-      </div>
-
-      {resultados.totalRespuestas === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
-          Todavía no hay respuestas{claseActiva ? ' de esta clase' : etapaActiva ? ' de esta etapa' : ''}.
-        </div>
-      ) : (
-        <>
-          {/* ─── Pestañas ─── */}
-          <div ref={pestanasRef} className="scroll-mt-4 flex gap-1 overflow-x-auto rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800/60">
-            {(
-              [
-                { valor: 'resumen', label: 'Resumen', corto: 'Resumen', n: null },
-                { valor: 'comentarios', label: 'Comentarios', corto: 'Comentarios', n: totalUtiles },
-                { valor: 'criticos', label: 'Los más críticos', corto: 'Críticos', n: criticosBajo70 },
-              ] as const
-            ).map((p) => {
-              const activa = pestana === p.valor;
-              return (
-                <button
-                  key={p.valor}
-                  type="button"
-                  onClick={() => {
-                    setPestana(p.valor);
-                    if (p.valor === 'comentarios') setPreguntaFoco(null);
-                  }}
-                  className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 sm:px-3 text-sm font-semibold transition-colors ${
-                    activa
-                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50'
-                      : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <span className="sm:hidden">{p.corto}</span>
-                  <span className="hidden sm:inline">{p.label}</span>
-                  {p.n !== null && (
-                    <span
-                      className={`rounded-full px-1.5 text-[11px] tabular-nums ${
-                        activa ? 'bg-zinc-100 text-zinc-600 dark:bg-zinc-600 dark:text-zinc-200' : 'bg-zinc-200/70 dark:bg-zinc-700'
-                      }`}
-                    >
-                      {p.n}
-                    </span>
+            {clasesVisibles.length > 0 && (
+              <div>
+                <Rotulo className="mb-2 flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Clase
+                </Rotulo>
+                <div className="flex flex-wrap gap-1.5">
+                  {!mostrarFiltroEtapa && (
+                    <Link href={base} className={`${CHIP} ${!claseActiva ? CHIP_ON : CHIP_OFF}`}>
+                      Todas
+                    </Link>
                   )}
-                </button>
-              );
-            })}
+                  {clasesVisibles.map((c) => {
+                    const clave = `${c.curso}|${c.letra ?? ''}`;
+                    const activa = claseActiva === clave;
+                    return (
+                      <Link
+                        key={clave}
+                        href={activa ? hrefEtapa(etapaActiva) : hrefClase(clave)}
+                        className={`inline-flex items-center gap-1.5 ${CHIP} ${activa ? CHIP_ON : CHIP_OFF}`}
+                      >
+                        {claseLabel(c)}
+                        <span className={`text-[11px] ${activa ? 'text-blue-100' : 'text-zinc-400'}`}>
+                          {c.respuestas}
+                          {c.objetivo > 0 && `/${c.objetivo}`}
+                        </span>
+                        {c.mediaPct !== null && (
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${TONO_BARRA[tonoDe(c.mediaPct)]}`}
+                            title={`${Math.round(c.mediaPct)}/100`}
+                          />
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
+        )}
 
-          {pestana === 'resumen' && (
-            <VistaResumen
-              resultados={resultados}
-              grupos={grupos}
-              mostrarAvisos={!claseActiva}
-              mostrarEtapas={!etapaActiva && !claseActiva && mostrarFiltroEtapa}
-              hrefEtapa={hrefEtapa}
-              onVerComentarios={irAComentarios}
-            />
-          )}
-          {pestana === 'comentarios' && (
-            <VistaComentarios grupos={grupos} foco={preguntaFoco} onFoco={setPreguntaFoco} />
-          )}
-          {pestana === 'criticos' && <VistaCriticos criticas={resultados.criticas} audiencia={form.audiencia} />}
-        </>
-      )}
-    </div>
+        {/* ─── Cifras de cabecera ─── */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className={`${PANEL} p-4`}>
+            <p className="text-xs text-zinc-500">Respuestas</p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{resultados.totalRespuestas}</p>
+            {cobertura !== null && (
+              <p className="text-xs text-zinc-400">
+                de {resultados.objetivo} ({cobertura} %)
+              </p>
+            )}
+          </div>
+          <div className={`${PANEL} p-4`}>
+            <p className="text-xs text-zinc-500">Valoración media</p>
+            <p className="mt-1 text-2xl">
+              <Cien pct={resultados.mediaPct} />
+              <span className="text-sm font-normal text-zinc-400"> / 100</span>
+            </p>
+            <p className="text-xs text-zinc-400">comparable entre escalas</p>
+          </div>
+          <Animo animo={resultados.animo} onCriticos={() => setPestana('criticos')} />
+        </div>
+
+        <PanelDestacados lista={destacados} />
+
+        {resultados.totalRespuestas === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
+            Todavía no hay respuestas{claseActiva ? ' de esta clase' : etapaActiva ? ' de esta etapa' : ''}.
+          </div>
+        ) : (
+          <>
+            {/* ─── Pestañas ─── */}
+            <div ref={pestanasRef} className="scroll-mt-20 flex gap-1 overflow-x-auto rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800/60">
+              {(
+                [
+                  { valor: 'resumen', label: 'Resumen', corto: 'Resumen', n: null },
+                  { valor: 'comentarios', label: 'Comentarios', corto: 'Comentarios', n: totalUtiles },
+                  { valor: 'criticos', label: 'Los más críticos', corto: 'Críticos', n: criticosBajo70 },
+                ] as const
+              ).map((p) => {
+                const activa = pestana === p.valor;
+                return (
+                  <button
+                    key={p.valor}
+                    type="button"
+                    onClick={() => {
+                      setPestana(p.valor);
+                      if (p.valor === 'comentarios') setPreguntaFoco(null);
+                    }}
+                    className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-sm font-semibold transition-colors sm:px-3 ${
+                      activa
+                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    <span className="sm:hidden">{p.corto}</span>
+                    <span className="hidden sm:inline">{p.label}</span>
+                    {p.n !== null && (
+                      <span
+                        className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                          activa ? 'bg-zinc-100 text-zinc-600 dark:bg-zinc-600 dark:text-zinc-200' : 'bg-zinc-200/70 dark:bg-zinc-700'
+                        }`}
+                      >
+                        {p.n}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {pestana === 'resumen' && (
+              <VistaResumen
+                resultados={resultados}
+                grupos={grupos}
+                mostrarAvisos={!claseActiva}
+                mostrarEtapas={!etapaActiva && !claseActiva && mostrarFiltroEtapa}
+                mostrarClases={!claseActiva}
+                hrefEtapa={hrefEtapa}
+                hrefClase={hrefClase}
+                onVerComentarios={irAComentarios}
+                ia={
+                  <PanelIA
+                    key={`${claseActiva ?? ''}-${etapaActiva ?? ''}`}
+                    formId={formId}
+                    estado={ia}
+                    inicial={insight}
+                    clase={claseActiva}
+                    etapa={claseActiva ? null : etapaActiva}
+                    totalRespuestas={resultados.totalRespuestas}
+                  />
+                }
+              />
+            )}
+            {pestana === 'comentarios' && <VistaComentarios grupos={grupos} foco={preguntaFoco} onFoco={setPreguntaFoco} />}
+            {pestana === 'criticos' && <VistaCriticos criticas={resultados.criticas} audiencia={resultados.form.audiencia} />}
+          </>
+        )}
+      </div>
+    </DestacadosCtx.Provider>
   );
 }
 
@@ -476,40 +686,50 @@ function VistaResumen({
   grupos,
   mostrarAvisos,
   mostrarEtapas,
+  mostrarClases,
   hrefEtapa,
+  hrefClase,
   onVerComentarios,
+  ia,
 }: {
   resultados: Resultados;
   grupos: GrupoComentarios[];
   mostrarAvisos: boolean;
   mostrarEtapas: boolean;
+  mostrarClases: boolean;
   hrefEtapa: (e: string | null) => string;
+  hrefClase: (clave: string) => string;
   onVerComentarios: (preguntaId: string | null) => void;
+  ia: React.ReactNode;
 }) {
-  // Todas las filas valoradas del formulario, para el "lo mejor / lo que menos".
+  // Las filas que son NOTA (no Sí/No) de todo el formulario, para "lo mejor / lo que menos".
   const filas = resultados.bloques.flatMap((b, bi) =>
-    b.preguntas.flatMap((q) =>
-      q.filas
-        .filter((f) => f.mediaPct !== null)
-        .map((f) => ({
-          clave: `${q.id}:${f.clave}`,
-          texto: f.texto,
-          pregunta: q.texto,
-          letra: String.fromCharCode(65 + bi),
-          color: b.color,
-          pct: f.mediaPct!,
-          n: f.n,
-        })),
-    ),
+    b.preguntas
+      .filter((q) => q.tipo === 'escala' && escalaValora(q.escala))
+      .flatMap((q) =>
+        q.filas
+          .filter((f) => f.mediaPct !== null)
+          .map((f) => ({
+            clave: `${q.id}:${f.clave}`,
+            texto: f.texto,
+            pregunta: q.texto,
+            letra: String.fromCharCode(65 + bi),
+            color: b.color,
+            pct: f.mediaPct!,
+          })),
+      ),
   );
   const ordenadas = [...filas].sort((a, b) => b.pct - a.pct);
   const cuantas = Math.min(3, Math.floor(ordenadas.length / 2));
   const mejores = ordenadas.slice(0, cuantas);
   const peores = ordenadas.slice(-cuantas).reverse();
   const variosBloques = resultados.bloques.length > 1;
+  const clasesConDatos = resultados.clases.filter((c) => c.respuestas > 0);
 
   return (
     <div className="space-y-4">
+      {ia}
+
       {mostrarAvisos && resultados.avisos.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
           <p className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-amber-900 dark:text-amber-300">
@@ -572,11 +792,39 @@ function VistaResumen({
                 <span className="w-24 shrink-0 text-sm text-zinc-600 dark:text-zinc-300">{etapaLabel(e.etapa)}</span>
                 <Barra pct={e.mediaPct} />
                 <Cien pct={e.mediaPct} className="w-8 shrink-0 text-right text-sm" />
-                <span className="w-20 shrink-0 text-right text-xs tabular-nums text-zinc-400">
-                  {e.respuestas} resp.
-                </span>
+                <span className="w-20 shrink-0 text-right text-xs tabular-nums text-zinc-400">{e.respuestas} resp.</span>
               </Link>
             ))}
+          </div>
+        </div>
+      )}
+
+      {mostrarClases && clasesConDatos.length > 1 && (
+        <div className={`${PANEL} p-4`}>
+          <p className="mb-2.5 text-sm font-semibold text-zinc-800 dark:text-zinc-200">Por clase</p>
+          <div className="space-y-0.5">
+            {clasesConDatos.map((c) => {
+              const clave = `${c.curso}|${c.letra ?? ''}`;
+              const part = c.objetivo > 0 ? Math.round((c.respuestas / c.objetivo) * 100) : null;
+              return (
+                <Link
+                  key={clave}
+                  href={hrefClase(clave)}
+                  className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                >
+                  <span className="w-20 shrink-0 text-sm text-zinc-600 dark:text-zinc-300">{claseLabel(c)}</span>
+                  <Barra pct={c.mediaPct} />
+                  <Cien pct={c.mediaPct} className="w-8 shrink-0 text-right text-sm" />
+                  <span
+                    className={`w-20 shrink-0 text-right text-xs tabular-nums ${part !== null && part < 40 ? 'font-semibold text-amber-600' : 'text-zinc-400'}`}
+                    title="Han respondido / alumnado de la clase"
+                  >
+                    {c.respuestas}
+                    {c.objetivo > 0 && `/${c.objetivo}`} resp.
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
@@ -599,7 +847,15 @@ function VistaResumen({
               <div key={q.id} className="py-3 first:pt-0 last:pb-0">
                 <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{q.texto}</p>
 
-                {q.tipo === 'escala' && (
+                {q.tipo === 'escala' && !escalaValora(q.escala) && (
+                  <div className="mt-2 space-y-2.5">
+                    {q.filas.map((f) => (
+                      <FilaSiNo key={f.clave || q.id} f={f} texto={f.texto} mostrarTexto={q.filas.length > 1 || f.texto !== q.texto} />
+                    ))}
+                  </div>
+                )}
+
+                {q.tipo === 'escala' && escalaValora(q.escala) && (
                   <div className="mt-2 space-y-3">
                     <LeyendaEscala escala={q.escala} />
                     {q.filas.map((f) => (
@@ -628,21 +884,26 @@ function VistaResumen({
 
                 {(q.tipo === 'opcion' || q.tipo === 'varias' || q.tipo === 'quiz') && (
                   <div className="mt-2 space-y-1.5">
-                    {q.opciones.map((o) => (
-                      <div key={o.clave} className="flex items-center gap-3">
-                        <span className="min-w-0 flex-1 text-sm leading-snug text-zinc-600 dark:text-zinc-300">
-                          {o.correcta && <span className="mr-1 text-emerald-600">✓</span>}
-                          {o.texto}
-                        </span>
-                        <div className="h-2 w-28 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800 sm:w-40">
-                          <div
-                            className={`h-2 rounded-full ${o.correcta ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                            style={{ width: `${q.n > 0 ? (o.n / q.n) * 100 : 0}%` }}
-                          />
+                    {q.opciones
+                      .filter((o) => o.texto.trim() || o.n > 0)
+                      .map((o) => (
+                        <div key={o.clave} className="flex items-center gap-3">
+                          <span className="min-w-0 flex-1 text-sm leading-snug text-zinc-600 dark:text-zinc-300">
+                            {o.correcta && <span className="mr-1 text-emerald-600">✓</span>}
+                            {o.texto.trim() || <span className="italic text-zinc-400">(opción sin texto)</span>}
+                          </span>
+                          <div className="h-2 w-28 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800 sm:w-40">
+                            <div
+                              className={`h-2 rounded-full ${o.correcta ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                              style={{ width: `${q.n > 0 ? (o.n / q.n) * 100 : 0}%` }}
+                            />
+                          </div>
+                          <span className="w-16 shrink-0 text-right text-xs tabular-nums text-zinc-500">
+                            {o.n}
+                            <span className="text-zinc-400"> · {q.n > 0 ? Math.round((o.n / q.n) * 100) : 0}%</span>
+                          </span>
                         </div>
-                        <span className="w-8 shrink-0 text-right text-xs tabular-nums text-zinc-500">{o.n}</span>
-                      </div>
-                    ))}
+                      ))}
                     {q.otras.filter(comentarioUtil).length > 0 && (
                       <p className="text-xs text-zinc-500">Otras: {q.otras.filter(comentarioUtil).join(' · ')}</p>
                     )}
@@ -663,29 +924,43 @@ function VistaResumen({
 
 /** En el resumen, los tres comentarios más críticos de una pregunta y el enlace al resto. */
 function AdelantoComentarios({ grupo, onVerTodos }: { grupo: GrupoComentarios | undefined; onVerTodos: () => void }) {
-  const utiles = (grupo?.comentarios ?? []).filter((c) => c.util).sort(ordenCriticos);
-  const vacios = (grupo?.comentarios.length ?? 0) - utiles.length;
+  if (!grupo) return null;
+  const utiles = [...grupo.utiles].sort(ordenCriticos);
+  const total = utiles.reduce((s, c) => s + c.repetido, 0);
   if (utiles.length === 0) {
     return (
       <p className="mt-1.5 text-xs text-zinc-400">
-        {vacios > 0 ? `${vacios} respuesta(s) sin contenido («no», «nada»…).` : 'Sin respuestas.'}
+        {grupo.sinCambios.length > 0 && `${grupo.sinCambios.length} dicen que no cambiarían nada. `}
+        {grupo.vacios.length > 0 ? `${grupo.vacios.length} respuesta(s) sin contenido («no», «nada»…).` : ''}
+        {grupo.sinCambios.length + grupo.vacios.length === 0 && 'Sin respuestas.'}
       </p>
     );
   }
   return (
     <div className="mt-2 space-y-1.5">
-      {utiles.slice(0, 3).map((c, i) => (
-        <TarjetaComentario key={i} c={c} />
+      {utiles.slice(0, 3).map((c) => (
+        <TarjetaComentario key={c.id} c={c} />
       ))}
-      <button
-        type="button"
-        onClick={onVerTodos}
-        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
-      >
-        <MessageSquareQuote className="h-3.5 w-3.5" />
-        {utiles.length > 3 ? `Leer los ${utiles.length} comentarios` : 'Ir a comentarios'}
-      </button>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <button
+          type="button"
+          onClick={onVerTodos}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+        >
+          <MessageSquareQuote className="h-3.5 w-3.5" />
+          {total > 3 ? `Leer los ${total} comentarios` : 'Ir a comentarios'}
+        </button>
+        {grupo.sinCambios.length > 0 && <SinCambiosTexto n={grupo.sinCambios.length} />}
+      </div>
     </div>
+  );
+}
+
+function SinCambiosTexto({ n }: { n: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
+      <Smile className="h-3.5 w-3.5" /> {n} dice{n === 1 ? '' : 'n'} que no cambiaría{n === 1 ? '' : 'n'} nada
+    </span>
   );
 }
 
@@ -693,21 +968,32 @@ function TarjetaComentario({ c, busqueda }: { c: Comentario; busqueda?: string }
   const tono = tonoDe(c.pct);
   return (
     <div
-      className={`rounded-r-xl border-l-[3px] bg-zinc-50 px-3.5 py-2.5 dark:bg-zinc-800/40 ${TONO_BORDE[tono]} ${
-        c.util ? '' : 'opacity-60'
+      className={`flex gap-2 rounded-r-xl border-l-[3px] bg-zinc-50 py-2.5 pl-3.5 pr-2 dark:bg-zinc-800/40 ${TONO_BORDE[tono]} ${
+        c.tipo === 'vacio' ? 'opacity-60' : ''
       }`}
     >
-      <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-100">
-        <Resaltado texto={c.valor} busqueda={busqueda} />
-      </p>
-      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
-        <Procedencia clase={c.clase} etapa={c.etapa} />
-        {c.pct !== null && (
-          <span title="Valoración media de quien lo escribió">
-            su media <span className={`font-semibold ${TONO_TEXTO[tono]}`}>{Math.round(c.pct)}</span>/100
-          </span>
-        )}
+      <div className="min-w-0 flex-1">
+        <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-100">
+          <Resaltado texto={c.valor} busqueda={busqueda} />
+          {c.repetido > 1 && (
+            <span
+              className="ml-2 rounded-full bg-blue-100 px-1.5 py-0.5 align-middle text-[11px] font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
+              title={`${c.repetido} personas escribieron lo mismo`}
+            >
+              ×{c.repetido}
+            </span>
+          )}
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+          <Procedencia clase={c.clase} etapa={c.etapa} />
+          {c.pct !== null && (
+            <span title="Valoración media de quien lo escribió">
+              su media <span className={`font-semibold ${TONO_TEXTO[tono]}`}>{Math.round(c.pct)}</span>/100
+            </span>
+          )}
+        </div>
       </div>
+      {c.tipo !== 'vacio' && <BotonEstrella c={c} />}
     </div>
   );
 }
@@ -739,6 +1025,8 @@ function Resaltado({ texto, busqueda }: { texto: string; busqueda?: string }) {
 
 // ─── Comentarios ──────────────────────────────────────────────────────────────
 
+const POR_PREGUNTA = 8;
+
 function VistaComentarios({
   grupos,
   foco,
@@ -748,19 +1036,23 @@ function VistaComentarios({
   foco: string | null;
   onFoco: (id: string | null) => void;
 }) {
-  const [orden, setOrden] = useState<'criticos' | 'largos'>('criticos');
+  const [orden, setOrden] = useState<'criticos' | 'largos' | 'repetidos'>('criticos');
   const [busqueda, setBusqueda] = useState('');
-  const [verVacios, setVerVacios] = useState(false);
+  const [abiertos, setAbiertos] = useState<Record<string, 'sinCambios' | 'vacios' | null>>({});
+  const [enteros, setEnteros] = useState<Record<string, boolean>>({});
 
   if (grupos.length === 0) {
-    return (
-      <div className={`${PANEL} p-8 text-center text-sm text-zinc-500`}>Esta evaluación no tiene preguntas abiertas.</div>
-    );
+    return <div className={`${PANEL} p-8 text-center text-sm text-zinc-500`}>Esta evaluación no tiene preguntas abiertas.</div>;
   }
 
   const nq = normalizar(busqueda.trim());
   const visibles = foco ? grupos.filter((g) => g.id === foco) : grupos;
-  const totalVacios = visibles.reduce((s, g) => s + g.comentarios.filter((c) => !c.util).length, 0);
+  const ordenar =
+    orden === 'criticos'
+      ? ordenCriticos
+      : orden === 'largos'
+        ? (a: Comentario, b: Comentario) => b.valor.length - a.valor.length
+        : (a: Comentario, b: Comentario) => b.repetido - a.repetido || ordenCriticos(a, b);
 
   return (
     <div className="space-y-4">
@@ -772,13 +1064,14 @@ function VistaComentarios({
               type="search"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar en los comentarios…"
+              placeholder="Buscar en los comentarios… (salidas, juegos, tiempo…)"
               className="w-full rounded-lg bg-zinc-50 py-2 pl-8 pr-3 text-sm text-zinc-900 ring-1 ring-transparent placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800/40 dark:text-zinc-100 dark:focus:bg-zinc-800"
             />
           </label>
           <Segmentado
             opciones={[
               { valor: 'criticos', label: 'Críticos primero' },
+              { valor: 'repetidos', label: 'Más repetidos' },
               { valor: 'largos', label: 'Más largos' },
             ]}
             valor={orden}
@@ -797,9 +1090,10 @@ function VistaComentarios({
                 type="button"
                 onClick={() => onFoco(g.id)}
                 title={`${g.bloque} · ${g.texto}`}
-                className={`${CHIP} max-w-[16rem] truncate !py-1 !text-xs ${foco === g.id ? CHIP_ON : CHIP_OFF}`}
+                className={`${CHIP} inline-flex max-w-[18rem] items-center gap-1.5 !py-1 !text-xs ${foco === g.id ? CHIP_ON : CHIP_OFF}`}
               >
-                {g.texto}
+                <span className="font-bold opacity-70">{g.letra}</span>
+                <span className="truncate">{g.bloque}</span>
               </button>
             ))}
           </div>
@@ -807,11 +1101,10 @@ function VistaComentarios({
       </div>
 
       {visibles.map((g) => {
-        const lista = g.comentarios
-          .filter((c) => c.util || verVacios)
-          .filter((c) => !nq || normalizar(c.valor).includes(nq))
-          .sort(orden === 'criticos' ? ordenCriticos : (a, b) => b.valor.length - a.valor.length);
-        const utiles = g.comentarios.filter((c) => c.util).length;
+        const lista = g.utiles.filter((c) => !nq || normalizar(c.valor).includes(nq)).sort(ordenar);
+        const total = g.utiles.reduce((s, c) => s + c.repetido, 0);
+        const abierto = abiertos[g.id] ?? null;
+        const alternar = (que: 'sinCambios' | 'vacios') => setAbiertos((a) => ({ ...a, [g.id]: a[g.id] === que ? null : que }));
         return (
           <div key={g.id} className={`${PANEL} p-4`}>
             <div className="mb-3 flex items-start gap-2">
@@ -819,37 +1112,78 @@ function VistaComentarios({
               <div className="min-w-0 flex-1">
                 <p className="font-semibold leading-snug text-zinc-900 dark:text-zinc-100">{g.texto}</p>
                 <p className="text-xs text-zinc-400">
-                  {g.bloque} · {utiles} comentario{utiles === 1 ? '' : 's'}
+                  {g.bloque} · {total} comentario{total === 1 ? '' : 's'}
                 </p>
               </div>
             </div>
             {lista.length === 0 ? (
-              <p className="text-sm text-zinc-400">
-                {nq ? 'Ningún comentario con ese texto.' : 'Nadie ha escrito nada que leer aquí.'}
-              </p>
+              <p className="text-sm text-zinc-400">{nq ? 'Ningún comentario con ese texto.' : 'Nadie ha escrito nada que leer aquí.'}</p>
             ) : (
               <div className="space-y-2">
-                {lista.map((c, i) => (
-                  <TarjetaComentario key={i} c={c} busqueda={busqueda} />
+                {/* Con 80 comentarios por pregunta, enseñarlos todos de golpe esconde las otras
+                    preguntas: los primeros (ya ordenados) y el resto a un clic. Buscando, todos. */}
+                {(nq || enteros[g.id] || foco === g.id ? lista : lista.slice(0, POR_PREGUNTA)).map((c) => (
+                  <TarjetaComentario key={c.id} c={c} busqueda={busqueda} />
                 ))}
+                {!nq && foco !== g.id && lista.length > POR_PREGUNTA && (
+                  <button
+                    type="button"
+                    onClick={() => setEnteros((e) => ({ ...e, [g.id]: !e[g.id] }))}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                  >
+                    {enteros[g.id] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    {enteros[g.id] ? 'Ver menos' : `Ver los ${lista.length - POR_PREGUNTA} restantes`}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {(g.sinCambios.length > 0 || g.vacios.length > 0) && !nq && (
+              <div className="mt-3 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  {g.sinCambios.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => alternar('sinCambios')}
+                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+                    >
+                      <Smile className="h-3.5 w-3.5" />
+                      {g.sinCambios.length} dice{g.sinCambios.length === 1 ? '' : 'n'} que no cambiaría{g.sinCambios.length === 1 ? '' : 'n'} nada o que todo bien
+                      {abierto === 'sinCambios' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
+                  {g.vacios.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => alternar('vacios')}
+                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      {g.vacios.length} sin contenido («nada», «no sé»…) ocultas
+                      {abierto === 'vacios' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
+                </div>
+                {abierto && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(abierto === 'sinCambios' ? g.sinCambios : g.vacios).map((c) => (
+                      <span
+                        key={c.id}
+                        className={`rounded-lg px-2 py-1 text-xs ${
+                          abierto === 'sinCambios'
+                            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
+                            : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800'
+                        }`}
+                      >
+                        {c.valor.trim()}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         );
       })}
-
-      {totalVacios > 0 && (
-        <button
-          type="button"
-          onClick={() => setVerVacios((v) => !v)}
-          className="mx-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        >
-          {verVacios ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {verVacios
-            ? 'Ocultar las respuestas sin contenido'
-            : `${totalVacios} respuesta${totalVacios === 1 ? '' : 's'} sin contenido oculta${totalVacios === 1 ? '' : 's'} («no», «nada»…) · mostrar`}
-        </button>
-      )}
     </div>
   );
 }
@@ -873,14 +1207,14 @@ function VistaCriticos({ criticas, audiencia }: { criticas: RespuestaCritica[]; 
   const bajo45 = criticas.filter((c) => c.mediaPct < 45).length;
   const bajo70 = criticas.filter((c) => c.mediaPct < 70).length;
   const lista = criticas.filter((c) => (umbral === '45' ? c.mediaPct < 45 : umbral === '70' ? c.mediaPct < 70 : true));
-  const quien = audiencia === 'alumnos' ? 'Solo se ve su clase' : 'Solo se ve su etapa, si la marcó';
+  const quien = audiencia === 'alumnos' ? 'solo se ve su clase' : 'solo se ve su etapa, si la marcó';
 
   return (
     <div className="space-y-3">
       <div className={`${PANEL} flex flex-wrap items-center justify-between gap-3 p-3`}>
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
           <Frown className="mr-1 inline h-4 w-4 -translate-y-px text-rose-500" />
-          Quien peor ha valorado, de la nota más baja a la más alta. Anónimo: {quien.toLowerCase()}.
+          Quien peor ha valorado, de la nota más baja a la más alta. Anónimo: {quien}.
         </p>
         <Segmentado
           opciones={[
@@ -957,10 +1291,13 @@ function TarjetaCritica({ c }: { c: RespuestaCritica }) {
 
       {comentarios.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          {comentarios.map((x, i) => (
-            <div key={i} className="rounded-xl bg-zinc-50 px-3.5 py-2.5 dark:bg-zinc-800/40">
-              <p className="text-[11px] text-zinc-400">{x.pregunta}</p>
-              <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-100">“{x.valor}”</p>
+          {comentarios.map((x) => (
+            <div key={x.id} className="flex gap-2 rounded-xl bg-zinc-50 py-2.5 pl-3.5 pr-2 dark:bg-zinc-800/40">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-zinc-400">{x.pregunta}</p>
+                <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-100">“{x.valor}”</p>
+              </div>
+              <BotonEstrella c={{ id: x.id, valor: x.valor, pregunta: x.pregunta, bloque: x.bloque, clase: c.clase, etapa: c.etapa }} />
             </div>
           ))}
         </div>
