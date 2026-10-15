@@ -58,7 +58,22 @@ candidatos para una siguiente vuelta.
 | Cuándo se ejecutan los crons | `vercel.json` | Lo lee Vercel, no el código |
 | Marca: logo, iconos, títulos, `manifest.json` | Ver el §6 de la guía de despliegue | Son ficheros estáticos |
 
-## Siguiente paso posible: ajustes editables desde la app
+## Pantalla «Ajustes del colegio» (`/gestion/ajustes`, 15-oct-2026)
+
+Módulo `ajustes` (sensible; de serie lo tienen `supertic`, `tic` y `secretaria`). Enseña **todo**
+lo de este documento con su origen marcado — *se cambia aquí*, *variable de entorno* o *en el
+código* — y el estado de cada variable de entorno (de las secretas, solo si está puesta).
+
+Lo único editable hoy es la **IA (Claude)**: interruptor, modelo (Haiku 5.5 por defecto, Sonnet
+5.5, Opus 5.5) y el contexto del colegio que va en cada análisis. Se guarda en la tabla
+`cfg_ajustes` (clave → JSON; `src/lib/ajustes.ts` y `ajustes-server.ts`). La clave
+`ANTHROPIC_API_KEY` es variable de entorno y no se guarda nunca en la BBDD.
+
+Para hacer editable otro ajuste: añadir su clave a `cfg_ajustes` con el valor de
+`configuracion.ts` como defecto, leerlo en el servidor y cambiar su origen en
+`src/lib/ajustes-inventario.ts`.
+
+## Siguiente paso posible: más ajustes editables desde la app
 
 `configuracion.ts` se cambia **con código** (y un redeploy), que es lo natural para quien despliega
 y no necesita migración de base de datos. Si algún día quien lleva el colegio tiene que cambiar

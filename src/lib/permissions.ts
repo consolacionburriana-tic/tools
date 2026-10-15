@@ -33,6 +33,7 @@ export const MODULES = [
   'oratorios-ver',
   'calendarios',
   'tableros',
+  'ajustes',
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -60,6 +61,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   'oratorios-ver': 'Oratorios y Godly Play (ver lo mío)',
   calendarios: 'Classrooms y calendarios',
   tableros: 'Tableros (tareas por equipos)',
+  ajustes: 'Ajustes del colegio',
 };
 
 /**
@@ -68,7 +70,7 @@ export const MODULE_LABELS: Record<Module, string> = {
  * familias entera. `calendarios` borra calendarios de Google de cualquier persona del
  * dominio. La interfaz los marca; no están prohibidos.
  */
-export const MODULOS_SENSIBLES: readonly Module[] = ['usuarios', 'educamos', 'calendarios'];
+export const MODULOS_SENSIBLES: readonly Module[] = ['usuarios', 'educamos', 'calendarios', 'ajustes'];
 
 export const ROLES = [
   'profe',

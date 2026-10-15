@@ -3,7 +3,11 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, Download, GitCompare } from 'lucide-react';
-import { getResultados, getSectoresGrupo } from '@/lib/evaluaciones-server';
+import { getDestacados, getResultados, getSectoresGrupo } from '@/lib/evaluaciones-server';
+import { getUltimoInsight } from '@/lib/evaluaciones-ia-server';
+import { getAjustesIA, hayClaveIA } from '@/lib/ajustes-server';
+import { getSessionUser } from '@/lib/auth-guards';
+import { canAccess } from '@/lib/permissions';
 import { ResultadosPanel } from '@/components/evaluaciones/resultados-panel';
 import { SectoresTabs } from '@/components/evaluaciones/sectores';
 
@@ -14,12 +18,20 @@ export default async function ResultadosPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ clase?: string }>;
+  searchParams: Promise<{ clase?: string; etapa?: string }>;
 }) {
   const { id } = await params;
-  const { clase } = await searchParams;
+  const { clase, etapa } = await searchParams;
   const [curso, letra] = (clase ?? '').split('|');
-  const resultados = await getResultados(id, curso ? { curso, letra: letra || null } : null);
+  // La clase manda sobre la etapa (la etapa viaja con ella solo para marcar su pestaña).
+  const filtro = curso ? { curso, letra: letra || null } : etapa ? { etapa } : null;
+  const [resultados, destacados, insight, ajustesIA, user] = await Promise.all([
+    getResultados(id, filtro),
+    getDestacados(id),
+    getUltimoInsight(id, filtro),
+    getAjustesIA(),
+    getSessionUser(),
+  ]);
   if (!resultados) notFound();
 
   const serie = resultados.bloques.find((b) => b.serieId)?.serieId ?? null;
@@ -48,8 +60,27 @@ export default async function ResultadosPage({
           </a>
         </div>
       </div>
-      <SectoresTabs sectores={sectores} actualId={id} destino="resultados" />
-      <ResultadosPanel key={id} resultados={resultados} formId={id} claseActiva={clase ?? null} />
+      <SectoresTabs
+        sectores={sectores}
+        actualId={id}
+        destino="resultados"
+        query={etapa ? `etapa=${encodeURIComponent(etapa)}` : undefined}
+      />
+      <ResultadosPanel
+        key={id}
+        resultados={resultados}
+        formId={id}
+        claseActiva={curso ? (clase ?? null) : null}
+        etapaActiva={etapa ?? null}
+        destacados={destacados}
+        ia={{
+          activado: ajustesIA.activado,
+          hayClave: hayClaveIA(),
+          modelo: ajustesIA.modelo,
+          puedeAjustar: canAccess(user, 'ajustes'),
+        }}
+        insight={insight}
+      />
     </div>
   );
 }
