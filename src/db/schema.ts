@@ -1943,7 +1943,7 @@ export const numFotos = pgTable('num_fotos', {
 ]);
 export type NumFoto = typeof numFotos.$inferSelect;
 
-// ─── Oratorios y Godly Play (prefijo ora_) ────────────────────────────────────
+// ─── Oratorios, Godly Play y Talleres (prefijo ora_) ────────────────────────────────────
 // Ficha: docs/26-oratorios.md. Un profe se lleva a (media) clase un rato en la hora de otro
 // profe. Genérico por dentro: un TIPO de momento (oratorio, Godly Play, mañana un taller) con
 // su objetivo por clase, su calendario de Google y su texto de correo.

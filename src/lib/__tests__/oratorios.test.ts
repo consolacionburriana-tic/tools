@@ -72,6 +72,8 @@ const ORATORIO: TipoMomento = {
   activo: true,
 };
 const GODLY: TipoMomento = { ...ORATORIO, id: 't-godly', codigo: 'godly', nombre: 'Godly Play', nombreCorreo: 'Godly Play', frecuencia: 'trimestre', etapas: ['EP'], textoCorreo: null };
+// Como lo siembra `oratorios-taller.sql`: uno al mes por clase, solo Primaria.
+const TALLER: TipoMomento = { ...ORATORIO, id: 't-taller', codigo: 'taller_pc', nombre: 'Taller de Pensamiento Computacional', nombreCorreo: 'taller de pensamiento computacional', emoji: '💻', etapas: ['EP'], textoCorreo: null };
 
 const TRIMESTRES = trimestresPorDefecto('2026-27', '2026-09-08');
 const PERIODOS = [{ id: 'p1', fechaInicio: '2026-09-01', fechaFin: '2027-05-31', prioridad: 0, esOrdinario: true }];
@@ -184,6 +186,23 @@ describe('clases', () => {
     ]);
     expect(etiquetaClase({ curso: '4ºPPDC', letra: 'PDC' })).toBe('4º PDC');
     expect(clasesDeTipo({ ...ORATORIO, clases: ['3ºPPDC|PDC'] }, alumnado)).toEqual([{ curso: '3ºPPDC', letra: 'PDC' }]);
+  });
+
+  it('taller de pensamiento computacional: solo Primaria, y ampliable cambiando las etapas', () => {
+    const alumnado = [
+      { curso: '3INF', letra: 'A' },
+      { curso: '1PRI', letra: 'A' },
+      { curso: '6PRI', letra: 'B' },
+      { curso: '1ESO', letra: 'A' },
+    ];
+    expect(clasesDeTipo(TALLER, alumnado)).toEqual([
+      { curso: '1PRI', letra: 'A' },
+      { curso: '6PRI', letra: 'B' },
+    ]);
+    // Mañana también infantil: es una casilla en Ajustes, no código.
+    expect(clasesDeTipo({ ...TALLER, etapas: ['EI', 'EP'] }, alumnado)).toHaveLength(3);
+    // Un taller y un oratorio de la misma clase llevan su numeración por separado.
+    expect(siguienteNumero([sesion({ numero: 1, tipoId: TALLER.id, curso: '1PRI', letra: 'A' })], ORATORIO.id, { curso: '1PRI', letra: 'A' })).toBe(1);
   });
 
   it('número de sesión: el primer hueco libre, sin contar las anuladas', () => {
@@ -450,6 +469,21 @@ describe('correo al profe', () => {
     expect(html).toContain('Será primero la mitad');
     expect(html).toContain('Gracias por tu colaboración.<br>David');
     expect(html).not.toMatch(/<img/);
+  });
+
+  it('taller: el aviso nombra el taller y la clase de primaria, sin texto extra', () => {
+    const { subject, html } = correoProfe({
+      tipoCorreo: 'aviso',
+      nombreCorreo: TALLER.nombreCorreo,
+      textoExtra: TALLER.textoCorreo,
+      saludo: 'Ana',
+      firma: 'José Miguel',
+      items: [{ ...item, clase: '3 PRI A', materia: 'Lengua' }],
+    });
+    expect(subject).toBe('Taller de pensamiento computacional con 3 PRI A · martes, 13 de octubre');
+    expect(html).toContain('Tengo previsto un momento de taller de pensamiento computacional:');
+    expect(html).toContain('3 PRI A · Lengua');
+    expect(html).toContain('Gracias por tu colaboración.<br>José Miguel');
   });
 
   it('varios momentos en un solo correo; cambio con el antes tachado; anulación sin el texto extra', () => {

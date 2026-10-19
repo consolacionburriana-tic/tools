@@ -73,7 +73,7 @@ const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: 
   puntualidad: { nombre: `Puntualidad · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   cuaderno: { nombre: `Cuaderno de tutor · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   // Casi siempre sale con `como` (del buzón de quien lo lleva); esto es solo el respaldo.
-  oratorios: { nombre: `Oratorios · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
+  oratorios: { nombre: `Oratorios y talleres · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   // Avisos de los tableros (asignaciones y vencimientos). El `Reply-To` lo pone quien asigna.
   tableros: { nombre: `Tableros · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   general: { nombre: COLEGIO.nombre, email: `no-responder@${DOMINIO}` },
