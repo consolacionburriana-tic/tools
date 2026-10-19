@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle2, Loader2, Sparkles, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, PlugZap, Sparkles, XCircle } from 'lucide-react';
 import { MODELOS_IA, costeIA, type AjustesIA } from '@/lib/ajustes';
 
 /** Lo que cuesta un análisis típico de evaluación (~10.000 tokens de entrada, ~2.000 de salida). */
@@ -11,8 +11,19 @@ function costeTipico(modelo: string): string {
   return c < 0.01 ? 'menos de 1 céntimo' : `unos ${Math.round(c * 100)} céntimos`;
 }
 
-export function AjustesIAForm({ inicial, hayClave }: { inicial: AjustesIA; hayClave: boolean }) {
+export function AjustesIAForm({
+  inicial,
+  hayClave,
+  huella,
+}: {
+  inicial: AjustesIA;
+  hayClave: boolean;
+  /** Últimos 4 caracteres de la clave, para reconocerla sin enseñarla. */
+  huella: string | null;
+}) {
   const [ajustes, setAjustes] = useState(inicial);
+  const [probando, setProbando] = useState(false);
+  const [prueba, setPrueba] = useState<{ ok: boolean; texto: string } | null>(null);
   const [guardado, setGuardado] = useState(inicial);
   const [guardando, setGuardando] = useState(false);
   const cambiado = JSON.stringify(ajustes) !== JSON.stringify(guardado);
@@ -35,6 +46,25 @@ export function AjustesIAForm({ inicial, hayClave }: { inicial: AjustesIA; hayCl
     }
   }
 
+  async function probar() {
+    setProbando(true);
+    setPrueba(null);
+    try {
+      const res = await fetch('/api/ajustes/ia/probar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelo: ajustes.modelo }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
+      setPrueba({ ok: true, texto: `Funciona: ${data.modelo} ha contestado en ${(data.ms / 1000).toFixed(1)} s.` });
+    } catch (e) {
+      setPrueba({ ok: false, texto: e instanceof Error ? e.message : 'No se ha podido probar' });
+    } finally {
+      setProbando(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div
@@ -47,7 +77,9 @@ export function AjustesIAForm({ inicial, hayClave }: { inicial: AjustesIA; hayCl
         {hayClave ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
         <span>
           {hayClave ? (
-            <>La clave de la API de Anthropic está puesta.</>
+            <>
+              La clave de la API de Anthropic está puesta{huella && <> (termina en <code className="text-xs">{huella}</code>)</>}.
+            </>
           ) : (
             <>
               Falta la clave de la API de Anthropic. Es una <b>variable de entorno</b>, <code className="text-xs">ANTHROPIC_API_KEY</code>:
@@ -121,7 +153,29 @@ export function AjustesIAForm({ inicial, hayClave }: { inicial: AjustesIA; hayCl
         />
       </label>
 
-      <div className="flex items-center justify-end gap-3">
+      {prueba && (
+        <p
+          className={`rounded-xl px-3 py-2.5 text-sm ${
+            prueba.ok
+              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
+              : 'bg-rose-50 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300'
+          }`}
+        >
+          {prueba.texto}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={probar}
+          disabled={probando || !hayClave}
+          title={hayClave ? 'Una llamada mínima a Claude con el modelo elegido (cuesta una fracción de céntimo)' : 'Falta la clave'}
+          className="mr-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-violet-700 ring-1 ring-violet-200 hover:bg-violet-50 disabled:opacity-40 dark:text-violet-300 dark:ring-violet-500/30 dark:hover:bg-violet-500/10"
+        >
+          {probando ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />}
+          {probando ? 'Probando…' : 'Probar conexión'}
+        </button>
         {cambiado && <span className="text-xs text-amber-600">Cambios sin guardar</span>}
         <button
           type="button"

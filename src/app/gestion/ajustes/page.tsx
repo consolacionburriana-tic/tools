@@ -5,6 +5,7 @@ import { ChevronLeft, Code2, Cloud, MousePointerClick, Sparkles } from 'lucide-r
 import { getAjustesIA, hayClaveIA } from '@/lib/ajustes-server';
 import { inventarioCentro, inventarioEntorno, type OrigenAjuste } from '@/lib/ajustes-inventario';
 import { AjustesIAForm } from '@/components/ajustes/ia-form';
+import { huellaClaveIA } from '@/lib/evaluaciones-ia-server';
 import { Rotulo } from '@/components/evaluaciones/ui';
 
 // Copia de `PANEL` (ui.tsx es 'use client': sus constantes no se pueden leer desde el servidor).
@@ -80,7 +81,7 @@ export default async function AjustesPage() {
             <Sparkles className="h-3.5 w-3.5" /> Inteligencia artificial (Claude)
           </Rotulo>
           <div className={`${PANEL} p-4`}>
-            <AjustesIAForm inicial={{ activado: ia.activado, modelo: ia.modelo, contexto: ia.contexto }} hayClave={hayClaveIA()} />
+            <AjustesIAForm inicial={{ activado: ia.activado, modelo: ia.modelo, contexto: ia.contexto }} hayClave={hayClaveIA()} huella={huellaClaveIA()} />
             {ia.updatedAt && (
               <p className="mt-3 text-[11px] text-zinc-400">
                 Último cambio: {ia.updatedAt.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}
