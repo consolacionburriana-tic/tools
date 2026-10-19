@@ -41,8 +41,10 @@ Salieron de cuatro tareas de Jose Miguel y David. Lo que quedó decidido por mí
    familiar 2 pasaría a ser el 1), así que no lo toqué sin preguntar.
 5. **Licencias de profesores: tabla aparte (`lic_licencias_profes`), sin censo.** Se pegan
    códigos y se dice de qué profe es cada uno. No cuentan en los recuentos del alumnado ni en
-   los pedidos a editoriales. Un sobrante del almacén todavía no se puede «dar a un profe»
-   de un toque: se copia el código y se pega en la pestaña Profesorado.
+   los pedidos a editoriales. Un sobrante del almacén todavía no se puede «dar a un profe»:
+   la pestaña Profesorado rechaza un código que ya esté en la campaña (también en el
+   almacén), así que hoy hay que borrarlo de sobrantes y pegarlo allí. Si pasa a menudo, un
+   botón «dar a un profe» en el almacén.
 
 ### Horarios y Mi horario: lo que decidí yo (4-oct-2026) — revisar con David
 
