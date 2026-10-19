@@ -132,6 +132,8 @@ export const CELDA_TONO = {
   aviso: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60',
   beca: 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60',
   gris: 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-zinc-700',
+  // A medias: algo contestado y algo no. Más vivo que el gris de «nada», sin la alarma del ámbar.
+  falta: 'bg-zinc-100 text-zinc-700 ring-1 ring-inset ring-zinc-300 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-600 dark:hover:bg-zinc-700',
 } as const;
 export type TonoTabla = keyof typeof CELDA_TONO;
 

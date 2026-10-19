@@ -23,6 +23,29 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Arreglos de octubre (comedor, listas, licencias de profes): lo que decidí yo (19-oct-2026) — revisar con David
+
+Salieron de cuatro tareas de Jose Miguel y David. Lo que quedó decidido por mí:
+
+1. **Comedor y complementarias los marcan secretaría, dirección y TIC**, como la venta de
+   materiales. Los tutores los ven, no los tocan. Si la cocina o la coordinadora de
+   complementarias tienen que marcarlos, habría que darles un permiso aparte.
+2. **Son un sí/no por alumno, sin días de la semana ni histórico.** «Come lunes y miércoles» o
+   «complementarias de inglés pero no de robótica» no caben: si hace falta, son columnas
+   nuevas (o un material, que ya tiene cinco estados).
+3. **Las listas rápidas se descargan como `.xlsx`, no se suben a Google Sheets.** Es lo rápido
+   para un tutor; la versión en Drive con chips y compartida sigue en el cuaderno de tutor.
+4. **Las listas rápidas incluyen a los familiares marcados como fallecidos** si tienen correo,
+   igual que la «Lista en Excel» del cuaderno (`getFamiliares` no los filtra). La ficha sí
+   los esconde. Arreglarlo en `getFamiliares` cambiaría también la lista del cuaderno (el
+   familiar 2 pasaría a ser el 1), así que no lo toqué sin preguntar.
+5. **Licencias de profesores: tabla aparte (`lic_licencias_profes`), sin censo.** Se pegan
+   códigos y se dice de qué profe es cada uno. No cuentan en los recuentos del alumnado ni en
+   los pedidos a editoriales. Un sobrante del almacén todavía no se puede «dar a un profe»:
+   la pestaña Profesorado rechaza un código que ya esté en la campaña (también en el
+   almacén), así que hoy hay que borrarlo de sobrantes y pegarlo allí. Si pasa a menudo, un
+   botón «dar a un profe» en el almacén.
+
 ### Horarios y Mi horario: lo que decidí yo (4-oct-2026) — revisar con David
 
 Pedido de David: juntar en una sola celda las clases simultáneas del mismo curso, que en Mi

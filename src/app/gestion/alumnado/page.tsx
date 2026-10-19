@@ -15,6 +15,7 @@ import {
   canAccess,
   puedeGestionarMateriales,
   puedeGestionarParticipantesBanco,
+  puedeGestionarServicios,
   veBecasMateriales,
 } from '@/lib/permissions';
 
@@ -57,6 +58,7 @@ export default async function AlumnadoPage({
         fichaInicial={fichaInicial}
         puedeEditarProteccion={pd.edita}
         puedeParticipacion={canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role)}
+        puedeServicios={puedeGestionarServicios(user.role)}
         materiales={materiales}
         puedeGestionarMateriales={puedeGestionarMateriales(user.role)}
         veBecas={veBecas}

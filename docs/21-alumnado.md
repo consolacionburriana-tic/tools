@@ -160,7 +160,9 @@ exactamente la deuda que documenta
 
     - La general **no es un dato guardado**: se deduce de los cuatro (`generalProteccion`).
       Sí = los cuatro sí; no = los cuatro no; **«parcial»** en ámbar si hay algún no suelto,
-      que es la señal de que hay que desplegar; gris si falta algo por marcar. Un toque la
+      que es la señal de que hay que desplegar; **«3/4»** si no hay ningún no pero falta alguno
+      por contestar (desde el 19-oct-2026; antes salía la rayita, ver Fase 4); y la rayita
+      gris solo con los cuatro en blanco. Un toque la
       pone toda a sí (o toda a no si ya estaba a sí). Guardarla aparte sería tener dos
       verdades que sincronizar, el error de [`06`](./06-fuente-unica-alumnado.md).
     - **Desestimación del correo** (`pd_desestima_correo`): la familia no quiere que el
@@ -206,6 +208,42 @@ exactamente la deuda que documenta
     «pagado») se recortan igual. Cada tabla tiene su botón «Informe», que abre este mismo
     formulario con sus columnas ya puestas.
 
+17. **Comedor y complementarias** (Jose Miguel, 16-oct-2026: «para filtrar y destacada»).
+    Dos sí/no por alumno en `edu_students` (`comedor`, `complementarias`), como `banco_libros`
+    y `ampa`: un dato por alumno, sin histórico y sin módulo propio, que no se copia a ninguna
+    otra tabla. De partida, `false` para todo el mundo.
+
+    - **Las complementarias solo existen en Infantil y Primaria**; el comedor, en todas las
+      etapas (David: «complementarias solo para inf y primaria, secundaria comedor sí»).
+      `aplicaServicio()` lo decide en un sitio: en una fila de la ESO la celda dice «—» y no
+      se toca, la ruta no la escribe aunque se le pida y el informe la deja en blanco (no «no»).
+    - **Destacado** donde se mira: chip naranja «Comedor» y azul «Complementarias» en la
+      ficha —solo si lo tiene; un «no come» en cada ficha sería ruido— e icono en la fila de la
+      lista, junto al del banco.
+    - **Filtrar** en su pestaña, «Comedor y complementarias»: la clase en tabla, un check por
+      alumno, «todos sí / todos no», y unos chips «Todos · Comedor · Complementarias ·
+      Ninguno» con el número al lado, que es la pregunta de verdad («¿cuántos comen hoy en
+      3º B?»). El botón de informe se lleva el filtro puesto, así que **«Lista del comedor»** en
+      PDF es un toque. En los informes a medida son dos columnas más, filtrables.
+    - **Los marcan secretaría, dirección y TIC** (`puedeGestionarServicios`, el mismo criterio
+      que la venta de materiales: es administración). El resto los ve dentro de su alcance.
+
+18. **Listas rápidas en Excel** (Jose Miguel, 16-oct-2026: «que el profesor pueda descargar un
+    excel con el correo del alumno y otro con el correo de los padres»). Ya existía —la «Lista
+    en Excel» del cuaderno de tutor—, pero el cuaderno solo lo tienen secretaría, dirección y
+    TIC, y la deja en Drive. Así que en la pestaña **«Listas e informes»** hay tres botones de
+    un toque para la clase elegida (o todas las que se ven), con el alcance de la pantalla:
+
+    - **Lista de clase**: la del cuaderno, idéntica (`lista-clase.ts`, mismas 18 columnas y
+      títulos, que son contrato de los merges).
+    - **Correos del alumnado**: N · Alumno · Clase · Correo.
+    - **Correos de las familias**: una fila por familiar con correo, sin repetir dirección en
+      la clase (hermanos, padre y madre con el correo compartido).
+
+    Se descarga el `.xlsx` directamente, sin pasar por Drive. El nº de lista es el congelado
+    del cuaderno, pero **leído, no congelado**: descargar una lista no es imprimir el
+    cuaderno, y no le fija el número a nadie (`numerosSinCongelar`).
+
 ---
 
 ## Lo que se enseña, y de dónde sale
@@ -231,6 +269,7 @@ Inventariado contra los **639 alumnos activos** de Neon (10-sep-2026), no contra
 | AMPA (familia socia) | `edu_students.ampa` | 15 |
 | **Protección de datos** (imagen y voz, redes, AMPA, ONG + desestimación del correo) | `edu_students.pd_*` | todos a «sí» de salida (y nadie desestima el correo); los noes se marcan desde la ficha o la tabla |
 | **Venta de materiales** (pagado / no / becado / no aplica) | `mat_materiales` + `mat_estados` | desde el 23-sep-2026 |
+| **Comedor y complementarias** (sí/no; complementarias solo Infantil y Primaria) | `edu_students.comedor` / `.complementarias` | desde el 19-oct-2026, todo a «no» de partida |
 | Puntualidad (retrasos, minutos, justificados, consecuencias) | `pun_records` + `con_consequences` | 0 (curso recién empezado) |
 | Salidas (apuntado, justificante) | `sal_signups` + `sal_trips` | 3 |
 | ABC (nº de informes, último) | `abc_students` + `abc_behavior_reports` | 7 informes, 1 alumno |
@@ -371,7 +410,8 @@ profe sin `edu_teachers.etapa` ni tutoría no ve a nadie, igual que un tutor en 
       las 10 de Secundaria (230 alumnos), abre sin problema a una alumna de 4º ESO A, y la API le
       devuelve 404 con un alumno de Infantil. Un tutor de Primaria alcanza sus 12 clases (275) y
       ninguna de ESO; quien no tiene etapa ni tutoría no ve a nadie
-- [ ] Exportar a Google Sheets la tutoría entera desde aquí (reutilizando `lista-clase.ts`)
+- [x] Exportar la tutoría entera desde aquí reutilizando `lista-clase.ts` (19-oct-2026): como
+      `.xlsx` de descarga directa, no a Google Sheets — ver decisión 18
 - [ ] Foto del alumno, si algún día se saca de Educamos
 - [ ] Lo que salga de usarlo dos semanas
 
@@ -433,6 +473,30 @@ profe sin `edu_teachers.etapa` ni tutoría no ve a nadie, igual que un tutor en 
       que producción ya servía el código sin `pd_firmada` (#68 y #70 fusionados)
 - [ ] Revisar con David las decisiones que tomé yo (`00-desarrollos-futuros.md`): quién marca el
       AMPA, jefatura y las becas, materiales en la ficha individual
+
+### Fase 4 · Arreglos de octubre: comedor, complementarias, listas y protección de datos (19-oct-2026)
+- [x] **Protección de datos: «sí a tres y la cuarta sin contestar» salía con la rayita** de
+      «nada marcado» (Jose Miguel, 13-oct-2026). `generalProteccion` devolvía `null` en cuanto
+      faltaba uno sin ningún no, y `null` era también lo de los cuatro en blanco. Ahora hay un
+      quinto estado, `incompleto`, que en la tabla sale como «3/4» (y en el título qué falta),
+      en el informe como «Falta ONG», y se cuenta aparte en la barra («N sin contestar del
+      todo»): antes los contaba como «con algún no», que tampoco era verdad. Con tests
+- [x] Listas rápidas en Excel (decisión 18): `alumnado-listas.ts` (puro, con tests) y
+      `GET /api/alumnado/lista` con el alcance de la pantalla
+- [x] Comedor y complementarias (decisión 17): columnas en `edu_students`, `aplicaServicio`
+      (con tests), ruta `POST /api/alumnado/servicios`, pestaña con filtros y «Lista del
+      comedor», chips en la ficha, iconos en la lista, interruptores en la ficha para quien
+      pueda y dos columnas más en los informes
+- [x] **`alumnado-servicios.sql` aplicado en Neon** (19-oct-2026): `comedor` y
+      `complementarias` en `edu_students`, a `false` en las 645 fichas activas
+- [x] Probado contra Neon a nivel de consultas (19-oct-2026): `listaAlumnado` carga las 645
+      fichas y 28 clases con las columnas nuevas; `guardarServicios` sobre un alumno de Primaria
+      y uno de ESO pone comedor a los dos y complementarias **solo** al de Primaria (y se
+      deshizo); las tres listas de 1º ESO A salen con 26, 26 y 43 filas, todas con correo.
+      Y el fallo de la rayita era real: **4 alumnos** están «incompletos» (sí a todo menos uno
+      sin contestar), que antes salían con la misma rayita que los 9 que lo tienen todo en blanco
+- [ ] Probar las pantallas con sesión real (marcar comedor en una clase, «Lista del comedor»,
+      bajar las tres listas como tutor y comprobar el alcance)
 
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la

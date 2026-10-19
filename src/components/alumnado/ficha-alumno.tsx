@@ -30,13 +30,16 @@ import {
   Mail,
   MapPin,
   MessageCircle,
+  Palette,
   Phone,
   Users,
+  UtensilsCrossed,
   X,
 } from 'lucide-react';
 import { Copiable, CopiarLista, Dato } from '@/components/alumnado/copiable';
 import { TarjetaProteccion } from '@/components/alumnado/proteccion-datos';
 import {
+  aplicaServicio,
   avisoCumple,
   avisoProteccion,
   colorAvatar,
@@ -166,6 +169,11 @@ export function FichaAlumnoPanel({
           />
         )}
         {ficha.ampa && <Chip tono="violeta" icono={<Heart className="h-3.5 w-3.5" />} texto="AMPA" />}
+        {/* Comedor y complementarias: solo si los tiene. Un «no come» en cada ficha sería ruido. */}
+        {ficha.comedor && <Chip tono="naranja" icono={<UtensilsCrossed className="h-3.5 w-3.5" />} texto="Comedor" />}
+        {ficha.complementarias && (
+          <Chip tono="azul" icono={<Palette className="h-3.5 w-3.5" />} texto="Complementarias" />
+        )}
         {/* El de protección de datos va con los primeros a propósito: es lo que se mira
             antes de publicar una foto, y llegar tarde a ese dato no tiene arreglo. */}
         {ficha.proteccion &&
@@ -240,8 +248,11 @@ export function FichaAlumnoPanel({
         proteccion={ficha.proteccion}
         bancoLibros={ficha.bancoLibros}
         ampa={ficha.ampa}
+        comedor={ficha.comedor}
+        complementarias={aplicaServicio('complementarias', ficha.curso) ? ficha.complementarias : null}
         puedeEditar={ficha.permisos?.proteccion === 'editar'}
         puedeParticipacion={Boolean(ficha.permisos?.participacion)}
+        puedeServicios={Boolean(ficha.permisos?.servicios)}
         onCambio={(cambio) => onActualizar(ficha.id, cambio)}
       />
 
@@ -324,6 +335,7 @@ const TONOS = {
   rojo: 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900',
   violeta: 'bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:ring-violet-900',
   teal: 'bg-teal-50 text-teal-700 ring-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:ring-teal-900',
+  naranja: 'bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:ring-orange-900',
   gris: 'bg-zinc-100 text-zinc-500 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700',
 } as const;
 
