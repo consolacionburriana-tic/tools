@@ -23,6 +23,7 @@ const TEMAS: Record<PerfilCorreo, CorreoTheme> = {
   cuaderno: { label: 'Consolación Burriana · Cuaderno de tutor', accent: '#1d4ed8', accentSoft: '#1b46bd' },
   oratorios: { label: 'Consolación Burriana · Oratorios y talleres', accent: '#2563eb', accentSoft: '#2460df' },
   tableros: { label: 'Consolación Burriana · Tableros', accent: '#2563eb', accentSoft: '#2460df' },
+  nouvinguts: { label: 'Consolación Burriana · Nouvinguts', accent: '#2563eb', accentSoft: '#2460df' },
   general: { label: 'Consolación Burriana', accent: '#52525b', accentSoft: '#48484f' },
 };
 

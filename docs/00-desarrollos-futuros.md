@@ -74,6 +74,32 @@ no estaba dicho y decidí:
 8. **El horario de un profe se pinta con la rejilla de los tramos donde tiene sesiones**, así que
    quien no tenga ninguna clase importada (todo manual) no ve cuadrícula.
 
+### Nouvinguts: lo que decidí yo al construirlo (19-oct-2026) — revisar con David
+
+El resto está cerrado con David en [`28-nouvinguts.md`](./28-nouvinguts.md). Lo que puse yo:
+
+1. **Protección de datos «decidida»** = alguien la ha guardado (`pd_actualizado_at`). Como las
+   altas entran con «sí a todo», si la familia lo firma todo hay que pulsar «Guardar: ya está
+   decidida» en el paso; no se puede deducir de los valores.
+2. **Banco y AMPA**: el sí/no se escribe en su sitio de siempre (`setBanco`, `setAmpa`) y aquí
+   solo se guarda que ya está decidido. Si alguien lo cambia desde Banco de libros o Alumnado, el
+   paso sigue pendiente hasta que se confirme aquí.
+3. **ASM hecho** = ha habido una subida a ASM (FTP o a mano) **después** de su alta y entra en el
+   alcance de esa subida. AUTOASM no guarda alumnos por entrega, así que es la mejor señal que hay.
+4. **Licencias «no pedirá»**: si el alumno está en el alumnado de la campaña vigente, se guarda en
+   Licencias (`manual_completed_at`, deja de salir en «Quién falta»); si no, se queda en Nouvinguts.
+5. **«Cerrar aunque falte algo»**: un enlace pequeño con confirmación, por si un paso no se
+   puede resolver nunca (p. ej. un aviso de ASM que no aplica a ese alumno).
+6. **Apuntar a alguien que ya está en Educamos** (llegó antes de apuntarlo): no se vincula a
+   ciegas, sale con aviso y se elige a mano en el paso «Alta en Educamos».
+7. **Al estrenarlo** no traje ninguna alta: en Proceso → «Traer altas que ya había» se elige la
+   fecha (el 19-oct había 3 altas desde el 15-sep y 6 desde el 1-sep).
+8. **Correos** (pedidos por David el 19-oct; el reparto por defecto es mío): llega uno nuevo →
+   TIC; secretaría ha terminado su parte → TIC; TIC ha terminado → nadie; listo para cerrar →
+   secretaría. Se cambia en Proceso. Solo avisan los cambios hechos desde Nouvinguts, y «traer
+   altas que ya había» no avisa. Idea para más adelante: un resumen semanal de atascados a
+   dirección (necesitaría un cron).
+
 ### Tableros: lo que decidí yo al construirlo (3-oct-2026) — revisar con David
 
 Están todas en «Decisiones cerradas» de [`27-tableros.md`](./27-tableros.md), marcadas 🤖. Las
