@@ -487,11 +487,16 @@ profe sin `edu_teachers.etapa` ni tutoría no ve a nadie, igual que un tutor en 
       (con tests), ruta `POST /api/alumnado/servicios`, pestaña con filtros y «Lista del
       comedor», chips en la ficha, iconos en la lista, interruptores en la ficha para quien
       pueda y dos columnas más en los informes
-- [~] **Aplicar `src/db/sql/alumnado-servicios.sql` en Neon** — sin `DATABASE_URL` en esta
-      sesión. **Hasta que se aplique, `/gestion/alumnado` no carga** (el listado ya pide las
-      dos columnas): aplicarlo antes de desplegar
-- [ ] Probarlo contra la app con datos reales (marcar comedor en una clase, «Lista del
-      comedor», bajar las tres listas como tutor y comprobar el alcance)
+- [x] **`alumnado-servicios.sql` aplicado en Neon** (19-oct-2026): `comedor` y
+      `complementarias` en `edu_students`, a `false` en las 645 fichas activas
+- [x] Probado contra Neon a nivel de consultas (19-oct-2026): `listaAlumnado` carga las 645
+      fichas y 28 clases con las columnas nuevas; `guardarServicios` sobre un alumno de Primaria
+      y uno de ESO pone comedor a los dos y complementarias **solo** al de Primaria (y se
+      deshizo); las tres listas de 1º ESO A salen con 26, 26 y 43 filas, todas con correo.
+      Y el fallo de la rayita era real: **4 alumnos** están «incompletos» (sí a todo menos uno
+      sin contestar), que antes salían con la misma rayita que los 9 que lo tienen todo en blanco
+- [ ] Probar las pantallas con sesión real (marcar comedor en una clase, «Lista del comedor»,
+      bajar las tres listas como tutor y comprobar el alcance)
 
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la

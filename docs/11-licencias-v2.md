@@ -659,9 +659,11 @@ profesor, asigno a este. Esto se usa MUY MUY poco, mucho menos que alumnos».
 - [x] Pestaña «Profesorado»: pegar y repartir, lista con profe reasignable, código copiable de un
       toque, estado, enviar/reenviar y quitar
 - [x] `pnpm test`, `pnpm lint`, `pnpm typecheck` y `pnpm build` en verde
-- [~] **Aplicar `licencias-profes.sql` en Neon** (`pnpm db:sql --pendientes`): no había
-      `DATABASE_URL` en la sesión. Hasta entonces la pestaña da error al cargar
-- [ ] Probarla de verdad contra Neon: anotar dos códigos, repartirlos y mandarse uno a `david@`
+- [x] **`licencias-profes.sql` aplicado en Neon** (19-oct-2026, `pnpm db:sql --pendientes`)
+- [x] Las consultas, probadas contra Neon (19-oct-2026): con la campaña 2026/27 y los 54 profes
+      activos, guardar un código de prueba con profe, rechazar el mismo código al repetirlo
+      («ya está anotado a…»), listarlo con su profe y borrarlo; no quedó nada de la prueba
+- [ ] Probar la pantalla con sesión real: anotar dos códigos, repartirlos y mandarse uno a `david@`
 
 ## Fase 4 · Enganche a la BBDD central Educamos (= hito 3 del roadmap)
 
