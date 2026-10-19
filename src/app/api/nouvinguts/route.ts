@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { altaSchema } from '@/lib/nouvinguts';
-import { apuntarNouvingut, listaNouvinguts } from '@/lib/nouvinguts-server';
+import { apuntarNouvingut, avisarAltas, listaNouvinguts } from '@/lib/nouvinguts-server';
 import { fallo, firma, isGuardResponse, leer, requireModule } from './respuesta';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +24,10 @@ export async function POST(request: Request) {
   const alta = await leer(request, altaSchema);
   if (alta instanceof NextResponse) return alta;
   try {
-    return NextResponse.json(await apuntarNouvingut(alta, firma(guard)));
+    const creado = await apuntarNouvingut(alta, firma(guard));
+    // «Llega uno nuevo» (a TIC por defecto): sin hacer esperar a quien apunta.
+    after(() => avisarAltas([creado.id], firma(guard)));
+    return NextResponse.json(creado);
   } catch (error) {
     return fallo(error, 'apuntar');
   }

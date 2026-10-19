@@ -18,19 +18,43 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronLeft, GripVertical, Loader2 } from 'lucide-react';
+import { ChevronLeft, GripVertical, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
-import { cursosOfrecidos, RESPONSABLE_LABEL, RESPONSABLES, type PasoProceso, type Responsable } from '@/lib/nouvinguts';
+import {
+  cursosOfrecidos,
+  EVENTO_AVISO,
+  EVENTOS_AVISO,
+  GRUPO_AVISO_LABEL,
+  GRUPOS_AVISO,
+  RESPONSABLE_LABEL,
+  RESPONSABLES,
+  type AvisosNouvinguts,
+  type EventoAviso,
+  type GrupoAviso,
+  type PasoProceso,
+  type Responsable,
+} from '@/lib/nouvinguts';
 import { BORDE_RESPONSABLE, ESTILO_CAMPO, pedir } from './comun';
 
 const CURSOS = cursosOfrecidos();
 
-export function ProcesoNouvinguts({ inicial, diasAtascoInicial }: { inicial: PasoProceso[]; diasAtascoInicial: number }) {
+export function ProcesoNouvinguts({
+  inicial,
+  diasAtascoInicial,
+  avisosInicial,
+  correoConfigurado,
+}: {
+  inicial: PasoProceso[];
+  diasAtascoInicial: number;
+  avisosInicial: AvisosNouvinguts;
+  correoConfigurado: boolean;
+}) {
   const router = useRouter();
   const [pasos, setPasos] = useState(inicial);
   const [diasAtasco, setDiasAtasco] = useState(diasAtascoInicial);
+  const [avisos, setAvisos] = useState(avisosInicial);
   const [sucio, setSucio] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
@@ -64,6 +88,7 @@ export function ProcesoNouvinguts({ inicial, diasAtascoInicial }: { inicial: Pas
         body: JSON.stringify({
           pasos: pasos.map((p) => ({ clave: p.clave, activo: p.activo, responsable: p.responsable, desdeCurso: p.desde })),
           diasAtasco,
+          avisos,
         }),
       });
       haptic.success();
@@ -145,6 +170,14 @@ export function ProcesoNouvinguts({ inicial, diasAtascoInicial }: { inicial: Pas
               «1º ESO» aquí y listo, sin tocar código. El banco de libros sigue los ajustes del centro.
             </p>
           </div>
+          <Avisos
+            avisos={avisos}
+            correoConfigurado={correoConfigurado}
+            onCambiar={(evento, grupos) => {
+              setAvisos((prev) => ({ ...prev, [evento]: grupos }));
+              setSucio(true);
+            }}
+          />
           <TraerAltas />
           <div className="space-y-2 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-5 text-sm dark:border-zinc-700 dark:bg-zinc-900/50">
             <p className="text-[11px] font-semibold tracking-wide text-zinc-500 uppercase">Bajas · más adelante</p>
@@ -238,6 +271,58 @@ function FilaPaso({ paso, n, onCambiar }: { paso: PasoProceso; n: number; onCamb
           )}
         />
       </button>
+    </div>
+  );
+}
+
+function Avisos({
+  avisos,
+  correoConfigurado,
+  onCambiar,
+}: {
+  avisos: AvisosNouvinguts;
+  correoConfigurado: boolean;
+  onCambiar: (evento: EventoAviso, grupos: GrupoAviso[]) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-5 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-zinc-500 uppercase">
+        <Mail className="h-3.5 w-3.5" /> Avisos por correo
+      </p>
+      {!correoConfigurado && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+          El correo no está configurado en este servidor: se guarda, pero no saldrá nada.
+        </p>
+      )}
+      {EVENTOS_AVISO.map((e) => (
+        <div key={e} className="space-y-1.5 border-t border-zinc-100 pt-3 first:border-t-0 first:pt-0 dark:border-zinc-800">
+          <p className="font-medium text-zinc-900 dark:text-zinc-100">{EVENTO_AVISO[e].titulo}</p>
+          <p className="text-xs text-zinc-500">{EVENTO_AVISO[e].detalle}</p>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label={`A quién avisar: ${EVENTO_AVISO[e].titulo}`}>
+            {GRUPOS_AVISO.map((g) => {
+              const on = avisos[e].includes(g);
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onCambiar(e, on ? avisos[e].filter((x) => x !== g) : GRUPOS_AVISO.filter((x) => x === g || avisos[e].includes(x)))}
+                  className={cn(
+                    'h-8 cursor-pointer rounded-full border px-3 text-xs',
+                    on
+                      ? 'border-blue-600 bg-blue-600 font-medium text-white'
+                      : 'border-zinc-300 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400',
+                  )}
+                >
+                  {GRUPO_AVISO_LABEL[g]}
+                </button>
+              );
+            })}
+            {avisos[e].length === 0 && <span className="self-center text-xs text-zinc-400">No avisa a nadie</span>}
+          </div>
+        </div>
+      ))}
+      <p className="text-xs text-zinc-500">Va a las personas con ese rol en Usuarios (TIC incluye SuperTIC), nunca a quien lo provoca.</p>
     </div>
   );
 }

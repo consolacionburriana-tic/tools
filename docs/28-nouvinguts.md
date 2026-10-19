@@ -72,6 +72,25 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
     datos, participantes del banco, materiales: secretaría, dirección y TIC).
 11. **Bajas**: prediseñadas con el mismo motor (devolver lote, recoger iPad, sacar de ASM,
     licencias, suspender correo, baja en Educamos), sin construir todavía.
+12. **Correos** (David, 19-oct-2026):
+    - **Automáticos, configurables en Proceso** (SuperTIC/TIC): cada evento va a los grupos que
+      se marquen —Dirección, Secretaría, TIC (TIC incluye SuperTIC)—, que son las personas
+      activas con ese rol en Usuarios, nunca a quien lo provoca. Por defecto:
+
+      | Evento | Por defecto a |
+      |---|---|
+      | Llega uno nuevo (apuntado a mano, o un correo con la lista por sincronización) | TIC |
+      | Secretaría ha terminado su parte (y a TIC aún le queda) | TIC |
+      | TIC ha terminado su parte (y a secretaría aún le queda) | nadie |
+      | Listo para cerrar | Secretaría |
+
+      Solo avisan las transiciones hechas desde Nouvinguts (al tocar un paso aquí). Lo que se
+      resuelve solo en otro módulo (un pedido de licencias, una subida a ASM) no dispara correo.
+      «Traer altas que ya había» tampoco avisa, para no mandar un correo por cada alta antigua.
+    - **Nota con correo**: cualquier nota (de un paso o general) se puede mandar también por
+      correo a Dirección, Secretaría, TIC y/o correos sueltos del colegio. Sale **desde el buzón
+      de quien la escribe** (como Oratorios), así que las respuestas le llegan a él, y en la
+      nota queda «enviada a …».
 
 ## Plan técnico
 
@@ -115,6 +134,12 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
 - [x] Proceso: arrastrar para ordenar, responsable, «desde», activo y días de atasco (SuperTIC/TIC)
 - [~] Traer las altas ya hechas desde una fecha (para estrenarlo) (falta que David elija la fecha y las traiga)
 - [x] Módulos `nouvinguts` / `nouvinguts-proceso` en la matriz de roles y tarjeta en el escritorio
+
+### Fase 2 · correos (19-oct-2026)
+- [x] Perfil de correo `nouvinguts` y plantillas (`src/lib/nouvinguts-email.ts`, con tests)
+- [x] Avisos automáticos configurables en Proceso: llega uno nuevo, secretaría/TIC ha terminado su parte, listo para cerrar (destinatarios y transiciones probados contra Neon sin mandar nada)
+- [x] Nota con «mandar también por correo» a grupos y correos del colegio, desde el buzón de quien la escribe; `nou_notas.enviada_a` aplicado en Neon (`nouvinguts-correos.sql`)
+- [~] Primer correo real de cada tipo (no se mandó ninguno en las pruebas: el entorno tiene credenciales reales)
 
 ### Más adelante
 - [ ] Crear el correo de Google desde el paso (cuando exista el módulo de correos)

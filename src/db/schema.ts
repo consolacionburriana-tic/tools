@@ -2385,6 +2385,8 @@ export const nouNotas = pgTable('nou_notas', {
   texto: text('texto').notNull(),
   autorEmail: text('autor_email'),
   autorNombre: text('autor_nombre'),
+  // Si se mandó también por correo: a quién («Secretaría, TIC, a.gil@…»). Null = solo nota.
+  enviadaA: text('enviada_a'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('nou_notas_nouvingut_idx').on(t.nouvingutId),

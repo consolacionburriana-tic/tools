@@ -163,7 +163,7 @@ src/components/<modulo>/          # componentes propios del módulo
   son `src/lib/email-gmail.ts` (API de Gmail, cuenta de servicio con delegación de dominio) y
   el bloque Resend de `email.ts`. Se elige por env (`EMAIL_TRANSPORTE[_<PERFIL>]`), sin deploy.
 - **Perfiles de remitente** (`PerfilCorreo`: `licencias`, `salidas`, `abc`, `evaluaciones`,
-  `puntualidad`, `cuaderno`, `oratorios`, `tableros`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
+  `puntualidad`, `cuaderno`, `oratorios`, `tableros`, `nouvinguts`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
   `licencias@consolacionburriana.com` (centralizado, buzón real); el resto sale del buzón
   genérico y **el `Reply-To` lo pone quien envía** (`guard.email` del tutor/gestor en los
   routes de recordatorio y de evaluaciones), para que las familias no contesten al vacío.

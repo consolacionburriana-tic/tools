@@ -94,8 +94,11 @@ El resto está cerrado con David en [`28-nouvinguts.md`](./28-nouvinguts.md). Lo
    ciegas, sale con aviso y se elige a mano en el paso «Alta en Educamos».
 7. **Al estrenarlo** no traje ninguna alta: en Proceso → «Traer altas que ya había» se elige la
    fecha (el 19-oct había 3 altas desde el 15-sep y 6 desde el 1-sep).
-8. **Sin correos todavía**: no avisa a TIC cuando secretaría termina su parte. Si hace falta, es
-   un aviso por correo al quedar a cero los pendientes de un responsable.
+8. **Correos** (pedidos por David el 19-oct; el reparto por defecto es mío): llega uno nuevo →
+   TIC; secretaría ha terminado su parte → TIC; TIC ha terminado → nadie; listo para cerrar →
+   secretaría. Se cambia en Proceso. Solo avisan los cambios hechos desde Nouvinguts, y «traer
+   altas que ya había» no avisa. Idea para más adelante: un resumen semanal de atascados a
+   dirección (necesitaría un cron).
 
 ### Tableros: lo que decidí yo al construirlo (3-oct-2026) — revisar con David
 

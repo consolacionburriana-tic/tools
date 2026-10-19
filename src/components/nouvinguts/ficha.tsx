@@ -6,12 +6,18 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, ChevronDown, ChevronLeft, Loader2, MessageSquare, Search, Trash2 } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronLeft, Loader2, Mail, MessageSquare, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
+import { COLEGIO } from '@/lib/colegio';
+import { CONFIGURACION } from '@/lib/configuracion';
 import {
+  correosSueltos,
   cursosOfrecidos,
+  GRUPO_AVISO_LABEL,
+  GRUPOS_AVISO,
+  type GrupoAviso,
   etiquetaCurso,
   RESPONSABLE_LABEL,
   type AccionPaso,
@@ -182,7 +188,7 @@ export function FichaNouvinguts({ inicial, puede }: { inicial: FichaNouvingut; p
             {ficha.estado === 'cerrado' ? (
               <div className="space-y-2">
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Cerrado {ficha.cerradoAt ? `el ${new Date(ficha.cerradoAt).toLocaleDateString('es-ES')}` : ''}
+                  Cerrado {ficha.cerradoAt ? `el ${new Date(ficha.cerradoAt).toLocaleDateString('es-ES', { timeZone: CONFIGURACION.calendario.zonaHoraria })}` : ''}
                   {ficha.cerradoPor ? ` por ${ficha.cerradoPor}` : ''}.
                 </p>
                 <button
@@ -232,7 +238,7 @@ export function FichaNouvinguts({ inicial, puede }: { inicial: FichaNouvingut; p
               <Dato k="Clase" v={ficha.clase} />
               <Dato k="NIA" v={ficha.nia ?? '—'} />
               <Dato k="Tutor/a" v={ficha.tutor ?? '—'} />
-              <Dato k="Matrícula" v={new Date(`${ficha.fechaMatricula}T12:00:00`).toLocaleDateString('es-ES')} />
+              <Dato k="Matrícula" v={ficha.fechaMatricula.split('-').reverse().join('/')} />
             </dl>
             {ficha.eduStudentId && (
               <Link
@@ -620,7 +626,7 @@ function EsperandoEducamos({ ctx }: { ctx: Ctx }) {
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{c.nombre}</span>
                 <span className="text-xs text-zinc-500">
-                  {c.clase} · alta en la BBDD el {new Date(c.alta).toLocaleDateString('es-ES')}
+                  {c.clase} · alta en la BBDD el {new Date(c.alta).toLocaleDateString('es-ES', { timeZone: CONFIGURACION.calendario.zonaHoraria })}
                 </span>
               </span>
               <Boton variante="primario" ocupado={vinculando === c.id} onClick={() => vincular(c)}>
@@ -669,15 +675,40 @@ function EsperandoEducamos({ ctx }: { ctx: Ctx }) {
 function Notas({ paso, notas, ctx }: { paso: ClavePaso | null; notas: NotaVista[]; ctx: Ctx }) {
   const [texto, setTexto] = useState('');
   const [guardando, setGuardando] = useState(false);
+  // «Mandar también por correo»: a grupos (por rol) y/o a correos sueltos del colegio.
+  const [porCorreo, setPorCorreo] = useState(false);
+  const [grupos, setGrupos] = useState<GrupoAviso[]>([]);
+  const [otros, setOtros] = useState('');
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
     if (!texto.trim()) return;
+    let correo: { grupos: GrupoAviso[]; otros: string[] } | undefined;
+    if (porCorreo) {
+      const { validos, malos } = correosSueltos(otros, COLEGIO.dominio);
+      if (malos.length) {
+        haptic.warning();
+        toast.error(`Solo correos del colegio (@${COLEGIO.dominio}): ${malos.join(', ')}`);
+        return;
+      }
+      if (grupos.length + validos.length === 0) {
+        haptic.warning();
+        toast.error('Elige a quién mandarla');
+        return;
+      }
+      correo = { grupos, otros: validos };
+    }
     setGuardando(true);
     try {
-      ctx.setFicha(await pedirFicha(`/api/nouvinguts/${ctx.ficha.id}/notas`, 'POST', { paso, texto }));
+      ctx.setFicha(await pedirFicha(`/api/nouvinguts/${ctx.ficha.id}/notas`, 'POST', { paso, texto, correo }));
       setTexto('');
       haptic.success();
+      if (correo) {
+        toast.success('Nota guardada y enviada por correo');
+        setPorCorreo(false);
+        setGrupos([]);
+        setOtros('');
+      }
     } catch (err) {
       haptic.warning();
       toast.error(err instanceof Error ? err.message : 'No se ha podido guardar la nota');
@@ -691,26 +722,87 @@ function Notas({ paso, notas, ctx }: { paso: ClavePaso | null; notas: NotaVista[
       {notas.map((n) => (
         <div key={n.id} className="rounded-lg border border-zinc-100 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
           <p className="whitespace-pre-line text-zinc-800 dark:text-zinc-200">{n.texto}</p>
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-500">
             {n.autor} · {fechaHora(n.at)}
+            {n.enviadaA && (
+              <span className="inline-flex items-center gap-1 text-blue-700 dark:text-blue-400">
+                · <Mail className="h-3 w-3" /> enviada a {n.enviadaA}
+              </span>
+            )}
           </p>
         </div>
       ))}
-      <form onSubmit={guardar} className="flex flex-wrap gap-2">
-        <input
-          className={cn(ESTILO_CAMPO, 'flex-[1_1_14rem]')}
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          placeholder={paso ? 'Apunta algo de este paso…' : 'Algo que hay que saber de este alumno…'}
-          aria-label="Nota"
-        />
-        <button
-          type="submit"
-          disabled={guardando || !texto.trim()}
-          className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          {guardando && <Loader2 className="h-4 w-4 animate-spin" />} Guardar nota
-        </button>
+      <form onSubmit={guardar} className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <input
+            className={cn(ESTILO_CAMPO, 'flex-[1_1_14rem]')}
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder={paso ? 'Apunta algo de este paso…' : 'Algo que hay que saber de este alumno…'}
+            aria-label="Nota"
+          />
+          <button
+            type="button"
+            aria-pressed={porCorreo}
+            onClick={() => setPorCorreo((v) => !v)}
+            title="Mandar también por correo"
+            aria-label="Mandar también por correo"
+            className={cn(
+              'flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border',
+              porCorreo
+                ? 'border-blue-600 bg-blue-600 text-white'
+                : 'border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
+            )}
+          >
+            <Mail className="h-4 w-4" />
+          </button>
+          <button
+            type="submit"
+            disabled={guardando || !texto.trim()}
+            className={cn(
+              'inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-medium disabled:opacity-50',
+              porCorreo
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900',
+            )}
+          >
+            {guardando && <Loader2 className="h-4 w-4 animate-spin" />} {porCorreo ? 'Guardar y mandar' : 'Guardar nota'}
+          </button>
+        </div>
+        {porCorreo && (
+          <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-500/30 dark:bg-blue-500/10">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Mandar a</span>
+              {GRUPOS_AVISO.map((g) => {
+                const on = grupos.includes(g);
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setGrupos((prev) => (on ? prev.filter((x) => x !== g) : [...prev, g]))}
+                    className={cn(
+                      'h-8 cursor-pointer rounded-full border px-3 text-sm',
+                      on
+                        ? 'border-blue-600 bg-blue-600 font-medium text-white'
+                        : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
+                    )}
+                  >
+                    {GRUPO_AVISO_LABEL[g]}
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              className={cn(ESTILO_CAMPO, 'h-10 text-sm')}
+              value={otros}
+              onChange={(e) => setOtros(e.target.value)}
+              placeholder={`y/o correos del colegio: nombre@${COLEGIO.dominio}`}
+              aria-label="Otros correos"
+            />
+            <p className="text-xs text-zinc-500">Sale desde tu correo: si contestan, te llega a ti.</p>
+          </div>
+        )}
       </form>
     </div>
   );
@@ -719,7 +811,8 @@ function Notas({ paso, notas, ctx }: { paso: ClavePaso | null; notas: NotaVista[
 // ─── Piezas pequeñas ─────────────────────────────────────────────────────────
 
 function fechaHora(iso: string): string {
-  return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  // Con la zona del colegio: así el servidor (UTC) y el iPad pintan lo mismo y no hay desajuste al hidratar.
+  return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: CONFIGURACION.calendario.zonaHoraria });
 }
 
 function Chip({ children, tono }: { children: React.ReactNode; tono?: 'naranja' | 'verde' }) {

@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { accionPasoSchema } from '@/lib/nouvinguts';
-import { accionPaso } from '@/lib/nouvinguts-server';
+import { accionPaso, avisarCambio } from '@/lib/nouvinguts-server';
 import { puedeEditarProteccionDatos, puedeGestionarMateriales, puedeGestionarParticipantesBanco } from '@/lib/permissions';
 import { conFicha, fallo, firma, idValido, isGuardResponse, leer, requireModule } from '../../respuesta';
 
@@ -18,11 +18,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const accion = await leer(request, accionPasoSchema);
   if (accion instanceof NextResponse) return accion;
   try {
-    await accionPaso(id, accion, firma(guard), {
+    const { antes } = await accionPaso(id, accion, firma(guard), {
       proteccion: puedeEditarProteccionDatos(guard.role),
       participantes: puedeGestionarParticipantesBanco(guard.role),
       materiales: puedeGestionarMateriales(guard.role),
     });
+    // Si con esto ha terminado una parte (secretaría o TIC) o ya está listo, avisa a quien toque.
+    after(() => avisarCambio(id, antes, firma(guard)));
     return await conFicha(id, guard);
   } catch (error) {
     return fallo(error, `paso ${accion.paso}`);

@@ -388,15 +388,18 @@ export async function aplicarSync(input: {
   let nouvinguts: AplicarResultado['resumen']['nouvinguts'] = null;
   if (plan.altas.length) {
     try {
-      const { registrarAltas } = await import('@/lib/nouvinguts-server');
+      const { avisarAltas, registrarAltas } = await import('@/lib/nouvinguts-server');
       const { hoyISO } = await import('@/lib/tableros');
       const hoy = hoyISO(ahora);
-      nouvinguts = await registrarAltas(
+      const { nuevosIds = [], ...cuenta } = await registrarAltas(
         plan.altas.flatMap((a) => {
           const id = filaToStudentId.get(a.fila);
           return id ? [{ id, nombre: a.row.nombre, apellido1: a.row.apellido1, apellido2: a.row.apellido2, curso: a.row.curso, fecha: hoy }] : [];
         }),
       );
+      nouvinguts = cuenta;
+      // «Llegan nuevos»: un solo correo con la lista (a TIC por defecto). No lanza.
+      await avisarAltas(nuevosIds, null);
     } catch (error) {
       console.error('Nouvinguts tras el sync:', error instanceof Error ? error.message : error);
       errores.push('Las altas no han entrado en Nouvinguts: tráelas desde Nouvinguts → Proceso');

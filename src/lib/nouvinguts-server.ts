@@ -10,6 +10,7 @@ import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from '@/db';
 import {
   asmEntregas,
+  authUsers,
   cfgAjustes,
   eduStudents,
   licCampaigns,
@@ -31,9 +32,18 @@ import { setAmpa, setBanco } from '@/lib/bancolibros-server';
 import { guardarEstadosMaterial } from '@/lib/materiales-server';
 import { setStudentManualCompleted } from '@/lib/licencias-server';
 import { hoyISO } from '@/lib/tableros';
+import { appBaseUrl } from '@/lib/constants';
+import { COLEGIO } from '@/lib/colegio';
+import { emailConfigurado, enviar } from '@/lib/email';
+import { correoAlta, correoListo, correoNota, correoParteTerminada, type AlumnoCorreo } from '@/lib/nouvinguts-email';
 import {
   claveNombre,
   diasDesde,
+  eventosDeCambio,
+  GRUPO_AVISO_LABEL,
+  ROLES_DE_GRUPO,
+  type EventoAviso,
+  type GrupoAviso,
   emparejarAltas,
   esInicioDeCurso,
   etiquetaCurso,
@@ -81,6 +91,8 @@ export interface NotaVista {
   paso: ClavePaso | null;
   texto: string;
   autor: string | null;
+  /** «Secretaría, TIC»: también se mandó por correo. */
+  enviadaA: string | null;
   at: string;
 }
 
@@ -117,10 +129,10 @@ function clase(curso: string | null, letra: string | null): string {
 
 // ─── Lectura ──────────────────────────────────────────────────────────────────
 
-type Filtro = { estado: 'abierto' | 'cerrado' } | { id: string };
+type Filtro = { estado: 'abierto' | 'cerrado' } | { id: string } | { ids: string[] };
 
 async function cargar(filtro: Filtro, veBecas: boolean) {
-  const cond = 'id' in filtro ? eq(nouAlumnos.id, filtro.id) : eq(nouAlumnos.estado, filtro.estado);
+  const cond = 'id' in filtro ? eq(nouAlumnos.id, filtro.id) : 'ids' in filtro ? inArray(nouAlumnos.id, filtro.ids) : eq(nouAlumnos.estado, filtro.estado);
   const ids = db.select({ id: nouAlumnos.id }).from(nouAlumnos).where(cond);
   const eduIds = db
     .select({ id: nouAlumnos.eduStudentId })
@@ -320,6 +332,7 @@ export async function fichaNouvingut(id: string, role: string | null): Promise<F
       paso: (n.paso as ClavePaso | null) ?? null,
       texto: n.texto,
       autor: n.autorNombre ?? n.autorEmail,
+      enviadaA: n.enviadaA,
       at: n.createdAt.toISOString(),
     })),
   };
@@ -451,6 +464,8 @@ export async function apuntarNouvingut(alta: AltaNouvingut, firma: Firma): Promi
 }
 
 export interface ResultadoAltas {
+  /** Los nouvinguts que se acaban de crear, para avisar de ellos. */
+  nuevosIds?: string[];
   nuevos: number;
   vinculados: number;
   dudosos: number;
@@ -464,7 +479,7 @@ export interface ResultadoAltas {
  * del arranque de curso. Una alta que ya tenga nouvingut no se toca.
  */
 export async function registrarAltas(altas: (AltaEducamos & { fecha: string })[]): Promise<ResultadoAltas> {
-  const resultado: ResultadoAltas = { nuevos: 0, vinculados: 0, dudosos: 0, inicioCurso: 0 };
+  const resultado: ResultadoAltas = { nuevosIds: [], nuevos: 0, vinculados: 0, dudosos: 0, inicioCurso: 0 };
   if (altas.length === 0) return resultado;
   const [apuntados, yaDentro] = await Promise.all([
     db
@@ -502,12 +517,14 @@ export async function registrarAltas(altas: (AltaEducamos & { fecha: string })[]
       resultado.inicioCurso++;
       continue;
     }
+    const nuevoId = crypto.randomUUID();
     statements.push(
       db
         .insert(nouAlumnos)
-        .values({ eduStudentId: a.id, fechaMatricula: a.fecha, origen: 'sync', createdBy: 'sync' })
+        .values({ id: nuevoId, eduStudentId: a.id, fechaMatricula: a.fecha, origen: 'sync', createdBy: 'sync' })
         .onConflictDoNothing({ target: nouAlumnos.eduStudentId }),
     );
+    resultado.nuevosIds!.push(nuevoId);
     resultado.nuevos++;
   }
   resultado.vinculados = vinculos.length;
@@ -585,8 +602,24 @@ export interface PermisosPaso {
 }
 
 /** Un paso desde la ficha. Lo que vive en otro módulo se escribe con el código de ese módulo. */
-export async function accionPaso(id: string, accion: AccionPaso, firma: Firma, permisos: PermisosPaso): Promise<void> {
-  const fila = await filaDe(id);
+export async function accionPaso(
+  id: string,
+  accion: AccionPaso,
+  firma: Firma,
+  permisos: PermisosPaso,
+): Promise<{ antes: ResumenPasos | null }> {
+  // Cómo estaba antes, para saber después si ha terminado una parte (y avisar): `avisarCambio`.
+  const [fila, antes] = await Promise.all([filaDe(id), resumenDe(id)]);
+  await escribirPaso(id, fila, accion, firma, permisos);
+  return { antes };
+}
+
+async function resumenDe(id: string): Promise<ResumenPasos | null> {
+  const { vistas } = await cargar({ id }, true);
+  return vistas[0]?.vista.resumen ?? null;
+}
+
+async function escribirPaso(id: string, fila: NouAlumno, accion: AccionPaso, firma: Firma, permisos: PermisosPaso): Promise<void> {
   switch (accion.paso) {
     case 'claves':
     case 'foto':
@@ -650,9 +683,129 @@ export async function accionPaso(id: string, accion: AccionPaso, firma: Firma, p
   }
 }
 
-export async function anadirNota(id: string, paso: ClavePaso | null, texto: string, firma: Firma): Promise<void> {
+export interface CorreoNota {
+  grupos: GrupoAviso[];
+  otros: string[];
+}
+
+/**
+ * Una nota en un paso (o general). Con `correo`, además sale por correo desde el buzón de quien
+ * la escribe (`mandarNota`, que lanza el route con `after()`): aquí solo se guarda a quién.
+ */
+export async function anadirNota(
+  id: string,
+  paso: ClavePaso | null,
+  texto: string,
+  firma: Firma,
+  correo?: CorreoNota,
+): Promise<{ notaId: string; enviadaA: string | null }> {
   await filaDe(id);
-  await db.insert(nouNotas).values({ nouvingutId: id, paso, texto, autorEmail: firma.email, autorNombre: firma.nombre });
+  if (correo) {
+    const fuera = correo.otros.filter((c) => !c.endsWith(`@${COLEGIO.dominio}`));
+    if (fuera.length) throw new ErrorNouvinguts(`Solo correos del colegio (@${COLEGIO.dominio}): ${fuera.join(', ')}`);
+    if (!emailConfigurado()) throw new ErrorNouvinguts('El correo no está configurado en este servidor', 503);
+  }
+  const enviadaA = correo ? [...correo.grupos.map((g) => GRUPO_AVISO_LABEL[g]), ...correo.otros].join(', ') : null;
+  const notaId = crypto.randomUUID();
+  await db.insert(nouNotas).values({ id: notaId, nouvingutId: id, paso, texto, autorEmail: firma.email, autorNombre: firma.nombre, enviadaA });
+  return { notaId, enviadaA };
+}
+
+// ─── Correos ──────────────────────────────────────────────────────────────────
+
+export function urlNouvingut(id: string): string {
+  return `${appBaseUrl()}/gestion/nouvinguts/${id}`;
+}
+
+/** Correos de las personas activas de esos grupos (por rol), sin repetir y sin `menos`. */
+export async function correosDeGrupos(grupos: readonly GrupoAviso[], menos: string[] = []): Promise<string[]> {
+  const roles = [...new Set(grupos.flatMap((g) => ROLES_DE_GRUPO[g]))];
+  if (roles.length === 0) return [];
+  const filas = await db
+    .select({ email: authUsers.email })
+    .from(authUsers)
+    .where(and(eq(authUsers.active, true), inArray(authUsers.role, roles)));
+  const fuera = new Set(menos.map((m) => m.toLowerCase()));
+  return [...new Set(filas.map((f) => f.email.toLowerCase()))].filter((e) => !fuera.has(e));
+}
+
+async function ajustesActuales(): Promise<AjustesNouvinguts> {
+  const [fila] = await db.select({ valor: cfgAjustes.valor }).from(cfgAjustes).where(eq(cfgAjustes.clave, AJUSTES_CLAVE));
+  return leerAjustesNouvinguts(fila?.valor);
+}
+
+/** Destinatarios de un evento según los ajustes de Proceso (vacío = ese aviso está apagado). */
+async function destinatariosDe(evento: EventoAviso, menos: string[]): Promise<string[]> {
+  if (!emailConfigurado()) return [];
+  const ajustes = await ajustesActuales();
+  return correosDeGrupos(ajustes.avisos[evento], menos);
+}
+
+function alumnoCorreo(v: NouvingutVista, origen?: string): AlumnoCorreo {
+  return { nombre: v.nombre, clase: v.clase, url: urlNouvingut(v.id), origen };
+}
+
+/**
+ * «Llega uno nuevo»: un correo por apuntado a mano, o uno con la lista entera por
+ * sincronización. Nunca lanza: si el correo falla, el alta ya está guardada.
+ */
+export async function avisarAltas(ids: string[], quien: Firma | null): Promise<void> {
+  try {
+    if (ids.length === 0) return;
+    const para = await destinatariosDe('alta', quien ? [quien.email] : []);
+    if (para.length === 0) return;
+    const { vistas } = await cargar({ ids }, true);
+    if (vistas.length === 0) return;
+    const origen = quien ? `Apuntado a mano por ${quien.nombre ?? quien.email}` : 'Alta de la sincronización de Educamos';
+    const { subject, html } = correoAlta(
+      vistas.map((v) => alumnoCorreo(v.vista, origen)),
+      `${appBaseUrl()}/gestion/nouvinguts`,
+    );
+    await enviar('nouvinguts', { to: para, subject, html, replyTo: quien?.email });
+  } catch (error) {
+    console.error('Nouvinguts · aviso de alta:', error instanceof Error ? error.message : error);
+  }
+}
+
+/** Tras tocar un paso: si ha terminado una parte o ya está listo, avisa a quien toque. */
+export async function avisarCambio(id: string, antes: ResumenPasos | null, quien: Firma): Promise<void> {
+  try {
+    if (!antes || !emailConfigurado()) return;
+    const { vistas } = await cargar({ id }, true);
+    const v = vistas[0]?.vista;
+    if (!v || v.estado !== 'abierto') return;
+    for (const evento of eventosDeCambio(antes, v.resumen)) {
+      const para = await destinatariosDe(evento, [quien.email]);
+      if (para.length === 0) continue;
+      const a = alumnoCorreo(v);
+      const { subject, html } =
+        evento === 'listo'
+          ? correoListo(a)
+          : correoParteTerminada(
+              a,
+              evento === 'secretaria_terminada' ? 'secretaria' : 'tic',
+              v.pasos.filter((p) => p.estado !== 'hecho' && p.estado !== 'no_aplica'),
+            );
+      await enviar('nouvinguts', { to: para, subject, html, replyTo: quien.email });
+    }
+  } catch (error) {
+    console.error('Nouvinguts · aviso de cambio:', error instanceof Error ? error.message : error);
+  }
+}
+
+/** Manda una nota por correo, desde el buzón de quien la escribe (le contestan a él). */
+export async function mandarNota(id: string, paso: ClavePaso | null, texto: string, correo: CorreoNota, quien: Firma): Promise<void> {
+  try {
+    const [delGrupo, { vistas }] = await Promise.all([correosDeGrupos(correo.grupos, [quien.email]), cargar({ id }, true)]);
+    const para = [...new Set([...delGrupo, ...correo.otros])];
+    const v = vistas[0]?.vista;
+    if (!v || para.length === 0) return;
+    const titulo = paso ? v.pasos.find((p) => p.clave === paso)?.titulo ?? null : null;
+    const { subject, html } = correoNota(alumnoCorreo(v), { texto, paso: titulo, autor: quien.nombre ?? quien.email });
+    await enviar('nouvinguts', { to: para, subject, html, como: { nombre: quien.nombre ?? quien.email, email: quien.email } });
+  } catch (error) {
+    console.error('Nouvinguts · nota por correo:', error instanceof Error ? error.message : error);
+  }
 }
 
 export async function cerrarNouvingut(id: string, cerrar: boolean, firma: Firma): Promise<void> {

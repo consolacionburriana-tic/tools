@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { correoAlta, correoNota, correoParteTerminada } from '@/lib/nouvinguts-email';
 import {
+  AJUSTES_POR_DEFECTO,
+  correosSueltos,
+  eventosDeCambio,
+  notaSchema,
   altaSchema,
   aplicaDesde,
   claveNombre,
@@ -223,15 +228,64 @@ describe('validación y ajustes', () => {
 
   it('el proceso tiene que traer todos los pasos una vez', () => {
     const pasos = CLAVES_PASO.map((clave) => ({ clave, activo: true, responsable: 'tic' as const, desdeCurso: null }));
-    expect(procesoSchema.safeParse({ pasos, diasAtasco: 10 }).success).toBe(true);
-    expect(procesoSchema.safeParse({ pasos: [...pasos.slice(1), pasos[1]], diasAtasco: 10 }).success).toBe(false);
+    const avisos = AJUSTES_POR_DEFECTO.avisos;
+    expect(procesoSchema.safeParse({ pasos, diasAtasco: 10, avisos }).success).toBe(true);
+    expect(procesoSchema.safeParse({ pasos: [...pasos.slice(1), pasos[1]], diasAtasco: 10, avisos }).success).toBe(false);
+    expect(procesoSchema.safeParse({ pasos, diasAtasco: 10, avisos: { ...avisos, alta: ['jefe'] } }).success).toBe(false);
   });
 
   it('días y ajustes', () => {
     expect(diasDesde('2026-10-06', '2026-10-19')).toBe(13);
     expect(diasDesde('2026-10-20', '2026-10-19')).toBe(0);
-    expect(leerAjustesNouvinguts(null)).toEqual({ diasAtasco: 10 });
-    expect(leerAjustesNouvinguts({ diasAtasco: 7 })).toEqual({ diasAtasco: 7 });
-    expect(leerAjustesNouvinguts({ diasAtasco: 'x' })).toEqual({ diasAtasco: 10 });
+    expect(leerAjustesNouvinguts(null)).toEqual(AJUSTES_POR_DEFECTO);
+    expect(leerAjustesNouvinguts({ diasAtasco: 7 }).diasAtasco).toBe(7);
+    expect(leerAjustesNouvinguts({ diasAtasco: 'x' }).diasAtasco).toBe(10);
+  });
+});
+
+describe('avisos por correo', () => {
+  const r = (secretaria: number, tic: number) => ({ listo: secretaria + tic === 0, pendientes: { secretaria, tic } });
+
+  it('por defecto: altas a TIC, secretaría terminada a TIC, listo a secretaría', () => {
+    expect(AJUSTES_POR_DEFECTO.avisos).toEqual({ alta: ['tic'], secretaria_terminada: ['tic'], tic_terminada: [], listo: ['secretaria'] });
+  });
+
+  it('lee los grupos guardados y descarta lo que no es un grupo', () => {
+    const a = leerAjustesNouvinguts({ diasAtasco: 5, avisos: { alta: ['direccion', 'tic', 'jefe'], listo: [] } });
+    expect(a.avisos.alta).toEqual(['direccion', 'tic']);
+    expect(a.avisos.listo).toEqual([]);
+    expect(a.avisos.secretaria_terminada).toEqual(['tic']); // sin guardar: el de por defecto
+  });
+
+  it('solo avisa en las transiciones', () => {
+    expect(eventosDeCambio(r(1, 3), r(0, 3))).toEqual(['secretaria_terminada']);
+    expect(eventosDeCambio(r(2, 1), r(2, 0))).toEqual(['tic_terminada']);
+    expect(eventosDeCambio(r(0, 1), r(0, 0))).toEqual(['listo']);
+    expect(eventosDeCambio(r(1, 1), r(0, 0))).toEqual(['listo']);
+    expect(eventosDeCambio(r(0, 3), r(0, 2))).toEqual([]);
+    expect(eventosDeCambio(r(0, 0), r(0, 0))).toEqual([]);
+  });
+
+  it('correos sueltos: solo del dominio y sin repetir', () => {
+    expect(correosSueltos('A.Gil@cole.test, b@cole.test; a.gil@cole.test', 'cole.test')).toEqual({ validos: ['a.gil@cole.test', 'b@cole.test'], malos: [] });
+    expect(correosSueltos('x@gmail.com nada', 'cole.test').malos).toEqual(['x@gmail.com', 'nada']);
+  });
+
+  it('una nota con correo tiene que llevar a alguien', () => {
+    expect(notaSchema.safeParse({ paso: 'claves', texto: 'hola', correo: { grupos: [], otros: [] } }).success).toBe(false);
+    expect(notaSchema.safeParse({ paso: null, texto: 'hola', correo: { grupos: ['tic'], otros: [] } }).success).toBe(true);
+    expect(notaSchema.safeParse({ paso: null, texto: 'hola' }).success).toBe(true);
+  });
+
+  it('las plantillas escapan y dicen lo justo', () => {
+    const a = { nombre: 'ANA <PÉREZ>', clase: '2º ESO B', url: 'https://x.test/n/1' };
+    const uno = correoAlta([a], 'https://x.test/n');
+    expect(uno.subject).toBe('Nouvingut: ANA <PÉREZ> (2º ESO B)');
+    expect(uno.html).toContain('ANA &lt;PÉREZ&gt;');
+    expect(correoAlta([a, { ...a, nombre: 'LEO' }], 'https://x.test/n').subject).toBe('2 alumnos nuevos en nouvinguts');
+    const parte = correoParteTerminada(a, 'secretaria', [{ titulo: 'iPad' }]);
+    expect(parte.subject).toContain('le toca a TIC');
+    expect(parte.html).toContain('iPad');
+    expect(correoNota(a, { texto: 'línea 1\nlínea 2', paso: 'Foto en Educamos', autor: 'Mª José' }).subject).toBe('Foto en Educamos · ANA <PÉREZ> (nouvinguts)');
   });
 });

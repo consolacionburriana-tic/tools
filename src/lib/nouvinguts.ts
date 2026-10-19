@@ -439,19 +439,102 @@ export function emparejarAltas(apuntados: readonly Apuntado[], altas: readonly A
   return { vinculos, dudosos };
 }
 
+// ─── Avisos por correo ────────────────────────────────────────────────────────
+
+/** A quién se avisa: por rol de la plataforma (TIC incluye SuperTIC). */
+export const GRUPOS_AVISO = ['direccion', 'secretaria', 'tic'] as const;
+export type GrupoAviso = (typeof GRUPOS_AVISO)[number];
+export const GRUPO_AVISO_LABEL: Record<GrupoAviso, string> = { direccion: 'Dirección', secretaria: 'Secretaría', tic: 'TIC' };
+export const ROLES_DE_GRUPO: Record<GrupoAviso, readonly string[]> = {
+  direccion: ['direccion'],
+  secretaria: ['secretaria'],
+  tic: ['tic', 'supertic'],
+};
+
+/** Los momentos en que sale un correo solo, y a quién va por defecto. */
+export const EVENTOS_AVISO = ['alta', 'secretaria_terminada', 'tic_terminada', 'listo'] as const;
+export type EventoAviso = (typeof EVENTOS_AVISO)[number];
+
+export const EVENTO_AVISO: Record<EventoAviso, { titulo: string; detalle: string; defecto: GrupoAviso[] }> = {
+  alta: {
+    titulo: 'Llega uno nuevo',
+    detalle: 'Al apuntarlo a mano o cuando entra con la sincronización de Educamos (un correo por sincronización).',
+    defecto: ['tic'],
+  },
+  secretaria_terminada: {
+    titulo: 'Secretaría ha terminado su parte',
+    detalle: 'Cuando a un alumno ya no le queda nada de secretaría y sí de TIC.',
+    defecto: ['tic'],
+  },
+  tic_terminada: {
+    titulo: 'TIC ha terminado su parte',
+    detalle: 'Cuando a un alumno ya no le queda nada de TIC y sí de secretaría.',
+    defecto: [],
+  },
+  listo: {
+    titulo: 'Listo para cerrar',
+    detalle: 'Cuando a un alumno ya no le queda ningún paso: alguien tiene que cerrar su ciclo.',
+    defecto: ['secretaria'],
+  },
+};
+
+export type AvisosNouvinguts = Record<EventoAviso, GrupoAviso[]>;
+
+/**
+ * Qué eventos han pasado entre dos resúmenes de un mismo alumno (antes y después de tocar un
+ * paso). Solo transiciones: si ya estaba a cero, no se vuelve a avisar.
+ */
+export function eventosDeCambio(
+  antes: Pick<ResumenPasos, 'listo' | 'pendientes'>,
+  despues: Pick<ResumenPasos, 'listo' | 'pendientes'>,
+): EventoAviso[] {
+  if (despues.listo) return antes.listo ? [] : ['listo'];
+  const eventos: EventoAviso[] = [];
+  if (antes.pendientes.secretaria > 0 && despues.pendientes.secretaria === 0) eventos.push('secretaria_terminada');
+  if (antes.pendientes.tic > 0 && despues.pendientes.tic === 0) eventos.push('tic_terminada');
+  return eventos;
+}
+
 // ─── Ajustes ──────────────────────────────────────────────────────────────────
 
 export interface AjustesNouvinguts {
   /** A partir de cuántos días sin terminar sale el día en naranja. */
   diasAtasco: number;
+  /** Correos automáticos: a qué grupos va cada evento (vacío = no sale). */
+  avisos: AvisosNouvinguts;
 }
 
-export const AJUSTES_POR_DEFECTO: AjustesNouvinguts = { diasAtasco: 10 };
+function avisosPorDefecto(): AvisosNouvinguts {
+  return Object.fromEntries(EVENTOS_AVISO.map((e) => [e, [...EVENTO_AVISO[e].defecto]])) as AvisosNouvinguts;
+}
+
+export const AJUSTES_POR_DEFECTO: AjustesNouvinguts = { diasAtasco: 10, avisos: avisosPorDefecto() };
 
 export function leerAjustesNouvinguts(valor: unknown): AjustesNouvinguts {
-  const v = (valor ?? {}) as Partial<AjustesNouvinguts>;
+  const v = (valor ?? {}) as { diasAtasco?: unknown; avisos?: Record<string, unknown> };
   const dias = Number(v.diasAtasco);
-  return { diasAtasco: Number.isInteger(dias) && dias >= 1 && dias <= 365 ? dias : AJUSTES_POR_DEFECTO.diasAtasco };
+  const avisos = avisosPorDefecto();
+  for (const e of EVENTOS_AVISO) {
+    const guardado = v.avisos?.[e];
+    if (Array.isArray(guardado)) avisos[e] = GRUPOS_AVISO.filter((g) => guardado.includes(g));
+  }
+  return { diasAtasco: Number.isInteger(dias) && dias >= 1 && dias <= 365 ? dias : AJUSTES_POR_DEFECTO.diasAtasco, avisos };
+}
+
+/** Correos del dominio sueltos para mandar una nota («a.perez@…, b.gil@…»). */
+export function correosSueltos(texto: string, dominio: string): { validos: string[]; malos: string[] } {
+  const partes = texto
+    .split(/[\s,;]+/)
+    .map((p) => p.trim().toLowerCase())
+    .filter(Boolean);
+  const validos: string[] = [];
+  const malos: string[] = [];
+  for (const p of partes) {
+    if (/^[^@\s]+@[^@\s]+$/.test(p) && p.endsWith(`@${dominio}`)) {
+      if (!validos.includes(p)) validos.push(p);
+    } else malos.push(p);
+  }
+  return { validos, malos };
 }
 
 // ─── Validación (cliente y servidor) ──────────────────────────────────────────
@@ -508,6 +591,14 @@ export type AccionPaso = z.infer<typeof accionPasoSchema>;
 export const notaSchema = z.object({
   paso: z.enum(CLAVES_PASO).nullable(),
   texto: z.string().trim().min(1, 'La nota está vacía').max(2000),
+  /** Mandarla también por correo (desde el buzón de quien la escribe). */
+  correo: z
+    .object({
+      grupos: z.array(z.enum(GRUPOS_AVISO)).max(GRUPOS_AVISO.length),
+      otros: z.array(z.string().trim().toLowerCase().email('Hay un correo que no vale')).max(10),
+    })
+    .refine((c) => c.grupos.length + c.otros.length > 0, 'Elige a quién mandarla')
+    .optional(),
 });
 
 export const procesoSchema = z.object({
@@ -523,6 +614,12 @@ export const procesoSchema = z.object({
     .length(CLAVES_PASO.length)
     .refine((p) => new Set(p.map((x) => x.clave)).size === CLAVES_PASO.length, 'Falta algún paso'),
   diasAtasco: z.number().int().min(1).max(365),
+  avisos: z.object(
+    Object.fromEntries(EVENTOS_AVISO.map((e) => [e, z.array(z.enum(GRUPOS_AVISO)).max(GRUPOS_AVISO.length)])) as Record<
+      EventoAviso,
+      z.ZodArray<z.ZodEnum<{ direccion: 'direccion'; secretaria: 'secretaria'; tic: 'tic' }>>
+    >,
+  ),
 });
 
 export const importarSchema = z.object({ desde: fechaISO, dry: z.boolean().optional() });

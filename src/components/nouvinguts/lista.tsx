@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, ChevronRight, Loader2, SlidersHorizontal, 
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
+import { CONFIGURACION } from '@/lib/configuracion';
 import { RESPONSABLE_LABEL, type PasoProceso, type Responsable } from '@/lib/nouvinguts';
 import type { NouvingutVista } from '@/lib/nouvinguts-server';
 import { AltaNouvingut } from './alta';
@@ -290,7 +291,7 @@ function QueToca({ n }: { n: NouvingutVista }) {
   if (n.estado === 'cerrado') {
     return (
       <span className="text-xs text-zinc-500">
-        {n.cerradoAt ? new Date(n.cerradoAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}
+        {n.cerradoAt ? new Date(n.cerradoAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: CONFIGURACION.calendario.zonaHoraria }) : ''}
         {n.cerradoPor ? ` · ${n.cerradoPor}` : ''}
       </span>
     );
