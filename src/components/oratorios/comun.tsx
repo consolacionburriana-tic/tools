@@ -1,6 +1,6 @@
 'use client';
 
-// Piezas compartidas de Oratorios y Godly Play: llamadas a la API, chips y avisos en
+// Piezas compartidas de Oratorios, Godly Play y Talleres: llamadas a la API, chips y avisos en
 // símbolos. Ficha: docs/26-oratorios.md
 import { cn } from '@/lib/utils';
 import type {

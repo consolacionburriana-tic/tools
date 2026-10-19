@@ -155,7 +155,7 @@ Lo que **no** sale de ahí y se cambia a mano (son marca y ficheros estáticos):
 | Iconos de la PWA (los actuales son el emblema de Consolación) | `scripts/iconos-pwa.py` y `scripts/icono-app.py` (necesitan Pillow) |
 | Nombre del repo en los textos de «Tareas» | `src/lib/tareas.ts` |
 | IDs de Drive de Licencias (plantilla y carpeta de pedidos): se pisan con las variables del §3, pero mejor cámbialos también | `src/lib/licencias-pedidos.ts`, `src/lib/licencias-pedidos-server.ts` |
-| Módulos propios del colegio (*Oratorios y Godly Play*, *AMPA*, *ONG*, banco de libros) | Si no aplican, no se dan permisos al módulo y desaparece del escritorio (§8) |
+| Módulos propios del colegio (*Oratorios, Godly Play y Talleres*, *AMPA*, *ONG*, banco de libros) | Si no aplican, no se dan permisos al módulo y desaparece del escritorio (§8) |
 
 Los tests usan `@consolacionburriana.com` como dato de ejemplo y no dependen de `colegio.ts`:
 tras cambiar, `pnpm lint && pnpm build && pnpm test` deben seguir pasando.

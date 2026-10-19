@@ -247,7 +247,7 @@ export default async function EscritorioPage() {
             <ModuleCard
               href="/gestion/oratorios"
               icon={<HandHeart className="h-6 w-6" />}
-              title="Oratorios y Godly Play"
+              title="Oratorios, Godly Play y Talleres"
               desc={puede('oratorios') ? 'Planificar por clase sin molestar siempre al mismo profe, con Calendar y aviso por correo' : 'Los momentos que te quitan una hora de clase'}
             />
           )}

@@ -88,6 +88,26 @@ que más conviene mirar:
    y «se ha pasado»), y el de asignación al momento. Cada uno los puede apagar.
 5. **El aviso flotante va abajo a la izquierda** y solo sale con lo vencido, de hoy o de mañana.
 
+### Oratorios · Taller de Pensamiento Computacional: lo que decidí yo al construirlo (19-oct-2026) — revisar con David
+
+Jose Miguel Batalla lo propuso (13-oct) como módulo nuevo; David vio que **ya estaba hecho en
+Oratorios** y se resolvió como un tipo más y renombrando el módulo a «Oratorios, Godly Play y
+Talleres». Detalle en [`26-oratorios.md`](./26-oratorios.md) (decisiones 21-26, marcadas 🤖). Lo que
+más conviene mirar:
+
+1. **Cada sesión avisa por su cuenta 7 días antes**, como Oratorio. La nota original hablaba de un
+   correo **antes de empezar el mes** con todas las sesiones; si Jose Miguel lo quiere de verdad, es
+   un resumen mensual por profe (idea en la ficha).
+2. **El tipo nace sin calendario de Google.** Hay que crear el calendario compartido, dar permiso de
+   edición a quien lo lleve y pegar su id en Ajustes → el tipo. Hasta entonces, el correo sale y el
+   evento no.
+3. **Etapas: solo Primaria**, 1 al mes por clase. Para ampliarlo, una casilla en Ajustes.
+4. **No existe «cada N semanas»** (el horario traía «1 sesión cada 6 semanas»).
+
+⚠️ **Primaria sigue sin horarios de clase en Neon** (0 sesiones en las 12 clases; la rejilla sí
+está). El asistente no propone huecos y todo va con ➕ A mano, eligiendo el profe a mano. Mismo
+arreglo que el del PDC y el de infantil: reimportar el `.docx` con `pnpm horarios:importar`.
+
 ### Oratorios · Sesiones del abanico: lo que decidí yo al construirlo (4-oct-2026) — revisar con David
 
 Detalle y razones en [`26-oratorios.md`](./26-oratorios.md) (decisiones 14-20, marcadas 🤖). Las que

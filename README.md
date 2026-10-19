@@ -43,7 +43,7 @@ Cada módulo tiene su ficha en [`docs/`](./docs/) y la tabla de estado real est�
 | **Horarios** y **Mi horario** | Rejillas, horarios de clase/profe/aula y exportar a Google Calendar | `/gestion/horarios` · `/mi-horario` |
 | **Cuaderno de tutor** | Documentos de tutoría generados desde plantillas | `/gestion/cuaderno` |
 | **Números del cole** | Recuentos por clase, curso y etapa con foto mensual | `/gestion/numeros` |
-| **Oratorios y Godly Play** | Planificar momentos en la hora de otro profe, con Calendar y correo | `/gestion/oratorios` |
+| **Oratorios, Godly Play y Talleres** | Planificar momentos en la hora de otro profe, con Calendar y correo | `/gestion/oratorios` |
 | **Calendarios y Classrooms** | Limpieza en bloque de calendarios y clases del dominio | `/gestion/calendarios` |
 | **AUTOASM** | Ficheros CSV de Apple School Manager | `/gestion/autoasm` |
 | **Tareas** | Fallos e ideas de la propia plataforma | `/gestion/tareas` |
