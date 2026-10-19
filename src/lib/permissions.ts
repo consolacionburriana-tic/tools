@@ -33,6 +33,8 @@ export const MODULES = [
   'oratorios-ver',
   'calendarios',
   'tableros',
+  'nouvinguts',
+  'nouvinguts-proceso',
   'ajustes',
 ] as const;
 export type Module = (typeof MODULES)[number];
@@ -61,6 +63,8 @@ export const MODULE_LABELS: Record<Module, string> = {
   'oratorios-ver': 'Oratorios y Godly Play (ver lo mío)',
   calendarios: 'Classrooms y calendarios',
   tableros: 'Tableros (tareas por equipos)',
+  nouvinguts: 'Nouvinguts (alumnado nuevo)',
+  'nouvinguts-proceso': 'Nouvinguts (ordenar los pasos)',
   ajustes: 'Ajustes del colegio',
 };
 
@@ -121,6 +125,7 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'tareas-reportar',
     'oratorios-ver',
     'tableros',
+    'nouvinguts',
   ],
   jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'oratorios-ver', 'tableros'],
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
@@ -128,7 +133,8 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
   // fallitos, no los gestiona (David, 24-sep-2026). Tampoco los calendarios del dominio:
   // borran calendarios de Google de cualquiera, es cosa del administrador de Workspace.
-  secretaria: MODULES.filter((m) => m !== 'tareas' && m !== 'calendarios'),
+  // Y Nouvinguts lo trabaja, pero el orden de sus pasos lo ajustan SuperTIC y TIC (David, 19-oct-2026).
+  secretaria: MODULES.filter((m) => m !== 'tareas' && m !== 'calendarios' && m !== 'nouvinguts-proceso'),
   // Tutor y profe entran en Alumnado, pero solo ven SU ETAPA (entrando en su tutoría si la
   // tienen): `alcanceAlumnado` en alumnado-server.ts. Profe, desde el 28-sep-2026 (David).
   // Números del cole, con el mismo alcance, solo el tutor (docs/24-numeros.md).

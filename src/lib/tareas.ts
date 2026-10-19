@@ -55,7 +55,7 @@ export interface Tarea {
 
 // Los módulos que tiene sentido elegir al apuntar un fallito: todos menos los del propio
 // sistema de tareas y los que son una parte de otro (horarios-profes va con horarios).
-const NO_ELEGIBLES: readonly Module[] = ['tareas', 'tareas-reportar', 'horarios-profes', 'oratorios-ver'];
+const NO_ELEGIBLES: readonly Module[] = ['tareas', 'tareas-reportar', 'horarios-profes', 'oratorios-ver', 'nouvinguts-proceso'];
 export const MODULOS_FALLO: readonly Module[] = MODULES.filter((m) => !NO_ELEGIBLES.includes(m));
 
 export function etiquetaModulo(modulo: string | null | undefined): string {
@@ -105,6 +105,8 @@ const FICHAS: Partial<Record<Module, string>> = {
   calendarios: 'docs/25-calendarios.md',
   oratorios: 'docs/26-oratorios.md',
   tableros: 'docs/27-tableros.md',
+  nouvinguts: 'docs/28-nouvinguts.md',
+  'nouvinguts-proceso': 'docs/28-nouvinguts.md',
 };
 
 export function fichaDeModulo(modulo: string | null | undefined): string | null {

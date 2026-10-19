@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Check,
   ChevronDown,
@@ -149,7 +150,14 @@ export function SyncWizard() {
   const [conflictos, setConflictos] = useState<Record<string, 'bbdd' | 'excel'>>({});
   const [desactivar, setDesactivar] = useState<Set<string>>(new Set());
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set(['altas', 'cambios', 'desaparecidos']));
-  const [resultado, setResultado] = useState<{ altas: number; cambios: number; desactivados: number; conflictosResueltos: number; errores: string[] } | null>(null);
+  const [resultado, setResultado] = useState<{
+    altas: number;
+    cambios: number;
+    desactivados: number;
+    conflictosResueltos: number;
+    errores: string[];
+    nouvinguts?: { nuevos: number; vinculados: number; dudosos: number; inicioCurso: number } | null;
+  } | null>(null);
 
   const toggle = (k: string) =>
     setAbiertos((prev) => {
@@ -456,6 +464,16 @@ export function SyncWizard() {
             {resultado.altas} altas · {resultado.cambios} cambios · {resultado.desactivados} desactivados ·{' '}
             {resultado.conflictosResueltos} conflictos resueltos
           </p>
+          {resultado.nouvinguts && (
+            <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+              Nouvinguts: {resultado.nouvinguts.nuevos} entran nuevos · {resultado.nouvinguts.vinculados} vinculados con lo apuntado a mano
+              {resultado.nouvinguts.dudosos > 0 && ` · ${resultado.nouvinguts.dudosos} para elegir a mano`}
+              {resultado.nouvinguts.inicioCurso > 0 && ` · ${resultado.nouvinguts.inicioCurso} de 3 años de inicio de curso (no entran)`} ·{' '}
+              <Link href="/gestion/nouvinguts" className="font-medium underline underline-offset-2">
+                abrir
+              </Link>
+            </p>
+          )}
           {resultado.errores.length > 0 && (
             <ul className="mt-2 list-inside list-disc text-sm text-amber-700 dark:text-amber-300">
               {resultado.errores.map((e, i) => (

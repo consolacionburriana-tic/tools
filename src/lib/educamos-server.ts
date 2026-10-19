@@ -136,6 +136,8 @@ export interface AplicarResultado {
     tutores: number;
     vinculos: number;
     errores: string[];
+    /** Qué ha pasado con las altas en Nouvinguts (null si no había altas o falló). */
+    nouvinguts?: { nuevos: number; vinculados: number; dudosos: number; inicioCurso: number } | null;
   };
 }
 
@@ -379,7 +381,28 @@ export async function aplicarSync(input: {
   );
 
   await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
-  return { syncRunId, resumen };
+
+  // ── Nouvinguts: toda alta nueva entra en su ciclo (y se vincula con lo apuntado a mano) ──
+  // Después del batch y fuera de él: si fallara, el sync ya está hecho y solo se avisa. Import
+  // dinámico porque nouvinguts-server tira de licencias-server, que importa este fichero.
+  let nouvinguts: AplicarResultado['resumen']['nouvinguts'] = null;
+  if (plan.altas.length) {
+    try {
+      const { registrarAltas } = await import('@/lib/nouvinguts-server');
+      const { hoyISO } = await import('@/lib/tableros');
+      const hoy = hoyISO(ahora);
+      nouvinguts = await registrarAltas(
+        plan.altas.flatMap((a) => {
+          const id = filaToStudentId.get(a.fila);
+          return id ? [{ id, nombre: a.row.nombre, apellido1: a.row.apellido1, apellido2: a.row.apellido2, curso: a.row.curso, fecha: hoy }] : [];
+        }),
+      );
+    } catch (error) {
+      console.error('Nouvinguts tras el sync:', error instanceof Error ? error.message : error);
+      errores.push('Las altas no han entrado en Nouvinguts: tráelas desde Nouvinguts → Proceso');
+    }
+  }
+  return { syncRunId, resumen: { ...resumen, nouvinguts } };
 }
 
 // ─── Profesorado ──────────────────────────────────────────────────────────────

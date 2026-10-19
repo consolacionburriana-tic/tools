@@ -162,3 +162,19 @@ describe('oratorios', () => {
     }
   });
 });
+
+describe('nouvinguts', () => {
+  it('lo trabajan secretaría, dirección y TIC; el resto del claustro no', () => {
+    for (const r of ['secretaria', 'direccion', 'tic', 'supertic'] as const) expect(canAccess({ role: r }, 'nouvinguts')).toBe(true);
+    for (const r of ['profe', 'tutor', 'jefe', 'orientacion', 'evaluaciones', 'comunicacion'] as const) {
+      expect(canAccess({ role: r }, 'nouvinguts')).toBe(false);
+    }
+  });
+
+  it('el orden de los pasos solo lo tocan SuperTIC y TIC', () => {
+    expect(canAccess({ role: 'tic' }, 'nouvinguts-proceso')).toBe(true);
+    expect(canAccess({ role: 'supertic' }, 'nouvinguts-proceso')).toBe(true);
+    expect(canAccess({ role: 'secretaria' }, 'nouvinguts-proceso')).toBe(false);
+    expect(canAccess({ role: 'direccion' }, 'nouvinguts-proceso')).toBe(false);
+  });
+});

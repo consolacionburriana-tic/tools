@@ -2300,3 +2300,74 @@ export const cfgAjustes = pgTable('cfg_ajustes', {
   updatedByEmail: text('updated_by_email'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ─── Nouvinguts (prefijo nou_) ────────────────────────────────────────────────
+// Ficha: docs/28-nouvinguts.md. El ciclo de vida del alumno nuevo: cada uno es una fila con
+// sus pasos (matrícula, claves de Educamos, protección de datos, correo, iPad, ASM…) hasta que
+// alguien cierra su ciclo. NO duplica datos del alumno: lo apuntado a mano antes de que esté
+// en Educamos solo guarda nombre, apellidos, curso y fecha, y en cuanto se vincula todo lo
+// demás se lee de `edu_students` y de cada módulo. Aquí vive solo lo que no está en otro
+// sitio: los pasos marcados a mano, las notas y el cierre.
+export const nouAlumnos = pgTable('nou_alumnos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  // Nulo mientras espera a Educamos (apuntado a mano). Uno por alumno.
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
+  // Lo que se teclea al apuntarlo a mano (MAYÚSCULAS). Vinculado, manda la ficha central.
+  nombre: text('nombre'),
+  apellidos: text('apellidos'),
+  curso: text('curso'), // código de la BBDD central ('6PRI', '1ESO'…)
+  fechaMatricula: date('fecha_matricula').notNull(),
+  origen: text('origen').notNull(), // 'manual' | 'sync'
+  estado: text('estado').notNull().default('abierto'), // 'abierto' | 'cerrado'
+  // Varias altas de Educamos se le parecen y no se ha vinculado solo: hay que elegir a mano.
+  avisoVinculo: text('aviso_vinculo'),
+  cerradoAt: timestamp('cerrado_at'),
+  cerradoPor: text('cerrado_por'),
+  createdBy: text('created_by'), // correo, o 'sync'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('nou_alumnos_edu_uq').on(t.eduStudentId),
+  index('nou_alumnos_estado_idx').on(t.estado),
+]);
+export type NouAlumno = typeof nouAlumnos.$inferSelect;
+
+// Un paso resuelto a mano (claves entregadas, foto, iPad…) o el «ya está decidido» de un dato
+// que vive en otro módulo (banco, AMPA). Sin fila = pendiente.
+export const nouMarcas = pgTable('nou_marcas', {
+  nouvingutId: uuid('nouvingut_id').notNull().references(() => nouAlumnos.id, { onDelete: 'cascade' }),
+  paso: text('paso').notNull(),
+  valor: text('valor').notNull().default('hecho'),
+  por: text('por'),
+  porNombre: text('por_nombre'),
+  at: timestamp('at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('nou_marcas_uq').on(t.nouvingutId, t.paso),
+]);
+export type NouMarca = typeof nouMarcas.$inferSelect;
+
+export const nouNotas = pgTable('nou_notas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nouvingutId: uuid('nouvingut_id').notNull().references(() => nouAlumnos.id, { onDelete: 'cascade' }),
+  paso: text('paso'), // null = general
+  texto: text('texto').notNull(),
+  autorEmail: text('autor_email'),
+  autorNombre: text('autor_nombre'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('nou_notas_nouvingut_idx').on(t.nouvingutId),
+]);
+export type NouNota = typeof nouNotas.$inferSelect;
+
+// El proceso: orden, responsable y «desde» de cada paso. Sin fila = lo de por defecto de
+// `PASOS` (src/lib/nouvinguts.ts), así que un paso nuevo en código entra solo.
+export const nouPasos = pgTable('nou_pasos', {
+  clave: text('clave').primaryKey(),
+  orden: integer('orden').notNull(),
+  activo: boolean('activo').notNull().default(true),
+  responsable: text('responsable').notNull(), // 'secretaria' | 'tic'
+  desdeCurso: text('desde_curso'), // null = todos los cursos
+  updatedBy: text('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+export type NouPaso = typeof nouPasos.$inferSelect;

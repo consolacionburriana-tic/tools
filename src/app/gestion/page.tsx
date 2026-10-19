@@ -25,6 +25,7 @@ import {
   Settings2,
   Users,
   SlidersHorizontal,
+  UserPlus,
 } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -36,6 +37,7 @@ import { getCurrentCampaign } from '@/lib/licencias-server';
 import { getEstadoAutoasm } from '@/lib/autoasm-entregas';
 import { accesoComunActivo } from '@/lib/oratorios-server';
 import { misTarjetas } from '@/lib/tableros-server';
+import { cuentaNouvinguts } from '@/lib/nouvinguts-server';
 import { hoyISO, resumenUrgente, textoResumenUrgente } from '@/lib/tableros';
 import { esTemporadaLicencias } from '@/lib/licencias';
 import {
@@ -63,7 +65,7 @@ export default async function EscritorioPage() {
     puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas') || puede('calendarios') || puede('ajustes');
 
   // Stats solo de los módulos que el rol puede ver
-  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas] = await Promise.all([
+  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas, nouvinguts] = await Promise.all([
     puede('educamos') ? db.select({ n: count() }).from(eduStudents).where(eq(eduStudents.active, true)) : null,
     puede('educamos') ? db.select({ n: count() }).from(eduTeachers).where(eq(eduTeachers.active, true)) : null,
     puede('educamos') ? db.select().from(eduSyncRuns).orderBy(desc(eduSyncRuns.createdAt)).limit(1) : null,
@@ -85,6 +87,8 @@ export default async function EscritorioPage() {
     !puede('oratorios') && puede('oratorios-ver') ? accesoComunActivo().catch(() => false) : false,
     // Tableros: lo que tengo asignado, para decir en la tarjeta si algo se ha pasado de fecha.
     puede('tableros') ? misTarjetas(user.email).catch(() => null) : null,
+    // Nouvinguts: cuántos alumnos nuevos tienen su ciclo abierto.
+    puede('nouvinguts') ? cuentaNouvinguts().catch(() => null) : null,
   ]);
   const urgenteTableros = misTareas ? resumenUrgente(misTareas, hoyISO(ahora)) : null;
   const veOratorios = puede('oratorios') || oratoriosComun;
@@ -179,6 +183,15 @@ export default async function EscritorioPage() {
               icon={<Users className="h-6 w-6" />}
               title="Alumnado"
               desc="La ficha de cada alumno: contacto de la familia, NIA, banco de libros y licencias"
+            />
+          )}
+          {puede('nouvinguts') && (
+            <ModuleCard
+              href="/gestion/nouvinguts"
+              icon={<UserPlus className="h-6 w-6" />}
+              title="Nouvinguts"
+              desc="Alumnado nuevo: matrícula, claves, protección de datos, correo, iPad, ASM y licencias, hasta cerrar su ciclo"
+              badge={nouvinguts ? `${nouvinguts} en curso` : undefined}
             />
           )}
           {puede('numeros') && (
