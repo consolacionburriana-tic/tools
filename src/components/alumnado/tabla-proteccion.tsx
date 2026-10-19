@@ -11,7 +11,9 @@
 //  1. **Protección de datos** — un check general sí / no. No es un dato aparte: se deduce de
 //     los cuatro permisos (`generalProteccion`), y un toque los pone todos a sí o todos a no.
 //     Si la familia ha dicho que no a una sola cosa sale «parcial» en ámbar, que es la señal
-//     de que hay que desplegar.
+//     de que hay que desplegar. Si no hay ningún no pero falta alguno por contestar, sale
+//     «3/4» (cuántos sí): no es la rayita de «nada marcado», que solo se pinta con los cuatro
+//     en blanco (Jose Miguel, 13-oct-2026).
 //  2. **Correo del alumno** — la desestimación del correo electrónico. Lo normal es que no
 //     se desestime (verde); si la familia lo desestima, rojo.
 //
@@ -23,7 +25,9 @@ import { Check, ChevronLeft, ChevronRight, FileDown, Minus, X } from 'lucide-rea
 import {
   CAMPOS_PROTECCION,
   PROTECCION_LABELS,
+  autorizadosDeCuatro,
   generalProteccion,
+  sinConstar,
   siguienteGeneral,
   type CampoProteccion,
   type GeneralProteccion,
@@ -49,7 +53,9 @@ const GENERAL: Record<string, { tono: TonoTabla; texto: React.ReactNode; titulo:
   si: { tono: 'si', texto: <Check className="h-4 w-4" />, titulo: 'Autoriza todo' },
   no: { tono: 'no', texto: <X className="h-4 w-4" />, titulo: 'No autoriza nada' },
   parcial: { tono: 'aviso', texto: 'Parcial', titulo: 'Ha dicho que no a algo: despliega para ver a qué' },
-  null: { tono: 'gris', texto: <Minus className="h-4 w-4" />, titulo: 'Sin constar' },
+  // El texto («3/4») y el título («falta ONG») dependen del alumno: se ponen en la fila.
+  incompleto: { tono: 'falta', texto: null, titulo: 'Falta por contestar' },
+  null: { tono: 'gris', texto: <Minus className="h-4 w-4" />, titulo: 'Sin constar: no hay nada marcado' },
 };
 
 const todos = (valor: Estado): Cambios => ({ imagen: valor, redes: valor, ampa: valor, ong: valor });
@@ -108,7 +114,9 @@ export function TablaProteccion({
     );
   }
 
-  const noes = conPd.filter((a) => generalProteccion(a.proteccion!) !== 'si').length;
+  const generales = conPd.map((a) => generalProteccion(a.proteccion!));
+  const noes = generales.filter((g) => g === 'no' || g === 'parcial').length;
+  const aMedias = generales.filter((g) => g === 'incompleto' || g === null).length;
   const desestiman = conPd.filter((a) => a.proteccion!.desestimaCorreo).length;
 
   return (
@@ -119,6 +127,7 @@ export function TablaProteccion({
         extra={
           <>
             {noes > 0 && <span className="text-amber-600 dark:text-amber-400"> · {noes} con algún no</span>}
+            {aMedias > 0 && <span className="text-zinc-500"> · {aMedias} sin contestar del todo</span>}
             {desestiman > 0 && <span className="text-red-600 dark:text-red-400"> · {desestiman} sin correo</span>}
             {sinPd > 0 && <span className="text-zinc-400"> · {sinPd} fuera de tu etapa</span>}
           </>
@@ -272,7 +281,11 @@ export function TablaProteccion({
             {conPd.map((a) => {
               const pd = a.proteccion!;
               const general: GeneralProteccion = generalProteccion(pd);
-              const g = GENERAL[String(general)];
+              const base = GENERAL[String(general)];
+              const g =
+                general === 'incompleto'
+                  ? { ...base, texto: autorizadosDeCuatro(pd), titulo: `Sí a ${autorizadosDeCuatro(pd)}; falta ${sinConstar(pd).join(', ')}` }
+                  : base;
               return (
                 <tr key={a.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
                   <CeldaAlumno numero={a.numero} nombre={a.completo} clase={conClase ? a.clase : undefined} />
@@ -329,7 +342,8 @@ export function TablaProteccion({
         <strong className="font-medium text-emerald-600 dark:text-emerald-400">sí</strong> o a{' '}
         <strong className="font-medium text-red-600 dark:text-red-400">no</strong> de un toque;
         <strong className="font-medium text-amber-600 dark:text-amber-400"> parcial</strong> es que hay algún no suelto
-        (despliega el detalle para verlo). En el correo, verde es lo normal: la familia no lo desestima.
+        (despliega el detalle para verlo); <strong className="font-medium text-zinc-600 dark:text-zinc-300">3/4</strong> es
+        que no hay ningún no pero falta alguno por contestar, y la rayita, que no hay nada marcado. En el correo, verde es lo normal: la familia no lo desestima.
         {!puedeEditar && ' Aquí solo miras: esto lo cambian secretaría, dirección o TIC.'}
       </p>
     </div>

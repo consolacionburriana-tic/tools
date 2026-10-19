@@ -315,19 +315,30 @@ export const permisosDe = (
  * deduce de los cuatro: guardarlo sería tener dos verdades que sincronizar a mano, que es
  * exactamente el error que documenta `06-fuente-unica-alumnado.md`.
  *
- *  - `si`      los cuatro autorizados
- *  - `no`      los cuatro NO autorizados
- *  - `parcial` hay algún no, pero no todos (lo que obliga a desplegar para saber cuál)
- *  - `null`    falta alguno por marcar y ninguno es no
+ *  - `si`         los cuatro autorizados
+ *  - `no`         los cuatro NO autorizados
+ *  - `parcial`    hay algún no, pero no todos (lo que obliga a desplegar para saber cuál)
+ *  - `incompleto` ningún no, algún sí y alguno sin contestar («sí a tres, la cuarta sin
+ *                 marcar»). Hasta el 19-oct-2026 caía en `null` y se pintaba con la misma
+ *                 rayita que una ficha en blanco, como si la familia no hubiera dicho nada
+ *                 (Jose Miguel, 13-oct-2026)
+ *  - `null`       los cuatro sin constar: ahí sí que no hay nada marcado
  */
-export type GeneralProteccion = 'si' | 'no' | 'parcial' | null;
+export type GeneralProteccion = 'si' | 'no' | 'parcial' | 'incompleto' | null;
 
 export function generalProteccion(pd: Pick<ProteccionDatos, CampoProteccion>): GeneralProteccion {
   const valores = CAMPOS_PROTECCION.map((c) => permisosDe(pd)[c]);
   if (valores.every((v) => v === true)) return 'si';
   if (valores.every((v) => v === false)) return 'no';
   if (valores.some((v) => v === false)) return 'parcial';
+  if (valores.some((v) => v === true)) return 'incompleto';
   return null;
+}
+
+/** «3/4»: cuántos de los cuatro están autorizados, para la celda de un general incompleto. */
+export function autorizadosDeCuatro(pd: Pick<ProteccionDatos, CampoProteccion>): string {
+  const permisos = permisosDe(pd);
+  return `${CAMPOS_PROTECCION.filter((c) => permisos[c] === true).length}/${CAMPOS_PROTECCION.length}`;
 }
 
 /** Lo que pone un toque sobre la celda general: si ya está todo a sí, todo a no; si no, todo a sí. */
@@ -387,6 +398,37 @@ export function avisoProteccion(pd: ProteccionDatos): { tono: TonoProteccion; te
 /** ¿Hay algo aquí que no sea «todo en blanco»? Sirve para no pintar filas vacías. */
 export const tieneProteccion = (pd: ProteccionDatos): boolean =>
   pd.desestimaCorreo || Boolean(pd.notas) || CAMPOS_PROTECCION.some((c) => permisosDe(pd)[c] !== null);
+
+// ─── Comedor y complementarias ────────────────────────────────────────────────
+//
+// Dos servicios por alumno (Jose Miguel, 16-oct-2026): si se queda a comer y si va a las
+// actividades complementarias. Viven en `edu_students` como `banco_libros` y `ampa`: un sí/no
+// por alumno, sin histórico, que marca secretaría. Lo que importa de ellos es VERLOS —el chip
+// en la ficha, el icono en la lista— y FILTRAR por ellos (la pestaña y los informes).
+
+export const SERVICIOS = ['comedor', 'complementarias'] as const;
+export type Servicio = (typeof SERVICIOS)[number];
+
+export const SERVICIO_LABEL: Record<Servicio, { titulo: string; corto: string; ayuda: string }> = {
+  comedor: { titulo: 'Comedor', corto: 'comedor', ayuda: 'Se queda a comer en el colegio' },
+  complementarias: {
+    titulo: 'Complementarias',
+    corto: 'complementarias',
+    ayuda: 'Va a las actividades complementarias (Infantil y Primaria)',
+  },
+};
+
+/**
+ * ¿Tiene sentido este servicio en este curso? El comedor, en todas las etapas; las
+ * complementarias solo en Infantil y Primaria (David: «complementarias solo para infantil y
+ * primaria, secundaria comedor sí»). Fuera de ahí la casilla ni se pinta ni se guarda.
+ */
+export function aplicaServicio(servicio: Servicio, curso: string | null): boolean {
+  if (!curso) return false;
+  if (servicio === 'comedor') return true;
+  const etapa = etapaDeCurso(curso);
+  return etapa === 'EI' || etapa === 'EP';
+}
 
 // ─── Venta de materiales ──────────────────────────────────────────────────────
 //

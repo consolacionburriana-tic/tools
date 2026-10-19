@@ -616,6 +616,55 @@ van todas las listas de la vista— y cuántos **correos** van a salir de verdad
       `lic_licencias` existe); se relanzó, idempotente, y se quitó de `pendientes.txt`
 - [ ] Estreno: sincronizar, pegar una tanda real pequeña, prueba a `david@` y envío de verdad
 
+## Fase 5b · Licencias del profesorado (oct-2026)
+
+Lo apuntó David el 5-oct-2026 en Tareas: «soportar las licencias de profesores. No se envían
+muchas, pero poderlas anotar fácilmente pegando las licencias y decir pam, asigno a este
+profesor, asigno a este. Esto se usa MUY MUY poco, mucho menos que alumnos».
+
+**Pantalla:** pestaña **«Profesorado»** de `/gestion/licencias/envios`, junto a Sobrantes.
+
+### Decisiones cerradas
+
+- **Es una anotación, no un censo.** Nada de sincronizar ni de huecos que rellenar como en
+  `lic_licencias`: no hay forma de saber de antemano qué profe necesita qué licencia, y son
+  unas pocas por curso. Tabla propia, **`lic_licencias_profes`** (`src/db/sql/licencias-profes.sql`):
+  campaña, profe (`edu_teacher_id`, NULL = pegado aún sin dueño), libro en **texto libre**
+  («Inglés 3ºESO · guía docente» — la licencia docente no siempre es un libro del catálogo del
+  alumnado), código, nota y cuándo/a dónde se mandó.
+- **Tabla aparte y no una fila más de `lic_licencias`.** Esa tabla cuelga de `lic_students` y
+  de los recuentos de la cabecera (faltan / listas / enviadas): meter profes ahí obligaba a
+  esquivarlos en cada filtro y en cada KPI.
+- **El flujo: pegar → elegir profe por código → guardar.** El pegado reutiliza `analizarPegado`
+  del alumnado (elige sola la columna de códigos si se copian dos del Excel y salta la
+  cabecera); los repetidos del propio pegado se quedan una vez y se avisa. El selector de profe
+  es un buscador sin acentos por nombre o correo sobre los profes activos de `edu_teachers`,
+  con su nombre visible (`nombreProfe`). Se puede guardar sin profe y ponérselo luego.
+- **No se pisa nada.** Antes de guardar se mira si el código ya está en la campaña —de un
+  alumno, en el almacén de sobrantes o anotado a otro profe— y se dice dónde, sin tocarlo.
+  Índice único `(campaign_id, codigo)` como último cortafuegos.
+- **«Enviar al profe»** manda un correo por el perfil `licencias` con la misma caja grande del
+  código que las del alumnado (`htmlLicencia`), saludando por su nombre de pila, a
+  `edu_teachers.email`. Se marca enviada **después** de que el correo salga. Reenviar pregunta
+  antes, diciendo cuándo y a dónde se mandó la primera vez.
+- **Quitar es borrar de verdad** (con confirmación): es una anotación, no un dato con historia.
+
+### Checklist
+
+- [x] `lic_licencias_profes` en `schema.ts` + SQL aditivo e idempotente `licencias-profes.sql`
+- [x] Helpers puros (`src/lib/licencias-profes.ts`: pegado, conflictos, buscador de profes,
+      asunto y cuerpo del correo) con tests (`licencias-profes.test.ts`, 8 casos)
+- [x] Consultas (`licencias-profes-server.ts`) y ruta `GET/POST /api/licencias/admin/licencias/profes`
+      (guardar / editar / enviar / borrar), Zod y guard del módulo `licencias`
+- [x] Pestaña «Profesorado»: pegar y repartir, lista con profe reasignable, código copiable de un
+      toque, estado, enviar/reenviar y quitar
+- [x] `pnpm test`, `pnpm lint`, `pnpm typecheck` y `pnpm build` en verde
+- [x] **`licencias-profes.sql` aplicado en Neon** (19-oct-2026, `pnpm db:sql --pendientes`)
+- [x] Las consultas, probadas contra Neon (19-oct-2026): con la campaña 2026/27 y los 54 profes
+      activos, guardar un código de prueba con profe, rechazar el mismo código al repetirlo
+      («ya está anotado a…»), listarlo con su profe y borrarlo; no quedó nada de la prueba
+- [ ] Probar la pantalla con sesión real: anotar dos códigos, repartirlos y mandarse uno a `david@`
+
 ## Fase 4 · Enganche a la BBDD central Educamos (= hito 3 del roadmap)
 
 - [ ] Poblar `lic_students` de cada campaña desde `edu_students` (ver
