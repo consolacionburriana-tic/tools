@@ -46,6 +46,7 @@ import {
 import { EnviosAsignar } from '@/components/licencias/envios-asignar';
 import { EnviosEnviar } from '@/components/licencias/envios-enviar';
 import { EnviosSobrantes } from '@/components/licencias/envios-sobrantes';
+import { EnviosProfes } from '@/components/licencias/envios-profes';
 
 interface Preset {
   clave: string;
@@ -66,7 +67,7 @@ interface EnvioRegistro {
   alumno: string;
 }
 
-type Vista = 'licencias' | 'sobrantes' | 'enviadas';
+type Vista = 'licencias' | 'sobrantes' | 'profes' | 'enviadas';
 
 const ESTADOS: { valor: EstadoFiltro; label: string }[] = [
   { valor: 'todas', label: 'Todas' },
@@ -409,6 +410,7 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
           [
             ['licencias', 'Licencias'],
             ['sobrantes', `Sobrantes${totalSobrantes ? ` (${totalSobrantes})` : ''}`],
+            ['profes', 'Profesorado'],
             ['enviadas', 'Registro de envíos'],
           ] as const
         ).map(([v, label]) => (
@@ -429,6 +431,9 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
 
       {/* Los sobrantes NO se filtran por pestaña: se cruzan de pago a banco y al revés. */}
       {vista === 'sobrantes' && <EnviosSobrantes filas={filas} onCambio={() => cargar(false)} />}
+
+      {/* Las del profesorado van aparte: se usan poco y son una anotación, no un censo (Fase 5b). */}
+      {vista === 'profes' && <EnviosProfes />}
 
       {vista === 'enviadas' && (
         <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
