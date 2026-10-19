@@ -26,14 +26,29 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BookMarked, Camera, CameraOff, FileText, HeartHandshake, Library, List, Search, ShoppingBag, Users, X } from 'lucide-react';
+import {
+  BookMarked,
+  Camera,
+  CameraOff,
+  FileText,
+  HeartHandshake,
+  Library,
+  List,
+  Palette,
+  Search,
+  ShoppingBag,
+  Users,
+  UtensilsCrossed,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { FichaAlumnoPanel, useEscape } from '@/components/alumnado/ficha-alumno';
 import { Informes } from '@/components/alumnado/informes';
 import { TablaMateriales } from '@/components/alumnado/tabla-materiales';
 import { TablaParticipacion } from '@/components/alumnado/tabla-participacion';
 import { TablaProteccion } from '@/components/alumnado/tabla-proteccion';
-import { casaBusqueda, colorAvatar, iniciales, type EstadoMaterial } from '@/lib/alumnado';
+import { TablaServicios } from '@/components/alumnado/tabla-servicios';
+import { casaBusqueda, colorAvatar, iniciales, type EstadoMaterial, type Servicio } from '@/lib/alumnado';
 import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista, ClaseListado, FichaAlumno, MaterialLista, ProteccionLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
@@ -44,7 +59,7 @@ const ETAPA_LABEL: Record<string, string> = { ...ETAPA_LABEL_ETAPAS, otras: 'Otr
 
 const claveClase = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
 
-type Vista = 'fichas' | 'proteccion' | 'banco' | 'ampa' | 'materiales' | 'informes';
+type Vista = 'fichas' | 'proteccion' | 'banco' | 'ampa' | 'servicios' | 'materiales' | 'informes';
 
 export function AlumnadoPanel({
   alumnos,
@@ -54,6 +69,7 @@ export function AlumnadoPanel({
   fichaInicial,
   puedeEditarProteccion,
   puedeParticipacion,
+  puedeServicios,
   materiales: materialesIniciales,
   puedeGestionarMateriales,
   veBecas,
@@ -70,6 +86,8 @@ export function AlumnadoPanel({
   puedeEditarProteccion: boolean;
   /** ¿Puede marcar banco de libros y AMPA? (dirección/TIC con el módulo del banco.) */
   puedeParticipacion: boolean;
+  /** ¿Puede marcar comedor y complementarias? (secretaría, dirección, TIC.) */
+  puedeServicios: boolean;
   /** Los materiales a la venta este curso que van a alguna de sus clases. */
   materiales: MaterialLista[];
   /** ¿Puede crear materiales y marcar pagos? (secretaría, dirección, TIC.) */
@@ -97,7 +115,7 @@ export function AlumnadoPanel({
   const [materiales, setMateriales] = useState<MaterialLista[]>(materialesIniciales);
   // Lo que trae el botón «Informe» de cada tabla. `n` fuerza a montar de nuevo el formulario
   // con esas columnas aunque ya estuviera abierto.
-  const [preset, setPreset] = useState<{ columnas: ClaveColumna[]; n: number }>({ columnas: [], n: 0 });
+  const [preset, setPreset] = useState<{ columnas: ClaveColumna[]; filtro?: string; n: number }>({ columnas: [], n: 0 });
   // La caché arranca con la ficha que ya trae el servidor, si se ha entrado por enlace.
   const [fichas, setFichas] = useState<Record<string, FichaAlumno>>(() =>
     fichaInicial ? { [fichaInicial.id]: fichaInicial } : {},
@@ -158,6 +176,8 @@ export function AlumnadoPanel({
     const enLaFila: Partial<AlumnoLista> = {};
     if (cambio.bancoLibros !== undefined) enLaFila.bancoLibros = cambio.bancoLibros;
     if (cambio.ampa !== undefined) enLaFila.ampa = cambio.ampa;
+    if (cambio.comedor !== undefined) enLaFila.comedor = cambio.comedor;
+    if (cambio.complementarias !== undefined) enLaFila.complementarias = cambio.complementarias;
     if (cambio.proteccion) {
       const { imagen, redes, ampa, ong, desestimaCorreo } = cambio.proteccion;
       enLaFila.proteccion = { imagen, redes, ampa, ong, desestimaCorreo };
@@ -189,7 +209,7 @@ export function AlumnadoPanel({
 
   /** Banco de libros / AMPA desde su tabla: a la lista y, si estaban abiertas, a las fichas. */
   const actualizarParticipacion = useCallback(
-    (ids: string[], cambio: Partial<Pick<AlumnoLista, 'bancoLibros' | 'ampa'>>) => {
+    (ids: string[], cambio: Partial<Pick<AlumnoLista, 'bancoLibros' | 'ampa' | Servicio>>) => {
       setRetoques((r) => {
         const siguiente = { ...r };
         for (const id of ids) siguiente[id] = { ...siguiente[id], ...cambio };
@@ -229,9 +249,9 @@ export function AlumnadoPanel({
     [porId],
   );
 
-  const pedirInforme = useCallback((columnas: ClaveColumna[]) => {
+  const pedirInforme = useCallback((columnas: ClaveColumna[], filtro?: string) => {
     haptic.tap();
-    setPreset((p) => ({ columnas, n: p.n + 1 }));
+    setPreset((p) => ({ columnas, filtro, n: p.n + 1 }));
     setVista('informes');
   }, []);
 
@@ -361,8 +381,13 @@ export function AlumnadoPanel({
               : []),
             { id: 'banco' as const, texto: 'Banco de libros', icono: <Library className="h-3.5 w-3.5" /> },
             { id: 'ampa' as const, texto: 'AMPA', icono: <HeartHandshake className="h-3.5 w-3.5" /> },
+            {
+              id: 'servicios' as const,
+              texto: 'Comedor y complementarias',
+              icono: <UtensilsCrossed className="h-3.5 w-3.5" />,
+            },
             { id: 'materiales' as const, texto: 'Venta de materiales', icono: <ShoppingBag className="h-3.5 w-3.5" /> },
-            { id: 'informes' as const, texto: 'Informes', icono: <FileText className="h-3.5 w-3.5" /> },
+            { id: 'informes' as const, texto: 'Listas e informes', icono: <FileText className="h-3.5 w-3.5" /> },
           ]
         ).map((v) => (
           <button
@@ -403,6 +428,15 @@ export function AlumnadoPanel({
           onCambio={actualizarParticipacion}
           onInforme={pedirInforme}
         />
+      ) : vista === 'servicios' ? (
+        <TablaServicios
+          alumnos={visibles}
+          ambito={ambito}
+          conClase={conClase}
+          puedeEditar={puedeServicios}
+          onCambio={actualizarParticipacion}
+          onInforme={pedirInforme}
+        />
       ) : vista === 'materiales' ? (
         <TablaMateriales
           alumnos={visibles}
@@ -424,6 +458,7 @@ export function AlumnadoPanel({
           materiales={materiales}
           veProteccion={hayProteccion}
           preset={preset.columnas}
+          presetFiltro={preset.filtro}
         />
       ) : (
       <div className="lg:grid lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)] lg:gap-5">
@@ -502,6 +537,16 @@ export function AlumnadoPanel({
                       {a.bancoLibros && (
                         <span title="Banco de libros" aria-label="Banco de libros">
                           <Library className="h-3.5 w-3.5 text-emerald-500" />
+                        </span>
+                      )}
+                      {a.comedor && (
+                        <span title="Se queda a comer" aria-label="Comedor">
+                          <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />
+                        </span>
+                      )}
+                      {a.complementarias && (
+                        <span title="Va a complementarias" aria-label="Complementarias">
+                          <Palette className="h-3.5 w-3.5 text-sky-500" />
                         </span>
                       )}
                       {a.proteccion?.imagen === false && (

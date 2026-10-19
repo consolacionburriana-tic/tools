@@ -24,6 +24,8 @@ const alumno = (campos: Partial<AlumnoInforme> & Pick<AlumnoInforme, 'id' | 'com
   nia: null,
   bancoLibros: false,
   ampa: false,
+  comedor: false,
+  complementarias: false,
   proteccion: todoSi,
   materiales: {},
   ...campos,
@@ -58,6 +60,24 @@ describe('celdas del informe', () => {
     expect(celda(alumnos[1], 'pd', mats)).toMatchObject({ texto: 'Parcial', tono: 'aviso' });
     expect(celda(alumnos[1], 'pd_correo', mats)).toMatchObject({ texto: 'Sí', tono: 'no' });
     expect(celda(alumnos[0], 'pd_correo', mats)).toMatchObject({ texto: 'No', tono: 'si' });
+  });
+
+  it('sí a tres y la cuarta sin contestar: dice cuál falta, no la rayita de «nada marcado»', () => {
+    const aMedias = alumno({ id: '5', completo: 'Eva Prueba', proteccion: { ...todoSi, ong: null } });
+    expect(celda(aMedias, 'pd', mats)).toMatchObject({ texto: 'Falta ONG', clave: 'incompleto' });
+    const enBlanco = alumno({
+      id: '6',
+      completo: 'Fede Prueba',
+      proteccion: { imagen: null, redes: null, ampa: null, ong: null, desestimaCorreo: false },
+    });
+    expect(celda(enBlanco, 'pd', mats)).toMatchObject({ texto: '—', clave: 'sin' });
+  });
+
+  it('las complementarias de la ESO salen en blanco, no como «no»; el comedor sale en todas', () => {
+    const eso = alumno({ id: '7', completo: 'Gus Prueba', comedor: true, complementarias: true });
+    expect(celda(eso, 'complementarias', mats).tono).toBe('nada');
+    expect(celda(eso, 'comedor', mats)).toMatchObject({ texto: 'Sí', clave: 'si' });
+    expect(celda(alumnos[3], 'complementarias', mats)).toMatchObject({ texto: 'No', tono: 'gris' });
   });
 
   it('un material que no va a su clase deja la celda vacía; sin marcar es «—»', () => {

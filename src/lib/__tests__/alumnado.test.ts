@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   avisoCumple,
   aplicaMaterial,
+  aplicaServicio,
+  autorizadosDeCuatro,
   avisoProteccion,
   describirDestinos,
   estadoVisible,
@@ -325,9 +327,17 @@ describe('protección de datos', () => {
     // Un no suelto: «parcial», que es lo que obliga a desplegar el detalle.
     expect(generalProteccion(pd({ imagen: true, redes: true, ampa: true, ong: false }))).toBe('parcial');
     expect(generalProteccion(pd({ imagen: true, redes: null, ampa: false, ong: true }))).toBe('parcial');
-    // Huecos sin ningún no: sin constar, no «sí».
-    expect(generalProteccion(pd({ imagen: true, redes: true }))).toBeNull();
+    // Huecos sin ningún no, pero con algún sí: incompleto, no «sí» y tampoco la rayita de
+    // «nada marcado» (el fallo de Jose Miguel, 13-oct-2026).
+    expect(generalProteccion(pd({ imagen: true, redes: true }))).toBe('incompleto');
+    expect(generalProteccion(pd({ imagen: true, redes: true, ampa: true }))).toBe('incompleto');
+    // Solo los cuatro en blanco es «sin constar».
     expect(generalProteccion(pd())).toBeNull();
+  });
+
+  it('el incompleto dice cuántos de los cuatro están autorizados', () => {
+    expect(autorizadosDeCuatro(pd({ imagen: true, redes: true, ampa: true }))).toBe('3/4');
+    expect(autorizadosDeCuatro(pd({ imagen: true }))).toBe('1/4');
   });
 
   it('un toque en la general pone todo a no si estaba todo a sí, y si no, todo a sí', () => {
@@ -392,5 +402,17 @@ describe('venta de materiales', () => {
         { tipo: 'clase', curso: '2ESO', letra: 'B' },
       ]),
     ).toBe('Primaria · 1º ESO · 2º ESO B');
+  });
+});
+
+describe('comedor y complementarias', () => {
+  it('el comedor va en todas las etapas; las complementarias, solo en Infantil y Primaria', () => {
+    expect(aplicaServicio('comedor', '3INF')).toBe(true);
+    expect(aplicaServicio('comedor', '2ESO')).toBe(true);
+    expect(aplicaServicio('complementarias', '5INF')).toBe(true);
+    expect(aplicaServicio('complementarias', '6PRI')).toBe(true);
+    expect(aplicaServicio('complementarias', '1ESO')).toBe(false);
+    expect(aplicaServicio('complementarias', '3ºPPDC')).toBe(false);
+    expect(aplicaServicio('comedor', null)).toBe(false);
   });
 });

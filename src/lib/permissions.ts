@@ -269,6 +269,15 @@ export function puedeGestionarMateriales(role: Role | null): boolean {
 }
 
 /**
+ * Comedor y complementarias (dentro de `alumnado`): los marca quien lleva la administración,
+ * igual que la venta de materiales —secretaría, dirección y TIC—. El resto los ve, dentro de
+ * su alcance, sin lápiz.
+ */
+export function puedeGestionarServicios(role: Role | null): boolean {
+  return puedeGestionarMateriales(role);
+}
+
+/**
  * «Becado» es un dato económico de la familia: lo ven dirección, secretaría, orientación y
  * TIC. Para el resto del claustro un becado sale como «pagado» —lo que le importa a un tutor
  * es que el alumno tiene su material—, y ese cambio se hace en el servidor.

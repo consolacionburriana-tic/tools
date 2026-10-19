@@ -50,7 +50,10 @@ import {
   normalizar,
   siNo,
   aplicaMaterial,
+  aplicaServicio,
+  SERVICIOS,
   type CampoProteccion,
+  type Servicio,
   type EstadoMaterial,
   type ProteccionDatos,
   type ValorDomicilio,
@@ -59,6 +62,7 @@ import {
   canAccess,
   puedeEditarProteccionDatos,
   puedeGestionarParticipantesBanco,
+  puedeGestionarServicios,
   veProteccionDatosCompleta,
   type Acceso,
   type Role,
@@ -256,6 +260,8 @@ export interface PermisosFicha {
   proteccion: 'editar' | 'ver' | 'no';
   /** Banco de libros y AMPA: el mismo criterio que en su propio panel, ni más ni menos. */
   participacion: boolean;
+  /** Comedor y complementarias: secretaría, dirección y TIC (`puedeGestionarServicios`). */
+  servicios: boolean;
 }
 
 export function permisosFicha(
@@ -269,6 +275,7 @@ export function permisosFicha(
     // Marcar quién participa en el banco/AMPA sigue siendo cosa de dirección/TIC **con el
     // módulo del banco**: desde aquí se edita lo mismo, no se amplía a nadie.
     participacion: canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role),
+    servicios: puedeGestionarServicios(user.role),
   };
 }
 
@@ -304,6 +311,9 @@ export interface AlumnoLista {
   /** Lo que se pinta como distintivo en la fila, sin abrir la ficha. */
   bancoLibros: boolean;
   ampa: boolean;
+  /** Se queda a comer · va a complementarias (esta, solo Infantil y Primaria: `aplicaServicio`). */
+  comedor: boolean;
+  complementarias: boolean;
   /**
    * La protección de datos, resumida, para la fila de la lista y para la tabla por clase.
    * `null` = la de ese alumno no le toca a quien mira (un tutor solo ve la de su tutoría),
@@ -370,6 +380,8 @@ export async function listaAlumnado(
         codigo: eduStudents.codigo,
         bancoLibros: eduStudents.bancoLibros,
         ampa: eduStudents.ampa,
+        comedor: eduStudents.comedor,
+        complementarias: eduStudents.complementarias,
         pdImagen: eduStudents.pdImagen,
         pdRedes: eduStudents.pdRedes,
         pdAmpa: eduStudents.pdAmpa,
@@ -430,6 +442,9 @@ export async function listaAlumnado(
       }),
       bancoLibros: f.bancoLibros,
       ampa: f.ampa,
+      comedor: f.comedor,
+      // Fuera de Infantil y Primaria no existe: se manda como `false` aunque la BBDD dijera otra cosa.
+      complementarias: f.complementarias && aplicaServicio('complementarias', f.curso),
       proteccion:
         proteccion && veProteccionDe(proteccion, f)
           ? {
@@ -593,6 +608,8 @@ export interface FichaAlumno {
   // Banderitas
   bancoLibros: boolean;
   ampa: boolean;
+  comedor: boolean;
+  complementarias: boolean;
   /** Las cuatro autorizaciones. `null` = a quien mira no le toca verlas (ver `fichaVisible`). */
   proteccion: ProteccionDatos | null;
   /** Qué puede tocar de esta ficha quien la está mirando. Lo pone `fichaVisible()`. */
@@ -856,6 +873,8 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
     nacionalidad: delExtra(extra, 'nacionalidad alumno'),
     bancoLibros: alumno.bancoLibros,
     ampa: alumno.ampa,
+    comedor: alumno.comedor,
+    complementarias: alumno.complementarias && aplicaServicio('complementarias', alumno.curso),
     proteccion: {
       imagen: alumno.pdImagen,
       redes: alumno.pdRedes,
@@ -1107,6 +1126,34 @@ export async function guardarProteccion(
     });
   if (!fila) return null;
   return { ...fila, actualizadoAt: fila.actualizadoAt ? fila.actualizadoAt.toISOString() : null };
+}
+
+/**
+ * Comedor y/o complementarias de uno o muchos alumnos. Las complementarias solo se escriben
+ * en quien está en Infantil o Primaria (`aplicaServicio`): un «todos sí» lanzado sobre una
+ * búsqueda que mezcla etapas no le pone complementarias a nadie de la ESO. Devuelve, por
+ * servicio, los ids que de verdad se han tocado, que es lo que la pantalla repinta.
+ */
+export async function guardarServicios(
+  alumnos: readonly { id: string; curso: string | null }[],
+  cambios: Partial<Record<Servicio, boolean>>,
+): Promise<Record<Servicio, string[]>> {
+  const tocados: Record<Servicio, string[]> = { comedor: [], complementarias: [] };
+  const ahora = new Date();
+  await Promise.all(
+    SERVICIOS.map(async (servicio) => {
+      const valor = cambios[servicio];
+      if (valor === undefined) return;
+      const ids = alumnos.filter((a) => aplicaServicio(servicio, a.curso)).map((a) => a.id);
+      if (ids.length === 0) return;
+      await db
+        .update(eduStudents)
+        .set({ [servicio]: valor, updatedAt: ahora })
+        .where(inArray(eduStudents.id, ids));
+      tocados[servicio] = ids;
+    }),
+  );
+  return tocados;
 }
 
 /** La clase de un alumno, que es lo que hace falta para comprobar el alcance al escribir. */

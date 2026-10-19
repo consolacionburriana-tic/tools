@@ -14,10 +14,15 @@ import {
   ESTADO_MATERIAL_LABEL,
   PROTECCION_LABELS,
   aplicaMaterial,
+  aplicaServicio,
   generalProteccion,
+  SERVICIO_LABEL,
+  SERVICIOS,
+  sinConstar,
   type CampoProteccion,
   type DestinoMaterial,
   type EstadoMaterial,
+  type Servicio,
 } from '@/lib/alumnado';
 
 /** Cómo se pinta una celda: el formato decide el color, el informe decide el significado. */
@@ -42,6 +47,8 @@ export interface AlumnoInforme {
   nia: string | null;
   bancoLibros: boolean;
   ampa: boolean;
+  comedor: boolean;
+  complementarias: boolean;
   proteccion: (Record<CampoProteccion, boolean | null> & { desestimaCorreo: boolean }) | null;
   materiales: Record<string, EstadoMaterial>;
 }
@@ -56,6 +63,7 @@ export type ClaveColumna =
   | 'nia'
   | 'banco'
   | 'ampa'
+  | Servicio
   | 'pd'
   | `pd_${CampoProteccion}`
   | 'pd_correo'
@@ -65,7 +73,7 @@ export interface ColumnaInforme {
   clave: ClaveColumna;
   titulo: string;
   /** Grupo en el selector de la pantalla. */
-  grupo: 'Datos' | 'Participación' | 'Protección de datos' | 'Materiales';
+  grupo: 'Datos' | 'Participación' | 'Comedor y complementarias' | 'Protección de datos' | 'Materiales';
   /** Valores por los que se puede filtrar, en el orden del desplegable. */
   valores: { clave: string; texto: string }[];
   /** ¿Cuenta como «sí» para el total de la clase? (null = esta columna no se totaliza). */
@@ -84,11 +92,25 @@ export function columnasDisponibles(materiales: readonly MaterialInforme[]): Col
     { clave: 'nia', titulo: 'NIA', grupo: 'Datos', valores: [], cuenta: null },
     { clave: 'banco', titulo: 'Banco de libros', grupo: 'Participación', valores: SI_NO, cuenta: esSi },
     { clave: 'ampa', titulo: 'AMPA', grupo: 'Participación', valores: SI_NO, cuenta: esSi },
+    ...SERVICIOS.map(
+      (s): ColumnaInforme => ({
+        clave: s,
+        titulo: SERVICIO_LABEL[s].titulo,
+        grupo: 'Comedor y complementarias',
+        valores: SI_NO,
+        cuenta: esSi,
+      }),
+    ),
     {
       clave: 'pd',
       titulo: 'Protección de datos',
       grupo: 'Protección de datos',
-      valores: [...SI_NO, { clave: 'parcial', texto: 'Parcial' }],
+      valores: [
+        ...SI_NO,
+        { clave: 'parcial', texto: 'Parcial' },
+        { clave: 'incompleto', texto: 'Sin contestar del todo' },
+        { clave: 'sin', texto: 'Sin constar' },
+      ],
       cuenta: esSi,
     },
     ...CAMPOS_PROTECCION.map(
@@ -148,6 +170,10 @@ export function celda(
   if (clave === 'nia') return { texto: alumno.nia ?? '', tono: 'nada', clave: alumno.nia ?? '' };
   if (clave === 'banco') return siNo(alumno.bancoLibros, 'neutro');
   if (clave === 'ampa') return siNo(alumno.ampa, 'neutro');
+  if (clave === 'comedor' || clave === 'complementarias') {
+    // Las complementarias de un alumno de la ESO no son «no»: es que no existen. En blanco.
+    return aplicaServicio(clave, alumno.curso) ? siNo(alumno[clave], 'neutro') : VACIA;
+  }
 
   if (clave.startsWith('pd')) {
     // La protección de datos que no te toca llega como null: sale en blanco, no como «no».
@@ -158,6 +184,9 @@ export function celda(
       if (g === 'si') return { texto: 'Sí', tono: 'si', clave: 'si' };
       if (g === 'no') return { texto: 'No', tono: 'no', clave: 'no' };
       if (g === 'parcial') return { texto: 'Parcial', tono: 'aviso', clave: 'parcial' };
+      if (g === 'incompleto') {
+        return { texto: `Falta ${sinConstar(pd).join(', ')}`, tono: 'gris', clave: 'incompleto' };
+      }
       return { texto: '—', tono: 'gris', clave: 'sin' };
     }
     if (clave === 'pd_correo') return siNo(pd.desestimaCorreo, 'alReves');

@@ -20,14 +20,24 @@ import { CAMPOS_PROTECCION, PROTECCION_LABELS, type CampoProteccion, type Protec
 import { haptic } from '@/lib/haptics';
 
 type Estado = boolean | null;
+type Cambio = {
+  proteccion?: ProteccionDatos;
+  bancoLibros?: boolean;
+  ampa?: boolean;
+  comedor?: boolean;
+  complementarias?: boolean;
+};
 
 export function TarjetaProteccion({
   id,
   proteccion,
   bancoLibros,
   ampa,
+  comedor,
+  complementarias,
   puedeEditar,
   puedeParticipacion,
+  puedeServicios,
   onCambio,
 }: {
   id: string;
@@ -35,13 +45,18 @@ export function TarjetaProteccion({
   proteccion: ProteccionDatos | null;
   bancoLibros: boolean;
   ampa: boolean;
+  comedor: boolean;
+  /** `null` = no le toca (ESO): las complementarias solo existen en Infantil y Primaria. */
+  complementarias: boolean | null;
   puedeEditar: boolean;
   puedeParticipacion: boolean;
-  onCambio: (cambio: { proteccion?: ProteccionDatos; bancoLibros?: boolean; ampa?: boolean }) => void;
+  /** Comedor y complementarias: secretaría, dirección y TIC. */
+  puedeServicios: boolean;
+  onCambio: (cambio: Cambio) => void;
 }) {
   const [guardando, setGuardando] = useState<string | null>(null);
 
-  if (!proteccion && !puedeParticipacion) {
+  if (!proteccion && !puedeParticipacion && !puedeServicios) {
     return (
       <p className="px-1 text-xs text-zinc-400">
         La protección de datos (imagen, redes, AMPA y ONG) solo la ven dirección, secretaría, jefatura, orientación y
@@ -50,14 +65,15 @@ export function TarjetaProteccion({
     );
   }
 
-  async function guardar(campo: string, cuerpo: Record<string, unknown>, ruta: 'proteccion' | 'participacion') {
+  async function guardar(campo: string, cuerpo: Record<string, unknown>, ruta: 'proteccion' | 'participacion' | 'servicios') {
     haptic.tap();
     setGuardando(campo);
     try {
-      const res = await fetch(`/api/alumnado/${id}/${ruta}`, {
+      // Comedor y complementarias van por la ruta de la tabla, con un solo alumno.
+      const res = await fetch(ruta === 'servicios' ? '/api/alumnado/servicios' : `/api/alumnado/${id}/${ruta}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cuerpo),
+        body: JSON.stringify(ruta === 'servicios' ? { eduStudentIds: [id], ...cuerpo } : cuerpo),
       });
       const datos = await res.json();
       if (!res.ok) throw new Error(datos.error ?? 'No se pudo guardar');
@@ -66,7 +82,7 @@ export function TarjetaProteccion({
       onCambio(
         ruta === 'proteccion'
           ? { proteccion: datos.proteccion as ProteccionDatos }
-          : (cuerpo as { bancoLibros?: boolean; ampa?: boolean }),
+          : (cuerpo as Cambio),
       );
       haptic.success();
     } catch (error) {
@@ -162,6 +178,30 @@ export function TarjetaProteccion({
             guardando={guardando === 'ampa'}
             onCambiar={(v) => guardar('ampa', { ampa: v }, 'participacion')}
           />
+        </div>
+      )}
+
+      {puedeServicios && (
+        <div className="mt-2.5 space-y-1 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Comedor y complementarias</p>
+          <Interruptor
+            etiqueta="Comedor"
+            ayuda="Se queda a comer en el colegio"
+            puesto={comedor}
+            editable
+            guardando={guardando === 'comedor'}
+            onCambiar={(v) => guardar('comedor', { comedor: v }, 'servicios')}
+          />
+          {complementarias !== null && (
+            <Interruptor
+              etiqueta="Actividades complementarias"
+              ayuda="Solo Infantil y Primaria"
+              puesto={complementarias}
+              editable
+              guardando={guardando === 'complementarias'}
+              onCambiar={(v) => guardar('complementarias', { complementarias: v }, 'servicios')}
+            />
+          )}
         </div>
       )}
     </Tarjeta>

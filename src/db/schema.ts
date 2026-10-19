@@ -245,6 +245,11 @@ export const eduStudents = pgTable('edu_students', {
   pdNotas: text('pd_notas'), // matices del papel («solo fotos de grupo»)
   pdActualizadoAt: timestamp('pd_actualizado_at'),
   pdActualizadoPor: text('pd_actualizado_por'), // correo de quien lo tocó por última vez
+  // ─ Servicios ─ (Jose Miguel, 16-oct-2026; docs/21-alumnado.md, decisión 17). Se queda a
+  // comer · va a las actividades complementarias (solo Infantil y Primaria: en la ESO no hay).
+  // Como `banco_libros` y `ampa`: un dato por alumno, sin histórico, que marca secretaría.
+  comedor: boolean('comedor').notNull().default(false),
+  complementarias: boolean('complementarias').notNull().default(false),
   active: boolean('active').notNull().default(true),
   extra: jsonb('extra').$type<Record<string, string>>(), // resto del export (SIN bloque pagadores)
   createdAt: timestamp('created_at').defaultNow().notNull(),
