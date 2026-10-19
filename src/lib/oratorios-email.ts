@@ -1,4 +1,4 @@
-// Correos de Oratorios y Godly Play al profe al que se le quita la hora. Ficha:
+// Correos de Oratorios, Godly Play y Talleres al profe al que se le quita la hora. Ficha:
 // docs/26-oratorios.md
 //
 // Es un correo de compañero a compañero: sale del buzón de quien lo lleva, sin logos ni

@@ -9,7 +9,7 @@ import { accesoComunActivo, getDatosPanel, getMisSesiones } from '@/lib/oratorio
 import { PanelOratorios, type Pestana } from '@/components/oratorios/panel';
 import { MisOratorios } from '@/components/oratorios/mis-oratorios';
 
-export const metadata = { title: 'Oratorios y Godly Play · Gestión' };
+export const metadata = { title: 'Oratorios, Godly Play y Talleres · Gestión' };
 
 // Ficha: docs/26-oratorios.md. Quien lo lleva (`oratorios`) recibe el curso entero y planifica;
 // el claustro (`oratorios-ver`) ve solo lo suyo, y solo si el acceso común está encendido.

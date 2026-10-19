@@ -108,7 +108,7 @@ describe('Bachillerato · reglas', () => {
     expect(cursoEnPuntualidad('6PRI')).toBe(false);
   });
 
-  it('se puede elegir en Oratorios y Godly Play', () => {
+  it('se puede elegir en Oratorios, Godly Play y Talleres', () => {
     expect(ETAPAS_ORA).toContain('BACH');
     expect(ETAPA_LABELS.BACH).toBe('Bachillerato');
   });

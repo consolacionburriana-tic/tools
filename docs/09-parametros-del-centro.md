@@ -47,7 +47,7 @@ candidatos para una siguiente vuelta.
 | **Cursos que cubre Licencias** (6º EP – 4º ESO, con PDC) | `CURSOS_FORM` en `src/lib/licencias.ts` | Los libros y precios del catálogo están en la BBDD y cuelgan de esos códigos |
 | **Cursos y clases de AUTOASM** | `CURSOS_CENTRO` (`autoasm-construir.ts`), plantilla en `autoasm-plantilla.ts`, sede en `CENTRO_PLANTILLA` | Son la foto de lo que ya existe en Apple School Manager del colegio |
 | Alcance de AUTOASM (desde 6º EP) | Opción de la propia pantalla `/gestion/autoasm` | **Ya se cambia en la app**, no hace falta tocar código |
-| Etapas de cada tipo de Oratorios y Godly Play | En la BBDD (`ora_tipos`), editables en sus Ajustes; las etapas elegibles son todas (`ETAPAS`) | Lo editable ya está en la app |
+| Etapas de cada tipo de Oratorios, Godly Play y Talleres | En la BBDD (`ora_tipos`), editables en sus Ajustes; las etapas elegibles son todas (`ETAPAS`) | Lo editable ya está en la app |
 | Rejillas de horario, tramos, espacios | BBDD (`hor_*`), editables en `/gestion/horarios` | Ya es dato, no constante |
 | Matriz rol → módulos | `ROLE_MODULES` en `src/lib/permissions.ts` (y ajustes por persona en `/gestion/usuarios`) | Es política de accesos: mejor con revisión de código |
 | Remitentes y nombres de correo por módulo | `DEFECTOS` en `src/lib/email.ts` (leen `COLEGIO`) y variables `EMAIL_FROM_*` | Ya se cambian sin deploy con las variables de entorno |

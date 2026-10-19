@@ -1,13 +1,16 @@
-# Oratorios y Godly Play · plan y checklist
+# Oratorios, Godly Play y Talleres · plan y checklist
 
 Un profe se lleva a media clase un rato (oratorio), o a la clase entera (Godly Play), en una hora
 que **es de otro profe**. Cada tipo tiene un objetivo («un oratorio al mes por clase», «un Godly
 Play al trimestre por clase») y el problema de verdad no es apuntarlo: es **elegir el hueco sin
 molestar siempre al mismo profe**, avisarle con tiempo y saber cuánto falta.
 
-Lo pidió David el 30-sep-2026. El nombre del módulo es de hoy; por dentro es genérico: un
-**tipo de momento** (oratorio, Godly Play… y mañana un taller de robótica) con su objetivo, su
-calendario de Google y su texto de correo.
+Lo pidió David el 30-sep-2026. Por dentro es genérico: un **tipo de momento** (oratorio, Godly
+Play, el taller de pensamiento computacional… y mañana uno de robótica) con su objetivo, su
+calendario de Google y su texto de correo. Por eso, desde el 19-oct-2026, **el módulo se llama
+«Oratorios, Godly Play y Talleres»**: el nombre solo cambia en pantalla (la ruta
+`/gestion/oratorios`, las claves de permiso `oratorios` y `oratorios-ver` y el prefijo `ora_` se
+quedan, porque hay permisos guardados por persona).
 
 > **La regla de oro:** el profe al que se le quita la hora no se entera por sorpresa. Nunca
 > dos veces seguidas la misma hora de la misma clase con el mismo profe (aviso gordo 🔴), y a
@@ -15,7 +18,7 @@ calendario de Google y su texto de correo.
 
 ---
 
-## Estado: plan funcional ✅ · plan técnico ✅ · implementado 🟡 (30-sep-2026; las **Sesiones del abanico**, 4-oct-2026)
+## Estado: plan funcional ✅ · plan técnico ✅ · implementado 🟡 (30-sep-2026; las **Sesiones del abanico**, 4-oct-2026; el **Taller de Pensamiento Computacional**, 19-oct-2026)
 
 Código entero escrito y **probado contra Neon y contra Google Calendar de verdad**, con sesión de
 TIC en el navegador (iPad en horizontal y móvil): disponibilidad, asistente, autocompletar (24
@@ -37,10 +40,19 @@ una prueba.
 escolar del alumno**. Ver [«Las Sesiones (el abanico)»](#las-sesiones-el-abanico). Está hecha, con el
 SQL aplicado en Neon (`oratorios-catalogo.sql`) y probada contra la BBDD real.
 
+**19-oct-2026 · Taller de Pensamiento Computacional.** Jose Miguel Batalla propuso (13-oct) un
+módulo nuevo para programar la sesión mensual del taller en primaria y avisar a los tutores. David lo
+revisó y es **lo mismo que ya hacía Oratorios**: una sesión al mes por clase, en la hora de otro
+profe, con aviso por correo a ese profe y evento en Calendar. No hubo que escribir código de
+negocio: es **un tipo más** (`taller_pc`, sembrado con `oratorios-taller.sql`, aplicado y verificado
+contra Neon el 19-oct-2026) y el renombrado del módulo. Ver
+[«El Taller de Pensamiento Computacional»](#el-taller-de-pensamiento-computacional-19-oct-2026).
+
 **Lo que falta:** el primer envío real de un correo de aviso (plantilla revisada en render, sin
 mandar a nadie), que David confirme las decisiones marcadas 🤖 más abajo, **meter las sesiones de su
 abanico** y reimportar el horario del PDC (y el de infantil y primaria) para que el asistente
-proponga huecos también ahí.
+proponga huecos también ahí. Del taller: crear su calendario compartido y pegar el id en Ajustes,
+**cargar los horarios de primaria** (hoy 0 de las 12 clases). Jose Miguel ya tiene acceso (es superTIC).
 
 **Iconos**: como el resto de la app, `lucide-react` en pestañas, botones y etiquetas. Emojis solo
 donde son un dato: el de cada tipo (lo elige quien lo crea), los tres niveles de disponibilidad,
@@ -242,7 +254,7 @@ todas en lista. Cómo se manda, de más a menos cómodo:
 
 | Módulo | Qué deja hacer | Quién, por rol |
 |---|---|---|
-| `oratorios` | Todo (planificar, confirmar, avisar, ajustes) | TIC, superTIC y secretaría (tienen todos los módulos). A quien lo lleve se le da a mano en `/gestion/usuarios` |
+| `oratorios` | Todo (planificar, confirmar, avisar, ajustes) | TIC, superTIC y secretaría (tienen todos los módulos). A quien lo lleve se le da a mano en `/gestion/usuarios` (Jose Miguel Batalla, que lleva el taller, ya es superTIC y entra sin más) |
 | `oratorios-ver` | Solo lectura, y **solo las sesiones que le afectan** (donde es el profe de la hora o el responsable) | Todo el claustro… pero **solo si un editor enciende el «acceso común»** en Ajustes. Apagado por defecto |
 
 ---
@@ -309,13 +321,51 @@ que decidí yo al construirlo (🤖, para revisar):
     dos pestañas con el mismo nombre. El «S2» de cada momento se queda como está.
 20. 🤖 **Una sesión que está elegida en algún momento no se borra, se archiva.**
 
+### El Taller de Pensamiento Computacional (19-oct-2026)
+
+Lo que dijo David, tal cual: el destinatario es **el profe de la hora de esa clase** («puede ser el
+tutor o puede ser otra cosa»; cuando la nota original decía «tutores», se refería a profes); el hueco
+**sale del horario** y lo ajusta quien lo lleva —Jose Miguel— con su disponibilidad, igual que
+Oratorios; el correo **«como los oratorios que ya está bien»**; **solo Primaria por ahora, pero
+ampliable**; y el módulo pasa a llamarse **Oratorios, Godly Play y Talleres**. Y lo que decidí yo al
+construirlo (🤖, para revisar):
+
+21. 🤖 **Un tipo más, sin código nuevo.** `ora_tipos` fila `taller_pc`: «Taller de Pensamiento
+    Computacional», 💻, **1 al mes por clase**, etapas `["EP"]` (las 12 clases de 1º a 6º de
+    Primaria, sacadas del alumnado activo), aviso **7 días antes** como Oratorio y **sin texto extra**
+    en el correo. Ampliarlo a infantil o a ESO es marcar la etapa en Ajustes.
+22. 🤖 **Sin correo mensual agrupado ni hueco fijo por curso.** La nota original pedía un correo
+    antes de empezar el mes con todas las sesiones; al decir David «como los oratorios», se entiende
+    que cada sesión avisa a su profe 7 días antes (y si a un profe le caen varias en el mismo envío,
+    le llega un solo correo). Si Jose Miguel quiere de verdad el resumen mensual, ver «Quizá».
+23. 🤖 **El renombrado es solo de pantalla**: ruta, claves de permiso y tablas no se tocan (haría
+    falta migrar permisos de personas reales para nada). El remitente de respaldo pasa a «Oratorios y
+    talleres · Consolación Burriana».
+24. 🤖 **El tipo nace sin calendario** (`calendario_id` vacío). Lo crea una persona y es su dueña:
+    los de Oratorio y Godly Play los creó David a mano. Mientras no esté, confirmar funciona y el
+    error del calendario sale en la sesión con «reintentar»; el correo no depende de él.
+25. 🤖 **«No se repite en la vida escolar» arranca activada** (como en los otros dos), pero con el
+    abanico del taller vacío no hace nada. Si los contenidos del taller pueden repetirse, se apaga
+    en Ajustes.
+26. 🤖 **El horario no cabe del todo**: el de Jose Miguel decía «1 sesión mensual» y otra línea «1
+    sesión cada 6 semanas». «Cada N semanas» no existe (solo mes, trimestre y curso); hoy se
+    resuelve con «mes» y apuntando a mano.
+
+⚠️ **Primaria no tiene horarios de clase en Neon** (comprobado el 19-oct-2026: la rejilla de EP tiene
+sus 7 franjas, pero **0 sesiones de horario para las 12 clases**; en Neon solo están las de la ESO,
+ver [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)). Consecuencia: el asistente no puede
+proponer huecos ni saber qué profe da cada hora, y las 12 clases salen como «Sin horario importado:
+se apuntan a mano». Funciona con **➕ A mano** (clase, fecha, hora **y profe elegido a mano**, que es
+a quien llegará el correo). En cuanto se reimporte el `.docx` de primaria con
+`pnpm horarios:importar`, todo se propone solo.
+
 ## Plan técnico
 
 ### Datos (prefijo `ora_`, SQL aditivo en `src/db/sql/oratorios.sql` y `oratorios-catalogo.sql`)
 
 | Tabla | Para qué |
 |---|---|
-| `ora_tipos` | Tipo de momento: nombre, emoji, nombre en el correo, calendario, frecuencia + cantidad, etapas / clases, texto extra del correo, días de aviso, `sin_repetir` |
+| `ora_tipos` | Tipo de momento (Oratorio, Godly Play, Taller de Pensamiento Computacional): nombre, emoji, nombre en el correo, calendario, frecuencia + cantidad, etapas / clases, texto extra del correo, días de aviso, `sin_repetir` |
 | `ora_catalogo` | **El abanico**: las Sesiones de cada tipo (nombre, enlace, curso en que se creó, niveles, activa) |
 | `ora_ajustes` | Una fila por curso: trimestres y acceso común |
 | `ora_disponibilidad` | Responsable (correo) × día × hora inicio/fin × nivel |
@@ -391,7 +441,28 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
 - [ ] **David**: reimportar el horario de la ESO con el PDC (y el de infantil y primaria) para que el
       asistente y el autocompletar también lo propongan. Sin el `.docx`, no se puede desde aquí.
 
+### Fase 6 · Taller de Pensamiento Computacional — 🟡
+- [x] Tipo `taller_pc` sembrado (`oratorios-taller.sql`), aplicado y verificado en Neon el
+      19-oct-2026: 12 clases de Primaria, rejilla de 7 franjas, 1 al mes
+- [x] Módulo renombrado en pantalla a «Oratorios, Godly Play y Talleres» (escritorio, cabecera,
+      título de la pestaña, permisos, README y docs)
+- [x] Tests con datos inventados: clases de un tipo por etapa (solo Primaria, ampliable) y correo
+      del taller
+- [ ] **David**: crear el calendario compartido del taller (con permiso de edición para quien lo
+      lleve) y pegar su id en Ajustes → el tipo
+- [x] Jose Miguel Batalla ya tiene acceso: es `supertic` en `auth_users` (comprobado en Neon el
+      19-oct-2026), así que ve todos los módulos
+- [ ] **David**: cargar los horarios de primaria (reimportar el `.docx` con
+      `pnpm horarios:importar`); hasta entonces, ➕ A mano
+- [ ] **Jose Miguel**: marcar su disponibilidad (⭐ 👍 🤏) y planificar el primer mes
+- [ ] Primer correo real del taller
+
 ### Quizá, más adelante
+- **Resumen mensual por profe** antes de empezar el mes (hoy cada sesión avisa a los 7 días): un
+  correo con todas las sesiones del mes a cada profe afectado, programado para los últimos días
+  hábiles del mes anterior.
+- **Frecuencia «cada N semanas»** (el horario trae «1 sesión cada 6 semanas»).
+- **Hueco fijo por curso** (1ºA: lunes a tal hora todos los meses) en vez de elegirlo cada vez.
 - Escribir y seguir la sesión desde la propia app (hoy: nombre + enlace).
 - Poner la sesión (y su enlace) en el evento de Calendar y/o en el correo al profe.
 - «Esta sesión se puede repetir» por sesión, además de por tipo.

@@ -589,6 +589,8 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
    soporta (los grupos viven en una tabla puente que puede estar vacía) y el importador no
    fuerza grupo. Las líneas sueltas tipo "1 sesión mensual" se siguen guardando como **nota**
    del bloque, sin inventar un motor de recurrencias.
+   (19-oct-2026: el taller se planifica ahora desde Oratorios, Godly Play y Talleres, como un
+   tipo más — [`26-oratorios.md`](./26-oratorios.md); la nota del horario sigue siendo solo eso.)
 
 ### Sigue pendiente
 

@@ -59,8 +59,8 @@ export const MODULE_LABELS: Record<Module, string> = {
   tareas: 'Tareas de la plataforma',
   'tareas-reportar': 'Reportar fallitos',
   comunicacion: 'Comunicación (protección de datos de todo el centro)',
-  oratorios: 'Oratorios y Godly Play (planificar)',
-  'oratorios-ver': 'Oratorios y Godly Play (ver lo mío)',
+  oratorios: 'Oratorios, Godly Play y Talleres (planificar)',
+  'oratorios-ver': 'Oratorios, Godly Play y Talleres (ver lo mío)',
   calendarios: 'Classrooms y calendarios',
   tableros: 'Tableros (tareas por equipos)',
   nouvinguts: 'Nouvinguts (alumnado nuevo)',
@@ -272,6 +272,15 @@ export function puedeEditarProteccionDatos(role: Role | null): boolean {
  */
 export function puedeGestionarMateriales(role: Role | null): boolean {
   return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
+}
+
+/**
+ * Comedor y complementarias (dentro de `alumnado`): los marca quien lleva la administración,
+ * igual que la venta de materiales —secretaría, dirección y TIC—. El resto los ve, dentro de
+ * su alcance, sin lápiz.
+ */
+export function puedeGestionarServicios(role: Role | null): boolean {
+  return puedeGestionarMateriales(role);
 }
 
 /**
