@@ -410,6 +410,15 @@ uno a uno, quitando los "no" y "nada".
   contener un nombre si alguien lo escribió; se dice en la pantalla de ajustes.
 - La clave es la variable de entorno `ANTHROPIC_API_KEY` (secreto: nunca en la BBDD). Sin ella,
   el panel lo explica y enlaza a Ajustes.
+- **Errores con el motivo real** (19-oct-2026): el primer intento en producción dio un 502 con
+  "Error de la API de Anthropic (400)" y no había forma de saber por qué. Ahora
+  `traducirErrorAnthropic` explica el caso (clave mal copiada, cuenta sin saldo, modelo no
+  disponible, saturado…) y añade el mensaje literal de Anthropic; además lo deja en los logs de
+  Vercel (`[ia] Anthropic respondió con error`, con estado, tipo y request id, sin datos). La
+  clave se recorta antes de usarla (un salto de línea al pegarla la invalida).
+- **Probar conexión** en Ajustes del colegio: una llamada mínima con el modelo elegido y la misma
+  salida estructurada que el análisis. Junto al estado de la clave sale su final («termina en
+  …abcd») para reconocerla sin enseñarla.
 - **Los más críticos**: las 40 respuestas con peor media (`MAX_CRITICAS`), de peor a mejor, con
   umbral elegible (<45 · <70 · todas). Cada tarjeta: su media, cuántas veces marcó lo más bajo
   de la escala, lo que escribió y lo que valoró por debajo de 70 (lo demás, plegado).
