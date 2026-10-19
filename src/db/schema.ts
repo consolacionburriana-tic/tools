@@ -711,6 +711,33 @@ export const licLicencias = pgTable(
 export type LicLicencia = typeof licLicencias.$inferSelect;
 export type NewLicLicencia = typeof licLicencias.$inferInsert;
 
+// Licencias del PROFESORADO (Fase 5b de docs/11-licencias-v2.md). Se usan muy poco, así que no
+// hay censo ni sincronización como en `lic_licencias`: es una anotación — se pega el código,
+// se dice de qué profe es y, si se quiere, se le manda por correo. `edu_teacher_id` NULL = un
+// código pegado al que todavía no se le ha puesto dueño.
+export const licLicenciasProfes = pgTable(
+  'lic_licencias_profes',
+  {
+    id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id, { onDelete: 'cascade' }),
+    eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id),
+    /** Texto libre y corto: «Inglés 3ºESO · guía docente». */
+    libro: text('libro'),
+    codigo: text('codigo').notNull(),
+    nota: text('nota'),
+    enviadoAt: timestamp('enviado_at'),
+    enviadoA: text('enviado_a'),
+    createdPorEmail: text('created_por_email'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('lic_licencias_profes_codigo_uq').on(t.campaignId, t.codigo),
+    index('lic_licencias_profes_teacher_idx').on(t.eduTeacherId),
+  ],
+);
+export type LicLicenciaProfe = typeof licLicenciasProfes.$inferSelect;
+
 // Una fila por CORREO enviado (no por licencia): es lo que permite "fusionar" varias licencias
 // de un alumno en un solo correo y seguir sabiendo después qué salió, a dónde y cuándo.
 export const licEnvios = pgTable(
