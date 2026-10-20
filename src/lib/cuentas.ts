@@ -1,4 +1,4 @@
-// Correos y grupos: helpers puros (sin IO). Ficha: docs/29-cuentas.md
+// Correos y grupos: helpers puros (sin IO). Ficha: docs/30-cuentas.md
 //
 // El módulo pone una al lado de la otra dos listas que hasta ahora se miraban por separado:
 // las personas de Educamos (alumnado y profesorado de la BBDD central) y las cuentas de Google

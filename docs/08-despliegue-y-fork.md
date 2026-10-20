@@ -110,7 +110,7 @@ https://www.googleapis.com/auth/admin.directory.orgunit
 https://www.googleapis.com/auth/admin.directory.group
 ```
 
-Los tres últimos son de Correos y grupos (`docs/29-cuentas.md`): crear y suspender cuentas, unidades
+Los tres últimos son de Correos y grupos (`docs/30-cuentas.md`): crear y suspender cuentas, unidades
 organizativas y grupos.
 
 ## 4 · Alumnado y profesorado (paso 16)

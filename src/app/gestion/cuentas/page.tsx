@@ -8,7 +8,7 @@ import { PanelCuentas } from '@/components/cuentas/panel';
 
 export const metadata = { title: 'Correos y grupos · Tools Consolación' };
 
-// Ficha: docs/29-cuentas.md. La pantalla sale de la foto de Neon; leer Google y todo lo que
+// Ficha: docs/30-cuentas.md. La pantalla sale de la foto de Neon; leer Google y todo lo que
 // cambia algo lo hace la pantalla contra /api/cuentas/*.
 export default async function CuentasPage({ searchParams }: { searchParams: Promise<{ persona?: string }> }) {
   const user = await getSessionUser();

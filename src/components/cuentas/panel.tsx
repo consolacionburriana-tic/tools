@@ -1,6 +1,6 @@
 'use client';
 
-// /gestion/cuentas: Correos y grupos. Ficha: docs/29-cuentas.md
+// /gestion/cuentas: Correos y grupos. Ficha: docs/30-cuentas.md
 //
 // La pantalla abre con la foto de Neon (rápido) y, si quien entra puede leer Google y la foto
 // tiene más de unos minutos, la refresca sola por detrás.

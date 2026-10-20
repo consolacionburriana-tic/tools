@@ -1,4 +1,4 @@
--- Correos y grupos · tablas nuevas (ficha: docs/29-cuentas.md)
+-- Correos y grupos · tablas nuevas (ficha: docs/30-cuentas.md)
 -- Fecha: 2026-10-20 · equivalente a `pnpm db:push` para las tablas cue_*.
 --
 -- Puramente ADITIVO: crea tablas nuevas y no toca ninguna existente. Idempotente.

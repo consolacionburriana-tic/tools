@@ -24,6 +24,7 @@ export default async function FichaNouvingutPage({ params }: { params: Promise<{
         proteccion: puedeEditarProteccionDatos(user.role),
         participantes: puedeGestionarParticipantesBanco(user.role),
         materiales: puedeGestionarMateriales(user.role),
+        dispositivos: canAccess(user, 'dispositivos'),
       }}
     />
   );

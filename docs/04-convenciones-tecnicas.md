@@ -48,7 +48,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `RESEND_API_KEY` · `RESEND_FROM` | Transporte Resend (alternativa/respaldo; el plan gratuito **corta a 100 correos al día**) |
 | `LICENCIAS_GESTORES` | Lista de correos de aviso de Licencias |
 | `GOOGLE_SA_CLIENT_EMAIL` · `GOOGLE_SA_PRIVATE_KEY` (antes `GOOGLE_SHEETS_*`, siguen valiendo) · `GOOGLE_SHEETS_SPREADSHEET_ID` | Cuenta de servicio: Sheet de Licencias **y** envío por la API de Gmail |
-| `GOOGLE_ADMIN_BUZON` | Opcional. Buzón **administrador** del dominio que suplantan Calendarios (Directory y Classroom) y Correos y grupos (Directory). Sin fijar, se usa el de quien está en la pantalla (docs/25-calendarios.md, docs/29-cuentas.md). Si se fija, secretaría también puede refrescar Correos y grupos |
+| `GOOGLE_ADMIN_BUZON` | Opcional. Buzón **administrador** del dominio que suplantan Calendarios (Directory y Classroom) y Correos y grupos (Directory). Sin fijar, se usa el de quien está en la pantalla (docs/25-calendarios.md, docs/30-cuentas.md). Si se fija, secretaría también puede refrescar Correos y grupos |
 | `LICENCIAS_PLANTILLA_PEDIDO` · `LICENCIAS_CARPETA_PEDIDOS` | IDs de Drive de la plantilla de pedido (Google Sheet) y de la carpeta donde se dejan los pedidos a editoriales de Licencias. Ambas compartidas con la cuenta de servicio. **Sin ellas se usan los IDs del colegio original** (`PLANTILLA_POR_DEFECTO`, `CARPETA_PEDIDOS_POR_DEFECTO`), así que un fork tiene que fijarlas |
 | `EVALUACIONES_CLASSROOM_BUZON` | Opcional. Cuenta que publica las evaluaciones en las tutorías de Classroom (tiene que ser profe de ellas y un usuario real). Sin fijar, `tic@` del colegio (`COLEGIO.correoTic`). Ver `docs/16-evaluaciones.md` |
 | `GOOGLE_CALENDAR_CONCURRENCIA` | Opcional. Llamadas a Calendar en paralelo al exportar «Mi horario» (1-10, por defecto 3) |
@@ -72,7 +72,7 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
 ## Base de datos (Drizzle + Neon)
 
 - **Todas las tablas en `src/db/schema.ts`**, agrupadas por módulo con su prefijo (`abc_`,
-  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`, `tab_`, `cue_`) y un comentario separador
+  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`, `tab_`, `nou_`, `dis_`, `cue_`) y un comentario separador
   por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
 - ⚠️ **Antes de `pnpm db:push`, mira qué hay en Neon.** Push borra lo que no esté en

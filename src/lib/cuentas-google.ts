@@ -1,4 +1,4 @@
-// Correos y grupos · adaptador de Google. Ficha: docs/29-cuentas.md
+// Correos y grupos · adaptador de Google. Ficha: docs/30-cuentas.md
 //
 // Admin SDK Directory suplantando a un administrador del dominio (`buzonAdmin`), con la misma
 // cuenta de servicio que el resto (`google-sa.ts`). Un scope por cosa, para que lo que falte

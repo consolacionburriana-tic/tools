@@ -1,4 +1,4 @@
-// Correos y grupos · lo que toca Neon y orquesta Google. Ficha: docs/29-cuentas.md
+// Correos y grupos · lo que toca Neon y orquesta Google. Ficha: docs/30-cuentas.md
 //
 // La pantalla se pinta desde la foto que hay en Neon: es rápido y secretaría la ve sin tocar
 // Google. «Leer de Google» rehace la foto entera y cada acción actualiza las filas que toca.

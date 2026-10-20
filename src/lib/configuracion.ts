@@ -128,6 +128,21 @@ export const CONFIGURACION = {
     },
   },
 
+  /**
+   * Dispositivos 1:1 (`docs/29-dispositivos.md`). Lo leen: el listado de cuotas, el aviso del
+   * seguro y la lista de profes a los que les toca iPad del cole.
+   */
+  dispositivos: {
+    /** Cursos escolares que cubre el seguro de un iPad comprado a través del cole, el de compra incluido. */
+    cursosSeguro: 4,
+    /** € al año de un iPad comprado (o heredado de un hermano) con el seguro vencido. */
+    cuotaAnualSinSeguro: 30,
+    /** € al mes de un iPad traído de casa, o prestado por el cole que se lleva a casa. */
+    cuotaMensual: 10,
+    /** Desde qué curso tiene iPad del cole el profesorado: el 3er ciclo de Primaria (David, 20-oct-2026). */
+    profesDesdeCurso: '5PRI',
+  },
+
   /** Horarios. Ver `docs/07-horarios.md`. */
   horarios: {
     /**

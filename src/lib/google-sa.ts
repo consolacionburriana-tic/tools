@@ -1,7 +1,7 @@
 // La cuenta de servicio de Google, en común: credenciales, un JWT por buzón suplantado,
 // reintentos y errores dichos de forma que se puedan arreglar.
 //
-// Nació con Correos y grupos (docs/29-cuentas.md), que es el tercer módulo que habla con
+// Nació con Correos y grupos (docs/30-cuentas.md), que es el tercer módulo que habla con
 // las APIs de administración. Calendarios ya la usa; `email-gmail.ts`, `mihorario-google.ts`
 // y `google-sheets.ts` todavía llevan su copia (ver docs/00-desarrollos-futuros.md).
 //

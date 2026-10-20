@@ -50,9 +50,9 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
    | AMPA | Secretaría | Sí/No desde aquí, que escribe en la ficha (`setAmpa`) |
    | Materiales comprados | Secretaría | Automático: los materiales de su clase en Venta de materiales; hecho cuando todos tienen estado. Se marcan desde aquí |
    | Foto en Educamos | Secretaría | A mano |
-   | Correo de Google | TIC | Automático: `email_google` de su ficha; se puede escribir aquí, o crearlo en Correos y grupos con un clic (`docs/29-cuentas.md`) |
+   | Correo de Google | TIC | Automático: `email_google` de su ficha; se puede escribir aquí, o crearlo en Correos y grupos con un clic (`docs/30-cuentas.md`) |
    | Correo vinculado en Educamos | TIC | A mano |
-   | iPad | TIC | A mano hasta que exista el módulo de iPads (otra tarea), que se enganchará aquí |
+   | iPad | TIC | Automático: hecho cuando tiene estado en [Dispositivos 1:1](./29-dispositivos.md) (comprado, de casa, prestado o de hermano). Se elige desde aquí mismo con un toque; qué iPad del cole y el resto, en su módulo. Quien no tenga ese módulo lo sigue marcando a mano |
    | Apple School Manager | TIC | Automático: hecho si ha habido una subida a ASM (FTP o a mano) desde su alta y entra en su alcance; si no, invita a ir a AUTOASM |
    | Licencias | TIC | Automático: pedido en la campaña vigente, o «no pedirá licencias» (marca `manual_completed_at` de Licencias si el alumno está en su campaña) |
 
@@ -143,6 +143,6 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
 
 ### Más adelante
 - [x] Crear el correo de Google desde el paso: enlaza a Correos y grupos con el alumno ya elegido (`/gestion/cuentas?persona=a:<id>`, 20-oct-2026; solo a quien tiene el módulo `cuentas`)
-- [ ] Enganchar el paso del iPad al módulo de iPads
+- [x] Enganchar el paso del iPad al módulo de iPads (20-oct-2026, `docs/29-dispositivos.md`: el paso lee `dis_alumnos` y la ficha trae el selector rápido)
 - [ ] Bajas con el mismo motor
 - [ ] Inicio de curso de 3 años, por lotes

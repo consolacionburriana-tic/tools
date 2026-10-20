@@ -244,6 +244,14 @@ exactamente la deuda que documenta
     del cuaderno, pero **leído, no congelado**: descargar una lista no es imprimir el
     cuaderno, y no le fija el número a nadie (`numerosSinCongelar`).
 
+19. **El iPad: solo «no se lo lleva a casa»** (David, 20-oct-2026; módulo en
+    [`29-dispositivos.md`](./29-dispositivos.md)). Si un alumno tiene un iPad prestado que se queda
+    en el cole, la ficha lo dice **arriba del todo, en naranja** («No se lleva el iPad a casa»), y la
+    fila de la lista lleva un iPad naranja. Es lo que necesita un profe que manda trabajo con el
+    iPad. **Si es prestado, comprado o de casa no se le dice**: a quien no tiene el módulo
+    `dispositivos`, `fichaVisible` le manda solo `noSeLoLleva` (no se esconde con CSS). Quien lo
+    tiene (TIC, secretaría, dirección) ve además un chip con el estado completo.
+
 ---
 
 ## Lo que se enseña, y de dónde sale
