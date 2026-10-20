@@ -69,6 +69,7 @@ import {
 } from '@/lib/permissions';
 import { estadosMateriales, listaMateriales, type MaterialLista } from '@/lib/materiales-server';
 import { clasesDeTutor } from '@/lib/puntualidad-server';
+import { alumnosQueNoSeLoLlevan, resumenDispositivos } from '@/lib/dispositivos-server';
 
 export type { MaterialLista };
 
@@ -289,7 +290,10 @@ export function fichaVisible(
   alcance: AlcanceProteccion,
 ): FichaAlumno {
   const permisos = permisosFicha(user, alcance, ficha);
-  return { ...ficha, proteccion: permisos.proteccion === 'no' ? null : ficha.proteccion, permisos };
+  // Del iPad, quien no lleva Dispositivos 1:1 solo sabe si NO se lo lleva a casa (David, 20-oct-2026).
+  const d = ficha.dispositivo;
+  const dispositivo = canAccess(user, 'dispositivos') ? d : d?.noSeLoLleva ? { modalidad: null, texto: null, noSeLoLleva: true } : null;
+  return { ...ficha, proteccion: permisos.proteccion === 'no' ? null : ficha.proteccion, dispositivo, permisos };
 }
 
 // ─── El listado ───────────────────────────────────────────────────────────────
@@ -314,6 +318,11 @@ export interface AlumnoLista {
   /** Se queda a comer · va a complementarias (esta, solo Infantil y Primaria: `aplicaServicio`). */
   comedor: boolean;
   complementarias: boolean;
+  /**
+   * Tiene un iPad prestado que NO se lleva a casa (Dispositivos 1:1). Es lo único de los
+   * dispositivos que ve todo el que ve la lista (David, 20-oct-2026).
+   */
+  ipadEnCole?: boolean;
   /**
    * La protección de datos, resumida, para la fila de la lista y para la tabla por clase.
    * `null` = la de ese alumno no le toca a quien mira (un tutor solo ve la de su tutoría),
@@ -366,7 +375,7 @@ export async function listaAlumnado(
   // UNA sola tanda: `estadoPedidos` ya no espera a saber cuál es la campaña activa, la
   // resuelve con una subconsulta. Con ~127 ms por viaje a Neon, quitar la espera previa vale
   // tanto como optimizar cualquiera de las consultas.
-  const [filas, numeros, pedidos, tutorias, profes, materiales, estados] = await Promise.all([
+  const [filas, numeros, pedidos, tutorias, profes, materiales, estados, ipadEnCole] = await Promise.all([
     db
       .select({
         id: eduStudents.id,
@@ -409,6 +418,7 @@ export async function listaAlumnado(
       .from(eduTeachers),
     listaMateriales(academicYear),
     estadosMateriales(veBecas, academicYear),
+    alumnosQueNoSeLoLlevan(),
   ]);
 
   const numeroPorAlumno = new Map(numeros.map((n) => [n.eduStudentId, n.numero]));
@@ -445,6 +455,7 @@ export async function listaAlumnado(
       comedor: f.comedor,
       // Fuera de Infantil y Primaria no existe: se manda como `false` aunque la BBDD dijera otra cosa.
       complementarias: f.complementarias && aplicaServicio('complementarias', f.curso),
+      ipadEnCole: ipadEnCole.has(f.id),
       proteccion:
         proteccion && veProteccionDe(proteccion, f)
           ? {
@@ -610,6 +621,11 @@ export interface FichaAlumno {
   ampa: boolean;
   comedor: boolean;
   complementarias: boolean;
+  /**
+   * Cómo tiene el iPad (Dispositivos 1:1). Quien no tiene el módulo solo recibe `noSeLoLleva`
+   * (`fichaVisible`): tutores y profes ven si NO se lo lleva a casa, no si es prestado o no.
+   */
+  dispositivo?: { modalidad: string | null; texto: string | null; noSeLoLleva: boolean } | null;
   /** Las cuatro autorizaciones. `null` = a quien mira no le toca verlas (ver `fichaVisible`). */
   proteccion: ProteccionDatos | null;
   /** Qué puede tocar de esta ficha quien la está mirando. Lo pone `fichaVisible()`. */
@@ -710,6 +726,7 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
     salidas,
     abc,
     apoyos,
+    dispositivos,
   ] = await Promise.all([
     db.select().from(eduStudents).where(eq(eduStudents.id, id)).limit(1),
     db
@@ -790,6 +807,7 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
       .select({ modalidad: horApoyos.modalidad, notas: horApoyos.notas })
       .from(horApoyos)
       .where(and(eq(horApoyos.eduStudentId, id), eq(horApoyos.active, true))),
+    resumenDispositivos([id]),
   ]);
 
   const alumno = alumnoFila[0];
@@ -875,6 +893,7 @@ export async function fichaAlumno(id: string, academicYear = academicYearActual(
     ampa: alumno.ampa,
     comedor: alumno.comedor,
     complementarias: alumno.complementarias && aplicaServicio('complementarias', alumno.curso),
+    dispositivo: dispositivos.get(id) ?? null,
     proteccion: {
       imagen: alumno.pdImagen,
       redes: alumno.pdRedes,

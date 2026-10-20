@@ -178,3 +178,12 @@ describe('nouvinguts', () => {
     expect(canAccess({ role: 'direccion' }, 'nouvinguts-proceso')).toBe(false);
   });
 });
+
+describe('dispositivos', () => {
+  it('lo llevan TIC, secretaría y dirección; tutores y profes no entran (ven solo el aviso en Alumnado)', () => {
+    for (const r of ['secretaria', 'direccion', 'tic', 'supertic'] as const) expect(canAccess({ role: r }, 'dispositivos')).toBe(true);
+    for (const r of ['profe', 'tutor', 'jefe', 'orientacion', 'evaluaciones', 'comunicacion'] as const) {
+      expect(canAccess({ role: r }, 'dispositivos')).toBe(false);
+    }
+  });
+});

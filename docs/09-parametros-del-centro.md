@@ -5,7 +5,7 @@ Lo que hace distinto a un colegio de otro está en **tres sitios**, y este docum
 | Sitio | Qué es | Quién lo cambia |
 |---|---|---|
 | [`src/lib/colegio.ts`](../src/lib/colegio.ts) | **Quién eres**: dominio de Workspace, nombre, host y buzones | Quien despliega, una vez |
-| [`src/lib/configuracion.ts`](../src/lib/configuracion.ts) | **Cómo funciona tu centro**: cursos por etapa, promoción, banco de libros, hora límite, calendario, sesión, límite de archivos | Quien despliega, y de año en año si algo cambia |
+| [`src/lib/configuracion.ts`](../src/lib/configuracion.ts) | **Cómo funciona tu centro**: cursos por etapa, promoción, banco de libros, hora límite, calendario, cuotas de los iPads, sesión, límite de archivos | Quien despliega, y de año en año si algo cambia |
 | Variables de entorno (Vercel) | Credenciales y cuentas ([tabla](./04-convenciones-tecnicas.md#variables-de-entorno)) | Quien despliega |
 
 Guía completa de despliegue: [`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md).
@@ -27,6 +27,7 @@ Consolación; si cambias uno a propósito, el test correspondiente te avisa.
 | `calendario.zonaHoraria` | `Europe/Madrid` | Todas las fechas «de hoy» (Números, Oratorios, Mi horario, Tareas) |
 | `calendario.mesInicioCurso` | `9` (septiembre) | Curso académico en vigor |
 | `calendario.trimestres` | fin T1 22-dic · inicio T2 7-ene · T2 acaba 9 días antes de Pascua · T3 empieza 2 días después · fin T3 19-jun | Valores de partida de los trimestres de Oratorios (se retocan cada año en sus Ajustes) |
+| `dispositivos` | Seguro de 4 cursos · 30 €/año sin seguro · 10 €/mes · iPad del cole a profes desde 5º EP | Dispositivos 1:1: cuotas, aviso del seguro y profes a los que les toca iPad |
 | `sesion` | 300 días · rol refrescado cada 15 min | Login (`src/auth.ts`) |
 | `archivos.maxMB` | `10` | Subida de justificantes de Salidas, Excel de Licencias e importación de horarios (y los textos que lo dicen) |
 

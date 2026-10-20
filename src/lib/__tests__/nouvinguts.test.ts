@@ -39,6 +39,7 @@ function datos(extra: Partial<DatosNouvingut> = {}): DatosNouvingut {
     emailGoogle: null,
     materiales: [{ id: 'm1', nombre: 'Agenda', estado: null }],
     asmSubidaAt: null,
+    dispositivo: null,
     licencias: { campania: 'Licencias 2026-27', enCampania: true, pedidoAt: null, noPedira: false },
     marcas: {},
     ...extra,
@@ -140,6 +141,15 @@ describe('estadoPaso', () => {
   it('iPad, ASM y licencias van desde 6º EP', () => {
     const cuarto = datos({ curso: '4PRI' });
     for (const c of ['ipad', 'asm', 'licencias']) expect(estadoPaso(paso(c), cuarto).estado).toBe('no_aplica');
+  });
+
+  it('iPad: lo dice Dispositivos 1:1; la marca a mano sigue valiendo para quien no tenga el módulo', () => {
+    expect(estadoPaso(paso('ipad'), datos())).toEqual({ estado: 'pendiente', texto: 'Sin informar en Dispositivos 1:1' });
+    expect(estadoPaso(paso('ipad'), datos({ vinculado: false })).texto).toBe('Cuando esté en Educamos');
+    const prestado = { modalidad: 'prestado', texto: 'Prestado A3 · en el cole', cursoCompra: null, aCasa: false };
+    expect(estadoPaso(paso('ipad'), datos({ dispositivo: prestado }))).toEqual({ estado: 'hecho', texto: 'Prestado A3 · en el cole' });
+    const marca = { valor: 'hecho', porNombre: 'Ana', at: '2026-10-20T09:00:00Z' };
+    expect(estadoPaso(paso('ipad'), datos({ marcas: { ipad: marca } })).estado).toBe('hecho');
   });
 
   it('ASM: aviso si no ha habido subida desde su alta', () => {

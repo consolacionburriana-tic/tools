@@ -32,6 +32,7 @@ import {
   MessageCircle,
   Palette,
   Phone,
+  Tablet,
   Users,
   UtensilsCrossed,
   X,
@@ -146,6 +147,18 @@ export function FichaAlumnoPanel({
         </div>
       </div>
 
+      {/* Lo primero que tiene que saber un profe que le manda trabajo con el iPad (David,
+          20-oct-2026): bien destacado, arriba del todo. Si es prestado o no, no se le dice. */}
+      {ficha.dispositivo?.noSeLoLleva && (
+        <div className="flex items-center gap-3 rounded-xl border border-orange-300 bg-orange-100 px-3 py-2.5 text-orange-950 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-100">
+          <Tablet className="h-5 w-5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">No se lleva el iPad a casa</p>
+            <p className="text-xs opacity-80">Solo lo tiene en el cole: tenlo en cuenta al mandar trabajo con el iPad.</p>
+          </div>
+        </div>
+      )}
+
       {/* ── 2 · Lo que hay que saber ya ──────────────────────────────── */}
       <div className="flex flex-wrap gap-1.5">
         <Chip
@@ -173,6 +186,10 @@ export function FichaAlumnoPanel({
         {ficha.comedor && <Chip tono="naranja" icono={<UtensilsCrossed className="h-3.5 w-3.5" />} texto="Comedor" />}
         {ficha.complementarias && (
           <Chip tono="azul" icono={<Palette className="h-3.5 w-3.5" />} texto="Complementarias" />
+        )}
+        {/* El estado completo del iPad, solo para quien lleva Dispositivos 1:1 (el resto recibe `texto: null`). */}
+        {ficha.dispositivo?.texto && (
+          <Chip tono="gris" icono={<Tablet className="h-3.5 w-3.5" />} texto={`iPad ${ficha.dispositivo.texto.charAt(0).toLowerCase()}${ficha.dispositivo.texto.slice(1)}`} />
         )}
         {/* El de protección de datos va con los primeros a propósito: es lo que se mira
             antes de publicar una foto, y llegar tarde a ese dato no tiene arreglo. */}
