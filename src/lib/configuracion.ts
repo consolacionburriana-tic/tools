@@ -167,4 +167,12 @@ export const CONFIGURACION = {
   archivos: {
     maxMB: 10,
   },
+
+  /**
+   * Módulos apagados en este colegio: no salen en el escritorio y no entra nadie, ni por su rol ni
+   * dado a mano. Su código y sus datos se quedan, así que para encender uno basta con quitarlo de
+   * la lista (y redesplegar). Puntualidad, desde el 20-oct-2026 (David: «por ahora está sin uso»).
+   * Lo leen: `canAccess` y `modulosDe` (permissions.ts), el formulario `/puntualidad`, su API y su cron.
+   */
+  modulosDesactivados: ['puntualidad'] as readonly string[],
 } as const;

@@ -16,6 +16,8 @@ import {
   type NewEduStudent,
 } from '@/db/schema';
 import { getSessionUser, hasModule } from '@/lib/auth-guards';
+import { COLEGIO } from '@/lib/colegio';
+import { correosProfeTrasSync } from '@/lib/cuentas';
 import { bancoTrasCambioDeCurso, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import {
   CODIGO_INTERNO_RE,
@@ -492,6 +494,8 @@ export async function aplicarSyncProfesores(input: {
       null;
 
     const activo = r.fechaBaja === null;
+    // El correo del colegio (el de su cuenta de Google y el login) no lo pisa uno personal.
+    const correos = correosProfeTrasSync(existente, { email: r.email, emailOtro: r.emailOtro }, COLEGIO.dominio);
     const campos = {
       alias: r.alias,
       educamosPersonaId: r.educamosPersonaId,
@@ -501,8 +505,8 @@ export async function aplicarSyncProfesores(input: {
       dni: r.dni,
       sexo: r.sexo,
       fechaNacimiento: r.fechaNacimiento,
-      email: r.email,
-      emailOtro: r.emailOtro,
+      email: correos.email,
+      emailOtro: correos.emailOtro,
       movilPersonal: r.movilPersonal,
       fechaAlta: r.fechaAlta,
       fechaBaja: r.fechaBaja,

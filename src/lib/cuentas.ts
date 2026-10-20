@@ -11,7 +11,7 @@
 import { z } from 'zod';
 import { academicYearActual } from '@/lib/constants';
 import { compararClases, cursoSiguiente, ETAPA_LABEL, ETAPAS, etapaDeCurso, nivelDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
-import { mayusculasBellas } from '@/lib/personas';
+import { mayusculasBellas, tildesProbables } from '@/lib/personas';
 
 // ─── Lo que llega de cada lado ────────────────────────────────────────────────
 
@@ -58,6 +58,8 @@ export interface ProfeCruce {
   /** Fecha de baja de Educamos (`YYYY-MM-DD`). */
   fechaBaja: string | null;
   etapas: Etapa[];
+  /** El nombre por el que se le llama, puesto a mano en /gestion/profes («Pepe», «Mª Carmen»). */
+  nombreMostrado?: string | null;
 }
 
 export const TIPOS_MARCA = ['centro', 'conservar'] as const;
@@ -101,7 +103,8 @@ export function usuarioCorreo(...partes: (string | null | undefined)[]): string 
   return partes
     .filter(Boolean)
     .join('')
-    .normalize('NFD')
+    // NFKD y no NFD: así la «ª» de «Mª» se queda en «a» en vez de desaparecer.
+    .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
@@ -157,6 +160,23 @@ export function motivoCorreoNoValido(email: string, dominio: string): string | n
   return null;
 }
 
+/**
+ * Qué correos se quedan en un profe al volver a importar Educamos. El correo del colegio
+ * es el que casa con su cuenta de Google y con el login: si ya lo tiene y el export trae
+ * uno personal (Educamos suele tener el de antes de entrar), no se pisa; el personal pasa a
+ * `emailOtro`. En todo lo demás manda Educamos.
+ */
+export function correosProfeTrasSync(
+  actual: { email: string | null; emailOtro: string | null } | null,
+  entrante: { email: string | null; emailOtro: string | null },
+  dominio: string,
+): { email: string | null; emailOtro: string | null } {
+  const delCole = (e: string | null | undefined) => !!e && e.trim().toLowerCase().endsWith(`@${dominio}`);
+  if (!actual || !delCole(actual.email) || delCole(entrante.email)) return entrante;
+  const personal = entrante.email ?? entrante.emailOtro;
+  return { email: actual.email, emailOtro: personal && personal !== actual.email ? personal : actual.emailOtro };
+}
+
 /** «García López, Ana»: como se ordena y se lee una lista de clase. */
 export function nombreLista(p: NombreBruto): string {
   const apellidos = [mayusculasBellas(p.apellido1), mayusculasBellas(p.apellido2)].filter(Boolean).join(' ');
@@ -164,13 +184,47 @@ export function nombreLista(p: NombreBruto): string {
   return apellidos && nombre ? `${apellidos}, ${nombre}` : apellidos || nombre || '(sin nombre)';
 }
 
-/** El nombre y los apellidos con los que se crea la cuenta en Google. */
-export function nombreGoogle(p: NombreBruto): { nombre: string; apellidos: string } {
+/**
+ * El nombre y los apellidos con los que se crea la cuenta en Google: con mayúsculas de verdad
+ * y, en el profesorado, con el nombre por el que se le llama si está puesto a mano. Las
+ * tildes no se inventan aquí (ver `sugerenciaTildes`): Educamos las trae cuando la familia
+ * las escribió.
+ */
+export function nombreGoogle(p: NombreBruto & { nombreMostrado?: string | null }): { nombre: string; apellidos: string } {
   return {
-    nombre: mayusculasBellas(p.nombre),
+    nombre: p.nombreMostrado?.trim() || mayusculasBellas(p.nombre),
     apellidos: [mayusculasBellas(p.apellido1), mayusculasBellas(p.apellido2)].filter(Boolean).join(' '),
   };
 }
+
+/**
+ * El mismo nombre con las tildes que casi seguro le faltan («Adrian Gomez» → «Adrián
+ * Gómez»), o null si no hay nada que sugerir. Es una sugerencia que se acepta con un toque,
+ * no un cambio automático: un nombre de fuera puede ir sin tilde a propósito.
+ */
+export function sugerenciaTildes(n: { nombre: string; apellidos: string }): { nombre: string; apellidos: string } | null {
+  const nombre = tildesProbables(n.nombre);
+  const apellidos = tildesProbables(n.apellidos);
+  return nombre === n.nombre && apellidos === n.apellidos ? null : { nombre, apellidos };
+}
+
+/**
+ * Los correos (lo de antes de la arroba) que salen de un nombre ya escrito en el diálogo,
+ * con los apellidos en un solo texto, en el orden de la norma del cole: nombre + primer
+ * apellido con sus partículas («de la Fuente García» → `delafuente`), luego con el segundo
+ * entero y luego con su inicial. Para volver a proponer el correo al corregir el nombre.
+ */
+export function usuariosDesdeNombre(nombre: string, apellidos: string): string[] {
+  const palabras = apellidos.trim().split(/\s+/).filter(Boolean);
+  let corte = 0;
+  while (corte < palabras.length) {
+    corte++;
+    if (!PARTICULAS_APELLIDO.has(palabras[corte - 1].toLowerCase())) break;
+  }
+  return propuestasCorreo({ nombre, apellido1: palabras.slice(0, corte).join(' '), apellido2: palabras.slice(corte).join(' ') || null });
+}
+
+const PARTICULAS_APELLIDO = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'i', 'da', 'do', 'dos', 'van', 'von', 'di']);
 
 /** Formas en que se puede escribir el nombre de alguien, para encontrar «cuentas que se le parecen». */
 function clavesPersona(p: NombreBruto): Set<string> {
@@ -531,6 +585,8 @@ export interface FilaCuenta {
   correoEducamos: string | null;
   /** El correo que se le crearía, y con qué nombre y apellidos. */
   propuesta: string | null;
+  /** Otros correos libres que también le valdrían (con el segundo apellido, solo el primer nombre…). */
+  alternativas: string[];
   paraGoogle: { nombre: string; apellidos: string } | null;
   /** A dónde tendría que ir la cuenta: su clase, o el archivo si se suspende. */
   uoDestino: string | null;
@@ -576,6 +632,8 @@ export interface ResumenCuentas {
 
 export interface CruceCuentas {
   filas: FilaCuenta[];
+  /** Correos y alias que ya existen en Google: para avisar al escribir uno a mano. */
+  enGoogle: string[];
   clases: FilaClase[];
   resumen: ResumenCuentas;
 }
@@ -712,6 +770,7 @@ export function cruzar(d: DatosCruce): CruceCuentas {
       cuenta: cuenta ? aFila(cuenta) : null,
       correoEducamos,
       propuesta: null,
+      alternativas: [],
       paraGoogle: null,
       uoDestino: null,
       zona: 'alumnado',
@@ -767,6 +826,7 @@ export function cruzar(d: DatosCruce): CruceCuentas {
       cuenta: cuenta ? aFila(cuenta) : null,
       correoEducamos: correoDominio(p.email, dominio),
       propuesta: null,
+      alternativas: [],
       paraGoogle: null,
       uoDestino: null,
       zona: 'profesorado',
@@ -818,6 +878,7 @@ export function cruzar(d: DatosCruce): CruceCuentas {
       cuenta: aFila(c),
       correoEducamos: null,
       propuesta: null,
+      alternativas: [],
       paraGoogle: null,
       uoDestino: destino,
       zona,
@@ -837,7 +898,7 @@ export function cruzar(d: DatosCruce): CruceCuentas {
   const cuentaPorId = new Map(d.cuentas.map((c) => [c.id, c]));
   // También las suspendidas: un alumno que vuelve al colegio ya tiene su cuenta de antes.
   const clavesSueltas = sueltas.map((s) => ({ fila: s, claves: clavesCuenta(cuentaPorId.get(s.cuenta!.id)!) }));
-  const personasPorId = new Map<string, NombreBruto>();
+  const personasPorId = new Map<string, NombreBruto & { nombreMostrado?: string | null }>();
   for (const a of d.alumnos) personasPorId.set(`a:${a.id}`, a);
   for (const p of d.profes) personasPorId.set(`p:${p.id}`, p);
   for (const f of sinCorreo) {
@@ -866,6 +927,16 @@ export function cruzar(d: DatosCruce): CruceCuentas {
     const libreEducamos = f.correoEducamos && !porCorreo.has(f.correoEducamos) ? f.correoEducamos : null;
     f.propuesta = libreEducamos ?? elegirCorreo(persona, ocupados, dominio);
     if (f.propuesta) ocupados.add(f.propuesta);
+    const pila = (persona.nombre ?? '').trim().split(/\s+/)[0] ?? '';
+    f.alternativas = [
+      ...new Set(
+        [...propuestasCorreo(persona), usuarioCorreo(pila, persona.apellido1)]
+          .filter(Boolean)
+          .map((u) => `${u}@${dominio}`),
+      ),
+    ]
+      .filter((e) => e !== f.propuesta && !ocupados.has(e))
+      .slice(0, 4);
     f.paraGoogle = nombreGoogle(persona);
   }
 
@@ -908,7 +979,7 @@ export function cruzar(d: DatosCruce): CruceCuentas {
     })
     .sort(compararClases);
 
-  return { filas, clases, resumen: resumir(filas, clases) };
+  return { filas, enGoogle: [...porCorreo.keys()], clases, resumen: resumir(filas, clases) };
 }
 
 /**

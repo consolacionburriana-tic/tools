@@ -24,6 +24,7 @@ Consolación; si cambias uno a propósito, el test correspondiente te avisa.
 | `etapasConjuntas` (etapas que van juntas para «quién ve a quién») | ESO + Bachillerato | Alumnado, Banco de libros y Números: un profe con una de las dos ve las dos |
 | `puntualidad.etapas` | ESO (con PDC) y Bachillerato | Buscador del formulario, lista de alumnado del módulo (TypeScript y SQL salen de la misma lista) |
 | `puntualidad.horaLimite` / `retrasosPorConsecuencia` | `08:05` · `3` | Formulario, panel, avisos y resumen semanal (y los textos que dicen «08:05») |
+| `modulosDesactivados` | `['puntualidad']` | Permisos (`canAccess`, `modulosDe`): un módulo de la lista no lo ve nadie, ni sale en el escritorio ni en Usuarios y roles. Sus APIs y crons comprueban lo mismo |
 | `calendario.zonaHoraria` | `Europe/Madrid` | Todas las fechas «de hoy» (Números, Oratorios, Mi horario, Tareas) |
 | `calendario.mesInicioCurso` | `9` (septiembre) | Curso académico en vigor |
 | `calendario.trimestres` | fin T1 22-dic · inicio T2 7-ene · T2 acaba 9 días antes de Pascua · T3 empieza 2 días después · fin T3 19-jun | Valores de partida de los trimestres de Oratorios (se retocan cada año en sus Ajustes) |

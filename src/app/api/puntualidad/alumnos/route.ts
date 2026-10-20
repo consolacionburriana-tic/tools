@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { moduloDesactivado } from '@/lib/permissions';
 import { isGuardResponse, requireSession } from '@/lib/auth-guards';
 import { buscarAlumnos } from '@/lib/puntualidad-server';
 
@@ -7,6 +8,7 @@ export const dynamic = 'force-dynamic';
 // Buscador de alumnos del formulario. Basta sesión del claustro: registrar un retraso lo
 // puede hacer cualquier profe (igual que el formulario del ABC).
 export async function GET(request: Request) {
+  if (moduloDesactivado('puntualidad')) return NextResponse.json({ error: 'Puntualidad está desactivado' }, { status: 410 });
   const guard = await requireSession();
   if (isGuardResponse(guard)) return guard;
   try {

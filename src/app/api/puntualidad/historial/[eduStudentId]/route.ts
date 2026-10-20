@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { moduloDesactivado } from '@/lib/permissions';
 import { isGuardResponse, requireSession } from '@/lib/auth-guards';
 import { historialAlumno } from '@/lib/puntualidad-server';
 
@@ -7,6 +8,7 @@ export const dynamic = 'force-dynamic';
 // Historial en vivo del alumno seleccionado: es lo que el profe lee antes de guardar
 // ("4º retraso del curso · 2 este mes"), así que se sirve en una sola llamada.
 export async function GET(request: Request, { params }: { params: Promise<{ eduStudentId: string }> }) {
+  if (moduloDesactivado('puntualidad')) return NextResponse.json({ error: 'Puntualidad está desactivado' }, { status: 410 });
   const guard = await requireSession();
   if (isGuardResponse(guard)) return guard;
   try {

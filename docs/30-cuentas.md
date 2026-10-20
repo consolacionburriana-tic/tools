@@ -60,6 +60,22 @@ Pestaña **Por hacer**: una tarjeta por operación, que lleva a la lista ya filt
    alias, o apuntado a otra persona), con el segundo apellido entero, luego con su inicial, luego con un
    número. Se edita antes de crear. Si Educamos ya tiene uno apuntado que no existe en Google, se propone
    ese.
+   **Al crear, todo se puede cambiar** (21-oct-2026, a petición de David): el correo (solo lo de antes
+   de la arroba; el dominio no se toca), el nombre y los apellidos con los que sale en Google, y la
+   unidad. Se avisa al momento si el correo ya existe en Google (también alias) o se repite en la
+   tanda. Debajo de cada fila: otros correos libres que le valdrían (con el segundo apellido, solo con
+   el primer nombre), «¿Con tildes?» y «Lo propuesto». Si se corrige el nombre, el correo se vuelve a
+   proponer con la misma norma mientras no se haya escrito a mano.
+   **El nombre en Google**: con mayúsculas de verdad; en el profesorado, el nombre por el que se le
+   llama si está puesto en /gestion/profes («Pepe»). Las tildes no se inventan (Educamos solo trae las
+   que escribió la familia: 221 de 645 alumnos): se **sugieren** con un toque desde una lista corta de
+   nombres y apellidos que siempre la llevan, sin `Maria`, `Sofia`, `Ramon`, `Tomas`, `Oscar`… que en
+   valenciano van sin ella o con la otra (`tildesProbables()` en `src/lib/personas.ts`).
+   **Alta de profes desde Educamos**: el profe nuevo que entra con la importación sale en Por hacer →
+   Crear correos. Al crearle la cuenta se le apunta el correo del colegio en `edu_teachers.email`, y la
+   siguiente importación **ya no lo pisa** con el personal que suele traer Educamos: ese pasa a
+   `email_otro` (`correosProfeTrasSync()`, con test). Antes se perdía el vínculo con su cuenta y el
+   login.
 4. **Las contraseñas no se guardan en ningún sitio.** Se enseñan una vez al crear (copiar o descargar en
    CSV) y no van al registro. Si se pierde, «Contraseña nueva». Dos modos: una distinta para cada uno
    (cuatro sílabas y dos cifras, «Bakimeru47», para dictarla) o la misma para todos. «Que la cambie al
@@ -163,6 +179,8 @@ deducen de dónde están las cuentas y **no salen las vacías** (por ejemplo «5
 - [~] Leer unidades y crear las que falten — escrito; falta `admin.directory.orgunit`
 - [~] Grupos: leer, reglas, revisar, aplicar y crear — escrito; falta `admin.directory.group`
 - [x] Vincular una cuenta parecida y marcar cuentas que se quedan (no tocan Google)
+- [x] Crear correos: correo, nombre y apellidos editables, aviso de correo ya existente, alternativas, tildes sugeridas (21-oct-2026)
+- [x] La importación de Educamos no pisa el correo del colegio de un profe (21-oct-2026)
 
 ### Fase 2 · puesta en marcha (David)
 - [ ] Añadir los tres scopes a la delegación («Permisos» en verde)

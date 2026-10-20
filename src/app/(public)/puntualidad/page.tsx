@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, LayoutDashboard } from 'lucide-react';
 import { getSessionUser } from '@/lib/auth-guards';
-import { canAccess } from '@/lib/permissions';
+import { canAccess, moduloDesactivado } from '@/lib/permissions';
 import { ensureSubjects } from '@/lib/puntualidad-server';
 import { getTeacherByEmail } from '@/lib/educamos-server';
 import { PuntualidadForm } from '@/components/puntualidad/puntualidad-form';
@@ -18,6 +18,8 @@ export const metadata = {
 // Detrás del login del claustro: registrar un retraso lo puede hacer cualquier profe
 // (igual que el formulario del ABC). El panel de datos sí es del módulo `puntualidad`.
 export default async function PuntualidadPage() {
+  // Apagado en configuracion.ts: el formulario no se abre (vuelve al escritorio).
+  if (moduloDesactivado('puntualidad')) redirect('/gestion');
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login?volver=/puntualidad');
 

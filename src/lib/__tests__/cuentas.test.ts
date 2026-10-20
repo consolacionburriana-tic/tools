@@ -18,6 +18,9 @@ import {
   nombreLista,
   planGrupo,
   propuestasCorreo,
+  sugerenciaTildes,
+  correosProfeTrasSync,
+  usuariosDesdeNombre,
   sumarMeses,
   uoArchivo,
   uoDentroDe,
@@ -144,6 +147,59 @@ describe('correos', () => {
     expect(nombreLista({ nombre: 'MARIA DEL MAR', apellido1: 'DE LA TORRE', apellido2: 'GIL' })).toBe(
       'De la Torre Gil, Maria del Mar',
     );
+  });
+});
+
+describe('corregir el correo y el nombre al crear', () => {
+  it('vuelve a proponer el correo desde el nombre corregido, con las partículas del apellido', () => {
+    expect(usuariosDesdeNombre('Mª José', 'García López')).toEqual(['majosegarcia', 'majosegarcialopez', 'majosegarcial']);
+    expect(usuariosDesdeNombre('Ana', 'de la Fuente Roca')).toEqual(['anadelafuente', 'anadelafuenteroca', 'anadelafuenter']);
+    expect(usuariosDesdeNombre('Ana', 'Plaza')).toEqual(['anaplaza']);
+    expect(usuariosDesdeNombre('', '')).toEqual([]);
+  });
+
+  it('sugiere las tildes que faltan sin tocar las que no se saben', () => {
+    expect(sugerenciaTildes({ nombre: 'Adrian', apellidos: 'Gomez Marti' })).toEqual({ nombre: 'Adrián', apellidos: 'Gómez Marti' });
+    // Maria, Sofia, Tomas, Oscar: en valenciano van sin tilde o con la otra.
+    expect(sugerenciaTildes({ nombre: 'Maria Sofia', apellidos: 'Tomas Oscar' })).toBeNull();
+    // Lo que ya trae alguna tilde se deja como está.
+    expect(sugerenciaTildes({ nombre: 'Adrián', apellidos: 'Pérez' })).toBeNull();
+  });
+
+  it('da otros correos libres y la lista de los que ya existen en Google', () => {
+    const r = cruzar({
+      cuentas: [cuenta({ id: 'g1', email: 'anaplaza@cole.test', alias: ['ana.plaza@cole.test'], uo: '/Alumnos' })],
+      rutas: RUTAS,
+      alumnos: [alumno({ id: 'a1', nombre: 'ANA MARIA', apellido1: 'PLAZA', apellido2: 'VIDAL' })],
+      profes: [profe({ id: 'p1', nombre: 'JOSE MANUEL', apellido1: 'MORA', apellido2: 'SANZ', nombreMostrado: 'Pepe' })],
+      marcas: [],
+      ajustes: ajustes(),
+      dominio: DOM,
+      hoy: HOY,
+    });
+    const a = r.filas.find((x) => x.clave === 'a:a1')!;
+    expect(a.propuesta).toBe('anamariaplaza@cole.test');
+    // anaplaza ya existe: no se ofrece.
+    expect(a.alternativas).toEqual(['anamariaplazavidal@cole.test', 'anamariaplazav@cole.test']);
+    expect(r.enGoogle).toEqual(expect.arrayContaining(['anaplaza@cole.test', 'ana.plaza@cole.test']));
+    // El profe sale en Google con el nombre por el que se le llama.
+    expect(r.filas.find((x) => x.clave === 'p:p1')!.paraGoogle).toEqual({ nombre: 'Pepe', apellidos: 'Mora Sanz' });
+  });
+});
+
+describe('el correo del profe al reimportar Educamos', () => {
+  const entrante = { email: 'luis@gmail.com', emailOtro: null };
+  it('no pisa el del colegio con uno personal: el personal pasa a «otro»', () => {
+    expect(correosProfeTrasSync({ email: 'luismora@cole.test', emailOtro: null }, entrante, DOM)).toEqual({
+      email: 'luismora@cole.test',
+      emailOtro: 'luis@gmail.com',
+    });
+  });
+  it('en un alta, o si el export ya trae uno del colegio, manda Educamos', () => {
+    expect(correosProfeTrasSync(null, entrante, DOM)).toEqual(entrante);
+    expect(correosProfeTrasSync({ email: 'luis@gmail.com', emailOtro: null }, entrante, DOM)).toEqual(entrante);
+    const delCole = { email: 'lmora@cole.test', emailOtro: null };
+    expect(correosProfeTrasSync({ email: 'luismora@cole.test', emailOtro: null }, delCole, DOM)).toEqual(delCole);
   });
 });
 

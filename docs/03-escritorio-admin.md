@@ -6,7 +6,7 @@ desde ahí elige módulo. Es transversal: cada módulo nuevo añade su tarjeta a
 
 ---
 
-## Estado: implementado ✅ (2026-07-10)
+## Estado: implementado ✅ (2026-07-10) · reordenado por grupos el 2026-10-20
 
 Se construye dentro del **hito 2 del roadmap** (auth), porque el escritorio es justo "lo que
 ves después del login" y depende de la matriz rol→módulos.
@@ -23,31 +23,46 @@ ves después del login" y depende de la matriz rol→módulos.
 - Acceso directo a "Usuarios" (solo tic/supertic) y a "BBDD central Educamos" (transversal).
 - Diseño coherente con la portada pública actual (logo, acento azul de marca), usable en iPad.
 
-## Orden de la pantalla (decidido con David, 2026-09-03)
+## Orden de la pantalla (rehecho el 20-oct-2026)
 
-El escritorio se lee de arriba abajo por **frecuencia de uso**, no por orden alfabético ni
-por antigüedad del módulo:
+Con más de veinte herramientas, la lista de tarjetas de septiembre ya no se podía leer. David
+pidió reordenarla, clasificarla y pensarla para **el iPad en horizontal**, que es como casi
+siempre se usa. El escritorio pasa a seguir el patrón de los lanzadores de herramientas
+internas: lo urgente arriba, lo diario en grande y el resto agrupado por tarea.
 
-1. **Licencias destacada, solo en junio y septiembre.** Son los dos meses en que se abre
-   veinte veces al día (junio: pedidos del curso siguiente; septiembre: rezagados, altas y
-   códigos). El criterio vive en `esTemporadaLicencias()` de `src/lib/licencias.ts`, con
-   test: el resto del año Licencias vuelve a su sitio en la lista, sin destacar.
-2. **Puntualidad y ABC, a dos columnas** (izquierda / derecha), cada una con sus **dos
-   botones**: registrar (lo que usa todo el claustro) y su panel. Son las dos herramientas
-   del día a día y no deben costar más de un toque. Cada una lleva el acento de su módulo
-   (naranja y teal) para reconocerlas de un vistazo. En móvil se apilan.
-3. **El resto de la gestión**, en este orden: Banco de libros, Salidas y pagos y
-   **Evaluaciones al final** (es la menos frecuente de las tres). Desde el 4-oct-2026
-   **Tableros es la tercera tarjeta** de la lista (tras Alumnado y Números del cole; David
-   lo quiso ahí y no el primero).
-4. **Configuración general**, separada con su rótulo: Tutorías, Usuarios y roles y BBDD
-   central. Se toca de mes en mes, no a diario; abajo y agrupada.
+1. **Cabecera fija**: logo, nombre y rol, **Ver como familia** (abre `/?vista=familia`),
+   tema y Salir. En móvil los botones se quedan en icono.
+2. **Saludo y cifras**: fecha, «Buenos días, Nombre», y en una línea las cifras para quien
+   tiene esos datos (alumnos, profes, «Educamos al 28 sept», pedidos, registros ABC). Al
+   lado, un **buscador** de herramientas: `/` o ⌘K para enfocarlo, Intro abre la primera,
+   Esc lo vacía. Ignora tildes y pone primero lo que coincide en el título.
+3. **Ahora**: tarjetas de aviso solo cuando algo pide que alguien haga algo hoy (campaña de
+   licencias en junio y septiembre, AUTOASM, tareas vencidas o para hoy, nouvinguts con
+   pasos pendientes, alumnos sin informar de su iPad). Si no hay nada, la franja no sale.
+4. **Tu día**: las herramientas del día a día en baldosas grandes (Mi horario, Tableros,
+   Registrar conducta, Oratorios cuando está abierto al claustro). 2 columnas en móvil, 3 en
+   iPad vertical, 4 en iPad horizontal y ordenador.
+5. **El resto, en cinco grupos** con su color: Alumnado · Familias y cobros · Organización
+   del centro · Tecnología · Configuración. Son paneles en columnas (1 en móvil, 2 en iPad
+   vertical, 3 en iPad horizontal y ordenador) con una fila por herramienta: icono, nombre y
+   una línea de para qué sirve o su estado.
 
-Las tarjetas viven en `src/components/home/escritorio-cards.tsx` (`ModuleCard`, `ToolDoble`,
-`LicenciasDestacada`, `Stat`, `Rotulo`), fuera de la página: así se pueden revisar y capturar
-sin sesión ni base de datos. Todo respeta la matriz de permisos: si tu rol no tiene un
-módulo, su tarjeta no existe (y la sección de configuración desaparece entera si no tienes
-ninguno de los tres).
+**Dónde vive cada cosa:**
+
+- `src/lib/escritorio.ts`: el **registro** de herramientas (`HERRAMIENTAS`: grupo, título,
+  descripción, href, icono, y qué módulo da acceso), `herramientasDe(usuario, contexto)` que
+  filtra con `canAccess`, `buscarHerramientas()` y `saludo()`. Puro y con tests
+  (`src/lib/__tests__/escritorio.test.ts`). **Un módulo nuevo = una entrada en ese registro.**
+- `src/components/home/escritorio.tsx`: la pantalla (cliente, por el buscador).
+- `src/app/gestion/page.tsx`: sesión, cifras y avisos, todo en una tanda de consultas.
+
+`escritorio-cards.tsx` (las tarjetas de septiembre: `ToolDoble`, `LicenciasDestacada`…) se
+borró con este cambio. La regla de Licencias destacada en junio y septiembre sigue, ahora
+como aviso de «Ahora» (`esTemporadaLicencias()`).
+
+Todo respeta la matriz de permisos: si tu rol no tiene un módulo, su fila no existe, y un
+grupo sin filas desaparece entero. Un módulo apagado en `CONFIGURACION.modulosDesactivados`
+(hoy Puntualidad) no sale para nadie.
 
 ## Decisiones cerradas
 
@@ -81,3 +96,10 @@ ninguno de los tres).
 - [x] Stats por rol en el escritorio: alumnado y profesorado activos + fecha del último sync (educamos), nº pedidos (licencias), nº registros (abc)
 - [ ] Franja de avisos con `getAlerts()` (primer caso real: justificantes pendientes de Salidas)
 - [ ] Stats del resto de módulos según se vayan implementando (cada ficha lo añade a su checklist)
+
+### Fase 3 · Reordenación por grupos (2026-10-20)
+- [x] Registro `src/lib/escritorio.ts` con grupos, buscador y saludo, con tests
+- [x] Pantalla nueva: cabecera fija, saludo + cifras + buscador, «Ahora», «Tu día» y cinco grupos
+- [x] Probado en iPad horizontal y vertical, móvil, ordenador y modo oscuro
+- [x] Botón «Ver como familia» (`/?vista=familia`)
+- [x] Puntualidad fuera del escritorio (módulo apagado)

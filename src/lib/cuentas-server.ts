@@ -159,6 +159,7 @@ async function cargar(): Promise<Cargado> {
         fechaBaja: eduTeachers.fechaBaja,
         etapa: eduTeachers.etapa,
         etapas: eduTeachers.etapas,
+        nombreMostrado: eduTeachers.nombreMostrado,
       })
       .from(eduTeachers),
     db.select().from(cueMarcas),
@@ -206,6 +207,7 @@ async function cargar(): Promise<Cargado> {
       emailOtro: p.emailOtro,
       activo: p.active,
       fechaBaja: p.fechaBaja,
+      nombreMostrado: p.nombreMostrado,
       etapas: [...new Set([p.etapa, ...(p.etapas ?? [])].filter((e): e is Etapa => esEtapa(e)))],
     })),
     marcas: marcas.map((m) => ({ googleId: m.googleId, tipo: m.tipo as TipoMarca, nota: m.nota, por: m.por, at: m.at.toISOString() })),
