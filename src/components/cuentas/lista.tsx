@@ -454,6 +454,7 @@ export function ListaCuentas({
         <CrearCorreos
           filas={dialogo.filas}
           unidades={estado.unidades}
+          enGoogle={estado.cruce.enGoogle}
           dominio={estado.dominio}
           uoPorDefecto={{ alumno: estado.ajustes.raizAlumnos ?? '/', profe: estado.ajustes.raizProfes ?? '/' }}
           onCerrar={() => setDialogo(null)}
