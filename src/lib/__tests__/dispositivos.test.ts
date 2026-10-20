@@ -15,6 +15,7 @@ import {
   seguroDe,
   siguientesCodigos,
   textoEstado,
+  USOS,
 } from '@/lib/dispositivos';
 
 const CURSO = '2026-27';
@@ -107,7 +108,7 @@ describe('lo que ven los tutores', () => {
 describe('textos', () => {
   it('estado en una línea', () => {
     expect(textoEstado({ modalidad: 'casa', cursoCompra: null, aCasa: null }, CURSO)).toBe('De casa');
-    expect(textoEstado({ modalidad: 'prestado', cursoCompra: null, aCasa: true, aparato: 'A12' }, CURSO)).toBe('Prestado A12 · a casa');
+    expect(textoEstado({ modalidad: 'prestado', cursoCompra: null, aCasa: true, aparato: 'S12' }, CURSO)).toBe('Prestado S12 · a casa');
     expect(textoEstado({ modalidad: 'prestado', cursoCompra: null, aCasa: false }, CURSO)).toBe('Prestado · en el cole');
     expect(textoEstado({ modalidad: 'comprado', cursoCompra: '2022-23', aCasa: null }, CURSO)).toBe('Comprado · 2022-23 · seguro vencido');
     expect(textoEstado({ modalidad: 'hermano', cursoCompra: null, aCasa: null }, CURSO)).toBe('De hermano · sin curso de compra');
@@ -121,11 +122,11 @@ describe('textos', () => {
 });
 
 describe('códigos de los iPads del cole', () => {
-  it('cada uso con su letra, y el siguiente libre tras el más alto', () => {
+  it('dos lotes con su letra (los prestados son de sustitución), y el siguiente libre tras el más alto', () => {
+    expect(USOS).toEqual(['sustitucion', 'profesorado']);
     expect(siguientesCodigos('sustitucion', [])).toEqual(['S1']);
-    expect(siguientesCodigos('sustitucion', ['S1', 'S7', 'P20', 'A3'], 3)).toEqual(['S8', 'S9', 'S10']);
+    expect(siguientesCodigos('sustitucion', ['S1', 'S7', 'P20'], 3)).toEqual(['S8', 'S9', 'S10']);
     expect(siguientesCodigos('profesorado', ['S1', 'p4'])).toEqual(['P5']);
-    expect(siguientesCodigos('prestamo', ['A2'])).toEqual(['A3']);
   });
 
   it('un código a mano que no sigue la serie no la rompe', () => {
@@ -133,8 +134,8 @@ describe('códigos de los iPads del cole', () => {
     expect(siguientesCodigos('sustitucion', ['S2', 'S-ROTO', 'SX'])).toEqual(['S3']);
   });
 
-  it('orden natural: A2 antes que A10', () => {
-    expect(['A10', 'S1', 'A2', 'P3'].sort(compararCodigos)).toEqual(['A2', 'A10', 'P3', 'S1']);
+  it('orden natural: S2 antes que S10', () => {
+    expect(['S10', 'P3', 'S2', 'P12'].sort(compararCodigos)).toEqual(['P3', 'P12', 'S2', 'S10']);
   });
 
   it('pegar números de serie: uno por línea, sin vacíos ni repetidos', () => {

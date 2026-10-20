@@ -3,7 +3,11 @@
 // Dos reglas que mandan sobre todo lo de aquí:
 //  1. No se copia nada del alumno: curso, clase y nombre se leen de `edu_students` siempre.
 //  2. Quién tiene un iPad del cole vive en el iPad (`dis_aparatos.edu_student_id` /
-//     `edu_teacher_id`). El alumno prestado no guarda «el A12»: se busca qué aparato le tiene.
+//     `edu_teacher_id`). El alumno prestado no guarda «el S12»: se busca qué aparato le tiene.
+//
+// Los iPads del cole para el alumnado son UN solo lote, el de sustitución (David, 20-oct-2026:
+// «los de préstamo son de sustitución»): el mismo S3 sirve para prestarlo todo el curso o para
+// dejarlo mientras arreglan el de un alumno. Qué es en cada caso lo dice la modalidad del alumno.
 import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
@@ -260,7 +264,7 @@ async function leerAparatos(ids?: string[]): Promise<AparatoDis[]> {
       }
       return {
         id: a.id,
-        uso: esUso(a.uso) ? a.uso : 'prestamo',
+        uso: esUso(a.uso) ? a.uso : 'sustitucion',
         codigo: a.codigo,
         modeloId: a.modeloId,
         numeroSerie: a.numeroSerie,
@@ -423,14 +427,16 @@ export async function historial(filtro: { alumno?: string; aparato?: string; pro
 
 export interface ResultadoAlumno {
   estado: EstadoDis | null;
-  /** Los iPads del cole que han cambiado de manos (préstamo devuelto o dado). */
+  /** Los iPads del cole que han cambiado de manos (dados o devueltos). */
   aparatos: AparatoDis[];
 }
 
 /**
  * Guarda cómo tiene el iPad un alumno. `modalidad: null` lo devuelve a «sin informar».
- * Si deja de estar prestado, su iPad de préstamo vuelve al almacén (no el de sustitución:
- * ese es por una reparación y no tiene que ver con cómo lo tiene).
+ *
+ * El iPad del cole que tenga: si DEJA de estar prestado, vuelve al almacén. Si no lo estaba,
+ * no se toca: es uno de sustitución que se le ha dejado mientras arreglan el suyo, y eso no
+ * tiene que ver con cómo lo tiene.
  */
 export async function guardarEstadoAlumno(input: EstadoAlumnoInput, firma: Firma): Promise<ResultadoAlumno> {
   const cursoActual = academicYearActual();
@@ -440,8 +446,9 @@ export async function guardarEstadoAlumno(input: EstadoAlumnoInput, firma: Firma
     db
       .select({ id: disAparatos.id, codigo: disAparatos.codigo })
       .from(disAparatos)
-      .where(and(eq(disAparatos.eduStudentId, input.eduStudentId), eq(disAparatos.uso, 'prestamo'))),
+      .where(and(eq(disAparatos.eduStudentId, input.eduStudentId), eq(disAparatos.uso, 'sustitucion'))),
   ]);
+  const eraPrestado = antes?.modalidad === 'prestado';
   if (!alumno || !alumno.active) throw new ErrorDispositivos('Ese alumno no está en el cole', 404);
   const lineas: NuevaLinea[] = [];
   const tocados = new Set<string>();
@@ -461,7 +468,7 @@ export async function guardarEstadoAlumno(input: EstadoAlumnoInput, firma: Firma
 
   if (input.modalidad === null) {
     if (antes) await db.delete(disAlumnos).where(eq(disAlumnos.eduStudentId, alumno.id));
-    await devolverPrestamos('vuelve a sin informar');
+    if (eraPrestado) await devolverPrestamos('vuelve a sin informar');
     lineas.push({ eduStudentId: alumno.id, texto: 'Sin informar' });
     await apuntar(lineas, firma);
     return { estado: null, aparatos: await leerAparatos([...tocados]) };
@@ -506,21 +513,22 @@ export async function guardarEstadoAlumno(input: EstadoAlumnoInput, firma: Firma
     .onConflictDoUpdate({ target: disAlumnos.eduStudentId, set: valores })
     .returning();
 
-  // El iPad de préstamo: se da el que se pide, y si deja de ser prestado, vuelve al almacén.
+  // El iPad del cole: se da el que se pide; si deja de ser prestado, vuelve al almacén.
   if (modalidad !== 'prestado') {
-    await devolverPrestamos(`ahora es ${MODALIDAD_LABEL[modalidad].toLowerCase()}`);
+    if (eraPrestado) await devolverPrestamos(`ahora es ${MODALIDAD_LABEL[modalidad].toLowerCase()}`);
   } else if (input.aparatoId === null) {
     await devolverPrestamos('se le quita');
   } else if (input.aparatoId) {
     const [uso] = await db.select({ uso: disAparatos.uso }).from(disAparatos).where(eq(disAparatos.id, input.aparatoId)).limit(1);
-    if (uso && uso.uso !== 'prestamo') throw new ErrorDispositivos('A un prestado se le da un iPad de préstamo');
+    if (uso && uso.uso !== 'sustitucion') throw new ErrorDispositivos('A un alumno se le presta uno de sustitución');
     const dado = await darAparato(input.aparatoId, { tipo: 'alumno', id: alumno.id }, firma, lineas);
     tocados.add(dado);
+    // Un alumno, un iPad del cole: si tenía otro (el de una reparación), vuelve.
     await devolverPrestamos('se le da otro', dado);
   }
 
   const codigo = (await leerAparatos([...tocados, ...prestamos.map((p) => p.id)])).find(
-    (a) => a.uso === 'prestamo' && a.titular?.id === alumno.id,
+    (a) => a.uso === 'sustitucion' && a.titular?.id === alumno.id,
   )?.codigo;
   const texto = textoEstado({ modalidad, cursoCompra, aCasa, aparato: codigo }, cursoActual);
   if (!antes || textoEstado({ modalidad: antes.modalidad as Modalidad, cursoCompra: antes.cursoCompra, aCasa: antes.aCasa }, cursoActual) !== texto || input.aparatoId !== undefined) {
@@ -539,8 +547,12 @@ export async function guardarMasivo(
   firma: Firma,
 ): Promise<{ estados: Record<string, EstadoDis>; aparatos: AparatoDis[] }> {
   const ids = [...new Set(input.eduStudentIds)];
-  const vivos = await db.select({ id: eduStudents.id }).from(eduStudents).where(and(inArray(eduStudents.id, ids), eq(eduStudents.active, true)));
+  const [vivos, prestados] = await Promise.all([
+    db.select({ id: eduStudents.id }).from(eduStudents).where(and(inArray(eduStudents.id, ids), eq(eduStudents.active, true))),
+    db.select({ id: disAlumnos.eduStudentId }).from(disAlumnos).where(and(inArray(disAlumnos.eduStudentId, ids), eq(disAlumnos.modalidad, 'prestado'))),
+  ]);
   const validos = vivos.map((v) => v.id);
+  const eranPrestados = prestados.map((p) => p.id).filter((id) => validos.includes(id));
   if (validos.length === 0) return { estados: {}, aparatos: [] };
 
   const valores = {
@@ -570,13 +582,13 @@ export async function guardarMasivo(
     })
     .returning();
 
-  // Los que dejan de ser prestados devuelven su iPad de préstamo.
+  // Los que dejan de ser prestados devuelven el iPad del cole que tenían prestado.
   let devueltos: string[] = [];
-  if (input.modalidad !== 'prestado') {
+  if (input.modalidad !== 'prestado' && eranPrestados.length) {
     const tenian = await db
       .select({ id: disAparatos.id, codigo: disAparatos.codigo, alumno: disAparatos.eduStudentId })
       .from(disAparatos)
-      .where(and(inArray(disAparatos.eduStudentId, validos), eq(disAparatos.uso, 'prestamo')));
+      .where(and(inArray(disAparatos.eduStudentId, eranPrestados), eq(disAparatos.uso, 'sustitucion')));
     devueltos = tenian.map((t) => t.id);
     if (devueltos.length) {
       await db
@@ -615,7 +627,7 @@ async function darAparato(
   const [ap] = await db.select().from(disAparatos).where(eq(disAparatos.id, aparatoId)).limit(1);
   if (!ap) throw new ErrorDispositivos('Ese iPad no existe', 404);
   if (ap.estado === 'baja') throw new ErrorDispositivos(`El ${ap.codigo} está de baja`);
-  // Cada uso es para quien es: los de profesorado, para profes; préstamo y sustitución, para alumnos.
+  // Cada uso es para quien es: los de profesorado, para profes; los de sustitución, para alumnos.
   if ((a.tipo === 'profe') !== (ap.uso === 'profesorado')) {
     throw new ErrorDispositivos(a.tipo === 'profe' ? `El ${ap.codigo} no es de profesorado` : `El ${ap.codigo} es de profesorado`);
   }
@@ -706,11 +718,6 @@ export async function editarAparato(
   const [ap] = await db.select().from(disAparatos).where(eq(disAparatos.id, id)).limit(1);
   if (!ap) throw new ErrorDispositivos('Ese iPad no existe', 404);
   if (input.titular && (input.estado ?? ap.estado) === 'baja') throw new ErrorDispositivos('Un iPad de baja no se le puede dar a nadie');
-  // Uno de préstamo se da desde el alumno (le pone «Prestado»): por aquí quedaría prestado a
-  // alguien que en su ficha no lo es, y serían dos verdades.
-  if (input.titular?.tipo === 'alumno' && ap.uso === 'prestamo' && ap.eduStudentId !== input.titular.id) {
-    throw new ErrorDispositivos('Los de préstamo se dan marcando al alumno como «Prestado»');
-  }
   const lineas: NuevaLinea[] = [];
   const cambios: Partial<typeof disAparatos.$inferInsert> = {};
 
@@ -823,7 +830,7 @@ export async function quitarModelo(id: string): Promise<{ modelos: ModeloDis[]; 
 
 export interface ResumenDispositivo {
   modalidad: Modalidad;
-  /** «Comprado · 2022-23 · seguro vencido», «Prestado A12 · a casa». Solo para quien tiene el módulo. */
+  /** «Comprado · 2022-23 · seguro vencido», «Prestado S12 · a casa». Solo para quien tiene el módulo. */
   texto: string;
   /** Lo único que ven tutores y profes. */
   noSeLoLleva: boolean;
@@ -844,7 +851,7 @@ export async function resumenDispositivos(ids: readonly string[]): Promise<Map<s
     db
       .select({ id: disAparatos.eduStudentId, codigo: disAparatos.codigo })
       .from(disAparatos)
-      .where(and(inArray(disAparatos.eduStudentId, [...ids]), eq(disAparatos.uso, 'prestamo'))),
+      .where(and(inArray(disAparatos.eduStudentId, [...ids]), eq(disAparatos.uso, 'sustitucion'))),
   ]);
   const codigo = new Map(prestamos.map((p) => [p.id, p.codigo]));
   return new Map(

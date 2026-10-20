@@ -44,11 +44,11 @@ function claveDe(a: { curso: string; letra: string | null }) {
 }
 
 /** ¿Le falta algo para saber qué paga o qué iPad tiene? */
-function faltaDato(a: AlumnoDis, prestamo: AparatoDis | undefined): boolean {
+function faltaDato(a: AlumnoDis, delCole: AparatoDis | undefined): boolean {
   const e = a.estado;
   if (!e) return false;
   if (llevaCompra(e.modalidad) && !e.cursoCompra) return true;
-  return e.modalidad === 'prestado' && !prestamo;
+  return e.modalidad === 'prestado' && !delCole;
 }
 
 export function TablaAlumnado({
@@ -92,11 +92,9 @@ export function TablaAlumnado({
     return [...vistas];
   }, [panel.alumnos]);
 
-  const prestamoDe = useMemo(
-    () => new Map(panel.aparatos.filter((a) => a.uso === 'prestamo' && a.titular?.tipo === 'alumno').map((a) => [a.titular!.id, a])),
-    [panel.aparatos],
-  );
-  const sustitucionDe = useMemo(
+  // El iPad del cole que tiene cada uno (de sustitución): prestado para el curso si el alumno
+  // es «Prestado», o dejado mientras arreglan el suyo si no.
+  const delColeDe = useMemo(
     () => new Map(panel.aparatos.filter((a) => a.uso === 'sustitucion' && a.titular?.tipo === 'alumno').map((a) => [a.titular!.id, a])),
     [panel.aparatos],
   );
@@ -114,7 +112,7 @@ export function TablaAlumnado({
       case 'vencido':
         return Boolean(e && llevaCompra(e.modalidad) && seguroDe(e.cursoCompra, cursoActual).estado === 'vencido');
       case 'falta':
-        return faltaDato(a, prestamoDe.get(a.id));
+        return faltaDato(a, delColeDe.get(a.id));
       default:
         return e?.modalidad === f;
     }
@@ -197,8 +195,7 @@ export function TablaAlumnado({
             <Fila
               key={a.id}
               alumno={a}
-              prestamo={prestamoDe.get(a.id)}
-              sustitucion={sustitucionDe.get(a.id)}
+              delCole={delColeDe.get(a.id)}
               cursoActual={cursoActual}
               conClase={!clase || Boolean(q)}
               acciones={acciones}
@@ -229,15 +226,13 @@ function BotonClase({ activo, onClick, children }: { activo: boolean; onClick: (
 
 function Fila({
   alumno: a,
-  prestamo,
-  sustitucion,
+  delCole,
   cursoActual,
   conClase,
   acciones,
 }: {
   alumno: AlumnoDis;
-  prestamo?: AparatoDis;
-  sustitucion?: AparatoDis;
+  delCole?: AparatoDis;
   cursoActual: string;
   conClase: boolean;
   acciones: Acciones;
@@ -261,7 +256,7 @@ function Fila({
         <span className="block truncate font-medium text-zinc-900 hover:underline dark:text-zinc-100">{a.nombre}</span>
         <span className="block truncate text-xs text-zinc-500">
           {conClase ? `${a.clase} · ` : ''}iPad
-          {sustitucion ? ` · con el ${sustitucion.codigo} de sustitución` : ''}
+          {delCole && e?.modalidad !== 'prestado' ? ` · con el ${delCole.codigo} mientras arreglan el suyo` : ''}
         </span>
       </button>
 
@@ -288,7 +283,7 @@ function Fila({
         {ocupado && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
       </div>
 
-      <Detalle alumno={a} estado={e} prestamo={prestamo} cursoActual={cursoActual} acciones={acciones} />
+      <Detalle alumno={a} estado={e} delCole={delCole} cursoActual={cursoActual} acciones={acciones} />
 
       <div className="text-sm lg:text-right">
         {cuota?.aviso ? (
@@ -308,13 +303,13 @@ function Fila({
 function Detalle({
   alumno: a,
   estado: e,
-  prestamo,
+  delCole,
   cursoActual,
   acciones,
 }: {
   alumno: AlumnoDis;
   estado: EstadoDis | null;
-  prestamo?: AparatoDis;
+  delCole?: AparatoDis;
   cursoActual: string;
   acciones: Acciones;
 }) {
@@ -353,12 +348,12 @@ function Detalle({
           onClick={() => acciones.abrirFicha(a.id)}
           className={cn(
             'h-10 cursor-pointer rounded-lg px-3 text-sm font-semibold',
-            prestamo
+            delCole
               ? 'bg-blue-50 text-blue-800 dark:bg-blue-500/15 dark:text-blue-200'
               : 'border border-dashed border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200',
           )}
         >
-          {prestamo ? prestamo.codigo : '¿Qué iPad?'}
+          {delCole ? delCole.codigo : '¿Qué iPad?'}
         </button>
       </div>
     );

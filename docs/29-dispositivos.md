@@ -15,8 +15,8 @@ Cuatro preguntas a las que responde:
 1. **¿Cómo tiene el iPad cada alumno?** Comprado, lo trae de casa, prestado por el cole o
    heredado de un hermano. Y quién está todavía **sin informar**.
 2. **¿Quién tiene que pagar qué?** El listado de cuotas.
-3. **¿Qué iPads tiene el cole y quién tiene cada uno?** Los de préstamo, los de sustitución
-   (`S1`, `S2`…) y los del profesorado (`P1`, `P2`…).
+3. **¿Qué iPads tiene el cole y quién tiene cada uno?** Los de sustitución (`S1`, `S2`…), que son
+   los del alumnado, y los del profesorado (`P1`, `P2`…).
 4. **¿Qué modelos hay?** Un catálogo corto de modelos estándar («iPad 9.ª generación · 64 GB»)
    para que nadie escriba el mismo modelo de cinco maneras.
 
@@ -46,17 +46,24 @@ Cuatro preguntas a las que responde:
    del alcance conserva lo apuntado, pero no se pinta.
 
 4. **Prestado: se apunta QUÉ iPad es** (David: «¡SÍ!»). Los iPads del cole son un inventario
-   propio con un **código corto** (`A1`, `A2`… los de préstamo; `S1`, `S2`… los de
-   sustitución; `P1`, `P2`… los del profesorado), el **modelo** del catálogo, el **nº de serie
-   (opcional)**, su estado (operativo · en reparación · de baja) y notas. Bárbara y Amparo tienen
-   toda la información y la vuelcan: por eso hay **alta en serie** (cuántos y de qué modelo) y
-   **pegar números de serie** (una línea, un iPad).
+   propio con un **código corto**, el **modelo** del catálogo, el **nº de serie (opcional)**, su
+   estado (operativo · en reparación · de baja) y notas. **Son dos lotes** (David, 20-oct-2026):
+
+   | Lote | Código | Para qué |
+   |---|---|---|
+   | **Sustitución** | `S1`, `S2`… | Los del alumnado. El mismo iPad sirve para **prestarlo todo el curso** (el alumno pasa a «Prestado») o para **dejarlo mientras arreglan el suyo** (el alumno sigue como estaba). David: «los de préstamo son de sustitución» |
+   | **Profesorado** | `P1`, `P2`… | Los del claustro (decisión 6) |
+
+   Al dar uno de sustitución a un alumno desde el inventario se pregunta cuál de las dos cosas es.
+   Bárbara y Amparo tienen toda la información y la vuelcan: por eso hay **alta en serie** (cuántos y
+   de qué modelo) y **pegar números de serie** (una línea, un iPad).
 
 5. **Quién tiene un iPad del cole vive en el iPad, no en el alumno.** Un aparato del inventario
-   tiene como mucho un titular (un alumno o un profe). El alumno prestado no guarda «el A12»:
+   tiene como mucho un titular (un alumno o un profe). El alumno prestado no guarda «el S12»:
    se busca qué aparato le tiene a él. Una sola verdad, la lección de
-   [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md). Si un alumno deja de estar
-   «Prestado», su iPad de préstamo **vuelve solo al almacén** (y queda en el historial).
+   [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md). Que sea prestado o temporal lo
+   dice la modalidad del alumno. Si un alumno **deja de estar «Prestado»**, su iPad **vuelve solo al
+   almacén** (y queda en el historial); si no lo estaba, el que tenga por una reparación no se toca.
 
 6. **iPads del profesorado**: son del cole, llevan código `P` y se asignan a profes **desde el
    3er ciclo de Primaria** (5º EP) en adelante (David, 20-oct). La pantalla enseña qué profes
@@ -96,8 +103,8 @@ Cuatro preguntas a las que responde:
 
 - **Tablas** (`src/db/schema.ts`, SQL aditivo `src/db/sql/dispositivos.sql`):
   - `dis_modelos`: catálogo (tipo, nombre, capacidad en GB, notas, activo).
-  - `dis_aparatos`: el inventario del cole. `uso` (`prestamo`|`sustitucion`|`profesorado`),
-    `codigo` único (`A1`, `S1`, `P1`), modelo, nº de serie, estado
+  - `dis_aparatos`: el inventario del cole. `uso` (`sustitucion`|`profesorado`),
+    `codigo` único (`S1`, `P1`), modelo, nº de serie, estado
     (`activo`|`reparacion`|`baja`), notas y **titular** (`edu_student_id` o `edu_teacher_id`,
     nunca los dos) con fecha de asignación.
   - `dis_alumnos`: una fila por alumno informado (PK `edu_student_id`): `modalidad`
@@ -115,7 +122,7 @@ Cuatro preguntas a las que responde:
   `alumnos/masivo`, `aparatos`, `aparatos/[id]`, `modelos`, `modelos/[id]`, `historial`,
   `cuotas` (Excel/CSV).
 - **UI** (`src/components/dispositivos/`): pestañas **Alumnado** (por clase, un toque por
-  estado), **Cuotas**, **iPads del cole** (préstamo, sustitución, profesorado) y **Modelos**.
+  estado), **Cuotas**, **iPads del cole** (sustitución y profesorado) y **Modelos**.
 
 ## Checklist
 
@@ -125,7 +132,7 @@ Cuatro preguntas a las que responde:
 - [x] Helpers puros con tests (seguro, cuotas, códigos)
 - [x] Alumnado por clase: estado de un toque, curso de compra, prestado a casa / en el cole con su iPad, de hermano, filtros y «a todos los sin informar»
 - [x] Cuotas: 10 €/mes y 30 €/año, avisos (falta el curso de compra, prestado sin iPad), Excel y CSV
-- [x] iPads del cole: préstamo, sustitución y profesorado; alta en serie, pegar nº de serie, editar, asignar, devolver, reparación y baja; bajas con un iPad del cole sin devolver
+- [x] iPads del cole: sustitución (prestados o mientras arreglan el suyo) y profesorado; alta en serie, pegar nº de serie, editar, asignar, devolver, reparación y baja; bajas con un iPad del cole sin devolver
 - [x] Profesorado: a quién le toca desde 5º EP y quién no tiene iPad
 - [x] Modelos estándar
 - [x] Historial de cada alumno y de cada iPad

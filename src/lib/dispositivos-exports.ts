@@ -21,7 +21,7 @@ export interface FilaCuota {
 /** Una fila por alumno del alcance con estado; sin informar no se lista (no se sabe qué paga). */
 export function filasCuotas(alumnos: readonly AlumnoDis[], aparatos: readonly AparatoDis[], cursoActual: string): FilaCuota[] {
   const prestamo = new Map(
-    aparatos.filter((a) => a.uso === 'prestamo' && a.titular?.tipo === 'alumno').map((a) => [a.titular!.id, a.codigo]),
+    aparatos.filter((a) => a.uso === 'sustitucion' && a.titular?.tipo === 'alumno').map((a) => [a.titular!.id, a.codigo]),
   );
   return alumnos
     .filter((a) => a.estado)

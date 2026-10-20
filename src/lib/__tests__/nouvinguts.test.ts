@@ -146,8 +146,8 @@ describe('estadoPaso', () => {
   it('iPad: lo dice Dispositivos 1:1; la marca a mano sigue valiendo para quien no tenga el módulo', () => {
     expect(estadoPaso(paso('ipad'), datos())).toEqual({ estado: 'pendiente', texto: 'Sin informar en Dispositivos 1:1' });
     expect(estadoPaso(paso('ipad'), datos({ vinculado: false })).texto).toBe('Cuando esté en Educamos');
-    const prestado = { modalidad: 'prestado', texto: 'Prestado A3 · en el cole', cursoCompra: null, aCasa: false };
-    expect(estadoPaso(paso('ipad'), datos({ dispositivo: prestado }))).toEqual({ estado: 'hecho', texto: 'Prestado A3 · en el cole' });
+    const prestado = { modalidad: 'prestado', texto: 'Prestado S3 · en el cole', cursoCompra: null, aCasa: false };
+    expect(estadoPaso(paso('ipad'), datos({ dispositivo: prestado }))).toEqual({ estado: 'hecho', texto: 'Prestado S3 · en el cole' });
     const marca = { valor: 'hecho', porNombre: 'Ana', at: '2026-10-20T09:00:00Z' };
     expect(estadoPaso(paso('ipad'), datos({ marcas: { ipad: marca } })).estado).toBe('hecho');
   });

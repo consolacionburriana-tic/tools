@@ -38,12 +38,14 @@ módulo saca **la foto del día** (quién pagaría qué hoy), en Excel y CSV, y 
 
 Detalle en [`29-dispositivos.md`](./29-dispositivos.md).
 
-1. **Los iPads de préstamo llevan la letra A** (A1, A2…), como S y P. Se puede cambiar el código
-   de cualquiera a mano si ya tienen etiqueta propia.
+1. **Los códigos se pueden cambiar a mano** si un iPad ya tiene etiqueta propia (S y P son las
+   letras de David; los prestados son de sustitución, no hay lote aparte).
 2. **Un prestado empieza «en el cole»** hasta que alguien marca «a casa»: sin firma, no se lo lleva.
-3. **Si un alumno deja de estar prestado, su iPad de préstamo vuelve solo al almacén** (queda en
-   el historial). El de sustitución no, que va por una reparación.
-4. **Dar un iPad de préstamo a alguien desde «iPads del cole» le pone «Prestado»**: una sola verdad.
+3. **Si un alumno deja de estar prestado, su iPad vuelve solo al almacén** (queda en el
+   historial). Si no lo estaba, el que tenga por una reparación no se toca.
+4. **Al dar uno de sustitución desde «iPads del cole» se pregunta**: prestado para el curso (le
+   pone «Prestado») o mientras arreglan el suyo (no le cambia nada). Un alumno, un iPad del cole:
+   si se le presta otro, el que tenía vuelve.
 5. **Sin informar no sale en las cuotas**, y un comprado sin curso de compra tampoco: sale en «Falta
    un dato» hasta que se sepa.
 6. **«A todos los sin informar»** de una clase, con confirmación, para el primer volcado.

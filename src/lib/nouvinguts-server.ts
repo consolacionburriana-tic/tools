@@ -211,7 +211,7 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
         .where(and(eq(asmEntregas.academicYear, year), sql`${asmEntregas.modo} in ('ftp','manual')`, eq(asmEntregas.estado, 'ok')))
         .orderBy(desc(asmEntregas.createdAt))
         .limit(1),
-      // Dispositivos 1:1: cómo tiene el iPad, y el código del de préstamo si lo tiene.
+      // Dispositivos 1:1: cómo tiene el iPad, y el código del iPad del cole si lo tiene.
       db
         .select({ id: disAlumnos.eduStudentId, modalidad: disAlumnos.modalidad, cursoCompra: disAlumnos.cursoCompra, aCasa: disAlumnos.aCasa })
         .from(disAlumnos)
@@ -219,7 +219,7 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
       db
         .select({ id: disAparatos.eduStudentId, codigo: disAparatos.codigo })
         .from(disAparatos)
-        .where(and(inArray(disAparatos.eduStudentId, eduIds), eq(disAparatos.uso, 'prestamo'))),
+        .where(and(inArray(disAparatos.eduStudentId, eduIds), eq(disAparatos.uso, 'sustitucion'))),
     ]);
 
   const ajustes = leerAjustesNouvinguts(ajustesFila[0]?.valor);

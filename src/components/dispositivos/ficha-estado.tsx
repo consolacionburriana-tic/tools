@@ -34,15 +34,16 @@ export function FichaEstado({
   onCerrar: () => void;
 }) {
   const e = a.estado;
-  const prestamoActual = panel.aparatos.find((x) => x.uso === 'prestamo' && x.titular?.tipo === 'alumno' && x.titular.id === a.id);
-  const sustitucion = panel.aparatos.find((x) => x.uso === 'sustitucion' && x.titular?.tipo === 'alumno' && x.titular.id === a.id);
+  // El iPad del cole que tiene (de sustitución): el prestado, o el que se le ha dejado mientras
+  // arreglan el suyo. Si pasa a «Prestado», ese mismo sale ya elegido.
+  const delCole = panel.aparatos.find((x) => x.uso === 'sustitucion' && x.titular?.tipo === 'alumno' && x.titular.id === a.id);
 
   const [modalidad, setModalidad] = useState<Modalidad | null>(e?.modalidad ?? null);
   const [cursoCompra, setCursoCompra] = useState(e?.cursoCompra ?? '');
   const [aCasa, setACasa] = useState(Boolean(e?.aCasa));
   const [firmadoAt, setFirmadoAt] = useState(e?.firmadoAt ?? '');
   const [hermanoId, setHermanoId] = useState(e?.hermanoId ?? '');
-  const [aparatoId, setAparatoId] = useState(prestamoActual?.id ?? '');
+  const [aparatoId, setAparatoId] = useState(delCole?.id ?? '');
   const [modeloId, setModeloId] = useState(e?.modeloId ?? '');
   const [numeroSerie, setNumeroSerie] = useState(e?.numeroSerie ?? '');
   const [notas, setNotas] = useState(e?.notas ?? '');
@@ -58,8 +59,8 @@ export function FichaEstado({
     };
   }, [a.id, e?.updatedAt]);
 
-  // Los de préstamo que se le pueden dar: los libres (y en uso), más el que ya tiene.
-  const libres = panel.aparatos.filter((x) => x.uso === 'prestamo' && x.estado === 'activo' && (!x.titular || x.id === prestamoActual?.id));
+  // Los que se le pueden prestar: los de sustitución libres y operativos, más el que ya tiene.
+  const libres = panel.aparatos.filter((x) => x.uso === 'sustitucion' && x.estado === 'activo' && (!x.titular || x.id === delCole?.id));
   const modelos = panel.modelos.filter((m) => m.activo || m.id === modeloId);
   const cuota = modalidad ? cuotaDe({ modalidad, cursoCompra: cursoCompra || null, aCasa }, panel.cursoActual) : null;
   const seguro = seguroDe(cursoCompra || null, panel.cursoActual);
@@ -93,7 +94,7 @@ export function FichaEstado({
             <DialogTitle className="text-lg font-semibold">{a.nombre}</DialogTitle>
             <DialogDescription className="text-sm text-zinc-600 dark:text-zinc-400">
               {a.clase} · iPad
-              {sustitucion && ` · ahora con el ${sustitucion.codigo} de sustitución`}
+              {delCole && e?.modalidad !== 'prestado' && ` · ahora con el ${delCole.codigo} mientras arreglan el suyo`}
             </DialogDescription>
           </div>
 
@@ -201,7 +202,7 @@ export function FichaEstado({
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">iPad del cole</span>
                   <select className={ESTILO_CAMPO} value={aparatoId} onChange={(ev) => setAparatoId(ev.target.value)}>
-                    <option value="">{libres.length ? 'Sin iPad todavía' : 'No hay iPads de préstamo libres'}</option>
+                    <option value="">{libres.length ? 'Sin iPad todavía' : 'No hay iPads de sustitución libres'}</option>
                     {libres.map((x) => (
                       <option key={x.id} value={x.id}>
                         {x.codigo}
@@ -219,7 +220,7 @@ export function FichaEstado({
               </div>
               {libres.length === 0 && (
                 <button type="button" onClick={() => acciones.irA('cole')} className="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300">
-                  Dar de alta iPads de préstamo en «iPads del cole»
+                  Dar de alta iPads de sustitución en «iPads del cole»
                 </button>
               )}
             </div>

@@ -26,7 +26,7 @@ export function Cuotas({ panel, acciones }: { panel: PanelDispositivos; acciones
   const resumen = resumenCuotas(filas.map((f) => f.cuota));
   const sinInformar = panel.alumnos.length - filas.length;
   const prestadosSinIpad = useMemo(() => {
-    const conIpad = new Set(panel.aparatos.filter((x) => x.uso === 'prestamo' && x.titular?.tipo === 'alumno').map((x) => x.titular!.id));
+    const conIpad = new Set(panel.aparatos.filter((x) => x.uso === 'sustitucion' && x.titular?.tipo === 'alumno').map((x) => x.titular!.id));
     return panel.alumnos.filter((a) => a.estado?.modalidad === 'prestado' && !conIpad.has(a.id)).length;
   }, [panel.alumnos, panel.aparatos]);
 

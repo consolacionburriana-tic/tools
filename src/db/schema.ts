@@ -2408,8 +2408,8 @@ export type NouPaso = typeof nouPasos.$inferSelect;
 
 // ─── Dispositivos 1:1 (prefijo dis_) ──────────────────────────────────────────
 // Ficha: docs/29-dispositivos.md. Cómo tiene el iPad cada alumno (comprado, de casa, prestado,
-// de hermano) para el listado de cuotas, y el inventario de iPads del cole (préstamo,
-// sustitución y profesorado). No copia ni curso ni clase del alumno: se leen de `edu_students`.
+// de hermano) para el listado de cuotas, y el inventario de iPads del cole (sustitución, que son
+// los del alumnado —prestados o mientras arreglan el suyo—, y profesorado). No copia ni curso ni clase del alumno: se leen de `edu_students`.
 // Quién tiene un iPad del cole vive en el iPad (`dis_aparatos`), no en el alumno.
 
 // Catálogo de modelos estándar («iPad 9.ª generación · 64 GB»), para no escribirlo cada vez.
@@ -2425,11 +2425,11 @@ export const disModelos = pgTable('dis_modelos', {
 });
 export type DisModelo = typeof disModelos.$inferSelect;
 
-// Los iPads del cole. Un titular como mucho: un alumno (préstamo o sustitución) o un profe.
+// Los iPads del cole. Un titular como mucho: un alumno (sustitución) o un profe (profesorado).
 export const disAparatos = pgTable('dis_aparatos', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  uso: text('uso').notNull(), // 'prestamo' | 'sustitucion' | 'profesorado'
-  codigo: text('codigo').notNull(), // 'A1', 'S3', 'P12'
+  uso: text('uso').notNull(), // 'sustitucion' | 'profesorado'
+  codigo: text('codigo').notNull(), // 'S3', 'P12'
   tipo: text('tipo').notNull().default('ipad'),
   modeloId: uuid('modelo_id').references(() => disModelos.id),
   numeroSerie: text('numero_serie'),

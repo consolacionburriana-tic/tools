@@ -2,7 +2,7 @@
 //
 // Lo que se decide sin tocar la BBDD: los estados de un alumno (comprado, de casa, prestado,
 // de hermano), el seguro de 4 cursos y lo que paga cada uno, los códigos de los iPads del cole
-// (A1, S1, P1…) y los schemas de lo que entra por la red.
+// (S1, P1…) y los schemas de lo que entra por la red.
 import { z } from 'zod';
 import { CONFIGURACION } from '@/lib/configuracion';
 import { cursoBaseEso, ordenCurso, type Etapa } from '@/lib/cursos';
@@ -38,20 +38,20 @@ export function llevaCompra(m: Modalidad | null | undefined): boolean {
 }
 
 /** Para qué es un iPad del cole. Cada uso tiene su letra en el código. */
-export const USOS = ['prestamo', 'sustitucion', 'profesorado'] as const;
+// Dos lotes (David, 20-oct-2026). Los de sustitución son los del alumnado: el mismo S3 se presta
+// para todo el curso a un alumno «Prestado» o se deja mientras arreglan el suyo.
+export const USOS = ['sustitucion', 'profesorado'] as const;
 export type Uso = (typeof USOS)[number];
 export const USO_LABEL: Record<Uso, string> = {
-  prestamo: 'Préstamo',
   sustitucion: 'Sustitución',
   profesorado: 'Profesorado',
 };
 export const USO_EXPLICA: Record<Uso, string> = {
-  prestamo: 'Los que el cole presta a un alumno para todo el curso',
-  sustitucion: 'Para dejar mientras el de un alumno está en reparación',
+  sustitucion: 'Los del alumnado: se prestan para todo el curso o se dejan mientras arreglan el de un alumno',
   profesorado: 'Los del claustro, desde el 3er ciclo de Primaria',
 };
-/** S y P los fijó David (20-oct-2026); la A de préstamo es nuestra («de alumnado»). */
-export const PREFIJO: Record<Uso, string> = { prestamo: 'A', sustitucion: 'S', profesorado: 'P' };
+/** Las letras las fijó David (20-oct-2026). */
+export const PREFIJO: Record<Uso, string> = { sustitucion: 'S', profesorado: 'P' };
 
 export function esUso(valor: unknown): valor is Uso {
   return typeof valor === 'string' && (USOS as readonly string[]).includes(valor);
@@ -176,7 +176,7 @@ export function noSeLoLlevaACasa(e: Pick<EstadoBasico, 'modalidad' | 'aCasa'> | 
   return Boolean(e && e.modalidad === 'prestado' && !e.aCasa);
 }
 
-/** «Comprado · 2022-23 · seguro vencido», «Prestado A12 · a casa», «De casa». */
+/** «Comprado · 2022-23 · seguro vencido», «Prestado S12 · a casa», «De casa». */
 export function textoEstado(
   e: EstadoBasico & { aparato?: string | null },
   cursoActual: string,
@@ -238,7 +238,7 @@ export function siguientesCodigos(uso: Uso, existentes: readonly string[], n = 1
   return Array.from({ length: n }, (_, i) => `${PREFIJO[uso]}${max + i + 1}`);
 }
 
-/** Orden natural de códigos: A2 antes que A10, y por letra primero. */
+/** Orden natural de códigos: S2 antes que S10, y por letra primero. */
 export function compararCodigos(a: string, b: string): number {
   return a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
 }

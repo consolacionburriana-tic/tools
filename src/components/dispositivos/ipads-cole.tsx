@@ -1,9 +1,9 @@
 'use client';
 
-// Pestaña «iPads del cole»: el inventario. Préstamo (A1…), sustitución (S1…) y profesorado
-// (P1…), con su modelo, nº de serie, estado y quién lo tiene. Bárbara y Amparo lo vuelcan de
-// una vez: por eso el alta es en serie («6 de este modelo») o pegando la columna de números de
-// serie del Excel.
+// Pestaña «iPads del cole»: el inventario. Sustitución (S1…), que son los del alumnado —se
+// prestan para el curso o se dejan mientras arreglan el de un alumno—, y profesorado (P1…), con
+// su modelo, nº de serie, estado y quién lo tiene. Bárbara y Amparo lo vuelcan de una vez: por
+// eso el alta es en serie («6 de este modelo») o pegando la columna de números de serie del Excel.
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, History, Loader2, Plus, Search, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,13 +25,20 @@ import type { AparatoDis, LineaHistorial, PanelDispositivos } from '@/lib/dispos
 import type { Acciones } from './panel';
 import { cuandoYQuien, ESTILO_BOTON, ESTILO_BOTON_PRINCIPAL, ESTILO_CAMPO, normalizar, pedir } from './comun';
 
-type Filtro = 'todos' | 'almacen' | 'asignados' | 'reparacion' | 'baja';
+type Filtro = 'todos' | 'almacen' | 'asignados' | 'prestados' | 'temporal' | 'reparacion' | 'baja';
 const FILTRO_LABEL: Record<Filtro, string> = {
   todos: 'Todos',
   almacen: 'En el almacén',
   asignados: 'Dados',
+  prestados: 'Prestados',
+  temporal: 'Mientras arreglan el suyo',
   reparacion: 'En reparación',
   baja: 'De baja',
+};
+/** Los de sustitución se reparten en prestados y temporales; los de profesorado, solo «dados». */
+const FILTROS: Record<Uso, Filtro[]> = {
+  sustitucion: ['todos', 'almacen', 'prestados', 'temporal', 'reparacion', 'baja'],
+  profesorado: ['todos', 'almacen', 'asignados', 'reparacion', 'baja'],
 };
 
 const COLOR_ESTADO: Record<EstadoAparato, string> = {
@@ -41,22 +48,40 @@ const COLOR_ESTADO: Record<EstadoAparato, string> = {
 };
 
 export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; acciones: Acciones }) {
-  const [uso, setUso] = useState<Uso>('prestamo');
+  const [uso, setUso] = useState<Uso>('sustitucion');
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [busca, setBusca] = useState('');
   const [alta, setAlta] = useState(false);
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
 
   const modelo = useMemo(() => new Map(panel.modelos.map((m) => [m.id, m.etiqueta])), [panel.modelos]);
+  const prestado = useMemo(() => new Set(panel.alumnos.filter((a) => a.estado?.modalidad === 'prestado').map((a) => a.id)), [panel.alumnos]);
   const delUso = panel.aparatos.filter((a) => a.uso === uso);
-  const pasa = (a: AparatoDis, f: Filtro) =>
-    f === 'todos'
-      ? a.estado !== 'baja'
-      : f === 'almacen'
-        ? !a.titular && a.estado === 'activo'
-        : f === 'asignados'
-          ? Boolean(a.titular)
-          : a.estado === f;
+  const pasa = (a: AparatoDis, f: Filtro) => {
+    switch (f) {
+      case 'todos':
+        return a.estado !== 'baja';
+      case 'almacen':
+        return !a.titular && a.estado === 'activo';
+      case 'asignados':
+        return Boolean(a.titular);
+      case 'prestados':
+        return a.titular?.tipo === 'alumno' && prestado.has(a.titular.id);
+      case 'temporal':
+        return a.titular?.tipo === 'alumno' && !prestado.has(a.titular.id);
+      default:
+        return a.estado === f;
+    }
+  };
+  /** «1º ESO B · prestado» o «1º ESO B · mientras arreglan el suyo». */
+  const detalleTitular = (a: AparatoDis) =>
+    !a.titular
+      ? ''
+      : !a.titular.activo
+        ? 'ya no está en el cole'
+        : a.titular.tipo === 'alumno'
+          ? `${a.titular.detalle} · ${prestado.has(a.titular.id) ? 'prestado' : 'mientras arreglan el suyo'}`
+          : a.titular.detalle;
   const q = normalizar(busca.trim());
   const lista = delUso
     .filter((a) => pasa(a, filtro))
@@ -123,7 +148,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
           />
         </label>
         <div className="flex flex-wrap gap-1.5">
-          {(Object.keys(FILTRO_LABEL) as Filtro[]).map((f) => (
+          {FILTROS[uso].map((f) => (
             <button
               key={f}
               type="button"
@@ -172,7 +197,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
                 {a.titular ? (
                   <span className={cn(!a.titular.activo && 'font-semibold text-red-700 dark:text-red-300')}>
                     {a.titular.nombre}
-                    <span className="block text-xs font-normal text-zinc-500">{a.titular.activo ? a.titular.detalle : 'ya no está en el cole'}</span>
+                    <span className="block text-xs font-normal text-zinc-500">{detalleTitular(a)}</span>
                   </span>
                 ) : (
                   <span className="text-zinc-400">{a.estado === 'activo' ? 'En el almacén' : ''}</span>
@@ -186,7 +211,9 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
       {uso === 'profesorado' && <ProfesSinIpad panel={panel} acciones={acciones} />}
 
       {alta && <AltaAparatos uso={uso} panel={panel} acciones={acciones} onCerrar={() => setAlta(false)} />}
-      {abierto && <FichaAparato aparato={abierto} panel={panel} acciones={acciones} onCerrar={() => setAbiertoId(null)} />}
+      {abierto && (
+        <FichaAparato aparato={abierto} detalle={detalleTitular(abierto)} panel={panel} acciones={acciones} onCerrar={() => setAbiertoId(null)} />
+      )}
     </div>
   );
 }
@@ -385,11 +412,14 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
 
 function FichaAparato({
   aparato: a,
+  detalle,
   panel,
   acciones,
   onCerrar,
 }: {
   aparato: AparatoDis;
+  /** Lo que se dice debajo del titular («1º ESO B · prestado»). */
+  detalle: string;
   panel: PanelDispositivos;
   acciones: Acciones;
   onCerrar: () => void;
@@ -400,6 +430,7 @@ function FichaAparato({
   const [estado, setEstado] = useState<EstadoAparato>(a.estado);
   const [notas, setNotas] = useState(a.notas ?? '');
   const [busca, setBusca] = useState('');
+  const [elegido, setElegido] = useState<{ id: string; nombre: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
   const [historial, setHistorial] = useState<LineaHistorial[] | null>(null);
@@ -439,17 +470,21 @@ function FichaAparato({
     }
   }
 
-  async function darA(id: string) {
+  /**
+   * A un profe se le da sin más. A un alumno, de dos maneras: **prestado para el curso** (le pone
+   * «Prestado» con este iPad: una sola verdad) o **mientras arreglan el suyo** (no le cambia nada).
+   */
+  async function darA(id: string, como: 'profe' | 'prestado' | 'temporal') {
     setBusca('');
-    // Uno de préstamo convierte al alumno en «Prestado» con este iPad: una sola verdad.
-    if (a.uso === 'prestamo') {
+    setElegido(null);
+    if (como === 'prestado') {
       setOcupado(true);
       const ok = await acciones.guardar({ eduStudentId: id, modalidad: 'prestado', aparatoId: a.id });
       setOcupado(false);
       if (ok) toast.success(`${a.codigo} prestado`);
       return;
     }
-    await hacer({ titular: { tipo: a.uso === 'profesorado' ? 'profe' : 'alumno', id } }, `${a.codigo} dado`);
+    await hacer({ titular: { tipo: como === 'profe' ? 'profe' : 'alumno', id } }, `${a.codigo} dado`);
   }
 
   async function guardar() {
@@ -502,7 +537,7 @@ function FichaAparato({
                 <span className="min-w-0 flex-1 text-sm">
                   <span className="font-semibold">{a.titular.nombre}</span>
                   <span className={cn('block text-xs', a.titular.activo ? 'text-zinc-500' : 'font-semibold text-red-700 dark:text-red-300')}>
-                    {a.titular.activo ? a.titular.detalle : 'Ya no está en el cole: hay que recogerlo'}
+                    {a.titular.activo ? detalle : 'Ya no está en el cole: hay que recogerlo'}
                   </span>
                 </span>
                 <button type="button" className={ESTILO_BOTON} disabled={ocupado} onClick={() => void hacer({ titular: null }, `${a.codigo} devuelto`)}>
@@ -511,6 +546,25 @@ function FichaAparato({
               </div>
             ) : a.estado === 'baja' ? (
               <p className="text-sm text-zinc-500">De baja: no se le da a nadie.</p>
+            ) : elegido ? (
+              <div className="space-y-2">
+                <p className="text-sm">
+                  ¿Cómo se le da a <span className="font-semibold">{elegido.nombre}</span>?
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button type="button" className={cn(ESTILO_BOTON, 'h-auto flex-col items-start py-2.5 text-left')} disabled={ocupado} onClick={() => void darA(elegido.id, 'prestado')}>
+                    <span className="font-semibold">Prestado para el curso</span>
+                    <span className="text-xs font-normal text-zinc-500">Pasa a «Prestado» con el {a.codigo}</span>
+                  </button>
+                  <button type="button" className={cn(ESTILO_BOTON, 'h-auto flex-col items-start py-2.5 text-left')} disabled={ocupado} onClick={() => void darA(elegido.id, 'temporal')}>
+                    <span className="font-semibold">Mientras arreglan el suyo</span>
+                    <span className="text-xs font-normal text-zinc-500">Sigue como está; solo se apunta que lo tiene</span>
+                  </button>
+                </div>
+                <button type="button" className="cursor-pointer text-xs text-zinc-500 underline" onClick={() => setElegido(null)}>
+                  Elegir a otra persona
+                </button>
+              </div>
             ) : (
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Dárselo a…</span>
@@ -528,7 +582,7 @@ function FichaAparato({
                         <button
                           type="button"
                           disabled={ocupado}
-                          onClick={() => void darA(c.id)}
+                          onClick={() => (a.uso === 'profesorado' ? void darA(c.id, 'profe') : setElegido({ id: c.id, nombre: c.nombre }))}
                           className="flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800"
                         >
                           <span className="font-medium">{c.nombre}</span>
