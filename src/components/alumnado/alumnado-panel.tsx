@@ -38,6 +38,7 @@ import {
   Search,
   ShoppingBag,
   Users,
+  Tablet,
   UtensilsCrossed,
   X,
 } from 'lucide-react';
@@ -537,6 +538,11 @@ export function AlumnadoPanel({
                       {a.bancoLibros && (
                         <span title="Banco de libros" aria-label="Banco de libros">
                           <Library className="h-3.5 w-3.5 text-emerald-500" />
+                        </span>
+                      )}
+                      {a.ipadEnCole && (
+                        <span title="No se lleva el iPad a casa" aria-label="No se lleva el iPad a casa">
+                          <Tablet className="h-3.5 w-3.5 text-orange-600" />
                         </span>
                       )}
                       {a.comedor && (

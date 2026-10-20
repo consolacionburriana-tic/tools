@@ -52,7 +52,7 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
    | Foto en Educamos | Secretaría | A mano |
    | Correo de Google | TIC | Automático: `email_google` de su ficha; se puede escribir aquí. Crearlo desde aquí llegará con el módulo de correos |
    | Correo vinculado en Educamos | TIC | A mano |
-   | iPad | TIC | A mano hasta que exista el módulo de iPads (otra tarea), que se enganchará aquí |
+   | iPad | TIC | Automático: hecho cuando tiene estado en [Dispositivos 1:1](./29-dispositivos.md) (comprado, de casa, prestado o de hermano). Se elige desde aquí mismo con un toque; qué iPad del cole y el resto, en su módulo. Quien no tenga ese módulo lo sigue marcando a mano |
    | Apple School Manager | TIC | Automático: hecho si ha habido una subida a ASM (FTP o a mano) desde su alta y entra en su alcance; si no, invita a ir a AUTOASM |
    | Licencias | TIC | Automático: pedido en la campaña vigente, o «no pedirá licencias» (marca `manual_completed_at` de Licencias si el alumno está en su campaña) |
 
@@ -143,6 +143,6 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
 
 ### Más adelante
 - [ ] Crear el correo de Google desde el paso (cuando exista el módulo de correos)
-- [ ] Enganchar el paso del iPad al módulo de iPads
+- [x] Enganchar el paso del iPad al módulo de iPads (20-oct-2026, `docs/29-dispositivos.md`: el paso lee `dis_alumnos` y la ficha trae el selector rápido)
 - [ ] Bajas con el mismo motor
 - [ ] Inicio de curso de 3 años, por lotes

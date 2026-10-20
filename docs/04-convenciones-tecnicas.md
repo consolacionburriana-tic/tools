@@ -72,7 +72,7 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
 ## Base de datos (Drizzle + Neon)
 
 - **Todas las tablas en `src/db/schema.ts`**, agrupadas por módulo con su prefijo (`abc_`,
-  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`, `tab_`) y un comentario separador
+  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`, `tab_`, `nou_`, `dis_`) y un comentario separador
   por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
 - ⚠️ **Antes de `pnpm db:push`, mira qué hay en Neon.** Push borra lo que no esté en

@@ -99,4 +99,13 @@ describe('el resto de parámetros, con los valores de Consolación', () => {
     expect(CONFIGURACION.sesion).toEqual({ duracionDias: 300, refrescoRolMinutos: 15 });
     expect(BLOB_MAX_BYTES).toBe(10 * 1024 * 1024);
   });
+
+  it('dispositivos 1:1: seguro de 4 cursos, 30 €/año sin seguro, 10 €/mes y profes desde 5º EP', () => {
+    expect(CONFIGURACION.dispositivos).toEqual({
+      cursosSeguro: 4,
+      cuotaAnualSinSeguro: 30,
+      cuotaMensual: 10,
+      profesDesdeCurso: '5PRI',
+    });
+  });
 });

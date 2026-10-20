@@ -27,11 +27,14 @@ import {
 } from '@/lib/nouvinguts';
 import type { Candidato, FichaNouvingut, NotaVista } from '@/lib/nouvinguts-server';
 import { ChipResponsable, COLOR_TEXTO, ESTILO_CAMPO, NodoPaso, pedir, pedirFicha, textoDias } from './comun';
+import { SelectorRapido } from '@/components/dispositivos/selector-rapido';
 
 export interface PuedeFicha {
   proteccion: boolean;
   participantes: boolean;
   materiales: boolean;
+  /** Tiene Dispositivos 1:1: el paso «iPad» se resuelve aquí mismo. */
+  dispositivos: boolean;
 }
 
 type Ctx = {
@@ -369,10 +372,38 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
       if (!d.vinculado) return <Espera />;
       return paso.estado === 'hecho' ? null : <CampoYBoton placeholder="Ej. 2026/0412" boton="Guardar y resolver" mono ocupado={enCurso} onGuardar={(v) => accion({ paso: 'matricula', numero: v }, 'Número de matrícula guardado en su ficha')} ayuda="Se guarda en su ficha central. Que no se olvide meterlo también en Educamos." />;
 
+    case 'ipad':
+      if (!d.vinculado) return <Espera />;
+      if (puede.dispositivos) {
+        return (
+          <SelectorRapido
+            eduStudentId={ficha.eduStudentId!}
+            actual={d.dispositivo}
+            onGuardado={async () => ctx.setFicha((await pedir<{ ficha: FichaNouvingut }>(`/api/nouvinguts/${ficha.id}`)).ficha)}
+          />
+        );
+      }
+      // Sin el módulo de dispositivos, se puede seguir marcando a mano.
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          {paso.estado === 'hecho' ? (
+            d.dispositivo ? null : (
+              <Boton variante="secundario" ocupado={enCurso} onClick={() => accion({ paso: 'ipad', hecho: false })}>
+                Deshacer
+              </Boton>
+            )
+          ) : (
+            <Boton variante="verde" ocupado={enCurso} onClick={() => accion({ paso: 'ipad', hecho: true })}>
+              Marcar hecho
+            </Boton>
+          )}
+          <span className="text-sm text-zinc-500">Cómo lo tiene se apunta en Dispositivos 1:1 (TIC, secretaría y dirección).</span>
+        </div>
+      );
+
     case 'claves':
     case 'foto':
-    case 'vinculo_correo':
-    case 'ipad': {
+    case 'vinculo_correo': {
       const clave = paso.clave;
       return (
         <div className="flex flex-wrap items-center gap-2">
@@ -385,7 +416,6 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
               Marcar hecho
             </Boton>
           )}
-          {clave === 'ipad' && <Pronto>Asignar iPad · llega con el módulo de iPads</Pronto>}
         </div>
       );
     }

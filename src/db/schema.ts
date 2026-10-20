@@ -2405,3 +2405,79 @@ export const nouPasos = pgTable('nou_pasos', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 export type NouPaso = typeof nouPasos.$inferSelect;
+
+// ─── Dispositivos 1:1 (prefijo dis_) ──────────────────────────────────────────
+// Ficha: docs/29-dispositivos.md. Cómo tiene el iPad cada alumno (comprado, de casa, prestado,
+// de hermano) para el listado de cuotas, y el inventario de iPads del cole (sustitución, que son
+// los del alumnado —prestados o mientras arreglan el suyo—, y profesorado). No copia ni curso ni clase del alumno: se leen de `edu_students`.
+// Quién tiene un iPad del cole vive en el iPad (`dis_aparatos`), no en el alumno.
+
+// Catálogo de modelos estándar («iPad 9.ª generación · 64 GB»), para no escribirlo cada vez.
+export const disModelos = pgTable('dis_modelos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  tipo: text('tipo').notNull().default('ipad'),
+  nombre: text('nombre').notNull(),
+  capacidadGb: integer('capacidad_gb'),
+  notas: text('notas'),
+  activo: boolean('activo').notNull().default(true), // false = archivado: ya no se ofrece
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+export type DisModelo = typeof disModelos.$inferSelect;
+
+// Los iPads del cole. Un titular como mucho: un alumno (sustitución) o un profe (profesorado).
+export const disAparatos = pgTable('dis_aparatos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  uso: text('uso').notNull(), // 'sustitucion' | 'profesorado'
+  codigo: text('codigo').notNull(), // 'S3', 'P12'
+  tipo: text('tipo').notNull().default('ipad'),
+  modeloId: uuid('modelo_id').references(() => disModelos.id),
+  numeroSerie: text('numero_serie'),
+  estado: text('estado').notNull().default('activo'), // 'activo' | 'reparacion' | 'baja'
+  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id),
+  asignadoAt: timestamp('asignado_at'),
+  notas: text('notas'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('dis_aparatos_codigo_uq').on(t.codigo),
+  index('dis_aparatos_alumno_idx').on(t.eduStudentId),
+  index('dis_aparatos_profe_idx').on(t.eduTeacherId),
+]);
+export type DisAparato = typeof disAparatos.$inferSelect;
+
+// Cómo tiene el dispositivo cada alumno. Sin fila = sin informar.
+export const disAlumnos = pgTable('dis_alumnos', {
+  eduStudentId: uuid('edu_student_id').primaryKey().references(() => eduStudents.id),
+  modalidad: text('modalidad').notNull(), // 'comprado' | 'casa' | 'prestado' | 'hermano'
+  tipo: text('tipo').notNull().default('ipad'),
+  cursoCompra: text('curso_compra'), // '2022-23' (comprado y de hermano)
+  aCasa: boolean('a_casa'), // prestado: true = se lo lleva (firma + cuota), false = se queda en el cole
+  firmadoAt: date('firmado_at'), // prestado: cuándo firmó la familia el documento
+  hermanoId: uuid('hermano_id').references(() => eduStudents.id), // de hermano: de quién viene
+  modeloId: uuid('modelo_id').references(() => disModelos.id),
+  numeroSerie: text('numero_serie'),
+  notas: text('notas'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+export type DisAlumno = typeof disAlumnos.$inferSelect;
+
+// Lo que ha pasado, en una línea: «Prestado · se lo lleva a casa», «S3 a Bruno Ferrer».
+export const disHistorial = pgTable('dis_historial', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eduStudentId: uuid('edu_student_id'),
+  eduTeacherId: uuid('edu_teacher_id'),
+  aparatoId: uuid('aparato_id'),
+  texto: text('texto').notNull(),
+  por: text('por'),
+  porNombre: text('por_nombre'),
+  at: timestamp('at').defaultNow().notNull(),
+}, (t) => [
+  index('dis_historial_alumno_idx').on(t.eduStudentId),
+  index('dis_historial_aparato_idx').on(t.aparatoId),
+]);
+export type DisHistorial = typeof disHistorial.$inferSelect;

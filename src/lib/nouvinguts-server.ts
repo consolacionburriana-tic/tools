@@ -12,6 +12,8 @@ import {
   asmEntregas,
   authUsers,
   cfgAjustes,
+  disAlumnos,
+  disAparatos,
   eduStudents,
   licCampaigns,
   licOrders,
@@ -27,6 +29,7 @@ import {
 import { academicYearActual } from '@/lib/constants';
 import { aplicaMaterial, estadoVisible, type DestinoMaterial, type EstadoMaterial } from '@/lib/alumnado';
 import { entraEnAlcance } from '@/lib/autoasm-construir';
+import { esModalidad, textoEstado, type Modalidad } from '@/lib/dispositivos';
 import { guardarProteccion } from '@/lib/alumnado-server';
 import { setAmpa, setBanco } from '@/lib/bancolibros-server';
 import { guardarEstadosMaterial } from '@/lib/materiales-server';
@@ -143,7 +146,7 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
   const campaniaVigente = db.select({ id: licCampaigns.id }).from(licCampaigns).orderBy(desc(licCampaigns.createdAt)).limit(1);
   const enCampania = and(inArray(licStudents.campaignId, campaniaVigente), inArray(licStudents.eduStudentId, eduIds));
 
-  const [filas, config, ajustesFila, marcas, notas, alumnos, materiales, estadosMat, campania, licAlumnos, pedidos, subidas] =
+  const [filas, config, ajustesFila, marcas, notas, alumnos, materiales, estadosMat, campania, licAlumnos, pedidos, subidas, dispositivos, prestamos] =
     await Promise.all([
       db.select().from(nouAlumnos).where(cond).orderBy(asc(nouAlumnos.fechaMatricula), asc(nouAlumnos.createdAt)),
       db.select().from(nouPasos),
@@ -208,9 +211,32 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
         .where(and(eq(asmEntregas.academicYear, year), sql`${asmEntregas.modo} in ('ftp','manual')`, eq(asmEntregas.estado, 'ok')))
         .orderBy(desc(asmEntregas.createdAt))
         .limit(1),
+      // Dispositivos 1:1: cómo tiene el iPad, y el código del iPad del cole si lo tiene.
+      db
+        .select({ id: disAlumnos.eduStudentId, modalidad: disAlumnos.modalidad, cursoCompra: disAlumnos.cursoCompra, aCasa: disAlumnos.aCasa })
+        .from(disAlumnos)
+        .where(inArray(disAlumnos.eduStudentId, eduIds)),
+      db
+        .select({ id: disAparatos.eduStudentId, codigo: disAparatos.codigo })
+        .from(disAparatos)
+        .where(and(inArray(disAparatos.eduStudentId, eduIds), eq(disAparatos.uso, 'sustitucion'))),
     ]);
 
   const ajustes = leerAjustesNouvinguts(ajustesFila[0]?.valor);
+  const prestamoDe = new Map(prestamos.map((p) => [p.id, p.codigo]));
+  const dispositivoDe = new Map(
+    dispositivos
+      .filter((x) => esModalidad(x.modalidad))
+      .map((x) => [
+        x.id,
+        {
+          modalidad: x.modalidad,
+          cursoCompra: x.cursoCompra,
+          aCasa: x.aCasa,
+          texto: textoEstado({ modalidad: x.modalidad as Modalidad, cursoCompra: x.cursoCompra, aCasa: x.aCasa, aparato: prestamoDe.get(x.id) }, year),
+        },
+      ]),
+  );
   const proceso = procesoEfectivo(config);
   const hoy = hoyISO();
   const alumnoPorId = new Map(alumnos.map((a) => [a.id, a]));
@@ -262,6 +288,7 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
         : [],
       asmSubidaAt:
         a && subida && subida.createdAt > a.createdAt && entraEnAlcance(a.curso, subida.desdeCurso) ? subida.createdAt.toISOString() : null,
+      dispositivo: a ? (dispositivoDe.get(a.id) ?? null) : null,
       licencias: {
         campania: campania[0]?.nombre ?? null,
         enCampania: !!lic,

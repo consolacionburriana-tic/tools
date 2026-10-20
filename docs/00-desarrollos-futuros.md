@@ -23,6 +23,43 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Dispositivos 1:1: cómo se cobra (20-oct-2026) — pendiente de secretaría y Jose Miguel
+
+David: «no lo sé, pendiente de secretaría y Jose Miguel» y «esto ya lo vemos». Mientras tanto el
+módulo saca **la foto del día** (quién pagaría qué hoy), en Excel y CSV, y no lleva pagos.
+
+1. ¿El listado se saca **cada mes** o **una vez al curso**? ¿Los 10 €/mes son de septiembre a junio?
+2. Si alguien cambia a mitad de curso (un alta en enero, un prestado que empieza a llevárselo a
+   casa en febrero), ¿se **prorratea** o cuenta lo que tenga el día que se saca la lista?
+3. ¿Se lleva aquí el **«pagado / no pagado»** o se queda en Educamos? Si va a Educamos, ¿con qué
+   formato de CSV (el de Licencias es curso, ID Educamos, importe)?
+
+### Dispositivos 1:1: lo que decidí yo al construirlo (20-oct-2026) — revisar con David
+
+Detalle en [`29-dispositivos.md`](./29-dispositivos.md).
+
+1. **Los códigos se pueden cambiar a mano** si un iPad ya tiene etiqueta propia (S y P son las
+   letras de David; los prestados son de sustitución, no hay lote aparte).
+2. **Un prestado empieza «en el cole»** hasta que alguien marca «a casa»: sin firma, no se lo lleva.
+3. **Si un alumno deja de estar prestado, su iPad vuelve solo al almacén** (queda en el
+   historial). Si no lo estaba, el que tenga por una reparación no se toca.
+4. **Al dar uno de sustitución desde «iPads del cole» se pregunta**: prestado para el curso (le
+   pone «Prestado») o mientras arreglan el suyo (no le cambia nada). Un alumno, un iPad del cole:
+   si se le presta otro, el que tenía vuelve.
+5. **Sin informar no sale en las cuotas**, y un comprado sin curso de compra tampoco: sale en «Falta
+   un dato» hasta que se sepa.
+6. **«A todos los sin informar»** de una clase, con confirmación, para el primer volcado.
+7. **Estado del aparato: operativo, en reparación o de baja.** De baja se devuelve solo; borrar un
+   iPad solo se puede si no tiene historia (un alta por error).
+8. **A qué profes «les toca» iPad**: clase o tutoría de 5º EP para arriba en Horarios, o la ESO
+   marcada en su ficha. Como Horarios de secundaria todavía no está entero, la ESO de la ficha
+   pesa más que el horario.
+9. **En Nouvinguts, el «desde» del paso iPad sigue siendo el suyo** (Proceso), no el de AUTOASM.
+   Este módulo sí sigue a AUTOASM solo. El curso que viene hay que moverlo en los dos sitios:
+   «Alumnado desde» en AUTOASM y el «desde» del paso iPad en Proceso de Nouvinguts.
+10. **Tutores y profes ven el aviso en la ficha y un icono en la lista** de Alumnado (no solo en
+    la ficha).
+
 ### Arreglos de octubre (comedor, listas, licencias de profes): lo que decidí yo (19-oct-2026) — revisar con David
 
 Salieron de cuatro tareas de Jose Miguel y David. Lo que quedó decidido por mí:

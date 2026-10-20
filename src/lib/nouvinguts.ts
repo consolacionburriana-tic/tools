@@ -64,7 +64,7 @@ export const PASOS: readonly DefinicionPaso[] = [
   { clave: 'foto', titulo: 'Foto en Educamos', corto: 'Foto', responsable: 'secretaria', desde: null, manual: true, fuente: 'A mano' },
   { clave: 'correo', titulo: 'Correo de Google', corto: 'Correo', responsable: 'tic', desde: null, manual: false, fuente: 'Automático · ficha del alumno' },
   { clave: 'vinculo_correo', titulo: 'Correo vinculado en Educamos', corto: 'Vinc.', responsable: 'tic', desde: null, manual: true, fuente: 'A mano' },
-  { clave: 'ipad', titulo: 'iPad', corto: 'iPad', responsable: 'tic', desde: '6PRI', manual: true, fuente: 'A mano (hasta que exista el módulo de iPads)' },
+  { clave: 'ipad', titulo: 'iPad', corto: 'iPad', responsable: 'tic', desde: '6PRI', manual: false, fuente: 'Automático · Dispositivos 1:1' },
   { clave: 'asm', titulo: 'Apple School Manager', corto: 'ASM', responsable: 'tic', desde: '6PRI', manual: false, fuente: 'Automático · AUTOASM' },
   { clave: 'licencias', titulo: 'Licencias', corto: 'Lic.', responsable: 'tic', desde: '6PRI', manual: false, fuente: 'Automático · Licencias' },
 ];
@@ -192,6 +192,11 @@ export interface DatosNouvingut {
   materiales: { id: string; nombre: string; estado: EstadoMaterialNou | null }[];
   /** Fecha (ISO) de la subida a ASM que ya le incluye, o null. */
   asmSubidaAt: string | null;
+  /**
+   * Cómo tiene el iPad, según Dispositivos 1:1 (docs/29-dispositivos.md); null = sin informar.
+   * `texto` ya viene escrito («Comprado · 2026-27 · con seguro», «Prestado A3 · en el cole»).
+   */
+  dispositivo: { modalidad: string; texto: string; cursoCompra: string | null; aCasa: boolean | null } | null;
   licencias: {
     campania: string | null; // nombre de la campaña vigente, null = no hay
     enCampania: boolean; // está en el alumnado de esa campaña
@@ -302,7 +307,10 @@ export function estadoPaso(paso: PasoProceso, d: DatosNouvingut): Estado {
     case 'vinculo_correo':
       return porMarca(m, 'Vinculado', 'Sin vincular');
     case 'ipad':
-      return porMarca(m, 'Entregado', 'Sin iPad');
+      // Lo dice Dispositivos 1:1. La marca a mano queda para quien no tenga ese módulo.
+      if (d.dispositivo) return { estado: 'hecho', texto: d.dispositivo.texto };
+      if (m) return porMarca(m, 'Resuelto a mano', '');
+      return { estado: 'pendiente', texto: d.vinculado ? 'Sin informar en Dispositivos 1:1' : ESPERANDO };
   }
 }
 
