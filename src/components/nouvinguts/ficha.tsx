@@ -30,6 +30,8 @@ import { ChipResponsable, COLOR_TEXTO, ESTILO_CAMPO, NodoPaso, pedir, pedirFicha
 import { SelectorRapido } from '@/components/dispositivos/selector-rapido';
 
 export interface PuedeFicha {
+  /** Crear su correo de Google en Correos y grupos (TIC). */
+  correo: boolean;
   proteccion: boolean;
   participantes: boolean;
   materiales: boolean;
@@ -487,7 +489,11 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
             />
           )}
           {!d.vinculado && <Espera />}
-          <Pronto>Crear el correo desde aquí · llega con el módulo de correos</Pronto>
+          {d.vinculado && paso.estado !== 'hecho' && puede.correo && (
+            <Enlace href={`/gestion/cuentas?persona=a:${ficha.eduStudentId}`} boton>
+              Crear su correo en Correos y grupos
+            </Enlace>
+          )}
         </div>
       );
 
@@ -875,13 +881,6 @@ function Espera() {
   return <p className="text-sm text-zinc-500">Se podrá hacer en cuanto esté en Educamos.</p>;
 }
 
-function Pronto({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex h-10 items-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40">
-      {children} · pronto
-    </span>
-  );
-}
 
 function Enlace({ href, children, boton = false }: { href: string; children: React.ReactNode; boton?: boolean }) {
   return (

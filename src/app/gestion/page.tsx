@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import {
   AlarmClock,
   Apple,
+  AtSign,
   BookMarked,
   Bus,
   ChartColumnBig,
@@ -64,7 +65,15 @@ export default async function EscritorioPage() {
   const ahora = new Date();
   const licenciasArriba = puede('licencias') && esTemporadaLicencias(ahora);
   const configuracion =
-    puede('profes') || puede('usuarios') || puede('educamos') || puede('autoasm') || puede('tareas') || puede('calendarios') || puede('ajustes');
+    puede('profes') ||
+    puede('usuarios') ||
+    puede('educamos') ||
+    puede('autoasm') ||
+    puede('tareas') ||
+    puede('calendarios') ||
+    puede('cuentas') ||
+    puede('cuentas-ver') ||
+    puede('ajustes');
 
   // Stats solo de los módulos que el rol puede ver
   const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas, nouvinguts, sinIpad] = await Promise.all([
@@ -338,6 +347,14 @@ export default async function EscritorioPage() {
                 icon={<Apple className="h-6 w-6" />}
                 title="AUTOASM (Apple School Manager)"
                 desc="Generar y revisar los seis CSV de ASM y descargarlos en un ZIP"
+              />
+            )}
+            {(puede('cuentas') || puede('cuentas-ver')) && (
+              <ModuleCard
+                href="/gestion/cuentas"
+                icon={<AtSign className="h-6 w-6" />}
+                title="Correos y grupos"
+                desc="Las cuentas de Google cruzadas con Educamos: crear correos, cada alumno en su clase, bajas y grupos al día"
               />
             )}
             {puede('calendarios') && (

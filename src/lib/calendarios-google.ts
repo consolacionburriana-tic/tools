@@ -1,7 +1,8 @@
 // Calendarios del dominio · adaptador de Google. Ficha: docs/25-calendarios.md
 //
 // MISMA cuenta de servicio y MISMA delegación de dominio que `email-gmail.ts` y
-// `mihorario-google.ts`: un JWT con `subject` = el buzón que se suplanta. Tres APIs:
+// `mihorario-google.ts`: un JWT con `subject` = el buzón que se suplanta (credencial y
+// reintentos, en `google-sa.ts`). Tres APIs:
 //
 //   · Admin SDK Directory → la lista de usuarios del dominio (suplantando a un ADMIN).
 //   · Classroom           → todas las clases del dominio con su `calendarId` (a un ADMIN).
@@ -18,6 +19,16 @@
 import { google } from 'googleapis';
 import type { admin_directory_v1, calendar_v3, classroom_v1 } from 'googleapis';
 import { acumularEventos, esCalendarioSecundario, RESUMEN_VACIO, type ResumenEventos } from '@/lib/calendarios';
+import {
+  conReintentos,
+  enParalelo,
+  esErrorDeDelegacion,
+  explicarError,
+  googleConfigurado,
+  jwtGoogle,
+  mensajeDe,
+  statusDe,
+} from '@/lib/google-sa';
 
 export const SCOPE_DIRECTORY = 'https://www.googleapis.com/auth/admin.directory.user.readonly';
 export const SCOPE_CLASSROOM = 'https://www.googleapis.com/auth/classroom.courses.readonly';
@@ -31,24 +42,10 @@ export const SCOPE_CLASSROOM_TAREAS = 'https://www.googleapis.com/auth/classroom
 export const SCOPE_CLASSROOM_ANUNCIOS = 'https://www.googleapis.com/auth/classroom.announcements';
 export const SCOPE_CLASSROOM_TEMAS = 'https://www.googleapis.com/auth/classroom.topics';
 
-function credenciales(): { clientEmail: string; privateKey: string } | null {
-  const clientEmail = process.env.GOOGLE_SA_CLIENT_EMAIL ?? process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const privateKey = (process.env.GOOGLE_SA_PRIVATE_KEY ?? process.env.GOOGLE_SHEETS_PRIVATE_KEY)?.replace(
-    /\\n/g,
-    '\n',
-  );
-  if (!clientEmail || !privateKey) return null;
-  return { clientEmail, privateKey };
-}
-
-export function googleConfigurado(): boolean {
-  return credenciales() !== null;
-}
+export { googleConfigurado };
 
 function jwt(scope: string, subject: string) {
-  const cred = credenciales();
-  if (!cred) throw new Error('Faltan GOOGLE_SA_CLIENT_EMAIL / GOOGLE_SA_PRIVATE_KEY en el entorno');
-  return new google.auth.JWT({ email: cred.clientEmail, key: cred.privateKey, scopes: [scope], subject });
+  return jwtGoogle(scope, subject);
 }
 
 // Un cliente por buzón suplantado (el JWT lleva el `subject` dentro). Se cachean: el barrido
@@ -69,52 +66,9 @@ function classroom(admin: string, scope = SCOPE_CLASSROOM): classroom_v1.Classro
   return google.classroom({ version: 'v1', auth: jwt(scope, admin) });
 }
 
-// ── Errores y reintentos (mismo criterio que email-gmail.ts: 429 y 5xx) ─────────
-
-export function statusDe(e: unknown): number | null {
-  const x = e as { status?: unknown; code?: unknown; response?: { status?: unknown } };
-  for (const v of [x?.status, x?.response?.status, x?.code]) if (typeof v === 'number') return v;
-  return null;
-}
-
-export function mensajeDe(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-function esReintentable(e: unknown): boolean {
-  const s = statusDe(e);
-  if (s !== null && (s === 429 || s >= 500)) return true;
-  return /rateLimitExceeded|userRateLimitExceeded|backendError|Quota exceeded/i.test(mensajeDe(e));
-}
-
-const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function conReintentos<T>(fn: () => Promise<T>, intentos = 4): Promise<T> {
-  let ultimo: unknown;
-  for (let i = 0; i < intentos; i++) {
-    try {
-      return await fn();
-    } catch (e) {
-      ultimo = e;
-      if (!esReintentable(e) || i === intentos - 1) throw e;
-      await espera(500 * 2 ** i);
-    }
-  }
-  throw ultimo;
-}
-
-/** Traduce los errores típicos de delegación a algo que se pueda arreglar en la consola. */
-export function explicarError(e: unknown): string {
-  const m = mensajeDe(e);
-  if (/unauthorized_client/i.test(m))
-    return 'Falta el scope en la delegación de todo el dominio (consola de admin → Seguridad → Control de API)';
-  if (/accessNotConfigured|has not been used in project|is disabled/i.test(m))
-    return 'La API no está habilitada en el proyecto de Google Cloud de la cuenta de servicio';
-  if (/invalid_grant/i.test(m)) return 'No se puede suplantar a ese buzón (¿no existe, está suspendido o no tiene el servicio?)';
-  if (/Not Authorized to access this resource|insufficient permissions|forbidden/i.test(m) || statusDe(e) === 403)
-    return 'Ese buzón no tiene permiso para esto (si es Directory o Classroom, tiene que ser administrador)';
-  return m.slice(0, 300);
-}
+// Errores, reintentos y reparto en paralelo: en `google-sa.ts`, comunes a los módulos de
+// Google. Se reexportan con el mismo nombre para quien ya los importaba de aquí.
+export { enParalelo, explicarError, mensajeDe, statusDe };
 
 // ── Diagnóstico ────────────────────────────────────────────────────────────────
 
@@ -504,8 +458,7 @@ export async function publicarEnClase(profe: string, courseId: string, p: Public
   } catch (e) {
     // Los fallos de delegación (scope sin dar, API apagada…) ya los traduce `explicarError`; un
     // 403/404 que llega de verdad a Classroom es casi siempre «esta cuenta no es profe de esa clase».
-    const delegacion = /unauthorized_client|accessNotConfigured|has not been used in project|is disabled|invalid_grant/i.test(mensajeDe(e));
-    if (!delegacion && (statusDe(e) === 403 || statusDe(e) === 404)) {
+    if (!esErrorDeDelegacion(e) && (statusDe(e) === 403 || statusDe(e) === 404)) {
       return { ok: false, error: `${profe} no es profe de esta clase (o la clase ya no está activa)` };
     }
     return { ok: false, error: explicarError(e) };
@@ -534,8 +487,7 @@ export async function retirarPublicacion(
     return { ok: true, yaNoExistia: false };
   } catch (e) {
     if (statusDe(e) === 404) return { ok: true, yaNoExistia: true };
-    const delegacion = /unauthorized_client|accessNotConfigured|has not been used in project|is disabled|invalid_grant/i.test(mensajeDe(e));
-    if (!delegacion && statusDe(e) === 403) {
+    if (!esErrorDeDelegacion(e) && statusDe(e) === 403) {
       return { ok: false, error: 'Classroom no deja borrarla desde aquí (la creó otra cuenta o no es de esta app): se quita desde la propia clase' };
     }
     return { ok: false, error: explicarError(e) };
@@ -617,18 +569,4 @@ export async function borrarCalendario(buzon: string, calendarId: string): Promi
     const error = status === 403 ? 'No es el propietario del calendario (Google no le deja borrarlo)' : explicarError(e);
     return { ok: false, status, error };
   }
-}
-
-/** Reparte `fn` sobre `items` con `n` a la vez. Los errores los maneja `fn`. */
-export async function enParalelo<T, R>(items: readonly T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
-  const salida: R[] = new Array(items.length);
-  let siguiente = 0;
-  async function trabajador() {
-    while (siguiente < items.length) {
-      const i = siguiente++;
-      salida[i] = await fn(items[i]);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(n, items.length)) }, trabajador));
-  return salida;
 }

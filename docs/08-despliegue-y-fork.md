@@ -105,7 +105,13 @@ https://www.googleapis.com/auth/admin.directory.user.readonly
 https://www.googleapis.com/auth/classroom.courses
 https://www.googleapis.com/auth/classroom.courses.readonly
 https://www.googleapis.com/auth/classroom.rosters
+https://www.googleapis.com/auth/admin.directory.user
+https://www.googleapis.com/auth/admin.directory.orgunit
+https://www.googleapis.com/auth/admin.directory.group
 ```
+
+Los tres últimos son de Correos y grupos (`docs/30-cuentas.md`): crear y suspender cuentas, unidades
+organizativas y grupos.
 
 ## 4 · Alumnado y profesorado (paso 16)
 

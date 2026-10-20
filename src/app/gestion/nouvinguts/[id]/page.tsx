@@ -20,6 +20,7 @@ export default async function FichaNouvingutPage({ params }: { params: Promise<{
       key={ficha.id}
       inicial={ficha}
       puede={{
+        correo: canAccess(user, 'cuentas'),
         proteccion: puedeEditarProteccionDatos(user.role),
         participantes: puedeGestionarParticipantesBanco(user.role),
         materiales: puedeGestionarMateriales(user.role),

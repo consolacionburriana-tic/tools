@@ -224,6 +224,6 @@ Cada acción usa su propio scope, así que el escaneo sigue funcionando aunque f
 - **Módulo de crear eventos en calendarios** (lo siguiente que quiere David): puede reutilizar
   `calendarios-google.ts` (clientes por buzón suplantado, reintentos, `enParalelo`) y
   `mihorario-google.ts` (`crearEventos` con marca `extendedProperties` para poder deshacer).
-  Cuando nazca, conviene sacar la credencial y los reintentos a un `google-sa.ts` común: hoy
-  están repetidos en `email-gmail.ts`, `mihorario-google.ts` y aquí.
+  La credencial y los reintentos ya están en `google-sa.ts` (lo sacó Correos y grupos el
+  20-oct-2026, y este módulo ya lo usa); quedan por pasar `email-gmail.ts` y `mihorario-google.ts`.
 - Más ideas en `00-desarrollos-futuros.md`.

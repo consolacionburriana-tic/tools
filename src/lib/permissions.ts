@@ -32,6 +32,8 @@ export const MODULES = [
   'oratorios',
   'oratorios-ver',
   'calendarios',
+  'cuentas',
+  'cuentas-ver',
   'tableros',
   'nouvinguts',
   'nouvinguts-proceso',
@@ -63,6 +65,8 @@ export const MODULE_LABELS: Record<Module, string> = {
   oratorios: 'Oratorios, Godly Play y Talleres (planificar)',
   'oratorios-ver': 'Oratorios, Godly Play y Talleres (ver lo mío)',
   calendarios: 'Classrooms y calendarios',
+  cuentas: 'Correos y grupos (gestionar)',
+  'cuentas-ver': 'Correos y grupos (ver)',
   tableros: 'Tableros (tareas por equipos)',
   nouvinguts: 'Nouvinguts (alumnado nuevo)',
   'nouvinguts-proceso': 'Nouvinguts (ordenar los pasos)',
@@ -74,9 +78,10 @@ export const MODULE_LABELS: Record<Module, string> = {
  * Módulos que conviene pensárselo dos veces antes de dar a dedo: `usuarios` permite
  * repartir permisos (incluidos los propios) y `educamos` toca la BBDD de alumnado y
  * familias entera. `calendarios` borra calendarios de Google de cualquier persona del
- * dominio. La interfaz los marca; no están prohibidos.
+ * dominio, y `cuentas` crea, suspende y cambia contraseñas de cuentas de Google. La
+ * interfaz los marca; no están prohibidos.
  */
-export const MODULOS_SENSIBLES: readonly Module[] = ['usuarios', 'educamos', 'calendarios', 'ajustes'];
+export const MODULOS_SENSIBLES: readonly Module[] = ['usuarios', 'educamos', 'calendarios', 'cuentas', 'ajustes'];
 
 export const ROLES = [
   'profe',
@@ -137,7 +142,10 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // fallitos, no los gestiona (David, 24-sep-2026). Tampoco los calendarios del dominio:
   // borran calendarios de Google de cualquiera, es cosa del administrador de Workspace.
   // Y Nouvinguts lo trabaja, pero el orden de sus pasos lo ajustan SuperTIC y TIC (David, 19-oct-2026).
-  secretaria: MODULES.filter((m) => m !== 'tareas' && m !== 'calendarios' && m !== 'nouvinguts-proceso'),
+  // Correos y grupos: lo gestiona TIC; secretaría lo ve, sin tocar nada (David, 20-oct-2026).
+  secretaria: MODULES.filter(
+    (m) => m !== 'tareas' && m !== 'calendarios' && m !== 'nouvinguts-proceso' && m !== 'cuentas',
+  ),
   // Tutor y profe entran en Alumnado, pero solo ven SU ETAPA (entrando en su tutoría si la
   // tienen): `alcanceAlumnado` en alumnado-server.ts. Profe, desde el 28-sep-2026 (David).
   // Números del cole, con el mismo alcance, solo el tutor (docs/24-numeros.md).

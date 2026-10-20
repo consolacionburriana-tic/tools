@@ -60,6 +60,34 @@ Detalle en [`29-dispositivos.md`](./29-dispositivos.md).
 10. **Tutores y profes ven el aviso en la ficha y un icono en la lista** de Alumnado (no solo en
     la ficha).
 
+### Correos y grupos: lo que decidí yo al construirlo (20-oct-2026) — revisar con David
+
+Ficha: [`30-cuentas.md`](./30-cuentas.md). David pidió el módulo, las operaciones y «TIC gestiona,
+secretaría lee»; el resto lo decidí yo y se cambia fácil:
+
+1. **Espera de las bajas que no son de 4º de ESO: 1 mes** (alumnado y profesorado). David solo dijo los
+   8 meses de los de 4º. Se cambia en Unidades, sin código.
+2. **Archivo sin subunidades por curso** de partida (todo a «Ex-alumnos»). Con la casilla, cada baja va a
+   `…/Promoción 2025-26` o `…/Bajas 2026-27`, que se crean solas: útil el día que se quieran borrar las
+   de hace años. El profesorado no tiene unidad de archivo todavía: hasta que se elija (o se cree «Ex-profes»), se suspende sin moverlo.
+3. **Dirección no lo tiene** por defecto (solo TIC gestiona y secretaría ve). Se da a mano en Usuarios.
+4. **Nunca se borran cuentas** desde aquí; solo suspender y archivar. Borrar sigue en la consola.
+5. **El profesorado no se mueve de unidad** (Equipo Directivo, PAS… están puestos a propósito); solo se
+   elige dónde se crea un profe nuevo según su etapa.
+6. **«Que la cambie al entrar»**: marcado por defecto para profes y desmarcado para alumnado (a los
+   peques la contraseña se la gestiona el cole).
+7. **Las unidades de PDC no se proponen solas**: no hay unidad con PDC en el nombre. Hay que elegir si
+   van con su 3º/4º de ESO o crear una.
+
+**Ideas, sin decidir:**
+- **Revisar los grupos solos** después de cada sincronización de Educamos (cron con `GOOGLE_ADMIN_BUZON`),
+  al menos en modo «solo añadir», con correo a TIC si algo cambia. Asistente-grupos tiene programador;
+  aquí se dejó a mano para estrenarlo viendo siempre los cambios antes.
+- **Ajustes de los grupos** con la Groups Settings API (quién puede escribir, quién ve los miembros,
+  externos): plantillas «claustro» o «solo anuncios». Pide el scope `apps.groups.settings`.
+- **Borrar las cuentas archivadas de hace N años**, con su Takeout antes si hace falta.
+- Pasar `email-gmail.ts`, `mihorario-google.ts` y `google-sheets.ts` a `google-sa.ts`.
+
 ### Arreglos de octubre (comedor, listas, licencias de profes): lo que decidí yo (19-oct-2026) — revisar con David
 
 Salieron de cuatro tareas de Jose Miguel y David. Lo que quedó decidido por mí:
@@ -430,6 +458,10 @@ de familias (`fam_access_tokens`, ya usado por Licencias y Salidas) con su propi
 
 Recopilados de las fichas, para verlos de un vistazo:
 
+- **Correos y grupos** (`30-cuentas.md`): añadir a la delegación de la cuenta de servicio
+  `admin.directory.user`, `admin.directory.orgunit` y `admin.directory.group` (el botón «Permisos» de
+  `/gestion/cuentas` los da para copiar). Sin ellos el módulo lee y cruza, pero no crea, ni mueve, ni
+  suspende, ni toca grupos.
 - ~~**Educamos**: un export real de alumnado y de tutores~~ ✅ recibido (jul 2026) — mapeo de
   columnas fijado en `02-integracion-educamos.md`. El fichero NO se commitea (`.gitignore`).
 - **Logo vectorial del colegio (SVG o AI)**: los iconos de la PWA ya llevan el emblema real,

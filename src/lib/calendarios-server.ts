@@ -39,14 +39,9 @@ import {
 /** Marca de las clases que ya no salen en Classroom (se borraron): la fila se queda. */
 export const CLASE_DESAPARECIDA = 'DESAPARECIDA';
 
-/**
- * A quién se suplanta para leer Directory y Classroom: tiene que ser administrador del
- * dominio. `GOOGLE_ADMIN_BUZON` si está puesto; si no, quien está usando la pantalla (que,
- * si entra aquí, es TIC y casi seguro admin).
- */
-export function buzonAdmin(emailSesion: string): string {
-  return (process.env.GOOGLE_ADMIN_BUZON || emailSesion).trim().toLowerCase();
-}
+// A quién se suplanta para leer Directory y Classroom (un administrador del dominio): vive
+// en `google-sa.ts`, porque Correos y grupos suplanta al mismo.
+export { buzonAdmin } from '@/lib/google-sa';
 
 // ── Paso 1: Classroom ──────────────────────────────────────────────────────────
 
