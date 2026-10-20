@@ -42,6 +42,17 @@ El **acceso del profesorado** va siempre abajo y siempre discreto, incluso cuand
 único que hay: el claustro entra directo a `/gestion` desde la PWA y no necesita que se lo
 ofrezcan en grande.
 
+## Quién se queda en la portada (2026-10-20)
+
+- **Con sesión del claustro** (cualquier rol): `/` redirige directo a `/gestion`. El
+  claustro no tiene nada que hacer en la portada y así el icono de la PWA abre el escritorio.
+- **«Ver como familia»**: desde la cabecera del escritorio, `/?vista=familia` enseña la
+  portada tal cual la ve una familia, con una franja azul arriba («Así ve la portada una
+  familia») y un botón para volver al escritorio.
+- **Con sesión pero sin rol** (alumnado, cuentas de fuera del claustro): se quedan en la
+  portada de externos. Abajo, en vez de «Acceso del profesorado», pone con qué cuenta han
+  entrado, que no es del profesorado, y un botón para salir. Si van a `/gestion`, vuelven aquí.
+
 ## Decisiones cerradas
 
 - **Qué módulos pueden salir en la portada** (2026-09-13): solo los que tienen una pantalla

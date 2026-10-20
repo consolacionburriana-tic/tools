@@ -9,6 +9,7 @@
 //      bloqueado explícitamente — que es lo que uno espera.
 
 import { COLEGIO } from '@/lib/colegio';
+import { CONFIGURACION } from '@/lib/configuracion';
 export const MODULES = [
   'abc',
   'licencias',
@@ -176,6 +177,15 @@ export interface Acceso {
   modulosBloqueados?: readonly string[] | null;
 }
 
+/**
+ * Módulo apagado en este colegio (`CONFIGURACION.modulosDesactivados`): no lo tiene nadie, ni
+ * por el rol ni dado a mano. Manda sobre todo lo demás, y por eso lo miran `canAccess` y
+ * `modulosDe`: cualquier pantalla o ruta que pida el módulo se cierra sola.
+ */
+export function moduloDesactivado(m: string): boolean {
+  return CONFIGURACION.modulosDesactivados.includes(m);
+}
+
 function esModulo(m: string): m is Module {
   return (MODULES as readonly string[]).includes(m);
 }
@@ -188,11 +198,11 @@ export function modulosDe(acceso: Acceso | null | undefined): Module[] {
   for (const m of acceso.modulosBloqueados ?? []) if (esModulo(m)) base.delete(m);
   // Se devuelve en el orden de MODULES, no en el de inserción: la interfaz los
   // pinta siempre igual sin tener que ordenar en cada sitio.
-  return MODULES.filter((m) => base.has(m));
+  return MODULES.filter((m) => base.has(m) && !moduloDesactivado(m));
 }
 
 export function canAccess(acceso: Acceso | null | undefined, modulo: Module): boolean {
-  if (!acceso?.role) return false;
+  if (!acceso?.role || moduloDesactivado(modulo)) return false;
   const bloqueados = acceso.modulosBloqueados ?? [];
   if (bloqueados.includes(modulo)) return false;
   if ((acceso.modulosExtra ?? []).includes(modulo)) return true;

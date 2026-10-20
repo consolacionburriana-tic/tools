@@ -4,6 +4,7 @@ import { digestYaEnviado, registrarDigest, resumenSemanalPorTutor } from '@/lib/
 import { enviarResumenSemanal } from '@/lib/puntualidad-email';
 import { semanaISO } from '@/lib/puntualidad';
 import { hasModule } from '@/lib/auth-guards';
+import { moduloDesactivado } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,8 @@ async function autorizado(request: Request): Promise<boolean> {
 }
 
 async function ejecutar(request: Request) {
+  // Con el módulo apagado (configuracion.ts) el cron sigue en vercel.json, pero no manda nada.
+  if (moduloDesactivado('puntualidad')) return NextResponse.json({ ok: true, omitido: 'módulo desactivado' });
   if (!(await autorizado(request))) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }

@@ -7,6 +7,7 @@ import { haptic } from '@/lib/haptics';
 import {
   modulosDe,
   MODULES,
+  moduloDesactivado,
   MODULE_LABELS,
   MODULOS_SENSIBLES,
   origenModulo,
@@ -245,7 +246,10 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                         De serie, <strong>{ROLE_LABELS[efectivo]}</strong> lleva{' '}
                         {ROLE_MODULES[efectivo].length === 0
                           ? 'ningún módulo'
-                          : ROLE_MODULES[efectivo].map((m) => MODULE_LABELS[m]).join(', ')}
+                          : ROLE_MODULES[efectivo]
+                              .filter((m) => !moduloDesactivado(m))
+                              .map((m) => MODULE_LABELS[m])
+                              .join(', ')}
                         . Aquí puedes añadir o quitar módulos solo a esta persona.
                       </>
                     ) : (
@@ -253,7 +257,7 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                     )}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {MODULES.map((m) => {
+                    {MODULES.filter((m) => !moduloDesactivado(m)).map((m) => {
                       const origen = origenModulo(
                         { role: efectivo, modulosExtra: f.modulosExtra, modulosBloqueados: f.modulosBloqueados },
                         m,

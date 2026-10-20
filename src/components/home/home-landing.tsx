@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'motion/react';
-import { ArrowRight, Bus, Lock, SearchCheck, Smartphone } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bus, Eye, Lock, LogOut, SearchCheck, Smartphone } from 'lucide-react';
 import type { AccesoPortada, ModuloPortada } from '@/lib/portada';
 
 /**
@@ -72,11 +72,38 @@ function TarjetaAcceso({ acceso }: { acceso: AccesoPortada }) {
  *
  * El acceso a gestión va siempre, y siempre discreto —incluso cuando es lo único que hay—:
  * el claustro entra directo a `/gestion` desde la PWA y no necesita que se lo ofrezcan.
+ *
+ * Con sesión llega aquí en dos casos (ver `src/app/page.tsx`): alguien del claustro que mira
+ * «como familia» (franja arriba para volver) o una cuenta del colegio que no es del claustro,
+ * como el alumnado (abajo, con qué cuenta ha entrado y cómo salir).
  */
-export function HomeLanding({ accesos }: { accesos: AccesoPortada[] }) {
+export function HomeLanding({
+  accesos,
+  sesion,
+  salir,
+}: {
+  accesos: AccesoPortada[];
+  sesion: { email: string; claustro: boolean } | null;
+  salir: () => Promise<void>;
+}) {
   const vacia = accesos.length === 0;
   return (
     <div className="relative min-h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+      {sesion?.claustro && (
+        <div className="relative z-20 border-b border-blue-200 bg-blue-50/90 backdrop-blur dark:border-blue-900/60 dark:bg-blue-500/10">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2.5 text-sm text-blue-900 dark:text-blue-100">
+            <span className="flex items-center gap-2">
+              <Eye className="h-4 w-4 shrink-0" /> Así ve la portada una familia
+            </span>
+            <Link
+              href="/gestion"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-blue-600 px-3 font-semibold text-white hover:bg-blue-700"
+            >
+              <ArrowLeft className="h-4 w-4" /> Volver al escritorio
+            </Link>
+          </div>
+        </div>
+      )}
       {/* Fondo animado sutil */}
       <motion.div
         aria-hidden
@@ -137,13 +164,28 @@ export function HomeLanding({ accesos }: { accesos: AccesoPortada[] }) {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="mt-10"
         >
-          <Link
-            href="/gestion"
-            className="inline-flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
-          >
-            <Lock className="h-3.5 w-3.5" />
-            Acceso del profesorado
-          </Link>
+          {sesion && !sesion.claustro ? (
+            <form action={salir} className="flex flex-col items-center gap-1.5 text-center text-xs text-zinc-500">
+              <span>
+                Has entrado como <strong className="font-medium text-zinc-700 dark:text-zinc-300">{sesion.email}</strong>, que no es una
+                cuenta del profesorado.
+              </span>
+              <button
+                type="submit"
+                className="inline-flex cursor-pointer items-center gap-1.5 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+              >
+                <LogOut className="h-3.5 w-3.5" /> Salir
+              </button>
+            </form>
+          ) : (
+            <Link
+              href="/gestion"
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+            >
+              <Lock className="h-3.5 w-3.5" />
+              Acceso del profesorado
+            </Link>
+          )}
         </motion.div>
       </main>
     </div>

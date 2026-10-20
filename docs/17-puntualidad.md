@@ -10,6 +10,15 @@ alumno se queda sin patio.
 
 ---
 
+## ⏸ Desactivado (2026-10-20)
+
+David lo apagó: por ahora no se usa. Está en `CONFIGURACION.modulosDesactivados`
+(`src/lib/configuracion.ts`), y con eso `canAccess` dice que no para todos los roles: no sale
+en el escritorio ni en Usuarios y roles, `/puntualidad` lleva a `/gestion`, `/gestion/puntualidad`
+da «sin acceso», las APIs responden 410 y el resumen semanal de los viernes no se envía.
+**No se ha borrado nada**: ni código ni tablas `pun_*`/`con_*` ni datos. Para volver a
+encenderlo basta con quitar `'puntualidad'` de esa lista.
+
 ## Estado: Fases 0-3 implementadas y en Neon ✅
 
 - **Formulario** (`/puntualidad`, detrás del login del claustro): buscador con foco al abrir,

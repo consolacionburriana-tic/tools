@@ -42,7 +42,7 @@ export function SelectorTema() {
       onClick={() => setTheme(siguiente)}
       aria-label={`Apariencia: ${ETIQUETA[actual]}. Cambiar a ${ETIQUETA[siguiente]}`}
       title={`Apariencia: ${ETIQUETA[actual]}`}
-      className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+      className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
     >
       <Icono className="h-4 w-4" />
     </button>
