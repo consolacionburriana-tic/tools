@@ -2405,3 +2405,82 @@ export const nouPasos = pgTable('nou_pasos', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 export type NouPaso = typeof nouPasos.$inferSelect;
+
+// ─── Correos y grupos (prefijo cue_) ──────────────────────────────────────────
+// Ficha: docs/29-cuentas.md. Las cuentas, las unidades organizativas y los grupos de Google
+// puestos al lado de la BBDD central. `cue_usuarios`, `cue_unidades` y los datos de Google de
+// `cue_grupos` son una FOTO: la rehace «Leer de Google» y cada acción actualiza su fila. Lo que
+// solo vive aquí son las marcas de las cuentas que se quedan, las reglas de cada grupo y el
+// registro de lo que se ha hecho (que no se borra).
+export const cueUsuarios = pgTable('cue_usuarios', {
+  googleId: text('google_id').primaryKey(),
+  email: text('email').notNull(),
+  alias: jsonb('alias').$type<string[]>().notNull().default([]),
+  nombre: text('nombre'),
+  apellidos: text('apellidos'),
+  uo: text('uo').notNull(),
+  suspendida: boolean('suspendida').notNull().default(false),
+  archivada: boolean('archivada').notNull().default(false),
+  admin: boolean('admin').notNull().default(false),
+  creadaAt: timestamp('creada_at'),
+  ultimoAccesoAt: timestamp('ultimo_acceso_at'), // null = no ha entrado nunca
+  vistoAt: timestamp('visto_at').defaultNow().notNull(),
+}, (t) => [
+  index('cue_usuarios_email_idx').on(t.email),
+]);
+export type CueUsuario = typeof cueUsuarios.$inferSelect;
+
+export const cueUnidades = pgTable('cue_unidades', {
+  ruta: text('ruta').primaryKey(),
+  googleId: text('google_id'),
+  nombre: text('nombre').notNull(),
+  descripcion: text('descripcion'),
+  // 'google' = leída de la API · 'usuarios' = deducida de dónde están las cuentas (sin el scope
+  // de unidades no se ven las que están vacías)
+  origen: text('origen').notNull().default('google'),
+  vistoAt: timestamp('visto_at').defaultNow().notNull(),
+});
+
+export const cueGrupos = pgTable('cue_grupos', {
+  email: text('email').primaryKey(),
+  googleId: text('google_id'),
+  nombre: text('nombre'),
+  descripcion: text('descripcion'),
+  miembros: integer('miembros'), // miembros directos, según la última lectura
+  // Gestionado = tiene reglas y se mantiene desde aquí. Sin gestionar, solo se enseña.
+  gestionado: boolean('gestionado').notNull().default(false),
+  reglas: jsonb('reglas').$type<Record<string, unknown>>(), // ReglasGrupo (src/lib/cuentas.ts), se lee con `leerReglas`
+  ultimaSyncAt: timestamp('ultima_sync_at'),
+  ultimaSyncPor: text('ultima_sync_por'),
+  ultimaSync: jsonb('ultima_sync').$type<{ anadidos: number; quitados: number; errores: number }>(),
+  vistoAt: timestamp('visto_at'), // null = creado aquí y aún no leído de Google
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  updatedBy: text('updated_by'),
+});
+export type CueGrupo = typeof cueGrupos.$inferSelect;
+
+// Cuentas que no casan con nadie de Educamos y se dejan como están: una cuenta del colegio
+// (tic@, secretaría…) o de alguien que no está en Educamos (PAS, colaboradores).
+export const cueMarcas = pgTable('cue_marcas', {
+  googleId: text('google_id').primaryKey(),
+  email: text('email').notNull(),
+  tipo: text('tipo').notNull(), // 'centro' | 'conservar'
+  nota: text('nota'),
+  por: text('por'),
+  at: timestamp('at').defaultNow().notNull(),
+});
+
+// Lo que se ha hecho desde aquí, firmado. Una fila por cuenta o por cambio de grupo.
+export const cueRegistro = pgTable('cue_registro', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  at: timestamp('at').defaultNow().notNull(),
+  por: text('por'),
+  accion: text('accion').notNull(), // ver ACCION_LABEL en src/lib/cuentas.ts
+  objetivo: text('objetivo').notNull(), // correo de la cuenta o del grupo
+  detalle: text('detalle'),
+  ok: boolean('ok').notNull().default(true),
+  error: text('error'),
+}, (t) => [
+  index('cue_registro_at_idx').on(t.at),
+]);
+export type CueRegistro = typeof cueRegistro.$inferSelect;

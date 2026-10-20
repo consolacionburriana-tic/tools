@@ -178,3 +178,18 @@ describe('nouvinguts', () => {
     expect(canAccess({ role: 'direccion' }, 'nouvinguts-proceso')).toBe(false);
   });
 });
+
+describe('correos y grupos', () => {
+  it('lo gestionan SuperTIC y TIC; secretaría lo ve sin tocar nada', () => {
+    for (const r of ['tic', 'supertic'] as const) expect(canAccess({ role: r }, 'cuentas')).toBe(true);
+    expect(canAccess({ role: 'secretaria' }, 'cuentas')).toBe(false);
+    expect(canAccess({ role: 'secretaria' }, 'cuentas-ver')).toBe(true);
+  });
+
+  it('el resto del claustro, ni lo ve', () => {
+    for (const r of ['profe', 'tutor', 'jefe', 'direccion', 'orientacion', 'evaluaciones', 'comunicacion'] as const) {
+      expect(canAccess({ role: r }, 'cuentas')).toBe(false);
+      expect(canAccess({ role: r }, 'cuentas-ver')).toBe(false);
+    }
+  });
+});

@@ -36,6 +36,17 @@ export async function requireModule(modulo: Module): Promise<SessionUser | NextR
   return user;
 }
 
+/**
+ * Guard para route handlers que se abren con cualquiera de varios módulos: el de gestionar y
+ * el de solo ver (`cuentas` / `cuentas-ver`). Las escrituras siguen pidiendo `requireModule`.
+ */
+export async function requireAlgunModulo(modulos: readonly Module[]): Promise<SessionUser | NextResponse> {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (!modulos.some((m) => canAccess(user, m))) return NextResponse.json({ error: 'Sin permiso para este módulo' }, { status: 403 });
+  return user;
+}
+
 /** Guard para endpoints que solo exigen sesión del claustro (p. ej. formulario ABC). */
 export async function requireSession(): Promise<SessionUser | NextResponse> {
   const user = await getSessionUser();

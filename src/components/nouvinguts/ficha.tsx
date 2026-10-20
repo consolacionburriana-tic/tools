@@ -29,6 +29,8 @@ import type { Candidato, FichaNouvingut, NotaVista } from '@/lib/nouvinguts-serv
 import { ChipResponsable, COLOR_TEXTO, ESTILO_CAMPO, NodoPaso, pedir, pedirFicha, textoDias } from './comun';
 
 export interface PuedeFicha {
+  /** Crear su correo de Google en Correos y grupos (TIC). */
+  correo: boolean;
   proteccion: boolean;
   participantes: boolean;
   materiales: boolean;
@@ -457,7 +459,11 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
             />
           )}
           {!d.vinculado && <Espera />}
-          <Pronto>Crear el correo desde aquí · llega con el módulo de correos</Pronto>
+          {d.vinculado && paso.estado !== 'hecho' && puede.correo && (
+            <Enlace href={`/gestion/cuentas?persona=a:${ficha.eduStudentId}`} boton>
+              Crear su correo en Correos y grupos
+            </Enlace>
+          )}
         </div>
       );
 

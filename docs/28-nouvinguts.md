@@ -50,7 +50,7 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
    | AMPA | Secretaría | Sí/No desde aquí, que escribe en la ficha (`setAmpa`) |
    | Materiales comprados | Secretaría | Automático: los materiales de su clase en Venta de materiales; hecho cuando todos tienen estado. Se marcan desde aquí |
    | Foto en Educamos | Secretaría | A mano |
-   | Correo de Google | TIC | Automático: `email_google` de su ficha; se puede escribir aquí. Crearlo desde aquí llegará con el módulo de correos |
+   | Correo de Google | TIC | Automático: `email_google` de su ficha; se puede escribir aquí, o crearlo en Correos y grupos con un clic (`docs/29-cuentas.md`) |
    | Correo vinculado en Educamos | TIC | A mano |
    | iPad | TIC | A mano hasta que exista el módulo de iPads (otra tarea), que se enganchará aquí |
    | Apple School Manager | TIC | Automático: hecho si ha habido una subida a ASM (FTP o a mano) desde su alta y entra en su alcance; si no, invita a ir a AUTOASM |
@@ -142,7 +142,7 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
 - [~] Primer correo real de cada tipo (no se mandó ninguno en las pruebas: el entorno tiene credenciales reales)
 
 ### Más adelante
-- [ ] Crear el correo de Google desde el paso (cuando exista el módulo de correos)
+- [x] Crear el correo de Google desde el paso: enlaza a Correos y grupos con el alumno ya elegido (`/gestion/cuentas?persona=a:<id>`, 20-oct-2026; solo a quien tiene el módulo `cuentas`)
 - [ ] Enganchar el paso del iPad al módulo de iPads
 - [ ] Bajas con el mismo motor
 - [ ] Inicio de curso de 3 años, por lotes
