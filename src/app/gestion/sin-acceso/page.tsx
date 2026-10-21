@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
 import { auth, signOut } from '@/auth';
+import { Button, buttonVariants } from '@/components/ui/button';
 
 export const metadata = { title: 'Sin acceso · Tools Consolación' };
 
@@ -9,18 +10,15 @@ export default async function SinAccesoPage() {
   const session = await auth();
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-      <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
         <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-amber-500" />
-        <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">No tienes acceso aquí</h1>
-        <p className="mt-2 text-sm text-zinc-500">
+        <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">No tienes acceso aquí</h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Tu cuenta {session?.user?.email ? <strong>{session.user.email}</strong> : null} no tiene permiso para esta
           sección. Si crees que deberías tenerlo, pídele el alta al equipo TIC.
         </p>
         <div className="mt-6 flex flex-col gap-2">
-          <Link
-            href="/gestion"
-            className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
+          <Link href="/gestion" className={buttonVariants({ variant: 'outline', className: 'w-full' })}>
             Ir al escritorio
           </Link>
           <form
@@ -29,9 +27,9 @@ export default async function SinAccesoPage() {
               await signOut({ redirectTo: '/gestion/login' });
             }}
           >
-            <button type="submit" className="w-full text-sm text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
+            <Button type="submit" variant="ghost" className="w-full">
               Salir y entrar con otra cuenta
-            </button>
+            </Button>
           </form>
         </div>
       </div>
