@@ -193,7 +193,7 @@ export function PanelIA({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-violet-100 bg-violet-50/50 px-4 py-2.5 dark:border-violet-500/20 dark:bg-violet-500/5">
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-xs text-zinc-500">
           {modeloIA(insight.modelo).label} · {FECHA.format(new Date(insight.createdAt))} · {insight.respuestas} respuestas
           {coste !== null && ` · ${coste < 0.01 ? '< 1 céntimo' : `~${coste.toFixed(2)} $`}`}
           {nuevas > 0 && <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">· {nuevas} nuevas desde entonces</span>}

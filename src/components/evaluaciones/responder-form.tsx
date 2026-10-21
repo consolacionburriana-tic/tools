@@ -611,7 +611,7 @@ export function ResponderForm({
                 transition={{ type: 'spring', stiffness: 120, damping: 22 }}
               />
             </div>
-            <span className="w-14 shrink-0 text-right text-[11px] font-medium tabular-nums text-zinc-400 md:hidden">
+            <span className="w-14 shrink-0 text-right text-xs font-medium tabular-nums text-zinc-400 md:hidden">
               {hechos}/{total}
             </span>
           </div>

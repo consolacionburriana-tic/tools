@@ -51,7 +51,7 @@ export function ComparativaSerie({ nombre, puntos }: { nombre: string; puntos: P
             </div>
             <span className={`shrink-0 text-lg font-bold tabular-nums ${TONO_TEXTO[tonoDe(p.mediaPct)]}`}>
               {p.mediaPct === null ? '—' : Math.round(p.mediaPct)}
-              <span className="text-[10px] font-normal text-zinc-400"> / 100</span>
+              <span className="text-xs font-normal text-zinc-400"> / 100</span>
             </span>
           </Link>
         ))}

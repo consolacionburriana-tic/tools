@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, ClipboardPaste, Copy, Loader2, Mail, Search, Trash2, UserRound, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { useConfirmar } from '@/components/ui/confirmar';
 import {
   analizarPegadoProfes,
   filtrarProfes,
@@ -100,7 +101,7 @@ function SelectorProfe({
               className="block w-full px-3 py-1.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800"
             >
               {p.nombre}
-              {p.email && <span className="block text-[11px] text-zinc-400">{p.email}</span>}
+              {p.email && <span className="block text-xs text-zinc-400">{p.email}</span>}
             </button>
           </li>
         ))}
@@ -126,6 +127,7 @@ function fecha(d: string) {
 }
 
 export function EnviosProfes() {
+  const { confirmar, dialogo } = useConfirmar();
   const [filas, setFilas] = useState<LicenciaProfeFila[]>([]);
   const [profes, setProfes] = useState<ProfeOpcion[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -198,10 +200,22 @@ export function EnviosProfes() {
   }
 
   async function enviar(fila: LicenciaProfeFila) {
-    const aviso = fila.enviadoAt
-      ? `Ya se le mandó el ${fecha(fila.enviadoAt)} a ${fila.enviadoA}.\n\n¿Mandárselo otra vez a ${fila.email}?`
-      : `¿Mandar el código ${fila.codigo} a ${fila.profe} (${fila.email})?`;
-    if (!confirm(aviso)) return;
+    const si = await confirmar(
+      fila.enviadoAt
+        ? {
+            titulo: `¿Mandárselo otra vez a ${fila.email}?`,
+            descripcion: `Ya se le mandó el ${fecha(fila.enviadoAt)} a ${fila.enviadoA}.`,
+            boton: 'Mandar otra vez',
+            peligro: false,
+          }
+        : {
+            titulo: `¿Mandar el código ${fila.codigo} a ${fila.profe}?`,
+            descripcion: `Le llega a ${fila.email}.`,
+            boton: 'Mandar código',
+            peligro: false,
+          },
+    );
+    if (!si) return;
     setOcupado(fila.id);
     try {
       const { ok } = await post({ accion: 'enviar', id: fila.id });
@@ -216,7 +230,12 @@ export function EnviosProfes() {
   }
 
   async function quitar(fila: LicenciaProfeFila) {
-    if (!confirm(`¿Quitar la licencia ${fila.codigo}${fila.profe ? ` de ${fila.profe}` : ''}? No se puede deshacer.`)) return;
+    const si = await confirmar({
+      titulo: `¿Quitar la licencia ${fila.codigo}${fila.profe ? ` de ${fila.profe}` : ''}?`,
+      descripcion: 'No se puede deshacer.',
+      boton: 'Quitar licencia',
+    });
+    if (!si) return;
     setOcupado(fila.id);
     try {
       const { ok } = await post({ accion: 'borrar', ids: [fila.id] });
@@ -269,7 +288,7 @@ export function EnviosProfes() {
             className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-800"
           />
           <label className="space-y-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Libro (opcional)</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Libro (opcional)</span>
             <input
               value={libro}
               onChange={(e) => setLibro(e.target.value)}
@@ -277,7 +296,7 @@ export function EnviosProfes() {
               placeholder="Inglés 3ºESO · guía docente"
               className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
             />
-            <span className="block text-[11px] text-zinc-400">Sale en el correo al profe. Vale para todos los pegados.</span>
+            <span className="block text-xs text-zinc-400">Sale en el correo al profe. Vale para todos los pegados.</span>
           </label>
         </div>
 
@@ -407,6 +426,7 @@ export function EnviosProfes() {
           </table>
         )}
       </div>
+      {dialogo}
     </div>
   );
 }

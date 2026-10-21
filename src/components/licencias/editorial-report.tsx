@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BookMarked, Check, Download, Gift, Loader2, MoreHorizontal, Send, TriangleAlert } from 'lucide-react';
 import { euros } from '@/lib/licencias';
+import { useConfirmar } from '@/components/ui/confirmar';
 
 interface Row {
   cod: string;
@@ -135,6 +136,7 @@ function TablaLibros({
 }
 
 export function EditorialReport() {
+  const { confirmar, dialogo } = useConfirmar();
   const [rows, setRows] = useState<Row[]>([]);
   const [bancoRows, setBancoRows] = useState<Row[]>([]);
   const [bancoReportAt, setBancoReportAt] = useState<string | null>(null);
@@ -194,12 +196,13 @@ export function EditorialReport() {
   }
 
   async function procesarPago() {
-    if (
-      !confirm(
-        `Se generará el CSV y se marcarán ${pedidosCount} pedido(s) como "pedidos a la editorial" (🧾). No podrás deshacerlo desde aquí. ¿Continuar?`,
-      )
-    )
-      return;
+    const si = await confirmar({
+      titulo: `¿Generar el CSV y marcar ${pedidosCount} pedido(s) como pedidos a la editorial?`,
+      descripcion: 'No podrás deshacerlo desde aquí.',
+      boton: `Generar y marcar ${pedidosCount}`,
+      peligro: false,
+    });
+    if (!si) return;
     await descargar(
       '/api/licencias/admin/editorial-report/process',
       'Informe-editoriales-PAGO.csv',
@@ -209,10 +212,22 @@ export function EditorialReport() {
   }
 
   async function procesarBanco() {
-    const aviso = bancoReportAt
-      ? `Este informe ya se descargó el ${new Date(bancoReportAt).toLocaleString('es-ES')}.\n\nSale el censo entero, no solo lo nuevo. ¿Descargar de todas formas?`
-      : 'Se descargará el censo del banco de libros para pedírselo a la editorial. ¿Continuar?';
-    if (!confirm(aviso)) return;
+    const si = await confirmar(
+      bancoReportAt
+        ? {
+            titulo: '¿Descargar otra vez el informe del banco?',
+            descripcion: `Ya se descargó el ${new Date(bancoReportAt).toLocaleString('es-ES')}. Sale el censo entero, no solo lo nuevo.`,
+            boton: 'Descargar de todas formas',
+            peligro: false,
+          }
+        : {
+            titulo: '¿Descargar el censo del banco de libros?',
+            descripcion: 'Es para pedírselo a la editorial.',
+            boton: 'Descargar censo',
+            peligro: false,
+          },
+    );
+    if (!si) return;
     await descargar(
       '/api/licencias/admin/editorial-report/banco',
       'Informe-editoriales-BANCO.csv',
@@ -385,6 +400,7 @@ export function EditorialReport() {
           </div>
         </div>
       </details>
+      {dialogo}
     </div>
   );
 }

@@ -1,11 +1,15 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { ChevronLeft, GitCompare } from 'lucide-react';
+import { GitCompare } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { academicYearActual } from '@/lib/constants';
 import { audienciaLabel, categoriaLabel, opcionesAcademicYear, tonoDe } from '@/lib/evaluaciones';
 import { getActividades, getComparativaSerie, getRankingActividades } from '@/lib/evaluaciones-server';
 import { ComparativaSerie } from '@/components/evaluaciones/comparar-panel';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 
 export const metadata = { title: 'Comparar · Evaluaciones' };
 
@@ -36,9 +40,10 @@ export default async function CompararPage({
     const nombre = actividades.find((a) => a.serieId === serie)?.nombre ?? 'Actividad';
     return (
       <div className="space-y-4">
-        <Link href="/gestion/evaluaciones/comparar" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-blue-600">
-          <ChevronLeft className="h-4 w-4" /> Todas las comparativas
-        </Link>
+        <div>
+          <EnlaceVolver href="/gestion/evaluaciones/comparar">Todas las comparativas</EnlaceVolver>
+          <TituloPagina className="mb-0">Comparar ediciones</TituloPagina>
+        </div>
         <ComparativaSerie nombre={nombre} puntos={puntos} />
       </div>
     );
@@ -56,9 +61,10 @@ export default async function CompararPage({
 
   return (
     <div className="anim-stagger space-y-5">
-      <Link href="/gestion/evaluaciones" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-blue-600">
-        <ChevronLeft className="h-4 w-4" /> Evaluaciones
-      </Link>
+      <div>
+        <EnlaceVolver href="/gestion/evaluaciones">Todas las evaluaciones</EnlaceVolver>
+        <TituloPagina className="mb-0">Comparar</TituloPagina>
+      </div>
 
       <div>
         <h2 className="mb-1 font-bold text-zinc-900 dark:text-zinc-100">La misma actividad, curso a curso</h2>
@@ -66,16 +72,16 @@ export default async function CompararPage({
           Aparecen aquí las actividades que se han traído de un curso a otro (al copiarlas se mantiene el hilo entre ediciones).
         </p>
         {comparables.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
-            Todavía no hay ninguna actividad con dos ediciones. Copia una del curso pasado y vuelve por aquí.
-          </p>
+          <Vacio icono={<GitCompare />} titulo="Todavía no hay ninguna actividad con dos ediciones">
+            Copia una del curso pasado y vuelve por aquí.
+          </Vacio>
         ) : (
           <div className="space-y-2">
             {comparables.map(([serieId, v]) => (
               <Link
                 key={serieId}
                 href={`/gestion/evaluaciones/comparar?serie=${serieId}`}
-                className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:bg-zinc-900 dark:ring-zinc-800"
+                className={cn(claseTarjeta, 'flex min-h-16 items-center gap-3 p-4 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700')}
               >
                 <GitCompare className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
                 <span className="min-w-0 flex-1">
@@ -91,14 +97,18 @@ export default async function CompararPage({
       <div>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold text-zinc-900 dark:text-zinc-100">Qué ha funcionado mejor en {year}</h2>
-          <div className="flex flex-wrap gap-1.5">
+          <div role="group" aria-label="Curso" className="flex flex-wrap gap-2">
             {opcionesAcademicYear(actual).slice(1, 4).map((y) => (
               <Link
                 key={y}
                 href={`/gestion/evaluaciones/comparar?anio=${y}`}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                  y === year ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
-                }`}
+                aria-current={y === year ? 'page' : undefined}
+                className={cn(
+                  'inline-flex h-10 items-center rounded-full border px-4 text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                  y === year
+                    ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                    : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800',
+                )}
               >
                 {y}
               </Link>
@@ -106,18 +116,16 @@ export default async function CompararPage({
           </div>
         </div>
         {ranking.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
-            Sin respuestas todavía en {year}.
-          </p>
+          <Vacio titulo={`Sin respuestas todavía en ${year}`} />
         ) : (
-          <div className="space-y-2 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <div className={cn(claseTarjeta, 'space-y-2 p-4')}>
             {ranking.map((r, i) => (
               <Link key={`${r.formId}-${r.activityId}`} href={`/gestion/evaluaciones/${r.formId}/resultados`} className="block">
                 <div className="flex items-center gap-3">
-                  <span className="w-4 shrink-0 text-xs tabular-nums text-zinc-400">{i + 1}</span>
+                  <span className="w-4 shrink-0 text-xs tabular-nums text-zinc-500">{i + 1}</span>
                   <span className="min-w-0 flex-1 truncate text-sm text-zinc-700 dark:text-zinc-200">
                     {r.nombre}
-                    <span className="ml-1.5 text-[10px] text-zinc-400">
+                    <span className="ml-1.5 text-xs text-zinc-500">
                       {categoriaLabel(r.categoria)} · {audienciaLabel(r.audiencia)}
                     </span>
                   </span>

@@ -43,6 +43,7 @@ import {
   type ResumenLicencias,
   type TipoLicencia,
 } from '@/lib/licencias-envios';
+import { useConfirmar } from '@/components/ui/confirmar';
 import { EnviosAsignar } from '@/components/licencias/envios-asignar';
 import { EnviosEnviar } from '@/components/licencias/envios-enviar';
 import { EnviosSobrantes } from '@/components/licencias/envios-sobrantes';
@@ -92,14 +93,15 @@ function Kpi({ label, valor, nota, tono }: { label: string; valor: string; nota?
         : 'text-zinc-900 dark:text-zinc-100';
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">{label}</p>
       <p className={`text-xl font-semibold ${color}`}>{valor}</p>
-      {nota && <p className="text-[11px] text-zinc-400">{nota}</p>}
+      {nota && <p className="text-xs text-zinc-400">{nota}</p>}
     </div>
   );
 }
 
 export function EnviosPanel({ presets }: { presets: Preset[] }) {
+  const { confirmar, dialogo } = useConfirmar();
   const [filas, setFilas] = useState<LicenciaFila[]>([]);
   const [resumen, setResumen] = useState<Record<TipoLicencia, ResumenLicencias> | null>(null);
   // Arrancan en `true` porque al montar ya se está sincronizando: así el primer `cargar()` no
@@ -270,23 +272,27 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
 
   /** Reenvía el mismo código a una licencia ya enviada, sin tocarlo (ver `ponerCodigo` para el
    * camino de «ha cambiado el código»). Abre el mismo diálogo de envío, forzado a esa única fila. */
-  function reenviar(fila: LicenciaFila) {
-    if (!confirm(`${fila.alumno} ya recibió el código ${fila.codigo}.\n\n¿Reenviarle el mismo correo otra vez?`)) {
-      return;
-    }
+  async function reenviar(fila: LicenciaFila) {
+    const si = await confirmar({
+      titulo: `¿Reenviar el correo a ${fila.alumno}?`,
+      descripcion: `Ya recibió el código ${fila.codigo}. Se le manda el mismo correo otra vez.`,
+      boton: 'Reenviar el mismo correo',
+      peligro: false,
+    });
+    if (!si) return;
     setReenviarIds([fila.id]);
     setAbrirEnviar(true);
   }
 
   /** Reenvía de golpe las ya enviadas de entre las marcadas, con el mismo código. */
-  function reenviarSeleccion() {
-    if (
-      !confirm(
-        `${reenviables.length} licencia(s) ya se enviaron.\n\n¿Reenviar el mismo correo otra vez a cada una?`,
-      )
-    ) {
-      return;
-    }
+  async function reenviarSeleccion() {
+    const si = await confirmar({
+      titulo: `¿Reenviar ${reenviables.length} licencia(s) ya enviadas?`,
+      descripcion: 'Cada una recibe otra vez el mismo correo, con el mismo código.',
+      boton: `Reenviar ${reenviables.length}`,
+      peligro: false,
+    });
+    if (!si) return;
     setReenviarIds(reenviables.map((f) => f.id));
     setAbrirEnviar(true);
   }
@@ -306,9 +312,12 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
     // viejo. Se dice antes, que no es evidente.
     if (
       fila.estado === 'enviado' &&
-      !confirm(
-        `${fila.alumno} ya recibió el código ${fila.codigo}.\n\nAl cambiarlo, esta licencia vuelve a «pendiente» para que se le mande el nuevo. ¿Seguimos?`,
-      )
+      !(await confirmar({
+        titulo: `¿Cambiar el código de ${fila.alumno}?`,
+        descripcion: `Ya recibió el código ${fila.codigo}. Al cambiarlo, esta licencia vuelve a «pendiente» para que se le mande el nuevo.`,
+        boton: 'Cambiar código',
+        peligro: false,
+      }))
     ) {
       setEditando(null);
       return;
@@ -609,12 +618,16 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
                 {conCodigo.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       const enviadas = conCodigo.filter((f) => f.estado === 'enviado').length;
-                      const aviso = enviadas
-                        ? `\n\n${enviadas} ya se enviaron: volverán a «pendiente» y habrá que reenviarlas con el código nuevo.`
-                        : '';
-                      if (!confirm(`¿Desasignar el código de ${conCodigo.length} licencia(s)?${aviso}`)) return;
+                      const si = await confirmar({
+                        titulo: `¿Desasignar el código de ${conCodigo.length} licencia(s)?`,
+                        descripcion: enviadas
+                          ? `${enviadas} ya se enviaron: volverán a «pendiente» y habrá que reenviarlas con el código nuevo.`
+                          : undefined,
+                        boton: `Desasignar ${conCodigo.length} código(s)`,
+                      });
+                      if (!si) return;
                       void accionSobreSeleccion(
                         '/api/licencias/admin/licencias/codigo',
                         { ids: conCodigo.map((f) => f.id) },
@@ -743,7 +756,7 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
                           </span>
                           <button
                             type="button"
-                            onClick={() => reenviar(f)}
+                            onClick={() => void reenviar(f)}
                             title="Volver a mandarle el mismo código"
                             className="text-zinc-400 underline decoration-dotted hover:text-blue-600 dark:hover:text-blue-400"
                           >
@@ -813,6 +826,7 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
         presets={presets}
         onHecho={() => cargar(false)}
       />
+      {dialogo}
     </div>
   );
 }

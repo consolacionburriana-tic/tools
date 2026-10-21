@@ -123,7 +123,7 @@ export default async function ResponderPage({
         {cerrado ? (
           <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
             <p className="font-semibold text-zinc-800 dark:text-zinc-100">Esta evaluación ya está cerrada</p>
-            <p className="mt-1 text-sm text-zinc-500">Gracias de todas formas por pasarte 🙂</p>
+            <p className="mt-1 text-sm text-zinc-500">Gracias de todas formas por pasarte.</p>
           </div>
         ) : (
           <ResponderForm

@@ -75,7 +75,7 @@ export function ProgresoAnillo({ hechos, total, color }: Props) {
                   className="text-sm font-bold tabular-nums text-zinc-700 dark:text-zinc-200"
                 >
                   {pct}
-                  <span className="text-[9px] font-semibold text-zinc-400">%</span>
+                  <span className="text-xs font-semibold text-zinc-400">%</span>
                 </motion.span>
               )}
             </AnimatePresence>

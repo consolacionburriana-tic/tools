@@ -8,6 +8,9 @@ import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, CATEGORIAS, type Categoria } from '@/lib/evaluaciones';
 import { ColorDotButton } from '@/components/evaluaciones/color-picker';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const GRACIA_BORRADO_MS = 4500;
 
@@ -32,8 +35,6 @@ interface Props {
   actividadesAnterior: { id: string; nombre: string; categoria: string }[];
 }
 
-const inputCls =
-  'w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100';
 
 const COLOR_CATEGORIA: Record<string, string> = {
   pastoral: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
@@ -161,37 +162,28 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
 
   return (
     <div className="anim-stagger space-y-4">
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={() => setFiltro(null)}
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-            filtro === null ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-          }`}
-        >
-          Todas ({sinArchivar.length})
-        </button>
+      <Filtros etiqueta="Categoría">
+        <Filtro activo={filtro === null} onClick={() => setFiltro(null)} cuenta={sinArchivar.length}>
+          Todas
+        </Filtro>
         {CATEGORIAS.map((c) => (
-          <button
+          <Filtro
             key={c.value}
-            type="button"
+            activo={filtro === c.value}
             onClick={() => setFiltro(c.value)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-              filtro === c.value ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-            }`}
+            cuenta={sinArchivar.filter((a) => a.categoria === c.value).length}
           >
-            {c.emoji} {c.label} ({sinArchivar.filter((a) => a.categoria === c.value).length})
-          </button>
+            {c.label}
+          </Filtro>
         ))}
-      </div>
+      </Filtros>
 
       <div className="flex gap-2">
-        <input
+        <Input
           value={nueva}
           onChange={(e) => setNueva(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void crear()}
           placeholder={`Nueva actividad de ${academicYear}…`}
-          className={inputCls}
         />
         <button
           type="button"
@@ -231,7 +223,7 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
                     <ColorDotButton color={a.color} onChange={(c) => void patch(a.id, { color: c })} />
                   </span>
                   {a.nombre}
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${COLOR_CATEGORIA[a.categoria] ?? ''}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_CATEGORIA[a.categoria] ?? ''}`}>
                     {CATEGORIAS.find((c) => c.value === a.categoria)?.label ?? a.categoria}
                   </span>
                 </p>
@@ -267,19 +259,17 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Fecha</label>
-                    <input
+                    <Input
                       type="date"
                       defaultValue={a.fecha ?? ''}
                       onBlur={(e) => e.target.value !== (a.fecha ?? '') && void patch(a.id, { fecha: e.target.value || null })}
-                      className={inputCls}
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Lugar</label>
-                    <input
+                    <Input
                       defaultValue={a.lugar ?? ''}
                       onBlur={(e) => e.target.value !== (a.lugar ?? '') && void patch(a.id, { lugar: e.target.value || null })}
-                      className={inputCls}
                     />
                   </div>
                 </div>
@@ -288,24 +278,22 @@ export function ActividadesPanel({ academicYear, academicYearAnterior, actividad
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">
                     Objetivo · lo que ve el profesorado
                   </label>
-                  <textarea
+                  <Textarea
                     defaultValue={a.objetivo ?? ''}
                     rows={2}
                     placeholder="Dinámicas en las que trabajamos la carta del Papa sobre la educación."
                     onBlur={(e) => e.target.value !== (a.objetivo ?? '') && void patch(a.id, { objetivo: e.target.value || null })}
-                    className={inputCls}
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">
                     Resumen · la versión para el alumnado
                   </label>
-                  <textarea
+                  <Textarea
                     defaultValue={a.resumen ?? ''}
                     rows={2}
                     placeholder="Celebración de la ceniza en la capilla."
                     onBlur={(e) => e.target.value !== (a.resumen ?? '') && void patch(a.id, { resumen: e.target.value || null })}
-                    className={inputCls}
                   />
                 </div>
 

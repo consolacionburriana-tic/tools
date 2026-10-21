@@ -9,8 +9,11 @@ import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones
 import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-plantillas';
 import { TEMA_CLASSROOM, TEXTO_CLASSROOM_POR_DEFECTO, type TipoPublicacion } from '@/lib/evaluaciones-classroom';
 import { Segmentado } from '@/components/ui/segmentado';
+import { useConfirmar } from '@/components/ui/confirmar';
 import { COLEGIO } from '@/lib/colegio';
 import { ETAPA_LABEL, ETAPAS_VISIBLES as ETAPAS_CENTRO } from '@/lib/cursos';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Plantilla {
   id: string;
@@ -182,8 +185,6 @@ function EnvioEnMarcha({
 
 const ETAPAS = ETAPAS_CENTRO.map((value) => ({ value, label: ETAPA_LABEL[value] }));
 
-const inputCls =
-  'w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100';
 
 export function EnviarPanel({
   formId,
@@ -197,6 +198,7 @@ export function EnviarPanel({
 }: Props) {
   // Arranca con la primera plantilla de fábrica de la audiencia: cero clics para el caso normal.
   const inicial = PLANTILLAS_FABRICA.find((p) => p.audiencia === audiencia);
+  const { confirmar, pedirTexto, dialogo } = useConfirmar();
   const [subject, setSubject] = useState(inicial?.subject ?? '');
   const [body, setBody] = useState(inicial?.body ?? '');
   const [soloPendientes, setSoloPendientes] = useState(true);
@@ -554,7 +556,12 @@ export function EnviarPanel({
   }
 
   async function guardarPlantilla() {
-    const nombre = prompt('Nombre de la plantilla:');
+    const nombre = await pedirTexto({
+      titulo: 'Guardar la plantilla',
+      descripcion: 'La verá todo el claustro. Si ya hay una con ese nombre, se actualiza.',
+      etiqueta: 'Nombre de la plantilla',
+      boton: 'Guardar plantilla',
+    });
     if (!nombre?.trim()) return;
     const existente = guardadas.find((p) => p.nombre.toLowerCase() === nombre.trim().toLowerCase());
     const res = await fetch('/api/evaluaciones/admin/plantillas-correo', {
@@ -569,7 +576,7 @@ export function EnviarPanel({
   }
 
   async function borrarPlantilla(p: Plantilla) {
-    if (!confirm(`¿Borrar la plantilla "${p.nombre}"?`)) return;
+    if (!(await confirmar({ titulo: `¿Borrar la plantilla «${p.nombre}»?`, boton: 'Borrar plantilla' }))) return;
     await fetch('/api/evaluaciones/admin/plantillas-correo', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -725,7 +732,7 @@ export function EnviarPanel({
                 >
                   {p.nombre}
                 </button>
-                <button type="button" onClick={() => void borrarPlantilla(p)} className="px-1.5 py-1.5 text-blue-400 hover:text-rose-600">
+                <button type="button" aria-label={`Borrar la plantilla ${p.nombre}`} onClick={() => void borrarPlantilla(p)} className="px-1.5 py-1.5 text-blue-400 hover:text-rose-600">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </span>
@@ -740,10 +747,10 @@ export function EnviarPanel({
         </div>
 
         <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Asunto</label>
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} className={inputCls} />
+        <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
 
         <label className="mb-1 mt-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Mensaje</label>
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10} className={`${inputCls} font-mono text-sm`} />
+        <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10} className="font-mono text-sm" />
 
         <div className="mt-2 flex flex-wrap gap-1.5">
           {VARIABLES_CORREO.map((v) => (
@@ -751,7 +758,7 @@ export function EnviarPanel({
               key={v}
               type="button"
               onClick={() => setBody((b) => `${b}{${v}}`)}
-              className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-[11px] text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400"
+              className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400"
             >
               {`{${v}}`}
             </button>
@@ -793,9 +800,9 @@ export function EnviarPanel({
           </p>
 
           <label className="mb-1 mt-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Título</label>
-          <input value={tituloCr} onChange={(e) => setTituloCr(e.target.value)} className={inputCls} />
+          <Input value={tituloCr} onChange={(e) => setTituloCr(e.target.value)} />
           <label className="mb-1 mt-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Texto</label>
-          <textarea value={textoCr} onChange={(e) => setTextoCr(e.target.value)} rows={5} className={`${inputCls} text-sm`} />
+          <Textarea value={textoCr} onChange={(e) => setTextoCr(e.target.value)} rows={5} className="text-sm" />
           <p className="mt-1 text-xs text-zinc-500">
             El enlace va solo, como adjunto. Variables: <code>{'{titulo}'}</code> <code>{'{curso}'}</code> <code>{'{curso_escolar}'}</code>
           </p>
@@ -803,11 +810,11 @@ export function EnviarPanel({
           {tipoCr === 'tarea' && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Fecha límite</label>
-              <input
+              <Input
                 type="datetime-local"
                 value={limite}
                 onChange={(e) => setLimite(e.target.value)}
-                className={`${inputCls} !w-auto`}
+                className="w-auto"
               />
               {limite && (
                 <button type="button" onClick={() => setLimite('')} className="text-xs text-zinc-500 underline">
@@ -847,7 +854,7 @@ export function EnviarPanel({
                 </p>
               ) : emp === null ? null : (
                 <>
-                  <p className="mb-1.5 text-[11px] text-zinc-400">
+                  <p className="mb-1.5 text-xs text-zinc-400">
                     Se publica como {emp.buzon}, solo en las clases donde es profe. Si una no sale, pega aquí el enlace de su tutoría (se
                     recuerda para todo el curso).
                   </p>
@@ -903,11 +910,11 @@ export function EnviarPanel({
                               void gestionarDestino({ accion: 'fijar', curso: m.curso, letra: m.letra, enlace: enlaceManual });
                             }}
                           >
-                            <input
+                            <Input
                               value={enlaceManual}
                               onChange={(e) => setEnlaceManual(e.target.value)}
                               placeholder="https://classroom.google.com/c/…"
-                              className={`${inputCls} !py-1.5 text-xs`}
+                              className="text-xs"
                               autoFocus
                             />
                             <button
@@ -972,7 +979,7 @@ export function EnviarPanel({
                 {posts.map((p) => (
                   <li key={p.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5 text-xs">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                         p.retiradoAt
                           ? 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
                           : p.programadoPara && new Date(p.programadoPara).getTime() > ahora
@@ -1019,11 +1026,10 @@ export function EnviarPanel({
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[200px] flex-1">
             <label className="mb-1 block text-xs font-medium text-zinc-500">Enviar una prueba a</label>
-            <input
+            <Input
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
               placeholder={`tu@${COLEGIO.dominio}`}
-              className={inputCls}
             />
           </div>
           <button
@@ -1058,13 +1064,13 @@ export function EnviarPanel({
           {modo === 'programar' && (
             <div className="anim-up space-y-2.5 rounded-xl bg-violet-50/60 p-3 dark:bg-violet-500/5">
               <div className="flex flex-wrap items-center gap-2">
-                <input
+                <Input
                   type="datetime-local"
                   value={cuando}
                   min={aLocal(new Date(ahora + 5 * 60_000))}
                   max={aLocal(new Date(ahora + 29 * 864e5))}
                   onChange={(e) => setCuando(e.target.value)}
-                  className={`${inputCls} !w-auto`}
+                  className="w-auto"
                 />
                 {atajos(ahora).map((a) => (
                   <button
@@ -1165,7 +1171,7 @@ export function EnviarPanel({
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {envios.map((e) => (
               <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${ESTADO_ENVIO[e.estado]}`}>{e.estado}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_ENVIO[e.estado]}`}>{e.estado}</span>
                 <span className="font-medium text-zinc-800 dark:text-zinc-200">
                   {fmtFecha(e.programadoPara ?? e.createdAt)}
                 </span>
@@ -1199,6 +1205,7 @@ export function EnviarPanel({
           </ul>
         </div>
       )}
+      {dialogo}
     </div>
   );
 }
