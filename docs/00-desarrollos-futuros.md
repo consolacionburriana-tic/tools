@@ -34,6 +34,19 @@ módulo saca **la foto del día** (quién pagaría qué hoy), en Excel y CSV, y 
 3. ¿Se lleva aquí el **«pagado / no pagado»** o se queda en Educamos? Si va a Educamos, ¿con qué
    formato de CSV (el de Licencias es curso, ID Educamos, importe)?
 
+### Escritorio reordenado y portada con sesión: lo que decidí yo (20-oct-2026) — revisar con David
+
+- **Los cinco grupos** (Alumnado · Familias y cobros · Organización del centro · Tecnología ·
+  Configuración) y qué va en «Tu día» (Mi horario, Tableros, Registrar conducta, Oratorios si
+  está abierto) los elegí yo. Moverlos es cambiar `grupo` en `src/lib/escritorio.ts`.
+- **«Registrar conducta» (ABC) va en «Tu día» para todo el claustro**, porque registrar es lo
+  que hace todo el mundo; el panel de ABC sigue en Alumnado para quien lo tenga.
+- **Un alumno con sesión** que va a `/gestion` vuelve a la portada, sin pantalla de «sin
+  acceso». En la portada se le dice con qué cuenta ha entrado y puede salir.
+- **Puntualidad apagado con una lista en `CONFIGURACION`** (`modulosDesactivados`) en vez de
+  quitarlo de cada rol: así no se pierde el reparto de roles y encenderlo es una línea. Si se
+  quiere poder apagar módulos desde la app, iría a «Ajustes del colegio».
+
 ### Dispositivos 1:1: lo que decidí yo al construirlo (20-oct-2026) — revisar con David
 
 Detalle en [`29-dispositivos.md`](./29-dispositivos.md).

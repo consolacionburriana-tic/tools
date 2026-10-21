@@ -165,3 +165,43 @@ export function nombresDe(persona: PersonaBruta | null, aMano?: NombreAMano | nu
     apellidos,
   };
 }
+
+// ─── Tildes que faltan ────────────────────────────────────────────────────────
+
+/**
+ * Nombres y apellidos que en castellano llevan tilde siempre y que sin ella no son otra
+ * cosa en valenciano. Por eso NO están `Maria`, `Sofia` ni `Ramon` (en valenciano van sin
+ * tilde), ni `Tomas`, `Oscar`, `Angel`, `Hector` o `Monica` (en valenciano llevan la otra:
+ * Tomàs, Òscar…), ni `Martin`. Lista corta a propósito: mejor no sugerir que sugerir mal.
+ */
+const CON_TILDE: Record<string, string> = Object.fromEntries(
+  [
+    // Nombres
+    'adrián', 'rubén', 'raúl', 'iván', 'álvaro', 'ángeles', 'víctor',
+    'nicolás', 'andrés', 'inés', 'lucía', 'jesús', 'joaquín',
+    'julián', 'sebastián', 'fabián', 'damián', 'agustín', 'germán', 'simón', 'elías',
+    'matías', 'darío', 'saúl', 'césar', 'rocío', 'belén', 'asunción', 'concepción',
+    'encarnación', 'valentín', 'benjamín', 'aarón', 'cristóbal', 'josué',
+    // Apellidos
+    'garcía', 'martínez', 'lópez', 'pérez', 'sánchez', 'gómez', 'fernández', 'rodríguez',
+    'gonzález', 'hernández', 'jiménez', 'álvarez', 'díaz', 'ramírez', 'gutiérrez', 'domínguez',
+    'vázquez', 'suárez', 'méndez', 'márquez', 'benítez', 'velázquez', 'sáez', 'ibáñez', 'núñez',
+    'muñoz', 'ríos', 'calderón', 'león', 'rincón', 'galán', 'durán', 'millán', 'beltrán', 'peláez',
+    'chávez', 'cortés', 'garcés',
+  ].map((w) => [w.normalize('NFD').replace(/[\u0300-\u036f]/g, ''), w] as const),
+);
+
+/**
+ * El texto con las tildes que casi seguro le faltan: `Adrian Gomez` → `Adrián Gómez`. Solo
+ * toca palabras enteras sin ninguna tilde y que están en la lista; respeta la mayúscula
+ * inicial. Es para SUGERIR (el nombre de una cuenta de Google), no para cambiar datos.
+ */
+export function tildesProbables(texto: string): string {
+  return texto.replace(/\p{L}+/gu, (palabra) => {
+    if (/[^\x00-\x7F]/.test(palabra)) return palabra;
+    const con = CON_TILDE[palabra.toLowerCase()];
+    if (!con) return palabra;
+    if (palabra === palabra.toUpperCase()) return con.toUpperCase();
+    return palabra.charAt(0) === palabra.charAt(0).toUpperCase() ? con.charAt(0).toUpperCase() + con.slice(1) : con;
+  });
+}

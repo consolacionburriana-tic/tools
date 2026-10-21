@@ -7,6 +7,7 @@ import {
   MODULES,
   ROLE_MODULES,
   vePuntualidadCompleta,
+  moduloDesactivado,
   type Module,
 } from '@/lib/permissions';
 
@@ -18,7 +19,8 @@ describe('módulos efectivos de una persona', () => {
   });
 
   it('sin ajustes, manda el rol', () => {
-    expect(modulosDe({ role: 'tutor' })).toEqual([...ROLE_MODULES.tutor]);
+    // Lo del rol, menos lo apagado en el colegio (hoy, Puntualidad).
+    expect(modulosDe({ role: 'tutor' })).toEqual(ROLE_MODULES.tutor.filter((m) => !moduloDesactivado(m)));
     expect(canAccess({ role: 'tutor' }, 'salidas')).toBe(true);
     expect(canAccess({ role: 'tutor' }, 'evaluaciones')).toBe(false);
   });
@@ -58,7 +60,7 @@ describe('módulos efectivos de una persona', () => {
 
   it('ignora módulos inventados guardados en la BBDD', () => {
     const conBasura = { role: 'tutor' as const, modulosExtra: ['modulo_que_no_existe'] };
-    expect(modulosDe(conBasura)).toEqual([...ROLE_MODULES.tutor]);
+    expect(modulosDe(conBasura)).toEqual(ROLE_MODULES.tutor.filter((m) => !moduloDesactivado(m)));
   });
 
   it('devuelve siempre los módulos en el mismo orden, no en el de inserción', () => {
@@ -136,7 +138,9 @@ describe('alcance dentro de Puntualidad', () => {
   });
 
   it('un tutor tiene el módulo pero solo ve sus clases', () => {
-    expect(canAccess({ role: 'tutor' }, 'puntualidad')).toBe(true);
+    // El rol lo sigue trayendo: al encender Puntualidad, vuelve solo. Mientras esté apagado,
+    // canAccess dice que no (ver «módulos apagados»).
+    expect(ROLE_MODULES.tutor).toContain('puntualidad');
     expect(vePuntualidadCompleta('tutor')).toBe(false);
   });
 
@@ -200,5 +204,21 @@ describe('dispositivos', () => {
     for (const r of ['profe', 'tutor', 'jefe', 'orientacion', 'evaluaciones', 'comunicacion'] as const) {
       expect(canAccess({ role: r }, 'dispositivos')).toBe(false);
     }
+  });
+});
+
+describe('módulos apagados (CONFIGURACION.modulosDesactivados)', () => {
+  it('Puntualidad está apagado: no lo tiene nadie, ni por rol ni dado a mano', () => {
+    expect(moduloDesactivado('puntualidad')).toBe(true);
+    for (const r of ['supertic', 'tic', 'direccion', 'jefe', 'tutor', 'orientacion', 'secretaria'] as const) {
+      expect(canAccess({ role: r }, 'puntualidad')).toBe(false);
+      expect(modulosDe({ role: r })).not.toContain('puntualidad');
+    }
+    expect(canAccess({ role: 'profe', modulosExtra: ['puntualidad'] }, 'puntualidad')).toBe(false);
+  });
+
+  it('lo demás sigue igual', () => {
+    expect(moduloDesactivado('abc')).toBe(false);
+    expect(canAccess({ role: 'tutor' }, 'salidas')).toBe(true);
   });
 });

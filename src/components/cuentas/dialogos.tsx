@@ -3,7 +3,7 @@
 // Los diálogos de Correos y grupos: crear correos (con las contraseñas, que se enseñan una vez),
 // mover a una unidad, contraseña nueva y marcar una cuenta como «se queda».
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Download, KeyRound, Loader2, Search, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, KeyRound, Loader2, RotateCcw, Search, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,9 @@ import {
   MARCA_AYUDA,
   MARCA_LABEL,
   motivoCorreoNoValido,
+  sugerenciaTildes,
   TIPOS_MARCA,
+  usuariosDesdeNombre,
   type FilaCuenta,
   type TipoMarca,
 } from '@/lib/cuentas';
@@ -77,17 +79,23 @@ export function SelectorUo({
 interface Borrador {
   fila: FilaCuenta;
   incluir: boolean;
-  email: string;
+  /** Lo que va antes de la arroba: el dominio no se toca. */
+  usuario: string;
+  /** Se ha escrito el correo a mano: ya no se recalcula al cambiar el nombre. */
+  usuarioAMano: boolean;
   nombre: string;
   apellidos: string;
   uo: string;
 }
+
+const antesDeLaArroba = (email: string | null | undefined) => (email ?? '').split('@')[0] ?? '';
 
 type ModoContrasena = 'aleatoria' | 'comun';
 
 export function CrearCorreos({
   filas,
   unidades,
+  enGoogle,
   dominio,
   uoPorDefecto,
   onCerrar,
@@ -95,6 +103,8 @@ export function CrearCorreos({
 }: {
   filas: FilaCuenta[];
   unidades: UnidadFila[];
+  /** Correos y alias que ya existen en Google. */
+  enGoogle: readonly string[];
   dominio: string;
   /** Si una persona no tiene unidad calculada: la raíz del alumnado o del profesorado. */
   uoPorDefecto: { alumno: string; profe: string };
@@ -106,7 +116,8 @@ export function CrearCorreos({
       fila: f,
       // Si se le parece una cuenta, casi seguro que ya la tiene: no se crea sin mirarlo.
       incluir: f.parecidas.length === 0,
-      email: f.propuesta ?? '',
+      usuario: antesDeLaArroba(f.propuesta),
+      usuarioAMano: false,
       nombre: f.paraGoogle?.nombre ?? '',
       apellidos: f.paraGoogle?.apellidos ?? '',
       uo: f.uoDestino ?? (f.tipo === 'profe' ? uoPorDefecto.profe : uoPorDefecto.alumno),
@@ -119,25 +130,62 @@ export function CrearCorreos({
   const [progreso, setProgreso] = useState<{ hechos: number; total: number } | null>(null);
   const [resultados, setResultados] = useState<ResultadoAccion[] | null>(null);
 
+  const existentes = useMemo(() => new Set(enGoogle.map((e) => e.toLowerCase())), [enGoogle]);
+  const correoDe = (b: Borrador) => `${b.usuario.trim().toLowerCase()}@${dominio}`;
   const elegidos = borradores.filter((b) => b.incluir);
   const errores = useMemo(() => {
     const vistos = new Map<string, number>();
-    for (const b of elegidos) vistos.set(b.email.trim().toLowerCase(), (vistos.get(b.email.trim().toLowerCase()) ?? 0) + 1);
+    for (const b of elegidos) vistos.set(correoDe(b), (vistos.get(correoDe(b)) ?? 0) + 1);
     return borradores.map((b) => {
       if (!b.incluir) return null;
-      const email = b.email.trim().toLowerCase();
-      return (
+      const email = correoDe(b);
+      if (!b.usuario.trim()) return { campo: 'correo' as const, texto: 'Falta el correo' };
+      const correo =
         motivoCorreoNoValido(email, dominio) ??
-        ((vistos.get(email) ?? 0) > 1 ? 'Repetido' : null) ??
-        (!b.nombre.trim() || !b.apellidos.trim() ? 'Falta nombre o apellidos' : null)
-      );
+        (existentes.has(email) ? 'Ese correo ya existe en Google' : null) ??
+        ((vistos.get(email) ?? 0) > 1 ? 'Repetido en esta tanda' : null);
+      if (correo) return { campo: 'correo' as const, texto: correo };
+      if (!b.nombre.trim() || !b.apellidos.trim()) return { campo: 'nombre' as const, texto: 'Falta nombre o apellidos' };
+      return null;
     });
-  }, [borradores, elegidos, dominio]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [borradores, elegidos, dominio, existentes]);
   const hayErrores = errores.some(Boolean);
   const comunMal = modo === 'comun' && comun.length < 8;
 
   function cambiar(i: number, campo: Partial<Borrador>) {
     setBorradores((bs) => bs.map((b, j) => (j === i ? { ...b, ...campo } : b)));
+  }
+
+  /**
+   * Al corregir el nombre, el correo le sigue mientras no se haya escrito a mano, con la
+   * misma norma que la propuesta: primer apellido, luego el segundo, y si no, un número.
+   */
+  function cambiarNombre(i: number, campo: { nombre?: string; apellidos?: string }) {
+    setBorradores((bs) => {
+      const otros = new Set(bs.filter((_, j) => j !== i && bs[j].incluir).map((x) => `${x.usuario}@${dominio}`));
+      return bs.map((b, j) => {
+        if (j !== i) return b;
+        const nuevo = { ...b, ...campo };
+        if (b.usuarioAMano) return nuevo;
+        const candidatos = usuariosDesdeNombre(nuevo.nombre, nuevo.apellidos);
+        if (candidatos.length === 0) return nuevo;
+        const libre = (u: string) => !existentes.has(`${u}@${dominio}`) && !otros.has(`${u}@${dominio}`);
+        let usuario = candidatos.find(libre);
+        for (let n = 2; !usuario && n < 100; n++) if (libre(`${candidatos[0]}${n}`)) usuario = `${candidatos[0]}${n}`;
+        return usuario ? { ...nuevo, usuario } : nuevo;
+      });
+    });
+  }
+
+  function volverAPropuesta(i: number) {
+    const f = borradores[i].fila;
+    cambiar(i, {
+      usuario: antesDeLaArroba(f.propuesta),
+      usuarioAMano: false,
+      nombre: f.paraGoogle?.nombre ?? '',
+      apellidos: f.paraGoogle?.apellidos ?? '',
+    });
   }
 
   async function crear() {
@@ -153,7 +201,7 @@ export function CrearCorreos({
               cuentas: tanda.map((b) => ({
                 tipo: b.fila.tipo,
                 id: b.fila.personaId,
-                email: b.email.trim().toLowerCase(),
+                email: correoDe(b),
                 nombre: b.nombre.trim(),
                 apellidos: b.apellidos.trim(),
                 uo: b.uo,
@@ -260,8 +308,9 @@ export function CrearCorreos({
         <DialogHeader>
           <DialogTitle>Crear correos</DialogTitle>
           <DialogDescription>
-            Revisa el correo y la unidad de cada uno antes de crear. El correo sigue la norma del cole: nombre y primer apellido, y
-            si ya existe, con el segundo.
+            Todo se puede cambiar antes de crear: el correo, el nombre y los apellidos con los que sale en Google, y la unidad. El
+            correo sigue la norma del cole (nombre y primer apellido; si ya existe, con el segundo) y, si corriges el nombre, se
+            vuelve a proponer solo, mientras no lo hayas escrito a mano.
           </DialogDescription>
         </DialogHeader>
 
@@ -281,7 +330,7 @@ export function CrearCorreos({
                   <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                     {b.fila.clase ?? 'Profe'}
                   </span>
-                  {errores[i] && <span className="text-xs font-medium text-red-600">{errores[i]}</span>}
+                  {errores[i] && <span className="text-xs font-medium text-red-600">{errores[i]!.texto}</span>}
                 </div>
                 {b.fila.parecidas.length > 0 && (
                   <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
@@ -294,32 +343,62 @@ export function CrearCorreos({
                     {a}
                   </p>
                 ))}
-                <div className="grid gap-2 sm:grid-cols-[1.4fr_1fr_1.2fr_1fr]">
-                  <input
-                    value={b.email}
-                    onChange={(e) => cambiar(i, { email: e.target.value })}
-                    className={cn(CAMPO, 'font-mono text-[13px]', errores[i]?.match(/correo|@|Repetido|letras/) && 'border-red-400')}
-                    aria-label="Correo"
-                    disabled={!b.incluir}
-                  />
-                  <input value={b.nombre} onChange={(e) => cambiar(i, { nombre: e.target.value })} className={CAMPO} aria-label="Nombre" disabled={!b.incluir} />
-                  <input
-                    value={b.apellidos}
-                    onChange={(e) => cambiar(i, { apellidos: e.target.value })}
-                    className={CAMPO}
-                    aria-label="Apellidos"
-                    disabled={!b.incluir}
-                  />
-                  <button
-                    type="button"
-                    disabled={!b.incluir}
-                    onClick={() => setEligiendoUo(i)}
-                    className={cn(CAMPO, 'cursor-pointer truncate text-left font-mono text-[12px]')}
-                    title={b.uo}
-                  >
-                    {b.uo.split('/').filter(Boolean).at(-1) ?? '/'}
-                  </button>
+                <div className="grid gap-2 sm:grid-cols-[1.5fr_1fr_1.2fr_0.9fr]">
+                  <label className="block min-w-0">
+                    <span className="mb-0.5 block text-[11px] font-medium text-zinc-500">Correo</span>
+                    <span
+                      className={cn(
+                        CAMPO,
+                        'flex items-center gap-0 px-0 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20',
+                        errores[i]?.campo === 'correo' && 'border-red-400',
+                        !b.incluir && 'opacity-60',
+                      )}
+                    >
+                      <input
+                        value={b.usuario}
+                        onChange={(e) => cambiar(i, { usuario: e.target.value.replace(/@.*$/, '').toLowerCase(), usuarioAMano: true })}
+                        className="h-full min-w-0 flex-1 bg-transparent pl-3 font-mono text-[13px] outline-none"
+                        aria-label={`Correo de ${b.fila.nombre}`}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        disabled={!b.incluir}
+                      />
+                      <span className="shrink-0 truncate pr-3 font-mono text-[12px] text-zinc-400">@{dominio}</span>
+                    </span>
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="mb-0.5 block text-[11px] font-medium text-zinc-500">Nombre en Google</span>
+                    <input
+                      value={b.nombre}
+                      onChange={(e) => cambiarNombre(i, { nombre: e.target.value })}
+                      className={cn(CAMPO, errores[i]?.campo === 'nombre' && !b.nombre.trim() && 'border-red-400')}
+                      disabled={!b.incluir}
+                    />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="mb-0.5 block text-[11px] font-medium text-zinc-500">Apellidos en Google</span>
+                    <input
+                      value={b.apellidos}
+                      onChange={(e) => cambiarNombre(i, { apellidos: e.target.value })}
+                      className={cn(CAMPO, errores[i]?.campo === 'nombre' && !b.apellidos.trim() && 'border-red-400')}
+                      disabled={!b.incluir}
+                    />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="mb-0.5 block text-[11px] font-medium text-zinc-500">Unidad</span>
+                    <button
+                      type="button"
+                      disabled={!b.incluir}
+                      onClick={() => setEligiendoUo(i)}
+                      className={cn(CAMPO, 'cursor-pointer truncate text-left font-mono text-[12px]')}
+                      title={b.uo}
+                    >
+                      {b.uo.split('/').filter(Boolean).at(-1) ?? '/'}
+                    </button>
+                  </label>
                 </div>
+                {b.incluir && <AyudasFila b={b} dominio={dominio} existentes={existentes} onCambiar={(c) => cambiar(i, c)} onNombre={(c) => cambiarNombre(i, c)} onVolver={() => volverAPropuesta(i)} />}
               </li>
             ))}
           </ul>
@@ -586,5 +665,60 @@ export function MarcarCuenta({ fila, onCerrar, onHecho }: { fila: FilaCuenta; on
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Debajo de cada fila: otros correos libres, las tildes que faltan y volver a lo propuesto. */
+function AyudasFila({
+  b,
+  dominio,
+  existentes,
+  onCambiar,
+  onNombre,
+  onVolver,
+}: {
+  b: Borrador;
+  dominio: string;
+  existentes: ReadonlySet<string>;
+  onCambiar: (c: Partial<Borrador>) => void;
+  onNombre: (c: { nombre: string; apellidos: string }) => void;
+  onVolver: () => void;
+}) {
+  const actual = `${b.usuario}@${dominio}`;
+  const otros = [b.fila.propuesta, ...b.fila.alternativas].filter(
+    (e): e is string => !!e && e !== actual && !existentes.has(e),
+  );
+  const tildes = sugerenciaTildes({ nombre: b.nombre, apellidos: b.apellidos });
+  const cambiado =
+    b.usuario !== antesDeLaArroba(b.fila.propuesta) ||
+    b.nombre !== (b.fila.paraGoogle?.nombre ?? '') ||
+    b.apellidos !== (b.fila.paraGoogle?.apellidos ?? '');
+  if (otros.length === 0 && !tildes && !cambiado) return null;
+  const chip =
+    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg border border-zinc-200 px-2 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800';
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {otros.length > 0 && <span className="text-[11px] text-zinc-500">También libres:</span>}
+      {otros.map((e) => (
+        <button key={e} type="button" className={cn(chip, 'font-mono')} onClick={() => onCambiar({ usuario: antesDeLaArroba(e), usuarioAMano: true })}>
+          {antesDeLaArroba(e)}
+        </button>
+      ))}
+      {tildes && (
+        <button
+          type="button"
+          className={cn(chip, 'border-blue-200 text-blue-800 dark:border-blue-500/30 dark:text-blue-200')}
+          onClick={() => onNombre(tildes)}
+          title="Educamos solo trae las tildes que escribió la familia"
+        >
+          ¿Con tildes? {tildes.nombre} {tildes.apellidos}
+        </button>
+      )}
+      {cambiado && (
+        <button type="button" className={chip} onClick={onVolver}>
+          <RotateCcw className="h-3 w-3" /> Lo propuesto
+        </button>
+      )}
+    </div>
   );
 }

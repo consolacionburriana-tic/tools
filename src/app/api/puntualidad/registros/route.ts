@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { moduloDesactivado } from '@/lib/permissions';
 import { isGuardResponse, requireSession } from '@/lib/auth-guards';
 import { registroPayloadSchema } from '@/lib/puntualidad';
 import { crearRegistros, marcarAvisoEnviado } from '@/lib/puntualidad-server';
@@ -16,6 +17,7 @@ function copiaJefatura(): string[] {
 }
 
 export async function POST(request: Request) {
+  if (moduloDesactivado('puntualidad')) return NextResponse.json({ error: 'Puntualidad está desactivado' }, { status: 410 });
   const guard = await requireSession();
   if (isGuardResponse(guard)) return guard;
   try {
