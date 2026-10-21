@@ -1,7 +1,10 @@
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
-import { ChevronLeft, GraduationCap, History, TriangleAlert, Users } from 'lucide-react';
+import { GraduationCap, History, TriangleAlert, Users } from 'lucide-react';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
+import { Estado } from '@/components/ui/estado';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 import { getSyncRuns } from '@/lib/educamos-server';
 
 export const metadata = { title: 'Historial de sincronizaciones · Educamos' };
@@ -19,29 +22,13 @@ export default async function HistorialSyncsPage() {
   const runs = await getSyncRuns(50);
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
-              <History className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Historial de sincronizaciones
-            </h1>
-            <p className="text-xs text-zinc-500">Las últimas 50, de alumnado y de profesorado</p>
-          </div>
-          <Link
-            href="/gestion/educamos"
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
-          >
-            <ChevronLeft className="h-4 w-4" /> BBDD central
-          </Link>
-        </div>
-      </header>
+    <>
+      <EnlaceVolver href="/gestion/educamos">BBDD central</EnlaceVolver>
+      <TituloPagina descripcion="Las últimas 50, de alumnado y de profesorado">Historial de sincronizaciones</TituloPagina>
 
-      <main className="anim-stagger mx-auto max-w-2xl space-y-2.5 px-4 py-6">
+      <div className="anim-stagger space-y-2.5">
         {runs.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
-            Todavía no se ha sincronizado nada.
-          </p>
+          <Vacio icono={<History aria-hidden />} titulo="Todavía no se ha sincronizado nada" />
         )}
 
         {runs.map((run) => {
@@ -49,23 +36,16 @@ export default async function HistorialSyncsPage() {
           const r = run.resumen;
           const errores = r?.errores ?? [];
           return (
-            <article
-              key={run.id}
-              className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
-            >
+            <Tarjeta as="article" key={run.id} className="p-4">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    tipo === 'alumnado'
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
-                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                  }`}
+                <Estado
+                  tono="neutro"
+                  icono={tipo === 'alumnado' ? <GraduationCap aria-hidden /> : <Users aria-hidden />}
                 >
-                  {tipo === 'alumnado' ? <GraduationCap className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
                   {tipo === 'alumnado' ? 'Alumnado' : 'Profesorado'}
-                </span>
+                </Estado>
                 <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{fmt(run.createdAt)}</span>
-                {run.quienEmail && <span className="text-xs text-zinc-400">· {run.quienEmail}</span>}
+                {run.quienEmail && <span className="text-xs text-zinc-500 dark:text-zinc-400">· {run.quienEmail}</span>}
               </div>
 
               {run.filename && (
@@ -96,7 +76,7 @@ export default async function HistorialSyncsPage() {
 
               {errores.length > 0 && (
                 <details className="mt-2">
-                  <summary className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  <summary className="inline-flex min-h-10 cursor-pointer items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300">
                     <TriangleAlert className="h-3.5 w-3.5" /> {errores.length} aviso(s)
                   </summary>
                   <ul className="mt-1 list-inside list-disc text-xs text-amber-700 dark:text-amber-300">
@@ -106,10 +86,10 @@ export default async function HistorialSyncsPage() {
                   </ul>
                 </details>
               )}
-            </article>
+            </Tarjeta>
           );
         })}
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

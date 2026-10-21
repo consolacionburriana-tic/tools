@@ -116,13 +116,11 @@ export function PanelDispositivos({ inicial, vistaInicial, alumnoInicial = null 
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Dispositivos 1:1</h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Curso {panel.cursoActual} · {panel.alumnos.length} alumnos · {panel.alcance.etiqueta}, como AUTOASM ({panel.alcance.origen})
-          </p>
-        </div>
+      <div>
+        <h1 className="sr-only">Dispositivos 1:1</h1>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Curso {panel.cursoActual} · {panel.alumnos.length} alumnos · {panel.alcance.etiqueta}, como AUTOASM ({panel.alcance.origen})
+        </p>
       </div>
 
       <nav className="flex gap-1 overflow-x-auto rounded-2xl bg-zinc-200/60 p-1 dark:bg-zinc-800/60" aria-label="Pestañas">
@@ -144,7 +142,7 @@ export function PanelDispositivos({ inicial, vistaInicial, alumnoInicial = null 
             {p.badge && (
               <span
                 className={cn(
-                  'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                  'rounded-full px-2 py-0.5 text-xs font-semibold',
                   p.aviso ? 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200' : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200',
                 )}
               >

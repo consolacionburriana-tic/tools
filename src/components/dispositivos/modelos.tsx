@@ -10,7 +10,9 @@ import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
 import type { ModeloDis } from '@/lib/dispositivos-server';
 import type { Acciones } from './panel';
-import { ESTILO_BOTON, ESTILO_BOTON_PRINCIPAL, ESTILO_CAMPO, pedir } from './comun';
+import { pedir } from './comun';
+import { buttonVariants } from '@/components/ui/button';
+import { claseCampo } from '@/components/ui/input';
 
 export function Modelos({ modelos, acciones }: { modelos: ModeloDis[]; acciones: Acciones }) {
   const [editando, setEditando] = useState<string | 'nuevo' | null>(null);
@@ -53,7 +55,7 @@ export function Modelos({ modelos, acciones }: { modelos: ModeloDis[]; acciones:
           Los modelos que se ofrecen al dar de alta un iPad del cole o al apuntar el de un alumno. Nombre y capacidad, y listo.
         </p>
         {editando !== 'nuevo' && (
-          <button type="button" className={ESTILO_BOTON_PRINCIPAL} onClick={() => setEditando('nuevo')}>
+          <button type="button" className={buttonVariants()} onClick={() => setEditando('nuevo')}>
             <Plus className="h-4 w-4" /> Modelo nuevo
           </button>
         )}
@@ -81,15 +83,15 @@ export function Modelos({ modelos, acciones }: { modelos: ModeloDis[]; acciones:
                 </span>
               </span>
               {ocupado === m.id && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
-              <button type="button" className={ESTILO_BOTON} onClick={() => setEditando(m.id)} aria-label={`Editar ${m.etiqueta}`}>
+              <button type="button" className={buttonVariants({ variant: 'outline' })} onClick={() => setEditando(m.id)} aria-label={`Editar ${m.etiqueta}`}>
                 <Pencil className="h-4 w-4" />
               </button>
               {m.activo ? (
-                <button type="button" className={ESTILO_BOTON} onClick={() => void quitar(m)} disabled={ocupado === m.id} aria-label={`Quitar ${m.etiqueta}`}>
+                <button type="button" className={buttonVariants({ variant: 'outline' })} onClick={() => void quitar(m)} disabled={ocupado === m.id} aria-label={`Quitar ${m.etiqueta}`}>
                   <Archive className="h-4 w-4" /> <span className="hidden sm:inline">{m.enUso ? 'Archivar' : 'Quitar'}</span>
                 </button>
               ) : (
-                <button type="button" className={ESTILO_BOTON} onClick={() => void reactivar(m)} disabled={ocupado === m.id}>
+                <button type="button" className={buttonVariants({ variant: 'outline' })} onClick={() => void reactivar(m)} disabled={ocupado === m.id}>
                   <ArchiveRestore className="h-4 w-4" /> <span className="hidden sm:inline">Recuperar</span>
                 </button>
               )}
@@ -130,12 +132,12 @@ function FormModelo({ modelo, acciones, onCerrar }: { modelo?: ModeloDis; accion
     <form onSubmit={guardar} className="grid gap-3 border-b border-zinc-100 bg-zinc-50 px-4 py-4 sm:grid-cols-[minmax(0,2fr)_120px_minmax(0,2fr)_auto] sm:items-end dark:border-zinc-800 dark:bg-zinc-800/40">
       <label className="block space-y-1.5">
         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Modelo</span>
-        <input className={ESTILO_CAMPO} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="iPad (9.ª generación)" required autoFocus />
+        <input className={claseCampo} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="iPad (9.ª generación)" required autoFocus />
       </label>
       <label className="block space-y-1.5">
         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">GB</span>
         <input
-          className={ESTILO_CAMPO}
+          className={claseCampo}
           inputMode="numeric"
           value={capacidad}
           onChange={(e) => setCapacidad(e.target.value.replace(/\D/g, '').slice(0, 4))}
@@ -146,13 +148,13 @@ function FormModelo({ modelo, acciones, onCerrar }: { modelo?: ModeloDis; accion
         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Notas <span className="font-normal text-zinc-500">(opcional)</span>
         </span>
-        <input className={ESTILO_CAMPO} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Wi-Fi, gris espacial…" />
+        <input className={claseCampo} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Wi-Fi, gris espacial…" />
       </label>
       <div className="flex gap-2">
-        <button type="button" className={ESTILO_BOTON} onClick={onCerrar}>
+        <button type="button" className={buttonVariants({ variant: 'outline' })} onClick={onCerrar}>
           Cancelar
         </button>
-        <button type="submit" className={ESTILO_BOTON_PRINCIPAL} disabled={ocupado}>
+        <button type="submit" className={buttonVariants()} disabled={ocupado}>
           {ocupado && <Loader2 className="h-4 w-4 animate-spin" />} Guardar
         </button>
       </div>

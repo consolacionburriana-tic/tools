@@ -1,7 +1,5 @@
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { db } from '@/db';
 import { authUsers } from '@/db/schema';
 import { getSessionUser } from '@/lib/auth-guards';
@@ -49,26 +47,12 @@ export default async function UsuariosPage() {
   filas.sort((a, b) => Number(!!b.rolExplicito) - Number(!!a.rolExplicito) || a.email.localeCompare(b.email));
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Usuarios y roles</h1>
-            <p className="text-xs text-zinc-500">
-              {filas.length} personas · el rol da el punto de partida y luego se afina por módulos
-            </p>
-          </div>
-          <Link
-            href="/gestion"
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
-          >
-            <ChevronLeft className="h-4 w-4" /> Escritorio
-          </Link>
-        </div>
-      </header>
-      <main className="mx-auto max-w-2xl px-4 py-6">
-        <RolesGrid filas={filas} miEmail={user.email} />
-      </main>
-    </div>
+    <>
+      <h1 className="sr-only">Usuarios y roles</h1>
+      <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+        {filas.length} personas · el rol da el punto de partida y luego se afina por módulos
+      </p>
+      <RolesGrid filas={filas} miEmail={user.email} />
+    </>
   );
 }

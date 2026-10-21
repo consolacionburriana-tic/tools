@@ -16,6 +16,8 @@ import {
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { FileDropzone } from '@/components/educamos/file-dropzone';
+import { Button } from '@/components/ui/button';
+import { Segmentado } from '@/components/ui/segmentado';
 
 // Tipos espejo (subset) del SyncPlan que devuelve /api/educamos/admin/sync/preview
 interface DiffCampo {
@@ -235,25 +237,18 @@ export function SyncWizard() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-zinc-600 dark:text-zinc-300">Si el curso difiere, respetar el de:</span>
-          <div className="flex rounded-lg border border-zinc-200 p-0.5 dark:border-zinc-700">
-            {(['bbdd', 'excel'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => {
-                  setRespetarCursoDe(v);
-                  if (file) void pedirPreview(file, v);
-                }}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                  respetarCursoDe === v
-                    ? 'bg-blue-600 text-white'
-                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {v === 'bbdd' ? 'BBDD actual' : 'Excel subido'}
-              </button>
-            ))}
-          </div>
+          <Segmentado
+            etiqueta="Si el curso difiere, respetar el de"
+            valor={respetarCursoDe}
+            onChange={(v) => {
+              setRespetarCursoDe(v);
+              if (file) void pedirPreview(file, v);
+            }}
+            opciones={[
+              { valor: 'bbdd', etiqueta: 'BBDD actual' },
+              { valor: 'excel', etiqueta: 'Excel subido' },
+            ]}
+          />
         </div>
       </div>
 
@@ -438,18 +433,20 @@ export function SyncWizard() {
           <div className="sticky bottom-0 -mx-4 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95"
             style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
           >
-            <button
+<Button
               type="button"
+              size="lg"
               onClick={aplicar}
+              cargando={cargando === 'aplicar'}
               disabled={cargando !== null || (plan.altas.length === 0 && plan.cambios.length === 0 && desactivar.size === 0)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              className="h-auto min-h-12 w-full flex-wrap py-2"
             >
-              {cargando === 'aplicar' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+              {cargando !== 'aplicar' && <Check aria-hidden />}
               Aplicar sincronización
               <span className="text-sm font-normal opacity-80">
                 ({plan.altas.length} altas · {plan.cambios.length} cambios · {desactivar.size} bajas)
               </span>
-            </button>
+            </Button>
           </div>
         </>
       )}

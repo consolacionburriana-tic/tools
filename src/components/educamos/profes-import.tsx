@@ -5,6 +5,7 @@ import { Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { FileDropzone } from '@/components/educamos/file-dropzone';
+import { Button } from '@/components/ui/button';
 
 interface Resumen {
   altas: number;
@@ -81,14 +82,9 @@ export function ProfesImport() {
               ))}
             </ul>
           )}
-          <button
-            type="button"
-            onClick={() => void enviar(file, false)}
-            disabled={cargando}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Check className="h-4 w-4" /> Aplicar import
-          </button>
+<Button type="button" onClick={() => void enviar(file, false)} disabled={cargando} className="w-full">
+            <Check aria-hidden /> Aplicar import
+          </Button>
         </div>
       )}
 

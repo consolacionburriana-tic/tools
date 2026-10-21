@@ -18,6 +18,10 @@ import {
   type Role,
 } from '@/lib/permissions';
 import { COLEGIO } from '@/lib/colegio';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
+import { Estado } from '@/components/ui/estado';
 
 export interface FilaUsuario {
   email: string;
@@ -109,7 +113,6 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
   }
 
   async function eliminar(fila: FilaUsuario) {
-    if (!confirm(`¿Eliminar definitivamente a ${fila.nombre ?? fila.email}?\n\nDejará de aparecer y sin acceso. Sus registros históricos se conservan.`)) return;
     const ok = await enviar(fila.email, { action: 'delete' }, (f) => f);
     if (ok) setDatos((d) => d.filter((f) => f.email !== fila.email));
   }
@@ -130,13 +133,14 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
-        <Search className="h-4 w-4 text-zinc-400" />
-        <input
+      <div className="relative">
+        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+        <Input
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar por nombre o correo…"
-          className="w-full bg-transparent text-sm text-zinc-900 outline-none dark:text-zinc-100"
+          aria-label="Buscar por nombre o correo"
+          className="pl-9"
         />
       </div>
 
@@ -152,35 +156,37 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {f.nombre ?? f.email}
-                    {f.email === miEmail && <span className="ml-1 text-xs text-zinc-400">(tú)</span>}
+                    {f.email === miEmail && <span className="ml-1 text-xs text-zinc-500">(tú)</span>}
                   </p>
-                  <p className="truncate text-xs text-zinc-400">{f.email}</p>
+                  <p className="truncate text-xs text-zinc-500">{f.email}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   {guardando === f.email && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />}
                   {f.bloqueado ? (
                     <>
-                      <span className="rounded-full bg-red-100 px-2 py-1 text-[11px] font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-300">
-                        Sin acceso
-                      </span>
-                      <button
+                      <Estado tono="error">Sin acceso</Estado>
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         disabled={guardando === f.email}
                         onClick={() => void asignar(f, f.esProfe ? null : 'profe')}
-                        title="Reactivar acceso"
-                        className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                       >
-                        <RotateCcw className="h-3 w-3" /> Reactivar
-                      </button>
-                      <button
-                        type="button"
+                        <RotateCcw aria-hidden /> Reactivar
+                      </Button>
+                      <ConfirmarEnLinea
+                        etiqueta="Eliminar"
+                        icono={<Trash2 aria-hidden />}
+                        pregunta={
+                          <>
+                            ¿Eliminar definitivamente a {f.nombre ?? f.email}? Dejará de aparecer y sin acceso; sus
+                            registros históricos se conservan.
+                          </>
+                        }
+                        confirmar="Sí, eliminar"
                         disabled={guardando === f.email}
-                        onClick={() => void eliminar(f)}
-                        title="Eliminar definitivamente"
-                        className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
-                      >
-                        <Trash2 className="h-3 w-3" /> Eliminar
-                      </button>
+                        onConfirmar={() => eliminar(f)}
+                      />
                     </>
                   ) : (
                     <>
@@ -194,7 +200,8 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                             disabled={guardando === f.email}
                             onClick={() => void asignar(f, f.rolExplicito === r ? null : r)}
                             title={esAutomatico ? 'Automático (profe del claustro)' : undefined}
-                            className={`rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                            aria-pressed={activo}
+                            className={`inline-flex h-10 items-center rounded-full px-3.5 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
                               activo
                                 ? esAutomatico
                                   ? 'bg-blue-100 text-blue-700 ring-1 ring-inset ring-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-700'
@@ -203,6 +210,7 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                             }`}
                           >
                             {ROLE_LABELS[r]}
+                            {esAutomatico && <span className="sr-only"> (automático, profe del claustro)</span>}
                           </button>
                         );
                       })}
@@ -210,7 +218,9 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                         type="button"
                         onClick={() => setAbierto((v) => (v === f.email ? null : f.email))}
                         title="Ajustar módulos de esta persona"
-                        className={`ml-0.5 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                        aria-label={`Ajustar módulos de esta persona (${nModulos(f)})`}
+                        aria-expanded={abierto === f.email}
+                        className={`ml-0.5 inline-flex h-10 items-center gap-1 rounded-full px-3.5 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
                           abierto === f.email
                             ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
                             : ajustada(f)
@@ -218,9 +228,9 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                               : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
                         }`}
                       >
-                        <SlidersHorizontal className="h-3 w-3" />
+                        <SlidersHorizontal aria-hidden className="h-3.5 w-3.5" />
                         {nModulos(f)}
-                        <ChevronDown className={`h-3 w-3 transition-transform ${abierto === f.email ? 'rotate-180' : ''}`} />
+                        <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform ${abierto === f.email ? 'rotate-180' : ''}`} />
                       </button>
                       {f.email !== miEmail && (
                         <button
@@ -228,9 +238,10 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                           disabled={guardando === f.email}
                           onClick={() => void bloquear(f)}
                           title="Quitar el acceso a esta persona"
-                          className="ml-0.5 inline-flex items-center rounded-full bg-zinc-100 p-1.5 text-zinc-400 hover:bg-red-100 hover:text-red-600 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-red-500/15 dark:hover:text-red-300"
+                          aria-label="Quitar el acceso a esta persona"
+                          className="ml-0.5 inline-flex size-10 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 outline-none hover:bg-red-100 hover:text-red-600 focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-red-500/15 dark:hover:text-red-300"
                         >
-                          <Ban className="h-3.5 w-3.5" />
+                          <Ban aria-hidden className="h-4 w-4" />
                         </button>
                       )}
                     </>
@@ -240,7 +251,7 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
 
               {abierto === f.email && !f.bloqueado && (
                 <div className="mt-2.5 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
-                  <p className="mb-2 text-[11px] text-zinc-500">
+                  <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {efectivo ? (
                       <>
                         De serie, <strong>{ROLE_LABELS[efectivo]}</strong> lleva{' '}
@@ -279,7 +290,8 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                                   ? `Le viene del rol ${ROLE_LABELS[efectivo!]}`
                                   : 'No lo tiene'
                           }
-                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
+                          aria-pressed={activo}
+                          className={`inline-flex h-10 items-center gap-1 rounded-lg px-3 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40 ${
                             activo
                               ? origen === 'extra'
                                 ? 'bg-emerald-600 text-white'
@@ -289,13 +301,13 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                                 : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
                           }`}
                         >
-                          {sensible && <ShieldAlert className="h-3 w-3" />}
+                          {sensible && <ShieldAlert aria-label="Con cuidado" className="h-3.5 w-3.5" />}
                           {MODULE_LABELS[m]}
                         </button>
                       );
                     })}
                   </div>
-                  <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-400">
+                  <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                     <span className="inline-flex items-center gap-1">
                       <span className="inline-block h-2 w-2 rounded-sm bg-blue-600" /> del rol
                     </span>
@@ -333,21 +345,18 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
           setNuevoEmail('');
         }}
       >
-        <input
+        <Input
           value={nuevoEmail}
           onChange={(e) => setNuevoEmail(e.target.value)}
           placeholder={`añadir-correo@${COLEGIO.dominio}`}
+          aria-label="Añadir un correo"
           type="email"
-          className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-blue-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
         />
-        <button
-          type="submit"
-          className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          <Plus className="h-4 w-4" /> Añadir
-        </button>
+        <Button type="submit" variant="outline">
+          <Plus aria-hidden /> Añadir
+        </Button>
       </form>
-      <p className="text-xs text-zinc-400">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
         Un click asigna el rol; repetir el click lo quita (los profes del claustro vuelven a su rol automático de
         Profe, en azul claro). El botón de módulos abre el ajuste fino persona a persona: por ejemplo dejar a alguien
         como Tutor/a y darle además Evaluaciones. <strong>Cambiar de rol borra esos ajustes</strong>, porque estaban
