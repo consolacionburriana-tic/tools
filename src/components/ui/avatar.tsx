@@ -30,12 +30,16 @@ export function Avatar({
   email,
   nombre,
   tamano = 'md',
+  neutro = false,
   title,
   className,
 }: {
+  /** Lo que da el color (y las iniciales si no hay nombre): el correo o cualquier id estable. */
   email: string;
   nombre?: string | null;
   tamano?: TamanoAvatar;
+  /** Gris en vez de color: para listas donde el color ya dice otra cosa (estados). */
+  neutro?: boolean;
   title?: string;
   className?: string;
 }) {
@@ -43,8 +47,10 @@ export function Avatar({
     <span
       title={title ?? nombre ?? email}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ring-2 ring-white select-none dark:ring-zinc-900',
-        COLORES[indiceColorPersona(email, COLORES.length)],
+        'inline-flex shrink-0 items-center justify-center rounded-full font-semibold ring-2 ring-white select-none dark:ring-zinc-900',
+        neutro
+          ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+          : cn('text-white', COLORES[indiceColorPersona(email, COLORES.length)]),
         TAMANO[tamano],
         className,
       )}

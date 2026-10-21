@@ -116,9 +116,6 @@
   "src/app/gestion/loading.tsx": {
     "cabecera": 1
   },
-  "src/app/gestion/nouvinguts/layout.tsx": {
-    "cabecera": 1
-  },
   "src/app/gestion/numeros/layout.tsx": {
     "cabecera": 1
   },
@@ -339,20 +336,6 @@
   },
   "src/components/mihorario/exportador.tsx": {
     "estilos": 1
-  },
-  "src/components/nouvinguts/comun.tsx": {
-    "estilos": 1,
-    "letra": 1
-  },
-  "src/components/nouvinguts/ficha.tsx": {
-    "navegador": 3,
-    "letra": 6
-  },
-  "src/components/nouvinguts/lista.tsx": {
-    "letra": 2
-  },
-  "src/components/nouvinguts/proceso.tsx": {
-    "letra": 5
   },
   "src/components/numeros/historico.tsx": {
     "letra": 2

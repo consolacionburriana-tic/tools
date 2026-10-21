@@ -32,6 +32,10 @@ function Cuenta({ n }: { n: number }) {
 /**
  * Vistas de una misma pantalla, con estado local. `etiqueta` es para el lector de pantalla
  * («Ver por»). Con `lleno`, las opciones se reparten todo el ancho.
+ *
+ * Sirve también para elegir entre dos a cuatro valores cortos en un formulario (Sí / No,
+ * Pagado / Beca / No): `valor` puede ser `null` (aún sin decidir) y tocar la opción que ya
+ * está elegida vuelve a llamar a `onChange` con ella, por si quien lo usa quiere desmarcarla.
  */
 export function Segmentado<T extends string>({
   opciones,
@@ -39,13 +43,15 @@ export function Segmentado<T extends string>({
   onChange,
   etiqueta,
   lleno = false,
+  disabled = false,
   className,
 }: {
   opciones: readonly OpcionSegmentado<T>[];
-  valor: T;
+  valor: T | null;
   onChange: (valor: T) => void;
   etiqueta: string;
   lleno?: boolean;
+  disabled?: boolean;
   className?: string;
 }) {
   return (
@@ -57,12 +63,12 @@ export function Segmentado<T extends string>({
             key={o.valor}
             type="button"
             aria-pressed={activo}
+            disabled={disabled}
             onClick={() => {
-              if (activo) return;
-              haptic.tap();
+              if (!activo) haptic.tap();
               onChange(o.valor);
             }}
-            className={cn(SEGMENTO, lleno && 'flex-1', activo ? ACTIVO : INACTIVO)}
+            className={cn(SEGMENTO, 'disabled:cursor-default disabled:opacity-60', lleno && 'flex-1', activo ? ACTIVO : INACTIVO)}
           >
             {o.icono}
             {o.etiqueta}
@@ -91,7 +97,8 @@ function IconoOCarga({ icono }: { icono?: React.ReactNode }) {
 /**
  * Las secciones de un módulo cuando cada una es una ruta (ABC: Panel, Registros, Alumnos).
  * Va en el layout del módulo, así que no se mueve al cambiar de sección. La activa se saca de
- * la URL; la portada del módulo solo cuenta como activa cuando se está justo en ella.
+ * la URL: la sección cuya ruta casa con más trozo de la dirección (la ficha de un alumno,
+ * `/gestion/nouvinguts/123`, cuenta como de la portada del módulo, `/gestion/nouvinguts`).
  */
 export function Secciones({
   secciones,
@@ -103,10 +110,9 @@ export function Secciones({
   className?: string;
 }) {
   const ruta = usePathname();
-  const activa = (s: Seccion) => {
-    const portada = secciones.some((o) => o !== s && o.href.startsWith(`${s.href}/`));
-    return ruta === s.href || (!portada && ruta.startsWith(`${s.href}/`));
-  };
+  const casa = (href: string) => ruta === href || ruta.startsWith(`${href}/`);
+  const mejor = secciones.filter((s) => casa(s.href)).sort((a, b) => b.href.length - a.href.length)[0];
+  const activa = (s: Seccion) => s === mejor;
   return (
     <nav aria-label={etiqueta} className={cn(PISTA, 'inline-flex', className)}>
       {secciones.map((s) => {

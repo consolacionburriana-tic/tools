@@ -15,11 +15,14 @@ export default async function ProcesoPage() {
   if (!canAccess(user, 'nouvinguts-proceso')) redirect('/gestion/sin-acceso');
   const { proceso, ajustes } = await getProceso();
   return (
-    <ProcesoNouvinguts
-      inicial={proceso}
-      diasAtascoInicial={ajustes.diasAtasco}
-      avisosInicial={ajustes.avisos}
-      correoConfigurado={emailConfigurado()}
-    />
+    <>
+      <h1 className="sr-only">Proceso de nouvinguts</h1>
+      <ProcesoNouvinguts
+        inicial={proceso}
+        diasAtascoInicial={ajustes.diasAtasco}
+        avisosInicial={ajustes.avisos}
+        correoConfigurado={emailConfigurado()}
+      />
+    </>
   );
 }

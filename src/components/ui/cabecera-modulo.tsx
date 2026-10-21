@@ -93,6 +93,16 @@ export function PaginaModulo({
   );
 }
 
+/** «‹ Todos los nouvinguts»: la vuelta a la lista desde la página de una cosa, encima de su título. */
+export function EnlaceVolver({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className={buttonVariants({ variant: 'ghost', size: 'sm', className: '-ml-3 px-3 text-zinc-600 dark:text-zinc-400' })}>
+      <ChevronLeft aria-hidden />
+      {children}
+    </Link>
+  );
+}
+
 /**
  * El nombre de lo que se está viendo cuando la página es de una cosa concreta: la ficha de
  * un alumno, un tablero, una salida. Con su frase y sus acciones a la derecha.

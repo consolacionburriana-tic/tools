@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils"
  *   `icon` (44) e `icon-sm` (40). Un botón de solo icono lleva `aria-label`.
  *
  * Para un enlace con aspecto de botón: `buttonVariants()` en el `className` del `Link`.
+ * `cargando` lo desactiva y pone la ruedecita delante mientras se guarda.
  */
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent text-sm font-semibold whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 aria-invalid:border-red-500 aria-invalid:ring-3 aria-invalid:ring-red-500/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -57,14 +59,22 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  cargando = false,
+  disabled,
+  children,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants> & { cargando?: boolean }) {
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={disabled || cargando}
+      aria-busy={cargando || undefined}
       {...props}
-    />
+    >
+      {cargando && <Loader2 className="animate-spin" />}
+      {children}
+    </ButtonPrimitive>
   )
 }
 

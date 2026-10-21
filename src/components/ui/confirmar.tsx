@@ -35,6 +35,7 @@ export function ConfirmarEnLinea({
   onConfirmar,
   variante = 'destructive',
   tamano = 'sm',
+  peligro = true,
   disabled,
   className,
 }: {
@@ -45,8 +46,10 @@ export function ConfirmarEnLinea({
   confirmar?: React.ReactNode;
   icono?: React.ReactNode;
   onConfirmar: () => unknown | Promise<unknown>;
-  variante?: 'destructive' | 'outline' | 'ghost';
+  variante?: 'destructive' | 'outline' | 'ghost' | 'default';
   tamano?: 'default' | 'sm';
+  /** Rojo (por defecto) si borra o quita; con `false`, el «sí» va en azul y la franja en gris. */
+  peligro?: boolean;
   disabled?: boolean;
   className?: string;
 }) {
@@ -84,7 +87,14 @@ export function ConfirmarEnLinea({
 
   const botones = (
     <>
-      <Button type="button" variant="destructive-solid" size={tamano} autoFocus disabled={ocupado} onClick={() => void si()}>
+      <Button
+        type="button"
+        variant={peligro ? 'destructive-solid' : 'default'}
+        size={tamano}
+        autoFocus
+        disabled={ocupado}
+        onClick={() => void si()}
+      >
         {ocupado ? <Loader2 className="animate-spin" /> : icono}
         {confirmar}
       </Button>
@@ -101,8 +111,11 @@ export function ConfirmarEnLinea({
       onKeyDown={(e) => e.key === 'Escape' && !ocupado && setAbierto(false)}
       className={cn(
         'flex flex-wrap items-center gap-2',
+        pregunta && 'rounded-xl py-1.5 pr-1.5 pl-3 text-sm ring-1',
         pregunta &&
-          'rounded-xl bg-red-50 py-1.5 pr-1.5 pl-3 text-sm text-red-900 ring-1 ring-red-200 dark:bg-red-500/10 dark:text-red-200 dark:ring-red-500/30',
+          (peligro
+            ? 'bg-red-50 text-red-900 ring-red-200 dark:bg-red-500/10 dark:text-red-200 dark:ring-red-500/30'
+            : 'bg-zinc-100 text-zinc-800 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700'),
         className,
       )}
     >

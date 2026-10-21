@@ -16,12 +16,12 @@ chips (`BOTON_PRIMARIO`, `ESTILO_CAMPO`…): usa estas.
 | Necesito… | Uso… | De |
 |---|---|---|
 | El marco de un módulo (cabecera, secciones, ancho) | `PaginaModulo` en su `layout.tsx` | `ui/cabecera-modulo` |
-| El nombre de lo que se ve (un alumno, un tablero) | `TituloPagina` | `ui/cabecera-modulo` |
-| Un botón, o un enlace con forma de botón | `Button`, `buttonVariants()` | `ui/button` |
+| El nombre de lo que se ve (un alumno, un tablero) | `TituloPagina`, con `EnlaceVolver` encima | `ui/cabecera-modulo` |
+| Un botón, o un enlace con forma de botón | `Button` (con `cargando` mientras guarda), `buttonVariants()` | `ui/button` |
 | Un campo, un texto largo, un desplegable | `Input`, `Textarea`, `Selector`, y `Campo` para etiqueta y ayuda | `ui/input`, `ui/textarea`, `ui/selector`, `ui/campo` |
-| Cambiar de vista en una pantalla | `Segmentado` | `ui/segmentado` |
+| Cambiar de vista en una pantalla, o elegir entre 2-4 valores cortos (Sí / No) | `Segmentado` | `ui/segmentado` |
 | Las secciones del módulo (cada una, una ruta) | `secciones` de `PaginaModulo` | `ui/cabecera-modulo` |
-| Filtrar una lista | `Filtros` + `Filtro` | `ui/filtro` |
+| Filtrar una lista, o marcar varias de una lista corta (a quién avisar) | `Filtros` + `Filtro` | `ui/filtro` |
 | El estado de algo (hecho, falta, error) | `Estado` | `ui/estado` |
 | Una clase, un código, una ruta | `Etiqueta` | `ui/etiqueta` |
 | Agrupar en una caja | `Tarjeta`, `TarjetaCabecera`, `TarjetaCuerpo` | `ui/tarjeta` |
@@ -34,13 +34,16 @@ chips (`BOTON_PRIMARIO`, `ESTILO_CAMPO`…): usa estas.
 | Una ventana encima | `Dialog`… (`variante="hoja"` para fichas que se abren con el dedo) | `ui/dialog` |
 | Botones fijos abajo | `BarraAcciones` | `ui/barra-acciones` |
 | Cuánto lleva algo · una tarea larga del servidor | `Progreso` · `EnCurso` | `ui/progreso` |
-| Un sí/no que se aplica al momento | `Interruptor` | `ui/interruptor` |
+| Un sí/no que se aplica al momento | `Interruptor` (`etiquetaOculta` dentro de una fila) | `ui/interruptor` |
 | Copiar de un toque | `Copiable`, `Dato`, `CopiarLista`, `copiarTexto` | `ui/copiable` |
 | Encabezar un grupo («AHORA», «RESUMEN») | `Rotulo` | `ui/rotulo` |
-| Una persona | `Avatar`, `Avatares` | `ui/avatar` |
+| Una persona | `Avatar` (`neutro` si el color estorba), `Avatares` | `ui/avatar` |
 | El icono de un módulo | `IconoModulo` (identidad en `src/lib/modulos.ts`) | `ui/icono-modulo` |
 | Mientras carga | `loading.tsx` con `SkeletonPage` y `SkeletonKpis`/`SkeletonRows`/`SkeletonTabla` | `ui/skeleton` |
 | Saber qué enlace se ha pulsado | `NavPending` / `NavArrow` dentro del `Link` | `ui/nav-pending` |
+
+**Modelo**: Nouvinguts (`components/nouvinguts/`) es el primer módulo rehecho con todo esto;
+cuando dudes de cómo queda algo, mira cómo está allí.
 
 Una pieza sube a `ui/` cuando la necesita un **segundo** módulo. Lo que solo usa uno (la línea de
 pasos de Nouvinguts, la rejilla de horario, el lienzo de Tableros) se queda en su módulo.
@@ -82,8 +85,14 @@ export default async function Layout({ children }: { children: React.ReactNode }
 **filtrar**, `Filtro` (pastillas, la activa en negro). Cada cosa con el suyo, siempre.
 
 **La página.**
-- Cabecera **común** (`PaginaModulo`): icono, nombre, la acción principal y «Escritorio». Las
-  secciones del módulo, debajo, como segmentado de enlaces.
+- Cabecera **común** (`PaginaModulo`): icono, nombre, la acción principal y «Escritorio». Si la
+  acción abre un diálogo, el botón de la cabecera es un enlace con `?apuntar=1` (o lo que toque)
+  y la página abre el diálogo al verlo, así funciona también desde otras pantallas del módulo.
+- **Secciones** (`secciones` de `PaginaModulo`, segmentado de enlaces bajo la cabecera) solo para
+  las áreas hermanas que usa todo el mundo (Panel · Registros · Alumnos). Una pantalla de ajustes
+  del módulo no es una sección: es un enlace en la página («Proceso», «Ajustes»), y desde ella se
+  vuelve con `EnlaceVolver`. Nunca dos segmentados apilados: si una pantalla con secciones
+  necesita vistas, esas vistas son filtros.
 - **Sin título visible** que repita el módulo: la página empieza por lo suyo (filtros, datos), y
   lleva su `<h1 className="sr-only">` para el lector de pantalla. La página de **una cosa** (un
   alumno, un tablero, una salida) sí lleva su nombre a la vista, con `TituloPagina`.
