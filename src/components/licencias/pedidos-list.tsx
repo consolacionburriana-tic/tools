@@ -184,8 +184,8 @@ export function PedidosList() {
           <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
         </p>
       ) : (
-        <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-sm">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800">
+          <table className="w-full min-w-[56rem] text-sm">
             <thead className="bg-zinc-50 text-zinc-500 dark:bg-zinc-800/50">
               <tr>
                 {(

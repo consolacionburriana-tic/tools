@@ -17,7 +17,7 @@
 | [`fase-3-modulo-a-modulo.md`](./fase-3-modulo-a-modulo.md) | Cambiar las piezas propias de cada módulo por las comunes, en orden de uso | BORRADOR |
 | [`fase-4-repaso.md`](./fase-4-repaso.md) | Contraste, foco, tamaños, modo oscuro y capturas de antes y después | BORRADOR |
 | [`fase-5-limpieza.md`](./fase-5-limpieza.md) | Borrar esta carpeta y el artefacto; dejar la guía | BORRADOR |
-| [`arreglos-sueltos.md`](./arreglos-sueltos.md) | 5 fallos que salieron de paso (no son de diseño). Se pueden hacer ya | LISTO |
+| [`arreglos-sueltos.md`](./arreglos-sueltos.md) | 5 fallos que salieron de paso (no son de diseño) | HECHO (21-oct) |
 
 **BORRADOR** = escrito con mis propuestas por defecto; lo reescribo con las decisiones de David
 antes de ejecutarlo. **LISTO** = se puede ejecutar. **HECHO** = ejecutado y verificado.

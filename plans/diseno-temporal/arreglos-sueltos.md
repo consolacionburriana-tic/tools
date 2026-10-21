@@ -2,7 +2,7 @@
 
 > TEMPORAL: se borra con `plans/diseno-temporal/`. Si no se hacen antes de la fase 5, pasar a
 > `docs/pequeños-arreglos.md`.
-> **Estado: LISTO.** Son independientes del diseño y se pueden hacer ya, en cualquier orden.
+> **Estado: HECHO (21-oct-2026).** Los cinco aplicados en un commit aparte.
 > Todos verificados en el código el 20-oct-2026.
 
 ## 1. Registro ABC: enlace roto a cada registro

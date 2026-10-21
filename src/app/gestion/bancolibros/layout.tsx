@@ -11,8 +11,8 @@ export default async function BancoLayout({ children }: { children: React.ReactN
   if (!canAccess(user, 'bancolibros')) redirect('/gestion/sin-acceso');
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 print:min-h-0 print:bg-white">
+      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-4">
           <span className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             <Link href="/gestion" className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400">

@@ -330,7 +330,7 @@ export function PanelClases({ iniciales }: { iniciales: ClaseFila[] }) {
       {/* ── Barra de acciones ──────────────────────────────────────────── */}
       {seleccion.size > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-          <div className="container mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+          <div className="container mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 pr-14">
             <p className="text-sm text-zinc-700 dark:text-zinc-300">
               {seleccion.size} clase(s)
               <button type="button" onClick={() => setSeleccion(new Set())} className="ml-3 text-xs text-zinc-500 underline">

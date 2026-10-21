@@ -862,7 +862,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
         <button
           type="button"
           onClick={() => setAnadiendo(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-medium text-zinc-400 ring-1 ring-dashed ring-zinc-300 transition-colors duration-150 hover:text-blue-600 hover:ring-blue-400 dark:ring-zinc-700 dark:hover:text-blue-400"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-300 py-4 text-sm font-medium text-zinc-500 transition-colors duration-150 hover:border-blue-400 hover:text-blue-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:text-blue-400"
         >
           <Plus className="h-4 w-4" /> Añadir otra actividad
         </button>

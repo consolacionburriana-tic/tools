@@ -435,7 +435,7 @@ function RecordDetail({
         </div>
         <div className="flex-1" />
         <Link
-          href={`/admin/registros/${report.id}`}
+          href={`/gestion/abc/registros/${report.id}`}
           className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
         >
           Ver completo
