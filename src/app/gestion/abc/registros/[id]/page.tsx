@@ -1,10 +1,13 @@
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Clock, MapPin, Users as UsersIcon, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
+import { Clock, MapPin, Users as UsersIcon, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
+import { Estado, type TonoEstado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
 import { db } from '@/db';
 import { behaviorReports, eduStudents, eduTeachers, students, teachers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -55,223 +58,155 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
       : (report.otherTeacherName ?? 'Desconocido');
 
   const eff = report.effectivenessRating ? parseFloat(report.effectivenessRating) : null;
-  const effColor = eff == null
-    ? 'text-zinc-400'
-    : eff < 2.5 ? 'text-rose-600 dark:text-rose-400'
-    : eff < 3.5 ? 'text-amber-600 dark:text-amber-400'
-    : 'text-emerald-600 dark:text-emerald-400';
+  // La efectividad es un estado (baja, media, alta): va en la pastilla de `Estado`.
+  const effTono: TonoEstado = eff == null ? 'neutro' : eff < 2.5 ? 'error' : eff < 3.5 ? 'aviso' : 'ok';
 
   return (
     <div className="space-y-5">
-      {/* ── Toolbar ───────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <Link
-          href="/gestion/abc/registros"
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+      <div>
+        <EnlaceVolver href="/gestion/abc/registros">Registros</EnlaceVolver>
+        <TituloPagina
+          className="mt-1 mb-0"
+          antes={<span className="capitalize">{format(dateObj, 'EEE d MMM yyyy', { locale: es })}</span>}
+          descripcion={clase || undefined}
+          acciones={<DeleteReportButton id={report.id} />}
         >
-          <ArrowLeft className="w-4 h-4" />
-          Registros
-        </Link>
-        <DeleteReportButton id={report.id} />
-      </div>
-
-      {/* ── Hero header ───────────────────────────────────────────────── */}
-      <div className="rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 dark:from-teal-600 dark:to-cyan-700 text-white p-5 sm:p-6 shadow-sm">
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Avatar */}
-          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-xl font-bold shrink-0">
-            {siglas.charAt(0).toUpperCase()}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium uppercase tracking-widest text-teal-100/80">Registro ABC</p>
-            <h1 className="text-2xl sm:text-3xl font-bold leading-tight">
-              {siglas}
-            </h1>
-            <p className="text-sm text-teal-50/90 mt-0.5">
-              {clase}
-            </p>
-          </div>
-
-          {/* Fecha */}
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-widest text-teal-100/80">Fecha</p>
-            <p className="text-base font-semibold capitalize">
-              {format(dateObj, "EEE d MMM yyyy", { locale: es })}
-            </p>
-          </div>
-        </div>
+          {siglas}
+        </TituloPagina>
       </div>
 
       {/* ── Metadata row ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetaCard
-          icon={<UsersIcon className="w-4 h-4" />}
+          icon={<UsersIcon />}
           label="Registrado por"
           value={teacherName}
           sub={teacher ? STAGE_LABELS[teacher.stage as StageValue] : null}
         />
         <MetaCard
-          icon={<MapPin className="w-4 h-4" />}
+          icon={<MapPin />}
           label="Dónde"
           value={label(CONTEXTS, report.context)}
           sub={report.contextNote ?? null}
         />
         <MetaCard
-          icon={<Clock className="w-4 h-4" />}
+          icon={<Clock />}
           label="Cuándo"
           value={label(TIME_SLOTS, report.timeSlot)}
           sub={format(dateObj, 'EEEE', { locale: es })}
         />
         <MetaCard
-          icon={<Sparkles className="w-4 h-4" />}
+          icon={<Sparkles />}
           label="Efectividad"
           value={eff !== null ? `${eff.toFixed(1)} / 5` : '—'}
-          sub={eff !== null ? (eff < 2.5 ? 'Baja' : eff < 3.5 ? 'Media' : 'Alta') : 'Sin valorar'}
-          valueClass={effColor}
+          sub={
+            <Estado tono={effTono}>
+              {eff !== null ? (eff < 2.5 ? 'Baja' : eff < 3.5 ? 'Media' : 'Alta') : 'Sin valorar'}
+            </Estado>
+          }
         />
       </div>
 
-      {/* ── Conductas (hero secundario) ───────────────────────────────── */}
-      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-rose-100 dark:border-rose-900/30 overflow-hidden">
-        <div className="bg-gradient-to-r from-rose-50 to-rose-50/40 dark:from-rose-950/40 dark:to-rose-950/10 border-b border-rose-100 dark:border-rose-900/30 px-5 py-3 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-rose-500" />
-          <h2 className="text-xs font-bold uppercase tracking-widest text-rose-700 dark:text-rose-400">
-            Conductas observadas
-          </h2>
-        </div>
-        <div className="p-5 space-y-3">
+      {/* ── Conductas ─────────────────────────────────────────────────── */}
+      <Tarjeta as="section">
+        <TarjetaCabecera icono={<AlertTriangle />} titulo="Conductas observadas" />
+        <TarjetaCuerpo className="space-y-3">
           <div className="flex flex-wrap gap-2">
             {behaviors.map((b) => (
-              <span
-                key={b}
-                className="text-sm font-medium px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300"
-              >
+              <Etiqueta key={b} className="px-2.5 py-1 text-sm">
                 {label(BEHAVIORS, b)}
-              </span>
+              </Etiqueta>
             ))}
           </div>
           {report.involvedWith && (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 pt-1">
-              <span className="text-zinc-400 dark:text-zinc-500">Producido con: </span>
+            <p className="pt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              <span className="text-zinc-500 dark:text-zinc-400">Producido con: </span>
               <span className="font-medium text-zinc-800 dark:text-zinc-200">{report.involvedWith}</span>
             </p>
           )}
           {presentPeople.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-zinc-100 dark:border-zinc-800 mt-3 pt-3">
-              <span className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Presentes:</span>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+              <span className="text-xs tracking-widest text-zinc-500 uppercase dark:text-zinc-400">Presentes:</span>
               {presentPeople.map((p) => (
-                <span
-                  key={p}
-                  className="text-xs px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                >
-                  {label(PRESENT_PEOPLE, p)}
-                </span>
+                <Etiqueta key={p}>{label(PRESENT_PEOPLE, p)}</Etiqueta>
               ))}
               {report.presentNames && (
-                <span className="text-xs italic text-zinc-500 dark:text-zinc-400">
-                  ({report.presentNames})
-                </span>
+                <span className="text-xs text-zinc-500 italic dark:text-zinc-400">({report.presentNames})</span>
               )}
             </div>
           )}
-        </div>
-      </div>
+        </TarjetaCuerpo>
+      </Tarjeta>
 
       {report.situationDescription && (
-        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-            Situación problemática
-          </h3>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
-            {report.situationDescription}
-          </p>
-        </div>
+        <Tarjeta as="section">
+          <TarjetaCabecera titulo="Situación problemática" />
+          <TarjetaCuerpo>
+            <p className="text-sm leading-relaxed whitespace-pre-line text-zinc-700 dark:text-zinc-300">
+              {report.situationDescription}
+            </p>
+          </TarjetaCuerpo>
+        </Tarjeta>
       )}
 
       {/* ── Grid A-B-C ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <AbcPanel
-          letter="A"
-          title="Antecedentes"
-          content={report.antecedents}
-          hint="¿Qué pasó antes?"
-        />
+        <AbcPanel letter="A" title="Antecedentes" content={report.antecedents} hint="¿Qué pasó antes?" />
         <AbcPanel
           letter="B"
           title="Conducta"
           content={behaviors.map((b) => label(BEHAVIORS, b)).join(' · ')}
           hint={report.involvedWith ? `Con: ${report.involvedWith}` : '¿Qué hizo?'}
-          accent
         />
-        <AbcPanel
-          letter="C"
-          title="Consecuencias"
-          content={report.consequences}
-          hint="¿Qué pasó después?"
-        />
+        <AbcPanel letter="C" title="Consecuencias" content={report.consequences} hint="¿Qué pasó después?" />
       </div>
 
       {/* ── Hipótesis + Reconducción ──────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="w-4 h-4 text-teal-500" />
-            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-              Hipótesis · ¿Por qué?
-            </h3>
-          </div>
-          {reasons.length > 0 ? (
-            <>
-              <div className="flex flex-wrap gap-1.5">
-                {reasons.map((r) => (
-                  <span
-                    key={r}
-                    className="text-xs font-medium px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/60"
-                  >
-                    {label(REASONS, r)}
-                  </span>
-                ))}
-              </div>
-              {report.reasonOther && (
-                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 italic">
-                  &ldquo;{report.reasonOther}&rdquo;
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-zinc-400 dark:text-zinc-500 italic">Sin hipótesis registradas</p>
-          )}
-        </div>
+        <Tarjeta as="section">
+          <TarjetaCabecera icono={<Lightbulb />} titulo="Hipótesis · ¿Por qué?" />
+          <TarjetaCuerpo>
+            {reasons.length > 0 ? (
+              <>
+                <div className="flex flex-wrap gap-1.5">
+                  {reasons.map((r) => (
+                    <Etiqueta key={r}>{label(REASONS, r)}</Etiqueta>
+                  ))}
+                </div>
+                {report.reasonOther && (
+                  <p className="mt-2 text-xs text-zinc-500 italic dark:text-zinc-400">&ldquo;{report.reasonOther}&rdquo;</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-zinc-500 italic dark:text-zinc-400">Sin hipótesis registradas</p>
+            )}
+          </TarjetaCuerpo>
+        </Tarjeta>
 
-        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-            Acciones de reconducción
-          </h3>
-          {report.redirectActions ? (
-            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-              {report.redirectActions}
-            </p>
-          ) : (
-            <p className="text-sm text-zinc-400 dark:text-zinc-500 italic">No registradas</p>
-          )}
-        </div>
+        <Tarjeta as="section">
+          <TarjetaCabecera titulo="Acciones de reconducción" />
+          <TarjetaCuerpo>
+            {report.redirectActions ? (
+              <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{report.redirectActions}</p>
+            ) : (
+              <p className="text-sm text-zinc-500 italic dark:text-zinc-400">No registradas</p>
+            )}
+          </TarjetaCuerpo>
+        </Tarjeta>
       </div>
 
       {/* ── Comentarios ───────────────────────────────────────────────── */}
       {report.comments && (
-        <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 p-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-            Comentarios
-          </p>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed italic">
-            &ldquo;{report.comments}&rdquo;
-          </p>
-        </div>
+        <Tarjeta as="section">
+          <TarjetaCabecera titulo="Comentarios" />
+          <TarjetaCuerpo>
+            <p className="text-sm leading-relaxed text-zinc-700 italic dark:text-zinc-300">&ldquo;{report.comments}&rdquo;</p>
+          </TarjetaCuerpo>
+        </Tarjeta>
       )}
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 text-center pt-2">
+      <p className="pt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
         Registrado el {format(report.createdAt, "d MMM yyyy 'a las' HH:mm", { locale: es })} · ID {report.id.slice(0, 8)}
       </p>
     </div>
@@ -279,46 +214,36 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
 }
 
 function MetaCard({
-  icon, label, value, sub, valueClass,
-}: { icon: React.ReactNode; label: string; value: string; sub?: string | null; valueClass?: string }) {
+  icon, label, value, sub,
+}: { icon: React.ReactNode; label: string; value: string; sub?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4">
-      <div className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500 mb-1.5">
+    <Tarjeta className="p-4">
+      <div className="mb-1.5 flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 [&_svg]:size-4">
         {icon}
-        <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
+        <span className="text-xs font-semibold tracking-wider uppercase">{label}</span>
       </div>
-      <p className={`text-base font-semibold leading-tight ${valueClass ?? 'text-zinc-900 dark:text-zinc-100'}`}>
-        {value}
-      </p>
-      {sub && <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5 truncate">{sub}</p>}
-    </div>
+      <p className="text-base leading-tight font-semibold text-zinc-900 dark:text-zinc-100">{value}</p>
+      {sub && <div className="mt-1 truncate text-xs text-zinc-500 dark:text-zinc-400">{sub}</div>}
+    </Tarjeta>
   );
 }
 
 function AbcPanel({
-  letter, title, content, hint, accent = false,
-}: { letter: string; title: string; content: string | null; hint: string; accent?: boolean }) {
+  letter, title, content, hint,
+}: { letter: string; title: string; content: string | null; hint: string }) {
   return (
-    <div className={`rounded-2xl border p-5 min-h-[140px] flex flex-col ${
-      accent
-        ? 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900/50'
-        : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'
-    }`}>
-      <div className="flex items-baseline gap-2 mb-2">
-        <span className={`text-3xl font-bold leading-none ${
-          accent ? 'text-teal-600 dark:text-teal-400' : 'text-zinc-300 dark:text-zinc-600'
-        }`}>
+    <Tarjeta as="section" className="flex min-h-[140px] flex-col p-5">
+      <div className="mb-2 flex items-baseline gap-2">
+        <span aria-hidden className="text-3xl leading-none font-bold text-zinc-300 dark:text-zinc-600">
           {letter}
         </span>
-        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-          {title}
-        </span>
+        <h2 className="text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400">{title}</h2>
       </div>
       {content ? (
-        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed flex-1">{content}</p>
+        <p className="flex-1 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{content}</p>
       ) : (
-        <p className="text-sm text-zinc-400 dark:text-zinc-500 italic flex-1">{hint} (no registrado)</p>
+        <p className="flex-1 text-sm text-zinc-500 italic dark:text-zinc-400">{hint} (no registrado)</p>
       )}
-    </div>
+    </Tarjeta>
   );
 }

@@ -5,7 +5,14 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { format, parseISO, subDays, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronRight, Filter, X, ArrowRight } from 'lucide-react';
+import { Check, ChevronRight, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { SkeletonRows } from '@/components/ui/skeleton';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 import { BEHAVIORS, CONTEXTS, TIME_SLOTS } from '@/lib/constants';
 import type { Teacher } from '@/db/schema';
 import type { AbcStudentPanel } from '@/lib/abc-server';
@@ -159,19 +166,16 @@ export default function RegistrosPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Registros</h1>
-        <div className="flex rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden text-sm bg-white dark:bg-zinc-900">
-          <button
-            onClick={() => setMode('list')}
-            className={`px-4 py-2 transition-colors ${mode === 'list' ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 font-medium' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-          >Listado</button>
-          <button
-            onClick={() => setMode('informe')}
-            className={`px-4 py-2 transition-colors ${mode === 'informe' ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 font-medium' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-          >Informe agregado</button>
-        </div>
-      </div>
+      <h1 className="sr-only">Registros</h1>
+      {/* Bajo las secciones del módulo no va otro segmentado: las dos vistas son filtros. */}
+      <Filtros etiqueta="Ver">
+        <Filtro activo={mode === 'informe'} onClick={() => setMode('informe')}>
+          Informe agregado
+        </Filtro>
+        <Filtro activo={mode === 'list'} onClick={() => setMode('list')}>
+          Listado
+        </Filtro>
+      </Filtros>
 
       <FiltersBar
         timePreset={timePreset}
@@ -202,55 +206,47 @@ function FiltersBar({
   const [studentsOpen, setStudentsOpen] = useState(false);
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 font-medium uppercase tracking-widest pl-1">
-        <Filter className="w-3.5 h-3.5" />
-        Filtros
-      </div>
-
-      <div className="flex gap-1 p-1 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
+    <div className="flex flex-wrap items-center gap-2">
+      <Filtros etiqueta="Periodo">
         {TIME_PRESETS.map((p) => (
-          <button
-            key={p.value}
-            onClick={() => onTimePresetChange(p.value)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              timePreset === p.value
-                ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-400 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-            }`}
-          >
+          <Filtro key={p.value} activo={timePreset === p.value} onClick={() => onTimePresetChange(p.value)}>
             {p.label}
-          </button>
+          </Filtro>
         ))}
-      </div>
+      </Filtros>
 
       <div className="relative">
-        <button
+        <Button
+          variant="outline"
+          size="sm"
+          aria-expanded={studentsOpen}
           onClick={() => setStudentsOpen(!studentsOpen)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-teal-300 dark:hover:border-teal-700 transition-colors"
         >
           {selectedStudentIds.length === 0
             ? 'Todos los alumnos'
             : `${selectedStudentIds.length} alumno${selectedStudentIds.length > 1 ? 's' : ''}`}
-          <ChevronRight className={`w-3 h-3 transition-transform ${studentsOpen ? 'rotate-90' : ''}`} />
-        </button>
+          <ChevronRight aria-hidden className={cn('transition-transform', studentsOpen && 'rotate-90')} />
+        </Button>
 
         {studentsOpen && (
           <>
             <div className="fixed inset-0 z-30" onClick={() => setStudentsOpen(false)} />
-            <div className="absolute top-full mt-1 left-0 z-40 w-64 max-h-80 overflow-y-auto rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg p-1.5">
+            <div className="absolute top-full left-0 z-40 mt-1 max-h-80 w-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
               <button
+                type="button"
                 onClick={() => onStudentsChange([])}
-                className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                className="flex h-10 w-full items-center rounded-lg px-3 text-left text-sm font-medium text-zinc-600 outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 Todos los alumnos
               </button>
-              <div className="border-t border-zinc-100 dark:border-zinc-800 my-1" />
+              <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
               {students.map((s) => {
                 const checked = selectedStudentIds.includes(s.id);
                 return (
                   <button
+                    type="button"
                     key={s.id}
+                    aria-pressed={checked}
                     onClick={() => {
                       onStudentsChange(
                         checked
@@ -258,13 +254,18 @@ function FiltersBar({
                           : [...selectedStudentIds, s.id]
                       );
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-left"
+                    className="flex h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
-                    <span className={`w-4 h-4 rounded border ${checked ? 'bg-teal-500 border-teal-500' : 'border-zinc-300 dark:border-zinc-600'} flex items-center justify-center shrink-0`}>
-                      {checked && <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd"/></svg>}
+                    <span
+                      className={cn(
+                        'flex size-4 shrink-0 items-center justify-center rounded border',
+                        checked ? 'border-blue-600 bg-blue-600' : 'border-zinc-300 dark:border-zinc-600',
+                      )}
+                    >
+                      {checked && <Check aria-hidden className="size-3 text-white" />}
                     </span>
                     <span className="flex-1 truncate">{s.siglas}</span>
-                    <span className="text-zinc-400 text-[10px]">{s.clase}</span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">{s.clase}</span>
                   </button>
                 );
               })}
@@ -274,13 +275,10 @@ function FiltersBar({
       </div>
 
       {selectedStudentIds.length > 0 && (
-        <button
-          onClick={() => onStudentsChange([])}
-          className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors inline-flex items-center gap-1"
-        >
-          <X className="w-3 h-3" />
+        <Button variant="ghost" size="sm" onClick={() => onStudentsChange([])}>
+          <X aria-hidden />
           Limpiar
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -298,83 +296,67 @@ function ListView({
 }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-        {loading ? (
-          <p className="p-6 text-sm text-zinc-400 text-center">Cargando…</p>
-        ) : reports.length === 0 ? (
-          <p className="p-12 text-sm text-zinc-400 text-center">Sin registros para estos filtros.</p>
-        ) : (
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {reports.map((r) => {
-              const student = studentMap.get(r.studentId);
-              const behaviors = r.behaviors ?? [];
-              return (
-                <li key={r.id}>
-                  <Link
-                    href={`/gestion/abc/registros/${r.id}`}
-                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 flex items-center justify-center font-bold text-sm shrink-0">
-                      {student?.siglas?.charAt(0) ?? '?'}
+      {loading ? (
+        <SkeletonRows n={6} />
+      ) : reports.length === 0 ? (
+        <Vacio titulo="Sin registros para estos filtros." />
+      ) : (
+        <ul className={cn(claseTarjeta, 'divide-y divide-zinc-100 overflow-hidden dark:divide-zinc-800')}>
+          {reports.map((r) => {
+            const student = studentMap.get(r.studentId);
+            const behaviors = r.behaviors ?? [];
+            return (
+              <li key={r.id}>
+                <Link
+                  href={`/gestion/abc/registros/${r.id}`}
+                  className="flex items-center gap-4 px-5 py-3.5 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset dark:hover:bg-zinc-800/50"
+                >
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-sm font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                    {student?.siglas?.charAt(0) ?? '?'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {student?.siglas ?? '—'}
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {label(CONTEXTS, r.context)} · {label(TIME_SLOTS, r.timeSlot)}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-zinc-900 dark:text-zinc-100 text-sm">
-                          {student?.siglas ?? '—'}
-                        </span>
-                        <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                          {label(CONTEXTS, r.context)} · {label(TIME_SLOTS, r.timeSlot)}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {behaviors.slice(0, 3).map((b) => (
-                          <span
-                            key={b}
-                            className="text-[10px] px-1.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30"
-                          >
-                            {label(BEHAVIORS, b)}
-                          </span>
-                        ))}
-                        {behaviors.length > 3 && (
-                          <span className="text-[10px] text-zinc-400">+{behaviors.length - 3}</span>
-                        )}
-                      </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {behaviors.slice(0, 3).map((b) => (
+                        <Etiqueta key={b}>{label(BEHAVIORS, b)}</Etiqueta>
+                      ))}
+                      {behaviors.length > 3 && (
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">+{behaviors.length - 3}</span>
+                      )}
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
-                        {format(parseISO(r.reportDate), "d MMM", { locale: es })}
-                      </p>
-                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 capitalize">
-                        {format(parseISO(r.reportDate), 'EEE', { locale: es })}
-                      </p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all shrink-0" />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-medium whitespace-nowrap text-zinc-600 tabular-nums dark:text-zinc-300">
+                      {format(parseISO(r.reportDate), "d MMM", { locale: es })}
+                    </p>
+                    <p className="text-xs text-zinc-500 capitalize dark:text-zinc-400">
+                      {format(parseISO(r.reportDate), 'EEE', { locale: es })}
+                    </p>
+                  </div>
+                  <ChevronRight aria-hidden className="size-4 shrink-0 text-zinc-400" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <div className="flex items-center justify-center gap-3">
-        <button
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          disabled={page === 1}
-          className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm disabled:opacity-40 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-        >
+        <Button variant="outline" size="sm" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1}>
           Anterior
-        </button>
-        <span className="text-sm text-zinc-500">Página {page}</span>
-        <button
-          onClick={() => onPageChange(page + 1)}
-          disabled={reports.length < 20}
-          className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm disabled:opacity-40 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-        >
+        </Button>
+        <span className="text-sm text-zinc-500 tabular-nums dark:text-zinc-400">Página {page}</span>
+        <Button variant="outline" size="sm" onClick={() => onPageChange(page + 1)} disabled={reports.length < 20}>
           Siguiente
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
-

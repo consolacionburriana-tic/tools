@@ -6,7 +6,7 @@ import { Skeleton, SkeletonCard, SkeletonPage } from '@/components/ui/skeleton';
 export default function Loading() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <Skeleton className="h-9 w-9 rounded-lg" />
@@ -17,7 +17,7 @@ export default function Loading() {
           </div>
           <Skeleton className="h-10 w-28 rounded-xl" />
         </div>
-      </header>
+      </div>
 
       <SkeletonPage label="Cargando el escritorio…">
         <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">

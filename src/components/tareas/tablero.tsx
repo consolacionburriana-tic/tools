@@ -20,7 +20,16 @@ import {
   type ItemChecklist,
   type Tarea,
 } from '@/lib/tareas';
-import { apiTareas, BotonCopiar, ESTILO_CAMPO, EstadoSelect } from './comun';
+import { Button } from '@/components/ui/button';
+import { useConfirmar } from '@/components/ui/confirmar';
+import { Filtro as Pastilla, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Textarea } from '@/components/ui/textarea';
+import { Vacio } from '@/components/ui/vacio';
+import { apiTareas, BotonCopiar, EstadoSelect } from './comun';
 import { FormFallo, FormModulo } from './formularios';
 
 type Filtro = 'abiertas' | 'hecho' | 'descartado' | 'todas';
@@ -43,6 +52,7 @@ export function TableroTareas({ iniciales }: { iniciales: Tarea[] }) {
   const [filtro, setFiltro] = useState<Filtro>('abiertas');
   const [modulo, setModulo] = useState('*');
   const [busqueda, setBusqueda] = useState('');
+  const { confirmar, dialogo } = useConfirmar();
 
   const delTipo = tareas.filter((t) => t.tipo === pestana);
   const visibles = useMemo(() => {
@@ -72,7 +82,7 @@ export function TableroTareas({ iniciales }: { iniciales: Tarea[] }) {
   }
 
   async function borrar(t: Tarea) {
-    if (!window.confirm(`¿Borrar «${t.titulo}»? No se puede deshacer.`)) return;
+    if (!(await confirmar({ titulo: `¿Borrar «${t.titulo}»?`, descripcion: 'No se puede deshacer.', boton: 'Borrar' }))) return;
     const antes = tareas;
     setTareas((prev) => prev.filter((x) => x.id !== t.id));
     try {
@@ -91,11 +101,13 @@ export function TableroTareas({ iniciales }: { iniciales: Tarea[] }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
+      <h1 className="sr-only">Tareas de la plataforma</h1>
+      {dialogo}
       {/* Alta rápida: a la izquierda en pantalla grande, arriba en el iPad en vertical */}
       <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <Tarjeta className="p-4">
           <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            {pestana === 'fallo' ? <ListTodo className="h-4 w-4" /> : <Lightbulb className="h-4 w-4" />}
+            {pestana === 'fallo' ? <ListTodo aria-hidden className="size-4" /> : <Lightbulb aria-hidden className="size-4" />}
             {pestana === 'fallo' ? 'Apuntar un fallito' : 'Idea de módulo nuevo'}
           </p>
           {pestana === 'fallo' ? (
@@ -103,98 +115,77 @@ export function TableroTareas({ iniciales }: { iniciales: Tarea[] }) {
           ) : (
             <FormModulo onCreada={(t) => setTareas((p) => [t, ...p])} />
           )}
-        </div>
+        </Tarjeta>
         {pestana === 'fallo' && cuenta('fallo') > 0 && (
           <BotonCopiar
             texto={() => promptFallosAbiertos(tareas)}
             etiqueta={`Copiar los ${cuenta('fallo')} fallitos pendientes`}
-            className="w-full justify-center py-2"
+            className="w-full"
           />
         )}
       </aside>
 
       <section className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-xl bg-zinc-200/60 p-1 dark:bg-zinc-800/60">
-            {(
-              [
-                ['fallo', 'Fallitos', ListTodo],
-                ['modulo', 'Módulos nuevos', Lightbulb],
-              ] as const
-            ).map(([id, etiqueta, Icono]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setPestana(id)}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  pestana === id
-                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-100'
-                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200',
-                )}
-              >
-                <Icono className="h-4 w-4" /> {etiqueta}
-                <span className="rounded-full bg-zinc-100 px-1.5 text-[11px] text-zinc-500 dark:bg-zinc-800">
-                  {cuenta(id)}
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-1">
+          <Segmentado
+            etiqueta="Ver"
+            valor={pestana}
+            onChange={setPestana}
+            opciones={[
+              { valor: 'fallo', etiqueta: 'Fallitos', icono: <ListTodo aria-hidden />, cuenta: cuenta('fallo') },
+              { valor: 'modulo', etiqueta: 'Módulos nuevos', icono: <Lightbulb aria-hidden />, cuenta: cuenta('modulo') },
+            ]}
+          />
+          <Filtros etiqueta="Mostrar">
             {FILTROS.map(([id, etiqueta]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setFiltro(id)}
-                className={cn(
-                  'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                  filtro === id
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                    : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800',
-                )}
-              >
+              <Pastilla key={id} activo={filtro === id} onClick={() => setFiltro(id)}>
                 {etiqueta}
-              </button>
+              </Pastilla>
             ))}
-          </div>
+          </Filtros>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <div className="relative min-w-48 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
+            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-500" />
+            <Input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar…"
-              className={cn(ESTILO_CAMPO, 'pl-9')}
+              aria-label="Buscar"
+              className="pl-9"
             />
           </div>
           {pestana === 'fallo' && modulosConFallos.length > 1 && (
-            <select value={modulo} onChange={(e) => setModulo(e.target.value)} className={cn(ESTILO_CAMPO, 'w-auto')}>
+            <Selector value={modulo} onChange={(e) => setModulo(e.target.value)} aria-label="Módulo" className="w-auto">
               <option value="*">Todos los módulos</option>
               {modulosConFallos.map((m) => (
                 <option key={m} value={m}>
                   {etiquetaModulo(m || null)}
                 </option>
               ))}
-            </select>
+            </Selector>
           )}
         </div>
 
         {visibles.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 p-10 text-center text-sm text-zinc-500 dark:border-zinc-700">
-            {delTipo.length === 0
-              ? pestana === 'fallo'
-                ? 'Ni un fallito apuntado. Ojalá dure.'
-                : 'Todavía no hay ideas de módulos nuevos.'
-              : 'Nada con estos filtros.'}
-          </div>
+          <Vacio
+            titulo={
+              delTipo.length === 0
+                ? pestana === 'fallo'
+                  ? 'Ni un fallito apuntado. Ojalá dure.'
+                  : 'Todavía no hay ideas de módulos nuevos.'
+                : 'Nada con estos filtros.'
+            }
+          />
         ) : pestana === 'fallo' ? (
-          <ul className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <Tarjeta as="div" className="overflow-hidden">
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {visibles.map((t) => (
               <FilaFallo key={t.id} t={t} onCambiar={(c) => cambiar(t.id, c)} onBorrar={() => borrar(t)} />
             ))}
           </ul>
+          </Tarjeta>
         ) : (
           <div className="space-y-4">
             {visibles.map((t) => (
@@ -228,7 +219,7 @@ function FilaFallo({
   }
 
   return (
-    <li className="group flex items-start gap-3 px-4 py-3">
+    <li className="flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap">
       <button
         type="button"
         onClick={() => {
@@ -236,20 +227,26 @@ function FilaFallo({
           onCambiar({ estado: hecho ? 'pendiente' : 'hecho' });
         }}
         aria-label={hecho ? 'Volver a pendiente' : 'Marcar como hecho'}
-        className={cn(
-          'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors',
-          hecho
-            ? 'border-emerald-500 bg-emerald-500 text-white'
-            : 'border-zinc-300 text-transparent hover:border-emerald-500 hover:text-emerald-500 dark:border-zinc-600',
-        )}
+        aria-pressed={hecho}
+        className="-my-2 -ml-2 flex size-10 shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <Check className="h-3.5 w-3.5" />
+        <span
+          className={cn(
+            'flex size-6 items-center justify-center rounded-full border transition-colors',
+            hecho
+              ? 'border-emerald-600 bg-emerald-600 text-white'
+              : 'border-zinc-300 text-transparent hover:border-emerald-600 hover:text-emerald-600 dark:border-zinc-600',
+          )}
+        >
+          <Check aria-hidden className="size-3.5" />
+        </span>
       </button>
       <div className="min-w-0 flex-1">
         {editando ? (
-          <input
+          <Input
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
+            aria-label="Qué falla"
             onBlur={guardar}
             onKeyDown={(e) => {
               if (e.key === 'Enter') guardar();
@@ -259,13 +256,12 @@ function FilaFallo({
               }
             }}
             autoFocus
-            className={ESTILO_CAMPO}
           />
         ) : (
           <p
             className={cn(
               'text-[15px] leading-snug text-zinc-900 dark:text-zinc-100',
-              (hecho || t.estado === 'descartado') && 'text-zinc-400 line-through dark:text-zinc-500',
+              (hecho || t.estado === 'descartado') && 'text-zinc-500 line-through dark:text-zinc-400',
             )}
           >
             {t.titulo}
@@ -276,7 +272,7 @@ function FilaFallo({
             value={t.modulo ?? ''}
             onChange={(e) => onCambiar({ modulo: e.target.value || null })}
             aria-label="Módulo"
-            className="field-sizing-content cursor-pointer appearance-none rounded-md bg-blue-50 px-1.5 py-0.5 font-medium text-blue-700 outline-none dark:bg-blue-500/10 dark:text-blue-300"
+            className="field-sizing-content h-10 cursor-pointer appearance-none rounded-md bg-zinc-100 px-2 font-medium text-zinc-700 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-zinc-800 dark:text-zinc-300"
           >
             <option value="">General</option>
             {MODULOS_FALLO.map((m) => (
@@ -285,31 +281,29 @@ function FilaFallo({
               </option>
             ))}
           </select>
-          {t.ruta && <code className="text-[11px] text-zinc-400">{t.ruta}</code>}
+          {t.ruta && <code className="text-xs text-zinc-500 dark:text-zinc-400">{t.ruta}</code>}
           <span>
             {t.createdByNombre ?? t.createdBy} · {fechaCorta(t.createdAt)}
           </span>
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-0.5">
+      {/* Editar y borrar se ven siempre (en el iPad no hay ratón), aunque más tenues */}
+      <div className="ml-auto flex shrink-0 items-center gap-0.5">
         <EstadoSelect estado={t.estado} onChange={(estado) => onCambiar({ estado })} className="mr-1" />
         <BotonCopiar texto={() => promptTarea(t)} compacto />
-        <button
+        <Button type="button" variant="ghost" size="icon-sm" onClick={() => setEditando(true)} aria-label="Editar">
+          <Pencil aria-hidden />
+        </Button>
+        <Button
           type="button"
-          onClick={() => setEditando(true)}
-          aria-label="Editar"
-          className="hidden h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 group-hover:flex sm:flex dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={onBorrar}
           aria-label="Borrar"
-          className="hidden h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600 group-hover:flex sm:flex dark:hover:bg-red-500/10"
+          className="hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10 dark:hover:text-red-300"
         >
-          <Trash2 className="h-4 w-4" />
-        </button>
+          <Trash2 aria-hidden />
+        </Button>
       </div>
     </li>
   );
@@ -355,25 +349,29 @@ function TarjetaModulo({
   }
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <header className="flex items-start gap-3 p-4 pb-3">
-        <button
+    <Tarjeta as="article" className="overflow-hidden">
+      <div className="flex items-start gap-2 p-4 pb-3">
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setPlegado((p) => !p)}
           aria-label={plegado ? 'Desplegar' : 'Plegar'}
-          className="mt-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+          aria-expanded={!plegado}
+          className="-mt-1 -ml-2"
         >
-          <ChevronDown className={cn('h-4 w-4 transition-transform', plegado && '-rotate-90')} />
-        </button>
+          <ChevronDown aria-hidden className={cn('transition-transform', plegado && '-rotate-90')} />
+        </Button>
         <div className="min-w-0 flex-1">
           {editando ? (
-            <input
+            <Input
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              className={cn(ESTILO_CAMPO, 'text-base font-semibold')}
+              aria-label="Nombre del módulo"
+              className="font-semibold"
             />
           ) : (
-            <h3 className="text-lg leading-snug font-semibold text-zinc-900 dark:text-zinc-100">{t.titulo}</h3>
+            <h2 className="text-lg leading-snug font-semibold text-zinc-900 dark:text-zinc-100">{t.titulo}</h2>
           )}
           <p className="mt-0.5 text-xs text-zinc-500">
             {t.createdByNombre ?? t.createdBy} · {fechaCorta(t.createdAt)}
@@ -388,7 +386,7 @@ function TarjetaModulo({
           </p>
         </div>
         <EstadoSelect estado={t.estado} onChange={(estado: EstadoTarea) => onCambiar({ estado })} />
-      </header>
+      </div>
 
       {total > 0 && (
         <div className="mx-4 h-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
@@ -399,33 +397,29 @@ function TarjetaModulo({
       {!plegado && (
         <div className="space-y-4 p-4 pt-3">
           {editando ? (
-            <textarea
+            <Textarea
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               rows={8}
               autoFocus
+              aria-label="Definición funcional"
               placeholder="Definición funcional: qué resuelve, quién lo usa, cómo funciona…"
-              className={cn(ESTILO_CAMPO, 'resize-y leading-relaxed')}
             />
           ) : t.descripcion ? (
             <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
               {t.descripcion}
             </p>
           ) : (
-            <button
-              type="button"
-              onClick={() => setEditando(true)}
-              className="text-sm text-zinc-400 italic hover:text-zinc-600"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setEditando(true)} className="-ml-3.5 font-normal">
               Sin descripción todavía. Añadir…
-            </button>
+            </Button>
           )}
 
           <div>
             {total > 0 && (
               <ul className="space-y-1">
                 {t.checklist.map((item) => (
-                  <li key={item.id} className="group flex items-start gap-2.5 rounded-lg px-1 py-1 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <li key={item.id} className="flex items-center gap-1 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                     <button
                       type="button"
                       onClick={() => {
@@ -433,41 +427,49 @@ function TarjetaModulo({
                         cambiarLista(t.checklist.map((i) => (i.id === item.id ? { ...i, hecho: !i.hecho } : i)));
                       }}
                       aria-label={item.hecho ? 'Desmarcar' : 'Marcar'}
-                      className={cn(
-                        'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors',
-                        item.hecho
-                          ? 'border-emerald-500 bg-emerald-500 text-white'
-                          : 'border-zinc-300 text-transparent hover:border-emerald-500 dark:border-zinc-600',
-                      )}
+                      aria-pressed={item.hecho}
+                      className="flex size-10 shrink-0 items-center justify-center rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                     >
-                      <Check className="h-3 w-3" />
+                      <span
+                        className={cn(
+                          'flex size-5 items-center justify-center rounded-md border transition-colors',
+                          item.hecho
+                            ? 'border-emerald-600 bg-emerald-600 text-white'
+                            : 'border-zinc-300 text-transparent hover:border-emerald-600 dark:border-zinc-600',
+                        )}
+                      >
+                        <Check aria-hidden className="size-3" />
+                      </span>
                     </button>
                     <span
                       className={cn(
                         'flex-1 text-sm text-zinc-800 dark:text-zinc-200',
-                        item.hecho && 'text-zinc-400 line-through dark:text-zinc-500',
+                        item.hecho && 'text-zinc-500 line-through dark:text-zinc-400',
                       )}
                     >
                       {item.texto}
                     </span>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => cambiarLista(t.checklist.filter((i) => i.id !== item.id))}
-                      aria-label="Quitar"
-                      className="text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500 focus-visible:opacity-100 dark:text-zinc-600"
+                      aria-label={`Quitar «${item.texto}»`}
+                      className="text-zinc-400 hover:text-red-700 dark:text-zinc-500 dark:hover:text-red-300"
                     >
-                      <X className="h-4 w-4" />
-                    </button>
+                      <X aria-hidden />
+                    </Button>
                   </li>
                 ))}
               </ul>
             )}
             <form onSubmit={anadirItem} className="mt-2">
-              <input
+              <Input
                 value={nuevoItem}
                 onChange={(e) => setNuevoItem(e.target.value)}
                 placeholder="+ Añadir a la lista…"
-                className={cn(ESTILO_CAMPO, 'border-dashed py-1.5')}
+                aria-label="Añadir a la lista"
+                className="border-dashed"
               />
             </form>
           </div>
@@ -475,32 +477,20 @@ function TarjetaModulo({
           <div className="flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
             <BotonCopiar texto={() => promptTarea(t)} etiqueta="Copiar definición para Claude" />
             {editando ? (
-              <button
-                type="button"
-                onClick={guardarTexto}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-              >
-                <Check className="h-4 w-4" /> Guardar
-              </button>
+              <Button type="button" size="sm" onClick={guardarTexto}>
+                <Check aria-hidden /> Guardar
+              </Button>
             ) : (
-              <button
-                type="button"
-                onClick={() => setEditando(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <Pencil className="h-4 w-4" /> Editar
-              </button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditando(true)}>
+                <Pencil aria-hidden /> Editar
+              </Button>
             )}
-            <button
-              type="button"
-              onClick={onBorrar}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-            >
-              <Trash2 className="h-4 w-4" /> Borrar
-            </button>
+            <Button type="button" variant="destructive" size="sm" onClick={onBorrar} className="ml-auto">
+              <Trash2 aria-hidden /> Borrar
+            </Button>
           </div>
         </div>
       )}
-    </article>
+    </Tarjeta>
   );
 }

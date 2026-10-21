@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
 
 interface EffectivenessSliderProps {
   value: number | null;
@@ -82,13 +83,9 @@ export function EffectivenessSlider({ value, onChange }: EffectivenessSliderProp
         </motion.span>
 
         {value !== null && (
-          <button
-            type="button"
-            onClick={() => onChange(null)}
-            className="text-xs text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 underline underline-offset-2"
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
             Quitar valoración
-          </button>
+          </Button>
         )}
       </div>
 
@@ -138,7 +135,7 @@ export function EffectivenessSlider({ value, onChange }: EffectivenessSliderProp
         {/* Marcas en enteros */}
         <div className="absolute w-full top-full mt-1 flex justify-between px-[1px]">
           {[0, 1, 2, 3, 4, 5].map((n) => (
-            <span key={n} className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
+            <span key={n} className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
               {n}
             </span>
           ))}

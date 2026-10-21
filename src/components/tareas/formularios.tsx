@@ -2,12 +2,15 @@
 
 // Los dos formularios de alta, iguales en el panel flotante y en el tablero.
 import { useRef, useState } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
-import { cn } from '@/lib/utils';
 import { checklistDeTexto, etiquetaModulo, moduloDeRuta, MODULOS_FALLO, type Tarea } from '@/lib/tareas';
-import { apiTareas, ESTILO_CAMPO } from './comun';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Selector } from '@/components/ui/selector';
+import { Textarea } from '@/components/ui/textarea';
+import { apiTareas } from './comun';
 
 /**
  * Un fallito es UNA línea: módulo (ya elegido según la pantalla en la que estás) y qué
@@ -52,37 +55,33 @@ export function FormFallo({
 
   return (
     <form onSubmit={guardar} className="space-y-2">
-      <select
-        value={modulo}
-        onChange={(e) => setModulo(e.target.value)}
-        aria-label="Módulo"
-        className={cn(ESTILO_CAMPO, 'py-1.5')}
-      >
+      <Selector value={modulo} onChange={(e) => setModulo(e.target.value)} aria-label="Módulo">
         <option value="">General (toda la plataforma)</option>
         {MODULOS_FALLO.map((m) => (
           <option key={m} value={m}>
             {etiquetaModulo(m)}
           </option>
         ))}
-      </select>
+      </Selector>
       <div className="flex gap-2">
-        <input
+        <Input
           ref={input}
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           autoFocus={autoFocus}
           maxLength={500}
           placeholder="¿Qué falla? En una línea…"
-          className={ESTILO_CAMPO}
+          aria-label="Qué falla"
         />
-        <button
+        <Button
           type="submit"
-          disabled={texto.trim().length < 3 || guardando}
-          className="inline-flex shrink-0 items-center justify-center rounded-lg bg-blue-600 px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-40"
+          size="icon"
+          disabled={texto.trim().length < 3}
+          cargando={guardando}
           aria-label="Apuntar"
         >
-          {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-        </button>
+          {!guardando && <Plus aria-hidden />}
+        </Button>
       </div>
     </form>
   );
@@ -125,35 +124,32 @@ export function FormModulo({ onCreada, autoFocus = false }: { onCreada: (t: Tare
 
   return (
     <form onSubmit={guardar} className="space-y-2">
-      <input
+      <Input
         value={titulo}
         onChange={(e) => setTitulo(e.target.value)}
         autoFocus={autoFocus}
         maxLength={200}
         placeholder="Nombre del módulo (p. ej. Sustituciones)"
-        className={cn(ESTILO_CAMPO, 'font-medium')}
+        aria-label="Nombre del módulo"
+        className="font-medium"
       />
-      <textarea
+      <Textarea
         value={descripcion}
         onChange={(e) => setDescripcion(e.target.value)}
         rows={3}
         placeholder="¿Qué resuelve? ¿Quién lo usa? ¿Cómo funciona?"
-        className={cn(ESTILO_CAMPO, 'resize-y')}
+        aria-label="Qué resuelve"
       />
-      <textarea
+      <Textarea
         value={lista}
         onChange={(e) => setLista(e.target.value)}
         rows={3}
         placeholder={'Qué tendrá, una cosa por línea (opcional)\nFormulario para…\nAviso por correo a…'}
-        className={cn(ESTILO_CAMPO, 'resize-y')}
+        aria-label="Qué tendrá"
       />
-      <button
-        type="submit"
-        disabled={titulo.trim().length < 2 || guardando}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-40"
-      >
-        {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Guardar idea
-      </button>
+      <Button type="submit" className="w-full" disabled={titulo.trim().length < 2} cargando={guardando}>
+        {!guardando && <Plus aria-hidden />} Guardar idea
+      </Button>
     </form>
   );
 }

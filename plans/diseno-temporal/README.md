@@ -13,8 +13,8 @@
 |---|---|---|
 | [`auditoria.md`](./auditoria.md) | Lo que encontró la auditoría, módulo a módulo. Contexto para quien ejecute los planes | Hecho |
 | [`fase-1-guia-y-piezas.md`](./fase-1-guia-y-piezas.md) | Guía `docs/diseno.md`, tokens, piezas comunes en `ui/`, escaparate y red de seguridad | HECHO (21-oct) |
-| [`fase-2-cabeceras-y-esqueletos.md`](./fase-2-cabeceras-y-esqueletos.md) | Registro de módulos, cabecera y página comunes en los 22 layouts, `loading.tsx` en todas las rutas | BORRADOR |
-| [`fase-3-modulo-a-modulo.md`](./fase-3-modulo-a-modulo.md) | Cambiar las piezas propias de cada módulo por las comunes, en orden de uso | BORRADOR |
+| [`fase-2-cabeceras-y-esqueletos.md`](./fase-2-cabeceras-y-esqueletos.md) | Registro de módulos, cabecera y página comunes en los 22 layouts, `loading.tsx` en todas las rutas | HECHO (21-oct) |
+| [`fase-3-modulo-a-modulo.md`](./fase-3-modulo-a-modulo.md) | Cambiar las piezas propias de cada módulo por las comunes, en orden de uso | HECHO (21-oct) |
 | [`fase-4-repaso.md`](./fase-4-repaso.md) | Contraste, foco, tamaños, modo oscuro y capturas de antes y después | BORRADOR |
 | [`fase-5-limpieza.md`](./fase-5-limpieza.md) | Borrar esta carpeta y el artefacto; dejar la guía | BORRADOR |
 | [`arreglos-sueltos.md`](./arreglos-sueltos.md) | 5 fallos que salieron de paso (no son de diseño) | HECHO (21-oct) |

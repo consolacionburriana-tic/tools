@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { StudentPicker, type StudentSelection } from './student-picker';
@@ -18,6 +18,7 @@ import { FormSection, OptionalBlock } from './form-section';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { BarraAcciones } from '@/components/ui/barra-acciones';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/draft-storage';
 import { haptic } from '@/lib/haptics';
 import { CONTEXTS, TIME_SLOTS, PRESENT_PEOPLE, BEHAVIORS, REASONS } from '@/lib/constants';
@@ -183,7 +184,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
         >
-          <CheckCircle2 className="w-20 h-20 text-teal-500" />
+          <CheckCircle2 aria-hidden className="w-20 h-20 text-emerald-600 dark:text-emerald-400" />
         </motion.div>
         <motion.p
           initial={{ opacity: 0, y: 10 }}
@@ -191,32 +192,23 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           transition={{ delay: 0.3 }}
           className="text-xl font-semibold text-zinc-800 dark:text-zinc-200"
         >
-          Guardado, gracias 💚
+          Guardado, gracias
         </motion.p>
       </motion.div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8 pb-32">
+    <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8">
 
       {/* ── Header ABC ─────────────────────────────────────────────── */}
-      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 space-y-2">
-        <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
-          Registro de conductas
+      <div className="space-y-1">
+        <p className="text-base font-medium text-zinc-800 dark:text-zinc-200">
+          Análisis <span className="font-bold">A</span>ntecedentes — <span className="font-bold">C</span>onducta —{' '}
+          <span className="font-bold">C</span>onsecuencias
         </p>
-        <p className="text-base font-medium text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          Análisis{' '}
-          <span className="font-bold text-teal-600 dark:text-teal-400">A</span>ntecedentes
-          {' — '}
-          <span className="font-bold text-teal-600 dark:text-teal-400">C</span>onducta
-          {' — '}
-          <span className="font-bold text-teal-600 dark:text-teal-400">C</span>onsecuencias
-        </p>
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          Rellena los campos obligatorios{' '}
-          <span className="text-teal-600 dark:text-teal-400 font-medium">*</span>
-          {' '}· Los demás son opcionales y puedes completarlos después.
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Rellena los campos obligatorios (*). Los demás son opcionales y puedes completarlos después.
         </p>
       </div>
 
@@ -234,9 +226,6 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
             />
           )}
         />
-        <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-          Registrando como <span className="font-medium text-zinc-500 dark:text-zinc-400">{registradoPor}</span>
-        </p>
       </FormSection>
 
       <FormSection title="Fecha" required error={errors.reportDate?.message}>
@@ -254,7 +243,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           name="context"
           control={control}
           render={({ field }) => (
-            <ChipSelect options={[...CONTEXTS]} value={field.value} onChange={field.onChange} />
+            <ChipSelect etiqueta="Dónde ocurre" options={[...CONTEXTS]} value={field.value} onChange={field.onChange} />
           )}
         />
         <AnimatePresence>
@@ -273,7 +262,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
                   <Input
                     {...field}
                     placeholder="Especifica el lugar…"
-                    className="mt-2 rounded-xl border-zinc-200 dark:border-zinc-700"
+                    className="mt-2"
                   />
                 )}
               />
@@ -287,7 +276,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           name="timeSlot"
           control={control}
           render={({ field }) => (
-            <ChipSelect options={[...TIME_SLOTS]} value={field.value ?? null} onChange={field.onChange} />
+            <ChipSelect etiqueta="Cuándo ocurre" options={[...TIME_SLOTS]} value={field.value ?? null} onChange={field.onChange} />
           )}
         />
       </FormSection>
@@ -302,7 +291,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           name="presentPeople"
           control={control}
           render={({ field }) => (
-            <ChipMultiselect options={[...PRESENT_PEOPLE]} value={field.value} onChange={field.onChange} />
+            <ChipMultiselect etiqueta="Personas presentes" options={[...PRESENT_PEOPLE]} value={field.value} onChange={field.onChange} />
           )}
         />
         <Controller
@@ -312,7 +301,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
             <Textarea
               {...field}
               placeholder="Nombres (opcional)"
-              className="mt-2 rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[72px]"
+              className="mt-2 min-h-[72px]"
             />
           )}
         />
@@ -323,7 +312,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           name="behaviors"
           control={control}
           render={({ field }) => (
-            <ChipMultiselect options={[...BEHAVIORS]} value={field.value} onChange={field.onChange} emphasized />
+            <ChipMultiselect etiqueta="Conductas" options={[...BEHAVIORS]} value={field.value} onChange={field.onChange} />
           )}
         />
       </FormSection>
@@ -336,7 +325,6 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
             <Input
               {...field}
               placeholder="Nombres o descripción de las personas implicadas"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700"
             />
           )}
         />
@@ -348,7 +336,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           name="reasons"
           control={control}
           render={({ field }) => (
-            <ChipMultiselect options={[...REASONS]} value={field.value} onChange={field.onChange} />
+            <ChipMultiselect etiqueta="Motivos" options={[...REASONS]} value={field.value} onChange={field.onChange} />
           )}
         />
         <AnimatePresence>
@@ -367,7 +355,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
                   <Input
                     {...field}
                     placeholder="Describe el motivo…"
-                    className="mt-2 rounded-xl border-zinc-200 dark:border-zinc-700"
+                    className="mt-2"
                   />
                 )}
               />
@@ -384,7 +372,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
             <Textarea
               {...field}
               placeholder="¿Qué ha pasado? Cuéntalo con tus palabras…"
-              className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[120px]"
+              className="min-h-[120px]"
             />
           )}
         />
@@ -405,7 +393,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
               <Textarea
                 {...field}
                 placeholder="¿Qué ocurre antes de que se desarrolle esta conducta?"
-                className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+                className="min-h-[96px]"
               />
             )}
           />
@@ -419,7 +407,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
               <Textarea
                 {...field}
                 placeholder="¿Qué ocurre después?"
-                className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+                className="min-h-[96px]"
               />
             )}
           />
@@ -433,7 +421,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
               <Textarea
                 {...field}
                 placeholder="¿Qué hiciste para reconducir la situación?"
-                className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+                className="min-h-[96px]"
               />
             )}
           />
@@ -457,30 +445,22 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
               <Textarea
                 {...field}
                 placeholder="Cualquier otra observación relevante…"
-                className="rounded-xl border-zinc-200 dark:border-zinc-700 min-h-[96px]"
+                className="min-h-[96px]"
               />
             )}
           />
         </FormSection>
       </OptionalBlock>
 
-      {/* Botón guardar sticky */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 z-50">
-        <Button
-          type="submit"
-          disabled={submitting}
-          className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white font-semibold text-base shadow-sm"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              Guardando…
-            </>
-          ) : (
-            'Guardar registro'
-          )}
+      {/* Guardar: la barra fija común, con quién registra a la izquierda */}
+      <BarraAcciones
+        ancho="estrecho"
+        resumen={<span className="block truncate">Registra {registradoPor}</span>}
+      >
+        <Button type="submit" size="lg" cargando={submitting}>
+          {submitting ? 'Guardando…' : 'Guardar registro'}
         </Button>
-      </div>
+      </BarraAcciones>
     </form>
   );
 }

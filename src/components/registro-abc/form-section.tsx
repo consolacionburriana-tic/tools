@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
+import { Etiqueta } from '@/components/ui/etiqueta';
 
 interface FormSectionProps {
   title: string;
@@ -12,21 +13,23 @@ interface FormSectionProps {
 
 export function FormSection({ title, required, multiselect, error, children }: FormSectionProps) {
   return (
-    <div className="space-y-3">
+    <section className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{title}</h3>
-        {required && <span className="text-teal-600 dark:text-teal-400 text-xs font-medium">*</span>}
-        {multiselect && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700 select-none">
-            selección múltiple
+        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{title}</h2>
+        {required && (
+          <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400" aria-label="obligatorio">
+            *
           </span>
         )}
+        {multiselect && <Etiqueta className="select-none">selección múltiple</Etiqueta>}
       </div>
       {children}
       {error && (
-        <p className="text-xs text-rose-500/90 dark:text-rose-400/90 mt-1">{error}</p>
+        <p role="alert" className="mt-1 text-sm text-red-700 dark:text-red-400">
+          {error}
+        </p>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -40,16 +43,14 @@ interface OptionalBlockProps {
 /** Bloque opcional plegado por defecto: se ve claramente que no hace falta rellenarlo. */
 export function OptionalBlock({ title, open, onToggle, children }: OptionalBlockProps) {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40">
+    <div className="rounded-2xl border border-dashed border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+        className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl px-4 py-3.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 shrink-0">
-          Opcional
-        </span>
+        <Etiqueta>Opcional</Etiqueta>
         <span className="flex-1 text-sm font-medium text-zinc-600 dark:text-zinc-300">{title}</span>
         <ChevronDown
           className={`w-4 h-4 shrink-0 text-zinc-400 dark:text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`}

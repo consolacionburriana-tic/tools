@@ -5,7 +5,6 @@
 // scroll al dedo); con ratón, en cuanto se mueve. Tocar una tarjeta abre su ficha, y la ficha
 // abierta va en la URL (`?t=`) para poder pasar el enlace a alguien.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   closestCorners,

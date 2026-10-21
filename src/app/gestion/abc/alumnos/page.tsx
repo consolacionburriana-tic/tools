@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Mail, Plus, PlusCircle, Search, Star, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Estado } from '@/components/ui/estado';
+import { Rotulo } from '@/components/ui/rotulo';
+import { SkeletonRows } from '@/components/ui/skeleton';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -67,24 +74,27 @@ function AvisosManager({ student, onUpdated }: { student: AbcStudentPanel; onUpd
 
   return (
     <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-      <button
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-xs text-zinc-500 transition-colors hover:text-teal-600 dark:text-zinc-400 dark:hover:text-teal-400"
+        className="-ml-3.5 font-normal"
       >
-        <Mail className="h-3.5 w-3.5" />
+        <Mail aria-hidden />
         <span>
           {recipients.length > 0
             ? `Avisamos a ${recipients.length} persona${recipients.length !== 1 ? 's' : ''}`
             : 'Nadie recibe aviso de sus registros'}
         </span>
-        {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      </button>
+        {expanded ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
+      </Button>
 
       {expanded && (
         <div className="mt-3 space-y-3">
           {/* Quién recibe hoy el aviso */}
           {recipients.length === 0 ? (
-            <p className="text-xs italic text-zinc-400">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Nadie recibe aviso todavía. Empieza por orientación o por su tutor/a.
             </p>
           ) : (
@@ -94,16 +104,17 @@ function AvisosManager({ student, onUpdated }: { student: AbcStudentPanel; onUpd
                 return (
                   <span
                     key={email}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-50 py-1 pl-2.5 pr-1 text-xs dark:bg-zinc-800"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-full border border-zinc-200 bg-white pl-3.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                   >
-                    <span className="font-medium text-zinc-700 dark:text-zinc-200">{p?.nombre ?? email}</span>
-                    {p && <span className="text-[10px] text-teal-600 dark:text-teal-400">{p.etiqueta}</span>}
+                    <span className="font-medium text-zinc-800 dark:text-zinc-100">{p?.nombre ?? email}</span>
+                    {p && <span className="text-xs text-zinc-500 dark:text-zinc-400">{p.etiqueta}</span>}
                     <button
+                      type="button"
                       onClick={() => quitar(email)}
-                      className="p-0.5 text-zinc-400 transition-colors hover:text-rose-500"
+                      className="flex size-10 items-center justify-center rounded-full text-zinc-500 outline-none transition-colors hover:text-red-600 focus-visible:ring-3 focus-visible:ring-ring/50"
                       aria-label={`Quitar a ${p?.nombre ?? email}`}
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X aria-hidden className="size-4" />
                     </button>
                   </span>
                 );
@@ -114,21 +125,18 @@ function AvisosManager({ student, onUpdated }: { student: AbcStudentPanel; onUpd
           {/* Sugerencias de un toque */}
           {sugeridosPendientes.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Sugeridos</p>
+              <Rotulo as="p">Sugeridos</Rotulo>
               <div className="flex flex-wrap gap-1.5">
                 {sugeridosPendientes.map((p) => (
                   <button
                     key={p.email}
+                    type="button"
                     onClick={() => añadir(p.email, p.nombre)}
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
-                      p.motivo === 'orientacion'
-                        ? 'border-teal-200 bg-teal-50 text-teal-800 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-200'
-                        : 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200'
-                    }`}
+                    className={buttonVariants({ variant: 'outline', size: 'sm' })}
                   >
-                    <Plus className="h-3 w-3" />
-                    <span className="font-medium">{p.nombre}</span>
-                    <span className="opacity-70">{p.etiqueta}</span>
+                    <Plus aria-hidden />
+                    <span>{p.nombre}</span>
+                    <span className="font-normal text-zinc-500 dark:text-zinc-400">{p.etiqueta}</span>
                   </button>
                 ))}
               </div>
@@ -139,8 +147,8 @@ function AvisosManager({ student, onUpdated }: { student: AbcStudentPanel; onUpd
           {recipients.length < 20 && (
             <div className="flex flex-wrap items-center gap-2">
               <Popover open={buscador} onOpenChange={setBuscador}>
-                <PopoverTrigger className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 transition-colors hover:border-teal-300 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-teal-700">
-                  <Search className="h-3 w-3" /> Buscar en el claustro
+                <PopoverTrigger className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                  <Search aria-hidden /> Buscar en el claustro
                 </PopoverTrigger>
                 <PopoverContent className="w-72 rounded-xl p-0" align="start">
                   <Command>
@@ -162,9 +170,9 @@ function AvisosManager({ student, onUpdated }: { student: AbcStudentPanel; onUpd
                             >
                               <div className="flex w-full items-baseline justify-between gap-2">
                                 <span className="font-medium text-zinc-900 dark:text-zinc-100">{p.nombre}</span>
-                                <span className="shrink-0 text-[10px] text-zinc-400">{p.etiqueta}</span>
+                                <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{p.etiqueta}</span>
                               </div>
-                              {ya && <Check className="ml-1 h-3.5 w-3.5 text-teal-500" />}
+                              {ya && <Check aria-label="Ya está" className="ml-1 size-4 text-blue-600 dark:text-blue-400" />}
                             </CommandItem>
                           );
                         })}
@@ -187,28 +195,22 @@ function AvisosManager({ student, onUpdated }: { student: AbcStudentPanel; onUpd
                     }}
                     placeholder="correo@ejemplo.com"
                     autoFocus
-                    className="h-8 rounded-lg border-zinc-200 text-xs dark:border-zinc-700"
+                    aria-label="Correo"
+                    className="h-10"
                   />
-                  <Button
-                    type="button"
-                    onClick={() => añadir(otro).then(() => setOtro(''))}
-                    className="h-8 shrink-0 rounded-lg bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
-                  >
+                  <Button type="button" size="sm" onClick={() => añadir(otro).then(() => setOtro(''))}>
                     Añadir
                   </Button>
                 </div>
               ) : (
-                <button
-                  onClick={() => setOtroAbierto(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
-                >
-                  <Mail className="h-3 w-3" /> Otro correo (familia, externo…)
-                </button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setOtroAbierto(true)}>
+                  <Mail aria-hidden /> Otro correo (familia, externo…)
+                </Button>
               )}
             </div>
           )}
           {recipients.length >= 20 && (
-            <p className="text-[11px] italic text-zinc-400">Límite de 20 destinatarios alcanzado.</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Límite de 20 destinatarios alcanzado.</p>
           )}
         </div>
       )}
@@ -258,36 +260,37 @@ function AltaAlumno({ onCreado }: { onCreado: (s: AbcStudentPanel) => void }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700">
-        <PlusCircle className="h-4 w-4" />
+      <DialogTrigger className={buttonVariants({ variant: 'outline' })}>
+        <PlusCircle aria-hidden />
         Añadir alumno
       </DialogTrigger>
-      <DialogContent className="rounded-2xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Seguir a un alumno</DialogTitle>
         </DialogHeader>
         <div className="mt-2 space-y-3">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <Input
               value={query}
               onChange={(e) => { setQuery(e.target.value); if (e.target.value.trim().length < 3) setResultados([]); }}
               placeholder="Nombre, apellidos o NIA…"
               autoFocus
-              className="rounded-xl pl-9"
+              aria-label="Buscar alumno"
+              className="pl-9"
             />
           </div>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Se enlaza con la BBDD central: aquí solo se guardan sus siglas y su NIA, nunca su nombre.
           </p>
 
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {!buscable ? (
-              <p className="px-1 py-3 text-center text-xs text-zinc-400">Escribe al menos 3 letras.</p>
+              <p className="px-1 py-3 text-center text-sm text-zinc-500 dark:text-zinc-400">Escribe al menos 3 letras.</p>
             ) : buscando ? (
-              <p className="px-1 py-3 text-center text-xs text-zinc-400">Buscando…</p>
+              <p className="px-1 py-3 text-center text-sm text-zinc-500 dark:text-zinc-400">Buscando…</p>
             ) : resultados.length === 0 ? (
-              <p className="px-1 py-3 text-center text-xs text-zinc-400">Sin resultados.</p>
+              <p className="px-1 py-3 text-center text-sm text-zinc-500 dark:text-zinc-400">Sin resultados.</p>
             ) : (
               resultados.map((r) => (
                 <button
@@ -295,10 +298,10 @@ function AltaAlumno({ onCreado }: { onCreado: (s: AbcStudentPanel) => void }) {
                   type="button"
                   disabled={r.yaEnSeguimiento || dandoDeAlta === r.eduStudentId}
                   onClick={() => alta(r)}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
+                  className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
                 >
                   <span className="min-w-0 truncate text-zinc-900 dark:text-zinc-100">{r.nombre}</span>
-                  <span className="shrink-0 text-xs text-zinc-400">
+                  <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
                     {r.yaEnSeguimiento ? 'ya en seguimiento' : r.clase || 'sin clase'}
                   </span>
                 </button>
@@ -340,60 +343,66 @@ export default function AlumnosPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <h1 className="sr-only">Alumnado del Registro ABC</h1>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Alumnado</h1>
-          <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
-            Estos son los alumnos que salen en el formulario (no hay buscador) · la estrella
-            marca al que viene ya elegido al abrirlo
-          </p>
-        </div>
+        <p className="max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
+          Estos son los alumnos que salen en el formulario (no hay buscador) · la estrella marca al que viene ya
+          elegido al abrirlo
+        </p>
         <AltaAlumno onCreado={actualizar} />
       </div>
 
-      <div className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-        {loading ? (
-          <p className="p-6 text-center text-sm text-zinc-400">Cargando…</p>
-        ) : students.length === 0 ? (
-          <p className="p-6 text-center text-sm text-zinc-400">Sin alumnos. Añade el primero por su NIA.</p>
-        ) : (
-          students.map((s) => (
-            <div key={s.id} className="px-5 py-4">
-              <div className="flex items-center gap-4">
+      {loading ? (
+        <SkeletonRows n={4} />
+      ) : students.length === 0 ? (
+        <Vacio titulo="Sin alumnos.">Añade el primero por su NIA.</Vacio>
+      ) : (
+        <div className={cn(claseTarjeta, 'divide-y divide-zinc-100 overflow-hidden dark:divide-zinc-800')}>
+          {students.map((s) => (
+            <div key={s.id} className="px-4 py-3">
+              <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={() => marcarPorDefecto(s)}
-                  className="shrink-0 cursor-pointer"
-                  title={s.porDefecto ? 'Viene elegido al abrir el formulario' : 'Que venga elegido al abrir el formulario'}
+                  className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl outline-none hover:bg-zinc-100 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800"
                   aria-label={s.porDefecto ? 'Quitar como alumno por defecto' : 'Marcar como alumno por defecto'}
                   aria-pressed={s.porDefecto}
                 >
-                  <Star className={`h-5 w-5 ${s.porDefecto ? 'fill-amber-400 text-amber-400' : 'text-zinc-300 dark:text-zinc-600'}`} />
+                  <Star
+                    aria-hidden
+                    className={cn(
+                      'size-5',
+                      s.porDefecto ? 'fill-blue-600 text-blue-600 dark:fill-blue-400 dark:text-blue-400' : 'text-zinc-400 dark:text-zinc-500',
+                    )}
+                  />
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium tracking-wide text-zinc-900 dark:text-zinc-100">
                     {s.siglas}
                     {!s.eduStudentId && (
-                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                      <Estado tono="aviso" className="ml-2">
                         sin enlazar
-                      </span>
+                      </Estado>
                     )}
                   </p>
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500">{s.clase || 'Sin clase'}</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {s.clase || 'Sin clase'}
+                    {s.porDefecto && ' · viene elegido al abrir el formulario'}
+                  </p>
                 </div>
-                <button
-                  onClick={() => toggleActivo(s)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${s.active ? 'bg-teal-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}
-                  aria-label={s.active ? 'Desactivar' : 'Activar'}
-                >
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${s.active ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
-                </button>
+                <Interruptor
+                  etiquetaOculta
+                  etiqueta={`${s.siglas} activo`}
+                  activo={s.active}
+                  onChange={() => toggleActivo(s)}
+                />
               </div>
               <AvisosManager student={s} onUpdated={actualizar} />
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
