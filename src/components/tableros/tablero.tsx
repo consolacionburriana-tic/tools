@@ -30,7 +30,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  ChevronLeft,
   CircleCheck,
   Link2,
   MessageSquare,
@@ -45,8 +44,19 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Avatares } from '@/components/ui/avatar';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
+import { ConfirmarDialogo, ConfirmarEnLinea, useConfirmar } from '@/components/ui/confirmar';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Estado } from '@/components/ui/estado';
+import { Filtro } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Selector } from '@/components/ui/selector';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { SelectorEmoji } from '@/components/mihorario/selector-emoji';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -67,17 +77,13 @@ import {
 } from '@/lib/tableros';
 import {
   api,
-  Avatares,
-  BOTON_PRIMARIO,
-  BOTON_SECUNDARIO,
   ChipPrioridad,
   ChipVence,
   EMOJIS_TABLERO,
-  ESTILO_CAMPO,
   ETIQUETA_CLASES,
   FONDO_SUAVE,
   nuevoId,
-  PRIORIDAD_BORDE,
+  personasDe,
   SelectorColor,
 } from './comun';
 import { DetalleTarjeta } from './tarjeta-detalle';
@@ -86,6 +92,7 @@ type Items = Record<string, string[]>;
 
 export function VistaTablero({ inicial, tarjetaInicial }: { inicial: DatosTablero; tarjetaInicial: string | null }) {
   const router = useRouter();
+  const { confirmar, dialogo } = useConfirmar();
   const [datos, setDatos] = useState(inicial);
   const [abierta, setAbierta] = useState<string | null>(tarjetaInicial);
   const [busqueda, setBusqueda] = useState('');
@@ -268,88 +275,84 @@ export function VistaTablero({ inicial, tarjetaInicial }: { inicial: DatosTabler
   const abiertasTotal = tarjetas.filter((t) => !columnas.find((c) => c.id === t.columnaId)?.hecho).length;
 
   return (
-    <div className={cn('min-h-[calc(100dvh-3.5rem)]', FONDO_SUAVE[tablero.color])}>
+    // El lienzo del color del tablero ocupa todo lo que deja la cabecera común: se come el
+    // margen de `PaginaModulo` para llegar a los bordes.
+    <div className={cn('-mx-4 -mt-5 -mb-20 min-h-[calc(100dvh-3.5rem)] sm:-mx-6', FONDO_SUAVE[tablero.color])}>
       {/* Cabecera del tablero */}
-      <div className="mx-auto max-w-[1800px] space-y-3 px-4 pt-4">
+      <div className="space-y-3 px-4 pt-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/gestion/tableros"
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-zinc-600 hover:bg-white/60 dark:text-zinc-300 dark:hover:bg-zinc-900/60"
-          >
-            <ChevronLeft className="h-4 w-4" /> {equipo.emoji} {equipo.nombre}
-          </Link>
+          <EnlaceVolver href="/gestion/tableros">
+            {equipo.emoji} {equipo.nombre}
+          </EnlaceVolver>
           {datos.hermanos.length > 1 && (
-            <select
+            <Selector
               value={tablero.id}
               onChange={(e) => router.push(`/gestion/tableros/${e.target.value}`)}
               aria-label="Cambiar de tablero"
-              className="rounded-lg border-0 bg-white/60 px-2 py-1 text-sm text-zinc-700 outline-none dark:bg-zinc-900/60 dark:text-zinc-200"
+              className="w-auto max-w-full sm:w-72"
             >
               {datos.hermanos.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.emoji} {h.nombre}
                 </option>
               ))}
-            </select>
+            </Selector>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={() => setAjustes(true)} className="group flex min-w-0 items-center gap-3 text-left">
-            <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/70 text-2xl ring-1 ring-black/5 dark:bg-zinc-900/70 dark:ring-white/10')}>
+        <TituloPagina
+          className="mb-0"
+          descripcion={
+            <span className="flex flex-wrap items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              {tablero.archivado && (
+                <Estado tono="neutro" icono={<Archive aria-hidden />}>
+                  Archivado
+                </Estado>
+              )}
+              <span className="tabular-nums">{abiertasTotal} por hacer</span>
+              {tablero.descripcion && <span>· {tablero.descripcion}</span>}
+            </span>
+          }
+          acciones={
+            <>
+              <Avatares personas={miembros} max={5} tamano="md" className="mr-1" />
+              <Button type="button" variant="outline" size="sm" onClick={() => setArchivadas(true)} aria-label="Tarjetas archivadas">
+                <Archive aria-hidden /> <span className="hidden sm:inline">Archivadas</span>
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setAjustes(true)} aria-label="Ajustes del tablero">
+                <Settings2 aria-hidden /> <span className="hidden sm:inline">Ajustes</span>
+              </Button>
+            </>
+          }
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/70 text-2xl ring-1 ring-black/5 dark:bg-zinc-900/70 dark:ring-white/10">
               {tablero.emoji}
             </span>
-            <span className="min-w-0">
-              <span className="flex items-center gap-2 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                <span className="truncate">{tablero.nombre}</span>
-                <Pencil className="h-4 w-4 shrink-0 text-zinc-400 opacity-0 transition-opacity group-hover:opacity-100" />
-              </span>
-              <span className="block truncate text-xs text-zinc-600 dark:text-zinc-400">
-                {tablero.archivado ? '📦 Archivado · ' : ''}
-                {abiertasTotal} por hacer{tablero.descripcion ? ` · ${tablero.descripcion}` : ''}
-              </span>
-            </span>
-          </button>
-          <div className="flex items-center gap-2">
-            <Avatares emails={miembros.map((m) => m.email)} personas={miembros} max={5} tamano="h-7 w-7 text-[10px]" />
-            <button type="button" onClick={() => setArchivadas(true)} className={cn(BOTON_SECUNDARIO, 'px-2.5')} title="Tarjetas archivadas">
-              <Archive className="h-4 w-4" />
-            </button>
-            <button type="button" onClick={() => setAjustes(true)} className={cn(BOTON_SECUNDARIO, 'px-2.5')} title="Ajustes del tablero">
-              <Settings2 className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+            <span className="min-w-0 break-words">{tablero.nombre}</span>
+          </span>
+        </TituloPagina>
 
         {/* Filtros */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Filtrar el tablero" className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-64">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
+            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-500" />
+            <Input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar en el tablero…"
-              className={cn(ESTILO_CAMPO, 'bg-white/80 pl-9 dark:bg-zinc-900/80')}
+              aria-label="Buscar en el tablero"
+              className="pl-9"
             />
           </div>
-          <button
-            type="button"
-            onClick={() => setSoloMias((v) => !v)}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-              soloMias ? 'bg-blue-600 text-white' : 'bg-white/80 text-zinc-700 hover:bg-white dark:bg-zinc-900/80 dark:text-zinc-200',
-            )}
-          >
-            <User className="h-3.5 w-3.5" /> Lo mío
-          </button>
-          <select
+          <Filtro activo={soloMias} onClick={() => setSoloMias((v) => !v)} icono={<User aria-hidden />}>
+            Lo mío
+          </Filtro>
+          <Selector
             value={prioridad}
             onChange={(e) => setPrioridad(e.target.value as Prioridad | '')}
             aria-label="Filtrar por prioridad"
-            className={cn(
-              'rounded-full border-0 px-3 py-1.5 text-xs font-medium outline-none',
-              prioridad ? 'bg-blue-600 text-white' : 'bg-white/80 text-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-200',
-            )}
+            className="w-auto"
           >
             <option value="">Prioridad: todas</option>
             {PRIORIDADES.map((p) => (
@@ -357,38 +360,31 @@ export function VistaTablero({ inicial, tarjetaInicial }: { inicial: DatosTabler
                 {PRIORIDAD_LABELS[p]}
               </option>
             ))}
-          </select>
+          </Selector>
           {tablero.etiquetas.length > 0 && (
-            <select
-              value={etiqueta}
-              onChange={(e) => setEtiqueta(e.target.value)}
-              aria-label="Filtrar por etiqueta"
-              className={cn(
-                'rounded-full border-0 px-3 py-1.5 text-xs font-medium outline-none',
-                etiqueta ? 'bg-blue-600 text-white' : 'bg-white/80 text-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-200',
-              )}
-            >
+            <Selector value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} aria-label="Filtrar por etiqueta" className="w-auto">
               <option value="">Etiqueta: todas</option>
               {tablero.etiquetas.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.nombre || e.color}
                 </option>
               ))}
-            </select>
+            </Selector>
           )}
           {hayFiltro && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setBusqueda('');
                 setSoloMias(false);
                 setPrioridad('');
                 setEtiqueta('');
               }}
-              className="inline-flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             >
-              <X className="h-3.5 w-3.5" /> Quitar filtros
-            </button>
+              <X aria-hidden /> Quitar filtros
+            </Button>
           )}
         </div>
       </div>
@@ -402,7 +398,7 @@ export function VistaTablero({ inicial, tarjetaInicial }: { inicial: DatosTabler
         onDragEnd={alSoltar}
         onDragCancel={() => setArrastre(null)}
       >
-        <div className="mx-auto flex max-w-[1800px] snap-x snap-mandatory items-start gap-3 overflow-x-auto px-4 pt-4 pb-8 sm:snap-none">
+        <div className="flex snap-x snap-mandatory items-start gap-3 overflow-x-auto px-4 pt-4 pb-8 sm:snap-none sm:px-6">
           {columnas.map((c, i) => (
             <ColumnaVista
               key={c.id}
@@ -420,10 +416,16 @@ export function VistaTablero({ inicial, tarjetaInicial }: { inicial: DatosTabler
                 accion({ accion: 'editarColumna', columnaId: c.id, hecho }, hecho ? 'Lo que esté aquí cuenta como terminado' : undefined)
               }
               onMover={(d) => moverColumna(c, d)}
-              onBorrar={() => {
+              onBorrar={async () => {
                 const n = tarjetas.filter((t) => t.columnaId === c.id).length;
-                const aviso = n ? `\n\nSus ${n} tarjeta${n === 1 ? '' : 's'} pasará${n === 1 ? '' : 'n'} a otra lista.` : '';
-                if (window.confirm(`¿Borrar la lista «${c.nombre}»?${aviso}`)) void accion({ accion: 'borrarColumna', columnaId: c.id });
+                const ok = await confirmar({
+                  titulo: `¿Borrar la lista «${c.nombre}»?`,
+                  descripcion: n
+                    ? `Sus ${n} tarjeta${n === 1 ? '' : 's'} pasará${n === 1 ? '' : 'n'} a otra lista.`
+                    : 'Está vacía: no se pierde ninguna tarjeta.',
+                  boton: 'Borrar la lista',
+                });
+                if (ok) void accion({ accion: 'borrarColumna', columnaId: c.id });
               }}
             />
           ))}
@@ -470,6 +472,7 @@ export function VistaTablero({ inicial, tarjetaInicial }: { inicial: DatosTabler
           onRecuperada={(t) => reemplazar(t)}
         />
       )}
+      {dialogo}
     </div>
   );
 }
@@ -517,15 +520,16 @@ function ColumnaVista({
 
   return (
     <section
+      aria-label={columna.nombre}
       className={cn(
-        'flex max-h-[calc(100dvh-13rem)] w-[85vw] shrink-0 snap-center flex-col rounded-2xl bg-zinc-100/85 shadow-sm ring-1 ring-black/5 backdrop-blur-sm sm:w-72 dark:bg-zinc-900/85 dark:ring-white/10',
-        isOver && 'ring-2 ring-blue-400',
+        'flex max-h-[calc(100dvh-13rem)] w-[85vw] shrink-0 snap-center flex-col rounded-2xl bg-zinc-100/90 ring-1 ring-black/5 backdrop-blur-sm sm:w-72 dark:bg-zinc-900/90 dark:ring-white/10',
+        isOver && 'ring-2 ring-blue-500',
       )}
     >
-      <header className="flex items-center gap-2 px-3 pt-3 pb-2">
-        {columna.hecho && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />}
+      <div className="flex items-center gap-2 py-1.5 pr-1.5 pl-3">
+        {columna.hecho && <CheckCircle2 aria-label="Lista de terminado" className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />}
         {renombrando ? (
-          <input
+          <Input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             onBlur={guardarNombre}
@@ -538,7 +542,8 @@ function ColumnaVista({
             }}
             autoFocus
             maxLength={40}
-            className="min-w-0 flex-1 rounded-md bg-white px-2 py-0.5 text-sm font-semibold outline-none ring-2 ring-blue-400 dark:bg-zinc-950"
+            aria-label="Nombre de la lista"
+            className="h-10 flex-1 font-semibold"
           />
         ) : (
           <h3
@@ -548,24 +553,21 @@ function ColumnaVista({
             {columna.nombre}
           </h3>
         )}
-        <span className="rounded-full bg-zinc-200/80 px-2 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+        <span className="rounded-full bg-zinc-200/80 px-2 text-xs font-medium text-zinc-700 tabular-nums dark:bg-zinc-800 dark:text-zinc-300">
           {ids.length}
         </span>
         <Popover open={menu} onOpenChange={setMenu}>
-          <PopoverTrigger
-            aria-label="Opciones de la lista"
-            className="rounded-md p-1 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-          >
-            <MoreHorizontal className="h-4 w-4" />
+          <PopoverTrigger aria-label={`Opciones de la lista «${columna.nombre}»`} className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}>
+            <MoreHorizontal aria-hidden />
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-60 gap-0.5 p-1">
+          <PopoverContent align="end" className="w-64 gap-0.5 p-1">
             <ItemMenu
               onClick={() => {
                 setMenu(false);
                 setRenombrando(true);
               }}
             >
-              <Pencil className="h-4 w-4" /> Cambiar nombre
+              <Pencil aria-hidden /> Cambiar nombre
             </ItemMenu>
             <ItemMenu
               onClick={() => {
@@ -573,7 +575,7 @@ function ColumnaVista({
                 onHecho(!columna.hecho);
               }}
             >
-              <CircleCheck className="h-4 w-4" /> {columna.hecho ? 'Ya no es «terminado»' : 'Lo de aquí está terminado'}
+              <CircleCheck aria-hidden /> {columna.hecho ? 'Ya no es «terminado»' : 'Lo de aquí está terminado'}
             </ItemMenu>
             {!primera && (
               <ItemMenu
@@ -582,7 +584,7 @@ function ColumnaVista({
                   onMover(-1);
                 }}
               >
-                <ArrowLeft className="h-4 w-4" /> Mover a la izquierda
+                <ArrowLeft aria-hidden /> Mover a la izquierda
               </ItemMenu>
             )}
             {!ultima && (
@@ -592,7 +594,7 @@ function ColumnaVista({
                   onMover(1);
                 }}
               >
-                <ArrowRight className="h-4 w-4" /> Mover a la derecha
+                <ArrowRight aria-hidden /> Mover a la derecha
               </ItemMenu>
             )}
             <ItemMenu
@@ -602,11 +604,11 @@ function ColumnaVista({
                 onBorrar();
               }}
             >
-              <Trash2 className="h-4 w-4" /> Borrar la lista
+              <Trash2 aria-hidden /> Borrar la lista
             </ItemMenu>
           </PopoverContent>
         </Popover>
-      </header>
+      </div>
 
       <SortableContext id={columna.id} items={ids} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
@@ -615,7 +617,7 @@ function ColumnaVista({
             return t ? <TarjetaArrastrable key={id} t={t} datos={datos} hecha={columna.hecho} onAbrir={() => onAbrir(id)} /> : null;
           })}
           {ids.length === 0 && (
-            <p className="rounded-xl border-2 border-dashed border-zinc-300/80 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-700">
+            <p className="rounded-xl border-2 border-dashed border-zinc-300/80 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
               {hayFiltro ? 'Nada con estos filtros' : columna.hecho ? 'Arrastra aquí lo terminado' : 'Sin tareas'}
             </p>
           )}
@@ -633,8 +635,10 @@ function ItemMenu({ children, onClick, peligro }: { children: React.ReactNode; o
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
-        peligro ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800',
+        'flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:shrink-0',
+        peligro
+          ? 'text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10'
+          : 'text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800',
       )}
     >
       {children}
@@ -663,18 +667,16 @@ function AltaRapida({ onCrear }: { onCrear: (titulo: string) => Promise<boolean>
 
   if (!abierta) {
     return (
-      <button
-        type="button"
-        onClick={() => setAbierta(true)}
-        className="mx-2 mb-2 flex items-center gap-1.5 rounded-xl px-2 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-200/80 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-      >
-        <Plus className="h-4 w-4" /> Añadir tarea
-      </button>
+      <div className="px-2 pb-2">
+        <Button type="button" variant="ghost" size="sm" onClick={() => setAbierta(true)} className="w-full justify-start">
+          <Plus aria-hidden /> Añadir tarea
+        </Button>
+      </div>
     );
   }
   return (
     <div className="space-y-2 px-2 pb-2">
-      <textarea
+      <Textarea
         ref={ref}
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
@@ -689,23 +691,25 @@ function AltaRapida({ onCrear }: { onCrear: (titulo: string) => Promise<boolean>
         rows={2}
         maxLength={200}
         placeholder="¿Qué hay que hacer?"
-        className="w-full resize-none rounded-xl border-0 bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-black/5 outline-none focus:ring-2 focus:ring-blue-400 dark:bg-zinc-950 dark:ring-white/10"
+        aria-label="Título de la tarea"
+        className="min-h-20 resize-none"
       />
       <div className="flex items-center gap-2">
-        <button type="button" onClick={crear} disabled={!texto.trim() || guardando} className={cn(BOTON_PRIMARIO, 'px-3 py-1.5')}>
+        <Button type="button" size="sm" onClick={crear} disabled={!texto.trim()} cargando={guardando}>
           Añadir
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={() => {
             setAbierta(false);
             setTexto('');
           }}
           aria-label="Cancelar"
-          className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800"
         >
-          <X className="h-4 w-4" />
-        </button>
+          <X />
+        </Button>
       </div>
     </div>
   );
@@ -725,8 +729,8 @@ function NuevaColumna({ onCrear }: { onCrear: (nombre: string) => Promise<unknow
   return (
     <div className="w-[85vw] shrink-0 snap-center sm:w-72">
       {abierta ? (
-        <div className="space-y-2 rounded-2xl bg-zinc-100/85 p-3 shadow-sm ring-1 ring-black/5 dark:bg-zinc-900/85 dark:ring-white/10">
-          <input
+        <div className="space-y-2 rounded-2xl bg-zinc-100/90 p-2 ring-1 ring-black/5 dark:bg-zinc-900/90 dark:ring-white/10">
+          <Input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             onKeyDown={(e) => {
@@ -736,24 +740,24 @@ function NuevaColumna({ onCrear }: { onCrear: (nombre: string) => Promise<unknow
             autoFocus
             maxLength={40}
             placeholder="Nombre de la lista"
-            className={ESTILO_CAMPO}
+            aria-label="Nombre de la lista"
           />
           <div className="flex gap-2">
-            <button type="button" onClick={crear} disabled={!nombre.trim()} className={cn(BOTON_PRIMARIO, 'px-3 py-1.5')}>
+            <Button type="button" size="sm" onClick={crear} disabled={!nombre.trim()}>
               Añadir lista
-            </button>
-            <button type="button" onClick={() => setAbierta(false)} className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800">
-              <X className="h-4 w-4" />
-            </button>
+            </Button>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={() => setAbierta(false)} aria-label="Cancelar">
+              <X />
+            </Button>
           </div>
         </div>
       ) : (
         <button
           type="button"
           onClick={() => setAbierta(true)}
-          className="flex w-full items-center gap-1.5 rounded-2xl bg-white/40 px-3 py-3 text-sm font-medium text-zinc-700 ring-1 ring-black/5 transition-colors hover:bg-white/70 dark:bg-zinc-900/40 dark:text-zinc-300 dark:ring-white/10 dark:hover:bg-zinc-900/70"
+          className="flex min-h-11 w-full items-center gap-1.5 rounded-2xl bg-white/50 px-3 py-3 text-sm font-medium text-zinc-800 ring-1 ring-black/5 transition-colors outline-none hover:bg-white/80 focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-zinc-900/50 dark:text-zinc-200 dark:ring-white/10 dark:hover:bg-zinc-900/80"
         >
-          <Plus className="h-4 w-4" /> Añadir otra lista
+          <Plus aria-hidden className="size-4" /> Añadir otra lista
         </button>
       )}
     </div>
@@ -774,7 +778,7 @@ function TarjetaArrastrable({ t, datos, hecha, onAbrir }: { t: Tarjeta; datos: D
         if (e.key === 'Enter') onAbrir();
         listeners?.onKeyDown?.(e);
       }}
-      className={cn('touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-xl', isDragging && 'opacity-40')}
+      className={cn('touch-manipulation rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50', isDragging && 'opacity-40')}
     >
       <TarjetaVista t={t} datos={datos} hecha={hecha} />
     </div>
@@ -789,16 +793,15 @@ export function TarjetaVista({ t, datos, hecha, elevada }: { t: Tarjeta; datos: 
   return (
     <article
       className={cn(
-        'cursor-pointer rounded-xl border-l-[3px] bg-white p-3 shadow-sm ring-1 ring-black/5 transition-shadow select-none hover:shadow-md dark:bg-zinc-800 dark:ring-white/10',
-        t.prioridad ? PRIORIDAD_BORDE[t.prioridad] : 'border-l-transparent',
-        elevada && 'shadow-2xl ring-2 ring-blue-400',
+        'cursor-pointer rounded-xl bg-white p-3 ring-1 ring-black/5 transition-shadow select-none hover:ring-black/15 dark:bg-zinc-800 dark:ring-white/10 dark:hover:ring-white/25',
+        elevada && 'shadow-2xl ring-2 ring-blue-500',
       )}
     >
       {etiquetas.length > 0 && (
         <div className="mb-1.5 flex flex-wrap gap-1">
           {etiquetas.map((e) => (
-            <span key={e.id} className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-semibold', ETIQUETA_CLASES[e.color].fondo)}>
-              {e.nombre || '   '}
+            <span key={e.id} className={cn('min-h-5 min-w-8 rounded-md px-1.5 py-0.5 text-xs font-semibold', ETIQUETA_CLASES[e.color].fondo)}>
+              {e.nombre}
             </span>
           ))}
         </div>
@@ -812,31 +815,36 @@ export function TarjetaVista({ t, datos, hecha, elevada }: { t: Tarjeta; datos: 
         {t.titulo}
       </p>
       {(t.prioridad || t.vence || total > 0 || t.comentarios > 0 || t.enlaces.length > 0 || t.descripcion || t.responsables.length > 0) && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-          {t.prioridad && (t.prioridad === 'alta' || t.prioridad === 'urgente') && !hecha && <ChipPrioridad prioridad={t.prioridad} />}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+          {t.prioridad && !hecha && <ChipPrioridad prioridad={t.prioridad} />}
           {t.vence && <ChipVence vence={t.vence} hoy={datos.hoy} hecha={hecha} />}
-          {total > 0 && (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-[11px] font-medium',
-                hechos === total && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
-              )}
-            >
-              <SquareCheckBig className="h-3 w-3" /> {hechos}/{total}
-            </span>
-          )}
-          {t.descripcion && <AlignLeft className="h-3.5 w-3.5" aria-label="Tiene descripción" />}
+          {total > 0 &&
+            (hechos === total ? (
+              <Estado tono="ok" icono={<SquareCheckBig aria-hidden />}>
+                <span className="tabular-nums">
+                  {hechos}/{total}
+                </span>
+              </Estado>
+            ) : (
+              <span className="inline-flex items-center gap-1 tabular-nums">
+                <SquareCheckBig aria-hidden className="size-3.5" /> {hechos}/{total}
+                <span className="sr-only">pasos hechos</span>
+              </span>
+            ))}
+          {t.descripcion && <AlignLeft className="size-3.5" aria-label="Tiene descripción" />}
           {t.comentarios > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-[11px]">
-              <MessageSquare className="h-3.5 w-3.5" /> {t.comentarios}
+            <span className="inline-flex items-center gap-0.5 tabular-nums">
+              <MessageSquare aria-hidden className="size-3.5" /> {t.comentarios}
+              <span className="sr-only">comentarios</span>
             </span>
           )}
           {t.enlaces.length > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-[11px]">
-              <Link2 className="h-3.5 w-3.5" /> {t.enlaces.length}
+            <span className="inline-flex items-center gap-0.5 tabular-nums">
+              <Link2 aria-hidden className="size-3.5" /> {t.enlaces.length}
+              <span className="sr-only">enlaces</span>
             </span>
           )}
-          <Avatares emails={t.responsables} personas={datos.miembros} className="ml-auto" />
+          <Avatares personas={personasDe(t.responsables, datos.miembros)} className="ml-auto" />
         </div>
       )}
     </article>
@@ -847,13 +855,17 @@ function TarjetaNoEsta({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-sm">
-        <DialogTitle>Esta tarjeta no está</DialogTitle>
-        <p className="text-sm text-zinc-500">
-          Puede que se haya archivado o borrado. Las archivadas están en el botón <Archive className="inline h-4 w-4" /> de arriba.
-        </p>
-        <button type="button" onClick={onClose} className={BOTON_SECUNDARIO}>
-          Vale
-        </button>
+        <DialogHeader>
+          <DialogTitle>Esta tarjeta no está</DialogTitle>
+          <DialogDescription>
+            Puede que se haya archivado o borrado. Las archivadas están en el botón «Archivadas» de arriba.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Volver al tablero
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -880,6 +892,7 @@ function DialogoAjustesTablero({
   const [descripcion, setDescripcion] = useState(t.descripcion ?? '');
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>(t.etiquetas);
   const [ocupado, setOcupado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
 
   async function guardar() {
     if (!nombre.trim()) return;
@@ -898,59 +911,74 @@ function DialogoAjustesTablero({
     }
   }
 
+  // Archivar se deshace igual que se hace: sin preguntar, y «Deshacer» en el aviso.
   async function archivar() {
-    if (!window.confirm(t.archivado ? '¿Sacar el tablero del archivo?' : '¿Archivar el tablero? Deja de salir en la lista y sus tareas dejan de avisar. Se puede recuperar.')) return;
+    const archivado = !t.archivado;
     try {
-      await api.accionTablero(t.id, { accion: 'editar', archivado: !t.archivado });
+      await api.accionTablero(t.id, { accion: 'editar', archivado });
       await onCambio();
       onClose();
+      toast.success(archivado ? 'Tablero archivado: deja de salir en la lista y sus tareas dejan de avisar' : 'Tablero fuera del archivo', {
+        action: {
+          label: 'Deshacer',
+          onClick: () =>
+            void api
+              .accionTablero(t.id, { accion: 'editar', archivado: !archivado })
+              .then(onCambio)
+              .catch(() => toast.error('No se ha podido deshacer')),
+        },
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se ha podido');
     }
   }
 
   async function borrar() {
-    const escrito = window.prompt(`Se borrará el tablero con TODAS sus tarjetas, para todo el equipo. No se puede deshacer.\n\nEscribe «${t.nombre}» para confirmarlo:`);
-    if (escrito?.trim() !== t.nombre) return;
     try {
       await api.borrarTablero(t.id);
       toast.success('Tablero borrado');
       onBorrado();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se ha podido');
+      throw err;
     }
   }
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogTitle>Ajustes del tablero</DialogTitle>
+        <DialogHeader>
+          <DialogTitle>Ajustes del tablero</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
           <div className="flex gap-2">
             <SelectorEmoji valor={emoji} onChange={setEmoji} sugeridos={EMOJIS_TABLERO} />
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={60} className={ESTILO_CAMPO} />
+            <Input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={60} aria-label="Nombre del tablero" />
           </div>
           <SelectorColor valor={color} onChange={setColor} />
-          <textarea
+          <Textarea
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             placeholder="Para qué es (opcional)"
+            aria-label="Para qué es"
             rows={2}
             maxLength={500}
-            className={cn(ESTILO_CAMPO, 'resize-none')}
+            className="min-h-20 resize-none"
           />
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Etiquetas</p>
-          <p className="text-xs text-zinc-500">Para clasificar las tarjetas de un vistazo («iPad», «Hay que comprar», «Esperando a alguien»…).</p>
+          <Rotulo as="h3">Etiquetas</Rotulo>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Para clasificar las tarjetas de un vistazo («iPad», «Hay que comprar», «Esperando a alguien»…).
+          </p>
           <ul className="space-y-1.5">
             {etiquetas.map((e, i) => (
               <li key={e.id} className="flex items-center gap-2">
                 <Popover>
                   <PopoverTrigger
-                    aria-label="Color"
-                    className={cn('h-8 w-10 shrink-0 rounded-lg', ETIQUETA_CLASES[e.color].barra)}
+                    aria-label={`Color de la etiqueta${e.nombre ? ` «${e.nombre}»` : ''}`}
+                    className={cn('h-11 w-12 shrink-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50', ETIQUETA_CLASES[e.color].barra)}
                   />
                   <PopoverContent className="w-auto p-2" align="start">
                     <div className="grid grid-cols-5 gap-1.5">
@@ -959,61 +987,76 @@ function DialogoAjustesTablero({
                           key={c}
                           type="button"
                           aria-label={c}
+                          aria-pressed={e.color === c}
                           onClick={() => setEtiquetas((prev) => prev.map((x, j) => (j === i ? { ...x, color: c as ColorEtiqueta } : x)))}
-                          className={cn('h-7 w-9 rounded-md', ETIQUETA_CLASES[c].barra, e.color === c && 'ring-2 ring-zinc-900 ring-offset-1 dark:ring-white')}
-                        />
+                          className={cn(
+                            'flex h-10 w-11 items-center justify-center rounded-lg text-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                            ETIQUETA_CLASES[c].barra,
+                            e.color === c && 'ring-2 ring-zinc-900 ring-offset-1 dark:ring-white',
+                          )}
+                        >
+                          {e.color === c && <CheckCircle2 aria-hidden className="size-4" />}
+                        </button>
                       ))}
                     </div>
                   </PopoverContent>
                 </Popover>
-                <input
+                <Input
                   value={e.nombre}
                   onChange={(ev) => setEtiquetas((prev) => prev.map((x, j) => (j === i ? { ...x, nombre: ev.target.value } : x)))}
                   placeholder="Nombre"
+                  aria-label="Nombre de la etiqueta"
                   maxLength={40}
-                  className={ESTILO_CAMPO}
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setEtiquetas((prev) => prev.filter((_, j) => j !== i))}
-                  aria-label="Quitar etiqueta"
-                  className="rounded-lg p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                  aria-label={`Quitar la etiqueta${e.nombre ? ` «${e.nombre}»` : ''}`}
+                  className="text-zinc-500 hover:text-red-700 dark:text-zinc-400 dark:hover:text-red-400"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  <Trash2 />
+                </Button>
               </li>
             ))}
           </ul>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() =>
               setEtiquetas((prev) => [...prev, { id: nuevoId(), nombre: '', color: COLORES_ETIQUETA[prev.length % COLORES_ETIQUETA.length] }])
             }
-            className={cn(BOTON_SECUNDARIO, 'py-1.5')}
           >
-            <Plus className="h-4 w-4" /> Etiqueta
-          </button>
+            <Plus aria-hidden /> Añadir etiqueta
+          </Button>
         </div>
 
-        <button type="button" onClick={guardar} disabled={ocupado || !nombre.trim()} className={BOTON_PRIMARIO}>
-          Guardar
-        </button>
+        <Button type="button" onClick={guardar} disabled={!nombre.trim()} cargando={ocupado}>
+          Guardar cambios
+        </Button>
 
         {esAdmin && (
-          <div className="flex flex-wrap gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-            <button type="button" onClick={archivar} className={BOTON_SECUNDARIO}>
-              {t.archivado ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+          <div className="flex flex-wrap gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+            <Button type="button" variant="outline" size="sm" onClick={archivar}>
+              {t.archivado ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
               {t.archivado ? 'Sacar del archivo' : 'Archivar tablero'}
-            </button>
-            <button
-              type="button"
-              onClick={borrar}
-              className={cn(BOTON_SECUNDARIO, 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10')}
-            >
-              <Trash2 className="h-4 w-4" /> Borrar tablero
-            </button>
+            </Button>
+            <Button type="button" variant="destructive" size="sm" onClick={() => setBorrando(true)}>
+              <Trash2 aria-hidden /> Borrar tablero
+            </Button>
           </div>
         )}
+        <ConfirmarDialogo
+          abierto={borrando}
+          onCerrar={() => setBorrando(false)}
+          onConfirmar={borrar}
+          titulo={`¿Borrar «${t.nombre}»?`}
+          descripcion="Se borra el tablero con todas sus tarjetas, para todo el equipo. No se puede deshacer: si solo ya no se usa, mejor archívalo."
+          boton="Borrar el tablero"
+          palabra={t.nombre}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -1051,7 +1094,6 @@ function DialogoArchivadas({
   }
 
   async function borrar(t: Tarjeta) {
-    if (!window.confirm(`¿Borrar «${t.titulo}» para siempre?`)) return;
     try {
       await api.borrarTarjeta(t.id);
       setLista((prev) => prev?.filter((x) => x.id !== t.id) ?? prev);
@@ -1063,40 +1105,37 @@ function DialogoArchivadas({
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogTitle className="flex items-center gap-2">
-          <Archive className="h-5 w-5" /> Tarjetas archivadas
-        </DialogTitle>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Archive aria-hidden className="size-5" /> Tarjetas archivadas
+          </DialogTitle>
+        </DialogHeader>
         {lista === null ? (
-          <div className="h-24 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+          <Skeleton className="h-24 rounded-xl" />
         ) : lista.length === 0 ? (
-          <p className="text-sm text-zinc-500">No hay nada archivado en este tablero.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No hay nada archivado en este tablero.</p>
         ) : (
-          <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
             {lista.map((t) => (
-              <li key={t.id} className="flex items-center gap-2 px-3 py-2">
-                <span className="min-w-0 flex-1">
+              <li key={t.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+                <span className="min-w-0 flex-1 basis-48">
                   <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{t.titulo}</span>
-                  <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                     {t.archivadaAt && `Archivada el ${new Date(t.archivadaAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`}
                     {t.vence && <ChipVence vence={t.vence} hoy={hoy} hecha />}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => recuperar(t)}
-                  title="Devolver al tablero"
-                  className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800"
-                >
-                  <ArchiveRestore className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => borrar(t)}
-                  title="Borrar para siempre"
-                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <span className="flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => recuperar(t)}>
+                    <ArchiveRestore aria-hidden /> Devolver
+                  </Button>
+                  <ConfirmarEnLinea
+                    etiqueta="Borrar"
+                    icono={<Trash2 aria-hidden />}
+                    confirmar="Sí, borrar para siempre"
+                    onConfirmar={() => borrar(t)}
+                  />
+                </span>
               </li>
             ))}
           </ul>
@@ -1105,4 +1144,3 @@ function DialogoArchivadas({
     </Dialog>
   );
 }
-

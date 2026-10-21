@@ -11,5 +11,10 @@ export default async function SalidasListPage() {
   const trips = await getTripsForUser(user);
   const soloMias = user.role === 'profe' || user.role === 'tutor';
 
-  return <SalidasList trips={trips} soloMias={soloMias} />;
+  return (
+    <>
+      <h1 className="sr-only">Salidas y pagos</h1>
+      <SalidasList trips={trips} soloMias={soloMias} />
+    </>
+  );
 }

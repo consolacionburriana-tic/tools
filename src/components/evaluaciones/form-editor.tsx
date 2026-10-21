@@ -7,6 +7,16 @@ import {
   BarChart3, Check, ChevronDown, ChevronUp, Copy, ExternalLink, Eye, Link2, ListPlus,
   Loader2, Lock, Plus, Send, Settings2, Sparkles, Trash2, TriangleAlert,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Campo } from '@/components/ui/campo';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { copiarTexto } from '@/components/ui/copiable';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { ETAPA_LABEL, ETAPAS, etapaDeCurso } from '@/lib/cursos';
@@ -17,19 +27,7 @@ import { BandaSector, SectoresTabs } from '@/components/evaluaciones/sectores';
 import { EliminarEvaluacion } from '@/components/evaluaciones/eliminar-evaluacion';
 import { QuestionCard } from '@/components/evaluaciones/question-card';
 import { ActividadColorButton, ColorDotButton } from '@/components/evaluaciones/color-picker';
-import {
-  BTN_ICONO,
-  BTN_PRIMARIO,
-  BTN_SUAVE,
-  CAMPO,
-  CAMPO_TITULO,
-  Dato,
-  GuiaActividad,
-  PANEL,
-  Plegable,
-  Rotulo,
-  Segmentado,
-} from '@/components/evaluaciones/ui';
+import { GuiaActividad, Plegable, Rotulo } from '@/components/evaluaciones/ui';
 
 /** Letra de posición dentro del formulario: A, B, C… Z, AA, AB… (por si acaso). */
 function letraDeIndice(i: number): string {
@@ -314,6 +312,22 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
 
   const catalogoAudiencia = CATALOGO.filter((c) => c.audiencias.includes(audiencia));
 
+  const otrosAnios = opcionesAcademicYear(academicYearActual)
+    .filter((y) => y !== form.academicYear)
+    .slice(0, 2);
+  const actividadesLibres = actividades.filter((a) => !form.bloques.some((b) => b.activityId === a.id));
+  const volverTrasBorrar = conjunta
+    ? `/gestion/evaluaciones/${sectores.find((x) => x.id !== form.id)?.id}`
+    : '/gestion/evaluaciones';
+
+  function anadirActividad() {
+    if (nuevaActividad.trim().length < 2) return;
+    void estructura({ accion: 'bloque.add', nombre: nuevaActividad.trim() }).then(() => {
+      setNuevaActividad('');
+      setAnadiendo(false);
+    });
+  }
+
   return (
     <div className="anim-stagger space-y-4">
       {/* ── Sectores ─────────────────────────────────────────────────────────
@@ -328,84 +342,87 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
       />
 
       {/* ── Cabecera ──────────────────────────────────────────────────────────
-         Antes: chips + título + descripción + 3 botones de estado + 4 acciones,
-         todo apilado con el mismo peso. Ahora hay tres franjas con jerarquía
-         distinta: identidad (color + título), contexto (datos en gris) y acciones
-         (estado a la izquierda, lo que se hace con el formulario a la derecha). */}
-      <div className={`${PANEL} overflow-hidden`}>
+         Tres franjas: identidad (color + título), contexto y acciones (estado a
+         la izquierda, lo que se hace con el formulario a la derecha). */}
+      <Tarjeta className="overflow-hidden">
         <BandaSector audiencia={audiencia} />
-        <div className="p-4 sm:p-5">
-          <div className="flex items-start gap-2.5">
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="flex items-start gap-2">
             {/* Color del FORMULARIO, no de una actividad: viste el botón de enviar, la
                barra de progreso y el fondo de la página pública entera. */}
-            <span className="mt-2 shrink-0">
-              <ColorDotButton color={form.color} etiqueta="Color del formulario" onChange={(color) => void patchForm({ color })} />
-            </span>
+            <ColorDotButton color={form.color} etiqueta="Color del formulario" onChange={(color) => void patchForm({ color })} />
             <div className="min-w-0 flex-1">
-              <input
+              <Input
+                aria-label="Título de la evaluación"
                 defaultValue={form.titulo}
                 onBlur={(e) => e.target.value !== form.titulo && void patchForm({ titulo: e.target.value })}
-                className={CAMPO_TITULO}
+                className="text-lg font-semibold sm:text-lg"
               />
-              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 px-2">
-                <Dato etiqueta="Curso">{form.academicYear}</Dato>
-                <Dato etiqueta="Respuestas">{respuestas}</Dato>
-              </div>
+              <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+                <span>
+                  Curso <span className="font-medium text-zinc-800 dark:text-zinc-200">{form.academicYear}</span>
+                </span>
+                <span>
+                  Respuestas <span className="font-medium text-zinc-800 tabular-nums dark:text-zinc-200">{respuestas}</span>
+                </span>
+              </p>
             </div>
           </div>
 
-          <textarea
+          <Textarea
+            aria-label="Texto de presentación"
             defaultValue={form.descripcion ?? ''}
-            rows={2}
             placeholder="Texto de presentación que ve quien responde"
             onBlur={(e) => e.target.value !== (form.descripcion ?? '') && void patchForm({ descripcion: e.target.value || null })}
-            className={`${CAMPO} mt-3`}
+            className="min-h-20"
           />
         </div>
 
-        {/* Barra de acciones: separada del contenido por una línea, no por aire, para
-           que se lea como "la botonera de este formulario" y no como una fila más. */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-zinc-100 bg-zinc-50/60 px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-800/20 sm:px-5">
+        {/* La botonera del formulario, separada del contenido por una línea. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-zinc-100 bg-zinc-50/60 px-4 py-3 sm:px-5 dark:border-zinc-800 dark:bg-zinc-800/20">
           <Segmentado
+            etiqueta="Estado de la evaluación"
             valor={form.estado as 'borrador' | 'abierto' | 'cerrado'}
             onChange={(e) => {
-              haptic.tap();
+              if (e === form.estado) return;
+              if (e === 'abierto' && huecos.length > 0) {
+                haptic.warning();
+                toast.warning('Termina primero las frases que quedan a medias');
+                return;
+              }
               void patchForm({ estado: e }, e === 'abierto' ? 'Evaluación abierta: ya se puede responder' : undefined);
             }}
             opciones={[
-              { valor: 'borrador', label: 'borrador' },
-              {
-                valor: 'abierto',
-                label: 'abierto',
-                tono: 'verde',
-                deshabilitada: huecos.length > 0,
-                pista: huecos.length > 0 ? 'Termina primero las frases que quedan a medias' : undefined,
-              },
-              { valor: 'cerrado', label: 'cerrado' },
+              { valor: 'borrador', etiqueta: 'Borrador' },
+              { valor: 'abierto', etiqueta: 'Abierta' },
+              { valor: 'cerrado', etiqueta: 'Cerrada' },
             ]}
           />
 
-          <div className="ml-auto flex flex-wrap items-center gap-1">
-            <button
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <Button
               type="button"
-              onClick={() => {
-                void navigator.clipboard.writeText(enlace);
-                haptic.success();
-                toast.success('Enlace copiado');
-              }}
-              className={BTN_SUAVE}
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                void copiarTexto(enlace).then((ok) => {
+                  if (!ok) return;
+                  haptic.success();
+                  toast.success('Enlace copiado');
+                })
+              }
             >
-              <Link2 className="h-3.5 w-3.5" /> Enlace
-            </button>
-            <Link href={`/evaluaciones/${form.token}`} target="_blank" className={BTN_SUAVE}>
-              <Eye className="h-3.5 w-3.5" /> Previsualizar
-              <ExternalLink className="h-3 w-3 opacity-60" />
+              <Link2 aria-hidden /> Enlace
+            </Button>
+            <Link href={`/evaluaciones/${form.token}`} target="_blank" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+              <Eye aria-hidden /> Previsualizar
+              <ExternalLink aria-hidden className="size-3.5 opacity-60" />
             </Link>
-            <Link href={`/gestion/evaluaciones/${form.id}/resultados`} className={BTN_SUAVE}>
-              <BarChart3 className="h-3.5 w-3.5" /> Resultados
+            <Link href={`/gestion/evaluaciones/${form.id}/resultados`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              <BarChart3 aria-hidden /> Resultados
             </Link>
-            <Link href={`/gestion/evaluaciones/${form.id}/enviar`} className={`${BTN_PRIMARIO} ml-1`}>
-              <Send className="h-3.5 w-3.5" /> Enviar
+            <Link href={`/gestion/evaluaciones/${form.id}/enviar`} className={buttonVariants({ size: 'sm' })}>
+              <Send aria-hidden /> Enviar
             </Link>
             {/* A la vista y no solo en Ajustes: nadie buscaba "eliminar" dentro de un plegable. */}
             <EliminarEvaluacion
@@ -414,7 +431,7 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
               respuestas={respuestas}
               etiqueta={conjunta ? 'Eliminar este sector' : 'Eliminar la evaluación'}
               compacto
-              volverA={conjunta ? `/gestion/evaluaciones/${sectores.find((x) => x.id !== form.id)?.id}` : '/gestion/evaluaciones'}
+              volverA={volverTrasBorrar}
             />
           </div>
         </div>
@@ -422,14 +439,14 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
         {/* Avisos: pegados abajo del panel y a todo el ancho, para que se lean como
            un estado del formulario y no como otra tarjeta suelta más. */}
         {huecos.length > 0 ? (
-          <div className="border-t border-amber-200/70 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200 sm:px-5">
+          <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:px-5 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
             <p className="flex items-center gap-2 font-semibold">
-              <TriangleAlert className="h-4 w-4 shrink-0" />
+              <TriangleAlert aria-hidden className="size-4 shrink-0" />
               {huecos.length === 1 ? 'Falta terminar una frase' : `Faltan ${huecos.length} frases por terminar`} para poder abrirla
             </p>
-            <p className="mt-1 text-amber-800/90 dark:text-amber-300/90">
+            <p className="mt-1">
               El preset las deja a medias a propósito: una evaluación con la pregunta genérica no la contesta nadie con
-              cabeza. Termínalas y el botón de &quot;abierto&quot; se activa solo.
+              cabeza. Termínalas y ya podrás abrirla.
             </p>
             <ul className="mt-2 space-y-0.5">
               {huecos.slice(0, 6).map((h, i) => (
@@ -441,198 +458,160 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
           </div>
         ) : (
           pendientesRevision > 0 && (
-            <p className="flex items-center gap-2 border-t border-amber-200/70 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300 sm:px-5">
-              <TriangleAlert className="h-4 w-4 shrink-0" />
+            <p className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 sm:px-5 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+              <TriangleAlert aria-hidden className="size-4 shrink-0" />
               Quedan {pendientesRevision} pregunta(s) del preset por adaptar: son las marcadas en ámbar.
             </p>
           )
         )}
         {bloqueada && (
-          <p className="flex items-center gap-2 border-t border-zinc-100 px-4 py-2.5 text-xs text-zinc-500 dark:border-zinc-800 sm:px-5">
-            <Lock className="h-3.5 w-3.5 shrink-0" /> Ya hay respuestas: puedes retocar textos, pero no borrar preguntas ni
-            cambiar su tipo.
+          <p className="flex items-center gap-2 border-t border-zinc-100 px-4 py-2.5 text-sm text-zinc-600 sm:px-5 dark:border-zinc-800 dark:text-zinc-400">
+            <Lock aria-hidden className="size-4 shrink-0" /> Ya hay respuestas: puedes retocar textos, pero no borrar preguntas
+            ni cambiar su tipo.
           </p>
         )}
-      </div>
+      </Tarjeta>
 
       {/* ── Ajustes del formulario ─────────────────────────────────────────── */}
-      <Plegable titulo="Ajustes" icono={<Settings2 className="h-4 w-4 text-zinc-400" />} abierto={ajustes} onToggle={() => setAjustes((v) => !v)}>
-          <div className="space-y-5">
-            {audiencia === 'alumnos' && (
-              <div>
-                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Clases que la responden</p>
-                <p className="mb-2.5 text-xs text-zinc-500">Marca el objetivo para saber quién falta y segmentar resultados.</p>
-                <div className="space-y-2.5">
-                  {clasesPorEtapa.map((g) => (
-                    <div key={g.etapa}>
-                      <Rotulo className="mb-1.5">{g.label}</Rotulo>
-                      <div className="flex flex-wrap gap-1.5">
-                        {g.clases.map((c) => {
-                          const activa = (form.clases ?? []).some((x) => claseKey(x) === claseKey(c));
-                          return (
-                            <button
-                              key={claseKey(c)}
-                              type="button"
-                              onClick={() => {
-                                const siguiente = activa
-                                  ? (form.clases ?? []).filter((x) => claseKey(x) !== claseKey(c))
-                                  : [...(form.clases ?? []), { curso: c.curso, letra: c.letra }];
-                                void patchForm({ clases: siguiente });
-                              }}
-                              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-                                activa
-                                  ? 'bg-blue-600 text-white'
-                                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-                              }`}
-                            >
-                              {claseLabel(c)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      <Plegable titulo="Ajustes" icono={<Settings2 aria-hidden className="text-zinc-500" />} abierto={ajustes} onToggle={() => setAjustes((v) => !v)}>
+        <div className="space-y-5">
+          {audiencia === 'alumnos' && (
+            <div>
+              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Clases que la responden</p>
+              <p className="mb-2.5 text-sm text-zinc-500 dark:text-zinc-400">
+                Marca el objetivo para saber quién falta y segmentar resultados.
+              </p>
+              <div className="space-y-3">
+                {clasesPorEtapa.map((g) => (
+                  <div key={g.etapa}>
+                    <Rotulo className="mb-1.5">{g.label}</Rotulo>
+                    <Filtros etiqueta={`Clases de ${g.label}`}>
+                      {g.clases.map((c) => {
+                        const activa = (form.clases ?? []).some((x) => claseKey(x) === claseKey(c));
+                        return (
+                          <Filtro
+                            key={claseKey(c)}
+                            activo={activa}
+                            onClick={() => {
+                              const siguiente = activa
+                                ? (form.clases ?? []).filter((x) => claseKey(x) !== claseKey(c))
+                                : [...(form.clases ?? []), { curso: c.curso, letra: c.letra }];
+                              void patchForm({ clases: siguiente });
+                            }}
+                          >
+                            {claseLabel(c)}
+                          </Filtro>
+                        );
+                      })}
+                    </Filtros>
+                  </div>
+                ))}
               </div>
+            </div>
+          )}
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Interruptor
+              activo={form.pedirClase}
+              onChange={(v) => void patchForm({ pedirClase: v })}
+              etiqueta="Preguntar la clase"
+              descripcion="Si el enlace es personalizado no hace falta: la clase ya se sabe y se ahorra un toque."
+            />
+            <Interruptor
+              activo={form.pedirEtapa}
+              onChange={(v) => void patchForm({ pedirEtapa: v })}
+              etiqueta="Preguntar la etapa"
+              descripcion="Infantil / Primaria / Secundaria. Lo típico en profesorado."
+            />
+            <Interruptor
+              activo={form.requiereLogin}
+              onChange={(v) => void patchForm({ requiereLogin: v })}
+              etiqueta="Exigir cuenta del colegio"
+              descripcion="Solo se puede responder con la sesión iniciada. No guarda quién."
+            />
+            {audiencia !== 'profesores' && (
+              <Interruptor
+                activo={form.identificaAlumno}
+                onChange={(v) => void patchForm({ identificaAlumno: v })}
+                etiqueta="Enlaces personalizados"
+                descripcion="Cada alumno recibe su enlace. En pantalla es anónimo; internamente queda registrado de quién viene, por si hay que revisar algo."
+              />
             )}
+          </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-zinc-50 p-3 transition-colors duration-150 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={form.pedirClase}
-                  onChange={(e) => void patchForm({ pedirClase: e.target.checked })}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">Preguntar la clase</span>
-                  <span className="block text-xs text-zinc-500">
-                    Si el enlace es personalizado no hace falta: la clase ya se sabe y se ahorra un toque.
-                  </span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-zinc-50 p-3 transition-colors duration-150 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={form.pedirEtapa}
-                  onChange={(e) => void patchForm({ pedirEtapa: e.target.checked })}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">Preguntar la etapa</span>
-                  <span className="block text-xs text-zinc-500">Infantil / Primaria / Secundaria. Lo típico en profesorado.</span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-zinc-50 p-3 transition-colors duration-150 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={form.requiereLogin}
-                  onChange={(e) => void patchForm({ requiereLogin: e.target.checked })}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">Exigir cuenta del colegio</span>
-                  <span className="block text-xs text-zinc-500">Solo se puede responder con la sesión iniciada. No guarda quién.</span>
-                </span>
-              </label>
-              {audiencia !== 'profesores' && (
-                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-zinc-50 p-3 transition-colors duration-150 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={form.identificaAlumno}
-                    onChange={(e) => void patchForm({ identificaAlumno: e.target.checked })}
-                  />
-                  <span>
-                    <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">Enlaces personalizados</span>
-                    <span className="block text-xs text-zinc-500">
-                      Cada alumno recibe su enlace. En pantalla es anónimo; internamente queda registrado de quién viene, por si hay
-                      que revisar algo.
-                    </span>
-                  </span>
-                </label>
-              )}
-            </div>
+          <Campo etiqueta="Aviso de anonimato (pie del formulario)" id="eval-aviso-anonimato">
+            <Textarea
+              id="eval-aviso-anonimato"
+              defaultValue={form.avisoAnonimato ?? ''}
+              onBlur={(e) => e.target.value !== (form.avisoAnonimato ?? '') && void patchForm({ avisoAnonimato: e.target.value || null })}
+              className="min-h-20"
+            />
+          </Campo>
+          <Campo etiqueta="Mensaje al terminar" id="eval-mensaje-final">
+            <Textarea
+              id="eval-mensaje-final"
+              defaultValue={form.mensajeFinal ?? ''}
+              onBlur={(e) => e.target.value !== (form.mensajeFinal ?? '') && void patchForm({ mensajeFinal: e.target.value || null })}
+              className="min-h-20"
+            />
+          </Campo>
 
-            <div>
-              <Rotulo className="mb-1.5">Aviso de anonimato (pie del formulario)</Rotulo>
-              <textarea
-                defaultValue={form.avisoAnonimato ?? ''}
-                rows={2}
-                onBlur={(e) => e.target.value !== (form.avisoAnonimato ?? '') && void patchForm({ avisoAnonimato: e.target.value || null })}
-                className={CAMPO}
-              />
+          <div className="space-y-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+            <Rotulo>Duplicar</Rotulo>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" disabled={ocupado} onClick={() => void duplicar({})}>
+                <Copy aria-hidden /> Tal cual
+              </Button>
+              {otrosAnios.map((y) => (
+                <Button
+                  key={y}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={ocupado}
+                  onClick={() => void duplicar({ academicYear: y })}
+                >
+                  <Copy aria-hidden /> {conjunta ? `Solo este sector a ${y}` : `A ${y}`}
+                </Button>
+              ))}
             </div>
-            <div>
-              <Rotulo className="mb-1.5">Mensaje al terminar</Rotulo>
-              <textarea
-                defaultValue={form.mensajeFinal ?? ''}
-                rows={2}
-                onBlur={(e) => e.target.value !== (form.mensajeFinal ?? '') && void patchForm({ mensajeFinal: e.target.value || null })}
-                className={CAMPO}
-              />
-            </div>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              ¿La misma evaluación para otro colectivo? Añádelo desde las pestañas de arriba: se queda en la misma
+              evaluación, con su propio preset.
+            </p>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-              <Rotulo className="mr-1">Duplicar</Rotulo>
-              <button
-                type="button"
-                disabled={ocupado}
-                onClick={() => void duplicar({})}
-                className={BTN_SUAVE}
-              >
-                <Copy className="h-3.5 w-3.5" /> Tal cual
-              </button>
-              {opcionesAcademicYear(academicYearActual)
-                .filter((y) => y !== form.academicYear)
-                .slice(0, 2)
-                .map((y) => (
-                  <button
+          {/* Copiar la conjunta entera: todos los sectores, con una sola copia de cada
+             actividad en el curso destino (misma serie → la comparativa entre años cuadra). */}
+          {conjunta && (
+            <div className="space-y-2">
+              <Rotulo>Toda la evaluación</Rotulo>
+              <div className="flex flex-wrap items-center gap-2">
+                {otrosAnios.map((y) => (
+                  <Button
                     key={y}
                     type="button"
+                    variant="outline"
+                    size="sm"
                     disabled={ocupado}
-                    onClick={() => void duplicar({ academicYear: y })}
-                    className={BTN_SUAVE}
+                    onClick={() => void duplicar({ academicYear: y, grupo: true })}
                   >
-                    <Copy className="h-3.5 w-3.5" /> {conjunta ? `Solo este sector a ${y}` : `A ${y}`}
-                  </button>
+                    <Copy aria-hidden /> Los {sectores.length} sectores a {y}
+                  </Button>
                 ))}
-              <p className="w-full pt-1 text-[11px] text-zinc-400">
-                ¿La misma evaluación para otro colectivo? Añádelo desde las pestañas de arriba: se queda en la misma
-                evaluación, con su propio preset.
-              </p>
-            </div>
-
-            {/* Copiar la conjunta entera: todos los sectores, con una sola copia de cada
-               actividad en el curso destino (misma serie → la comparativa entre años cuadra). */}
-            {conjunta && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Rotulo className="mr-1">Toda la evaluación</Rotulo>
-                {opcionesAcademicYear(academicYearActual)
-                  .filter((y) => y !== form.academicYear)
-                  .slice(0, 2)
-                  .map((y) => (
-                    <button
-                      key={y}
-                      type="button"
-                      disabled={ocupado}
-                      onClick={() => void duplicar({ academicYear: y, grupo: true })}
-                      className={BTN_SUAVE}
-                    >
-                      <Copy className="h-3.5 w-3.5" /> Los {sectores.length} sectores a {y}
-                    </button>
-                  ))}
               </div>
-            )}
+            </div>
+          )}
 
-            <div className="flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-              <Rotulo className="mr-1">Eliminar</Rotulo>
+          <div className="space-y-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+            <Rotulo>Eliminar</Rotulo>
+            <div className="flex flex-wrap items-center gap-2">
               <EliminarEvaluacion
                 formId={form.id}
                 nombre={`«${form.titulo}»`}
                 respuestas={respuestas}
                 etiqueta={conjunta ? 'Solo este sector' : 'Esta evaluación'}
-                volverA={conjunta ? `/gestion/evaluaciones/${sectores.find((x) => x.id !== form.id)?.id}` : '/gestion/evaluaciones'}
+                volverA={volverTrasBorrar}
               />
               {conjunta && (
                 <EliminarEvaluacion
@@ -645,75 +624,80 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
               )}
             </div>
           </div>
+        </div>
       </Plegable>
 
       {/* ── Bloques ──────────────────────────────────────────────────────────
-         Cada actividad ya NO es una caja gris dentro del blanco (tres cajas
-         anidadas con el mismo peso era justo lo que hacía que no se distinguiera
-         nada). Ahora es: encabezado propio + una guía de color vertical que
-         enhebra sus preguntas, y mucho aire entre actividades. */}
+         Cada actividad no es otra caja: es un encabezado propio + una guía de
+         color vertical que enhebra sus preguntas, y aire entre actividades. */}
       <div className="space-y-10 pt-4">
         {bloquesVisibles.map((b, bi) => {
           const preguntasVisibles = b.preguntas.filter((q) => !preguntasOcultas.has(q.id));
           const idsVisibles = preguntasVisibles.map((q) => q.id);
           const colorBloque = b.actividad?.color ?? '#2563eb';
+          const letra = letraDeIndice(bi);
           return (
-            <section key={b.id}>
+            <section key={b.id} aria-label={`Actividad ${letra}: ${b.titulo}`}>
               {/* Encabezado de la actividad */}
-              <div className="flex items-start gap-2.5">
+              <div className="flex items-start gap-1.5">
                 <ActividadColorButton
-                  letra={letraDeIndice(bi)}
+                  letra={letra}
                   color={b.actividad?.color ?? null}
                   disabled={!b.activityId}
                   onChange={(color) => cambiarColorActividad(b, color)}
                 />
-                <div className="min-w-0 flex-1">
-                  <input
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Input
+                    aria-label={`Nombre de la actividad ${letra}`}
                     defaultValue={b.titulo}
                     onBlur={(e) => e.target.value !== b.titulo && void estructura({ accion: 'bloque.update', blockId: b.id, titulo: e.target.value })}
-                    className={`${CAMPO_TITULO} !text-base`}
+                    className="font-semibold"
                   />
-                  <textarea
+                  <Textarea
+                    aria-label={`Presentación de la actividad ${letra}`}
                     defaultValue={b.intro ?? ''}
-                    rows={2}
                     placeholder={
                       audiencia === 'profesores'
                         ? 'Objetivo de la actividad (se muestra encima de las preguntas)'
                         : 'Frase que explique de qué va, sin soltar el objetivo tal cual'
                     }
                     onBlur={(e) => e.target.value !== (b.intro ?? '') && void estructura({ accion: 'bloque.update', blockId: b.id, intro: e.target.value || null })}
-                    className={`${CAMPO} mt-1`}
+                    className="min-h-20"
                   />
                 </div>
-                <div className="flex shrink-0 items-center">
-                  <button
+                <div className="flex shrink-0 flex-col items-center text-zinc-500 sm:flex-row dark:text-zinc-400">
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     disabled={bi === 0 || ocupado}
-                    title="Subir actividad"
+                    aria-label={`Subir la actividad ${letra}`}
                     onClick={() => moverBloque(b.id, bloquesVisibles[bi - 1]?.id)}
-                    className={BTN_ICONO}
                   >
-                    <ChevronUp className="h-4 w-4" />
-                  </button>
-                  <button
+                    <ChevronUp aria-hidden />
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     disabled={bi === bloquesVisibles.length - 1 || ocupado}
-                    title="Bajar actividad"
+                    aria-label={`Bajar la actividad ${letra}`}
                     onClick={() => moverBloque(b.id, bloquesVisibles[bi + 1]?.id)}
-                    className={BTN_ICONO}
                   >
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
+                    <ChevronDown aria-hidden />
+                  </Button>
                   {!bloqueada && (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       disabled={ocupado}
-                      title="Quitar del formulario"
+                      aria-label={`Quitar la actividad ${letra} del formulario`}
                       onClick={() => borrarBloqueConDeshacer(b)}
-                      className={`${BTN_ICONO} hover:!bg-rose-50 hover:!text-rose-600 dark:hover:!bg-rose-500/10`}
+                      className="hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10 dark:hover:text-red-300"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <Trash2 aria-hidden />
+                    </Button>
                   )}
                 </div>
               </div>
@@ -746,54 +730,54 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
                     ))}
                   </div>
 
-                  {/* Añadir preguntas: en gris, porque es andamiaje, no contenido */}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1">
+                  {/* Añadir preguntas */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     {preguntasVisibles.length === 0 && (
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
                         disabled={ocupado}
                         onClick={() => void estructura({ accion: 'pregunta.preset', blockId: b.id })}
-                        className={`${BTN_PRIMARIO} mr-1`}
                       >
-                        <Sparkles className="h-3.5 w-3.5" /> Poner las preguntas de siempre
-                      </button>
+                        <Sparkles aria-hidden /> Poner las preguntas de siempre
+                      </Button>
                     )}
-                    <Rotulo className="mr-1">Añadir</Rotulo>
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400">Añadir:</span>
                     {(['escala', 'texto', 'opcion', 'quiz'] as const).map((t) => (
-                      <button
+                      <Button
                         key={t}
                         type="button"
+                        variant="outline"
+                        size="sm"
                         disabled={ocupado}
                         onClick={() => void estructura({ accion: 'pregunta.add', blockId: b.id, tipo: t })}
-                        className={BTN_SUAVE}
                       >
-                        <Plus className="h-3.5 w-3.5" />
+                        <Plus aria-hidden />
                         {t === 'escala' ? 'Escala' : t === 'texto' ? 'Texto' : t === 'opcion' ? 'Opciones' : 'Quiz'}
-                      </button>
+                      </Button>
                     ))}
                     <details className="relative">
-                      <summary className={`${BTN_SUAVE} cursor-pointer list-none`}>
-                        <ListPlus className="h-3.5 w-3.5" /> Del catálogo
+                      <summary className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'list-none [&::-webkit-details-marker]:hidden')}>
+                        <ListPlus aria-hidden /> Del catálogo
                       </summary>
                       {/* Se abre hacia ARRIBA y con z-index alto a propósito: cada bloque anima su
                          entrada (anim-stagger) y eso crea su propio contexto de apilamiento, así que
-                         un desplegable normal hacia abajo queda tapado por el bloque siguiente. Abrir
-                         hacia arriba lo mantiene dentro del mismo bloque, donde sí gana. */}
-                      <div className="absolute bottom-full z-40 mb-1 w-72 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700">
+                         un desplegable normal hacia abajo queda tapado por el bloque siguiente. */}
+                      <div className="absolute bottom-full z-40 mb-1 w-72 max-w-[calc(100vw-3rem)] rounded-2xl border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
                         {catalogoAudiencia.map((c) => (
                           <button
                             key={c.id}
                             type="button"
                             disabled={ocupado}
                             onClick={() => void estructura({ accion: 'pregunta.add', blockId: b.id, catalogoId: c.id })}
-                            className="block w-full rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 transition-colors duration-150 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            className="flex min-h-10 w-full items-center rounded-xl px-3 py-2 text-left text-sm text-zinc-800 outline-none transition-colors hover:bg-zinc-100 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
                           >
                             {c.nombre}
                           </button>
                         ))}
                       </div>
                     </details>
-                    {ocupado && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
+                    {ocupado && <Loader2 aria-label="Guardando" className="size-4 animate-spin text-zinc-500" />}
                   </div>
                 </GuiaActividad>
               </div>
@@ -804,68 +788,49 @@ export function FormEditor({ inicial, clases, actividades, respuestas, baseUrl, 
 
       {/* ── Añadir actividad al formulario ─────────────────────────────────── */}
       {anadiendo ? (
-        <div className={`${PANEL} p-4`}>
-          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Añadir otra actividad</p>
-          <p className="mb-2.5 text-xs text-zinc-500">Escribe el nombre y pulsa Enter.</p>
-          <div className="flex gap-2">
-            <input
-              value={nuevaActividad}
-              autoFocus
-              onChange={(e) => setNuevaActividad(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && nuevaActividad.trim().length > 1) {
-                  void estructura({ accion: 'bloque.add', nombre: nuevaActividad.trim() }).then(() => {
-                    setNuevaActividad('');
-                    setAnadiendo(false);
-                  });
-                }
-              }}
-              placeholder="Nombre de la actividad"
-              className={CAMPO}
-            />
-            <button
-              type="button"
-              disabled={ocupado || nuevaActividad.trim().length < 2}
-              onClick={() =>
-                void estructura({ accion: 'bloque.add', nombre: nuevaActividad.trim() }).then(() => {
-                  setNuevaActividad('');
-                  setAnadiendo(false);
-                })
-              }
-              className={`${BTN_PRIMARIO} shrink-0 px-4`}
-            >
-              <Check className="h-4 w-4" />
-            </button>
-          </div>
-          {actividades.filter((a) => !form.bloques.some((b) => b.activityId === a.id)).length > 0 && (
-            <>
-              <Rotulo className="mb-1.5 mt-4">O una que ya existe</Rotulo>
-              <div className="flex flex-wrap gap-1.5">
-                {actividades
-                  .filter((a) => !form.bloques.some((b) => b.activityId === a.id))
-                  .map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      disabled={ocupado}
-                      onClick={() => void estructura({ accion: 'bloque.add', activityId: a.id }).then(() => setAnadiendo(false))}
-                      className="rounded-full bg-zinc-100 px-3 py-1.5 text-sm text-zinc-600 transition-colors duration-150 hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    >
-                      {a.nombre}
-                    </button>
-                  ))}
+        <Tarjeta className="space-y-3 p-4">
+          <Campo etiqueta="Añadir otra actividad" id="eval-nueva-actividad" ayuda="Escribe el nombre y pulsa Intro.">
+            <div className="flex gap-2">
+              <Input
+                id="eval-nueva-actividad"
+                value={nuevaActividad}
+                autoFocus
+                onChange={(e) => setNuevaActividad(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && anadirActividad()}
+                placeholder="Nombre de la actividad"
+              />
+              <Button type="button" disabled={ocupado || nuevaActividad.trim().length < 2} onClick={anadirActividad}>
+                <Check aria-hidden /> Añadir
+              </Button>
+            </div>
+          </Campo>
+          {actividadesLibres.length > 0 && (
+            <div className="space-y-1.5">
+              <Rotulo>O una que ya existe</Rotulo>
+              <div className="flex flex-wrap gap-2">
+                {actividadesLibres.map((a) => (
+                  <Button
+                    key={a.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={ocupado}
+                    onClick={() => void estructura({ accion: 'bloque.add', activityId: a.id }).then(() => setAnadiendo(false))}
+                  >
+                    <Plus aria-hidden /> {a.nombre}
+                  </Button>
+                ))}
               </div>
-            </>
+            </div>
           )}
-        </div>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setAnadiendo(false)}>
+            Cancelar
+          </Button>
+        </Tarjeta>
       ) : (
-        <button
-          type="button"
-          onClick={() => setAnadiendo(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-300 py-4 text-sm font-medium text-zinc-500 transition-colors duration-150 hover:border-blue-400 hover:text-blue-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:text-blue-400"
-        >
-          <Plus className="h-4 w-4" /> Añadir otra actividad
-        </button>
+        <Button type="button" variant="outline" onClick={() => setAnadiendo(true)} className="w-full border-dashed">
+          <Plus aria-hidden /> Añadir otra actividad
+        </Button>
       )}
     </div>
   );

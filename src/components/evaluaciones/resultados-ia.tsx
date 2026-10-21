@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, Loader2, RefreshCw, Settings2, Sparkles, ThumbsDown, ThumbsUp } from 'lucide-react';
-import { PANEL } from '@/components/evaluaciones/ui';
+import { claseTarjeta as PANEL } from '@/components/ui/tarjeta';
 import { costeIA, modeloIA } from '@/lib/ajustes';
 import type { Insights } from '@/lib/evaluaciones-ia';
 

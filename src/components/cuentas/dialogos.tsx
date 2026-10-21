@@ -3,7 +3,7 @@
 // Los diálogos de Correos y grupos: crear correos (con las contraseñas, que se enseñan una vez),
 // mover a una unidad, contraseña nueva y marcar una cuenta como «se queda».
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Download, KeyRound, Loader2, RotateCcw, Search, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, Download, KeyRound, RotateCcw, Search, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -18,10 +18,50 @@ import {
   type TipoMarca,
 } from '@/lib/cuentas';
 import type { ResultadoAccion, UnidadFila } from '@/lib/cuentas-server';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { BOTON, BOTON_PRIMARIO, BotonCopiar, CAMPO, descargarCsv, enTandas, post, Progreso } from './comun';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { claseCampo, Input } from '@/components/ui/input';
+import { EnCurso } from '@/components/ui/progreso';
+import { BotonCopiar, descargarCsv, enTandas, post } from './comun';
 
 const API = '/api/cuentas/admin';
+
+/** Una opción con su casilla o su botón redondo: toda la fila se toca (40 px como mínimo). */
+function Opcion({
+  tipo,
+  marcada,
+  onElegir,
+  nombre,
+  ayuda,
+  className,
+  children,
+}: {
+  tipo: 'radio' | 'checkbox';
+  marcada: boolean;
+  onElegir: (v: boolean) => void;
+  nombre?: string;
+  ayuda?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className={cn('flex min-h-10 cursor-pointer items-start gap-3 py-2.5 text-sm text-zinc-700 dark:text-zinc-300', className)}>
+      <input
+        type={tipo}
+        name={nombre}
+        checked={marcada}
+        onChange={(e) => onElegir(e.target.checked)}
+        className="mt-0.5 size-4 shrink-0 accent-blue-600"
+      />
+      <span>
+        {children}
+        {ayuda && <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{ayuda}</span>}
+      </span>
+    </label>
+  );
+}
 
 // ─── Elegir unidad ───────────────────────────────────────────────────────────
 
@@ -44,31 +84,36 @@ export function SelectorUo({
   return (
     <div className="space-y-2">
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar unidad" className={cn(CAMPO, 'pl-9')} />
+        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar unidad" aria-label="Buscar unidad" className="pl-9" />
       </div>
       <ul className={cn('overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-700', alto)}>
         {visibles.map((u) => {
           const nivel = u.ruta === '/' ? 0 : u.ruta.split('/').filter(Boolean).length;
+          const elegida = valor === u.ruta;
           return (
             <li key={u.ruta}>
               <button
                 type="button"
+                aria-pressed={elegida}
                 onClick={() => onElegir(u.ruta)}
                 className={cn(
-                  'flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800',
-                  valor === u.ruta && 'bg-blue-50 font-semibold text-blue-800 dark:bg-blue-500/15 dark:text-blue-200',
+                  'flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 pr-3 text-left text-sm text-zinc-800 outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset dark:text-zinc-200 dark:hover:bg-zinc-800',
+                  elegida && 'bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100',
                 )}
                 style={{ paddingLeft: `${0.75 + (q ? 0 : nivel) * 0.9}rem` }}
                 title={u.ruta}
               >
                 <span className="truncate">{q ? u.ruta : u.nombre}</span>
-                {u.activas > 0 && <span className="shrink-0 font-mono text-[11px] text-zinc-400">{u.activas}</span>}
+                <span className="flex shrink-0 items-center gap-2">
+                  {u.activas > 0 && <span className="font-mono text-xs text-zinc-500 tabular-nums dark:text-zinc-400">{u.activas}</span>}
+                  {elegida && <Check aria-hidden className="size-4" />}
+                </span>
               </button>
             </li>
           );
         })}
-        {visibles.length === 0 && <li className="px-3 py-4 text-center text-xs text-zinc-500">Ninguna unidad se llama así</li>}
+        {visibles.length === 0 && <li className="px-3 py-4 text-center text-sm text-zinc-500 dark:text-zinc-400">Ninguna unidad se llama así</li>}
       </ul>
     </div>
   );
@@ -91,6 +136,9 @@ interface Borrador {
 const antesDeLaArroba = (email: string | null | undefined) => (email ?? '').split('@')[0] ?? '';
 
 type ModoContrasena = 'aleatoria' | 'comun';
+
+/** El rótulo pequeño de cada campo de una fila de «Crear correos». */
+const ROTULO_CAMPO = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400';
 
 export function CrearCorreos({
   filas,
@@ -244,7 +292,7 @@ export function CrearCorreos({
               la cuenta.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[55vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+          <div className="max-h-[55vh] overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {resultados.map((r) => {
@@ -253,18 +301,19 @@ export function CrearCorreos({
                     <tr key={r.clave}>
                       <td className="px-3 py-2">
                         {r.ok ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          <CheckCircle2 aria-hidden className="size-4 text-emerald-600 dark:text-emerald-400" />
                         ) : (
-                          <XCircle className="h-4 w-4 text-red-600" />
+                          <XCircle aria-hidden className="size-4 text-red-600 dark:text-red-400" />
                         )}
+                        <span className="sr-only">{r.ok ? 'Creado' : 'No se ha podido crear'}</span>
                       </td>
                       <td className="px-3 py-2">
                         <p className="font-medium text-zinc-900 dark:text-zinc-100">{f?.nombre}</p>
-                        <p className="text-xs text-zinc-500">{f?.clase ?? 'Profesorado'}</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">{f?.clase ?? 'Profesorado'}</p>
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs">{r.email}</td>
-                      <td className="px-3 py-2 font-mono text-sm font-semibold">
-                        {r.ok ? r.contrasena : <span className="font-sans text-xs font-normal text-red-600">{r.error}</span>}
+                      <td className="px-3 py-2 font-mono text-xs text-zinc-700 dark:text-zinc-300">{r.email}</td>
+                      <td className="px-3 py-2 font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        {r.ok ? r.contrasena : <span className="font-sans text-xs font-normal text-red-700 dark:text-red-400">{r.error}</span>}
                       </td>
                     </tr>
                   );
@@ -272,16 +321,15 @@ export function CrearCorreos({
               </tbody>
             </table>
           </div>
-          <DialogFooter className="flex-wrap gap-2">
+          <DialogFooter>
             {bien.length > 0 && (
               <>
                 <BotonCopiar
                   texto={['Nombre\tClase\tCorreo\tContraseña', ...tabla.map((f) => f.join('\t'))].join('\n')}
                   etiqueta="Copiar para pegar en una hoja"
                 />
-                <button
-                  type="button"
-                  className={cn(BOTON, 'h-9')}
+                <Button
+                  variant="outline"
                   onClick={() =>
                     descargarCsv(`correos-nuevos-${new Date().toISOString().slice(0, 10)}.csv`, [
                       ['Nombre', 'Clase', 'Correo', 'Contraseña'],
@@ -289,13 +337,11 @@ export function CrearCorreos({
                     ])
                   }
                 >
-                  <Download className="h-4 w-4" /> Descargar CSV
-                </button>
+                  <Download /> Descargar CSV
+                </Button>
               </>
             )}
-            <button type="button" className={BOTON_PRIMARIO} onClick={onHecho}>
-              Hecho
-            </button>
+            <Button onClick={onHecho}>Hecho</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -317,145 +363,147 @@ export function CrearCorreos({
         <div className="max-h-[48vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {borradores.map((b, i) => (
-              <li key={b.fila.clave} className={cn('space-y-2 px-3 py-3', !b.incluir && 'opacity-60')}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={b.incluir}
-                    onChange={(e) => cambiar(i, { incluir: e.target.checked })}
-                    className="h-4 w-4"
-                    aria-label={`Crear el correo de ${b.fila.nombre}`}
-                  />
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">{b.fila.nombre}</span>
-                  <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                    {b.fila.clase ?? 'Profe'}
-                  </span>
-                  {errores[i] && <span className="text-xs font-medium text-red-600">{errores[i]!.texto}</span>}
+              <li key={b.fila.clave} className="space-y-2 px-3 py-3">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <label className="-my-1 -ml-2 flex size-10 shrink-0 cursor-pointer items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={b.incluir}
+                      onChange={(e) => cambiar(i, { incluir: e.target.checked })}
+                      className="size-4 accent-blue-600"
+                      aria-label={`Crear el correo de ${b.fila.nombre}`}
+                    />
+                  </label>
+                  <span className={cn('font-medium text-zinc-900 dark:text-zinc-100', !b.incluir && 'opacity-60')}>{b.fila.nombre}</span>
+                  <Etiqueta>{b.fila.clase ?? 'Profe'}</Etiqueta>
+                  {errores[i] && <span className="text-xs font-medium text-red-700 dark:text-red-400">{errores[i]!.texto}</span>}
                 </div>
                 {b.fila.parecidas.length > 0 && (
-                  <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <Aviso tono="aviso" className="px-3 py-2">
                     Se parece a {b.fila.parecidas.map((p) => p.email).join(', ')}. Si es suya, vincúlala en vez de crear otra.
-                  </p>
+                  </Aviso>
                 )}
                 {b.fila.avisos.map((a) => (
-                  <p key={a} className="text-xs text-amber-700 dark:text-amber-300">
+                  <p key={a} className="text-xs text-amber-700 dark:text-amber-400">
                     {a}
                   </p>
                 ))}
-                <div className="grid gap-2 sm:grid-cols-[1.5fr_1fr_1.2fr_0.9fr]">
+                <div className={cn('grid gap-2 sm:grid-cols-[1.5fr_1fr_1.2fr_0.9fr]', !b.incluir && 'opacity-60')}>
                   <label className="block min-w-0">
-                    <span className="mb-0.5 block text-[11px] font-medium text-zinc-500">Correo</span>
+                    <span className={ROTULO_CAMPO}>Correo</span>
                     <span
                       className={cn(
-                        CAMPO,
-                        'flex items-center gap-0 px-0 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20',
-                        errores[i]?.campo === 'correo' && 'border-red-400',
-                        !b.incluir && 'opacity-60',
+                        claseCampo,
+                        'flex items-center px-0 focus-within:border-blue-500 focus-within:ring-3 focus-within:ring-blue-500/20',
+                        errores[i]?.campo === 'correo' && 'border-red-500 dark:border-red-500',
                       )}
                     >
                       <input
                         value={b.usuario}
                         onChange={(e) => cambiar(i, { usuario: e.target.value.replace(/@.*$/, '').toLowerCase(), usuarioAMano: true })}
-                        className="h-full min-w-0 flex-1 bg-transparent pl-3 font-mono text-[13px] outline-none"
+                        className="h-full min-w-0 flex-1 bg-transparent pl-3 font-mono text-sm outline-none"
                         aria-label={`Correo de ${b.fila.nombre}`}
+                        aria-invalid={errores[i]?.campo === 'correo' || undefined}
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck={false}
                         disabled={!b.incluir}
                       />
-                      <span className="shrink-0 truncate pr-3 font-mono text-[12px] text-zinc-400">@{dominio}</span>
+                      <span className="shrink-0 truncate pr-3 font-mono text-xs text-zinc-500 dark:text-zinc-400">@{dominio}</span>
                     </span>
                   </label>
                   <label className="block min-w-0">
-                    <span className="mb-0.5 block text-[11px] font-medium text-zinc-500">Nombre en Google</span>
-                    <input
+                    <span className={ROTULO_CAMPO}>Nombre en Google</span>
+                    <Input
                       value={b.nombre}
                       onChange={(e) => cambiarNombre(i, { nombre: e.target.value })}
-                      className={cn(CAMPO, errores[i]?.campo === 'nombre' && !b.nombre.trim() && 'border-red-400')}
+                      aria-invalid={(errores[i]?.campo === 'nombre' && !b.nombre.trim()) || undefined}
                       disabled={!b.incluir}
                     />
                   </label>
                   <label className="block min-w-0">
-                    <span className="mb-0.5 block text-[11px] font-medium text-zinc-500">Apellidos en Google</span>
-                    <input
+                    <span className={ROTULO_CAMPO}>Apellidos en Google</span>
+                    <Input
                       value={b.apellidos}
                       onChange={(e) => cambiarNombre(i, { apellidos: e.target.value })}
-                      className={cn(CAMPO, errores[i]?.campo === 'nombre' && !b.apellidos.trim() && 'border-red-400')}
+                      aria-invalid={(errores[i]?.campo === 'nombre' && !b.apellidos.trim()) || undefined}
                       disabled={!b.incluir}
                     />
                   </label>
                   <label className="block min-w-0">
-                    <span className="mb-0.5 block text-[11px] font-medium text-zinc-500">Unidad</span>
+                    <span className={ROTULO_CAMPO}>Unidad</span>
                     <button
                       type="button"
                       disabled={!b.incluir}
                       onClick={() => setEligiendoUo(i)}
-                      className={cn(CAMPO, 'cursor-pointer truncate text-left font-mono text-[12px]')}
+                      className={cn(claseCampo, 'cursor-pointer truncate text-left font-mono text-sm sm:text-sm')}
                       title={b.uo}
                     >
                       {b.uo.split('/').filter(Boolean).at(-1) ?? '/'}
                     </button>
                   </label>
                 </div>
-                {b.incluir && <AyudasFila b={b} dominio={dominio} existentes={existentes} onCambiar={(c) => cambiar(i, c)} onNombre={(c) => cambiarNombre(i, c)} onVolver={() => volverAPropuesta(i)} />}
+                {b.incluir && (
+                  <AyudasFila
+                    b={b}
+                    dominio={dominio}
+                    existentes={existentes}
+                    onCambiar={(c) => cambiar(i, c)}
+                    onNombre={(c) => cambiarNombre(i, c)}
+                    onVolver={() => volverAPropuesta(i)}
+                  />
+                )}
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="grid gap-3 rounded-xl bg-zinc-50 p-3 text-sm dark:bg-zinc-800/50 sm:grid-cols-2">
-          <fieldset className="space-y-1.5">
-            <legend className="mb-1 flex items-center gap-1.5 font-medium text-zinc-800 dark:text-zinc-200">
-              <KeyRound className="h-4 w-4" /> Contraseña
+        <div className="grid gap-3 rounded-xl bg-zinc-50 px-3 py-2 sm:grid-cols-2 dark:bg-zinc-800/50">
+          <fieldset>
+            <legend className="flex items-center gap-1.5 pt-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              <KeyRound aria-hidden className="size-4" /> Contraseña
             </legend>
-            <label className="flex items-center gap-2">
-              <input type="radio" checked={modo === 'aleatoria'} onChange={() => setModo('aleatoria')} />
+            <Opcion tipo="radio" nombre="contrasena-crear" marcada={modo === 'aleatoria'} onElegir={() => setModo('aleatoria')}>
               Una distinta para cada uno
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="radio" checked={modo === 'comun'} onChange={() => setModo('comun')} />
+            </Opcion>
+            <Opcion tipo="radio" nombre="contrasena-crear" marcada={modo === 'comun'} onElegir={() => setModo('comun')}>
               La misma para todos
-            </label>
+            </Opcion>
             {modo === 'comun' && (
-              <input
+              <Input
                 value={comun}
                 onChange={(e) => setComun(e.target.value)}
                 placeholder="Mínimo 8 caracteres"
-                className={cn(CAMPO, 'font-mono')}
+                aria-label="La contraseña para todos"
+                className="mb-2 font-mono"
                 autoComplete="off"
               />
             )}
           </fieldset>
-          <div className="space-y-2">
-            <label className="flex items-start gap-2">
-              <input type="checkbox" checked={cambiarAlEntrar} onChange={(e) => setCambiarAlEntrar(e.target.checked)} className="mt-0.5" />
-              <span>
-                Que la cambien la primera vez que entren
-                <span className="block text-xs text-zinc-500">Para el profesorado sí. A los peques se la gestiona el cole.</span>
-              </span>
-            </label>
-            <p className="text-xs text-zinc-500">
+          <div>
+            <Opcion
+              tipo="checkbox"
+              marcada={cambiarAlEntrar}
+              onElegir={setCambiarAlEntrar}
+              ayuda="Para el profesorado sí. A los peques se la gestiona el cole."
+            >
+              Que la cambien la primera vez que entren
+            </Opcion>
+            <p className="pb-2 text-xs text-zinc-500 dark:text-zinc-400">
               Al terminar salen las contraseñas para copiarlas o descargarlas. No se guardan en ningún sitio.
             </p>
           </div>
         </div>
 
-        {progreso && <Progreso texto="Creando en Google…" hechos={progreso.hechos} total={progreso.total} />}
+        {progreso && <EnCurso texto="Creando en Google…" hechos={progreso.hechos} total={progreso.total} />}
 
         <DialogFooter>
-          <button type="button" className={BOTON} onClick={onCerrar} disabled={!!progreso}>
+          <Button variant="outline" onClick={onCerrar} disabled={!!progreso}>
             Cancelar
-          </button>
-          <button
-            type="button"
-            className={BOTON_PRIMARIO}
-            disabled={!!progreso || elegidos.length === 0 || hayErrores || comunMal}
-            onClick={crear}
-          >
-            {progreso && <Loader2 className="h-4 w-4 animate-spin" />}
+          </Button>
+          <Button cargando={!!progreso} disabled={elegidos.length === 0 || hayErrores || comunMal} onClick={crear}>
             Crear {elegidos.length} correo{elegidos.length === 1 ? '' : 's'}
-          </button>
+          </Button>
         </DialogFooter>
 
         {eligiendoUo !== null && (
@@ -516,17 +564,17 @@ export function MoverA({
     <Dialog open onOpenChange={(o) => !o && !enCurso && onCerrar()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mover {filas.length === 1 ? filas[0].cuenta?.email : `${filas.length} cuentas`}</DialogTitle>
+          <DialogTitle className="break-all">Mover {filas.length === 1 ? filas[0].cuenta?.email : `${filas.length} cuentas`}</DialogTitle>
           <DialogDescription>Elige la unidad organizativa de destino.</DialogDescription>
         </DialogHeader>
         <SelectorUo unidades={unidades} valor={destino} onElegir={setDestino} />
         <DialogFooter>
-          <button type="button" className={BOTON} onClick={onCerrar} disabled={enCurso}>
+          <Button variant="outline" onClick={onCerrar} disabled={enCurso}>
             Cancelar
-          </button>
-          <button type="button" className={BOTON_PRIMARIO} disabled={!destino || enCurso} onClick={mover}>
-            {enCurso && <Loader2 className="h-4 w-4 animate-spin" />} Mover
-          </button>
+          </Button>
+          <Button disabled={!destino} cargando={enCurso} onClick={mover}>
+            {filas.length === 1 ? 'Mover aquí' : `Mover las ${filas.length} aquí`}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -563,47 +611,52 @@ export function ContrasenaNueva({ fila, onCerrar }: { fila: FilaCuenta; onCerrar
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Contraseña nueva</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="break-all">
             {fila.nombre} · {fila.cuenta?.email}
           </DialogDescription>
         </DialogHeader>
         {nueva ? (
-          <div className="space-y-3">
-            <p className="rounded-xl bg-zinc-50 p-4 text-center font-mono text-2xl font-semibold tracking-wide text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">
+          <>
+            <p className="rounded-xl bg-zinc-50 p-4 text-center font-mono text-2xl font-semibold tracking-wide break-all text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">
               {nueva}
             </p>
-            <p className="text-xs text-zinc-500">No se guarda: apúntala o cópiala ahora.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">No se guarda: apúntala o cópiala ahora.</p>
             <DialogFooter>
-              <BotonCopiar texto={nueva} />
-              <button type="button" className={BOTON_PRIMARIO} onClick={onCerrar}>
-                Hecho
-              </button>
+              <BotonCopiar texto={nueva} etiqueta="Copiar la contraseña" />
+              <Button onClick={onCerrar}>Hecho</Button>
             </DialogFooter>
-          </div>
+          </>
         ) : (
           <>
-            <div className="space-y-1.5 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="radio" checked={modo === 'aleatoria'} onChange={() => setModo('aleatoria')} /> Una nueva al azar
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" checked={modo === 'comun'} onChange={() => setModo('comun')} /> Escribirla yo
-              </label>
+            <fieldset>
+              <legend className="sr-only">Cómo es la contraseña</legend>
+              <Opcion tipo="radio" nombre="contrasena-nueva" marcada={modo === 'aleatoria'} onElegir={() => setModo('aleatoria')}>
+                Una nueva al azar
+              </Opcion>
+              <Opcion tipo="radio" nombre="contrasena-nueva" marcada={modo === 'comun'} onElegir={() => setModo('comun')}>
+                Escribirla yo
+              </Opcion>
               {modo === 'comun' && (
-                <input value={valor} onChange={(e) => setValor(e.target.value)} className={cn(CAMPO, 'font-mono')} placeholder="Mínimo 8 caracteres" autoComplete="off" />
+                <Input
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                  className="font-mono"
+                  placeholder="Mínimo 8 caracteres"
+                  aria-label="La contraseña"
+                  autoComplete="off"
+                />
               )}
-              <label className="flex items-center gap-2 pt-2">
-                <input type="checkbox" checked={cambiarAlEntrar} onChange={(e) => setCambiarAlEntrar(e.target.checked)} /> Que la cambie al
-                entrar
-              </label>
-            </div>
+              <Opcion tipo="checkbox" marcada={cambiarAlEntrar} onElegir={setCambiarAlEntrar} className="mt-1">
+                Que la cambie al entrar
+              </Opcion>
+            </fieldset>
             <DialogFooter>
-              <button type="button" className={BOTON} onClick={onCerrar} disabled={enCurso}>
+              <Button variant="outline" onClick={onCerrar} disabled={enCurso}>
                 Cancelar
-              </button>
-              <button type="button" className={BOTON_PRIMARIO} disabled={enCurso || (modo === 'comun' && valor.length < 8)} onClick={poner}>
-                {enCurso && <Loader2 className="h-4 w-4 animate-spin" />} Poner contraseña
-              </button>
+              </Button>
+              <Button cargando={enCurso} disabled={modo === 'comun' && valor.length < 8} onClick={poner}>
+                Poner contraseña
+              </Button>
             </DialogFooter>
           </>
         )}
@@ -635,33 +688,44 @@ export function MarcarCuenta({ fila, onCerrar, onHecho }: { fila: FilaCuenta; on
     <Dialog open onOpenChange={(o) => !o && !enCurso && onCerrar()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{fila.cuenta?.email}</DialogTitle>
+          <DialogTitle className="break-all">{fila.cuenta?.email}</DialogTitle>
           <DialogDescription>No sale en Educamos. Si se tiene que quedar, márcala y deja de salir como pendiente.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-2 text-sm">
+        <fieldset className="space-y-2">
+          <legend className="sr-only">Por qué se queda</legend>
           {TIPOS_MARCA.map((t) => (
-            <label key={t} className="flex items-start gap-2 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
-              <input type="radio" checked={tipo === t} onChange={() => setTipo(t)} className="mt-0.5" />
-              <span>
-                <b>{MARCA_LABEL[t]}</b>
-                <span className="block text-xs text-zinc-500">{MARCA_AYUDA[t]}</span>
-              </span>
-            </label>
+            <Opcion
+              key={t}
+              tipo="radio"
+              nombre="marca"
+              marcada={tipo === t}
+              onElegir={() => setTipo(t)}
+              ayuda={MARCA_AYUDA[t]}
+              className="rounded-xl border border-zinc-200 px-3 dark:border-zinc-700"
+            >
+              <b className="font-semibold text-zinc-900 dark:text-zinc-100">{MARCA_LABEL[t]}</b>
+            </Opcion>
           ))}
-          <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Nota (opcional): de quién es, para qué…" className={CAMPO} maxLength={300} />
-        </div>
+          <Input
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            placeholder="Nota (opcional): de quién es, para qué…"
+            aria-label="Nota"
+            maxLength={300}
+          />
+        </fieldset>
         <DialogFooter>
           {fila.marca && (
-            <button type="button" className={cn(BOTON, 'mr-auto')} onClick={() => guardar(true)} disabled={enCurso}>
+            <Button variant="destructive" className="sm:mr-auto" onClick={() => guardar(true)} disabled={enCurso}>
               Quitar la marca
-            </button>
+            </Button>
           )}
-          <button type="button" className={BOTON} onClick={onCerrar} disabled={enCurso}>
+          <Button variant="outline" onClick={onCerrar} disabled={enCurso}>
             Cancelar
-          </button>
-          <button type="button" className={BOTON_PRIMARIO} onClick={() => guardar(false)} disabled={enCurso}>
-            {enCurso && <Loader2 className="h-4 w-4 animate-spin" />} Guardar
-          </button>
+          </Button>
+          <Button cargando={enCurso} onClick={() => guardar(false)}>
+            Guardar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -694,30 +758,23 @@ function AyudasFila({
     b.nombre !== (b.fila.paraGoogle?.nombre ?? '') ||
     b.apellidos !== (b.fila.paraGoogle?.apellidos ?? '');
   if (otros.length === 0 && !tildes && !cambiado) return null;
-  const chip =
-    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg border border-zinc-200 px-2 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800';
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {otros.length > 0 && <span className="text-[11px] text-zinc-500">También libres:</span>}
+    <div className="flex flex-wrap items-center gap-2">
+      {otros.length > 0 && <span className="text-xs text-zinc-500 dark:text-zinc-400">También libres:</span>}
       {otros.map((e) => (
-        <button key={e} type="button" className={cn(chip, 'font-mono')} onClick={() => onCambiar({ usuario: antesDeLaArroba(e), usuarioAMano: true })}>
+        <Button key={e} variant="outline" size="sm" className="font-mono font-normal" onClick={() => onCambiar({ usuario: antesDeLaArroba(e), usuarioAMano: true })}>
           {antesDeLaArroba(e)}
-        </button>
+        </Button>
       ))}
       {tildes && (
-        <button
-          type="button"
-          className={cn(chip, 'border-blue-200 text-blue-800 dark:border-blue-500/30 dark:text-blue-200')}
-          onClick={() => onNombre(tildes)}
-          title="Educamos solo trae las tildes que escribió la familia"
-        >
+        <Button variant="outline" size="sm" onClick={() => onNombre(tildes)}>
           ¿Con tildes? {tildes.nombre} {tildes.apellidos}
-        </button>
+        </Button>
       )}
       {cambiado && (
-        <button type="button" className={chip} onClick={onVolver}>
-          <RotateCcw className="h-3 w-3" /> Lo propuesto
-        </button>
+        <Button variant="ghost" size="sm" onClick={onVolver}>
+          <RotateCcw /> Lo propuesto
+        </Button>
       )}
     </div>
   );

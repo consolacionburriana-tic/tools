@@ -2,10 +2,14 @@
 
 // «Registro»: lo que se ha hecho desde aquí, quién y cuándo. Nunca lleva contraseñas.
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, Search, XCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CheckCircle2, ClipboardList, Search, XCircle } from 'lucide-react';
 import type { EntradaRegistro } from '@/lib/cuentas-server';
-import { CAMPO, fechaHora, pedir, TARJETA } from './comun';
+import { Aviso } from '@/components/ui/aviso';
+import { Input } from '@/components/ui/input';
+import { SkeletonRows } from '@/components/ui/skeleton';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
+import { fechaHora, pedir } from './comun';
 
 const ACCION_LABEL: Record<string, string> = {
   crear: 'Creada',
@@ -42,44 +46,50 @@ export function Registro() {
     );
   }, [entradas, q]);
 
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  if (error) return <Aviso tono="error">No se ha podido leer el registro: {error}</Aviso>;
   if (!entradas) {
     return (
-      <p className="flex items-center gap-2 text-sm text-zinc-500">
-        <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
-      </p>
+      <div role="status" aria-label="Cargando el registro">
+        <SkeletonRows n={4} />
+      </div>
+    );
+  }
+  if (entradas.length === 0) {
+    return (
+      <Vacio icono={<ClipboardList />} titulo="Todavía no se ha hecho nada desde aquí">
+        Cada cuenta creada, movida o suspendida, y cada cambio de grupo, queda apuntado aquí con quién y cuándo.
+      </Vacio>
     );
   }
 
   return (
     <div className="space-y-3">
       <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Correo, grupo o persona" className={cn(CAMPO, 'pl-9')} />
+        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Correo, grupo o persona" aria-label="Buscar en el registro" className="pl-9" />
       </div>
-      <section className={cn(TARJETA, 'overflow-hidden')}>
+      <Tarjeta as="section" aria-label="Registro" className="overflow-hidden">
         {visibles.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-zinc-500">
-            {entradas.length === 0 ? 'Todavía no se ha hecho nada desde aquí.' : 'Nada con esa búsqueda.'}
-          </p>
+          <p className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">Nada con esa búsqueda.</p>
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {visibles.map((e) => (
               <li key={e.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
                 {e.ok ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <CheckCircle2 aria-hidden className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 ) : (
-                  <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                  <XCircle aria-hidden className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" />
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-zinc-900 dark:text-zinc-100">
+                    <span className="sr-only">{e.ok ? 'Hecho: ' : 'Falló: '}</span>
                     <b className="font-medium">{ACCION_LABEL[e.accion] ?? e.accion}</b>{' '}
-                    <span className="font-mono text-xs">{e.objetivo}</span>
+                    <span className="font-mono text-xs break-all">{e.objetivo}</span>
                   </p>
-                  {e.detalle && <p className="truncate text-xs text-zinc-500">{e.detalle}</p>}
-                  {e.error && <p className="text-xs text-red-600">{e.error}</p>}
+                  {e.detalle && <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{e.detalle}</p>}
+                  {e.error && <p className="text-xs text-red-700 dark:text-red-400">{e.error}</p>}
                 </div>
-                <p className="shrink-0 text-right text-xs text-zinc-500">
+                <p className="shrink-0 text-right text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
                   {fechaHora(e.at)}
                   <span className="block">{e.por}</span>
                 </p>
@@ -87,7 +97,7 @@ export function Registro() {
             ))}
           </ul>
         )}
-      </section>
+      </Tarjeta>
     </div>
   );
 }

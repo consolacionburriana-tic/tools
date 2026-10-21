@@ -4,18 +4,17 @@
 // selección en bloque y, al tocar una fila, su ficha con lo que se puede hacer con ella.
 import { useMemo, useState } from 'react';
 import {
-  AlertTriangle,
   ArchiveRestore,
-  ChevronDown,
   ChevronRight,
   ExternalLink,
   FolderInput,
   KeyRound,
   Link2,
-  Loader2,
   MailPlus,
   Search,
+  SearchX,
   ShieldCheck,
+  TriangleAlert,
   UserX,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,6 +24,7 @@ import { compararClases } from '@/lib/cursos';
 import {
   enlaceConsolaUsuario,
   MARCA_LABEL,
+  nombreUo,
   uoArchivo,
   uoDentroDe,
   type AjustesCuentas,
@@ -32,22 +32,22 @@ import {
   type FilaCuenta,
 } from '@/lib/cuentas';
 import type { EstadoCuentas, ResultadoAccion } from '@/lib/cuentas-server';
-import {
-  avisarResultado,
-  BOTON,
-  BOTON_PRIMARIO,
-  BotonCopiar,
-  CAMPO,
-  ChipEstado,
-  ChipUo,
-  ConfirmarPalabra,
-  enTandas,
-  fecha,
-  haceTiempo,
-  post,
-  Progreso,
-  TARJETA,
-} from './comun';
+import { Aviso } from '@/components/ui/aviso';
+import { BarraAcciones } from '@/components/ui/barra-acciones';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { ConfirmarDialogo } from '@/components/ui/confirmar';
+import { Dato } from '@/components/ui/copiable';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro as Pastilla, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { EnCurso } from '@/components/ui/progreso';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
+import { avisarResultado, enTandas, EstadoCuenta, fecha, haceTiempo, post } from './comun';
 import { ContrasenaNueva, CrearCorreos, MarcarCuenta, MoverA } from './dialogos';
 
 const API = '/api/cuentas/admin';
@@ -97,6 +97,9 @@ const ACCION_DE: Partial<Record<EstadoFila, 'crear' | 'mover' | 'suspender' | 'a
 };
 
 const PAGINA = 150;
+
+/** «1 cuenta», «12 cuentas». */
+const cuentas = (n: number) => `${n} cuenta${n === 1 ? '' : 's'}`;
 
 export interface VistaLista {
   filtro: Filtro;
@@ -177,6 +180,7 @@ export function ListaCuentas({
   const seleccionables = visibles.filter((f) => ACCION_DE[f.estado] && !f.cuenta?.admin);
   const elegidas = filas.filter((f) => seleccion.has(f.clave));
   const porAccion = (a: string) => elegidas.filter((f) => ACCION_DE[f.estado] === a && !f.cuenta?.admin);
+  const fichaAbierta = abierta ? filas.find((f) => f.clave === abierta) : undefined;
 
   function alternar(clave: string) {
     haptic.tap();
@@ -251,133 +255,166 @@ export function ListaCuentas({
     }
   }
 
+  /** Desde la ficha: se cierra y sigue la acción (su diálogo, o la tanda con su progreso). */
+  const desdeFicha = (accion: () => void) => () => {
+    setAbierta(null);
+    accion();
+  };
+
+  /** En la barra de abajo, el botón azul es el de la primera acción que haya (por este orden). */
+  const nCrear = porAccion('crear').length;
+  const nMover = porAccion('mover').length;
+  const nArchivar = porAccion('archivar').length;
+  const nReactivar = porAccion('reactivar').length;
+  const nSuspender = porAccion('suspender').length;
+  const principal = nCrear ? 'crear' : nMover ? 'mover' : nArchivar ? 'archivar' : nReactivar ? 'reactivar' : null;
+  const variante = (a: typeof principal) => (principal === a ? 'default' : 'outline');
+  const tocar = (accion: () => void) => () => {
+    haptic.tap();
+    accion();
+  };
+
   const clases = estado.cruce.clases;
   const rotuloGrupo = (f: FilaCuenta) => (f.tipo === 'alumno' ? (f.clase ?? 'Sin clase') : f.tipo === 'profe' ? 'Profesorado' : (f.cuenta?.uo ?? '/'));
+  const nSusp = dialogo?.tipo === 'suspender' ? dialogo.filas.length : 0;
+  const nReac = dialogo?.tipo === 'reactivar' ? dialogo.filas.length : 0;
 
   return (
-    <div className="space-y-4 pb-28">
+    <div className="space-y-4">
       {/* ── Filtros ───────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-2">
+      <Filtros etiqueta="Mostrar">
         {FILTROS.map((f) => {
           const n = cuentaFiltro(f.pasa);
           if (f.clave !== 'todas' && n === 0 && vista.filtro !== f.clave) return null;
           return (
-            <button
+            <Pastilla
               key={f.clave}
-              type="button"
+              activo={vista.filtro === f.clave}
+              cuenta={n}
               onClick={() => {
                 setVista({ ...vista, filtro: f.clave });
                 setLimite(PAGINA);
               }}
-              className={cn(
-                'inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors',
-                vista.filtro === f.clave
-                  ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
-              )}
             >
-              {f.etiqueta} <span className="font-mono text-xs opacity-70">{n}</span>
-            </button>
+              {f.etiqueta}
+            </Pastilla>
           );
         })}
-      </div>
+      </Filtros>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-xl bg-zinc-200/60 p-1 dark:bg-zinc-800/60">
-          {QUIEN.map(([q, l]) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => setVista({ ...vista, quien: q, clase: q === 'alumno' || q === 'todos' ? vista.clase : null })}
-              className={cn(
-                'h-8 cursor-pointer rounded-lg px-3 text-sm',
-                vista.quien === q ? 'bg-white font-semibold shadow-sm dark:bg-zinc-900' : 'text-zinc-600 dark:text-zinc-400',
-              )}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-        {(vista.quien === 'alumno' || vista.quien === 'todos') && (
-          <select
-            value={vista.clase ?? ''}
-            onChange={(e) => setVista({ ...vista, clase: e.target.value || null })}
-            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            aria-label="Clase"
-          >
-            <option value="">Todas las clases</option>
-            {clases.map((c) => (
-              <option key={c.clave} value={c.clave}>
-                {c.nombre}
-              </option>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span aria-hidden className="text-sm text-zinc-500 dark:text-zinc-400">
+            De quién
+          </span>
+          <Filtros etiqueta="De quién">
+            {QUIEN.map(([q, l]) => (
+              <Pastilla
+                key={q}
+                activo={vista.quien === q}
+                onClick={() => setVista({ ...vista, quien: q, clase: q === 'alumno' || q === 'todos' ? vista.clase : null })}
+              >
+                {l}
+              </Pastilla>
             ))}
-          </select>
-        )}
-        <div className="relative min-w-52 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <input
-            value={vista.busqueda}
-            onChange={(e) => setVista({ ...vista, busqueda: e.target.value })}
-            placeholder="Nombre, correo, clase o unidad"
-            className={cn(CAMPO, 'pl-9')}
-          />
+          </Filtros>
+        </div>
+        <div className="flex min-w-0 flex-[1_1_28rem] flex-wrap gap-2">
+          {(vista.quien === 'alumno' || vista.quien === 'todos') && (
+            <Selector
+              aria-label="Clase"
+              value={vista.clase ?? ''}
+              onChange={(e) => setVista({ ...vista, clase: e.target.value || null })}
+              className="sm:w-52"
+            >
+              <option value="">Todas las clases</option>
+              {clases.map((c) => (
+                <option key={c.clave} value={c.clave}>
+                  {c.nombre}
+                </option>
+              ))}
+            </Selector>
+          )}
+          <div className="relative min-w-52 flex-1">
+            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
+            <Input
+              value={vista.busqueda}
+              onChange={(e) => setVista({ ...vista, busqueda: e.target.value })}
+              placeholder="Nombre, correo, clase o unidad"
+              aria-label="Buscar"
+              className="pl-9"
+            />
+          </div>
         </div>
       </div>
 
       {vista.filtro === 'bajas' && (
-        <p className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/40 dark:text-zinc-300">
+        <Aviso tono="info">
           A quien termina 4º de ESO se le deja el correo {estado.ajustes.graciaGraduados} meses; a las demás bajas del alumnado,{' '}
           {estado.ajustes.graciaBajas}, y al profesorado, {estado.ajustes.graciaProfes}. Se cuenta desde la última vez que salían en
           Educamos (o su fecha de baja). Se cambia en Unidades.
-        </p>
+        </Aviso>
       )}
       {vista.filtro === 'sueltas' && (
-        <p className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/40 dark:text-zinc-300">
+        <Aviso tono="info">
           Cuentas de las unidades del alumnado y del profesorado que no casan con nadie de Educamos: casi siempre son de gente que
           ya se fue antes de que existiera la BBDD central. Antes de suspender, mira las que dicen «se parece a»: puede que sea de
           alguien que sigue y tenga otro correo apuntado.
-        </p>
+        </Aviso>
       )}
 
-      {progreso && <Progreso texto={progreso.texto} hechos={progreso.hechos} total={progreso.total} />}
+      {progreso && <EnCurso texto={progreso.texto} hechos={progreso.hechos} total={progreso.total} />}
 
       {/* ── Lista ─────────────────────────────────────────────────────── */}
-      <section className={cn(TARJETA, 'overflow-hidden')}>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-2.5 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-          {puedeGestionar && seleccionables.length > 0 ? (
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={seleccionables.every((f) => seleccion.has(f.clave))}
-                onChange={alternarTodas}
-              />
-              Seleccionar {seleccionables.length === 1 ? 'la que tiene algo que hacer' : `las ${seleccionables.length} que tienen algo que hacer`}
-            </label>
-          ) : (
-            <span>{visibles.length} en la lista</span>
-          )}
-          {vista.filtro === 'sueltas' && puedeGestionar && (
-            <button
-              type="button"
-              className="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
-              onClick={() => {
-                const meses = estado.ajustes.graciaGraduados;
-                const viejas = seleccionables.filter(
-                  (f) => !f.parecidas.length && haceMasDe(f.cuenta?.ultimoAccesoAt ?? f.cuenta?.creadaAt ?? null, meses),
-                );
-                setSeleccion(new Set([...seleccion, ...viejas.map((f) => f.clave)]));
-              }}
-            >
-              Seleccionar las que llevan más de {estado.ajustes.graciaGraduados} meses sin entrar
-            </button>
-          )}
-        </div>
-        {visibles.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-zinc-500">
-            {filas.length === 0 ? 'Todavía no se ha leído Google.' : 'Nada con estos filtros.'}
-          </p>
-        ) : (
+      {visibles.length === 0 ? (
+        <Vacio
+          icono={<SearchX />}
+          titulo={filas.length === 0 ? 'Todavía no se ha leído Google' : 'Nada con estos filtros'}
+          accion={
+            filas.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setVista({ filtro: 'todas', quien: 'todos', clase: null, busqueda: '' })}>
+                Ver todas las cuentas
+              </Button>
+            )
+          }
+        >
+          {filas.length > 0 && 'Prueba con otro filtro, otra clase o menos letras en la búsqueda.'}
+        </Vacio>
+      ) : (
+        <Tarjeta as="section" aria-label="Cuentas" className="overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-zinc-100 px-2 py-1 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
+            {puedeGestionar && seleccionables.length > 0 ? (
+              <label className="flex min-h-10 cursor-pointer items-center">
+                <span className="flex size-10 shrink-0 items-center justify-center">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-blue-600"
+                    checked={seleccionables.every((f) => seleccion.has(f.clave))}
+                    onChange={alternarTodas}
+                  />
+                </span>
+                Seleccionar {seleccionables.length === 1 ? 'la que tiene algo que hacer' : `las ${seleccionables.length} que tienen algo que hacer`}
+              </label>
+            ) : (
+              <span className="px-2 py-2.5 tabular-nums">{visibles.length} en la lista</span>
+            )}
+            {vista.filtro === 'sueltas' && puedeGestionar && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto min-h-10 text-left whitespace-normal"
+                onClick={() => {
+                  const meses = estado.ajustes.graciaGraduados;
+                  const viejas = seleccionables.filter(
+                    (f) => !f.parecidas.length && haceMasDe(f.cuenta?.ultimoAccesoAt ?? f.cuenta?.creadaAt ?? null, meses),
+                  );
+                  setSeleccion(new Set([...seleccion, ...viejas.map((f) => f.clave)]));
+                }}
+              >
+                Seleccionar las que llevan más de {estado.ajustes.graciaGraduados} meses sin entrar
+              </Button>
+            )}
+          </div>
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {visibles.slice(0, limite).map((f, i, lista) => {
               const grupo = rotuloGrupo(f);
@@ -387,66 +424,86 @@ export function ListaCuentas({
                   key={f.clave}
                   f={f}
                   rotulo={nuevoGrupo ? grupo : null}
-                  abierta={abierta === f.clave}
                   marcada={seleccion.has(f.clave)}
                   seleccionable={puedeGestionar && !!ACCION_DE[f.estado] && !f.cuenta?.admin}
                   puedeGestionar={puedeGestionar}
                   onAlternar={() => alternar(f.clave)}
-                  onAbrir={() => setAbierta(abierta === f.clave ? null : f.clave)}
-                  onCrear={() => setDialogo({ tipo: 'crear', filas: [f] })}
-                  onMoverASuSitio={() => moverASuSitio([f])}
-                  onMoverA={() => setDialogo({ tipo: 'mover-a', filas: [f] })}
-                  onSuspender={() => setDialogo({ tipo: 'suspender', filas: [f] })}
-                  onReactivar={() => setDialogo({ tipo: 'reactivar', filas: [f] })}
-                  onArchivar={() => archivarYa([f])}
-                  onContrasena={() => setDialogo({ tipo: 'contrasena', fila: f })}
-                  onMarcar={() => setDialogo({ tipo: 'marcar', fila: f })}
-                  onVincular={(clave) => (f.tipo === 'cuenta' ? vincular(clave, f.clave) : vincular(f.clave, clave))}
+                  onAbrir={() => {
+                    haptic.tap();
+                    setAbierta(f.clave);
+                  }}
                 />
               );
             })}
           </ul>
-        )}
-        {visibles.length > limite && (
-          <button
-            type="button"
-            onClick={() => setLimite(limite + PAGINA)}
-            className="w-full cursor-pointer border-t border-zinc-100 py-3 text-sm font-medium text-blue-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-blue-300 dark:hover:bg-zinc-800"
-          >
-            Ver {Math.min(PAGINA, visibles.length - limite)} más (quedan {visibles.length - limite})
-          </button>
-        )}
-      </section>
+          {visibles.length > limite && (
+            <Button
+              variant="ghost"
+              className="w-full rounded-none border-t border-zinc-100 dark:border-zinc-800"
+              onClick={() => setLimite(limite + PAGINA)}
+            >
+              Ver {Math.min(PAGINA, visibles.length - limite)} más (quedan {visibles.length - limite})
+            </Button>
+          )}
+        </Tarjeta>
+      )}
 
       {/* ── Barra de acciones ─────────────────────────────────────────── */}
-      {puedeGestionar && seleccion.size > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-          <div className="container mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 pr-14">
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">
-              {seleccion.size} seleccionada{seleccion.size === 1 ? '' : 's'}
-              <button type="button" onClick={() => setSeleccion(new Set())} className="ml-3 cursor-pointer text-xs text-zinc-500 underline">
-                quitar selección
-              </button>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <BotonAccion n={porAccion('crear').length} onClick={() => setDialogo({ tipo: 'crear', filas: porAccion('crear') })} primario>
-                <MailPlus className="h-4 w-4" /> Crear correos
-              </BotonAccion>
-              <BotonAccion n={porAccion('mover').length} onClick={() => moverASuSitio(porAccion('mover'))} primario>
-                <FolderInput className="h-4 w-4" /> Llevar a su clase
-              </BotonAccion>
-              <BotonAccion n={porAccion('archivar').length} onClick={() => archivarYa(porAccion('archivar'))}>
-                <FolderInput className="h-4 w-4" /> Archivar
-              </BotonAccion>
-              <BotonAccion n={porAccion('reactivar').length} onClick={() => setDialogo({ tipo: 'reactivar', filas: porAccion('reactivar') })}>
-                <ArchiveRestore className="h-4 w-4" /> Reactivar
-              </BotonAccion>
-              <BotonAccion n={porAccion('suspender').length} onClick={() => setDialogo({ tipo: 'suspender', filas: porAccion('suspender') })} peligro>
-                <UserX className="h-4 w-4" /> Suspender
-              </BotonAccion>
-            </div>
+      {/* Sin `resumen`: así el texto y los botones pueden bajar de línea en el móvil. */}
+      <BarraAcciones visible={puedeGestionar && seleccion.size > 0} ancho="ancho">
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <p className="flex items-center gap-1 text-sm text-zinc-600 tabular-nums dark:text-zinc-300">
+            {seleccion.size} seleccionada{seleccion.size === 1 ? '' : 's'}
+            <Button variant="ghost" size="sm" onClick={() => setSeleccion(new Set())}>
+              Quitar selección
+            </Button>
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            {nCrear > 0 && (
+              <Button variant={variante('crear')} onClick={tocar(() => setDialogo({ tipo: 'crear', filas: porAccion('crear') }))}>
+                <MailPlus /> Crear {nCrear === 1 ? '1 correo' : `${nCrear} correos`}
+              </Button>
+            )}
+            {nMover > 0 && (
+              <Button variant={variante('mover')} onClick={tocar(() => moverASuSitio(porAccion('mover')))}>
+                <FolderInput /> Llevar {nMover} a su clase
+              </Button>
+            )}
+            {nArchivar > 0 && (
+              <Button variant={variante('archivar')} onClick={tocar(() => archivarYa(porAccion('archivar')))}>
+                <FolderInput /> Archivar {nArchivar}
+              </Button>
+            )}
+            {nReactivar > 0 && (
+              <Button variant={variante('reactivar')} onClick={tocar(() => setDialogo({ tipo: 'reactivar', filas: porAccion('reactivar') }))}>
+                <ArchiveRestore /> Reactivar {nReactivar}
+              </Button>
+            )}
+            {nSuspender > 0 && (
+              <Button variant="destructive" onClick={tocar(() => setDialogo({ tipo: 'suspender', filas: porAccion('suspender') }))}>
+                <UserX /> Suspender {nSuspender}
+              </Button>
+            )}
           </div>
         </div>
+      </BarraAcciones>
+
+      {/* ── La ficha de una cuenta ────────────────────────────────────── */}
+      {fichaAbierta && (
+        <FichaCuenta
+          f={fichaAbierta}
+          puedeGestionar={puedeGestionar}
+          onCerrar={() => setAbierta(null)}
+          onCrear={desdeFicha(() => setDialogo({ tipo: 'crear', filas: [fichaAbierta] }))}
+          onMoverASuSitio={desdeFicha(() => void moverASuSitio([fichaAbierta]))}
+          onMoverA={desdeFicha(() => setDialogo({ tipo: 'mover-a', filas: [fichaAbierta] }))}
+          onSuspender={desdeFicha(() => setDialogo({ tipo: 'suspender', filas: [fichaAbierta] }))}
+          onReactivar={desdeFicha(() => setDialogo({ tipo: 'reactivar', filas: [fichaAbierta] }))}
+          onArchivar={desdeFicha(() => void archivarYa([fichaAbierta]))}
+          onContrasena={desdeFicha(() => setDialogo({ tipo: 'contrasena', fila: fichaAbierta }))}
+          onMarcar={desdeFicha(() => setDialogo({ tipo: 'marcar', fila: fichaAbierta }))}
+          onVincular={(clave) => (fichaAbierta.tipo === 'cuenta' ? vincular(clave, fichaAbierta.clave) : vincular(fichaAbierta.clave, clave))}
+        />
       )}
 
       {/* ── Diálogos ──────────────────────────────────────────────────── */}
@@ -487,41 +544,40 @@ export function ListaCuentas({
           }}
         />
       )}
-      <ConfirmarPalabra
+      <ConfirmarDialogo
         abierto={dialogo?.tipo === 'suspender'}
-        titulo={`Suspender ${dialogo?.tipo === 'suspender' ? dialogo.filas.length : 0} cuenta(s)`}
+        titulo={`Suspender ${cuentas(nSusp)}`}
         descripcion="Dejan de poder entrar en Google (correo, Drive, Classroom…). Sus datos se quedan y se puede reactivar cuando haga falta."
         palabra="SUSPENDER"
-        boton="Suspender"
+        boton={`Suspender ${cuentas(nSusp)}`}
         onCerrar={() => setDialogo(null)}
         onConfirmar={() => {
           if (dialogo?.tipo !== 'suspender') return;
           const fs = dialogo.filas;
-          enBloque(fs, 'Suspendiendo…', `${API}/suspender`, (t) => ({ ids: t.map((f) => f.cuenta!.id), archivar, confirmacion: 'SUSPENDER' }), 'suspendidas');
+          void enBloque(fs, 'Suspendiendo…', `${API}/suspender`, (t) => ({ ids: t.map((f) => f.cuenta!.id), archivar, confirmacion: 'SUSPENDER' }), 'suspendidas');
         }}
       >
         {dialogo?.tipo === 'suspender' && (
           <ResumenSuspender filas={dialogo.filas} ajustes={estado.ajustes} archivar={archivar} setArchivar={setArchivar} />
         )}
-      </ConfirmarPalabra>
-      <ConfirmarPalabra
+      </ConfirmarDialogo>
+      <ConfirmarDialogo
         abierto={dialogo?.tipo === 'reactivar'}
-        titulo={`Reactivar ${dialogo?.tipo === 'reactivar' ? dialogo.filas.length : 0} cuenta(s)`}
+        titulo={`Reactivar ${cuentas(nReac)}`}
         descripcion="Vuelven a poder entrar con la contraseña que tenían."
         palabra="REACTIVAR"
-        boton="Reactivar"
+        boton={`Reactivar ${cuentas(nReac)}`}
         peligro={false}
         onCerrar={() => setDialogo(null)}
         onConfirmar={() => {
           if (dialogo?.tipo !== 'reactivar') return;
-          enBloque(dialogo.filas, 'Reactivando…', `${API}/reactivar`, (t) => ({ ids: t.map((f) => f.cuenta!.id), aSuSitio }), 'reactivadas');
+          void enBloque(dialogo.filas, 'Reactivando…', `${API}/reactivar`, (t) => ({ ids: t.map((f) => f.cuenta!.id), aSuSitio }), 'reactivadas');
         }}
       >
-        <label className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <input type="checkbox" checked={aSuSitio} onChange={(e) => setASuSitio(e.target.checked)} className="mt-0.5" />
+        <Casilla marcada={aSuSitio} onCambiar={setASuSitio}>
           Devolverlas a la unidad de su clase (o de su etapa, si es profe)
-        </label>
-      </ConfirmarPalabra>
+        </Casilla>
+      </ConfirmarDialogo>
     </div>
   );
 }
@@ -531,34 +587,34 @@ function haceMasDe(iso: string | null, meses: number): boolean {
   return Date.now() - new Date(iso).getTime() > meses * 30.4 * 86_400_000;
 }
 
-function BotonAccion({
-  n,
-  onClick,
+/** Lo que dice el estado de una fila cuando el de siempre se queda corto. */
+function textoEstado(f: FilaCuenta): string | undefined {
+  if (f.estado === 'baja-espera' && f.suspenderDesde) return `Baja · se suspende el ${fecha(f.suspenderDesde)}`;
+  if (f.estado === 'marcada' && f.marca) return MARCA_LABEL[f.marca.tipo];
+  if (f.estado === 'marcada' && f.cuenta?.admin) return 'Administrador';
+  return undefined;
+}
+
+/** Una casilla con su texto: toda la fila se toca (40 px como mínimo). */
+function Casilla({
+  marcada,
+  onCambiar,
+  ayuda,
   children,
-  primario,
-  peligro,
 }: {
-  n: number;
-  onClick: () => void;
+  marcada: boolean;
+  onCambiar: (v: boolean) => void;
+  ayuda?: React.ReactNode;
   children: React.ReactNode;
-  primario?: boolean;
-  peligro?: boolean;
 }) {
-  if (n === 0) return null;
   return (
-    <button
-      type="button"
-      onClick={() => {
-        haptic.tap();
-        onClick();
-      }}
-      className={cn(
-        primario ? BOTON_PRIMARIO : BOTON,
-        peligro && 'border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-500/10',
-      )}
-    >
-      {children} <span className="font-mono text-xs opacity-80">{n}</span>
-    </button>
+    <label className="flex min-h-10 cursor-pointer items-start gap-3 py-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+      <input type="checkbox" checked={marcada} onChange={(e) => onCambiar(e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-blue-600" />
+      <span>
+        {children}
+        {ayuda && <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">{ayuda}</span>}
+      </span>
+    </label>
   );
 }
 
@@ -587,34 +643,25 @@ function ResumenSuspender({
     destinos.set(texto, (destinos.get(texto) ?? 0) + 1);
   }
   return (
-    <div className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
-      {enEspera > 0 && (
-        <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-300">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          {enEspera} todavía están en sus meses de espera.
-        </p>
-      )}
+    <div className="space-y-2">
+      {enEspera > 0 && <Aviso tono="aviso">{enEspera} todavía están en sus meses de espera.</Aviso>}
       {siguen > 0 && (
-        <p className="flex items-start gap-1.5 text-red-700 dark:text-red-300">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          {siguen === 1 ? 'Sigue en Educamos: es alumno o profe del centro.' : `${siguen} siguen en Educamos: son del centro.`}
-        </p>
+        <Aviso tono="error">{siguen === 1 ? 'Sigue en Educamos: es alumno o profe del centro.' : `${siguen} siguen en Educamos: son del centro.`}</Aviso>
       )}
-      <label className="flex items-start gap-2">
-        <input type="checkbox" checked={archivar} onChange={(e) => setArchivar(e.target.checked)} className="mt-0.5" />
-        <span>
-          Llevarlas a su unidad de archivo
-          {archivar && (
-            <span className="mt-1 block space-y-0.5 text-xs text-zinc-500">
-              {[...destinos.entries()].map(([d, n]) => (
-                <span key={d} className="block">
-                  {n} → {d}
-                </span>
-              ))}
+      <Casilla
+        marcada={archivar}
+        onCambiar={setArchivar}
+        ayuda={
+          archivar &&
+          [...destinos.entries()].map(([d, n]) => (
+            <span key={d} className="block">
+              {n} → {d}
             </span>
-          )}
-        </span>
-      </label>
+          ))
+        }
+      >
+        Llevarlas a su unidad de archivo
+      </Casilla>
     </div>
   );
 }
@@ -622,12 +669,97 @@ function ResumenSuspender({
 function Fila({
   f,
   rotulo,
-  abierta,
   marcada,
   seleccionable,
   puedeGestionar,
   onAlternar,
   onAbrir,
+}: {
+  f: FilaCuenta;
+  rotulo: string | null;
+  marcada: boolean;
+  seleccionable: boolean;
+  puedeGestionar: boolean;
+  onAlternar: () => void;
+  onAbrir: () => void;
+}) {
+  return (
+    <>
+      {rotulo && (
+        <li className="bg-zinc-50 px-4 py-2 dark:bg-zinc-950/60">
+          <Rotulo as="h3">{rotulo}</Rotulo>
+        </li>
+      )}
+      <li className={cn('flex items-center gap-1 px-2', marcada && 'bg-blue-50/70 dark:bg-blue-500/10')}>
+        {puedeGestionar && (
+          <label className={cn('flex size-10 shrink-0 items-center justify-center', seleccionable && 'cursor-pointer')}>
+            <input
+              type="checkbox"
+              className="size-4 accent-blue-600"
+              checked={marcada}
+              disabled={!seleccionable}
+              onChange={onAlternar}
+              aria-label={`Seleccionar ${f.nombre}`}
+            />
+          </label>
+        )}
+        <button
+          type="button"
+          onClick={onAbrir}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-2 py-3 text-left outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800/50"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{f.nombre}</span>
+              {f.tipo === 'alumno' && f.clase && !f.activo && <Etiqueta>era de {f.clase}</Etiqueta>}
+              {f.tipo === 'profe' && <Etiqueta>Profe</Etiqueta>}
+              <EstadoCuenta estado={f.estado} texto={textoEstado(f)} />
+              {f.parecidas.length > 0 && (
+                <Estado tono="aviso">{f.tipo === 'cuenta' ? `¿De ${f.parecidas[0].nombre}?` : 'Se le parece una cuenta'}</Estado>
+              )}
+              {f.avisos.length > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  <TriangleAlert aria-hidden className="size-3.5" />
+                  {f.avisos.length === 1 ? '1 aviso' : `${f.avisos.length} avisos`}
+                </span>
+              )}
+            </span>
+            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+              {f.cuenta ? (
+                <span className="min-w-0 font-mono break-all text-zinc-700 dark:text-zinc-300">{f.cuenta.email}</span>
+              ) : f.propuesta ? (
+                <span className="min-w-0 font-mono break-all">→ {f.propuesta}</span>
+              ) : (
+                <span>sin correo</span>
+              )}
+              {f.cuenta && (
+                <Etiqueta mono title={f.cuenta.uo} className="max-w-56">
+                  {nombreUo(f.cuenta.uo)}
+                </Etiqueta>
+              )}
+              {f.estado === 'fuera' && f.uoDestino && (
+                <span className="inline-flex max-w-full items-center gap-1">
+                  →
+                  <Etiqueta mono title={f.uoDestino} className="max-w-56">
+                    {nombreUo(f.uoDestino)}
+                  </Etiqueta>
+                </span>
+              )}
+              {f.cuenta && <span>entró {haceTiempo(f.cuenta.ultimoAccesoAt)}</span>}
+            </span>
+          </span>
+          <ChevronRight aria-hidden className="size-4 shrink-0 text-zinc-400" />
+        </button>
+      </li>
+    </>
+  );
+}
+
+/** La ficha de una cuenta: sus datos, lo que se le parece y lo que se puede hacer con ella. */
+function FichaCuenta({
+  f,
+  puedeGestionar,
+  onCerrar,
   onCrear,
   onMoverASuSitio,
   onMoverA,
@@ -639,13 +771,8 @@ function Fila({
   onVincular,
 }: {
   f: FilaCuenta;
-  rotulo: string | null;
-  abierta: boolean;
-  marcada: boolean;
-  seleccionable: boolean;
   puedeGestionar: boolean;
-  onAlternar: () => void;
-  onAbrir: () => void;
+  onCerrar: () => void;
   onCrear: () => void;
   onMoverASuSitio: () => void;
   onMoverA: () => void;
@@ -654,210 +781,151 @@ function Fila({
   onArchivar: () => void;
   onContrasena: () => void;
   onMarcar: () => void;
-  onVincular: (clave: string) => void;
+  onVincular: (clave: string) => Promise<void>;
 }) {
   const [vinculando, setVinculando] = useState<string | null>(null);
-  const textoEstado =
-    f.estado === 'baja-espera' && f.suspenderDesde
-      ? `Baja · se suspende el ${fecha(f.suspenderDesde)}`
-      : f.estado === 'marcada' && f.marca
-        ? MARCA_LABEL[f.marca.tipo]
-        : f.estado === 'marcada' && f.cuenta?.admin
-          ? 'Administrador'
-          : undefined;
   const tocable = puedeGestionar && f.cuenta && !f.cuenta.admin;
   return (
-    <>
-      {rotulo && (
-        <li className="bg-zinc-50 px-4 py-1.5 text-[11px] font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-950">
-          {rotulo}
-        </li>
-      )}
-      <li className={cn(marcada && 'bg-blue-50/60 dark:bg-blue-500/5')}>
-        <div className="flex items-start gap-3 px-4 py-3">
-          {puedeGestionar && (
-            <input
-              type="checkbox"
-              className="mt-1 h-4 w-4 shrink-0"
-              checked={marcada}
-              disabled={!seleccionable}
-              onChange={onAlternar}
-              aria-label={`Seleccionar ${f.nombre}`}
-            />
+    <Dialog open onOpenChange={(o) => !o && onCerrar()}>
+      <DialogContent variante="hoja" className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{f.nombre}</DialogTitle>
+          <DialogDescription className="flex flex-wrap items-center gap-2">
+            <EstadoCuenta estado={f.estado} texto={textoEstado(f)} />
+            {f.tipo === 'alumno' && f.clase && <Etiqueta>{f.activo ? f.clase : `era de ${f.clase}`}</Etiqueta>}
+            {f.tipo === 'profe' && <Etiqueta>Profesorado</Etiqueta>}
+            {f.tipo === 'cuenta' && <span>Cuenta que no casa con nadie de Educamos</span>}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-0.5">
+          {f.cuenta && (
+            <>
+              <Dato etiqueta="Correo de Google" valor={f.cuenta.email} mono />
+              <Dato etiqueta="Unidad" valor={f.cuenta.uo} mono />
+              <Linea etiqueta="Último acceso">{f.cuenta.ultimoAccesoAt ? fecha(f.cuenta.ultimoAccesoAt) : 'Nunca'}</Linea>
+              <Linea etiqueta="Creada">{fecha(f.cuenta.creadaAt)}</Linea>
+            </>
           )}
-          <button type="button" onClick={onAbrir} className="min-w-0 flex-1 cursor-pointer text-left">
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">{f.nombre}</span>
-              {f.tipo === 'alumno' && f.clase && !f.activo && (
-                <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                  era de {f.clase}
-                </span>
-              )}
-              {f.tipo === 'profe' && (
-                <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                  Profe
-                </span>
-              )}
-              <ChipEstado estado={f.estado} texto={textoEstado} />
-              {f.parecidas.length > 0 && (
-                <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:bg-orange-500/15 dark:text-orange-300">
-                  {f.tipo === 'cuenta' ? `¿De ${f.parecidas[0].nombre}?` : 'Se le parece una cuenta'}
-                </span>
-              )}
-              {f.avisos.length > 0 && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label="Tiene avisos" />}
-            </p>
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-              {f.cuenta ? (
-                <span className="font-mono text-zinc-700 dark:text-zinc-300">{f.cuenta.email}</span>
-              ) : f.propuesta ? (
-                <span className="font-mono">→ {f.propuesta}</span>
-              ) : (
-                <span>sin correo</span>
-              )}
-              {f.cuenta && <ChipUo ruta={f.cuenta.uo} />}
-              {f.estado === 'fuera' && f.uoDestino && (
-                <span className="inline-flex items-center gap-1">
-                  → <ChipUo ruta={f.uoDestino} />
-                </span>
-              )}
-              {f.cuenta && <span>entró {haceTiempo(f.cuenta.ultimoAccesoAt)}</span>}
-            </p>
-          </button>
-          {abierta ? <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-zinc-400" /> : <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-zinc-400" />}
+          {!f.cuenta && f.propuesta && <Linea etiqueta="Correo que se le crearía">{f.propuesta}</Linea>}
+          {f.tipo !== 'cuenta' &&
+            (f.correoEducamos ? (
+              <Dato etiqueta="En Educamos" valor={f.correoEducamos} mono />
+            ) : (
+              <Linea etiqueta="En Educamos">Sin correo apuntado</Linea>
+            ))}
+          {f.uoDestino && f.activo && f.tipo === 'alumno' && <Dato etiqueta="Unidad de su clase" valor={f.uoDestino} mono />}
+          {f.salidaAt && <Linea etiqueta={f.tipo === 'profe' ? 'Fecha de baja' : 'Última vez en Educamos'}>{fecha(f.salidaAt)}</Linea>}
+          {f.suspenderDesde && <Linea etiqueta="Se suspende desde">{fecha(f.suspenderDesde)}</Linea>}
+          {f.marca && (
+            <Linea etiqueta={MARCA_LABEL[f.marca.tipo]}>
+              {f.marca.nota ?? 'Sin nota'} · {f.marca.por} · {fecha(f.marca.at)}
+            </Linea>
+          )}
         </div>
 
-        {abierta && (
-          <div className="space-y-3 border-t border-zinc-100 bg-zinc-50/60 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-950/40">
-            <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-              {f.cuenta && (
-                <>
-                  <Dato etiqueta="Correo de Google">
-                    <span className="font-mono">{f.cuenta.email}</span>
-                  </Dato>
-                  <Dato etiqueta="Unidad">
-                    <span className="font-mono text-xs">{f.cuenta.uo}</span>
-                  </Dato>
-                  <Dato etiqueta="Último acceso">{f.cuenta.ultimoAccesoAt ? fecha(f.cuenta.ultimoAccesoAt) : 'Nunca'}</Dato>
-                  <Dato etiqueta="Creada">{fecha(f.cuenta.creadaAt)}</Dato>
-                </>
-              )}
-              {f.tipo !== 'cuenta' && <Dato etiqueta="En Educamos">{f.correoEducamos ?? 'Sin correo apuntado'}</Dato>}
-              {f.uoDestino && f.activo && f.tipo === 'alumno' && (
-                <Dato etiqueta="Unidad de su clase">
-                  <span className="font-mono text-xs">{f.uoDestino}</span>
-                </Dato>
-              )}
-              {f.salidaAt && <Dato etiqueta={f.tipo === 'profe' ? 'Fecha de baja' : 'Última vez en Educamos'}>{fecha(f.salidaAt)}</Dato>}
-              {f.suspenderDesde && <Dato etiqueta="Se suspende desde">{fecha(f.suspenderDesde)}</Dato>}
-              {f.marca && (
-                <Dato etiqueta={MARCA_LABEL[f.marca.tipo]}>
-                  {f.marca.nota ?? 'Sin nota'} · {f.marca.por} · {fecha(f.marca.at)}
-                </Dato>
-              )}
-            </dl>
-
+        {f.avisos.length > 0 && (
+          <Aviso tono="aviso">
             {f.avisos.map((a) => (
-              <p key={a} className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {a}
-              </p>
+              <p key={a}>{a}</p>
             ))}
-
-            {f.parecidas.length > 0 && (
-              <div className="space-y-1.5 rounded-xl border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-500/30 dark:bg-orange-500/5">
-                <p className="text-xs font-semibold text-orange-800 dark:text-orange-300">
-                  {f.tipo === 'cuenta' ? 'Se parece a alguien de Educamos sin correo' : 'Se le parece una cuenta que no es de nadie'}
-                </p>
-                {f.parecidas.map((p) => (
-                  <div key={p.clave} className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm">
-                      <b>{p.nombre}</b>
-                      {p.email && <span className="ml-2 font-mono text-xs">{p.email}</span>}
-                      {p.detalle && <span className="ml-2 text-xs text-zinc-500">{p.detalle}</span>}
-                    </span>
-                    {puedeGestionar && (
-                      <button
-                        type="button"
-                        className={cn(BOTON, 'h-9')}
-                        disabled={vinculando !== null}
-                        onClick={async () => {
-                          setVinculando(p.clave);
-                          await onVincular(p.clave);
-                          setVinculando(null);
-                        }}
-                      >
-                        {vinculando === p.clave ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                        {f.tipo === 'cuenta' ? 'Es suya' : 'Es su cuenta'}
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {puedeGestionar && f.estado === 'sin-correo' && (
-                <button type="button" className={cn(BOTON_PRIMARIO, 'h-9')} onClick={onCrear}>
-                  <MailPlus className="h-4 w-4" /> Crear su correo
-                </button>
-              )}
-              {tocable && f.estado === 'fuera' && (
-                <button type="button" className={cn(BOTON_PRIMARIO, 'h-9')} onClick={onMoverASuSitio}>
-                  <FolderInput className="h-4 w-4" /> Llevar a su clase
-                </button>
-              )}
-              {tocable && f.estado === 'archivar' && (
-                <button type="button" className={cn(BOTON, 'h-9')} onClick={onArchivar}>
-                  <FolderInput className="h-4 w-4" /> Archivar
-                </button>
-              )}
-              {tocable && f.cuenta!.suspendida && (
-                <button type="button" className={cn(BOTON, 'h-9')} onClick={onReactivar}>
-                  <ArchiveRestore className="h-4 w-4" /> Reactivar
-                </button>
-              )}
-              {tocable && (
-                <button type="button" className={cn(BOTON, 'h-9')} onClick={onMoverA}>
-                  <FolderInput className="h-4 w-4" /> Mover a…
-                </button>
-              )}
-              {tocable && !f.cuenta!.suspendida && (
-                <button type="button" className={cn(BOTON, 'h-9')} onClick={onContrasena}>
-                  <KeyRound className="h-4 w-4" /> Contraseña nueva
-                </button>
-              )}
-              {puedeGestionar && f.tipo === 'cuenta' && f.cuenta && !f.cuenta.admin && !f.cuenta.suspendida && (
-                <button type="button" className={cn(BOTON, 'h-9')} onClick={onMarcar}>
-                  <ShieldCheck className="h-4 w-4" /> {f.marca ? 'Cambiar la marca' : 'Se queda'}
-                </button>
-              )}
-              {tocable && !f.cuenta!.suspendida && f.estado !== 'marcada' && (
-                <button
-                  type="button"
-                  className={cn(BOTON, 'h-9 border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300')}
-                  onClick={onSuspender}
-                >
-                  <UserX className="h-4 w-4" /> Suspender
-                </button>
-              )}
-              {f.cuenta && <BotonCopiar texto={f.cuenta.email} etiqueta="Copiar correo" />}
-              {f.cuenta && (
-                <a href={enlaceConsolaUsuario(f.cuenta.id)} target="_blank" rel="noreferrer" className={cn(BOTON, 'h-9')}>
-                  <ExternalLink className="h-4 w-4" /> Abrir en la consola
-                </a>
-              )}
-            </div>
-          </div>
+          </Aviso>
         )}
-      </li>
-    </>
+
+        {f.parecidas.length > 0 && (
+          <Aviso
+            tono="aviso"
+            icono={<Link2 />}
+            titulo={f.tipo === 'cuenta' ? 'Se parece a alguien de Educamos sin correo' : 'Se le parece una cuenta que no es de nadie'}
+          >
+            <ul className="mt-2 space-y-2">
+              {f.parecidas.map((p) => (
+                <li key={p.clave} className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="min-w-0">
+                    <b className="font-semibold">{p.nombre}</b>
+                    {p.email && <span className="block font-mono text-xs break-all">{p.email}</span>}
+                    {p.detalle && <span className="block text-xs">{p.detalle}</span>}
+                  </span>
+                  {puedeGestionar && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      cargando={vinculando === p.clave}
+                      disabled={vinculando !== null}
+                      onClick={async () => {
+                        setVinculando(p.clave);
+                        await onVincular(p.clave);
+                        setVinculando(null);
+                      }}
+                    >
+                      {vinculando !== p.clave && <Link2 />}
+                      {f.tipo === 'cuenta' ? 'Es suya' : 'Es su cuenta'}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Aviso>
+        )}
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          {puedeGestionar && f.estado === 'sin-correo' && (
+            <Button onClick={onCrear}>
+              <MailPlus /> Crear su correo
+            </Button>
+          )}
+          {tocable && f.estado === 'fuera' && (
+            <Button onClick={onMoverASuSitio}>
+              <FolderInput /> Llevar a su clase
+            </Button>
+          )}
+          {tocable && f.estado === 'archivar' && (
+            <Button variant="outline" onClick={onArchivar}>
+              <FolderInput /> Archivar
+            </Button>
+          )}
+          {tocable && f.cuenta!.suspendida && (
+            <Button variant="outline" onClick={onReactivar}>
+              <ArchiveRestore /> Reactivar
+            </Button>
+          )}
+          {tocable && (
+            <Button variant="outline" onClick={onMoverA}>
+              <FolderInput /> Mover a…
+            </Button>
+          )}
+          {tocable && !f.cuenta!.suspendida && (
+            <Button variant="outline" onClick={onContrasena}>
+              <KeyRound /> Contraseña nueva
+            </Button>
+          )}
+          {puedeGestionar && f.tipo === 'cuenta' && f.cuenta && !f.cuenta.admin && !f.cuenta.suspendida && (
+            <Button variant="outline" onClick={onMarcar}>
+              <ShieldCheck /> {f.marca ? 'Cambiar la marca' : 'Se queda'}
+            </Button>
+          )}
+          {tocable && !f.cuenta!.suspendida && f.estado !== 'marcada' && (
+            <Button variant="destructive" onClick={onSuspender}>
+              <UserX /> Suspender
+            </Button>
+          )}
+          {f.cuenta && (
+            <a href={enlaceConsolaUsuario(f.cuenta.id)} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'ghost' })}>
+              <ExternalLink /> Abrir en la consola
+            </a>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+/** Una fila «etiqueta · valor» de la ficha, para lo que no se copia (fechas, notas). */
+function Linea({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-[11px] font-semibold tracking-wide text-zinc-500 uppercase">{etiqueta}</dt>
-      <dd className="truncate text-zinc-800 dark:text-zinc-200">{children}</dd>
+    <div className="flex min-w-0 items-baseline justify-between gap-2 py-0.5">
+      <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{etiqueta}</span>
+      <span className="min-w-0 truncate px-1.5 py-1 text-right text-sm text-zinc-800 dark:text-zinc-100">{children}</span>
     </div>
   );
 }

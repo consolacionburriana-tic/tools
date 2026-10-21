@@ -8,7 +8,7 @@ export function BancoSyncPanel() {
 
   return (
     <SyncCard
-      icon={<BookOpen className="h-4 w-4 text-purple-600" />}
+      icon={<BookOpen aria-hidden className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />}
       title="Excel BBDD Libros → Catálogo del banco"
       description={
         <>

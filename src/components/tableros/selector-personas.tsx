@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Persona } from '@/lib/tableros';
-import { api, Avatar, ESTILO_CAMPO } from './comun';
+import { api } from './comun';
+import { Avatar } from '@/components/ui/avatar';
+import { claseCampo as ESTILO_CAMPO } from '@/components/ui/input';
 
 // Una sola descarga por visita: la lista del claustro no cambia mientras se usa la pantalla.
 let cache: Promise<Persona[]> | null = null;
@@ -60,7 +62,7 @@ export function SelectorPersonas({
               key={p.email}
               className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 py-0.5 pr-1 pl-0.5 text-sm dark:bg-zinc-800"
             >
-              <Avatar email={p.email} nombre={p.nombre} className="h-6 w-6 text-[10px] ring-0" />
+              <Avatar email={p.email} nombre={p.nombre} tamano="sm" className="ring-0" />
               {p.nombre}
               <button
                 type="button"

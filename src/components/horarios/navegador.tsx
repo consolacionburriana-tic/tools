@@ -1,6 +1,7 @@
 'use client';
 
-// El navegador de horarios. Vocabulario visual índigo (cada módulo tiene su acento).
+// El navegador de horarios. Lo que se pulsa va en azul, como en toda la app; el color de
+// cada materia en la rejilla es la excepción aprobada (raya y tinte suave, docs/diseno.md §3).
 //
 // Dos decisiones de diseño mandan sobre todo lo demás:
 //
@@ -13,8 +14,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, DoorOpen, MapPin, Palette, Pencil, Plus, Users, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, DoorOpen, MapPin, Palette, Pencil, Plus, Users } from 'lucide-react';
 
 import {
   colorDeCelda,
@@ -31,13 +31,20 @@ import {
 import { EditorAnotacion, type HuecoAnotable } from '@/components/horarios/editor-anotacion';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Vacio } from '@/components/ui/vacio';
 
+// Tintes de categoría (qué tipo de hora es), nunca de estado: por eso ni verde, ni ámbar,
+// ni rojo, que en la app dicen «hecho», «falta algo» y «error».
 const COLOR_ACTIVIDAD: Record<string, string> = {
   clase: 'bg-white border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800',
-  tutoria: 'bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30',
-  apoyo_pt: 'bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30',
-  apoyo_al: 'bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30',
-  guardia: 'bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30',
+  tutoria: 'bg-violet-50 border-violet-200 dark:bg-violet-500/10 dark:border-violet-500/30',
+  apoyo_pt: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-500/10 dark:border-cyan-500/30',
+  apoyo_al: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-500/10 dark:border-cyan-500/30',
+  guardia: 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-500/10 dark:border-fuchsia-500/30',
 };
 
 function colorDe(actividad: string, lectiva: boolean): string {
@@ -98,10 +105,9 @@ export function Navegador({
 
   if (filas.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
-        <CalendarDays className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600" />
-        <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No hay horario para {titulo} en este periodo.</p>
-      </div>
+      <Vacio icono={<CalendarDays />} titulo="Sin horario en este periodo">
+        No hay horario para {titulo} en este periodo.
+      </Vacio>
     );
   }
 
@@ -112,26 +118,28 @@ export function Navegador({
       {/* Móvil: un solo día, con flechas */}
       <div className="lg:hidden">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="icon"
             onClick={() => { haptic.tap(); setDiaElegido(dia > 1 ? dia - 1 : 5); }}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:active:bg-zinc-800"
             aria-label="Día anterior"
           >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
+            <ChevronLeft />
+          </Button>
           <div className="text-center">
-            <p className="text-sm font-semibold capitalize text-zinc-900 dark:text-zinc-100">{DIAS[dia - 1]}</p>
-            {ahora?.dia === dia && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">hoy · {ahora.hora}</p>}
+            <p className="text-base font-semibold capitalize text-zinc-900 dark:text-zinc-100">{DIAS[dia - 1]}</p>
+            {ahora?.dia === dia && (
+              <p className="text-xs font-medium text-blue-700 tabular-nums dark:text-blue-300">hoy · {ahora.hora}</p>
+            )}
           </div>
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="icon"
             onClick={() => { haptic.tap(); setDiaElegido(dia < 5 ? dia + 1 : 1); }}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:active:bg-zinc-800"
             aria-label="Día siguiente"
           >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+            <ChevronRight />
+          </Button>
         </div>
         <div className="space-y-1.5">
           {filas.map((f, i) => (
@@ -150,11 +158,11 @@ export function Navegador({
 
       {/* Pantalla grande: la semana */}
       <div className="hidden lg:block">
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
           <table className="w-full table-fixed border-collapse text-sm">
             <thead>
               <tr>
-                <th className="w-[70px] border-b border-zinc-200 p-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
+                <th className="w-[72px] border-b border-zinc-200 p-2 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
                   Hora
                 </th>
                 {DIAS.map((d, i) => (
@@ -163,12 +171,12 @@ export function Navegador({
                     className={cn(
                       'border-b border-l border-zinc-200 p-2 text-center text-xs font-semibold capitalize dark:border-zinc-800',
                       ahora?.dia === i + 1
-                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
-                        : 'text-zinc-500 dark:text-zinc-400',
+                        ? 'bg-blue-50 text-blue-800 dark:bg-blue-500/10 dark:text-blue-200'
+                        : 'text-zinc-600 dark:text-zinc-400',
                     )}
                   >
                     {d}
-                    {ahora?.dia === i + 1 && <span className="ml-1 text-[10px] font-normal">· hoy</span>}
+                    {ahora?.dia === i + 1 && <span className="ml-1 font-normal">· hoy</span>}
                   </th>
                 ))}
               </tr>
@@ -191,13 +199,14 @@ export function Navegador({
       </div>
 
       {alHueco && (
-        <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Toca un hueco libre para anotar algo a mano: una tutoría individual, atención a familias, una guardia…
         </p>
       )}
 
       {detalle && (
         <Detalle
+          key={detalle.sesionId}
           celda={detalle}
           onCerrar={() => setDetalle(null)}
           onEditar={editable && detalle.origen === 'manual' ? () => { setAnotada(detalle); setDetalle(null); } : undefined}
@@ -240,24 +249,21 @@ function FilaMovil({
   const celdas = fila.dias[dia - 1];
   if (fila.tipo !== 'sesion') return <Separador fila={fila} />;
   return (
-    <div className={cn('flex gap-2 rounded-lg p-1.5', enCurso && 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-500/10 dark:ring-indigo-500/40')}>
-      <div className="w-16 shrink-0 pt-1.5 text-right">
-        <p className="text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{fila.horaInicio}</p>
-        <p className="text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">{fila.horaFin}</p>
-      </div>
+    <div className={cn('flex gap-2 rounded-xl p-1.5', enCurso && 'bg-blue-50 ring-1 ring-blue-300 dark:bg-blue-500/10 dark:ring-blue-500/40')}>
+      <ColumnaHora fila={fila} className="w-14 shrink-0 pt-1.5" />
       <div className="flex-1 space-y-1.5">
         {celdas.length === 0 ? (
           onHueco && fila.tramos[dia - 1] ? (
             <button
               type="button"
               onClick={() => { haptic.tap(); onHueco(dia, fila); }}
-              className="flex min-h-12 w-full items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-3 text-left text-xs text-zinc-500 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
+              className="flex min-h-12 w-full items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-3 text-left text-sm text-zinc-600 outline-none hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
               aria-label={`Anotar algo el ${DIAS[dia - 1]} de ${fila.horaInicio} a ${fila.horaFin}`}
             >
-              <Plus className="h-3.5 w-3.5" /> Libre · toca para anotar algo
+              <Plus aria-hidden className="size-4" /> Libre · toca para anotar algo
             </button>
           ) : (
-            <div className="rounded-lg border border-dashed border-zinc-200 px-3 py-3 text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-600">
+            <div className="rounded-lg border border-dashed border-zinc-200 px-3 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
               Libre
             </div>
           )
@@ -288,7 +294,7 @@ function FilaSemana({
     return (
       <tr>
         <td colSpan={6} className="border-b border-zinc-200 bg-zinc-50 px-3 py-1 dark:border-zinc-800 dark:bg-zinc-800/50">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
             {fila.etiqueta} · {fila.horaInicio}–{fila.horaFin}
             <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
@@ -298,19 +304,17 @@ function FilaSemana({
     );
   }
   return (
-    <tr className={cn(enCurso && 'bg-indigo-50/60 dark:bg-indigo-500/5')}>
+    <tr className={cn(enCurso && 'bg-blue-50/60 dark:bg-blue-500/5')}>
       <td className="border-b border-zinc-200 p-2 align-top dark:border-zinc-800">
-        <p className="text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{fila.horaInicio}</p>
-        <p className="text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">{fila.horaFin}</p>
-        <p className="mt-0.5 text-[10px] text-zinc-400 dark:text-zinc-600">{fila.etiqueta}</p>
+        <ColumnaHora fila={fila} conEtiqueta />
       </td>
       {fila.dias.map((celdas, i) => (
         <td
           key={i}
           className={cn(
             'border-b border-l border-zinc-200 p-1 align-top dark:border-zinc-800',
-            ahora?.dia === i + 1 && 'bg-indigo-50/40 dark:bg-indigo-500/5',
-            enCurso && ahora?.dia === i + 1 && 'bg-indigo-100/70 dark:bg-indigo-500/15',
+            ahora?.dia === i + 1 && 'bg-blue-50/40 dark:bg-blue-500/5',
+            enCurso && ahora?.dia === i + 1 && 'bg-blue-100/70 dark:bg-blue-500/15',
           )}
         >
           <div className="space-y-1">
@@ -323,10 +327,10 @@ function FilaSemana({
               <button
                 type="button"
                 onClick={() => { haptic.tap(); onHueco(i + 1, fila); }}
-                className="group flex h-10 w-full items-center justify-center rounded-lg border border-dashed border-transparent text-zinc-300 transition-colors hover:border-indigo-300 hover:bg-indigo-50/60 hover:text-indigo-600 focus-visible:border-indigo-300 dark:text-zinc-700 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
+                className="flex h-10 w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 text-zinc-400 transition-colors outline-none hover:border-blue-300 hover:bg-blue-50/60 hover:text-blue-700 focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-zinc-800 dark:text-zinc-500 dark:hover:border-blue-500/50 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
                 aria-label={`Anotar algo el ${DIAS[i]} de ${fila.horaInicio} a ${fila.horaFin}`}
               >
-                <Plus className="h-4 w-4" />
+                <Plus aria-hidden className="size-4" />
               </button>
             )}
           </div>
@@ -345,40 +349,42 @@ function FilaSemana({
  * veces entra en cada grupo.
  */
 function InterruptorColor({ valor, onCambio }: { valor: ColorearPor; onCambio: (v: ColorearPor) => void }) {
-  const opciones: { id: ColorearPor; label: string }[] = [
-    { id: 'nada', label: 'Sin color' },
-    { id: 'clase', label: 'Por clase' },
-    { id: 'materia', label: 'Por materia' },
-  ];
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
-      <span className="flex items-center gap-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-        <Palette className="h-3.5 w-3.5" /> Colorear
+      <span className="flex items-center gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        <Palette aria-hidden className="size-4" /> Colorear
       </span>
-      <div className="flex gap-1 rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
-        {opciones.map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            onClick={() => { haptic.tap(); onCambio(o.id); }}
-            className={cn(
-              'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-              valor === o.id
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
-                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
-            )}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
+      <Segmentado
+        etiqueta="Colorear la rejilla"
+        valor={valor}
+        onChange={onCambio}
+        opciones={[
+          { valor: 'nada', etiqueta: 'Sin color' },
+          { valor: 'clase', etiqueta: 'Por clase' },
+          { valor: 'materia', etiqueta: 'Por materia' },
+        ]}
+      />
+    </div>
+  );
+}
+
+/**
+ * La columna de la hora, igual en todas las rejillas de horario (Horarios, Mi horario y
+ * Oratorios): la de empezar en negrita y la de acabar debajo.
+ */
+function ColumnaHora({ fila, conEtiqueta, className }: { fila: FilaHorario; conEtiqueta?: boolean; className?: string }) {
+  return (
+    <div className={cn('text-right lg:text-left', className)}>
+      <p className="text-sm font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">{fila.horaInicio}</p>
+      <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">{fila.horaFin}</p>
+      {conEtiqueta && fila.etiqueta && <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{fila.etiqueta}</p>}
     </div>
   );
 }
 
 function Separador({ fila }: { fila: FilaHorario }) {
   return (
-    <div className="flex items-center gap-2 px-1 py-1 text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+    <div className="flex items-center gap-2 px-1 py-1 text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
       {fila.etiqueta} · {fila.horaInicio}–{fila.horaFin}
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
@@ -410,7 +416,7 @@ function Celda({
           : undefined
       }
       className={cn(
-        'w-full rounded-lg border px-2 text-left transition-colors hover:border-indigo-300 hover:shadow-sm dark:hover:border-indigo-500/50',
+        'w-full rounded-lg border px-2 text-left transition-colors outline-none hover:border-zinc-400 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:border-zinc-500',
         grande ? 'py-2.5' : 'py-1.5',
         color
           ? 'border-l-[3px] border-l-[var(--hc)] bg-[color-mix(in_oklab,var(--hc)_9%,white)] dark:border-l-[var(--hc-dark)] dark:bg-[color-mix(in_oklab,var(--hc-dark)_16%,#18181b)]'
@@ -430,18 +436,18 @@ function Celda({
           horas se llaman igual ('Ámbito Científico') y lo que distingue una de otra es
           justo esto — si esa hora toca Mates, Biología o Física y Química. */}
       {celda.detalle && (
-        <p className={cn('font-medium leading-tight text-zinc-600 dark:text-zinc-300', grande ? 'text-xs' : 'line-clamp-1 text-[10px]')}>
+        <p className={cn('text-xs font-medium leading-tight text-zinc-700 dark:text-zinc-300', !grande && 'line-clamp-1')}>
           {celda.detalle}
         </p>
       )}
       {celda.subtitulo && (
-        <p className={cn('leading-tight text-zinc-500 dark:text-zinc-400', grande ? 'text-xs' : 'line-clamp-2 text-[10px]')}>
+        <p className={cn('text-xs leading-tight text-zinc-600 dark:text-zinc-400', !grande && 'line-clamp-2')}>
           {celda.subtitulo}
         </p>
       )}
       {celda.espacio && (
-        <p className="mt-0.5 flex items-center gap-0.5 truncate text-[10px] text-zinc-400 dark:text-zinc-500">
-          <MapPin className="h-2.5 w-2.5 shrink-0" />
+        <p className="mt-0.5 flex items-center gap-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+          <MapPin aria-hidden className="size-3 shrink-0" />
           {celda.espacio}
         </p>
       )}
@@ -451,86 +457,64 @@ function Celda({
 
 function Detalle({ celda, onCerrar, onEditar }: { celda: CeldaHorario; onCerrar: () => void; onEditar?: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onCerrar}>
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18 }}
-        className="w-full max-w-md rounded-t-2xl border border-zinc-200 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{celda.titulo}</h3>
-            {celda.detalle && (
-              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Esta hora: {celda.detalle}</p>
-            )}
-            <p className="mt-0.5 text-sm capitalize text-zinc-500 dark:text-zinc-400">
-              {DIAS[celda.dia - 1]} · {celda.horaInicio}–{celda.horaFin}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            aria-label="Cerrar"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(o) => !o && onCerrar()}>
+      <DialogContent variante="hoja">
+        <DialogHeader>
+          <DialogTitle>{celda.titulo}</DialogTitle>
+          {celda.detalle && (
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Esta hora: {celda.detalle}</p>
+          )}
+          <DialogDescription className="capitalize tabular-nums">
+            {DIAS[celda.dia - 1]} · {celda.horaInicio}–{celda.horaFin}
+          </DialogDescription>
+        </DialogHeader>
 
-        <dl className="space-y-2.5 text-sm">
+        <dl className="space-y-3 text-sm">
           {celda.grupos.length > 0 && (
-            <Dato icono={<Users className="h-4 w-4" />} titulo="Grupo">
+            <Dato icono={<Users className="size-4" />} titulo="Grupo">
               {celda.grupos.join(', ')}
             </Dato>
           )}
           {celda.profes.length > 0 && (
-            <Dato icono={<DoorOpen className="h-4 w-4" />} titulo={celda.profes.length > 1 ? 'Profesorado' : 'Profesor/a'}>
-              <ul className="space-y-0.5">
+            <Dato icono={<DoorOpen className="size-4" />} titulo={celda.profes.length > 1 ? 'Profesorado' : 'Profesor/a'}>
+              <ul className="space-y-1">
                 {celda.profes.map((p) => (
-                  <li key={p.id}>
+                  <li key={p.id} className="flex flex-wrap items-center gap-1.5">
                     {p.nombre}
-                    {p.rol !== 'titular' && <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">{p.rol.toUpperCase()}</span>}
+                    {p.rol !== 'titular' && <Etiqueta>{p.rol.toUpperCase()}</Etiqueta>}
                   </li>
                 ))}
               </ul>
             </Dato>
           )}
           {celda.espacio && (
-            <Dato icono={<MapPin className="h-4 w-4" />} titulo="Aula">
+            <Dato icono={<MapPin className="size-4" />} titulo="Aula">
               {celda.espacio}
             </Dato>
           )}
-          <Dato icono={<Clock className="h-4 w-4" />} titulo="Tipo">
+          <Dato icono={<Clock className="size-4" />} titulo="Tipo">
             <span className="capitalize">{celda.actividad.replace(/_/g, ' ')}</span>
-            <span className={cn('ml-2 rounded px-1.5 py-0.5 text-xs', celda.lectiva ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400')}>
-              {celda.lectiva ? 'lectiva' : 'no lectiva'}
-            </span>
+            <Etiqueta className="ml-2">{celda.lectiva ? 'lectiva' : 'no lectiva'}</Etiqueta>
           </Dato>
           {celda.notas && <Dato titulo="Notas">{celda.notas}</Dato>}
         </dl>
 
         {onEditar && (
-          <button
-            type="button"
-            onClick={() => { haptic.tap(); onEditar(); }}
-            className="mt-4 flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <Pencil className="h-4 w-4" /> Cambiar o quitar mi anotación
-          </button>
+          <Button variant="outline" className="w-full" onClick={() => { haptic.tap(); onEditar(); }}>
+            <Pencil aria-hidden /> Cambiar o quitar mi anotación
+          </Button>
         )}
-      </motion.div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 function Dato({ icono, titulo, children }: { icono?: React.ReactNode; titulo: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-2.5">
-      <span className="mt-0.5 text-zinc-400 dark:text-zinc-500">{icono}</span>
+      <span aria-hidden className="mt-0.5 w-4 shrink-0 text-zinc-400 dark:text-zinc-500">{icono}</span>
       <div className="min-w-0 flex-1">
-        <dt className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{titulo}</dt>
+        <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{titulo}</dt>
         <dd className="text-zinc-800 dark:text-zinc-200">{children}</dd>
       </div>
     </div>

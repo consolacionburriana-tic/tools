@@ -1,11 +1,12 @@
 'use client';
 
-// Dashboard del módulo. Mismo lenguaje que el informe del ABC (recharts, tarjetas, rankings)
-// porque es el que David ya lee bien, con el acento naranja de Puntualidad.
+// Panel del módulo. Mismo lenguaje que el informe del ABC (recharts, tarjetas, rankings)
+// porque es el que David ya lee bien, con la paleta de datos común.
 //
 // Las preguntas que tiene que contestar de un vistazo: ¿va a peor esta semana?, ¿qué día de
 // la semana se acumulan?, ¿en qué asignatura y en qué clase?, y ¿quiénes son los de siempre?
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -20,66 +21,46 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { AlertTriangle, CalendarDays, Clock, Users } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CalendarOff, Clock, Plus, Settings2, Users } from 'lucide-react';
 import type { DashboardPuntualidad } from '@/lib/puntualidad-server';
-import { ClaseChip } from './ui';
 import { CONFIGURACION } from '@/lib/configuracion';
+import { buttonVariants } from '@/components/ui/button';
+import { Cifra, Cifras } from '@/components/ui/cifra';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 
-const NARANJA = '#ea580c';
-const NARANJA_CLARO = '#fdba74';
-
-function Kpi({
-  icono,
-  etiqueta,
-  valor,
-  sub,
-  href,
-}: {
-  icono: React.ReactNode;
-  etiqueta: string;
-  valor: string | number;
-  sub?: string;
-  href?: string;
-}) {
-  const cuerpo = (
-    <div
-      className={`h-full space-y-2 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 ${
-        href ? 'transition-colors hover:border-orange-300 hover:bg-orange-50/40 dark:hover:border-orange-800 dark:hover:bg-orange-500/5' : ''
-      }`}
-    >
-      <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500">
-        {icono}
-        <span className="text-xs font-medium">{etiqueta}</span>
-      </div>
-      <p className="text-3xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{valor}</p>
-      {sub && <p className="text-xs text-zinc-400">{sub}</p>}
-    </div>
-  );
-  return href ? <Link href={href}>{cuerpo}</Link> : cuerpo;
-}
+// Paleta de datos común (globals.css): una sola serie, así que el primer color; el resto de
+// barras del gráfico por día, el mismo tono más suave para que destaque el día peor.
+const SERIE = 'var(--datos-1)';
+const SERIE_SUAVE = 'color-mix(in oklab, var(--datos-1) 45%, transparent)';
+const REJILLA = '#a1a1aa';
 
 function Panel({ titulo, children, vacio }: { titulo: string; children: React.ReactNode; vacio?: boolean }) {
   return (
-    <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{titulo}</h2>
-      {vacio ? <p className="py-6 text-center text-sm text-zinc-400">Sin datos en este periodo.</p> : children}
-    </div>
+    <Tarjeta as="section">
+      <TarjetaCabecera titulo={titulo} />
+      <TarjetaCuerpo>
+        {vacio ? <p className="py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">Sin datos en este periodo.</p> : children}
+      </TarjetaCuerpo>
+    </Tarjeta>
   );
 }
 
 function Ranking({ filas, total }: { filas: { nombre: string; valor: number }[]; total: number }) {
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2.5">
       {filas.slice(0, 8).map((f) => (
         <li key={f.nombre} className="space-y-1">
           <div className="flex items-baseline justify-between gap-2 text-sm">
             <span className="min-w-0 truncate text-zinc-700 dark:text-zinc-200">{f.nombre}</span>
-            <span className="shrink-0 tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">{f.valor}</span>
+            <span className="shrink-0 font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">{f.valor}</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+          <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
             <div
-              className="h-full rounded-full bg-orange-400"
-              style={{ width: `${Math.round((f.valor / Math.max(1, total)) * 100)}%` }}
+              className="h-full rounded-full"
+              style={{ width: `${Math.round((f.valor / Math.max(1, total)) * 100)}%`, background: SERIE }}
             />
           </div>
         </li>
@@ -103,10 +84,10 @@ function TooltipCard({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white/95 px-2.5 py-1.5 text-xs shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
-      {label !== undefined && <p className="font-medium text-zinc-500 dark:text-zinc-400">{label}</p>}
+    <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+      {label !== undefined && <p className="font-medium text-zinc-600 dark:text-zinc-400">{label}</p>}
       {payload.map((p, i) => (
-        <p key={i} className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+        <p key={i} className="font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">
           {p.value} {p.name?.toLowerCase()}
         </p>
       ))}
@@ -114,9 +95,20 @@ function TooltipCard({
   );
 }
 
-const EJE = { fontSize: 11, fill: '#a1a1aa' } as const;
+const EJE = { fontSize: 12, fill: '#71717a' } as const;
+const CURSOR = { fill: '#a1a1aa', fillOpacity: 0.12 } as const;
 
-export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntualidad; rangoActivo: string }) {
+export function DashboardPanel({
+  datos,
+  rangoActivo,
+  puedeAjustar = false,
+}: {
+  datos: DashboardPuntualidad;
+  rangoActivo: string;
+  /** Quien ve todo el centro lleva también las asignaturas (los ajustes del módulo). */
+  puedeAjustar?: boolean;
+}) {
+  const router = useRouter();
   const rangos = [
     { clave: '7', label: '7 días' },
     { clave: '30', label: '30 días' },
@@ -131,71 +123,72 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
   const maxDia = Math.max(1, ...datos.porDiaSemana.map((d) => d.total));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <h1 className="sr-only">Panel de Puntualidad</h1>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Puntualidad</h1>
-        <div className="flex flex-wrap gap-1.5">
+        <Filtros etiqueta="Periodo">
           {rangos.map((r) => (
-            <Link
+            <Filtro
               key={r.clave}
-              href={`/gestion/puntualidad?rango=${r.clave}`}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                rangoActivo === r.clave
-                  ? 'bg-orange-500 text-white'
-                  : 'border border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800'
-              }`}
+              activo={rangoActivo === r.clave}
+              onClick={() => router.push(`/gestion/puntualidad?rango=${r.clave}`)}
             >
               {r.label}
-            </Link>
+            </Filtro>
           ))}
-        </div>
+        </Filtros>
+        {puedeAjustar && (
+          <Link
+            href="/gestion/puntualidad/asignaturas"
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            <Settings2 aria-hidden /> Asignaturas
+          </Link>
+        )}
       </div>
 
       {datos.total === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
-          <p className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
-            Ni un retraso en este periodo 🎉
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500 dark:text-zinc-400">
-            En cuanto se registre el primero, aquí saldrán la tendencia, los días de la semana con más retrasos, las
-            asignaturas y quién acumula. Prueba a ampliar el periodo si buscas algo más antiguo.
-          </p>
-          <Link
-            href="/puntualidad"
-            className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-          >
-            Registrar un retraso
-          </Link>
-        </div>
+        <Vacio
+          icono={<CalendarOff />}
+          titulo="Ni un retraso en este periodo"
+          accion={
+            <Link href="/puntualidad" className={buttonVariants()}>
+              <Plus aria-hidden /> Registrar un retraso
+            </Link>
+          }
+        >
+          En cuanto se registre el primero, aquí saldrán la tendencia, los días de la semana con más retrasos, las
+          asignaturas y quién acumula. Prueba a ampliar el periodo si buscas algo más antiguo.
+        </Vacio>
       ) : (
       <>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi
-          icono={<Clock className="h-4 w-4" />}
+      <Cifras>
+        <Cifra
+          icono={<Clock />}
           etiqueta="Retrasos"
           valor={datos.total}
-          sub={`${datos.noJustificados} sin justificar · ${datos.justificados} justificados`}
+          nota={`${datos.noJustificados} sin justificar · ${datos.justificados} justificados`}
         />
-        <Kpi
-          icono={<Users className="h-4 w-4" />}
+        <Cifra
+          icono={<Users />}
           etiqueta="Alumnos distintos"
           valor={datos.alumnosDistintos}
-          sub={datos.total > 0 ? `${(datos.total / Math.max(1, datos.alumnosDistintos)).toFixed(1)} de media` : undefined}
+          nota={datos.total > 0 ? `${(datos.total / Math.max(1, datos.alumnosDistintos)).toFixed(1)} de media` : undefined}
         />
-        <Kpi
-          icono={<CalendarDays className="h-4 w-4" />}
+        <Cifra
+          icono={<CalendarDays />}
           etiqueta="Retraso medio"
           valor={`${datos.minutosMedios} min`}
-          sub={`sobre la hora límite (${CONFIGURACION.puntualidad.horaLimite})`}
+          nota={`sobre la hora límite (${CONFIGURACION.puntualidad.horaLimite})`}
         />
-        <Kpi
-          icono={<AlertTriangle className="h-4 w-4" />}
+        <Cifra
+          icono={<AlertTriangle />}
           etiqueta="Consecuencias sin fecha"
           valor={datos.consecuenciasPendientes}
-          sub="esperando que el tutor ponga el día"
+          nota="esperando que el tutor ponga el día"
           href="/gestion/puntualidad/consecuencias"
         />
-      </div>
+      </Cifras>
 
       <Panel titulo={`Tendencia · ${datos.rango.dias} días`} vacio={tendencia.length === 0}>
         <div className="h-56">
@@ -203,15 +196,15 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
             <AreaChart data={tendencia} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
               <defs>
                 <linearGradient id="gradPuntualidad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={NARANJA} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={NARANJA} stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={SERIE} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={SERIE} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#a1a1aa" strokeOpacity={0.25} vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={REJILLA} strokeOpacity={0.25} vertical={false} />
               <XAxis dataKey="fecha" tick={EJE} tickLine={false} axisLine={false} />
               <YAxis allowDecimals={false} tick={EJE} tickLine={false} axisLine={false} />
-              <Tooltip content={<TooltipCard />} cursor={{ fill: '#a1a1aa', fillOpacity: 0.08 }} />
-              <Area type="monotone" dataKey="total" name="Retrasos" stroke={NARANJA} strokeWidth={2} fill="url(#gradPuntualidad)" />
+              <Tooltip content={<TooltipCard />} cursor={CURSOR} />
+              <Area type="monotone" dataKey="total" name="Retrasos" stroke={SERIE} strokeWidth={2} fill="url(#gradPuntualidad)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -222,13 +215,13 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={datos.porDiaSemana} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#a1a1aa" strokeOpacity={0.25} vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={REJILLA} strokeOpacity={0.25} vertical={false} />
                 <XAxis dataKey="dia" tick={EJE} tickLine={false} axisLine={false} />
                 <YAxis allowDecimals={false} tick={EJE} tickLine={false} axisLine={false} />
-                <Tooltip content={<TooltipCard />} cursor={{ fill: '#a1a1aa', fillOpacity: 0.08 }} />
+                <Tooltip content={<TooltipCard />} cursor={CURSOR} />
                 <Bar dataKey="total" name="Retrasos" radius={[6, 6, 0, 0]}>
                   {datos.porDiaSemana.map((d) => (
-                    <Cell key={d.dia} fill={d.total === maxDia ? NARANJA : NARANJA_CLARO} />
+                    <Cell key={d.dia} fill={d.total === maxDia ? SERIE : SERIE_SUAVE} />
                   ))}
                 </Bar>
               </BarChart>
@@ -240,11 +233,11 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={datos.porHora} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#a1a1aa" strokeOpacity={0.25} vertical={false} />
-                <XAxis dataKey="hora" tick={{ ...EJE, fontSize: 10 }} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={REJILLA} strokeOpacity={0.25} vertical={false} />
+                <XAxis dataKey="hora" tick={EJE} tickLine={false} axisLine={false} />
                 <YAxis allowDecimals={false} tick={EJE} tickLine={false} axisLine={false} />
-                <Tooltip content={<TooltipCard />} cursor={{ fill: '#a1a1aa', fillOpacity: 0.08 }} />
-                <Bar dataKey="total" name="Retrasos" fill={NARANJA} radius={[4, 4, 0, 0]} />
+                <Tooltip content={<TooltipCard />} cursor={CURSOR} />
+                <Bar dataKey="total" name="Retrasos" fill={SERIE} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -277,15 +270,15 @@ export function DashboardPanel({ datos, rangoActivo }: { datos: DashboardPuntual
               <li key={a.eduStudentId}>
                 <Link
                   href={`/gestion/puntualidad/alumno/${a.eduStudentId}`}
-                  className="flex items-center gap-2 py-2 text-sm transition-colors hover:text-orange-600"
+                  className="-mx-2 flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800/60"
                 >
-                  <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">{a.alumno}</span>
-                  <ClaseChip clase={a.clase} />
-                  <span className="w-8 shrink-0 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
+                  <span className="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{a.alumno}</span>
+                  <Etiqueta>{a.clase}</Etiqueta>
+                  <span className="w-8 shrink-0 text-right font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">
                     {a.total}
                   </span>
-                  <span className="w-16 shrink-0 text-right text-xs text-zinc-400">
-                    {a.noJustificados} s/j
+                  <span className="w-24 shrink-0 text-right text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
+                    {a.noJustificados} sin justificar
                   </span>
                 </Link>
               </li>

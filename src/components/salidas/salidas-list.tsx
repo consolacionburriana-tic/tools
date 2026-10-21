@@ -2,9 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays, ChevronRight, Users } from 'lucide-react';
+import { Archive, Bus, CalendarDays, ChevronRight, Plus, Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { agruparPorNivel, claseLabel, cursoDeSalida, tripArchivada } from '@/lib/salidas';
 import { NavPending } from '@/components/ui/nav-pending';
+import { buttonVariants } from '@/components/ui/button';
+import { Estado } from '@/components/ui/estado';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Progreso } from '@/components/ui/progreso';
+import { Rotulo } from '@/components/ui/rotulo';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 import type { TripConStats } from '@/lib/salidas-server';
 
 export function SalidasList({ trips, soloMias }: { trips: TripConStats[]; soloMias: boolean }) {
@@ -21,54 +29,51 @@ export function SalidasList({ trips, soloMias }: { trips: TripConStats[]; soloMi
   const grupos = useMemo(() => agruparPorCurso(visibles), [visibles]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {soloMias && (
-        <p className="text-xs text-zinc-400">Ves las salidas que has creado o de las que eres responsable.</p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">Ves las salidas que has creado o de las que eres responsable.</p>
       )}
 
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={() => setVerPasadas(false)}
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-            !verPasadas ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-          }`}
-        >
-          Activas ({activas.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setVerPasadas(true)}
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-            verPasadas ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-          }`}
-        >
-          Pasadas ({pasadas.length})
-        </button>
-      </div>
+      <Filtros etiqueta="Mostrar">
+        <Filtro activo={!verPasadas} onClick={() => setVerPasadas(false)} cuenta={activas.length}>
+          Activas
+        </Filtro>
+        <Filtro activo={verPasadas} onClick={() => setVerPasadas(true)} cuenta={pasadas.length}>
+          Pasadas
+        </Filtro>
+      </Filtros>
 
       {visibles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
-          {verPasadas
-            ? 'Ninguna salida pasada todavía: se archivan solas a los 3 días de su fecha.'
-            : 'Todavía no hay ninguna salida. Crea la primera con "Nueva salida".'}
-        </div>
+        verPasadas ? (
+          <Vacio icono={<Archive />} titulo="Ninguna salida pasada todavía">
+            Se archivan solas a los 3 días de su fecha.
+          </Vacio>
+        ) : (
+          <Vacio
+            icono={<Bus />}
+            titulo="Todavía no hay ninguna salida"
+            accion={
+              <Link href="/gestion/salidas/nueva" className={buttonVariants()}>
+                <Plus aria-hidden /> Nueva salida
+              </Link>
+            }
+          >
+            Crea la primera y comparte el enlace con las familias.
+          </Vacio>
+        )
       ) : (
-        <div className="anim-stagger space-y-4">
+        <div className="anim-stagger space-y-6">
           {grupos.map((g) => (
-            <div key={g.curso} className="space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                Curso {g.curso}
-                <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-              </div>
-              {/* Y dentro, por NIVEL y de menos a más. Sin esto, las diez salidas del curso
-                  eran una lista seguida donde no se veía que hay dos de 1º, dos de 2º y así. */}
+            <section key={g.curso} className="space-y-3">
+              <Rotulo>Curso {g.curso}</Rotulo>
+              {/* Y dentro, por NIVEL y de menos a más: así se ve de un vistazo que hay dos
+                  salidas de 1º, dos de 2º… en vez de una lista seguida. */}
               {agruparPorNivel(g.trips).map((n) => (
                 <div key={n.nivel || 'sin-clase'} className="space-y-2.5">
                   <div className="flex items-center gap-2 pl-0.5">
-                    <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">{n.etiqueta}</span>
-                    <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/60" />
-                    <span className="shrink-0 text-xs text-zinc-400">
+                    <h3 className="shrink-0 text-sm font-medium text-zinc-700 dark:text-zinc-300">{n.etiqueta}</h3>
+                    <span aria-hidden className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+                    <span className="shrink-0 text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
                       {n.salidas.length} {n.salidas.length === 1 ? 'salida' : 'salidas'}
                     </span>
                   </div>
@@ -77,7 +82,7 @@ export function SalidasList({ trips, soloMias }: { trips: TripConStats[]; soloMi
                   ))}
                 </div>
               ))}
-            </div>
+            </section>
           ))}
         </div>
       )}
@@ -102,49 +107,42 @@ function TripCard({ trip: t }: { trip: TripConStats }) {
   return (
     <Link
       href={`/gestion/salidas/${t.id}`}
-      className="block rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-blue-300 active:border-blue-400 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:active:border-blue-600 dark:active:bg-blue-500/5"
+      className={cn(
+        claseTarjeta,
+        'group block p-4 transition-colors outline-none hover:border-zinc-300 focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-zinc-50 dark:hover:border-zinc-700 dark:active:bg-zinc-800/60',
+      )}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
+          <p className="flex flex-wrap items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
             {t.nombre}
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                t.estado === 'abierta'
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                  : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
-              }`}
-            >
-              {t.estado}
-            </span>
+            <Estado tono={t.estado === 'abierta' ? 'ok' : 'neutro'}>{t.estado === 'abierta' ? 'Abierta' : 'Cerrada'}</Estado>
           </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             {t.fecha && (
               <span className="inline-flex items-center gap-1">
-                <CalendarDays className="h-3.5 w-3.5" />
+                <CalendarDays aria-hidden className="h-4 w-4" />
                 {new Date(t.fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
               </span>
             )}
-            {t.importe && <span>{t.importe} €</span>}
+            {t.importe && <span className="tabular-nums">{t.importe} €</span>}
             <span className="inline-flex items-center gap-1">
-              <Users className="h-3.5 w-3.5" />
+              <Users aria-hidden className="h-4 w-4" />
               {(t.clases ?? []).map((c) => claseLabel(c)).join(', ')}
             </span>
             {t.responsables.length > 0 && <span>Resp.: {t.responsables.map((r) => r.nombre).join(', ')}</span>}
           </p>
         </div>
         <NavPending className="shrink-0" />
-        <ChevronRight className="h-5 w-5 shrink-0 text-zinc-400" />
+        <ChevronRight
+          aria-hidden
+          className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-hover:translate-x-0.5 dark:text-zinc-500"
+        />
       </div>
-      <div className="mt-3">
-        <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-          <div className="h-1.5 rounded-full bg-blue-600" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="mt-1.5 text-xs text-zinc-500">
-          {t.stats.entregados}/{entregables} justificantes ({pct} %) · {t.stats.pendientes} pendientes ·{' '}
-          {t.stats.noVan} no van
-        </p>
-      </div>
+      <Progreso className="mt-3" hechos={t.stats.entregados} total={entregables} etiqueta={`Justificantes de ${t.nombre}`} />
+      <p className="mt-1.5 text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
+        {t.stats.entregados}/{entregables} justificantes ({pct} %) · {t.stats.pendientes} pendientes · {t.stats.noVan} no van
+      </p>
     </Link>
   );
 }

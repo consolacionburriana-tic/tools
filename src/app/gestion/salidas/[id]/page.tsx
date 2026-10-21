@@ -2,9 +2,14 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CalendarDays, ChevronLeft, Download, LinkIcon, Pencil, Users } from 'lucide-react';
+import { CalendarDays, Download, LinkIcon, Pencil, Users } from 'lucide-react';
 import { claseLabel, getTripSeguimiento } from '@/lib/salidas-server';
 import { appBaseUrl } from '@/lib/constants';
+import { buttonVariants } from '@/components/ui/button';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Tarjeta } from '@/components/ui/tarjeta';
 import { TripSeguimiento } from '@/components/salidas/trip-seguimiento';
 import { TripEstadoToggle } from '@/components/salidas/trip-estado-toggle';
 import { RecordatorioPanel } from '@/components/salidas/recordatorio-panel';
@@ -17,75 +22,64 @@ export default async function SalidaDetallePage({ params }: { params: Promise<{ 
   const detalle = await getTripSeguimiento(id);
   if (!detalle) notFound();
   const { trip, responsables, alumnos } = detalle;
+  const abierta = trip.estado === 'abierta';
 
   return (
     <div className="space-y-4">
-      <Link
-        href="/gestion/salidas"
-        className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400"
-      >
-        <ChevronLeft className="h-4 w-4" /> Salidas
-      </Link>
-
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{trip.nombre}</h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-              {trip.fecha && (
-                <span className="inline-flex items-center gap-1">
-                  <CalendarDays className="h-4 w-4" />
-                  {new Date(trip.fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-                </span>
-              )}
-              {trip.importe && <span>{trip.importe} €</span>}
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                  trip.tipoPago === 'mano'
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
-                    : 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
-                }`}
+      <div>
+        <EnlaceVolver href="/gestion/salidas">Todas las salidas</EnlaceVolver>
+        <TituloPagina
+          className="mt-1 mb-0"
+          acciones={
+            <>
+              <TripEstadoToggle tripId={trip.id} estado={trip.estado as 'abierta' | 'cerrada'} />
+              <a
+                href={`/api/salidas/admin/export?trip=${trip.id}`}
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
               >
-                {trip.tipoPago === 'mano' ? '💶 pago en mano' : '🏦 por banco'}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                {(trip.clases ?? []).map((c) => claseLabel(c)).join(', ')}
-              </span>
-            </p>
-            {trip.descripcion && <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{trip.descripcion}</p>}
-            {responsables.length > 0 && (
-              <p className="mt-2 text-xs text-zinc-400">
-                Responsables (reciben los avisos):{' '}
-                {responsables.map((r) => [r.nombre, r.apellido1].filter(Boolean).join(' ')).join(', ')}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <TripEstadoToggle tripId={trip.id} estado={trip.estado as 'abierta' | 'cerrada'} />
-            <a
-              href={`/api/salidas/admin/export?trip=${trip.id}`}
-              title="Descargar el seguimiento en CSV (Excel)"
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
-            >
-              <Download className="h-4 w-4" /> CSV
-            </a>
-            <Link
-              href={`/gestion/salidas/${trip.id}/editar`}
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
-            >
-              <Pencil className="h-4 w-4" /> Editar
-            </Link>
-            <TripDeleteButton tripId={trip.id} nombre={trip.nombre} />
-          </div>
-        </div>
-        <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-800/60">
-          <LinkIcon className="h-3.5 w-3.5" />
-          Enlace para las familias: <code className="rounded bg-white px-1.5 py-0.5 dark:bg-zinc-900">{appBaseUrl().replace(/^https?:\/\//, '')}/salidas</code>
-          — se identifican con su DNI (o el NIA) y suben el justificante.{' '}
-          {trip.tipoPago === 'mano' && 'Esta salida es de pago EN MANO: no les aparece a las familias.'}
-        </p>
+                <Download aria-hidden /> Descargar CSV
+              </a>
+              <Link href={`/gestion/salidas/${trip.id}/editar`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                <Pencil aria-hidden /> Editar
+              </Link>
+              <TripDeleteButton tripId={trip.id} nombre={trip.nombre} />
+            </>
+          }
+        >
+          {trip.nombre}
+        </TituloPagina>
       </div>
+
+      <Tarjeta className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <Estado tono={abierta ? 'ok' : 'neutro'}>{abierta ? 'Abierta' : 'Cerrada'}</Estado>
+          {trip.fecha && (
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays aria-hidden className="h-4 w-4" />
+              {new Date(trip.fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+          )}
+          {trip.importe && <span className="tabular-nums">{trip.importe} €</span>}
+          <Etiqueta>{trip.tipoPago === 'mano' ? 'Pago en mano' : 'Pago por banco'}</Etiqueta>
+          <span className="inline-flex items-center gap-1">
+            <Users aria-hidden className="h-4 w-4" />
+            {(trip.clases ?? []).map((c) => claseLabel(c)).join(', ')}
+          </span>
+        </div>
+        {trip.descripcion && <p className="text-sm text-zinc-700 dark:text-zinc-300">{trip.descripcion}</p>}
+        {responsables.length > 0 && (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Responsables (reciben los avisos):{' '}
+            {responsables.map((r) => [r.nombre, r.apellido1].filter(Boolean).join(' ')).join(', ')}
+          </p>
+        )}
+        <p className="flex flex-wrap items-center gap-1.5 rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400">
+          <LinkIcon aria-hidden className="h-4 w-4 shrink-0 text-zinc-400" />
+          Enlace para las familias: <Etiqueta mono>{appBaseUrl().replace(/^https?:\/\//, '')}/salidas</Etiqueta>
+          Se identifican con su DNI (o el NIA) y suben el justificante.
+          {trip.tipoPago === 'mano' && ' Esta salida es de pago en mano: no les aparece a las familias.'}
+        </p>
+      </Tarjeta>
 
       <RecordatorioPanel
         tripId={trip.id}

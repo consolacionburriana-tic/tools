@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { LetraBadge } from '@/components/evaluaciones/color-picker';
 import { PanelIA, type EstadoIA, type InsightCliente } from '@/components/evaluaciones/resultados-ia';
-import { PANEL, Rotulo, Segmentado } from '@/components/evaluaciones/ui';
+import { Rotulo } from '@/components/evaluaciones/ui';
+import { Segmentado } from '@/components/ui/segmentado';
+import { claseTarjeta as PANEL } from '@/components/ui/tarjeta';
 import {
   claseLabel,
   clasificarComentario,
@@ -1068,15 +1070,14 @@ function VistaComentarios({
               className="w-full rounded-lg bg-zinc-50 py-2 pl-8 pr-3 text-sm text-zinc-900 ring-1 ring-transparent placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800/40 dark:text-zinc-100 dark:focus:bg-zinc-800"
             />
           </label>
-          <Segmentado
+          <Segmentado etiqueta="Orden de los comentarios"
             opciones={[
-              { valor: 'criticos', label: 'Críticos primero' },
-              { valor: 'repetidos', label: 'Más repetidos' },
-              { valor: 'largos', label: 'Más largos' },
+              { valor: 'criticos', etiqueta: 'Críticos primero' },
+              { valor: 'repetidos', etiqueta: 'Más repetidos' },
+              { valor: 'largos', etiqueta: 'Más largos' },
             ]}
             valor={orden}
             onChange={setOrden}
-            capitalizar={false}
           />
         </div>
         {grupos.length > 1 && (
@@ -1216,14 +1217,13 @@ function VistaCriticos({ criticas, audiencia }: { criticas: RespuestaCritica[]; 
           <Frown className="mr-1 inline h-4 w-4 -translate-y-px text-rose-500" />
           Quien peor ha valorado, de la nota más baja a la más alta. Anónimo: {quien}.
         </p>
-        <Segmentado
+        <Segmentado etiqueta="Qué valoraciones ver"
           opciones={[
-            { valor: '45', label: `Descontentos · ${bajo45}` },
-            { valor: '70', label: `Bajo 70 · ${bajo70}` },
-            { valor: 'todas', label: `Las ${criticas.length} más bajas` },
+            { valor: '45', etiqueta: `Descontentos · ${bajo45}` },
+            { valor: '70', etiqueta: `Bajo 70 · ${bajo70}` },
+            { valor: 'todas', etiqueta: `Las ${criticas.length} más bajas` },
           ]}
           valor={umbral}
-          capitalizar={false}
           onChange={(v) => {
             setUmbral(v);
             setCuantas(POR_PAGINA);

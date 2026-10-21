@@ -4,7 +4,12 @@
 // (Google Sheets → catálogo/alumnado). Cualquier sync nuevo que siga el mismo contrato de
 // API (GET = plan sin escribir, POST = aplica) reutiliza esto en vez de reinventar la vista.
 import { useState } from 'react';
-import { Check, ChevronDown, Clock, Eye, Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Clock, Eye, RefreshCw, TriangleAlert, UserMinus, UserPlus } from 'lucide-react';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Estado } from '@/components/ui/estado';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Cubo } from '@/components/sync/cubo';
 
 export interface FieldChange {
   field: string;
@@ -34,10 +39,10 @@ export interface Plan {
 
 function Changes({ changes }: { changes: FieldChange[] }) {
   return (
-    <ul className="mt-1 space-y-0.5 text-xs text-zinc-500">
+    <ul className="mt-1 space-y-0.5 text-sm text-zinc-600 dark:text-zinc-400">
       {changes.map((c) => (
         <li key={c.field}>
-          <strong>{c.field}</strong>: {c.before} → {c.after}
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">{c.field}</span>: {c.before} → {c.after}
         </li>
       ))}
     </ul>
@@ -50,29 +55,30 @@ export function PlanView({ plan }: { plan: Plan }) {
   );
   const total = plan.toInsert.length + plan.toUpdate.length + plan.toDeactivate.length;
   const warnings = plan.toUpdate.filter((i) => i.warning);
+  const alternar = (k: 'insert' | 'update' | 'deactivate') => setOpen(open === k ? null : k);
 
   if (total === 0) {
-    return <p className="mt-3 text-sm text-zinc-500">Sin cambios: ya está todo al día. ✅</p>;
+    return (
+      <Aviso tono="ok" className="mt-3">
+        Sin cambios: ya está todo al día.
+      </Aviso>
+    );
   }
 
   return (
-    <div className="mt-3 space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-800/40">
+    <div className="mt-3 space-y-2">
       {plan.outOfScope != null && plan.outOfScope > 0 && (
-        <p className="text-xs text-zinc-400">{plan.outOfScope} fila(s) ignoradas (curso fuera de esta campaña).</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{plan.outOfScope} fila(s) ignoradas (curso fuera de esta campaña).</p>
       )}
       {warnings.length > 0 && (
-        <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
-          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          {warnings.length} elemento(s) con aviso — revisa antes de confirmar.
-        </p>
+        <Aviso tono="aviso">{warnings.length} elemento(s) con aviso: revísalos antes de confirmar.</Aviso>
       )}
       {plan.duplicados != null && plan.duplicados.length > 0 && (
-        <div className="rounded-lg bg-red-50 p-2 text-xs text-red-800 dark:bg-red-500/10 dark:text-red-200">
-          <p className="flex items-start gap-1.5 font-medium">
-            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            {plan.duplicados.length} código(s) repetidos en el mismo curso: solo se guardará el último de cada uno.
-          </p>
-          <ul className="mt-1 space-y-0.5 pl-5">
+        <Aviso
+          tono="error"
+          titulo={`${plan.duplicados.length} código(s) repetidos en el mismo curso: solo se guardará el último de cada uno.`}
+        >
+          <ul className="mt-1 space-y-0.5">
             {plan.duplicados.map((d) => (
               <li key={d.key}>
                 <strong>
@@ -82,54 +88,63 @@ export function PlanView({ plan }: { plan: Plan }) {
               </li>
             ))}
           </ul>
-          <p className="mt-1 pl-5">Ponles códigos distintos en el Excel o uno de los dos no existirá.</p>
-        </div>
+          <p className="mt-1">Ponles códigos distintos en el Excel o uno de los dos no existirá.</p>
+        </Aviso>
       )}
 
-      <button type="button" onClick={() => setOpen(open === 'insert' ? null : 'insert')} className="flex w-full items-center justify-between text-left font-medium text-zinc-700 disabled:opacity-30 dark:text-zinc-200" disabled={plan.toInsert.length === 0}>
-        <span>Altas nuevas ({plan.toInsert.length})</span>
-        {plan.toInsert.length > 0 && <ChevronDown className={`h-4 w-4 transition-transform ${open === 'insert' ? 'rotate-180' : ''}`} />}
-      </button>
-      {open === 'insert' && (
-        <ul className="max-h-40 space-y-1 overflow-y-auto pl-2 text-xs text-zinc-600 dark:text-zinc-300">
-          {plan.toInsert.map((i) => <li key={i.key}>{i.label}</li>)}
+      <Cubo
+        icono={<UserPlus />}
+        titulo="Altas nuevas"
+        n={plan.toInsert.length}
+        abierto={open === 'insert'}
+        onToggle={() => alternar('insert')}
+      >
+        <ul className="max-h-48 space-y-1 overflow-y-auto text-sm text-zinc-700 dark:text-zinc-300">
+          {plan.toInsert.map((i) => (
+            <li key={i.key}>{i.label}</li>
+          ))}
         </ul>
-      )}
+      </Cubo>
 
-      <button type="button" onClick={() => setOpen(open === 'update' ? null : 'update')} className="flex w-full items-center justify-between text-left font-medium text-zinc-700 disabled:opacity-30 dark:text-zinc-200" disabled={plan.toUpdate.length === 0}>
-        <span>Actualizaciones ({plan.toUpdate.length})</span>
-        {plan.toUpdate.length > 0 && <ChevronDown className={`h-4 w-4 transition-transform ${open === 'update' ? 'rotate-180' : ''}`} />}
-      </button>
-      {open === 'update' && (
-        <ul className="max-h-56 space-y-2 overflow-y-auto pl-2 text-xs text-zinc-600 dark:text-zinc-300">
+      <Cubo
+        icono={<RefreshCw />}
+        titulo="Actualizaciones"
+        n={plan.toUpdate.length}
+        abierto={open === 'update'}
+        onToggle={() => alternar('update')}
+      >
+        <ul className="max-h-64 space-y-2.5 overflow-y-auto text-sm">
           {plan.toUpdate.map((i) => (
             <li key={i.key}>
-              <p className="font-medium text-zinc-700 dark:text-zinc-200">{i.label}</p>
+              <p className="font-medium text-zinc-900 dark:text-zinc-100">{i.label}</p>
               <Changes changes={i.changes} />
               {i.warning && (
-                <p className="mt-1 flex items-start gap-1 text-amber-700 dark:text-amber-300">
-                  <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" /> {i.warning}
+                <p className="mt-1 flex items-start gap-1.5 text-amber-800 dark:text-amber-300">
+                  <TriangleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" /> {i.warning}
                 </p>
               )}
             </li>
           ))}
         </ul>
-      )}
+      </Cubo>
 
-      <button type="button" onClick={() => setOpen(open === 'deactivate' ? null : 'deactivate')} className="flex w-full items-center justify-between text-left font-medium text-zinc-700 disabled:opacity-30 dark:text-zinc-200" disabled={plan.toDeactivate.length === 0}>
-        <span>Se desactivarán ({plan.toDeactivate.length})</span>
-        {plan.toDeactivate.length > 0 && <ChevronDown className={`h-4 w-4 transition-transform ${open === 'deactivate' ? 'rotate-180' : ''}`} />}
-      </button>
-      {open === 'deactivate' && (
-        <ul className="max-h-40 space-y-1 overflow-y-auto pl-2 text-xs text-zinc-600 dark:text-zinc-300">
+      <Cubo
+        icono={<UserMinus />}
+        titulo="Se desactivarán"
+        n={plan.toDeactivate.length}
+        abierto={open === 'deactivate'}
+        onToggle={() => alternar('deactivate')}
+      >
+        <ul className="max-h-48 space-y-1.5 overflow-y-auto text-sm text-zinc-700 dark:text-zinc-300">
           {plan.toDeactivate.map((i) => (
-            <li key={i.key}>
-              {i.label}{i.hasOrder && <span className="ml-1 text-amber-600 dark:text-amber-400">(tiene pedido)</span>}
+            <li key={i.key} className="flex flex-wrap items-center gap-2">
+              {i.label}
+              {i.hasOrder && <Estado tono="aviso">Tiene pedido</Estado>}
             </li>
           ))}
         </ul>
-      )}
-      <p className="text-xs text-zinc-400">{plan.unchanged} sin cambios (no se tocan).</p>
+      </Cubo>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">{plan.unchanged} sin cambios (no se tocan).</p>
     </div>
   );
 }
@@ -196,59 +211,52 @@ export interface SyncCardProps {
 
 export function SyncCard({ icon, title, description, bullets, applyLabel, resultSummary, sync }: SyncCardProps) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="flex items-center gap-1.5 font-medium text-zinc-900 dark:text-zinc-100">{icon} {title}</p>
-      <p className="mt-1 text-sm text-zinc-500">{description}</p>
-      <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-zinc-500">
-        {bullets.map((b, i) => <li key={i}>{b}</li>)}
+    <Tarjeta className="p-4">
+      <h3 className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100 [&_svg]:size-4 [&_svg]:shrink-0">
+        {icon} {title}
+      </h3>
+      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
+      <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-zinc-500 dark:text-zinc-400">
+        {bullets.map((b, i) => (
+          <li key={i}>{b}</li>
+        ))}
       </ul>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={sync.preview}
-          disabled={sync.loadingPlan}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
-        >
-          {sync.loadingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+        <Button type="button" variant="outline" size="sm" cargando={sync.loadingPlan} onClick={() => void sync.preview()}>
+          {!sync.loadingPlan && <Eye aria-hidden />}
           Ver cambios
-        </button>
+        </Button>
         {sync.plan && (
-          <button
-            type="button"
-            onClick={sync.apply}
-            disabled={sync.applying}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 cursor-pointer"
-          >
-            {sync.applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          <Button type="button" size="sm" cargando={sync.applying} onClick={() => void sync.apply()}>
+            {!sync.applying && <RefreshCw aria-hidden />}
             {applyLabel}
-          </button>
+          </Button>
         )}
       </div>
 
       {sync.planError && (
-        <p className="mt-3 flex items-start gap-1.5 text-sm text-red-600 dark:text-red-400">
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {sync.planError}
-        </p>
+        <Aviso tono="error" className="mt-3">
+          {sync.planError}
+        </Aviso>
       )}
       {sync.plan && <PlanView plan={sync.plan} />}
 
       {sync.result?.error && (
-        <p className="mt-3 flex items-start gap-1.5 text-sm text-red-600 dark:text-red-400">
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {sync.result.error}
-        </p>
+        <Aviso tono="error" className="mt-3">
+          {sync.result.error}
+        </Aviso>
       )}
       {sync.result?.ok && (
-        <div className="mt-3 space-y-1 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
-          <p className="flex items-center gap-1.5 font-medium"><Check className="h-4 w-4" /> Aplicado</p>
+        <Aviso tono="ok" titulo="Aplicado" className="mt-3">
           {resultSummary(sync.result)}
           {sync.ranAt && (
-            <p className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-              <Clock className="h-3 w-3" /> {sync.ranAt.toLocaleString('es-ES')}
+            <p className="mt-1 flex items-center gap-1 text-xs tabular-nums">
+              <Clock aria-hidden className="h-3.5 w-3.5" /> {sync.ranAt.toLocaleString('es-ES')}
             </p>
           )}
-        </div>
+        </Aviso>
       )}
-    </div>
+    </Tarjeta>
   );
 }

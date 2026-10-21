@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarDays, ChevronLeft } from 'lucide-react';
+import { CalendarDays, UserX } from 'lucide-react';
 
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess } from '@/lib/permissions';
@@ -9,6 +8,7 @@ import { getCeldas, getFranjasDeProfe, getPeriodos, getPeriodoVigente } from '@/
 import { Navegador } from '@/components/horarios/navegador';
 import { SelectorPeriodo } from '@/components/horarios/selector-periodo';
 import { Exportador } from '@/components/mihorario/exportador';
+import { Vacio } from '@/components/ui/vacio';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,54 +37,33 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
       : [[], []];
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-        <div className="container mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-4">
-          <span className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            <CalendarDays className="h-4 w-4 text-indigo-500" />
-            Mi horario
-          </span>
-          <Link
-            href="/gestion"
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            <ChevronLeft className="h-4 w-4" /> <span className="hidden sm:inline">Escritorio</span>
-          </Link>
-        </div>
-      </header>
-
-      <main className="container mx-auto max-w-4xl space-y-5 px-4 py-5">
-        {!profe ? (
-          <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
-            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
-              Tu correo ({user.email}) no está enlazado a ningún profesor en la BBDD central.
-            </p>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Habla con TIC para que lo revisen.</p>
-          </div>
-        ) : !periodo ? (
-          <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Todavía no hay ningún horario importado.</p>
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-                  {[profe.nombre, profe.apellido1].filter(Boolean).join(' ')}
-                </h1>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {periodo.nombre} · curso {periodo.academicYear}
-                </p>
-              </div>
-              {periodos.length > 1 && <SelectorPeriodo periodos={periodos} actual={periodo.id} basePath="/mi-horario" />}
+    <div className="space-y-5">
+      <h1 className="sr-only">Mi horario</h1>
+      {!profe ? (
+        <Vacio icono={<UserX />} titulo="Tu correo no está enlazado a ningún profesor">
+          {user.email} no aparece en la BBDD central. Habla con TIC para que lo revisen.
+        </Vacio>
+      ) : !periodo ? (
+        <Vacio icono={<CalendarDays />} titulo="Todavía no hay ningún horario importado" />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                {[profe.nombre, profe.apellido1].filter(Boolean).join(' ')}
+              </h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {periodo.nombre} · curso {periodo.academicYear}
+              </p>
             </div>
+            {periodos.length > 1 && <SelectorPeriodo periodos={periodos} actual={periodo.id} basePath="/mi-horario" />}
+          </div>
 
-            <Navegador celdas={celdas} franjas={franjas} titulo="tu horario" editable={{ periodoId: periodo.id }} />
+          <Navegador celdas={celdas} franjas={franjas} titulo="tu horario" editable={{ periodoId: periodo.id }} />
 
-            <Exportador periodoId={periodo.id} />
-          </>
-        )}
-      </main>
+          <Exportador periodoId={periodo.id} />
+        </>
+      )}
     </div>
   );
 }

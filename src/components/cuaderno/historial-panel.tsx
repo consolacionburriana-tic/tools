@@ -7,19 +7,14 @@
 import { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, CheckCheck, ExternalLink, Loader2, Play, Square } from 'lucide-react';
+import { ExternalLink, History, Play, Square } from 'lucide-react';
 import { toast } from 'sonner';
-import { Tarjeta } from '@/components/cuaderno/cuaderno-panel';
-import { TiradaEnMarcha } from '@/components/cuaderno/generar-panel';
+import { EstadoTirada, TiradaEnMarcha } from '@/components/cuaderno/generar-panel';
 import type { PlantillaUI, TiradaUI } from '@/components/cuaderno/tipos';
-
-const ESTADO_LABEL: Record<string, string> = {
-  pendiente: 'en cola',
-  ejecutando: 'en marcha',
-  hecha: 'terminada',
-  error: 'con errores',
-  cancelada: 'cancelada',
-};
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Estado } from '@/components/ui/estado';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 
 export function HistorialPanel({ tiradas, plantillas }: { tiradas: TiradaUI[]; plantillas: PlantillaUI[] }) {
   const [abierta, setAbierta] = useState<string | null>(null);
@@ -31,9 +26,9 @@ export function HistorialPanel({ tiradas, plantillas }: { tiradas: TiradaUI[]; p
 
   if (tiradas.length === 0) {
     return (
-      <Tarjeta>
-        <p className="text-sm text-zinc-500">Todavía no se ha generado ningún cuaderno.</p>
-      </Tarjeta>
+      <Vacio icono={<History />} titulo="Todavía no se ha generado ningún cuaderno">
+        Cuando lances el primero desde «Generar», saldrá aquí con su enlace a Drive.
+      </Vacio>
     );
   }
 
@@ -59,77 +54,53 @@ export function HistorialPanel({ tiradas, plantillas }: { tiradas: TiradaUI[]; p
       {tiradas.map((tirada) => {
         const enMarcha = tirada.estado === 'pendiente' || tirada.estado === 'ejecutando';
         return (
-          <Tarjeta key={tirada.id}>
+          <Tarjeta key={tirada.id} className="p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  {tirada.errores > 0 ? (
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  ) : enMarcha ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                  ) : (
-                    <CheckCheck className="h-4 w-4 text-emerald-500" />
-                  )}
-                  <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     {tirada.academicYear} · Ejecución {tirada.numero}
                   </h3>
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-800">
-                    {ESTADO_LABEL[tirada.estado] ?? tirada.estado}
-                  </span>
-                  {enMarcha && tirada.pases === 0 && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                      el worker no ha pasado
-                    </span>
+                  <EstadoTirada estado={tirada.estado} />
+                  {tirada.errores > 0 && tirada.estado !== 'error' && (
+                    <Estado tono="aviso">{tirada.errores} con error</Estado>
                   )}
+                  {enMarcha && tirada.pases === 0 && <Estado tono="aviso">El worker no ha pasado</Estado>}
                 </div>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
                   {format(parseISO(tirada.createdAt), "d 'de' MMMM 'a las' HH:mm", { locale: es })}
                   {tirada.lanzadaPor ? ` · ${tirada.lanzadaPor}` : ''} · {tirada.hechos}/{tirada.total} documentos
                   {tirada.errores > 0 ? ` · ${tirada.errores} con error` : ''}
                   {tirada.pases > 0 ? ` · ${tirada.pases} pase(s) del worker` : ''}
                 </p>
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {tirada.carpetaCursoUrl && (
                   <a
                     href={tirada.carpetaCursoUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className={buttonVariants({ variant: 'outline', size: 'sm' })}
                   >
-                    Drive <ExternalLink className="h-3.5 w-3.5" />
+                    Drive <ExternalLink aria-hidden />
                   </a>
                 )}
                 {tirada.pendientes > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => accion(tirada.id, 'seguir')}
-                    disabled={ocupado === tirada.id}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300"
-                  >
-                    <Play className="h-3.5 w-3.5" /> Retomar
-                  </button>
+                  <Button variant="outline" size="sm" onClick={() => accion(tirada.id, 'seguir')} disabled={ocupado === tirada.id}>
+                    <Play /> Retomar
+                  </Button>
                 )}
                 {enMarcha && (
-                  <button
-                    type="button"
-                    onClick={() => accion(tirada.id, 'cancelar')}
-                    disabled={ocupado === tirada.id}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 dark:border-red-900 dark:text-red-400"
-                  >
-                    <Square className="h-3.5 w-3.5" /> Parar
-                  </button>
+                  <Button variant="destructive" size="sm" onClick={() => accion(tirada.id, 'cancelar')} disabled={ocupado === tirada.id}>
+                    <Square /> Parar
+                  </Button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setAbierta(tirada.id)}
-                  className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-                >
+                <Button size="sm" onClick={() => setAbierta(tirada.id)}>
                   Ver detalle
-                </button>
+                </Button>
               </div>
             </div>
-            {tirada.error && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{tirada.error}</p>}
+            {tirada.error && <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{tirada.error}</p>}
           </Tarjeta>
         );
       })}

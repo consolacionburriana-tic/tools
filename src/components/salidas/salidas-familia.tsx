@@ -7,17 +7,24 @@ import {
   Check,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   CircleSlash,
   Clock,
   Eye,
   FileUp,
-  Info,
   Link2,
   Loader2,
-  TriangleAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { Estado } from '@/components/ui/estado';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { claseTarjeta } from '@/components/ui/tarjeta';
 import { stepAnim } from '@/lib/motion';
 import { COLEGIO } from '@/lib/colegio';
 import { CONFIGURACION } from '@/lib/configuracion';
@@ -61,18 +68,28 @@ function fechaEnvioBonita(iso: string | null): string | null {
 }
 
 function EstadoChip({ estado }: { estado: Trip['estado'] }) {
-  const map = {
-    pendiente: { icon: Clock, texto: 'Justificante pendiente', clase: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' },
-    subido: { icon: CheckCircle2, texto: 'Justificante enviado', clase: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
-    no_va: { icon: CircleSlash, texto: 'No irá', clase: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300' },
-  }[estado];
-  const Icon = map.icon;
+  if (estado === 'subido')
+    return (
+      <Estado tono="ok" icono={<CheckCircle2 aria-hidden />}>
+        Justificante enviado
+      </Estado>
+    );
+  if (estado === 'no_va')
+    return (
+      <Estado tono="neutro" icono={<CircleSlash aria-hidden />}>
+        No irá
+      </Estado>
+    );
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${map.clase}`}>
-      <Icon className="h-3.5 w-3.5" /> {map.texto}
-    </span>
+    <Estado tono="aviso" icono={<Clock aria-hidden />}>
+      Justificante pendiente
+    </Estado>
   );
 }
+
+/** Fila que se toca para elegir (un hijo, una salida). */
+const claseOpcion =
+  'flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800';
 
 export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | null }) {
   const [identificador, setIdentificador] = useState('');
@@ -289,74 +306,59 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
       <AnimatePresence mode="wait">
         {paso === 'identificar' && (
           <motion.div key="id" {...stepAnim}>
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className={cn(claseTarjeta, 'p-5 sm:p-6')}>
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Justificante de pago de salidas</h2>
-              <p className="mt-2 text-sm text-zinc-500">
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
                 Identifícate para ver las salidas activas de tu hijo/a y enviar el justificante de pago.
               </p>
 
               {tokenInvalido && (
-                <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200">
-                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    Tu enlace no ha podido identificar a ningún alumno (puede haber caducado). No pasa nada: entra
-                    con el DNI/NIE del tutor o el NIA del alumno/a.
-                  </span>
-                </div>
+                <Aviso tono="aviso" className="mt-4">
+                  Tu enlace no ha podido identificar a ningún alumno (puede haber caducado). No pasa nada: entra
+                  con el DNI/NIE del tutor o el NIA del alumno/a.
+                </Aviso>
               )}
 
               {token ? (
-                <div className="mt-5 flex gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">
-                  <Link2 className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    Has entrado con <strong>tu enlace personal</strong>, no hace falta teclear ningún dato.
-                    {hijos && hijos.length > 1 && ' Abajo tienes a tus hijos/as: elige por quién empiezas.'}
-                  </span>
-                </div>
+                <Aviso tono="info" icono={<Link2 />} className="mt-5">
+                  Has entrado con <strong>tu enlace personal</strong>, no hace falta teclear ningún dato.
+                  {hijos && hijos.length > 1 && ' Abajo tienes a tus hijos/as: elige por quién empiezas.'}
+                </Aviso>
               ) : (
-                <>
-                  <label className="mt-5 mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    DNI/NIE de la madre, padre o tutor legal — o NIA del alumno/a
-                  </label>
-                  <input
+                <Campo
+                  className="mt-5"
+                  id="salidas-identificador"
+                  etiqueta="DNI/NIE de la madre, padre o tutor legal, o NIA del alumno/a"
+                >
+                  <Input
+                    id="salidas-identificador"
                     value={identificador}
                     onChange={(e) => setIdentificador(e.target.value)}
                     placeholder="12345678A"
                     autoComplete="off"
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 tracking-wide text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                    className="h-12 tracking-wide"
                   />
-                </>
+                </Campo>
               )}
               <div className="mt-3 min-h-[1.25rem]">
                 {buscando && (
-                  <p className="flex items-center gap-2 text-sm text-zinc-400">
-                    <Loader2 className="h-4 w-4 animate-spin" /> {token ? 'Entrando…' : 'Buscando…'}
+                  <p role="status" className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> {token ? 'Entrando…' : 'Buscando…'}
                   </p>
                 )}
                 {!buscando && !token && hijos !== null && hijos.length === 0 && identificador.trim().length >= 5 && (
-                  <div className="flex items-start gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
-                    <span>No encontramos ningún alumno con ese dato. Revisa el DNI o el NIA.</span>
-                  </div>
+                  <Aviso tono="aviso">No encontramos ningún alumno con ese dato. Revisa el DNI o el NIA.</Aviso>
                 )}
               </div>
               {token && (
-                <button
-                  type="button"
-                  onClick={entrarConDocumento}
-                  className="mb-1 text-xs text-zinc-400 underline-offset-2 hover:text-zinc-600 hover:underline dark:hover:text-zinc-300"
-                >
+                <Button type="button" variant="ghost" size="sm" className="-ml-3" onClick={entrarConDocumento}>
                   ¿Falta algún hijo/a? Entrar con DNI/NIE o NIA
-                </button>
+                </Button>
               )}
               {!modoManual && !token && (
-                <button
-                  type="button"
-                  onClick={() => void abrirManual()}
-                  className="mb-1 text-sm text-zinc-400 underline-offset-2 hover:text-zinc-600 hover:underline dark:hover:text-zinc-300"
-                >
+                <Button type="button" variant="ghost" size="sm" className="-ml-3" onClick={() => void abrirManual()}>
                   ¿No te encuentra? Introduce los datos a mano
-                </button>
+                </Button>
               )}
 
               {modoManual && (
@@ -365,50 +367,36 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
                   animate={{ opacity: 1, height: 'auto' }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  <div className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                       Sin problema: dinos la clase y el nombre y lo revisamos nosotros.
                     </p>
-                    <p className="mb-3 mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">
-                      Solo salen las clases con salidas activas.
-                    </p>
+                    <p className="mt-1 mb-3 text-sm text-zinc-500 dark:text-zinc-400">Solo salen las clases con salidas activas.</p>
                     {clases === null ? (
-                      <p className="flex items-center gap-2 text-sm text-zinc-400">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Cargando clases…
+                      <p role="status" className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                        <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Cargando clases…
                       </p>
                     ) : clases.length === 0 ? (
-                      <p className="text-sm text-zinc-500">Ahora mismo no hay ninguna salida activa.</p>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400">Ahora mismo no hay ninguna salida activa.</p>
                     ) : (
                       <>
-                        <div className="flex flex-wrap gap-1.5">
+                        <Filtros etiqueta="Clase del alumno/a">
                           {clases.map((c) => (
-                            <button
-                              key={c.label}
-                              type="button"
-                              onClick={() => setClaseManual(c)}
-                              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-                                claseManual?.label === c.label
-                                  ? 'bg-blue-600 text-white'
-                                  : 'bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700'
-                              }`}
-                            >
+                            <Filtro key={c.label} activo={claseManual?.label === c.label} onClick={() => setClaseManual(c)}>
                               {c.label}
-                            </button>
+                            </Filtro>
                           ))}
-                        </div>
-                        <input
+                        </Filtros>
+                        <Input
+                          aria-label="Nombre y apellidos del alumno/a"
                           value={nombreManual}
                           onChange={(e) => setNombreManual(e.target.value)}
                           placeholder="Nombre y apellidos del alumno/a"
-                          className="mt-3 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                          className="mt-3"
                         />
-                        <button
-                          type="button"
-                          onClick={() => void continuarManual()}
-                          className="mt-3 w-full rounded-xl bg-amber-500 px-4 py-2.5 font-semibold text-amber-950 hover:bg-amber-400"
-                        >
+                        <Button type="button" className="mt-3 w-full" onClick={() => void continuarManual()}>
                           Continuar
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>
@@ -417,7 +405,7 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
 
               {hijos !== null && hijos.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
                     {hijos.length > 1 ? 'Selecciona a tu hijo/a' : 'Confirma al alumno/a'} (nombre abreviado por privacidad):
                   </p>
                   {hijos.map((h) => (
@@ -425,13 +413,13 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
                       key={h.eduStudentId}
                       type="button"
                       onClick={() => void elegirHijo(h)}
-                      className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                      className={claseOpcion}
                     >
                       <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                         {h.maskedName}
-                        <span className="ml-2 text-xs font-normal text-zinc-400">{claseDe(h)}</span>
+                        <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">{claseDe(h)}</span>
                       </span>
-                      <ChevronLeft className="h-4 w-4 rotate-180 text-zinc-400" />
+                      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-zinc-400" />
                     </button>
                   ))}
                 </div>
@@ -442,24 +430,34 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
 
         {paso === 'salidas' && hijo && (
           <motion.div key="salidas" {...stepAnim}>
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-              <button type="button" onClick={() => { setHijo(null); setTrips(null); }} className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
-                <ChevronLeft className="h-4 w-4" /> Cambiar de alumno
-              </button>
+            <div className={cn(claseTarjeta, 'p-5 sm:p-6')}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="-ml-3 text-zinc-600 dark:text-zinc-400"
+                onClick={() => {
+                  setHijo(null);
+                  setTrips(null);
+                }}
+              >
+                <ChevronLeft aria-hidden /> Cambiar de alumno
+              </Button>
               {hijo.manual && (
-                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                <Aviso tono="info" className="mt-2">
                   Datos introducidos a mano: el equipo del cole los revisará al enlazar el justificante.
-                </p>
+                </Aviso>
               )}
               <h2 className="mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                Salidas de {hijo.maskedName} <span className="text-sm font-normal text-zinc-400">{claseDe(hijo)}</span>
+                Salidas de {hijo.maskedName}{' '}
+                <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">{claseDe(hijo)}</span>
               </h2>
               {trips === null ? (
-                <p className="mt-4 flex items-center gap-2 text-sm text-zinc-400">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
+                <p role="status" className="mt-4 flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Cargando…
                 </p>
               ) : trips.length === 0 ? (
-                <p className="mt-4 text-sm text-zinc-500">
+                <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
                   Ahora mismo no hay ninguna salida activa para su clase. Si crees que debería haberla, contacta con el
                   tutor/a.
                 </p>
@@ -470,11 +468,11 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
                       key={t.tripId}
                       type="button"
                       onClick={() => setTrip(t)}
-                      className="flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                      className={cn(claseOpcion, 'flex-wrap')}
                     >
                       <span className="min-w-0">
                         <span className="block font-semibold text-zinc-900 dark:text-zinc-100">{t.nombre}</span>
-                        <span className="block text-xs text-zinc-400">
+                        <span className="block text-sm text-zinc-500 dark:text-zinc-400">
                           {fechaBonita(t.fecha) ?? 'fecha por concretar'}
                           {t.importe ? ` · ${t.importe} €` : ''}
                         </span>
@@ -490,14 +488,23 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
 
         {paso === 'subir' && hijo && trip && (
           <motion.div key="subir" {...stepAnim}>
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-              <button type="button" onClick={() => { setTrip(null); setFile(null); }} className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
-                <ChevronLeft className="h-4 w-4" /> {trips && trips.length > 1 ? 'Otras salidas' : 'Atrás'}
-              </button>
-              <div className="mt-3 flex items-start justify-between gap-3">
+            <div className={cn(claseTarjeta, 'p-5 sm:p-6')}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="-ml-3 text-zinc-600 dark:text-zinc-400"
+                onClick={() => {
+                  setTrip(null);
+                  setFile(null);
+                }}
+              >
+                <ChevronLeft aria-hidden /> {trips && trips.length > 1 ? 'Otras salidas' : 'Atrás'}
+              </Button>
+              <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{trip.nombre}</h2>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
                     {fechaBonita(trip.fecha) ?? 'fecha por concretar'}
                     {trip.importe ? ` · ${trip.importe} €` : ''} · {hijo.maskedName}
                   </p>
@@ -507,111 +514,116 @@ export function SalidasFamilia({ tokenAcceso = null }: { tokenAcceso?: string | 
               {trip.descripcion && <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{trip.descripcion}</p>}
 
               {trip.estado === 'no_va' ? (
-                <p className="mt-5 rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                <Aviso tono="info" className="mt-5">
                   El profesorado ha anotado que no irá a esta salida. Si es un error, subid igualmente el justificante
                   o habladlo con el tutor/a.
-                </p>
+                </Aviso>
               ) : trip.estado === 'subido' ? (
-                <div className="mt-5 flex flex-wrap items-center gap-2.5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
-                  <Check className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1">
+                <Aviso tono="ok" className="mt-5">
+                  <p>
                     Ya enviaste el justificante{trip.justificanteSubidoAt ? ` el ${fechaEnvioBonita(trip.justificanteSubidoAt)}` : ''}.{' '}
                     Si quieres corregirlo, sube uno nuevo abajo y sustituirá al anterior.
-                  </span>
-                  <button
+                  </p>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
                     onClick={() => void verJustificante(hijo, trip)}
-                    className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-white dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
                   >
-                    <Eye className="h-3.5 w-3.5" /> Ver archivo enviado
-                  </button>
-                </div>
+                    <Eye aria-hidden /> Ver archivo enviado
+                  </Button>
+                </Aviso>
               ) : null}
 
               <label
                 htmlFor="justificante"
                 className="mt-5 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 px-4 py-7 text-center hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:hover:border-blue-500 dark:hover:bg-blue-500/5"
               >
-                <FileUp className={`h-7 w-7 ${file ? 'text-emerald-500' : 'text-zinc-400'}`} />
+                <FileUp aria-hidden className={cn('h-7 w-7', file ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400')} />
                 <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   {file ? file.name : trip.estado === 'subido' ? 'Sustituir justificante' : 'Foto o PDF del justificante de pago'}
                 </span>
-                <span className="text-xs text-zinc-400">jpg, png, heic o pdf · máx. {CONFIGURACION.archivos.maxMB} MB</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">jpg, png, heic o pdf · máx. {CONFIGURACION.archivos.maxMB} MB</span>
               </label>
               <input
                 ref={fileRef}
                 id="justificante"
                 type="file"
                 accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"
-                className="hidden"
+                className="sr-only"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
 
-              <label className="mt-4 mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Tu email (opcional, para confirmarte la entrega)
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tucorreo@ejemplo.com"
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-              />
-
-              <button
-                type="button"
-                onClick={() => void subir()}
-                disabled={!file || enviando}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              <Campo
+                className="mt-4"
+                id="salidas-email"
+                etiqueta="Tu correo"
+                opcional
+                ayuda="Para mandarte la confirmación de la entrega."
               >
-                {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+                <Input
+                  id="salidas-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tucorreo@ejemplo.com"
+                />
+              </Campo>
+
+              <Button
+                type="button"
+                size="lg"
+                className="mt-5 w-full"
+                cargando={enviando}
+                disabled={!file}
+                onClick={() => void subir()}
+              >
+                {!enviando && <Check aria-hidden />}
                 Enviar justificante
-              </button>
+              </Button>
             </div>
           </motion.div>
         )}
 
         {paso === 'hecho' && hijo && trip && (
           <motion.div key="hecho" {...stepAnim}>
-            <div className="flex flex-col items-center rounded-3xl border border-zinc-200 bg-white p-10 text-center dark:border-zinc-800 dark:bg-zinc-900">
+            <div className={cn(claseTarjeta, 'flex flex-col items-center p-10 text-center')}>
               <motion.div initial={{ scale: 0, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}>
-                <CheckCircle2 className="h-16 w-16 text-emerald-500" />
+                <CheckCircle2 aria-hidden className="h-16 w-16 text-emerald-500" />
               </motion.div>
               <p className="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">¡Justificante enviado!</p>
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                 El equipo responsable de &quot;{trip.nombre}&quot; lo revisará.{' '}
                 {email.trim() ? 'Te hemos enviado una confirmación por email.' : ''}
               </p>
               {trips && trips.length > 1 ? (
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  className="mt-6"
                   onClick={() => {
                     setHecho(null);
                     setTrip(null);
                     setFile(null);
                     void elegirHijo(hijo);
                   }}
-                  className="mt-6 inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
-                  <Bus className="h-4 w-4" /> Ver más salidas
-                </button>
+                  <Bus aria-hidden /> Ver más salidas
+                </Button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => void verJustificante(hijo, trip)}
-                  className="mt-6 inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  <Eye className="h-4 w-4" /> Ver archivo enviado
-                </button>
+                <Button type="button" variant="outline" className="mt-6" onClick={() => void verJustificante(hijo, trip)}>
+                  <Eye aria-hidden /> Ver archivo enviado
+                </Button>
               )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <p className="text-center text-xs text-zinc-400">
+      <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
         ¿Dudas? Escríbenos a{' '}
-        <a href={`mailto:${COLEGIO.correoTic}`} className="underline hover:text-zinc-600 dark:hover:text-zinc-300">
+        <a href={`mailto:${COLEGIO.correoTic}`} className="underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-200">
           {COLEGIO.correoTic}
         </a>
       </p>

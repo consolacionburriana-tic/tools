@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
+import { Selector } from '@/components/ui/selector';
 import type { PeriodoListado } from '@/lib/horarios-server';
 
 /**
@@ -21,14 +22,14 @@ export function SelectorPeriodo({
   const router = useRouter();
   const params = useSearchParams();
   return (
-    <select
+    <Selector
       value={actual}
       onChange={(e) => {
         const p = new URLSearchParams(params.toString());
         p.set('periodo', e.target.value);
         router.push(`${basePath}?${p.toString()}`);
       }}
-      className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+      className="w-auto min-w-52"
       aria-label="Periodo del horario"
     >
       {periodos.map((p) => (
@@ -36,6 +37,6 @@ export function SelectorPeriodo({
           {p.nombre} · {p.academicYear}
         </option>
       ))}
-    </select>
+    </Selector>
   );
 }

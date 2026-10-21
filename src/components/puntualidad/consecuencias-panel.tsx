@@ -11,11 +11,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { addDays, format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarPlus, ChevronDown, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
+import { ChevronDown, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Chip, ClaseChip, Interruptor } from './ui';
 import { haptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Rotulo } from '@/components/ui/rotulo';
+import { claseTarjeta, Tarjeta } from '@/components/ui/tarjeta';
 import type { AlumnoBusqueda, ConsecuenciaFila } from '@/lib/puntualidad-server';
 
 const fmt = (iso: string, patron = 'EEE d MMM') => {
@@ -62,7 +71,6 @@ export function ConsecuenciasPanel({
   };
 
   const borrar = async (c: ConsecuenciaFila) => {
-    if (!confirm(`¿Borrar la consecuencia de ${c.alumno}?`)) return;
     setOcupado(c.id);
     try {
       const res = await fetch(`/api/puntualidad/admin/consecuencias/${c.id}`, { method: 'DELETE' });
@@ -88,57 +96,63 @@ export function ConsecuenciasPanel({
     ];
     return (
       <li>
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex items-center gap-3 px-4 py-2.5">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <Link
                 href={`/gestion/puntualidad/alumno/${c.eduStudentId}`}
-                className="truncate text-sm font-medium text-zinc-900 transition-colors hover:text-orange-600 dark:text-zinc-100"
+                className="truncate rounded text-sm font-medium text-zinc-900 underline-offset-2 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-100"
               >
                 {c.alumno}
               </Link>
-              <ClaseChip clase={c.clase} />
-              {c.origen === 'manual' && (
-                <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800">
-                  a mano
-                </span>
-              )}
+              <Etiqueta>{c.clase}</Etiqueta>
+              {c.origen === 'manual' && <Etiqueta>a mano</Etiqueta>}
             </div>
-            <p className="truncate text-xs text-zinc-400">
+            <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
               {c.fecha ? `Sin patio el ${fmt(c.fecha)}` : 'Sin fecha todavía'}
               {c.motivo ? ` · ${c.motivo}` : ''}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {c.cumplida && (
-              <span className="hidden rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 sm:block dark:bg-emerald-900/30 dark:text-emerald-300">
-                cumplida
-              </span>
+              <Estado tono="ok" className="hidden sm:inline-flex">
+                Cumplida
+              </Estado>
             )}
             {c.avisadaEducamos && (
-              <span className="hidden rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 sm:block dark:bg-sky-900/30 dark:text-sky-300">
-                Educamos
-              </span>
+              <Estado tono="info" className="hidden sm:inline-flex">
+                Avisada en Educamos
+              </Estado>
             )}
             {ocupado === c.id ? (
-              <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+              <span className="flex size-10 items-center justify-center">
+                <Loader2 aria-label="Guardando" className="h-4 w-4 animate-spin text-zinc-500" />
+              </span>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setAbierta(abierta === c.id ? null : c.id)}
-                className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                aria-label="Abrir"
+                aria-expanded={abierta === c.id}
+                aria-label={`Abrir la consecuencia de ${c.alumno}`}
               >
-                <ChevronDown className={`h-4 w-4 transition-transform ${abierta === c.id ? 'rotate-180' : ''}`} />
-              </button>
+                <ChevronDown className={cn('transition-transform', abierta === c.id && 'rotate-180')} />
+              </Button>
             )}
           </div>
         </div>
 
         {abierta === c.id && (
           <div className="space-y-3 border-t border-zinc-100 bg-zinc-50/60 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-800/30">
+            {(c.cumplida || c.avisadaEducamos) && (
+              <div className="flex flex-wrap gap-1.5 sm:hidden">
+                {c.cumplida && <Estado tono="ok">Cumplida</Estado>}
+                {c.avisadaEducamos && <Estado tono="info">Avisada en Educamos</Estado>}
+              </div>
+            )}
             {c.retrasos.length > 0 && (
-              <ul className="space-y-1 text-xs text-zinc-500">
+              <ul className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
                 {c.retrasos.map((r, i) => (
                   <li key={`${r.fecha}-${i}`} className="flex gap-3">
                     <span className="w-24 shrink-0 capitalize">{fmt(r.fecha)}</span>
@@ -149,28 +163,24 @@ export function ConsecuenciasPanel({
               </ul>
             )}
             <div className="flex flex-wrap items-center gap-2">
-              {rapidas.map((r) => (
-                <Chip key={r.valor} tamano="pequeno" activo={c.fecha === r.valor} onClick={() => patch(c.id, { fecha: r.valor })}>
-                  {r.label}
-                </Chip>
-              ))}
-              <label className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 dark:border-zinc-700 dark:bg-zinc-900">
-                <CalendarPlus className="h-3.5 w-3.5 text-zinc-400" />
-                <input
-                  type="date"
-                  value={c.fecha ?? ''}
-                  onChange={(e) => patch(c.id, { fecha: e.target.value || null })}
-                  className="bg-transparent text-xs text-zinc-700 outline-none dark:text-zinc-200"
-                />
-              </label>
+              <Filtros etiqueta="Día sin patio">
+                {rapidas.map((r) => (
+                  <Filtro key={r.valor} activo={c.fecha === r.valor} onClick={() => patch(c.id, { fecha: r.valor })}>
+                    {r.label}
+                  </Filtro>
+                ))}
+              </Filtros>
+              <Input
+                type="date"
+                value={c.fecha ?? ''}
+                onChange={(e) => patch(c.id, { fecha: e.target.value || null })}
+                aria-label="Otro día"
+                className="h-10 w-auto"
+              />
               {c.fecha && (
-                <button
-                  type="button"
-                  onClick={() => patch(c.id, { fecha: null })}
-                  className="text-xs text-zinc-400 underline-offset-2 hover:underline"
-                >
-                  quitar fecha
-                </button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => patch(c.id, { fecha: null })}>
+                  Quitar fecha
+                </Button>
               )}
             </div>
             <Interruptor activo={c.cumplida} etiqueta="Ya la ha cumplido" onChange={(v) => patch(c.id, { cumplida: v })} />
@@ -179,18 +189,17 @@ export function ConsecuenciasPanel({
               etiqueta="Avisado en Educamos"
               onChange={(v) => patch(c.id, { avisadaEducamos: v })}
             />
-            <div className="flex items-center justify-between gap-2 text-xs text-zinc-400">
-              <span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">
                 {c.avisoEnviadoAt ? 'Aviso enviado al tutor/a' : 'Sin aviso por correo'}
                 {c.fijadaPorEmail ? ` · fecha puesta por ${c.fijadaPorEmail}` : ''}
               </span>
-              <button
-                type="button"
-                onClick={() => borrar(c)}
-                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-1 font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Borrar
-              </button>
+              <ConfirmarEnLinea
+                etiqueta="Borrar"
+                icono={<Trash2 />}
+                pregunta={`¿Borrar la consecuencia de ${c.alumno}?`}
+                onConfirmar={() => borrar(c)}
+              />
             </div>
           </div>
         )}
@@ -200,31 +209,28 @@ export function ConsecuenciasPanel({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Consecuencias</h1>
-        {puedeCrear && (
-          <button
-            type="button"
-            onClick={() => setCreando((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            {creando ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} A mano
-          </button>
-        )}
-      </div>
+      <h1 className="sr-only">Consecuencias</h1>
+      {puedeCrear && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={() => setCreando((v) => !v)} aria-expanded={creando}>
+            {creando ? <X aria-hidden /> : <Plus aria-hidden />} {creando ? 'Cerrar' : 'Poner una a mano'}
+          </Button>
+        </div>
+      )}
 
       {creando && <NuevaConsecuencia onCreada={() => { setCreando(false); refrescar(); }} />}
 
       <section className="space-y-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
-          Esperando fecha ({pendientes.length})
-        </h2>
+        <Rotulo className="flex items-center gap-2 px-1">
+          Esperando fecha
+          {pendientes.length > 0 && <Estado tono="aviso">{pendientes.length}</Estado>}
+        </Rotulo>
         {pendientes.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-zinc-200 py-8 text-center text-sm text-zinc-400 dark:border-zinc-700">
+          <p className="rounded-2xl border border-dashed border-zinc-300 bg-white py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
             Nada pendiente: todas tienen día puesto.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-orange-200 bg-white dark:divide-zinc-800 dark:border-orange-900/40 dark:bg-zinc-900">
+          <ul className={cn(claseTarjeta, 'divide-y divide-zinc-100 overflow-hidden dark:divide-zinc-800')}>
             {pendientes.map((c) => (
               <Fila key={c.id} c={c} />
             ))}
@@ -233,13 +239,13 @@ export function ConsecuenciasPanel({
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Con fecha ({puestas.length})</h2>
+        <Rotulo className="px-1">Con fecha · {puestas.length}</Rotulo>
         {puestas.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-zinc-200 py-8 text-center text-sm text-zinc-400 dark:border-zinc-700">
+          <p className="rounded-2xl border border-dashed border-zinc-300 bg-white py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
             Todavía ninguna.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <ul className={cn(claseTarjeta, 'divide-y divide-zinc-100 overflow-hidden dark:divide-zinc-800')}>
             {puestas.map((c) => (
               <Fila key={c.id} c={c} />
             ))}
@@ -307,34 +313,40 @@ function NuevaConsecuencia({ onCreada }: { onCreada: () => void }) {
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+    <Tarjeta className="space-y-3 p-4">
       {alumno ? (
-        <div className="flex items-center gap-2">
+        <div className="flex min-h-11 items-center gap-2">
           <span className="font-medium text-zinc-900 dark:text-zinc-100">{alumno.nombre}</span>
-          <ClaseChip clase={alumno.clase} />
-          <button
+          <Etiqueta>{alumno.clase}</Etiqueta>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => {
               setAlumno(null);
               setQuery('');
               inputRef.current?.focus();
             }}
-            className="ml-auto rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            aria-label="Cambiar alumno"
+            className="ml-auto"
+            aria-label="Cambiar de alumno"
           >
-            <X className="h-4 w-4" />
-          </button>
+            <X />
+          </Button>
         </div>
       ) : (
         <div className="space-y-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400"
+            />
+            <Input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              aria-label="Buscar alumno"
               placeholder="Alumno (nombre o apellido)…"
-              className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-orange-400 dark:border-zinc-700 dark:bg-zinc-800"
+              className="pl-10"
             />
           </div>
           {resultados.length > 0 && (
@@ -344,10 +356,10 @@ function NuevaConsecuencia({ onCreada }: { onCreada: () => void }) {
                   <button
                     type="button"
                     onClick={() => setAlumno(a)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-orange-50/60 dark:hover:bg-orange-500/5"
+                    className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-900 transition-colors outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset dark:text-zinc-100 dark:hover:bg-zinc-800/60"
                   >
                     <span className="min-w-0 flex-1 truncate">{a.nombre}</span>
-                    <ClaseChip clase={a.clase} />
+                    <Etiqueta>{a.clase}</Etiqueta>
                   </button>
                 </li>
               ))}
@@ -357,30 +369,24 @@ function NuevaConsecuencia({ onCreada }: { onCreada: () => void }) {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">
-          <CalendarPlus className="h-4 w-4 text-zinc-400" />
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="bg-transparent text-sm outline-none"
-          />
-        </label>
-        <input
+        <Input
+          type="date"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          aria-label="Día sin patio (opcional)"
+          className="w-auto"
+        />
+        <Input
           value={motivo}
           onChange={(e) => setMotivo(e.target.value)}
+          aria-label="Motivo"
           placeholder="Motivo (opcional)"
-          className="min-w-[12rem] flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400 dark:border-zinc-700 dark:bg-zinc-800"
+          className="min-w-48 flex-1"
         />
-        <button
-          type="button"
-          disabled={!alumno || guardando}
-          onClick={crear}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600 disabled:bg-zinc-200 disabled:text-zinc-400 dark:disabled:bg-zinc-800"
-        >
-          {guardando && <Loader2 className="h-4 w-4 animate-spin" />} Crear
-        </button>
+        <Button type="button" disabled={!alumno} cargando={guardando} onClick={crear}>
+          Crear consecuencia
+        </Button>
       </div>
-    </div>
+    </Tarjeta>
   );
 }

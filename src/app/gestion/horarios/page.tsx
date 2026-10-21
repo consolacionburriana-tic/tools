@@ -12,6 +12,8 @@ import {
   type VistaHorario,
 } from '@/lib/horarios-server';
 import { elegirPeriodoVigente } from '@/lib/horarios';
+import { Vacio } from '@/components/ui/vacio';
+import { EsqueletoRejilla } from '@/components/horarios/esqueleto';
 import { Navegador } from '@/components/horarios/navegador';
 import { Selector } from '@/components/horarios/selector';
 import { SelectorPeriodo } from '@/components/horarios/selector-periodo';
@@ -35,11 +37,12 @@ export default async function HorariosPage({
 
   if (!periodo) {
     return (
-      <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
-        <CalendarDays className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600" />
-        <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">Todavía no hay ningún horario.</p>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Impórtalo desde el botón de arriba.</p>
-      </div>
+      <>
+        <h1 className="sr-only">Horarios</h1>
+        <Vacio icono={<CalendarDays />} titulo="Todavía no hay ningún horario">
+          Se importa del export de Educamos con el botón «Importar» de arriba.
+        </Vacio>
+      </>
     );
   }
 
@@ -65,9 +68,10 @@ export default async function HorariosPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</h1>
+      <h1 className="sr-only">Horarios</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             {periodo.nombre} · curso {periodo.academicYear}
           </p>
@@ -117,11 +121,9 @@ async function Horario({
 
 function EsqueletoHorario() {
   return (
-    <div className="animate-pulse space-y-2" aria-busy="true" aria-label="Cargando el horario">
-      <div className="h-9 rounded-lg bg-zinc-200/70 dark:bg-zinc-800" />
-      {Array.from({ length: 7 }).map((_, i) => (
-        <div key={i} className="h-14 rounded-lg bg-zinc-100 dark:bg-zinc-800/60" />
-      ))}
+    <div role="status" aria-busy="true">
+      <span className="sr-only">Cargando el horario</span>
+      <EsqueletoRejilla />
     </div>
   );
 }

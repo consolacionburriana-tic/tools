@@ -21,25 +21,6 @@
   "src/app/gestion/alumnado/layout.tsx": {
     "cabecera": 1
   },
-  "src/app/gestion/bancolibros/ficha/page.tsx": {
-    "cabecera": 2,
-    "letra": 4
-  },
-  "src/app/gestion/bancolibros/layout.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/calendarios/layout.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/cuaderno/loading.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/cuaderno/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/cuentas/layout.tsx": {
-    "cabecera": 1
-  },
   "src/app/gestion/dispositivos/layout.tsx": {
     "cabecera": 1
   },
@@ -58,61 +39,6 @@
   "src/app/gestion/evaluaciones/comparar/page.tsx": {
     "letra": 1
   },
-  "src/app/gestion/evaluaciones/layout.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/evaluaciones/page.tsx": {
-    "letra": 4
-  },
-  "src/app/gestion/horarios/layout.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/accesos/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/correos/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/economia/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/editoriales/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/envios/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/exportar/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/faltan/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/lenguas/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/loading.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/packs/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/page.tsx": {
-    "cabecera": 1,
-    "letra": 1
-  },
-  "src/app/gestion/licencias/pedidos/[id]/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/pedidos/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/proceso/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/licencias/sincronizar/page.tsx": {
-    "cabecera": 1
-  },
   "src/app/gestion/loading.tsx": {
     "cabecera": 1
   },
@@ -122,24 +48,9 @@
   "src/app/gestion/oratorios/layout.tsx": {
     "cabecera": 1
   },
-  "src/app/gestion/page.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/profes/loading.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/profes/page.tsx": {
-    "cabecera": 1
-  },
   "src/app/gestion/puntualidad/alumno/[id]/page.tsx": {
     "cabecera": 1,
     "letra": 4
-  },
-  "src/app/gestion/puntualidad/layout.tsx": {
-    "cabecera": 1
-  },
-  "src/app/gestion/salidas/layout.tsx": {
-    "cabecera": 1
   },
   "src/app/gestion/tableros/layout.tsx": {
     "cabecera": 1
@@ -177,64 +88,6 @@
   "src/components/alumnado/tabla-proteccion.tsx": {
     "letra": 1
   },
-  "src/components/autoasm/compartidas.tsx": {
-    "navegador": 1,
-    "letra": 1
-  },
-  "src/components/autoasm/entrega.tsx": {
-    "letra": 3
-  },
-  "src/components/autoasm/estudio.tsx": {
-    "navegador": 2,
-    "letra": 8
-  },
-  "src/components/autoasm/explorador.tsx": {
-    "navegador": 2,
-    "letra": 15
-  },
-  "src/components/bancolibros/banco-panel.tsx": {
-    "letra": 1
-  },
-  "src/components/calendarios/clases.tsx": {
-    "letra": 2
-  },
-  "src/components/calendarios/panel.tsx": {
-    "navegador": 1,
-    "letra": 3
-  },
-  "src/components/cuaderno/asignaturas-panel.tsx": {
-    "navegador": 1,
-    "letra": 2
-  },
-  "src/components/cuaderno/generar-panel.tsx": {
-    "letra": 3
-  },
-  "src/components/cuaderno/historial-panel.tsx": {
-    "letra": 2
-  },
-  "src/components/cuaderno/listas-panel.tsx": {
-    "letra": 2
-  },
-  "src/components/cuaderno/plantillas-panel.tsx": {
-    "navegador": 1,
-    "letra": 5
-  },
-  "src/components/cuentas/comun.tsx": {
-    "estilos": 3,
-    "letra": 2
-  },
-  "src/components/cuentas/dialogos.tsx": {
-    "letra": 7
-  },
-  "src/components/cuentas/lista.tsx": {
-    "letra": 5
-  },
-  "src/components/cuentas/panel.tsx": {
-    "letra": 1
-  },
-  "src/components/cuentas/unidades.tsx": {
-    "letra": 4
-  },
   "src/components/dispositivos/comun.tsx": {
     "estilos": 3
   },
@@ -244,9 +97,6 @@
   "src/components/evaluaciones/actividades-panel.tsx": {
     "letra": 1
   },
-  "src/components/evaluaciones/color-picker.tsx": {
-    "letra": 1
-  },
   "src/components/evaluaciones/comparar-panel.tsx": {
     "letra": 1
   },
@@ -254,17 +104,11 @@
     "navegador": 2,
     "letra": 4
   },
-  "src/components/evaluaciones/form-editor.tsx": {
-    "letra": 1
-  },
   "src/components/evaluaciones/nueva-evaluacion.tsx": {
     "letra": 1
   },
   "src/components/evaluaciones/progreso-anillo.tsx": {
     "letra": 1
-  },
-  "src/components/evaluaciones/question-card.tsx": {
-    "letra": 10
   },
   "src/components/evaluaciones/responder-form.tsx": {
     "letra": 1
@@ -274,28 +118,6 @@
   },
   "src/components/evaluaciones/resultados-panel.tsx": {
     "letra": 17
-  },
-  "src/components/evaluaciones/sectores.tsx": {
-    "letra": 2
-  },
-  "src/components/evaluaciones/ui.tsx": {
-    "estilos": 7,
-    "letra": 2
-  },
-  "src/components/home/escritorio.tsx": {
-    "letra": 1
-  },
-  "src/components/horarios/importador.tsx": {
-    "estilos": 1
-  },
-  "src/components/horarios/navegador.tsx": {
-    "letra": 8
-  },
-  "src/components/licencias/accesos-panel.tsx": {
-    "navegador": 1
-  },
-  "src/components/licencias/correos-form.tsx": {
-    "navegador": 2
   },
   "src/components/licencias/editorial-report.tsx": {
     "navegador": 2
@@ -321,21 +143,12 @@
   "src/components/licencias/licencias-form.tsx": {
     "letra": 2
   },
-  "src/components/licencias/pedido-detail.tsx": {
-    "navegador": 3
-  },
   "src/components/licencias/pedidos-drive.tsx": {
     "navegador": 1,
     "letra": 1
   },
-  "src/components/licencias/pedidos-list.tsx": {
-    "navegador": 2
-  },
   "src/components/licencias/proceso-esquema.tsx": {
     "letra": 2
-  },
-  "src/components/mihorario/exportador.tsx": {
-    "estilos": 1
   },
   "src/components/numeros/historico.tsx": {
     "letra": 2
@@ -372,29 +185,6 @@
     "navegador": 2,
     "letra": 1
   },
-  "src/components/profes/nombres-panel.tsx": {
-    "letra": 1
-  },
-  "src/components/profes/reparto-alumnos.tsx": {
-    "letra": 4
-  },
-  "src/components/profes/tutorias-panel.tsx": {
-    "letra": 1
-  },
-  "src/components/puntualidad/consecuencias-panel.tsx": {
-    "navegador": 1,
-    "letra": 3
-  },
-  "src/components/puntualidad/puntualidad-form.tsx": {
-    "letra": 6
-  },
-  "src/components/puntualidad/registros-panel.tsx": {
-    "navegador": 1,
-    "letra": 2
-  },
-  "src/components/puntualidad/ui.tsx": {
-    "letra": 2
-  },
   "src/components/registro-abc/effectiveness-slider.tsx": {
     "letra": 1
   },
@@ -404,38 +194,9 @@
   "src/components/registro-abc/registros-charts.tsx": {
     "letra": 16
   },
-  "src/components/salidas/recordatorio-panel.tsx": {
-    "letra": 1
-  },
-  "src/components/salidas/salidas-list.tsx": {
-    "letra": 1
-  },
-  "src/components/salidas/trip-form.tsx": {
-    "letra": 1
-  },
-  "src/components/salidas/trip-seguimiento.tsx": {
-    "letra": 1
-  },
-  "src/components/tableros/comun.tsx": {
-    "estilos": 3,
-    "letra": 4
-  },
   "src/components/tableros/inicio.tsx": {
     "navegador": 3,
     "letra": 3
-  },
-  "src/components/tableros/selector-personas.tsx": {
-    "letra": 1
-  },
-  "src/components/tableros/tablero.tsx": {
-    "navegador": 4,
-    "letra": 5,
-    "hover": 1
-  },
-  "src/components/tableros/tarjeta-detalle.tsx": {
-    "navegador": 2,
-    "letra": 6,
-    "hover": 3
   },
   "src/components/tareas/comun.tsx": {
     "estilos": 1,

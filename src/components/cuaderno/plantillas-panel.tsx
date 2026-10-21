@@ -9,20 +9,20 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import {
-  AlertTriangle,
-  Check,
-  ChevronDown,
-  ExternalLink,
-  Eye,
-  FileText,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react';
+import { Check, ChevronDown, ExternalLink, Eye, FileText, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
-import { Aviso, Tarjeta } from '@/components/cuaderno/cuaderno-panel';
+import { cn } from '@/lib/utils';
+import { Aviso } from '@/components/ui/aviso';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { useConfirmar } from '@/components/ui/confirmar';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
 import { etiquetasSinMapear, plantillaLista, type PlantillaUI } from '@/components/cuaderno/tipos';
 import {
   AMBITO_LABELS,
@@ -44,7 +44,7 @@ export function PlantillasPanel({ plantillas, cuenta }: { plantillas: PlantillaU
     <div className="space-y-3">
       <Ayuda />
       {plantillas.length === 0 && (
-        <Aviso tono="azul">
+        <Aviso tono="info">
           Todavía no hay plantillas. Pega abajo la URL de la primera (un documento de Google Docs con etiquetas
           <code> {'<<...>>'}</code>) y dale a añadir.
         </Aviso>
@@ -61,53 +61,61 @@ function Ayuda() {
   const [abierto, setAbierto] = useState(false);
   return (
     <Tarjeta>
-      <button type="button" onClick={() => setAbierto((v) => !v)} className="flex w-full items-center gap-2 text-left">
-        <Eye className="h-4 w-4 text-zinc-400" />
-        <span className="flex-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+      <button
+        type="button"
+        aria-expanded={abierto}
+        onClick={() => setAbierto((v) => !v)}
+        className="flex min-h-12 w-full items-center gap-2 rounded-2xl px-4 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <Eye aria-hidden className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+        <span className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           Cómo se marcan los campos en una plantilla
         </span>
-        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        <ChevronDown aria-hidden className={cn('h-4 w-4 text-zinc-500 transition-transform', abierto && 'rotate-180')} />
       </button>
       {abierto && (
-        <div className="mt-3 space-y-3 border-t border-zinc-100 pt-3 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
+        <div className="space-y-3 border-t border-zinc-100 p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
           <p>Tres marcas, y solo tres:</p>
           <ul className="space-y-2">
             <li>
-              <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-zinc-800">{'<<campo>>'}</code> — se
-              sustituye por el dato. Da igual mayúsculas, acentos o espacios: <code>{'<<Nom>>'}</code> y{' '}
-              <code>{'<<nº clase>>'}</code> se reconocen igual.
+              <Etiqueta mono>{'<<campo>>'}</Etiqueta> — se sustituye por el dato. Da igual mayúsculas, acentos o espacios:{' '}
+              <code className="font-mono text-xs">{'<<Nom>>'}</code> y <code className="font-mono text-xs">{'<<nº clase>>'}</code> se
+              reconocen igual.
             </li>
             <li>
-              <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-zinc-800">{'<<#alumnos>>'}</code> — en
-              cualquier celda de una fila de tabla, repite esa fila una vez por alumno. Es lo que convierte una
-              plantilla de listado en la lista de los 30.
+              <Etiqueta mono>{'<<#alumnos>>'}</Etiqueta> — en cualquier celda de una fila de tabla, repite esa fila una vez
+              por alumno. Es lo que convierte una plantilla de listado en la lista de los 30.
             </li>
             <li>
-              <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-zinc-800">{'<<?familiar2>>'}</code> —
-              en un párrafo: si esa familia solo tiene un tutor legal, el párrafo entero desaparece.
+              <Etiqueta mono>{'<<?familiar2>>'}</Etiqueta> — en un párrafo: si esa familia solo tiene un tutor legal, el
+              párrafo entero desaparece.
             </li>
           </ul>
-          <p className="text-xs">
-            Los <strong>campos de Word</strong> tipo <code>DOCPROPERTY</code> no se sustituyen (son un objeto, no
-            texto): cámbialos por <code>{'<<curso_escolar>>'}</code>.
+          <p>
+            Los <strong>campos de Word</strong> tipo <code className="font-mono text-xs">DOCPROPERTY</code> no se sustituyen
+            (son un objeto, no texto): cámbialos por <code className="font-mono text-xs">{'<<curso_escolar>>'}</code>.
           </p>
-          <details>
-            <summary className="cursor-pointer text-xs font-medium text-zinc-500">Ver todos los campos disponibles</summary>
-            <div className="mt-2 space-y-2">
+          <details className="group">
+            <summary className="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1.5 rounded-xl font-medium text-zinc-700 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
+              Ver todos los campos disponibles
+              <ChevronDown aria-hidden className="h-4 w-4 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-2 space-y-3">
               {AMBITOS.map((ambito) => (
                 <div key={ambito}>
-                  <p className="text-xs font-semibold text-zinc-500">{AMBITO_LABELS[ambito]}</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <p className="text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
+                    {AMBITO_LABELS[ambito]}
+                  </p>
+                  <ul className="mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2">
                     {CAMPOS.filter((c) => c.ambito === ambito).map((campo) => (
-                      <code
-                        key={campo.id}
-                        title={`${campo.label} · p. ej. ${campo.ejemplo}`}
-                        className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] dark:bg-zinc-800"
-                      >
-                        {`<<${campo.id}>>`}
-                      </code>
+                      <li key={campo.id} className="flex min-w-0 items-baseline gap-2 text-xs">
+                        <Etiqueta mono>{`<<${campo.id}>>`}</Etiqueta>
+                        <span className="min-w-0 truncate text-zinc-500 dark:text-zinc-400">
+                          {campo.label} · p. ej. {campo.ejemplo}
+                        </span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               ))}
             </div>
@@ -124,6 +132,7 @@ function FilaPlantilla({ plantilla }: { plantilla: PlantillaUI }) {
   const [ocupado, setOcupado] = useState<'analizar' | 'guardar' | 'borrar' | null>(null);
   const [mapeoLocal, setMapeoLocal] = useState<Record<string, string>>({});
   const [verTodas, setVerTodas] = useState(false);
+  const { confirmar, dialogo } = useConfirmar();
 
   const sinMapear = etiquetasSinMapear(plantilla);
   const lista = plantillaLista(plantilla);
@@ -203,15 +212,14 @@ function FilaPlantilla({ plantilla }: { plantilla: PlantillaUI }) {
       const historial = previo.ok ? await previo.json() : { documentos: 0, hojas: 0 };
       const arrastra =
         historial.documentos > 0
-          ? `\n\nSe borrará también su rastro en el historial: ${historial.documentos} documento(s) de tiradas y ${historial.hojas} hoja(s) marcada(s) como hechas.`
+          ? `Se borrará también su rastro en el historial: ${historial.documentos} documento(s) de tiradas y ${historial.hojas} hoja(s) marcada(s) como hechas. `
           : '';
-      if (
-        !confirm(
-          `¿Quitar la plantilla «${plantilla.nombre}»?${arrastra}\n\nLos documentos ya generados en Drive no se tocan.`,
-        )
-      ) {
-        return;
-      }
+      const si = await confirmar({
+        titulo: `¿Quitar la plantilla «${plantilla.nombre}»?`,
+        descripcion: `${arrastra}Los documentos ya generados en Drive no se tocan.`,
+        boton: 'Quitar la plantilla',
+      });
+      if (!si) return;
       const res = await fetch(`/api/cuaderno/admin/plantillas/${plantilla.id}`, { method: 'DELETE' });
       const cuerpo = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(cuerpo.error ?? 'No se pudo quitar la plantilla');
@@ -228,30 +236,23 @@ function FilaPlantilla({ plantilla }: { plantilla: PlantillaUI }) {
 
   return (
     <Tarjeta>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="shrink-0 rounded-lg bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800">
-              {plantilla.orden}
-            </span>
-            <h3 className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{plantilla.nombre}</h3>
-            {!plantilla.activa && (
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-800">
-                desactivada
-              </span>
-            )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Etiqueta className="tabular-nums">{plantilla.orden}</Etiqueta>
+            <h3 className="min-w-0 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{plantilla.nombre}</h3>
+            {!plantilla.activa && <Estado tono="neutro">Desactivada</Estado>}
             {lista ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                <Check className="h-3 w-3" /> lista
-              </span>
+              <Estado tono="ok" icono={<Check />}>
+                Lista
+              </Estado>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-                <AlertTriangle className="h-3 w-3" />
-                {plantilla.analizadaAt ? `${sinMapear.length} sin mapear` : 'sin analizar'}
-              </span>
+              <Estado tono="aviso" icono={<TriangleAlert />}>
+                {plantilla.analizadaAt ? `${sinMapear.length} sin mapear` : 'Sin analizar'}
+              </Estado>
             )}
           </div>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {REPETICION_LABELS[plantilla.repeticion as keyof typeof REPETICION_LABELS] ?? plantilla.repeticion}
             {` · ${etiquetaEtapas(plantilla)}`}
             {plantilla.tieneFilas ? ' · con tabla de alumnos' : ''}
@@ -259,131 +260,125 @@ function FilaPlantilla({ plantilla }: { plantilla: PlantillaUI }) {
             {plantilla.hojasHechas > 0 ? ` · ${plantilla.hojasHechas} hojas hechas este curso` : ''}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-2">
           <a
             href={`https://docs.google.com/document/d/${plantilla.googleDocId}/edit`}
             target="_blank"
             rel="noreferrer"
-            title="Abrir la plantilla en Google Docs"
-            className="rounded-lg border border-zinc-200 p-2 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            aria-label="Abrir la plantilla en Google Docs"
+            className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
           >
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink />
           </a>
-          <button
-            type="button"
-            onClick={analizar}
-            disabled={ocupado !== null}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            {ocupado === 'analizar' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          <Button variant="outline" size="sm" onClick={analizar} disabled={ocupado !== null} cargando={ocupado === 'analizar'}>
+            {ocupado !== 'analizar' && <RefreshCw />}
             Analizar
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-expanded={abierto}
+            aria-label={abierto ? 'Cerrar los ajustes de la plantilla' : 'Ver los ajustes de la plantilla'}
             onClick={() => setAbierto((v) => !v)}
-            className="rounded-lg border border-zinc-200 p-2 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
-            <ChevronDown className={`h-4 w-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
-          </button>
+            <ChevronDown className={cn('transition-transform', abierto && 'rotate-180')} />
+          </Button>
         </div>
       </div>
 
       {abierto && (
-        <div className="mt-4 space-y-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+        <div className="space-y-4 border-t border-zinc-100 p-4 dark:border-zinc-800">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Campo label="Nombre (sale en el nombre del archivo)">
-              <input
+            <Campo etiqueta="Nombre (sale en el nombre del archivo)" id={`pl-nombre-${plantilla.id}`}>
+              <Input
+                id={`pl-nombre-${plantilla.id}`}
                 defaultValue={plantilla.nombre}
                 onBlur={(e) => e.target.value !== plantilla.nombre && cambiar({ nombre: e.target.value })}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
               />
             </Campo>
-            <Campo label="Orden en la carpeta">
-              <input
+            <Campo etiqueta="Orden en la carpeta" id={`pl-orden-${plantilla.id}`}>
+              <Input
+                id={`pl-orden-${plantilla.id}`}
                 type="number"
                 min={1}
                 max={99}
                 defaultValue={plantilla.orden}
                 onBlur={(e) => Number(e.target.value) !== plantilla.orden && cambiar({ orden: Number(e.target.value) })}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
               />
             </Campo>
-            <Campo label="Cuántas veces se repite">
-              <select
+            <Campo
+              etiqueta="Cuántas veces se repite"
+              id={`pl-rep-${plantilla.id}`}
+              ayuda={REPETICION_AYUDA[plantilla.repeticion as keyof typeof REPETICION_AYUDA]}
+            >
+              <Selector
+                id={`pl-rep-${plantilla.id}`}
                 defaultValue={plantilla.repeticion}
                 onChange={(e) => cambiar({ repeticion: e.target.value })}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-950"
               >
                 {REPETICIONES.map((r) => (
                   <option key={r} value={r}>
                     {REPETICION_LABELS[r]}
                   </option>
                 ))}
-              </select>
-              <p className="mt-1 text-[11px] text-zinc-500">
-                {REPETICION_AYUDA[plantilla.repeticion as keyof typeof REPETICION_AYUDA]}
-              </p>
+              </Selector>
             </Campo>
-            <Campo label="Etapas a las que vale">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Etapas a las que vale</p>
               <SelectorEtapas etapas={plantilla.etapas} onCambio={(etapas) => cambiar({ etapas })} />
-            </Campo>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            <Interruptor activo={plantilla.generaPdf} onClick={() => cambiar({ generaPdf: !plantilla.generaPdf })}>
-              Generar también el PDF
-            </Interruptor>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Interruptor
+              activo={plantilla.generaPdf}
+              disabled={ocupado !== null}
+              onChange={(v) => cambiar({ generaPdf: v })}
+              etiqueta="Generar también el PDF"
+            />
             <Interruptor
               activo={plantilla.saltoDePagina}
-              onClick={() => cambiar({ saltoDePagina: !plantilla.saltoDePagina })}
-            >
-              Salto de página entre copias
-            </Interruptor>
-            <Interruptor activo={plantilla.activa} onClick={() => cambiar({ activa: !plantilla.activa })}>
-              Activa
-            </Interruptor>
-            <button
-              type="button"
-              onClick={borrar}
               disabled={ocupado !== null}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 dark:text-red-400 dark:hover:bg-red-950/40"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Quitar
-            </button>
+              onChange={(v) => cambiar({ saltoDePagina: v })}
+              etiqueta="Salto de página entre copias"
+            />
+            <Interruptor
+              activo={plantilla.activa}
+              disabled={ocupado !== null}
+              onChange={(v) => cambiar({ activa: v })}
+              etiqueta="Activa"
+            />
           </div>
 
           {!plantilla.analizadaAt ? (
-            <Aviso tono="ambar">Dale a «Analizar» para leer qué etiquetas tiene esta plantilla.</Aviso>
+            <Aviso tono="aviso">Dale a «Analizar» para leer qué etiquetas tiene esta plantilla.</Aviso>
           ) : (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   {sinMapear.length > 0
                     ? `${sinMapear.length} etiqueta(s) por mapear`
                     : `${plantilla.etiquetas.length} etiqueta(s), todas reconocidas`}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setVerTodas((v) => !v)}
-                  className="text-xs text-blue-600 hover:underline dark:text-blue-400"
-                >
+                <Button variant="ghost" size="sm" onClick={() => setVerTodas((v) => !v)}>
                   {verTodas ? 'Ver solo las que faltan' : 'Ver todas'}
-                </button>
+                </Button>
               </div>
               {etiquetasVisibles.length === 0 ? (
-                <Aviso tono="verde">Todo mapeado. Esta plantilla ya se puede generar.</Aviso>
+                <Aviso tono="ok">Todo mapeado. Esta plantilla ya se puede generar.</Aviso>
               ) : (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {etiquetasVisibles.map((etiqueta) => (
                     <div key={etiqueta.clave} className="flex flex-wrap items-center gap-2">
-                      <code className="rounded bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800">
-                        {`<<${etiqueta.cruda}>>`}
-                      </code>
-                      <span className="text-zinc-300">→</span>
-                      <select
+                      <Etiqueta mono>{`<<${etiqueta.cruda}>>`}</Etiqueta>
+                      <span aria-hidden className="text-zinc-400">
+                        →
+                      </span>
+                      <Selector
+                        aria-label={`Campo para <<${etiqueta.cruda}>>`}
                         value={mapeoLocal[etiqueta.cruda] ?? etiqueta.campo ?? ''}
                         onChange={(e) => setMapeoLocal((m) => ({ ...m, [etiqueta.cruda]: e.target.value }))}
-                        className="min-w-48 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-950"
+                        className="min-w-48 flex-1"
                       >
                         <option value="">— sin asignar —</option>
                         {AMBITOS.map((ambito: Ambito) => (
@@ -395,34 +390,32 @@ function FilaPlantilla({ plantilla }: { plantilla: PlantillaUI }) {
                             ))}
                           </optgroup>
                         ))}
-                      </select>
+                      </Selector>
                     </div>
                   ))}
-                  <button
-                    type="button"
+                  <Button
                     onClick={guardarMapeo}
                     disabled={ocupado !== null || Object.keys(mapeoLocal).length === 0}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+                    cargando={ocupado === 'guardar'}
                   >
-                    {ocupado === 'guardar' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    {ocupado !== 'guardar' && <Check />}
                     Guardar el mapeo
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
           )}
+
+          <div className="flex justify-end border-t border-zinc-100 pt-3 dark:border-zinc-800">
+            <Button variant="destructive" size="sm" onClick={borrar} disabled={ocupado !== null} cargando={ocupado === 'borrar'}>
+              {ocupado !== 'borrar' && <Trash2 />}
+              Quitar la plantilla
+            </Button>
+          </div>
         </div>
       )}
+      {dialogo}
     </Tarjeta>
-  );
-}
-
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300">{label}</label>
-      {children}
-    </div>
   );
 }
 
@@ -438,41 +431,16 @@ function SelectorEtapas({ etapas, onCambio }: { etapas: Etapa[]; onCambio: (etap
     onCambio(siguiente.length === ETAPAS_VISIBLES.length ? [] : ETAPAS.filter((e) => siguiente.includes(e)));
   };
   return (
-    <div className="flex flex-wrap gap-1.5">
-      <Interruptor activo={etapas.length === 0} onClick={() => onCambio([])}>
+    <Filtros etiqueta="Etapas">
+      <Filtro activo={etapas.length === 0} onClick={() => onCambio([])}>
         Todas
-      </Interruptor>
+      </Filtro>
       {ETAPAS_VISIBLES.map((etapa) => (
-        <Interruptor key={etapa} activo={etapas.includes(etapa)} onClick={() => alternar(etapa)}>
+        <Filtro key={etapa} activo={etapas.includes(etapa)} onClick={() => alternar(etapa)}>
           {ETAPA_LABELS[etapa]}
-        </Interruptor>
+        </Filtro>
       ))}
-    </div>
-  );
-}
-
-function Interruptor({
-  activo,
-  onClick,
-  children,
-}: {
-  activo: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
-        activo
-          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-          : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
-      }`}
-    >
-      {activo && <Check className="h-3 w-3" />}
-      {children}
-    </button>
+    </Filtros>
   );
 }
 
@@ -516,56 +484,51 @@ function NuevaPlantilla({ cuenta }: { cuenta: string | null }) {
 
   return (
     <Tarjeta className="border-dashed">
-      <div className="flex items-center gap-2">
-        <FileText className="h-4 w-4 text-zinc-400" />
-        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Añadir una plantilla</h3>
-      </div>
-      <div className="mt-3 space-y-3">
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://docs.google.com/document/d/…"
-          className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder="Nombre (o el del documento)"
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
+      <TarjetaCabecera icono={<FileText />} titulo="Añadir una plantilla" />
+      <TarjetaCuerpo className="space-y-3">
+        <Campo etiqueta="Dirección del documento de Google Docs" id="pl-nueva-url">
+          <Input
+            id="pl-nueva-url"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://docs.google.com/document/d/…"
           />
-          <select
-            value={repeticion}
-            onChange={(e) => setRepeticion(e.target.value)}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-950"
-          >
-            {REPETICIONES.map((r) => (
-              <option key={r} value={r}>
-                {REPETICION_LABELS[r]}
-              </option>
-            ))}
-          </select>
+        </Campo>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Campo etiqueta="Nombre" id="pl-nueva-nombre" opcional>
+            <Input
+              id="pl-nueva-nombre"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="El del documento"
+            />
+          </Campo>
+          <Campo etiqueta="Cuántas veces se repite" id="pl-nueva-rep">
+            <Selector id="pl-nueva-rep" value={repeticion} onChange={(e) => setRepeticion(e.target.value)}>
+              {REPETICIONES.map((r) => (
+                <option key={r} value={r}>
+                  {REPETICION_LABELS[r]}
+                </option>
+              ))}
+            </Selector>
+          </Campo>
         </div>
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Etapas a las que vale</label>
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Etapas a las que vale</p>
           <SelectorEtapas etapas={etapas} onCambio={setEtapas} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={anadir}
-            disabled={guardando || url.trim().length < 10}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Añadir y analizar
-          </button>
+          <Button onClick={anadir} disabled={url.trim().length < 10} cargando={guardando}>
+            {!guardando && <Plus />} Añadir y analizar
+          </Button>
           {cuenta && (
-            <p className="text-xs text-zinc-500">
-              Antes, comparte el documento con <code className="break-all">{cuenta}</code>.
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Antes, comparte el documento con <code className="font-mono text-xs break-all">{cuenta}</code>.
             </p>
           )}
         </div>
-      </div>
+      </TarjetaCuerpo>
     </Tarjeta>
   );
 }

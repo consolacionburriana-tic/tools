@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Lock, LockOpen } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
-// Abrir/cerrar la salida (cerrada = las familias ya no pueden subir justificantes).
+// Abrir/cerrar la salida (cerrada = las familias ya no pueden subir justificantes). Se
+// deshace con el mismo botón, así que no pregunta.
 export function TripEstadoToggle({ tripId, estado }: { tripId: string; estado: 'abierta' | 'cerrada' }) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState(false);
@@ -28,18 +30,9 @@ export function TripEstadoToggle({ tripId, estado }: { tripId: string; estado: '
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => void toggle()}
-      disabled={ocupado}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ${
-        estado === 'abierta'
-          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300'
-          : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300'
-      }`}
-    >
-      {ocupado && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-      {estado === 'abierta' ? 'Abierta · cerrar' : 'Cerrada · reabrir'}
-    </button>
+    <Button type="button" variant="outline" size="sm" cargando={ocupado} onClick={() => void toggle()}>
+      {!ocupado && (estado === 'abierta' ? <Lock aria-hidden /> : <LockOpen aria-hidden />)}
+      {estado === 'abierta' ? 'Cerrar la salida' : 'Reabrir la salida'}
+    </Button>
   );
 }

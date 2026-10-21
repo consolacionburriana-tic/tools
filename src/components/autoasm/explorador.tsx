@@ -10,7 +10,7 @@
 //   3. Lo poco que se edita aquí es lo que no sale de ninguna base de datos: qué profes
 //      dan cada clase y qué grupos se matriculan en ella.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
 import {
   CAMPOS_INSTRUCTOR,
   campoEditable,
@@ -47,6 +48,20 @@ import {
   type AjusteAsm,
   type ProyectoAsm,
 } from '@/lib/autoasm-construir';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
+import { ConfirmarDialogo } from '@/components/ui/confirmar';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Secciones } from '@/components/ui/segmentado';
+import { Selector } from '@/components/ui/selector';
+import { SkeletonTabla } from '@/components/ui/skeleton';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 import { ESTILO, num } from '@/components/autoasm/paleta';
 import { useProyecto } from '@/components/autoasm/proyecto-store';
 import { descargarCsv } from '@/components/autoasm/descargas';
@@ -141,222 +156,240 @@ export function ExploradorAsm({
   );
   const columnas = verVacias ? columnasBase : columnasBase.filter((c) => !vacias.includes(c));
 
+  const abrir = (clave: string) => setAbierta(clave);
+
   return (
-    <div className="min-h-screen bg-zinc-50 pb-16 dark:bg-zinc-950">
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/90">
-        <div className="mx-auto max-w-6xl px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${estilo.fondo}`}>
-                <estilo.Icono className={`h-5 w-5 ${estilo.icono}`} />
-              </span>
-              <div className="min-w-0">
-                <h1 className="truncate font-semibold text-zinc-900 dark:text-zinc-100">
-                  {espec.titulo} <span className="font-mono text-xs font-normal text-zinc-400">{espec.fichero}</span>
-                </h1>
-                <p className="truncate text-xs text-zinc-500">
-                  {num(visibles.length)} de {num(filas.length)} filas
-                  {faceta && ` · ${faceta.valor}`}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {ARCHIVOS_CREABLES.includes(archivo) && (
-                <button
-                  type="button"
-                  onClick={() => { setCreando(true); haptic.tap(); }}
-                  disabled={!proyecto}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nueva fila</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!proyecto) return;
-                  descargarCsv(archivo, filas, proyecto.opciones.csv);
-                  haptic.success();
-                  toast.success(`${espec.fichero} descargado.`);
-                }}
+    <div className="space-y-4">
+      <EnlaceVolver href="/gestion/autoasm">AUTOASM</EnlaceVolver>
+      <TituloPagina
+        className="mb-0"
+        antes={<span className="font-mono">{espec.fichero}</span>}
+        descripcion={
+          proyecto ? (
+            <span className="tabular-nums">
+              {num(visibles.length)} de {num(filas.length)} filas
+              {faceta && ` · ${faceta.valor}`}
+            </span>
+          ) : undefined
+        }
+        acciones={
+          <>
+            {ARCHIVOS_CREABLES.includes(archivo) && (
+              <Button
+                variant="outline"
+                size="sm"
                 disabled={!proyecto}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                onClick={() => {
+                  setCreando(true);
+                  haptic.tap();
+                }}
               >
-                <Download className="h-4 w-4" /> <span className="hidden sm:inline">CSV</span>
-              </button>
-              <Link
-                href="/gestion/autoasm"
-                className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-zinc-200 px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <ChevronLeft className="h-4 w-4" /> AUTOASM
+                <Plus /> Nueva fila
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!proyecto}
+              onClick={() => {
+                if (!proyecto) return;
+                descargarCsv(archivo, filas, proyecto.opciones.csv);
+                haptic.success();
+                toast.success(`${espec.fichero} descargado.`);
+              }}
+            >
+              <Download /> Descargar CSV
+            </Button>
+          </>
+        }
+      >
+        <span className="flex items-center gap-2.5">
+          <span aria-hidden className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl', estilo.fondo)}>
+            <estilo.Icono className={cn('size-5', estilo.icono)} />
+          </span>
+          {espec.titulo}
+        </span>
+      </TituloPagina>
+
+      {/* Los seis ficheros, para saltar de uno a otro sin volver a la portada. El punto es el color de cada fichero. */}
+      <Secciones
+        etiqueta="Los seis ficheros"
+        secciones={ORDEN_ARCHIVOS.map((a) => ({
+          href: `/gestion/autoasm/${a}`,
+          etiqueta: ESPEC[a].titulo,
+          icono: <span aria-hidden className={cn('size-2 rounded-full', ESTILO[a].solido)} />,
+          cuenta: proyecto ? proyecto.archivos[a].length : undefined,
+        }))}
+      />
+
+      {proyecto === null ? (
+        cargando ? (
+          <SkeletonTabla n={8} columnas={5} />
+        ) : (
+          <Vacio
+            titulo="No hay ningún proyecto empezado"
+            accion={
+              <Link href="/gestion/autoasm" className={buttonVariants()}>
+                Empezar en la portada
               </Link>
+            }
+          >
+            El borrador vive en este navegador: se empieza cargando la estructura del centro o el ZIP del curso pasado.
+          </Vacio>
+        )
+      ) : (
+        <>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">{espec.descripcion}</p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[220px] flex-1">
+              <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <Input
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setPagina(0);
+                }}
+                placeholder={`Buscar en ${espec.fichero}… (nombre, id, correo)`}
+                aria-label={`Buscar en ${espec.fichero}`}
+                className="pr-12 pl-9"
+              />
+              {q && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Borrar la búsqueda"
+                  onClick={() => setQ('')}
+                  className="absolute top-1/2 right-0.5 -translate-y-1/2"
+                >
+                  <X />
+                </Button>
+              )}
             </div>
+            {valoresFaceta.map(({ campo, valores }) => (
+              <Selector
+                key={campo}
+                aria-label={`Filtrar por ${campo}`}
+                value={faceta?.campo === campo ? faceta.valor : ''}
+                onChange={(e) => {
+                  setFaceta(e.target.value ? { campo, valor: e.target.value } : null);
+                  setPagina(0);
+                }}
+                className="sm:w-56"
+              >
+                <option value="">Todos · {campo}</option>
+                {valores.map((v) => (
+                  <option key={v} value={v}>
+                    {indice ? etiqueta(campo, v, indice) ?? v : v}
+                  </option>
+                ))}
+              </Selector>
+            ))}
+            {(cuantosArchivados > 0 || vacias.length > 0) && (
+              <Filtros etiqueta="Enseñar también">
+                {cuantosArchivados > 0 && (
+                  <Filtro activo={verArchivados} onClick={() => setVerArchivados((v) => !v)} cuenta={cuantosArchivados}>
+                    Archivados
+                  </Filtro>
+                )}
+                {vacias.length > 0 && (
+                  <Filtro activo={verVacias} onClick={() => setVerVacias((v) => !v)} cuenta={vacias.length}>
+                    Columnas vacías
+                  </Filtro>
+                )}
+              </Filtros>
+            )}
           </div>
 
-          {/* Pestañas: navegar entre los seis ficheros sin volver a la portada */}
-          <nav className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
-            {ORDEN_ARCHIVOS.map((a) => {
-              const activo = a === archivo;
-              const e = ESTILO[a];
-              return (
-                <Link
-                  key={a}
-                  href={`/gestion/autoasm/${a}`}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors ${
-                    activo ? e.activo : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                  }`}
-                >
-                  <span className={`h-2 w-2 rounded-full ${e.solido} ${activo ? '' : 'opacity-40'}`} />
-                  {ESPEC[a].titulo}
-                  <span className="text-xs opacity-60">{num(proyecto?.archivos[a].length ?? 0)}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-4 py-4">
-        {proyecto === null ? (
-          <p className="rounded-2xl border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
-            {cargando ? 'Cargando…' : (
-              <>
-                No hay ningún proyecto empezado.{' '}
-                <Link href="/gestion/autoasm" className="font-medium text-blue-600 dark:text-blue-400">Empieza en la portada</Link>.
-              </>
-            )}
-          </p>
-        ) : (
-          <>
-            <p className="mb-3 text-sm text-zinc-500">{espec.descripcion}</p>
-
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[220px] flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                <input
-                  value={q}
-                  onChange={(e) => { setQ(e.target.value); setPagina(0); }}
-                  placeholder={`Buscar en ${espec.fichero}… (nombre, id, correo)`}
-                  className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-9 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-                />
-                {q && (
-                  <button type="button" onClick={() => setQ('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              {valoresFaceta.map(({ campo, valores }) => (
-                <select
-                  key={campo}
-                  value={faceta?.campo === campo ? faceta.valor : ''}
-                  onChange={(e) => { setFaceta(e.target.value ? { campo, valor: e.target.value } : null); setPagina(0); }}
-                  className="min-h-11 rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-                >
-                  <option value="">Todos · {campo}</option>
-                  {valores.map((v) => (
-                    <option key={v} value={v}>{indice ? etiqueta(campo, v, indice) ?? v : v}</option>
-                  ))}
-                </select>
-              ))}
-              {cuantosArchivados > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setVerArchivados((v) => !v)}
-                  className={`min-h-11 rounded-xl border px-3 text-xs font-medium transition-colors ${
-                    verArchivados
-                      ? 'border-zinc-400 bg-zinc-100 text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200'
-                      : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
-                  }`}
-                >
-                  {verArchivados ? 'Ocultar' : 'Ver'} {num(cuantosArchivados)} archivad{cuantosArchivados === 1 ? 'o' : 'os'}
-                </button>
-              )}
-              {vacias.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setVerVacias((v) => !v)}
-                  className="min-h-11 rounded-xl border border-zinc-200 px-3 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                >
-                  {verVacias ? 'Ocultar' : 'Ver'} {vacias.length} columna{vacias.length === 1 ? '' : 's'} vacía{vacias.length === 1 ? '' : 's'}
-                </button>
-              )}
-            </div>
-
-            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 z-10 bg-zinc-50 text-left dark:bg-zinc-800/60">
-                    <tr>
-                      {columnas.map((campo) => {
-                        const activo = orden?.campo === campo.nombre;
-                        return (
-                          <th key={campo.nombre} className="whitespace-nowrap px-3 py-2 font-medium text-zinc-600 dark:text-zinc-300">
-                            <button
-                              type="button"
-                              title={campo.ayuda}
-                              onClick={() => setOrden(activo && !orden.desc ? { campo: campo.nombre, desc: true } : { campo: campo.nombre, desc: false })}
-                              className="inline-flex items-center gap-1 hover:text-zinc-900 dark:hover:text-zinc-100"
-                            >
-                              {campo.nombre === 'instructor_id' && archivo === 'classes' ? 'profesorado' : campo.nombre}
-                              {activo && (orden.desc ? <ArrowUpAZ className="h-3.5 w-3.5" /> : <ArrowDownAZ className="h-3.5 w-3.5" />)}
-                            </button>
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {trozo.map((fila, i) => (
+          <div className={cn(claseTarjeta, 'overflow-hidden')}>
+            {/* El scroll va dentro de la tarjeta para que la cabecera de la tabla se quede fija de verdad. */}
+            <div className="max-h-[70dvh] overflow-auto overscroll-contain">
+              <table className="w-full text-sm">
+                <thead className="text-left">
+                  <tr>
+                    {columnas.map((campo) => {
+                      const activo = orden?.campo === campo.nombre;
+                      return (
+                        <th
+                          key={campo.nombre}
+                          scope="col"
+                          aria-sort={activo ? (orden.desc ? 'descending' : 'ascending') : undefined}
+                          className="sticky top-0 z-10 border-b border-zinc-200 bg-zinc-50 p-0 font-medium whitespace-nowrap text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
+                        >
+                          <button
+                            type="button"
+                            title={campo.ayuda}
+                            onClick={() =>
+                              setOrden(activo && !orden.desc ? { campo: campo.nombre, desc: true } : { campo: campo.nombre, desc: false })
+                            }
+                            className="inline-flex h-10 w-full items-center gap-1 px-3 font-mono text-xs outline-none hover:text-zinc-900 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset dark:hover:text-zinc-100"
+                          >
+                            {campo.nombre === 'instructor_id' && archivo === 'classes' ? 'profesorado' : campo.nombre}
+                            {activo && (orden.desc ? <ArrowUpAZ aria-hidden className="h-3.5 w-3.5" /> : <ArrowDownAZ aria-hidden className="h-3.5 w-3.5" />)}
+                          </button>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {trozo.map((fila, i) => {
+                    const clave = fila[espec.clave];
+                    const archivada = archivados.has(clave);
+                    return (
                       <tr
-                        key={`${fila[espec.clave]}-${i}`}
-                        onClick={() => setAbierta(fila[espec.clave])}
-                        className={`cursor-pointer even:bg-zinc-50/60 hover:bg-blue-50/60 dark:even:bg-zinc-800/30 dark:hover:bg-blue-500/5 ${
-                          archivados.has(fila[espec.clave]) ? 'opacity-50' : ''
-                        }`}
+                        key={`${clave}-${i}`}
+                        onClick={() => abrir(clave)}
+                        className={cn(
+                          'cursor-pointer even:bg-zinc-50/60 hover:bg-zinc-100 dark:even:bg-zinc-800/30 dark:hover:bg-zinc-800/60',
+                          archivada && 'text-zinc-500',
+                        )}
                       >
                         {columnas.map((campo) => (
                           <td key={campo.nombre} className="px-3 py-2 align-top">
-                            <Celda archivo={archivo} fila={fila} campo={campo.nombre} indice={indice} />
+                            {campo.nombre === espec.clave ? (
+                              <CeldaClave
+                                archivo={archivo}
+                                fila={fila}
+                                indice={indice}
+                                archivada={archivada}
+                                onAbrir={() => abrir(clave)}
+                              />
+                            ) : (
+                              <Celda archivo={archivo} fila={fila} campo={campo.nombre} indice={indice} />
+                            )}
                           </td>
                         ))}
                       </tr>
-                    ))}
-                    {trozo.length === 0 && (
-                      <tr>
-                        <td colSpan={columnas.length} className="px-3 py-8 text-center text-sm text-zinc-500">
-                          Nada que enseñar con ese filtro.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {paginas > 1 && (
-                <div className="flex items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
-                  <button
-                    type="button"
-                    disabled={pag === 0}
-                    onClick={() => setPagina(pag - 1)}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm text-zinc-600 disabled:opacity-30 dark:text-zinc-300"
-                  >
-                    <ChevronLeft className="h-4 w-4" /> Anterior
-                  </button>
-                  <span className="text-xs text-zinc-500">Página {pag + 1} de {paginas}</span>
-                  <button
-                    type="button"
-                    disabled={pag >= paginas - 1}
-                    onClick={() => setPagina(pag + 1)}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm text-zinc-600 disabled:opacity-30 dark:text-zinc-300"
-                  >
-                    Siguiente <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+                    );
+                  })}
+                  {trozo.length === 0 && (
+                    <tr>
+                      <td colSpan={columnas.length} className="px-3 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                        Nada que enseñar con ese filtro.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          </>
-        )}
-      </main>
+
+            {paginas > 1 && (
+              <div className="flex items-center justify-between gap-3 border-t border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+                <Button variant="ghost" size="sm" disabled={pag === 0} onClick={() => setPagina(pag - 1)}>
+                  <ChevronLeft /> Anterior
+                </Button>
+                <span className="text-sm text-zinc-500 tabular-nums dark:text-zinc-400">
+                  Página {pag + 1} de {paginas}
+                </span>
+                <Button variant="ghost" size="sm" disabled={pag >= paginas - 1} onClick={() => setPagina(pag + 1)}>
+                  Siguiente <ChevronRight />
+                </Button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {proyecto && creando && (
         <NuevaFila
@@ -364,7 +397,10 @@ export function ExploradorAsm({
           proyecto={proyecto}
           onCerrar={() => setCreando(false)}
           onGuardar={(p) => guardar(p)}
-          onCreada={(nueva) => { setCreando(false); setAbierta(nueva); }}
+          onCreada={(nueva) => {
+            setCreando(false);
+            setAbierta(nueva);
+          }}
         />
       )}
 
@@ -464,40 +500,80 @@ function Celda({ archivo, fila, campo, indice }: { archivo: ArchivoAsm; fila: Fi
   // En classes, la columna de instructores enseña a todos los profes de la fila.
   if (archivo === 'classes' && campo === 'instructor_id') {
     const profes = CAMPOS_INSTRUCTOR.map((c) => fila[c]).filter(Boolean);
-    if (profes.length === 0) return <span className="text-xs text-amber-600 dark:text-amber-400">sin profe</span>;
+    if (profes.length === 0) return <Estado tono="aviso">Sin profe</Estado>;
     return (
       <span className="flex flex-wrap gap-1">
         {profes.map((p) => (
-          <span key={p} className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
-            {indice?.profes.get(p) ?? p}
-          </span>
+          <Etiqueta key={p}>{indice?.profes.get(p) ?? p}</Etiqueta>
         ))}
       </span>
     );
   }
 
   const valor = fila[campo] ?? '';
-  if (!valor) return <span className="text-zinc-300 dark:text-zinc-700">—</span>;
+  if (!valor) return <span className="text-zinc-400 dark:text-zinc-600">—</span>;
 
   const destino = DESTINO[campo];
   const nombre = indice ? etiqueta(campo, valor, indice) : null;
   const esClave = campo === ESPEC[archivo].clave;
 
+  if (destino) {
+    return (
+      <Link
+        href={`/gestion/autoasm/${destino}?q=${encodeURIComponent(valor)}`}
+        onClick={(e) => e.stopPropagation()}
+        className="-mx-1 inline-flex min-h-10 flex-col justify-center rounded-lg px-1 outline-none hover:bg-blue-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-blue-500/10"
+      >
+        <span className="font-mono text-xs text-blue-700 underline-offset-2 hover:underline dark:text-blue-400">{valor}</span>
+        {nombre && <span className="text-xs text-zinc-500 dark:text-zinc-400">{nombre}</span>}
+      </Link>
+    );
+  }
   return (
     <span className="block">
-      {destino ? (
-        <Link
-          href={`/gestion/autoasm/${destino}?q=${encodeURIComponent(valor)}`}
-          onClick={(e) => e.stopPropagation()}
-          className="font-mono text-xs text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
-        >
-          {valor}
-        </Link>
-      ) : (
-        <span className={esClave ? 'font-mono text-xs text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'}>{valor}</span>
-      )}
-      {nombre && <span className="block text-[11px] text-zinc-500">{nombre}</span>}
+      <span className={esClave ? 'font-mono text-xs text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'}>{valor}</span>
+      {nombre && <span className="block text-xs text-zinc-500 dark:text-zinc-400">{nombre}</span>}
     </span>
+  );
+}
+
+/**
+ * La primera columna: el identificador de la fila, que abre su ficha. Es un botón de verdad
+ * para que también se llegue con el teclado (la fila entera solo se toca con el dedo o el ratón).
+ */
+function CeldaClave({
+  archivo,
+  fila,
+  indice,
+  archivada,
+  onAbrir,
+}: {
+  archivo: ArchivoAsm;
+  fila: FilaCsv;
+  indice: Indice | null;
+  archivada: boolean;
+  onAbrir: () => void;
+}) {
+  const campo = ESPEC[archivo].clave;
+  const valor = fila[campo] ?? '';
+  const nombre = indice ? etiqueta(campo, valor, indice) : null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onAbrir();
+      }}
+      className="-mx-1 flex min-h-10 flex-col items-start justify-center rounded-lg px-1 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <span className="font-mono text-xs font-medium text-zinc-900 dark:text-zinc-100">{valor || '—'}</span>
+      {nombre && <span className="text-xs text-zinc-500 dark:text-zinc-400">{nombre}</span>}
+      {archivada && (
+        <Estado tono="neutro" className="mt-1">
+          Archivado
+        </Estado>
+      )}
+    </button>
   );
 }
 
@@ -522,126 +598,121 @@ function Ficha({
   const clave = fila[espec.clave];
   const campos = espec.campos.filter((c) => !c.nombre.startsWith('instructor_id'));
 
+  // Al abrir, el foco va a la ventana y no al primer campo: así no salta el teclado del iPad.
+  const ventana = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal>
-      <button type="button" aria-label="Cerrar" onClick={onCerrar} className="absolute inset-0 bg-zinc-900/40 backdrop-blur-[1px]" />
-      <div className="relative flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-zinc-200 bg-white/95 p-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-zinc-400">{espec.titulo}</p>
-            <p className="truncate font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{clave}</p>
-            {archivo === 'students' && <p className="truncate text-sm text-zinc-600 dark:text-zinc-300">{fila.first_name} {fila.last_name} · {fila.grade_level}</p>}
-            {archivo === 'staff' && <p className="truncate text-sm text-zinc-600 dark:text-zinc-300">{fila.first_name} {fila.last_name}</p>}
-            <span className="mt-1 flex flex-wrap gap-1">
-              {proyecto.archivados.includes(clave) && (
-                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">Archivado</span>
-              )}
-              {proyecto.compartidas.includes(clave) && (
-                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">iPad compartido</span>
-              )}
+    <Dialog open onOpenChange={(o) => !o && onCerrar()}>
+      <DialogContent variante="hoja" ref={ventana} initialFocus={ventana} className="sm:max-w-lg">
+        <DialogHeader>
+          <Rotulo as="p">{espec.titulo}</Rotulo>
+          <DialogTitle className="font-mono text-base break-all">{clave}</DialogTitle>
+          {(archivo === 'students' || archivo === 'staff' || archivo === 'classes') && (
+            <DialogDescription>
+              {archivo === 'students' && `${fila.first_name} ${fila.last_name} · ${fila.grade_level}`}
+              {archivo === 'staff' && `${fila.first_name} ${fila.last_name}`}
+              {archivo === 'classes' && `${fila.class_number} · ${indice.cursos.get(fila.course_id) ?? fila.course_id}`}
+            </DialogDescription>
+          )}
+          {(proyecto.archivados.includes(clave) || proyecto.compartidas.includes(clave)) && (
+            <span className="flex flex-wrap gap-1.5 pt-1">
+              {proyecto.archivados.includes(clave) && <Estado tono="neutro">Archivado</Estado>}
+              {proyecto.compartidas.includes(clave) && <Estado tono="info">iPad compartido</Estado>}
             </span>
-            {archivo === 'classes' && <p className="truncate text-sm text-zinc-600 dark:text-zinc-300">{fila.class_number} · {indice.cursos.get(fila.course_id) ?? fila.course_id}</p>}
-          </div>
-          <button type="button" onClick={onCerrar} className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4 p-4">
-          <dl className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-            {campos.map((campo) => (
-              <div key={campo.nombre} className="px-3 py-2">
-                <dt className="flex items-baseline justify-between gap-2">
-                  <span className="font-mono text-[11px] text-zinc-400">{campo.nombre}</span>
-                  <span className="text-[11px] text-zinc-400">{campo.obligatorio ? 'obligatorio' : 'opcional'}</span>
-                </dt>
-                <dd className="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">
-                  {campoEditable(archivo, campo.nombre) ? (
-                    <CampoEscribible
-                      key={fila[campo.nombre] ?? ''}
-                      archivo={archivo}
-                      clave={clave}
-                      campo={campo}
-                      valor={fila[campo.nombre] ?? ''}
-                      proyecto={proyecto}
-                      onGuardar={onGuardar}
-                    />
-                  ) : (
-                    <Celda archivo={archivo} fila={fila} campo={campo.nombre} indice={indice} />
-                  )}
-                </dd>
-                <p className="mt-0.5 text-[11px] text-zinc-500">{campo.ayuda}</p>
-              </div>
-            ))}
-          </dl>
-          <p className="text-[11px] text-zinc-500">
-            Los campos se escriben aquí mismo y se guardan al salir del recuadro. Lo que escribas queda{' '}
-            <strong>fijado</strong> (el candado verde): se guarda en la base de datos del colegio y se vuelve a poner
-            después de cada «traer del centro», así que ya no se pierde ni al cambiar de dispositivo. El identificador y
-            las referencias a otros ficheros no se tocan: cambiar un <code>person_id</code> no renombra a nadie en ASM,
-            crea una cuenta nueva.
-            {archivo === 'staff' && (
-              <>
-                {' '}
-                Si lo que quieres es cambiarle el nombre a un profe <em>en todas partes</em> (correos, cuaderno,
-                paneles), hazlo en{' '}
-                <Link href="/gestion/profes" className="underline">
-                  Profesorado → Nombre visible
-                </Link>
-                .
-              </>
-            )}
-          </p>
-
-          {(archivo === 'students' || archivo === 'staff') && (
-            <AccionesPersona archivo={archivo} personId={clave} proyecto={proyecto} onGuardar={onGuardar} onCerrar={onCerrar} />
           )}
+        </DialogHeader>
 
-          {archivo === 'classes' && (
-            <EditorClase clase={fila} proyecto={proyecto} indice={indice} onGuardar={onGuardar} />
-          )}
-
-          {archivo === 'students' && (
-            <ListaEnlaces
-              titulo="Sus clases"
-              vacio="No está matriculado/a en ninguna clase."
-              items={(indice.clasesDeAlumno.get(clave) ?? []).map((id) => ({
-                id,
-                texto: indice.clases.get(id)?.nombre ?? id,
-                sub: indice.clases.get(id)?.curso ?? '',
-                href: `/gestion/autoasm/classes?q=${encodeURIComponent(id)}`,
-              }))}
-            />
-          )}
-
+        <dl className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          {campos.map((campo) => (
+            <div key={campo.nombre} className="px-3 py-2.5">
+              <dt className="flex items-baseline justify-between gap-2">
+                <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300">{campo.nombre}</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">{campo.obligatorio ? 'obligatorio' : 'opcional'}</span>
+              </dt>
+              <dd className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">
+                {campoEditable(archivo, campo.nombre) ? (
+                  <CampoEscribible
+                    key={fila[campo.nombre] ?? ''}
+                    archivo={archivo}
+                    clave={clave}
+                    campo={campo}
+                    valor={fila[campo.nombre] ?? ''}
+                    proyecto={proyecto}
+                    onGuardar={onGuardar}
+                  />
+                ) : (
+                  <Celda archivo={archivo} fila={fila} campo={campo.nombre} indice={indice} />
+                )}
+              </dd>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{campo.ayuda}</p>
+            </div>
+          ))}
+        </dl>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Los campos se escriben aquí mismo y se guardan al salir del recuadro. Lo que escribas queda <strong>fijado</strong>{' '}
+          (la chincheta verde): se guarda en la base de datos del colegio y se vuelve a poner después de cada «traer del
+          centro», así que ya no se pierde ni al cambiar de dispositivo. El identificador y las referencias a otros ficheros
+          no se tocan: cambiar un <code className="font-mono text-xs">person_id</code> no renombra a nadie en ASM, crea una
+          cuenta nueva.
           {archivo === 'staff' && (
-            <ListaEnlaces
-              titulo="Clases que imparte"
-              vacio="No aparece como instructor en ninguna clase."
-              items={(indice.clasesDeProfe.get(clave) ?? []).map((id) => ({
-                id,
-                texto: indice.clases.get(id)?.nombre ?? id,
-                sub: indice.clases.get(id)?.curso ?? '',
-                href: `/gestion/autoasm/classes?q=${encodeURIComponent(id)}`,
-              }))}
-            />
+            <>
+              {' '}
+              Si lo que quieres es cambiarle el nombre a un profe <em>en todas partes</em> (correos, cuaderno, paneles), hazlo
+              en{' '}
+              <Link href="/gestion/profes" className="font-medium text-blue-700 underline dark:text-blue-400">
+                Profesorado → Nombre visible
+              </Link>
+              .
+            </>
           )}
+        </p>
 
-          {archivo === 'courses' && (
-            <ListaEnlaces
-              titulo="Clases de este curso"
-              vacio="Este curso no tiene clases."
-              items={(indice.clasesDeCurso.get(clave) ?? []).map((id) => ({
-                id,
-                texto: indice.clases.get(id)?.nombre ?? id,
-                sub: `${num((indice.alumnosDeClase.get(id) ?? []).length)} matriculados`,
-                href: `/gestion/autoasm/classes?q=${encodeURIComponent(id)}`,
-              }))}
-            />
-          )}
-        </div>
-      </div>
-    </div>
+        {(archivo === 'students' || archivo === 'staff') && (
+          <AccionesPersona archivo={archivo} personId={clave} proyecto={proyecto} onGuardar={onGuardar} onCerrar={onCerrar} />
+        )}
+
+        {archivo === 'classes' && <EditorClase clase={fila} proyecto={proyecto} indice={indice} onGuardar={onGuardar} />}
+
+        {archivo === 'students' && (
+          <ListaEnlaces
+            titulo="Sus clases"
+            vacio="No está matriculado/a en ninguna clase."
+            items={(indice.clasesDeAlumno.get(clave) ?? []).map((id) => ({
+              id,
+              texto: indice.clases.get(id)?.nombre ?? id,
+              sub: indice.clases.get(id)?.curso ?? '',
+              href: `/gestion/autoasm/classes?q=${encodeURIComponent(id)}`,
+            }))}
+          />
+        )}
+
+        {archivo === 'staff' && (
+          <ListaEnlaces
+            titulo="Clases que imparte"
+            vacio="No aparece como instructor en ninguna clase."
+            items={(indice.clasesDeProfe.get(clave) ?? []).map((id) => ({
+              id,
+              texto: indice.clases.get(id)?.nombre ?? id,
+              sub: indice.clases.get(id)?.curso ?? '',
+              href: `/gestion/autoasm/classes?q=${encodeURIComponent(id)}`,
+            }))}
+          />
+        )}
+
+        {archivo === 'courses' && (
+          <ListaEnlaces
+            titulo="Clases de este curso"
+            vacio="Este curso no tiene clases."
+            items={(indice.clasesDeCurso.get(clave) ?? []).map((id) => ({
+              id,
+              texto: indice.clases.get(id)?.nombre ?? id,
+              sub: `${num((indice.alumnosDeClase.get(id) ?? []).length)} matriculados`,
+              href: `/gestion/autoasm/classes?q=${encodeURIComponent(id)}`,
+            }))}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -692,71 +763,56 @@ function NuevaFila({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal>
-      <button type="button" aria-label="Cerrar" onClick={onCerrar} className="absolute inset-0 bg-zinc-900/40 backdrop-blur-[1px]" />
-      <div className="relative flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-zinc-200 bg-white/95 p-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-zinc-400">Nueva fila</p>
-            <p className="truncate font-semibold text-zinc-900 dark:text-zinc-100">{espec.titulo}</p>
-            <p className="text-xs text-zinc-500">{espec.descripcion}</p>
-          </div>
-          <button type="button" onClick={onCerrar} className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(o) => !o && onCerrar()}>
+      <DialogContent variante="hoja" className="sm:max-w-lg">
+        <DialogHeader>
+          <Rotulo as="p">Nueva fila</Rotulo>
+          <DialogTitle>{espec.titulo}</DialogTitle>
+          <DialogDescription>{espec.descripcion}</DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-4 p-4">
-          <dl className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-            {campos.map((campo) => (
-              <div key={campo.nombre} className="px-3 py-2">
-                <dt className="flex items-baseline justify-between gap-2">
-                  <span className="font-mono text-[11px] text-zinc-400">{campo.nombre}</span>
-                  <span className="text-[11px] text-zinc-400">
-                    {campo.nombre === espec.clave ? 'identificador' : campo.obligatorio ? 'obligatorio' : 'opcional'}
-                  </span>
-                </dt>
-                <dd className="mt-0.5">
-                  <input
-                    value={valores[campo.nombre] ?? ''}
-                    onChange={(e) => setValores((v) => ({ ...v, [campo.nombre]: e.target.value }))}
-                    spellCheck={false}
-                    autoCapitalize={campo.nombre === 'email_address' || campo.nombre === 'sis_username' ? 'none' : undefined}
-                    placeholder={campo.obligatorio ? 'Hace falta un valor' : 'En blanco'}
-                    aria-label={campo.etiqueta}
-                    className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-                  />
-                </dd>
-                <p className="mt-0.5 text-[11px] text-zinc-500">{campo.ayuda}</p>
-              </div>
-            ))}
-          </dl>
+        <dl className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          {campos.map((campo) => (
+            <div key={campo.nombre} className="px-3 py-2.5">
+              <dt className="flex items-baseline justify-between gap-2">
+                <label htmlFor={`nueva-${campo.nombre}`} className="font-mono text-xs text-zinc-600 dark:text-zinc-300">
+                  {campo.nombre}
+                </label>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {campo.nombre === espec.clave ? 'identificador' : campo.obligatorio ? 'obligatorio' : 'opcional'}
+                </span>
+              </dt>
+              <dd className="mt-1">
+                <Input
+                  id={`nueva-${campo.nombre}`}
+                  value={valores[campo.nombre] ?? ''}
+                  onChange={(e) => setValores((v) => ({ ...v, [campo.nombre]: e.target.value }))}
+                  spellCheck={false}
+                  autoCapitalize={campo.nombre === 'email_address' || campo.nombre === 'sis_username' ? 'none' : undefined}
+                  placeholder={campo.obligatorio ? 'Hace falta un valor' : 'En blanco'}
+                />
+              </dd>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{campo.ayuda}</p>
+            </div>
+          ))}
+        </dl>
 
-          <p className="text-[11px] text-zinc-500">
-            El identificador no se puede cambiar después: en ASM, cambiarlo no renombra nada, crea una fila nueva. Esta
-            alta vive en el borrador de este dispositivo; para que aguante el próximo «traer del centro», rellena luego
-            sus campos en la ficha (quedan fijados con el candado verde).
-          </p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          El identificador no se puede cambiar después: en ASM, cambiarlo no renombra nada, crea una fila nueva. Esta alta
+          vive en el borrador de este dispositivo; para que aguante el próximo «traer del centro», rellena luego sus campos en
+          la ficha (quedan fijados con la chincheta verde).
+        </p>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={crear}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-            >
-              <Plus className="h-4 w-4" /> Crear la fila
-            </button>
-            <button
-              type="button"
-              onClick={onCerrar}
-              className="inline-flex min-h-11 items-center rounded-xl border border-zinc-200 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCerrar}>
+            Cancelar
+          </Button>
+          <Button onClick={crear}>
+            <Plus /> Crear la fila
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -849,56 +905,60 @@ function CampoEscribible({
     }
   }
 
-  const clases =
-    'min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
-
   // La política de contraseña es un enum de ASM (4, 6 u 8): un desplegable evita el 5.
   const control =
     campo.nombre === 'password_policy' ? (
-      <select
+      <Selector
         value={texto}
         disabled={ocupado}
-        onChange={(e) => { setTexto(e.target.value); void guardar(e.target.value); }}
-        className={clases}
+        aria-label={campo.etiqueta}
+        onChange={(e) => {
+          setTexto(e.target.value);
+          void guardar(e.target.value);
+        }}
       >
         <option value="">— sin política —</option>
         {POLITICAS_PASSWORD.map((p) => (
-          <option key={p} value={p}>{p}</option>
+          <option key={p} value={p}>
+            {p}
+          </option>
         ))}
-      </select>
+      </Selector>
     ) : (
-      <input
+      <Input
         value={texto}
         disabled={ocupado}
         onChange={(e) => setTexto(e.target.value)}
         onBlur={(e) => void guardar(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
-          if (e.key === 'Escape') { setTexto(valor); e.currentTarget.blur(); }
+          if (e.key === 'Escape') {
+            setTexto(valor);
+            e.currentTarget.blur();
+          }
         }}
         inputMode={campo.nombre === 'email_address' ? 'email' : undefined}
         autoCapitalize={campo.nombre === 'email_address' || campo.nombre === 'sis_username' ? 'none' : undefined}
         spellCheck={false}
         placeholder={campo.obligatorio ? 'Hace falta un valor' : 'En blanco'}
         aria-label={campo.etiqueta}
-        className={clases}
       />
     );
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       {control}
       {fijado && (
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => void soltar()}
           disabled={ocupado}
-          title="Fijado a mano: aguanta el próximo «traer del centro». Toca para soltarlo."
-          aria-label="Soltar el valor fijado a mano"
-          className="shrink-0 rounded-lg border border-emerald-200 p-2 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+          aria-label="Fijado a mano: aguanta el próximo «traer del centro». Toca para soltarlo."
+          className="text-emerald-700 dark:text-emerald-400"
         >
-          <Pin className="h-4 w-4" />
-        </button>
+          <Pin />
+        </Button>
       )}
     </div>
   );
@@ -906,22 +966,26 @@ function CampoEscribible({
 
 function ListaEnlaces({ titulo, items, vacio }: { titulo: string; items: { id: string; texto: string; sub: string; href: string }[]; vacio: string }) {
   return (
-    <section>
-      <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-        {titulo} <span className="text-xs font-normal text-zinc-400">{items.length > 0 && num(items.length)}</span>
+    <section className="space-y-2">
+      <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        {titulo}{' '}
+        {items.length > 0 && <span className="font-normal text-zinc-500 tabular-nums dark:text-zinc-400">{num(items.length)}</span>}
       </h3>
       {items.length === 0 ? (
-        <p className="text-xs text-zinc-500">{vacio}</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{vacio}</p>
       ) : (
         <ul className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
           {items.map((item) => (
             <li key={item.id}>
-              <Link href={item.href} className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+              <Link
+                href={item.href}
+                className="flex min-h-12 items-center justify-between gap-3 px-3 py-2 outline-none first:rounded-t-2xl last:rounded-b-2xl hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800"
+              >
                 <span className="min-w-0">
                   <span className="block truncate text-sm text-zinc-900 dark:text-zinc-100">{item.texto}</span>
-                  <span className="block truncate text-[11px] text-zinc-500">{item.sub}</span>
+                  <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">{item.sub}</span>
                 </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
+                <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-zinc-400" />
               </Link>
             </li>
           ))}
@@ -952,6 +1016,7 @@ function AccionesPersona({
 }) {
   const archivado = proyecto.archivados.includes(personId);
   const compartida = proyecto.compartidas.includes(personId);
+  const [baja, setBaja] = useState(false);
 
   function alternar(campo: 'archivados' | 'compartidas') {
     const lista = proyecto[campo];
@@ -964,42 +1029,44 @@ function AccionesPersona({
     <section className="space-y-2">
       <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Qué hacer con esta cuenta</h3>
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => alternar('archivados')}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          <Archive className="h-4 w-4" /> {archivado ? 'Desarchivar' : 'Archivar'}
-        </button>
+        <Button variant="outline" onClick={() => alternar('archivados')}>
+          <Archive /> {archivado ? 'Desarchivar' : 'Archivar'}
+        </Button>
         {archivo === 'students' && (
-          <button
-            type="button"
-            onClick={() => alternar('compartidas')}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <Tablet className="h-4 w-4" /> {compartida ? 'No es un iPad compartido' : 'Es un iPad compartido'}
-          </button>
+          <Button variant="outline" onClick={() => alternar('compartidas')}>
+            <Tablet /> {compartida ? 'No es un iPad compartido' : 'Es un iPad compartido'}
+          </Button>
         )}
-        <button
-          type="button"
+        <Button
+          variant="destructive"
           onClick={() => {
-            if (!confirm('Dar de baja quita a esta persona del fichero. Al desaparecer de la importación, ASM se lleva por delante su cuenta y su iCloud.\n\n¿Seguro que no prefieres archivarla?')) return;
-            if (!confirm('Última: se borra de students/staff, de sus clases y de sus matrículas. ¿Continuamos?')) return;
-            const r = onGuardar(darDeBaja(proyecto, personId));
-            if (!r.ok && r.error) toast.warning(r.error);
-            toast.success('Dada de baja del fichero.');
             haptic.warning();
-            onCerrar();
+            setBaja(true);
           }}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-red-200 px-3 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-500/10"
         >
-          <Trash2 className="h-4 w-4" /> Dar de baja
-        </button>
+          <Trash2 /> Dar de baja
+        </Button>
       </div>
-      <p className="text-xs text-zinc-500">
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
         Archivar es lo normal cuando alguien se va: la cuenta sigue existiendo en ASM (no se pierde su iCloud), pero deja de
         estar en clases y de aparecer en estas listas.
       </p>
+      {/* Lo único destructivo del módulo: antes se preguntaba dos veces; ahora hay que escribir BAJA. */}
+      <ConfirmarDialogo
+        abierto={baja}
+        onCerrar={() => setBaja(false)}
+        titulo={`¿Dar de baja a ${personId}?`}
+        descripcion="Se borra de students/staff, de sus clases y de sus matrículas. Al desaparecer de la importación, ASM se lleva por delante su cuenta y su iCloud. ¿Seguro que no prefieres archivarla?"
+        boton="Dar de baja"
+        palabra="BAJA"
+        onConfirmar={() => {
+          const r = onGuardar(darDeBaja(proyecto, personId));
+          if (!r.ok && r.error) toast.warning(r.error);
+          toast.success('Dada de baja del fichero.');
+          haptic.warning();
+          onCerrar();
+        }}
+      />
     </section>
   );
 }
@@ -1046,7 +1113,6 @@ function EditorClase({
 
   function alternarGrupo(grupo: string) {
     const nuevos = grupos.includes(grupo) ? grupos.filter((g) => g !== grupo) : [...grupos, grupo];
-    haptic.tap();
     onGuardar({
       ...proyecto,
       reglas: { ...proyecto.reglas, [clase.class_id]: nuevos },
@@ -1057,90 +1123,80 @@ function EditorClase({
   const disponibles = proyecto.archivos.staff.filter((s) => !profes.includes(s.person_id));
 
   return (
-    <div className="space-y-4">
-      <section>
-        <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Profesorado de la clase</h3>
+    <div className="space-y-5">
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Profesorado de la clase</h3>
         <ul className="space-y-1.5">
           {profes.map((p, i) => (
-            <li key={p} className="flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 dark:border-zinc-800">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-[11px] font-semibold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+            <li key={p} className="flex items-center gap-2 rounded-xl border border-zinc-200 py-1 pr-1 pl-3 dark:border-zinc-800">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-700 tabular-nums dark:bg-zinc-800 dark:text-zinc-300">
                 {i + 1}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-zinc-900 dark:text-zinc-100">{indice.profes.get(p) ?? p}</span>
-                <span className="block truncate font-mono text-[11px] text-zinc-400">{p}</span>
+                <span className="block truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">{p}</span>
               </span>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => guardarProfes(profes.filter((x) => x !== p))}
-                className="rounded-lg p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                 aria-label={`Quitar a ${indice.profes.get(p) ?? p}`}
               >
-                <X className="h-4 w-4" />
-              </button>
+                <X />
+              </Button>
             </li>
           ))}
-          {profes.length === 0 && <li className="text-xs text-amber-600 dark:text-amber-400">Sin profes: en ASM esta clase no la verá nadie.</li>}
+          {profes.length === 0 && (
+            <li>
+              <Estado tono="aviso">Sin profes: en ASM esta clase no la verá nadie</Estado>
+            </li>
+          )}
         </ul>
 
         {anadiendo ? (
-          <select
+          <Selector
             autoFocus
             defaultValue=""
+            aria-label="Profe que la imparte"
             onChange={(e) => {
               if (e.target.value) guardarProfes([...profes, e.target.value]);
               setAnadiendo(false);
             }}
             onBlur={() => setAnadiendo(false)}
-            className="mt-2 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             <option value="">Elige a quien la imparte…</option>
             {disponibles.map((s) => (
-              <option key={s.person_id} value={s.person_id}>{s.first_name} {s.last_name}</option>
+              <option key={s.person_id} value={s.person_id}>
+                {s.first_name} {s.last_name}
+              </option>
             ))}
-          </select>
+          </Selector>
         ) : (
-          <button
-            type="button"
-            onClick={() => setAnadiendo(true)}
-            className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <Plus className="h-4 w-4" /> Añadir profe
-          </button>
+          <Button variant="outline" onClick={() => setAnadiendo(true)}>
+            <Plus /> Añadir profe
+          </Button>
         )}
       </section>
 
-      <section>
-        <h3 className="mb-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Quién se matricula</h3>
-        <p className="mb-2 text-xs text-zinc-500">
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Quién se matricula</h3>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
           Los grupos marcados entran enteros cuando se rehacen las matrículas. Ahora mismo hay{' '}
-          <span className="font-medium text-zinc-700 dark:text-zinc-200">{num(alumnos.length)} matriculados</span>.
+          <span className="font-medium text-zinc-700 tabular-nums dark:text-zinc-200">{num(alumnos.length)} matriculados</span>.
         </p>
-        <div className="flex flex-wrap gap-1.5">
-          {todosLosGrupos.map((grupo) => {
-            const activo = grupos.includes(grupo);
-            return (
-              <button
-                key={grupo}
-                type="button"
-                onClick={() => alternarGrupo(grupo)}
-                className={`min-h-9 rounded-full border px-3 text-xs font-medium transition-colors ${
-                  activo
-                    ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-500/10 dark:text-rose-300'
-                    : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {grupo}
-              </button>
-            );
-          })}
-        </div>
+        <Filtros etiqueta="Grupos que se matriculan">
+          {todosLosGrupos.map((grupo) => (
+            <Filtro key={grupo} activo={grupos.includes(grupo)} onClick={() => alternarGrupo(grupo)}>
+              {grupo}
+            </Filtro>
+          ))}
+        </Filtros>
         {alumnos.length > 0 && (
           <Link
             href={`/gestion/autoasm/rosters?q=${encodeURIComponent(clase.class_id)}`}
-            className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className={buttonVariants({ variant: 'outline', className: 'mt-1' })}
           >
-            <Users className="h-4 w-4" /> Ver sus {num(alumnos.length)} matrículas
+            <Users aria-hidden /> Ver sus {num(alumnos.length)} matrículas
           </Link>
         )}
       </section>

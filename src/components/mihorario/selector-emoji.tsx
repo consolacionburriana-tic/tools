@@ -8,12 +8,13 @@ import { EmojiStyle, Theme } from 'emoji-picker-react';
 import { useTheme } from 'next-themes';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
 import { EMOJIS_ACADEMICOS } from '@/lib/mihorario';
 
 // Pesa bastante: solo se descarga cuando alguien abre el selector.
 const Picker = dynamic(() => import('emoji-picker-react'), {
   ssr: false,
-  loading: () => <div className="h-[320px] animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />,
+  loading: () => <Skeleton className="h-80 rounded-xl" />,
 });
 
 export function SelectorEmoji({
@@ -38,7 +39,7 @@ export function SelectorEmoji({
     <Popover open={abierto} onOpenChange={setAbierto}>
       <PopoverTrigger
         aria-label="Elegir emoji"
-        className="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-xl hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+        className="flex h-10 w-12 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-zinc-300 bg-white text-xl outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
       >
         {valor}
       </PopoverTrigger>
@@ -48,8 +49,9 @@ export function SelectorEmoji({
             <button
               key={e}
               type="button"
+              aria-label={`Elegir ${e}`}
               onClick={() => elegir(e)}
-              className="flex h-9 items-center justify-center rounded-md text-xl hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="flex h-10 cursor-pointer items-center justify-center rounded-lg text-xl outline-none hover:bg-zinc-100 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800"
             >
               {e}
             </button>

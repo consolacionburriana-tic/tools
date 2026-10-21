@@ -1,13 +1,29 @@
+import { Skeleton, SkeletonCard, SkeletonKpis, SkeletonPage } from '@/components/ui/skeleton';
+
+// El panel: filtros de periodo, las cuatro cifras, la tendencia y la rejilla de gráficos.
 export default function Loading() {
   return (
-    <div className="space-y-4">
-      <div className="h-8 w-48 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-24 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-        ))}
+    <SkeletonPage label="Cargando el panel de Puntualidad">
+      <div className="space-y-5">
+        <div className="flex flex-wrap gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-10 w-24 rounded-full" />
+          ))}
+        </div>
+        <SkeletonKpis />
+        <SkeletonCard>
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="mt-4 h-48 w-full rounded-xl" />
+        </SkeletonCard>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {[0, 1].map((i) => (
+            <SkeletonCard key={i}>
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="mt-4 h-44 w-full rounded-xl" />
+            </SkeletonCard>
+          ))}
+        </div>
       </div>
-      <div className="h-64 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-    </div>
+    </SkeletonPage>
   );
 }

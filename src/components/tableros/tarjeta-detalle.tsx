@@ -34,18 +34,25 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
 import { copiarTexto } from '@/components/ui/copiable';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Selector } from '@/components/ui/selector';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import {
-  checklistDeTexto,
   diaLargo,
   normalizarUrl,
   PASO_ORDEN,
   PRIORIDAD_LABELS,
   PRIORIDADES,
-  progresoChecklist,
   proximoViernes,
   sumarDias,
   tipoEnlace,
@@ -53,12 +60,12 @@ import {
   type EntradaAccionTarjeta as AccionTarjeta,
   type DatosTablero,
   type Enlace,
-  type ItemChecklist,
   type Seguimiento,
   type Tarjeta,
   type TipoEnlace,
 } from '@/lib/tableros';
-import { api, Avatar, BOTON_PRIMARIO, BOTON_SECUNDARIO, ChipVence, ESTILO_CAMPO, ETIQUETA_CLASES, nuevoId, PRIORIDAD_CLASES } from './comun';
+import { Checklist } from './checklist';
+import { api, ChipVence, ETIQUETA_CLASES, nuevoId } from './comun';
 
 type Edicion = Omit<Extract<AccionTarjeta, { accion: 'editar' }>, 'accion'>;
 
@@ -157,15 +164,23 @@ export function DetalleTarjeta({
   async function archivar() {
     try {
       await api.tarjeta(t.id, { accion: 'archivar', archivada: true });
-      toast.success('Archivada. Está en el botón de archivadas del tablero.');
       onFuera(t.id);
+      toast.success('Tarjeta archivada', {
+        action: {
+          label: 'Deshacer',
+          onClick: () =>
+            void api
+              .tarjeta(t.id, { accion: 'archivar', archivada: false })
+              .then((r) => r.tarjeta && onCambio({ ...r.tarjeta, comentarios: t.comentarios }))
+              .catch(() => toast.error('No se ha podido deshacer')),
+        },
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se ha podido');
     }
   }
 
   async function borrar() {
-    if (!window.confirm(`¿Borrar «${t.titulo}»? No se puede deshacer (si solo está terminada, mejor archívala).`)) return;
     try {
       await api.borrarTarjeta(t.id);
       onFuera(t.id);
@@ -189,100 +204,75 @@ export function DetalleTarjeta({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] gap-5 overflow-y-auto p-5 sm:max-w-3xl">
         {/* Dónde está */}
-        <div className="flex flex-wrap items-center gap-2 pr-8 text-xs text-zinc-500">
-          <span>{tablero.emoji} {tablero.nombre}</span>
-          <span>·</span>
-          <select
-            value={t.columnaId}
-            onChange={(e) => mover(e.target.value)}
-            aria-label="Lista"
-            className="rounded-md border-0 bg-zinc-100 px-2 py-1 font-medium text-zinc-700 outline-none dark:bg-zinc-800 dark:text-zinc-200"
-          >
+        <div className="flex flex-wrap items-center gap-2 pr-10 text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="min-w-0 truncate">
+            {tablero.emoji} {tablero.nombre}
+          </span>
+          <Selector value={t.columnaId} onChange={(e) => mover(e.target.value)} aria-label="Lista" className="w-auto">
             {columnas.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre}
               </option>
             ))}
-          </select>
+          </Selector>
           {primeraHecha && !hecha && (
-            <button
-              type="button"
-              onClick={() => mover(primeraHecha.id)}
-              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 font-semibold text-white hover:bg-emerald-700"
-            >
-              <Check className="h-3.5 w-3.5" /> Terminada
-            </button>
+            <Button type="button" size="sm" onClick={() => mover(primeraHecha.id)}>
+              <Check aria-hidden /> Marcar terminada
+            </Button>
           )}
           {hecha && primeraAbierta && (
-            <button
-              type="button"
-              onClick={() => mover(primeraAbierta.id)}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={() => mover(primeraAbierta.id)}>
               Reabrir
-            </button>
+            </Button>
           )}
         </div>
 
         <Titulo valor={t.titulo} hecha={hecha} onGuardar={(titulo) => guardar({ titulo })} />
 
-        <div className="grid gap-6 md:grid-cols-[1fr_15rem]">
+        <div className="grid gap-6 md:grid-cols-[1fr_17rem]">
           {/* Propiedades: en el móvil, lo primero */}
-          <aside className="space-y-4 md:order-2">
+          <aside className="space-y-5 md:order-2">
             <Bloque icono={Users} titulo="Responsables">
-              <div className="flex flex-wrap gap-1.5">
+              <Filtros etiqueta="Responsables">
                 {miembros.map((m) => {
                   const esta = t.responsables.includes(m.email);
                   return (
-                    <button
+                    <Filtro
                       key={m.email}
-                      type="button"
-                      onClick={() => {
-                        haptic.tap();
+                      activo={esta}
+                      onClick={() =>
                         void guardar(
                           { responsables: esta ? t.responsables.filter((e) => e !== m.email) : [...t.responsables, m.email] },
                           true,
-                        );
-                      }}
-                      title={esta ? `Quitar a ${m.nombre}` : `Asignar a ${m.nombre}`}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2.5 pl-0.5 text-xs font-medium transition-colors',
-                        esta
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700',
-                      )}
+                        )
+                      }
+                      icono={<Avatar email={m.email} nombre={m.nombre} tamano="sm" className="-ml-2.5 ring-0" />}
                     >
-                      <Avatar email={m.email} nombre={m.nombre} className="h-6 w-6 text-[10px] ring-0" />
                       {m.email === yo ? 'Yo' : m.nombre.split(' ')[0]}
-                    </button>
+                    </Filtro>
                   );
                 })}
-              </div>
+              </Filtros>
               {t.responsables.length > 0 && (
-                <p className="mt-1.5 text-[11px] text-zinc-500">Les llega un correo cuando se les asigna, y otro si se acerca la fecha.</p>
+                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Les llega un correo cuando se les asigna, y otro si se acerca la fecha.</p>
               )}
             </Bloque>
 
             <Bloque icono={CalendarClock} titulo="Fecha límite">
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   type="date"
                   value={t.vence ?? ''}
                   onChange={(e) => guardar({ vence: e.target.value || null }, true)}
-                  className={cn(ESTILO_CAMPO, 'py-1.5')}
+                  aria-label="Fecha límite"
                 />
                 {t.vence && (
-                  <button
-                    type="button"
-                    onClick={() => guardar({ vence: null }, true)}
-                    aria-label="Quitar fecha"
-                    className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => guardar({ vence: null }, true)} aria-label="Quitar la fecha">
+                    <X />
+                  </Button>
                 )}
               </div>
-              <div className="mt-1.5 flex flex-wrap gap-1">
+              <Filtros etiqueta="Fechas rápidas" className="mt-2">
                 {(
                   [
                     ['Hoy', hoy],
@@ -291,63 +281,46 @@ export function DetalleTarjeta({
                     ['+1 semana', sumarDias(hoy, 7)],
                   ] as const
                 ).map(([texto, fecha]) => (
-                  <button
-                    key={texto}
-                    type="button"
-                    onClick={() => guardar({ vence: fecha }, true)}
-                    className={cn(
-                      'rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors',
-                      t.vence === fecha
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300',
-                    )}
-                  >
+                  <Filtro key={texto} activo={t.vence === fecha} onClick={() => guardar({ vence: fecha }, true)} className="px-3">
                     {texto}
-                  </button>
+                  </Filtro>
                 ))}
-              </div>
+              </Filtros>
               {t.vence && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-zinc-500">
+                <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                   <ChipVence vence={t.vence} hoy={hoy} hecha={hecha} /> {diaLargo(t.vence)}
                 </p>
               )}
             </Bloque>
 
             <Bloque icono={Flag} titulo="Prioridad">
-              <div className="grid grid-cols-2 gap-1">
+              <Filtros etiqueta="Prioridad">
                 {PRIORIDADES.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => guardar({ prioridad: t.prioridad === p ? null : p }, true)}
-                    className={cn(
-                      'rounded-lg px-2 py-1.5 text-xs font-semibold transition-all',
-                      t.prioridad === p ? cn(PRIORIDAD_CLASES[p], 'ring-2 ring-zinc-900/20 dark:ring-white/30') : 'bg-zinc-50 text-zinc-500 hover:bg-zinc-100 dark:bg-zinc-800/60 dark:hover:bg-zinc-800',
-                    )}
-                  >
+                  <Filtro key={p} activo={t.prioridad === p} onClick={() => guardar({ prioridad: t.prioridad === p ? null : p }, true)} className="px-3">
                     {PRIORIDAD_LABELS[p]}
-                  </button>
+                  </Filtro>
                 ))}
-              </div>
+              </Filtros>
             </Bloque>
 
             {tablero.etiquetas.length > 0 && (
               <Bloque icono={Tag} titulo="Etiquetas">
-                <div className="flex flex-wrap gap-1">
+                <div role="group" aria-label="Etiquetas" className="flex flex-wrap gap-1.5">
                   {tablero.etiquetas.map((e) => {
                     const esta = t.etiquetas.includes(e.id);
                     return (
                       <button
                         key={e.id}
                         type="button"
+                        aria-pressed={esta}
                         onClick={() => guardar({ etiquetas: esta ? t.etiquetas.filter((x) => x !== e.id) : [...t.etiquetas, e.id] })}
                         className={cn(
-                          'rounded-md px-2 py-1 text-xs font-semibold transition-opacity',
+                          'inline-flex h-10 items-center gap-1 rounded-lg px-3 text-sm font-semibold transition-opacity outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                           ETIQUETA_CLASES[e.color].fondo,
-                          esta ? 'opacity-100 ring-2 ring-zinc-900/30 dark:ring-white/40' : 'opacity-45 hover:opacity-80',
+                          esta ? 'ring-2 ring-zinc-900/40 dark:ring-white/50' : 'opacity-60 hover:opacity-90',
                         )}
                       >
-                        {esta && <Check className="mr-0.5 inline h-3 w-3" />}
+                        {esta && <Check aria-hidden className="size-4" />}
                         {e.nombre || e.color}
                       </button>
                     );
@@ -356,29 +329,31 @@ export function DetalleTarjeta({
               </Bloque>
             )}
 
-            <div className="flex flex-wrap gap-1.5 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-              <button type="button" onClick={copiarEnlace} className={cn(BOTON_SECUNDARIO, 'px-2.5 py-1.5 text-xs')}>
-                <Copy className="h-3.5 w-3.5" /> Copiar enlace
-              </button>
-              <button type="button" onClick={archivar} className={cn(BOTON_SECUNDARIO, 'px-2.5 py-1.5 text-xs')}>
-                <Archive className="h-3.5 w-3.5" /> Archivar
-              </button>
-              <button
-                type="button"
-                onClick={borrar}
-                className={cn(BOTON_SECUNDARIO, 'px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10')}
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Borrar
-              </button>
+            <div className="flex flex-wrap gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+              <Button type="button" variant="outline" size="sm" onClick={copiarEnlace}>
+                <Copy aria-hidden /> Copiar enlace
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={archivar}>
+                <Archive aria-hidden /> Archivar
+              </Button>
+              <ConfirmarEnLinea
+                etiqueta="Borrar"
+                icono={<Trash2 aria-hidden />}
+                pregunta="No se puede deshacer. Si solo está terminada, mejor archívala."
+                confirmar="Sí, borrar"
+                onConfirmar={borrar}
+              />
             </div>
-            <p className="text-[11px] text-zinc-400">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Creada por {t.createdByNombre ?? t.createdBy ?? 'alguien'} · {formatDistanceToNow(new Date(t.createdAt), { locale: es, addSuffix: true })}
             </p>
           </aside>
 
           <div className="min-w-0 space-y-6 md:order-1">
             <Descripcion valor={t.descripcion ?? ''} onGuardar={(descripcion) => guardar({ descripcion })} />
-            <Checklist items={t.checklist} onCambio={(checklist) => guardar({ checklist })} />
+            <Bloque icono={ListChecks} titulo="Checklist">
+              <Checklist items={t.checklist} onCambio={(checklist) => guardar({ checklist })} />
+            </Bloque>
             <Enlaces enlaces={t.enlaces} onCambio={(enlaces) => guardar({ enlaces })} />
             <SeguimientoVista
               tarjetaId={t.id}
@@ -400,9 +375,9 @@ export function DetalleTarjeta({
 function Bloque({ icono: Icono, titulo, children }: { icono: typeof Globe; titulo: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-zinc-400 uppercase">
-        <Icono className="h-3.5 w-3.5" /> {titulo}
-      </p>
+      <Rotulo as="h3" className="mb-2 flex items-center gap-1.5">
+        <Icono aria-hidden className="size-4" /> {titulo}
+      </Rotulo>
       {children}
     </div>
   );
@@ -420,7 +395,7 @@ function Titulo({ valor, hecha, onGuardar }: { valor: string; hecha: boolean; on
   }, [texto]);
   return (
     <div className="flex items-start gap-2">
-      {hecha && <CheckCircle2 className="mt-1.5 h-6 w-6 shrink-0 text-emerald-500" />}
+      {hecha && <CheckCircle2 aria-label="Terminada" className="mt-1.5 size-6 shrink-0 text-emerald-600 dark:text-emerald-400" />}
       <DialogTitle className="sr-only">{valor}</DialogTitle>
       <textarea
         ref={ref}
@@ -440,7 +415,7 @@ function Titulo({ valor, hecha, onGuardar }: { valor: string; hecha: boolean; on
         rows={1}
         maxLength={200}
         aria-label="Título"
-        className="w-full resize-none overflow-hidden rounded-lg bg-transparent px-1 py-0.5 text-xl font-bold text-zinc-900 outline-none hover:bg-zinc-50 focus:bg-zinc-50 focus:ring-2 focus:ring-blue-400 dark:text-zinc-50 dark:hover:bg-zinc-800/60 dark:focus:bg-zinc-800/60"
+        className="w-full resize-none overflow-hidden rounded-xl bg-transparent px-2 py-1 text-xl font-semibold text-zinc-900 outline-none hover:bg-zinc-50 focus-visible:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-50 dark:hover:bg-zinc-800/60 dark:focus-visible:bg-zinc-800/60"
       />
     </div>
   );
@@ -453,36 +428,38 @@ function Descripcion({ valor, onGuardar }: { valor: string; onGuardar: (v: strin
     <Bloque icono={AlignLeft} titulo="Descripción">
       {editando ? (
         <div className="space-y-2">
-          <textarea
+          <Textarea
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             autoFocus
             rows={5}
             maxLength={10000}
             placeholder="Detalles, pasos, a quién preguntar…"
-            className={cn(ESTILO_CAMPO, 'resize-y')}
+            aria-label="Descripción"
+            className="min-h-32 resize-y"
           />
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={() => {
                 setEditando(false);
                 if (texto.trim() !== valor.trim()) onGuardar(texto.trim());
               }}
-              className={cn(BOTON_PRIMARIO, 'px-3 py-1.5')}
             >
-              Guardar
-            </button>
-            <button
+              Guardar descripción
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setTexto(valor);
                 setEditando(false);
               }}
-              className={cn(BOTON_SECUNDARIO, 'px-3 py-1.5')}
             >
               Cancelar
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -490,10 +467,10 @@ function Descripcion({ valor, onGuardar }: { valor: string; onGuardar: (v: strin
           type="button"
           onClick={() => setEditando(true)}
           className={cn(
-            'block w-full rounded-xl px-3 py-2 text-left text-sm whitespace-pre-wrap transition-colors',
+            'block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm whitespace-pre-wrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
             valor
               ? 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800/60'
-              : 'bg-zinc-50 text-zinc-400 hover:bg-zinc-100 dark:bg-zinc-800/50 dark:hover:bg-zinc-800',
+              : 'bg-zinc-50 text-zinc-500 hover:bg-zinc-100 dark:bg-zinc-800/50 dark:text-zinc-400 dark:hover:bg-zinc-800',
           )}
         >
           <TextoConEnlaces texto={valor || 'Añade una descripción…'} />
@@ -525,139 +502,6 @@ function TextoConEnlaces({ texto }: { texto: string }) {
         ),
       )}
     </>
-  );
-}
-
-function Checklist({ items, onCambio }: { items: ItemChecklist[]; onCambio: (i: ItemChecklist[]) => void }) {
-  const [nuevo, setNuevo] = useState('');
-  const [ocultarHechos, setOcultarHechos] = useState(false);
-  const { hechos, total } = progresoChecklist(items);
-  const pct = total ? Math.round((hechos / total) * 100) : 0;
-
-  function anadir() {
-    const nuevos = checklistDeTexto(nuevo, nuevoId);
-    if (nuevos.length === 0) return;
-    onCambio([...items, ...nuevos]);
-    setNuevo('');
-  }
-
-  const visibles = ocultarHechos ? items.filter((i) => !i.hecho) : items;
-
-  return (
-    <Bloque icono={ListChecks} titulo="Checklist">
-      {total > 0 && (
-        <div className="mb-2 flex items-center gap-2">
-          <span className="w-9 text-xs font-medium text-zinc-500">{pct}%</span>
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <div
-              className={cn('h-full rounded-full transition-all duration-500', pct === 100 ? 'bg-emerald-500' : 'bg-blue-500')}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          {hechos > 0 && (
-            <button type="button" onClick={() => setOcultarHechos((v) => !v)} className="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
-              {ocultarHechos ? `Ver hechos (${hechos})` : 'Ocultar hechos'}
-            </button>
-          )}
-        </div>
-      )}
-      <ul className="space-y-0.5">
-        {visibles.map((it) => (
-          <ItemCheck
-            key={it.id}
-            item={it}
-            onToggle={() => {
-              if (!it.hecho) haptic.tap();
-              onCambio(items.map((x) => (x.id === it.id ? { ...x, hecho: !x.hecho } : x)));
-            }}
-            onTexto={(texto) => onCambio(items.map((x) => (x.id === it.id ? { ...x, texto } : x)))}
-            onBorrar={() => onCambio(items.filter((x) => x.id !== it.id))}
-          />
-        ))}
-      </ul>
-      <div className="mt-1.5 flex gap-2">
-        <input
-          value={nuevo}
-          onChange={(e) => setNuevo(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && anadir()}
-          onPaste={(e) => {
-            // Pegar una lista de varias líneas = varios items de golpe.
-            const pegado = e.clipboardData.getData('text');
-            if (pegado.includes('\n')) {
-              e.preventDefault();
-              const nuevos = checklistDeTexto(pegado, nuevoId);
-              if (nuevos.length) onCambio([...items, ...nuevos]);
-            }
-          }}
-          placeholder="Añadir un paso…"
-          maxLength={300}
-          className={cn(ESTILO_CAMPO, 'py-1.5')}
-        />
-        <button type="button" onClick={anadir} disabled={!nuevo.trim()} aria-label="Añadir" className={cn(BOTON_SECUNDARIO, 'px-2.5 py-1.5')}>
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
-    </Bloque>
-  );
-}
-
-function ItemCheck({
-  item,
-  onToggle,
-  onTexto,
-  onBorrar,
-}: {
-  item: ItemChecklist;
-  onToggle: () => void;
-  onTexto: (t: string) => void;
-  onBorrar: () => void;
-}) {
-  const [editando, setEditando] = useState(false);
-  const [texto, setTexto] = useState(item.texto);
-  return (
-    <li className="group flex items-start gap-2 rounded-lg px-1 py-1 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={item.hecho ? 'Desmarcar' : 'Marcar como hecho'}
-        className={cn(
-          'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors',
-          item.hecho ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-zinc-300 hover:border-emerald-500 dark:border-zinc-600',
-        )}
-      >
-        {item.hecho && <Check className="h-3.5 w-3.5" />}
-      </button>
-      {editando ? (
-        <input
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onBlur={() => {
-            setEditando(false);
-            if (texto.trim() && texto.trim() !== item.texto) onTexto(texto.trim());
-            else setTexto(item.texto);
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          autoFocus
-          maxLength={300}
-          className="min-w-0 flex-1 rounded bg-white px-1 text-sm outline-none ring-2 ring-blue-400 dark:bg-zinc-950"
-        />
-      ) : (
-        <span
-          onClick={() => setEditando(true)}
-          className={cn('min-w-0 flex-1 cursor-text text-sm break-words', item.hecho ? 'text-zinc-400 line-through' : 'text-zinc-800 dark:text-zinc-200')}
-        >
-          {item.texto}
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={onBorrar}
-        aria-label="Quitar"
-        className="rounded p-0.5 text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600 focus:opacity-100 dark:text-zinc-600"
-      >
-        <X className="h-4 w-4" />
-      </button>
-    </li>
   );
 }
 
@@ -698,8 +542,8 @@ function Enlaces({ enlaces, onCambio }: { enlaces: Enlace[]; onCambio: (e: Enlac
             const Icono = ICONO_ENLACE[tipo];
             const interno = e.url.startsWith('/');
             return (
-              <li key={e.id} className="group flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 dark:border-zinc-800">
-                <Icono className={cn('h-4 w-4 shrink-0', tipo === 'web' ? 'text-zinc-400' : 'text-blue-600 dark:text-blue-400')} />
+              <li key={e.id} className="flex min-h-11 items-center gap-2 rounded-xl border border-zinc-200 py-0.5 pr-0.5 pl-3 dark:border-zinc-800">
+                <Icono aria-hidden className={cn('size-4 shrink-0', tipo === 'web' ? 'text-zinc-400' : 'text-blue-600 dark:text-blue-400')} />
                 <a
                   href={e.url}
                   target={interno ? undefined : '_blank'}
@@ -708,15 +552,17 @@ function Enlaces({ enlaces, onCambio }: { enlaces: Enlace[]; onCambio: (e: Enlac
                 >
                   {tituloEnlace(e)}
                 </a>
-                {!interno && <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-300" />}
-                <button
+                {!interno && <ExternalLink aria-label="Se abre en otra pestaña" className="size-3.5 shrink-0 text-zinc-400" />}
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => onCambio(enlaces.filter((x) => x.id !== e.id))}
-                  aria-label="Quitar enlace"
-                  className="rounded p-0.5 text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600 focus:opacity-100 dark:text-zinc-600"
+                  aria-label={`Quitar el enlace «${tituloEnlace(e)}»`}
+                  className="text-zinc-500 hover:text-red-700 dark:text-zinc-400 dark:hover:text-red-400"
                 >
-                  <X className="h-4 w-4" />
-                </button>
+                  <X />
+                </Button>
               </li>
             );
           })}
@@ -724,35 +570,35 @@ function Enlaces({ enlaces, onCambio }: { enlaces: Enlace[]; onCambio: (e: Enlac
       )}
       {abierto ? (
         <div className="space-y-2 rounded-xl bg-zinc-50 p-2 dark:bg-zinc-800/50">
-          <input
+          <Input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && anadir()}
             autoFocus
             placeholder="Pega el enlace (Drive, un Doc, una pantalla de la plataforma…)"
-            className={cn(ESTILO_CAMPO, 'py-1.5')}
+            aria-label="Enlace"
           />
-          <input
+          <Input
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && anadir()}
             placeholder="Cómo se llama (opcional)"
+            aria-label="Cómo se llama"
             maxLength={120}
-            className={cn(ESTILO_CAMPO, 'py-1.5')}
           />
           <div className="flex gap-2">
-            <button type="button" onClick={anadir} disabled={!url.trim()} className={cn(BOTON_PRIMARIO, 'px-3 py-1.5')}>
+            <Button type="button" size="sm" onClick={anadir} disabled={!url.trim()}>
               Añadir enlace
-            </button>
-            <button type="button" onClick={() => setAbierto(false)} className={cn(BOTON_SECUNDARIO, 'px-3 py-1.5')}>
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setAbierto(false)}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setAbierto(true)} className={cn(BOTON_SECUNDARIO, 'px-2.5 py-1.5 text-xs')}>
-          <Plus className="h-3.5 w-3.5" /> Añadir enlace
-        </button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setAbierto(true)}>
+          <Plus aria-hidden /> Añadir enlace
+        </Button>
       )}
     </Bloque>
   );
@@ -792,7 +638,6 @@ function SeguimientoVista({
   }
 
   async function borrar(id: string) {
-    if (!window.confirm('¿Borrar el comentario?')) return;
     try {
       const r = await api.tarjeta(tarjetaId, { accion: 'borrarComentario', comentarioId: id });
       if (r.seguimiento) onCambio(r.seguimiento, -1);
@@ -804,9 +649,9 @@ function SeguimientoVista({
   return (
     <Bloque icono={MessageSquare} titulo="Seguimiento">
       <div className="flex gap-2">
-        <Avatar email={yo} nombre={yoNombre} className="mt-1 ring-0" />
+        <Avatar email={yo} nombre={yoNombre} className="mt-1.5 ring-0" />
         <div className="min-w-0 flex-1 space-y-2">
-          <textarea
+          <Textarea
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => {
@@ -815,46 +660,49 @@ function SeguimientoVista({
             rows={2}
             maxLength={4000}
             placeholder="Cómo va, qué falta, a quién se ha llamado…"
-            className={cn(ESTILO_CAMPO, 'resize-y')}
+            aria-label="Comentario"
+            className="min-h-20 resize-y"
           />
           {texto.trim() && (
-            <button type="button" onClick={comentar} disabled={enviando} className={cn(BOTON_PRIMARIO, 'px-3 py-1.5')}>
+            <Button type="button" size="sm" onClick={comentar} cargando={enviando}>
               Comentar
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {items === null ? (
-        <div className="mt-3 h-12 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+        <Skeleton className="mt-3 h-12 rounded-xl" />
       ) : (
         <ul className="mt-3 space-y-3">
           {items.map((s) =>
             s.tipo === 'comentario' ? (
-              <li key={s.id} className="group flex gap-2">
+              <li key={s.id} className="flex gap-2">
                 <Avatar email={s.autorEmail ?? '?'} nombre={s.autorNombre} className="ring-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-zinc-500">
-                    <b className="font-semibold text-zinc-800 dark:text-zinc-200">{s.autorNombre ?? s.autorEmail}</b> ·{' '}
-                    {formatDistanceToNow(new Date(s.createdAt), { locale: es, addSuffix: true })}
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span>
+                      <b className="font-semibold text-zinc-800 dark:text-zinc-200">{s.autorNombre ?? s.autorEmail}</b> ·{' '}
+                      {formatDistanceToNow(new Date(s.createdAt), { locale: es, addSuffix: true })}
+                    </span>
                     {s.autorEmail === yo && (
-                      <button
-                        type="button"
-                        onClick={() => borrar(s.id)}
-                        className="ml-2 text-zinc-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600 focus:opacity-100"
-                      >
-                        Borrar
-                      </button>
+                      <ConfirmarEnLinea
+                        etiqueta="Borrar"
+                        variante="ghost"
+                        confirmar="Sí, borrar"
+                        onConfirmar={() => borrar(s.id)}
+                        className="text-zinc-600 dark:text-zinc-400"
+                      />
                     )}
-                  </p>
+                  </div>
                   <div className="mt-0.5 rounded-xl rounded-tl-sm bg-zinc-100 px-3 py-2 text-sm whitespace-pre-wrap break-words text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100">
                     <TextoConEnlaces texto={s.texto} />
                   </div>
                 </div>
               </li>
             ) : (
-              <li key={s.id} className="flex items-center gap-2 pl-1 text-xs text-zinc-500">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-600" />
+              <li key={s.id} className="flex items-center gap-2 pl-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-600" />
                 <span>
                   <b className="font-medium text-zinc-700 dark:text-zinc-300">{s.autorNombre ?? s.autorEmail}</b> {s.texto} ·{' '}
                   {formatDistanceToNow(new Date(s.createdAt), { locale: es, addSuffix: true })}
@@ -862,7 +710,7 @@ function SeguimientoVista({
               </li>
             ),
           )}
-          {items.length === 0 && <li className="text-xs text-zinc-400">Todavía no hay seguimiento.</li>}
+          {items.length === 0 && <li className="text-xs text-zinc-500 dark:text-zinc-400">Todavía no hay seguimiento.</li>}
         </ul>
       )}
     </Bloque>

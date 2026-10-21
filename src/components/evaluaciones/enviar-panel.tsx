@@ -8,7 +8,7 @@ import { haptic } from '@/lib/haptics';
 import { AUDIENCIAS, VARIABLES_CORREO, type Audiencia } from '@/lib/evaluaciones';
 import { PLANTILLAS_FABRICA } from '@/lib/evaluaciones-plantillas';
 import { TEMA_CLASSROOM, TEXTO_CLASSROOM_POR_DEFECTO, type TipoPublicacion } from '@/lib/evaluaciones-classroom';
-import { Segmentado } from '@/components/evaluaciones/ui';
+import { Segmentado } from '@/components/ui/segmentado';
 import { COLEGIO } from '@/lib/colegio';
 import { ETAPA_LABEL, ETAPAS_VISIBLES as ETAPAS_CENTRO } from '@/lib/cursos';
 
@@ -610,16 +610,16 @@ export function EnviarPanel({
         {audiencia === 'alumnos' && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Por dónde</span>
-            <Segmentado
+            <Segmentado etiqueta="Por dónde enviarla"
               valor={canal}
               onChange={(c) => {
                 setCanal(c);
                 setConfirmando(false);
               }}
               opciones={[
-                { valor: 'correo', label: 'Correo' },
-                { valor: 'classroom', label: 'Classroom' },
-                { valor: 'ambos', label: 'Los dos' },
+                { valor: 'correo', etiqueta: 'Correo' },
+                { valor: 'classroom', etiqueta: 'Classroom' },
+                { valor: 'ambos', etiqueta: 'Los dos' },
               ]}
             />
           </div>
@@ -776,12 +776,12 @@ export function EnviarPanel({
             <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Classroom</p>
             <span className="ml-auto">
-              <Segmentado
+              <Segmentado etiqueta="Tipo de publicación en Classroom"
                 valor={tipoCr}
                 onChange={setTipoCr}
                 opciones={[
-                  { valor: 'tarea', label: 'Tarea', pista: 'Con fecha límite y «marcar como hecha»: el profe ve quién la ha marcado' },
-                  { valor: 'anuncio', label: 'Anuncio', pista: 'Un aviso en el tablón de la clase, sin fecha ni seguimiento' },
+                  { valor: 'tarea', etiqueta: 'Tarea' },
+                  { valor: 'anuncio', etiqueta: 'Anuncio' },
                 ]}
               />
             </span>
@@ -1039,7 +1039,7 @@ export function EnviarPanel({
 
         <div className={`space-y-3 ${usaCorreo ? 'mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800' : ''}`}>
           {puedeProgramar && (
-          <Segmentado
+          <Segmentado etiqueta="Cuándo enviarla"
             valor={modo}
             onChange={(m) => {
               setModo(m);
@@ -1047,8 +1047,8 @@ export function EnviarPanel({
               if (m === 'programar' && !cuando) setCuando(aLocal(atajos(ahora)[0].fecha));
             }}
             opciones={[
-              { valor: 'ahora', label: 'Enviar ahora' },
-              { valor: 'programar', label: 'Programar' },
+              { valor: 'ahora', etiqueta: 'Enviar ahora' },
+              { valor: 'programar', etiqueta: 'Programar' },
             ]}
           />
           )}

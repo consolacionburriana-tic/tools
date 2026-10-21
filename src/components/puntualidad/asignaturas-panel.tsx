@@ -6,9 +6,15 @@
 // tarde a tu clase", que está escrito pero apagado hasta que los horarios estén en la app.
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { Interruptor } from './ui';
+import { Button } from '@/components/ui/button';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
+import { Input } from '@/components/ui/input';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Selector } from '@/components/ui/selector';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { cn } from '@/lib/utils';
 
 interface Asignatura {
   id: string;
@@ -73,34 +79,35 @@ export function AsignaturasPanel({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Asignaturas</h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Son las que salen como chips en el formulario. Las que vienen puestas son de ejemplo: cámbialas por las de
-          verdad y desactiva las que no uséis.
-        </p>
+        <EnlaceVolver href="/gestion/puntualidad">Panel</EnlaceVolver>
+        <TituloPagina
+          className="mt-1 mb-0"
+          descripcion="Son las que salen en el formulario. Las que vienen puestas son de ejemplo: cámbialas por las de verdad y desactiva las que no uséis."
+        >
+          Asignaturas
+        </TituloPagina>
       </div>
 
-      <div className="flex gap-2">
-        <input
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void crear();
+        }}
+      >
+        <Input
           value={nueva}
           onChange={(e) => setNueva(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') crear();
-          }}
+          aria-label="Nueva asignatura"
           placeholder="Añadir asignatura…"
-          className="h-11 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-orange-400 dark:border-zinc-700 dark:bg-zinc-900"
+          className="flex-1"
         />
-        <button
-          type="button"
-          onClick={crear}
-          disabled={nueva.trim().length < 2 || ocupado === 'nueva'}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-orange-600 disabled:bg-zinc-200 disabled:text-zinc-400 dark:disabled:bg-zinc-800"
-        >
-          {ocupado === 'nueva' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Añadir
-        </button>
-      </div>
+        <Button type="submit" disabled={nueva.trim().length < 2} cargando={ocupado === 'nueva'}>
+          {ocupado !== 'nueva' && <Plus aria-hidden />} Añadir
+        </Button>
+      </form>
 
-      <ul className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+      <ul className={cn(claseTarjeta, 'divide-y divide-zinc-100 overflow-hidden dark:divide-zinc-800')}>
         {asignaturas.map((a) => (
           <li key={a.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
             <NombreEditable
@@ -108,10 +115,11 @@ export function AsignaturasPanel({
               abreviatura={a.abreviatura}
               onGuardar={(nombre, abreviatura) => patch(a.id, { nombre, abreviatura: abreviatura || null })}
             />
-            <select
+            <Selector
               value={a.eduTeacherId ?? ''}
               onChange={(e) => patch(a.id, { eduTeacherId: e.target.value || null })}
-              className="rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-600 outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+              aria-label={`Profe de ${a.nombre}`}
+              className="w-full sm:w-56"
             >
               <option value="">Sin profe asignado</option>
               {profes.map((p) => (
@@ -119,11 +127,14 @@ export function AsignaturasPanel({
                   {p.nombre}
                 </option>
               ))}
-            </select>
-            <div className="w-56 shrink-0">
-              <Interruptor activo={a.active} etiqueta={a.active ? 'Activa' : 'Desactivada'} onChange={(v) => patch(a.id, { active: v })} />
-            </div>
-            {ocupado === a.id && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
+            </Selector>
+            <Interruptor
+              activo={a.active}
+              etiqueta="Activa"
+              onChange={(v) => patch(a.id, { active: v })}
+              className="w-auto shrink-0"
+            />
+            {ocupado === a.id && <Loader2 aria-label="Guardando" className="h-4 w-4 animate-spin text-zinc-500" />}
           </li>
         ))}
       </ul>
@@ -144,27 +155,20 @@ function NombreEditable({
   const [abrev, setAbrev] = useState(abreviatura ?? '');
   const sucio = n !== nombre || abrev !== (abreviatura ?? '');
   return (
-    <div className="flex min-w-[16rem] flex-1 items-center gap-2">
-      <input
-        value={n}
-        onChange={(e) => setN(e.target.value)}
-        className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium text-zinc-900 outline-none hover:border-zinc-200 focus:border-orange-400 dark:text-zinc-100 dark:hover:border-zinc-700"
-      />
-      <input
+    <div className="flex min-w-64 flex-1 items-center gap-2">
+      <Input value={n} onChange={(e) => setN(e.target.value)} aria-label="Nombre" className="min-w-0 flex-1 font-medium" />
+      <Input
         value={abrev}
         onChange={(e) => setAbrev(e.target.value)}
+        aria-label="Abreviatura"
         placeholder="abrev."
         maxLength={12}
-        className="w-20 rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-xs text-zinc-500 outline-none hover:border-zinc-200 focus:border-orange-400 dark:hover:border-zinc-700"
+        className="w-24"
       />
       {sucio && (
-        <button
-          type="button"
-          onClick={() => onGuardar(n.trim(), abrev.trim())}
-          className="inline-flex items-center gap-1 rounded-lg bg-orange-500 px-2.5 py-1.5 text-xs font-semibold text-white"
-        >
-          <Check className="h-3.5 w-3.5" /> Guardar
-        </button>
+        <Button type="button" size="sm" onClick={() => onGuardar(n.trim(), abrev.trim())}>
+          Guardar
+        </Button>
       )}
     </div>
   );

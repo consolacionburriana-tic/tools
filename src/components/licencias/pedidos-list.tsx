@@ -2,11 +2,21 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronUp, Copy, Loader2, PiggyBank, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, ChevronDown, ChevronUp, PiggyBank, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
 import { CURSOS_FORM, cursoLabel, euros, normalize } from '@/lib/licencias';
 import { ordenCurso } from '@/lib/cursos';
+import { Button } from '@/components/ui/button';
+import { useConfirmar } from '@/components/ui/confirmar';
+import { Copiable } from '@/components/ui/copiable';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { SkeletonTabla } from '@/components/ui/skeleton';
+import { Tarjeta } from '@/components/ui/tarjeta';
 
 interface OrderRow {
   id: string;
@@ -51,21 +61,6 @@ function comparar(a: OrderRow, b: OrderRow, campo: Campo): number {
   }
 }
 
-function Badge({ on, label, title }: { on: boolean; label: string; title: string }) {
-  return (
-    <span
-      title={title}
-      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${
-        on
-          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-          : 'bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600'
-      }`}
-    >
-      {label}
-    </span>
-  );
-}
-
 export function PedidosList() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +70,7 @@ export function PedidosList() {
   const [busyId, setBusyId] = useState<string | null>(null);
   // Por defecto, lo último pedido arriba (es como venía ordenado del servidor).
   const [orden, setOrden] = useState<Orden>({ campo: 'fecha', asc: false });
+  const { confirmar, dialogo } = useConfirmar();
 
   /** Un clic ordena por esa columna; otro clic le da la vuelta. */
   function ordenarPor(campo: Campo) {
@@ -122,29 +118,44 @@ export function PedidosList() {
     }
   }
 
+  async function archivar(o: OrderRow, archived: boolean) {
+    const r = await fetch(`/api/licencias/admin/orders/${o.id}/archive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived }),
+    });
+    if (!r.ok) throw new Error('No se ha podido cambiar el archivo del pedido');
+  }
+
+  // Archivar se deshace desarchivando, así que no pregunta: lo hace y ofrece «Deshacer».
   async function toggleArchivado(o: OrderRow) {
-    if (!o.archived && !confirm(`¿Archivar el pedido de ${o.nombre} ${o.apellidos}? Se guarda como backup y deja de contar en las estadísticas.`)) return;
+    const archived = !o.archived;
     setBusyId(o.id);
     try {
-      await fetch(`/api/licencias/admin/orders/${o.id}/archive`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archived: !o.archived }),
-      });
+      await archivar(o, archived);
       await load();
+      haptic.success();
+      toast.success(archived ? `Pedido de ${o.nombre} archivado` : `Pedido de ${o.nombre} desarchivado`, {
+        description: archived ? 'Se guarda como backup y deja de contar en las estadísticas.' : undefined,
+        action: {
+          label: 'Deshacer',
+          onClick: () => void archivar(o, !archived).then(load).catch((e: Error) => toast.error(e.message)),
+        },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se ha podido archivar');
     } finally {
       setBusyId(null);
     }
   }
 
-  function copiarNia(nia: string) {
-    void navigator.clipboard.writeText(nia);
-    haptic.success();
-    toast.success('NIA copiado');
-  }
-
   async function eliminar(o: OrderRow) {
-    if (!confirm(`Esto BORRA definitivamente el pedido de ${o.nombre} ${o.apellidos} (no queda backup). ¿Seguro? Si dudas, usa "Archivar" en su lugar.`)) return;
+    const si = await confirmar({
+      titulo: `¿Borrar el pedido de ${o.nombre} ${o.apellidos}?`,
+      descripcion: 'Se borra definitivamente y no queda backup. Si dudas, archívalo en su lugar.',
+      boton: 'Borrar el pedido',
+    });
+    if (!si) return;
     setBusyId(o.id);
     try {
       await fetch(`/api/licencias/admin/orders/${o.id}`, { method: 'DELETE' });
@@ -155,38 +166,39 @@ export function PedidosList() {
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={curso}
-          onChange={(e) => setCurso(e.target.value)}
-          className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-200"
-        >
-          <option value="todos">Todos los cursos</option>
-          {CURSOS_FORM.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar apellidos…"
-          className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-        />
-        <label className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
-          <input type="checkbox" checked={includeArchived} onChange={(e) => setIncludeArchived(e.target.checked)} className="accent-blue-600" />
-          Incluir archivados
-        </label>
+        <div className="relative w-full sm:max-w-xs">
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar apellidos…"
+            aria-label="Buscar por apellidos"
+            className="pl-9"
+          />
+        </div>
+        <Filtro activo={includeArchived} onClick={() => setIncludeArchived((v) => !v)} icono={<Archive />}>
+          Con archivados
+        </Filtro>
       </div>
+      <Filtros etiqueta="Curso">
+        <Filtro activo={curso === 'todos'} onClick={() => setCurso('todos')}>
+          Todos
+        </Filtro>
+        {CURSOS_FORM.map((c) => (
+          <Filtro key={c.value} activo={curso === c.value} onClick={() => setCurso(c.value)}>
+            {c.label}
+          </Filtro>
+        ))}
+      </Filtros>
 
       {loading ? (
-        <p className="mt-6 flex items-center gap-2 text-sm text-zinc-400">
-          <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
-        </p>
+        <SkeletonTabla n={8} columnas={6} />
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full min-w-[56rem] text-sm">
-            <thead className="bg-zinc-50 text-zinc-500 dark:bg-zinc-800/50">
+        <Tarjeta className="overflow-x-auto">
+          <table className="w-full min-w-[60rem] text-sm">
+            <thead className="border-b border-zinc-100 text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
               <tr>
                 {(
                   [
@@ -197,113 +209,125 @@ export function PedidosList() {
                     { campo: 'total', label: 'Total', align: 'text-right' },
                   ] as const
                 ).map((c) => (
-                  <th key={c.campo} className={`px-3 py-2 font-medium ${c.align}`}>
+                  <th
+                    key={c.campo}
+                    className={cn('px-2 py-1 font-medium', c.align)}
+                    aria-sort={orden.campo === c.campo ? (orden.asc ? 'ascending' : 'descending') : undefined}
+                  >
                     <button
                       type="button"
                       onClick={() => ordenarPor(c.campo)}
-                      title={`Ordenar por ${c.label.toLowerCase()}`}
-                      className={`inline-flex cursor-pointer items-center gap-1 hover:text-zinc-800 dark:hover:text-zinc-200 ${
-                        orden.campo === c.campo ? 'text-zinc-800 dark:text-zinc-100' : ''
-                      }`}
+                      className={cn(
+                        'inline-flex h-10 cursor-pointer items-center gap-1 rounded-lg px-1 outline-none hover:text-zinc-900 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:text-zinc-100',
+                        orden.campo === c.campo && 'text-zinc-900 dark:text-zinc-100',
+                      )}
                     >
                       {c.label}
                       {orden.campo === c.campo &&
-                        (orden.asc ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />)}
+                        (orden.asc ? <ChevronUp aria-hidden className="size-4" /> : <ChevronDown aria-hidden className="size-4" />)}
                     </button>
                   </th>
                 ))}
                 <th className="px-3 py-2 text-left font-medium">NIA</th>
-                <th className="px-3 py-2 text-center font-medium">🧾</th>
-                <th className="px-3 py-2 text-center font-medium">📤</th>
-                <th className="px-3 py-2 text-center font-medium">💰</th>
-                <th className="px-3 py-2 text-right font-medium">Acciones</th>
+                <th className="px-3 py-2 text-left font-medium">Editorial</th>
+                <th className="px-3 py-2 text-left font-medium">Envío</th>
+                <th className="px-3 py-2 text-left font-medium">Cobro</th>
+                <th className="px-3 py-2 text-right font-medium">
+                  <span className="sr-only">Acciones</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {filtered.map((o) => (
-                <tr key={o.id} className={o.archived ? 'bg-zinc-50/60 text-zinc-400 dark:bg-zinc-800/20' : 'bg-white dark:bg-zinc-900'}>
-                  <td className="px-3 py-2.5">
-                    <Link href={`/gestion/licencias/pedidos/${o.id}`} className="font-medium text-zinc-900 hover:underline dark:text-zinc-100">
+                <tr key={o.id} className={o.archived ? 'bg-zinc-50/60 text-zinc-500 dark:bg-zinc-800/20 dark:text-zinc-400' : undefined}>
+                  <td className="px-3 py-2">
+                    <Link
+                      href={`/gestion/licencias/pedidos/${o.id}`}
+                      className="rounded font-medium text-zinc-900 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-100"
+                    >
                       {o.nombre} {o.apellidos}
                     </Link>
-                    {o.archived && <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">(archivado)</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">{cursoLabel(o.curso)}</td>
-                  <td className="px-3 py-2.5">
-                    {o.letra ? (
-                      <span className="inline-flex min-w-6 items-center justify-center rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-                        {o.letra}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>
+                    {o.archived && (
+                      <Estado tono="neutro" className="ml-2">
+                        Archivado
+                      </Estado>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 text-zinc-500">{fmt(o.confirmedAt)}</td>
-                  <td className="px-3 py-2.5 text-right font-medium text-zinc-800 dark:text-zinc-100">{euros(parseFloat(o.total))}</td>
-                  <td className="px-3 py-2.5">
-                    {o.nia ? (
-                      <button
-                        type="button"
-                        title="Copiar NIA"
-                        onClick={() => copiarNia(o.nia!)}
-                        className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800 cursor-pointer"
-                      >
-                        {o.nia} <Copy className="h-3 w-3" />
-                      </button>
-                    ) : (
-                      <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>
-                    )}
+                  <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">{cursoLabel(o.curso)}</td>
+                  <td className="px-3 py-2">
+                    {o.letra ? <Etiqueta>{o.letra}</Etiqueta> : <span className="text-zinc-400">—</span>}
                   </td>
-                  <td className="px-3 py-2.5 text-center"><Badge on={!!o.editorialProcessedAt} label="🧾" title="Pedido a la editorial" /></td>
-                  <td className="px-3 py-2.5 text-center"><Badge on={!!o.sentToTemplateAt} label="📤" title="Pasado a plantillas de envío" /></td>
-                  <td className="px-3 py-2.5 text-center"><Badge on={!!o.paidAt} label="💰" title="Pagado" /></td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2 text-zinc-600 tabular-nums dark:text-zinc-400">{fmt(o.confirmedAt)}</td>
+                  <td className="px-3 py-2 text-right font-medium text-zinc-900 tabular-nums dark:text-zinc-100">
+                    {euros(parseFloat(o.total))}
+                  </td>
+                  <td className="px-3 py-2">
+                    {o.nia ? <Copiable valor={o.nia} mono etiqueta="NIA" /> : <span className="text-zinc-400">—</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    <Estado tono={o.editorialProcessedAt ? 'ok' : 'neutro'}>{o.editorialProcessedAt ? 'Pedido' : 'Sin pedir'}</Estado>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Estado tono={o.sentToTemplateAt ? 'ok' : 'neutro'}>{o.sentToTemplateAt ? 'En plantillas' : 'Pendiente'}</Estado>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Estado tono={o.paidAt ? 'ok' : 'neutro'}>{o.paidAt ? 'Pagado' : 'Sin pagar'}</Estado>
+                  </td>
+                  <td className="px-3 py-2">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={o.paidAt ? `Desmarcar pagado: ${o.nombre}` : `Marcar pagado: ${o.nombre}`}
                         title={o.paidAt ? 'Desmarcar pagado' : 'Marcar pagado'}
+                        aria-pressed={!!o.paidAt}
                         onClick={() => togglePagado(o)}
                         disabled={busyId === o.id}
-                        className={`rounded-lg p-1.5 cursor-pointer disabled:opacity-40 ${o.paidAt ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10' : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                        className={o.paidAt ? 'text-emerald-700 dark:text-emerald-300' : undefined}
                       >
-                        <PiggyBank className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
+                        <PiggyBank />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={o.archived ? `Desarchivar: ${o.nombre}` : `Archivar: ${o.nombre}`}
                         title={o.archived ? 'Desarchivar' : 'Archivar'}
                         onClick={() => toggleArchivado(o)}
                         disabled={busyId === o.id}
-                        className="rounded-lg p-1.5 text-zinc-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10 cursor-pointer disabled:opacity-40"
                       >
-                        {o.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        title="Eliminar definitivamente"
+                        {o.archived ? <ArchiveRestore /> : <Archive />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Borrar el pedido de ${o.nombre}`}
+                        title="Borrar definitivamente"
                         onClick={() => eliminar(o)}
                         disabled={busyId === o.id}
-                        className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 cursor-pointer disabled:opacity-40"
+                        className="text-zinc-500 hover:bg-red-50 hover:text-red-700 dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                        <Trash2 />
+                      </Button>
                     </div>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-6 text-center text-zinc-400">Sin pedidos que coincidan.</td>
+                  <td colSpan={10} className="px-3 py-8 text-center text-zinc-500 dark:text-zinc-400">
+                    Sin pedidos que coincidan.
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
+        </Tarjeta>
       )}
-      <p className="mt-3 text-xs text-zinc-400">
-        <Check className="mr-1 inline h-3 w-3" />
-        🧾 pedido a la editorial · 📤 pasado a plantillas de envío · 💰 pagado. Click en el nombre para ver/editar el
-        detalle, y en cualquier cabecera (Alumno, Curso, Clase, Fecha, Total) para ordenar por ella.
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        Toca el nombre para ver o editar el pedido, y cualquier cabecera (Alumno, Curso, Clase, Fecha, Total) para ordenar
+        por ella. Con la hucha marcas el cobro; con la caja, archivas.
       </p>
+      {dialogo}
     </div>
   );
 }

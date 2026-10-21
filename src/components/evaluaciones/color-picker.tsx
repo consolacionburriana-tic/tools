@@ -6,7 +6,10 @@
 // Sin explicación de más — "Color de la actividad" y los círculos ya dicen lo que hacen.
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { COLORES_ACTIVIDAD } from '@/lib/evaluaciones';
+import { tintaSobre } from '@/components/evaluaciones/ui';
 
 const AZUL_POR_DEFECTO = '#2563eb';
 
@@ -21,21 +24,29 @@ function TiraDeColores({
 }) {
   return (
     <>
-      <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{etiqueta}</p>
-      <div className="flex flex-wrap gap-1.5">
+      <p className="mb-1.5 px-0.5 text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400">{etiqueta}</p>
+      <div className="grid grid-cols-5 gap-1">
         {COLORES_ACTIVIDAD.map((c) => {
           const activo = (color ?? AZUL_POR_DEFECTO).toLowerCase() === c.toLowerCase();
           return (
             <button
               key={c}
               type="button"
-              title={c}
+              aria-label={`Color ${c}`}
+              aria-pressed={activo}
               onClick={() => onChange(c)}
-              style={{ background: c }}
-              className={`h-6 w-6 rounded-full transition-transform hover:scale-110 ${
-                activo ? 'ring-2 ring-offset-2 ring-zinc-900 dark:ring-white dark:ring-offset-zinc-900' : ''
-              }`}
-            />
+              className="flex size-10 items-center justify-center rounded-xl outline-none hover:bg-zinc-100 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800"
+            >
+              <span
+                style={{ background: c, color: tintaSobre(c) }}
+                className={cn(
+                  'flex size-7 items-center justify-center rounded-full',
+                  activo && 'ring-2 ring-zinc-900 ring-offset-2 dark:ring-white dark:ring-offset-zinc-900',
+                )}
+              >
+                {activo && <Check aria-hidden className="size-4" strokeWidth={3} />}
+              </span>
+            </button>
           );
         })}
       </div>
@@ -65,7 +76,7 @@ function Desplegable({
         initial={quieto ? false : { opacity: 0, y: -4, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.14 }}
-        className="absolute left-0 top-full z-40 mt-1.5 w-56 rounded-xl border border-zinc-200 bg-white p-2.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+        className="absolute top-full left-0 z-40 mt-1.5 w-60 rounded-2xl border border-zinc-200 bg-white p-2.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
       >
         <TiraDeColores
           color={color}
@@ -86,8 +97,8 @@ function Desplegable({
 export function LetraBadge({ letra, color, className = '' }: { letra: string; color: string | null; className?: string }) {
   return (
     <span
-      style={{ background: color ?? AZUL_POR_DEFECTO }}
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm ${className}`}
+      style={{ background: color ?? AZUL_POR_DEFECTO, color: tintaSobre(color ?? AZUL_POR_DEFECTO) }}
+      className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold', className)}
     >
       {letra}
     </span>
@@ -117,9 +128,10 @@ export function ActividadColorButton({
       <button
         type="button"
         disabled={disabled}
-        title={disabled ? undefined : etiqueta}
+        aria-label={disabled ? `Actividad ${letra}` : `${etiqueta} (actividad ${letra})`}
+        aria-expanded={disabled ? undefined : abierto}
         onClick={() => setAbierto((v) => !v)}
-        className="mt-0.5 rounded-lg transition-transform enabled:hover:scale-110 enabled:active:scale-95 disabled:opacity-60"
+        className="flex size-10 items-center justify-center rounded-xl outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 enabled:active:scale-95 disabled:cursor-default"
       >
         <LetraBadge letra={letra} color={color} />
       </button>
@@ -144,11 +156,17 @@ export function ColorDotButton({
     <div className="relative inline-block">
       <button
         type="button"
-        title={etiqueta}
+        aria-label={etiqueta}
+        aria-expanded={abierto}
         onClick={() => setAbierto((v) => !v)}
-        style={{ background: color ?? AZUL_POR_DEFECTO }}
-        className="h-5 w-5 shrink-0 rounded-full ring-1 ring-black/5 transition-transform hover:scale-110 active:scale-95 dark:ring-white/10"
-      />
+        className="flex size-10 shrink-0 items-center justify-center rounded-xl outline-none hover:bg-zinc-100 focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 dark:hover:bg-zinc-800"
+      >
+        <span
+          aria-hidden
+          style={{ background: color ?? AZUL_POR_DEFECTO }}
+          className="size-5 rounded-full ring-1 ring-black/5 dark:ring-white/10"
+        />
+      </button>
       <Desplegable abierto={abierto} setAbierto={setAbierto} color={color} onChange={onChange} etiqueta={etiqueta} />
     </div>
   );

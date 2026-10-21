@@ -15,11 +15,15 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { CONFIGURACION } from '@/lib/configuracion';
 import type { FilaCuenta } from '@/lib/cuentas';
 import type { EstadoCuentas } from '@/lib/cuentas-server';
-import { fecha, TARJETA } from './comun';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Cifra, Cifras } from '@/components/ui/cifra';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Tarjeta, TarjetaCabecera } from '@/components/ui/tarjeta';
+import { fecha } from './comun';
 import type { Filtro, Quien } from './lista';
 
 export function PorHacer({
@@ -177,53 +181,49 @@ export function PorHacer({
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 sm:grid-cols-3">
-        <Cifra titulo="Alumnado con correo" valor={`${conCorreo(alumnos)} de ${alumnos.length}`} />
-        <Cifra titulo="Profesorado con correo" valor={`${conCorreo(profes)} de ${profes.length}`} />
+      <Cifras className="sm:grid-cols-3">
+        <Cifra etiqueta="Alumnado con correo" valor={`${conCorreo(alumnos)} de ${alumnos.length}`} />
+        <Cifra etiqueta="Profesorado con correo" valor={`${conCorreo(profes)} de ${profes.length}`} />
         <Cifra
-          titulo="Cuentas en Google"
-          valor={String(enGoogle.length)}
-          sub={`${enGoogle.filter((f) => f.cuenta!.suspendida).length} suspendidas`}
+          etiqueta="Cuentas en Google"
+          valor={enGoogle.length}
+          nota={`${enGoogle.filter((f) => f.cuenta!.suspendida).length} suspendidas`}
         />
-      </section>
+      </Cifras>
 
       {pendientes.length === 0 ? (
-        <p className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
-          <CheckCircle2 className="h-5 w-5" /> Nada pendiente: cuentas, unidades y bajas al día.
-        </p>
+        <Aviso tono="ok">Nada pendiente: cuentas, unidades y bajas al día.</Aviso>
       ) : (
-        <section className="grid gap-3 lg:grid-cols-2">
+        <section aria-label="Por hacer" className="grid gap-3 lg:grid-cols-2">
           {pendientes.map((t) => (
-            <Tarjeta key={t.clave} t={t} puedeGestionar={puedeGestionar} />
+            <TarjetaTarea key={t.clave} t={t} puedeGestionar={puedeGestionar} />
           ))}
         </section>
       )}
 
-      <section className={cn(TARJETA, 'p-4')}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="font-medium text-zinc-900 dark:text-zinc-100">Grupos</p>
-            <p className="text-sm text-zinc-500">
-              {gestionados.length === 0
-                ? 'Ningún grupo se mantiene desde aquí todavía.'
-                : `${gestionados.length} grupo${gestionados.length === 1 ? '' : 's'} con reglas: revisa los cambios cuando llegue alguien nuevo o se vaya alguien.`}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => irA('grupos')}
-            className="inline-flex h-10 cursor-pointer items-center gap-1 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            Ver grupos <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </section>
+      <Tarjeta>
+        <TarjetaCabecera
+          className="border-b-0"
+          icono={<UsersRound />}
+          titulo="Grupos"
+          descripcion={
+            gestionados.length === 0
+              ? 'Ningún grupo se mantiene desde aquí todavía.'
+              : `${gestionados.length} grupo${gestionados.length === 1 ? '' : 's'} con reglas: revisa los cambios cuando llegue alguien nuevo o se vaya alguien.`
+          }
+          accion={
+            <Button variant="outline" size="sm" onClick={() => irA('grupos')}>
+              Ver grupos <ChevronRight />
+            </Button>
+          }
+        />
+      </Tarjeta>
 
       {hechas.length > 0 && (
-        <ul className="space-y-1.5 text-sm text-zinc-500">
+        <ul aria-label="Al día" className="space-y-1.5 text-sm text-zinc-500 dark:text-zinc-400">
           {hechas.map((t) => (
-            <li key={t.clave} className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <li key={t.clave} className="flex items-start gap-2">
+              <CheckCircle2 aria-hidden className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>
                 <b className="font-medium text-zinc-700 dark:text-zinc-300">{t.titulo}.</b> {t.texto}
               </span>
@@ -247,62 +247,42 @@ interface Tarea {
   acciones: { texto: string; onClick: () => void }[];
 }
 
-function Tarjeta({ t, puedeGestionar }: { t: Tarea; puedeGestionar: boolean }) {
+function TarjetaTarea({ t, puedeGestionar }: { t: Tarea; puedeGestionar: boolean }) {
   const Icono = t.icono;
   return (
-    <article className={cn(TARJETA, 'flex flex-col gap-3 p-4')}>
+    <Tarjeta as="article" className="flex flex-col gap-3 p-4">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-          <Icono className="h-5 w-5" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+          <Icono aria-hidden className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="flex items-baseline justify-between gap-2">
-            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{t.titulo}</span>
-            <span className="font-mono text-2xl font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">{t.titulo}</h2>
+            <span className="text-2xl font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">
               {t.n}
-              {t.unidad && <span className="ml-1 font-sans text-xs font-normal text-zinc-500">{t.unidad}</span>}
+              {t.unidad && <span className="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">{t.unidad}</span>}
             </span>
-          </p>
+          </div>
           <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{t.texto}</p>
         </div>
       </div>
       {t.chips && t.chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {t.chips.map((c) => (
-            <span key={c} className="rounded-md bg-zinc-100 px-2 py-0.5 font-mono text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+            <Etiqueta key={c} mono>
               {c}
-            </span>
+            </Etiqueta>
           ))}
         </div>
       )}
-      {t.nota && <p className="text-xs text-zinc-500">{t.nota}</p>}
+      {t.nota && <p className="text-xs text-zinc-500 dark:text-zinc-400">{t.nota}</p>}
       <div className="mt-auto flex flex-wrap gap-2">
         {(puedeGestionar ? t.acciones : t.acciones.slice(0, 1)).map((a, i) => (
-          <button
-            key={a.texto}
-            type="button"
-            onClick={a.onClick}
-            className={cn(
-              'inline-flex h-10 cursor-pointer items-center gap-1 rounded-xl px-3 text-sm font-medium',
-              i === 0 && puedeGestionar
-                ? 'bg-blue-600 font-semibold text-white hover:bg-blue-700'
-                : 'border border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800',
-            )}
-          >
-            {puedeGestionar ? a.texto : 'Ver'} <ChevronRight className="h-4 w-4" />
-          </button>
+          <Button key={a.texto} size="sm" variant={i === 0 && puedeGestionar ? 'default' : 'outline'} onClick={a.onClick}>
+            {puedeGestionar ? a.texto : 'Ver'} <ChevronRight />
+          </Button>
         ))}
       </div>
-    </article>
-  );
-}
-
-function Cifra({ titulo, valor, sub }: { titulo: string; valor: string; sub?: string }) {
-  return (
-    <div className={cn(TARJETA, 'p-4')}>
-      <p className="text-xs font-medium text-zinc-500">{titulo}</p>
-      <p className="mt-1 font-mono text-2xl font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">{valor}</p>
-      {sub && <p className="text-xs text-zinc-500">{sub}</p>}
-    </div>
+    </Tarjeta>
   );
 }

@@ -12,7 +12,13 @@ import { es } from 'date-fns/locale';
 import { CalendarCheck, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Chip, ClaseChip, Interruptor } from './ui';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Rotulo } from '@/components/ui/rotulo';
 import { haptic } from '@/lib/haptics';
 
 export interface ConsecuenciaVista {
@@ -87,7 +93,7 @@ export function ConsecuenciaForm({
       <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{consecuencia.alumno}</h1>
-          <ClaseChip clase={consecuencia.clase} />
+          <Etiqueta>{consecuencia.clase}</Etiqueta>
         </div>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           {consecuencia.motivo ?? 'Acumula tres retrasos sin justificar.'} Le corresponde quedarse sin patio.
@@ -109,53 +115,35 @@ export function ConsecuenciaForm({
 
       <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-          <CalendarCheck className="h-4 w-4 text-orange-500" /> ¿Qué día se queda sin patio?
+          <CalendarCheck aria-hidden className="h-4 w-4 text-zinc-500" /> ¿Qué día se queda sin patio?
         </h2>
-        <div className="flex flex-wrap gap-2">
+        <Filtros etiqueta="Qué día">
           {rapidas.map((r) => (
-            <Chip key={r.valor} activo={fecha === r.valor} onClick={() => setFecha(r.valor)}>
+            <Filtro key={r.valor} activo={fecha === r.valor} onClick={() => setFecha(r.valor)}>
               {r.label}
-            </Chip>
+            </Filtro>
           ))}
-          <label className="flex h-[44px] items-center rounded-xl border border-zinc-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-800/50">
-            <input
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="bg-transparent text-sm text-zinc-800 outline-none dark:text-zinc-100"
-            />
-          </label>
-        </div>
+          <Input type="date" aria-label="Otro día" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-auto" />
+        </Filtros>
         {fecha && (
           <p className="text-sm capitalize text-zinc-500 dark:text-zinc-400">{fmt(fecha)}</p>
         )}
 
-        <textarea
-          value={notas}
-          onChange={(e) => setNotas(e.target.value)}
-          rows={2}
-          placeholder="Notas (opcional)"
-          className="w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400 dark:border-zinc-700 dark:bg-zinc-800"
-        />
+        <Textarea value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Notas (opcional)" aria-label="Notas" />
 
-        <button
-          type="button"
-          disabled={guardando}
-          onClick={() => guardar()}
-          className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 py-3.5 text-base font-semibold text-white transition-colors hover:bg-orange-600 disabled:opacity-60"
-        >
-          {guardando ? <Loader2 className="h-5 w-5 animate-spin" /> : guardado ? <Check className="h-5 w-5" /> : null}
+        <Button type="button" size="lg" className="w-full" disabled={guardando} onClick={() => guardar()}>
+          {guardando ? <Loader2 className="animate-spin" /> : guardado ? <Check /> : null}
           {guardado ? 'Guardado' : 'Guardar la consecuencia'}
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-2.5">
-        <p className="text-xs uppercase tracking-wider text-zinc-400">Seguimiento</p>
+        <Rotulo as="h2">Seguimiento</Rotulo>
         <Interruptor
           activo={cumplida}
           etiqueta="Ya la ha cumplido"
           descripcion="Se quedó sin patio ese día"
-          onChange={(v) => {
+          onChange={(v: boolean) => {
             setCumplida(v);
             void guardar({ cumplida: v });
           }}
@@ -164,7 +152,7 @@ export function ConsecuenciaForm({
           activo={avisada}
           etiqueta="Avisado en Educamos"
           descripcion="La familia ya tiene el aviso puesto"
-          onChange={(v) => {
+          onChange={(v: boolean) => {
             setAvisada(v);
             void guardar({ avisadaEducamos: v });
           }}

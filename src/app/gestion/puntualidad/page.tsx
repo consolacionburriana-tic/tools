@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { format, subDays } from 'date-fns';
 import { getSessionUser } from '@/lib/auth-guards';
 import { redirect } from 'next/navigation';
+import { vePuntualidadCompleta } from '@/lib/permissions';
 import { alcanceClases, dashboard, ensureTiposConsecuencia } from '@/lib/puntualidad-server';
 import { DashboardPanel } from '@/components/puntualidad/dashboard-panel';
 
@@ -37,5 +38,5 @@ export default async function PuntualidadDashboardPage({
     clases: await alcanceClases(user),
   });
 
-  return <DashboardPanel datos={datos} rangoActivo={clave} />;
+  return <DashboardPanel datos={datos} rangoActivo={clave} puedeAjustar={vePuntualidadCompleta(user.role)} />;
 }

@@ -6,11 +6,15 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronDown, DoorOpen, Filter, Loader2, MapPin, Users } from 'lucide-react';
+import { ChevronDown, DoorOpen, Loader2, MapPin, Search, Users } from 'lucide-react';
 
 import { haptic } from '@/lib/haptics';
 import { ETAPAS_HORARIO } from '@/lib/horarios';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Segmentado } from '@/components/ui/segmentado';
 import type { OpcionesNavegador, VistaHorario } from '@/lib/horarios-server';
 
 const NOMBRE_ETAPA = new Map(ETAPAS_HORARIO.map((e) => [e.codigo as string, e.nombre]));
@@ -48,8 +52,8 @@ export function Selector({
 
   const vistas = puedeVerProfes ? VISTAS : VISTAS.filter((v) => v.id !== 'profe');
 
+  // El toque ya vibra en el segmentado y en los filtros.
   const ir = (v: VistaHorario, k: string) => {
-    haptic.tap();
     setYendo(`${v}:${k}`);
     const p = new URLSearchParams(params.toString());
     p.set('vista', v);
@@ -89,122 +93,97 @@ export function Selector({
       .map((e) => ({ clave: e.id, etiqueta: e.nombre, pista: e.codigo }));
   }, [vista, etapa, busca, opciones]);
 
+  // Cambiar de vista es la navegación MÁS lenta (se rehace el selector entero): la opción
+  // tocada enseña la ruedecita para que no parezca que el toque no ha entrado.
+  const vistaYendo = pendiente && yendo?.endsWith(':') ? (yendo.slice(0, -1) as VistaHorario) : null;
+
   return (
     <div className="space-y-3">
-      <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-        {vistas.map((v) => {
-          // Cambiar de vista es la navegación MÁS lenta (se rehace el selector entero) y era
-          // la única sin señal al tocarla: parecía que el toque no había entrado.
-          const yendoAqui = pendiente && yendo === `${v.id}:`;
-          return (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => ir(v.id, '')}
-              aria-busy={yendoAqui}
-              className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                vista === v.id || yendoAqui
-                  ? 'bg-white text-indigo-700 shadow-sm dark:bg-zinc-900 dark:text-indigo-300'
-                  : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
-              )}
-            >
-              {yendoAqui ? <Loader2 className="h-4 w-4 animate-spin" /> : <v.icono className="h-4 w-4" />}
-              {v.label}
-            </button>
-          );
-        })}
-      </div>
+      <Segmentado
+        etiqueta="Ver el horario de"
+        lleno
+        className="sm:w-auto sm:min-w-96"
+        valor={vistaYendo ?? vista}
+        onChange={(v) => v !== vista && ir(v, '')}
+        opciones={vistas.map((v) => ({
+          valor: v.id,
+          etiqueta: v.label,
+          icono: vistaYendo === v.id ? <Loader2 aria-hidden className="animate-spin" /> : <v.icono aria-hidden />,
+        }))}
+      />
 
       {/* Estas dos filas hacen cosas distintas y antes se confundían (parecían dos listas de
           clases). Van etiquetadas: arriba se ACOTA la etapa, abajo se ELIGE la clase. */}
       {vista === 'clase' && etapas.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="flex items-center gap-1 pr-0.5 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-            <Filter className="h-3.5 w-3.5" /> Etapa
-          </span>
-          <Filtro activo={!etapa} onClick={() => setEtapa('')}>Todas</Filtro>
-          {etapas.map((e) => (
-            <Filtro key={e} activo={etapa === e} onClick={() => setEtapa(e)}>{NOMBRE_ETAPA.get(e) ?? e}</Filtro>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Etapa</span>
+          <Filtros etiqueta="Etapa">
+            <Filtro activo={!etapa} onClick={() => setEtapa('')}>Todas</Filtro>
+            {etapas.map((e) => (
+              <Filtro key={e} activo={etapa === e} onClick={() => setEtapa(e)}>
+                {NOMBRE_ETAPA.get(e) ?? e}
+              </Filtro>
+            ))}
+          </Filtros>
         </div>
       )}
 
       {lista.length > 12 && (
-        <input
-          type="search"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder={vista === 'profe' ? 'Buscar profesor/a…' : 'Buscar…'}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-indigo-500/20"
-        />
+        <div className="relative max-w-md">
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
+          <Input
+            type="search"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder={vista === 'profe' ? 'Buscar profesor/a…' : 'Buscar…'}
+            aria-label={vista === 'profe' ? 'Buscar profesor/a' : 'Buscar'}
+            className="pl-9"
+          />
+        </div>
       )}
 
-      {/* En móvil una tira que se desliza (18 clases en rejilla se comen media pantalla);
-          en pantalla grande, todas a la vista de un vistazo. */}
       {/* Plegado, la lista es UNA fila que se desliza; desplegado, todo a la vista. Con 25
           profes la rejilla completa se comía la pantalla antes de llegar al horario, que es
           lo que se ha venido a ver. */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">{ETIQUETA_LISTA[vista]}</span>
+        <div className="flex min-h-10 items-center justify-between gap-2">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{ETIQUETA_LISTA[vista]}</span>
           {lista.length > 6 && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={desplegado}
               onClick={() => { haptic.tap(); setDesplegado((d) => !d); }}
-              className="flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
             >
               {desplegado ? 'Plegar' : `Ver los ${lista.length}`}
-              <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', desplegado && 'rotate-180')} />
-            </button>
+              <ChevronDown aria-hidden className={cn('transition-transform', desplegado && 'rotate-180')} />
+            </Button>
           )}
         </div>
-        <div
-          className={cn(
-            '-mx-4 flex gap-1.5 px-4 pb-1',
-            desplegado ? 'flex-wrap sm:mx-0 sm:px-0' : 'overflow-x-auto sm:mx-0 sm:px-0',
-          )}
+        <Filtros
+          etiqueta={ETIQUETA_LISTA[vista]}
+          className={cn('-mx-4 px-4 pb-1 sm:mx-0 sm:px-0', desplegado ? 'flex-wrap' : 'flex-nowrap overflow-x-auto')}
         >
-        {lista.map((o) => {
-          const cargando = pendiente && yendo === `${vista}:${o.clave}`;
-          return (
-            <button
-              key={o.clave}
-              type="button"
-              onClick={() => ir(vista, o.clave)}
-              className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors',
-                clave === o.clave || cargando
-                  ? 'border-indigo-500 bg-indigo-500 text-white'
-                  : 'border-zinc-200 bg-white text-zinc-700 hover:border-indigo-300 hover:bg-indigo-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-indigo-500/10',
-              )}
-            >
-              {cargando && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {o.etiqueta}
-              {o.pista && clave !== o.clave && !cargando && (
-                <span className="text-xs text-zinc-400 dark:text-zinc-500">{o.pista}</span>
-              )}
-            </button>
-          );
-        })}
+          {lista.map((o) => {
+            const cargando = pendiente && yendo === `${vista}:${o.clave}`;
+            const activo = clave === o.clave;
+            return (
+              <Filtro
+                key={o.clave}
+                activo={activo || cargando}
+                onClick={() => ir(vista, o.clave)}
+                icono={cargando ? <Loader2 aria-hidden className="animate-spin" /> : undefined}
+              >
+                {o.etiqueta}
+                {o.pista && !activo && !cargando && (
+                  <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">{o.pista}</span>
+                )}
+              </Filtro>
+            );
+          })}
           {lista.length === 0 && <p className="text-sm text-zinc-500 dark:text-zinc-400">Nada que mostrar.</p>}
-        </div>
+        </Filtros>
       </div>
     </div>
-  );
-}
-
-function Filtro({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={() => { haptic.tap(); onClick(); }}
-      className={cn(
-        'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-        activo ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400',
-      )}
-    >
-      {children}
-    </button>
   );
 }

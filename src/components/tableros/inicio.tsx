@@ -3,6 +3,9 @@
 // /gestion/tableros: lo que tengo asignado arriba, y debajo mis equipos con sus tableros en
 // baldosas de colores (estilo Trello). Desde aquí se crean equipos y tableros y se lleva quién
 // está en cada equipo.
+import { Avatar, Avatares } from '@/components/ui/avatar';
+import { buttonVariants } from '@/components/ui/button';
+import { claseCampo as ESTILO_CAMPO } from '@/components/ui/input';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -39,14 +42,9 @@ import {
 } from '@/lib/tableros';
 import {
   api,
-  Avatar,
-  Avatares,
-  BOTON_PRIMARIO,
-  BOTON_SECUNDARIO,
   ChipPrioridad,
   ChipVence,
   EMOJIS_TABLERO,
-  ESTILO_CAMPO,
   ACENTO,
   TINTE,
   SelectorColor,
@@ -85,10 +83,10 @@ export function InicioTableros({ inicial, yo }: { inicial: DatosInicio; yo: stri
           <p className="text-sm text-zinc-500">Tareas por equipos: solo entra quien está en cada equipo.</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => setAvisos(true)} className={BOTON_SECUNDARIO}>
+          <button type="button" onClick={() => setAvisos(true)} className={buttonVariants({ variant: 'outline' })}>
             <Bell className="h-4 w-4" /> <span className="hidden sm:inline">Avisos por correo</span>
           </button>
-          <button type="button" onClick={() => setNuevoEquipo(true)} className={BOTON_PRIMARIO}>
+          <button type="button" onClick={() => setNuevoEquipo(true)} className={buttonVariants()}>
             <Plus className="h-4 w-4" /> Nuevo equipo
           </button>
         </div>
@@ -226,7 +224,7 @@ function SinEquipos({ onCrear }: { onCrear: () => void }) {
         Crea uno (aunque sea solo para ti), mete a quien haga falta y organiza las tareas en tableros con columnas: por
         hacer, en curso y hecho. Si alguien te añade a su equipo, lo verás aquí.
       </p>
-      <button type="button" onClick={onCrear} className={cn(BOTON_PRIMARIO, 'mt-5')}>
+      <button type="button" onClick={onCrear} className={buttonVariants({ className: 'mt-5' })}>
         <Plus className="h-4 w-4" /> Crear mi primer equipo
       </button>
     </div>
@@ -275,7 +273,7 @@ function SeccionEquipo({
           className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-zinc-500 transition-colors hover:bg-white hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
           title="Miembros y ajustes del equipo"
         >
-          <Avatares emails={equipo.miembros.map((m) => m.email)} personas={equipo.miembros} max={4} />
+          <Avatares personas={equipo.miembros} max={4} />
           <Settings2 className="h-4 w-4" />
         </button>
       </div>
@@ -445,7 +443,7 @@ function DialogoNuevoEquipo({ onClose, onCreado }: { onClose: () => void; onCrea
           <SelectorPersonas seleccionados={miembros} onChange={setMiembros} />
           <p className="text-xs text-zinc-500">Tú quedas de admin. Solo verán los tableros las personas del equipo.</p>
         </div>
-        <button type="button" onClick={crear} disabled={guardando || !nombre.trim()} className={BOTON_PRIMARIO}>
+        <button type="button" onClick={crear} disabled={guardando || !nombre.trim()} className={buttonVariants()}>
           Crear equipo
         </button>
       </DialogContent>
@@ -485,7 +483,7 @@ function DialogoNuevoTablero({ equipo, onClose, onCreado }: { equipo: Equipo; on
           placeholder="Desarrollo interno, Mantenimiento de aulas…"
         />
         <p className="text-xs text-zinc-500">Nace con tres listas: Por hacer, En curso y Hecho. Se pueden cambiar.</p>
-        <button type="button" onClick={crear} disabled={guardando || !nombre.trim()} className={BOTON_PRIMARIO}>
+        <button type="button" onClick={crear} disabled={guardando || !nombre.trim()} className={buttonVariants()}>
           Crear tablero
         </button>
       </DialogContent>
@@ -550,7 +548,7 @@ function DialogoEquipo({
                 type="button"
                 disabled={ocupado || !nombre.trim()}
                 onClick={() => hacer(() => api.equipo(equipo.id, { accion: 'editar', nombre, emoji, color, descripcion }), 'Guardado')}
-                className={BOTON_PRIMARIO}
+                className={buttonVariants()}
               >
                 Guardar cambios
               </button>
@@ -632,7 +630,7 @@ function DialogoEquipo({
                     setNuevos([]);
                   }, nuevos.length === 1 ? 'Añadida: le llega un aviso por correo' : 'Añadidas: les llega un aviso por correo')
                 }
-                className={BOTON_PRIMARIO}
+                className={buttonVariants()}
               >
                 <Plus className="h-4 w-4" /> Añadir {nuevos.length === 1 ? 'a 1 persona' : `a ${nuevos.length} personas`}
               </button>
@@ -654,7 +652,7 @@ function DialogoEquipo({
                   toast.error(err instanceof Error ? err.message : 'No se ha podido');
                 }
               }}
-              className={BOTON_SECUNDARIO}
+              className={buttonVariants({ variant: 'outline' })}
             >
               <LogOut className="h-4 w-4" /> Salir del equipo
             </button>
@@ -676,7 +674,7 @@ function DialogoEquipo({
                   toast.error(err instanceof Error ? err.message : 'No se ha podido');
                 }
               }}
-              className={cn(BOTON_SECUNDARIO, 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10')}
+              className={buttonVariants({ variant: 'destructive' })}
             >
               <Trash2 className="h-4 w-4" /> Borrar equipo
             </button>
