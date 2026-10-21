@@ -5,12 +5,14 @@ import Image from 'next/image';
 import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Bus, Eye, Lock, LogOut, SearchCheck, Smartphone } from 'lucide-react';
 import type { AccesoPortada, ModuloPortada } from '@/lib/portada';
+import { buttonVariants } from '@/components/ui/button';
 
 /**
  * El acento de cada módulo: azul y móvil para Licencias (el mismo azul de `/licencias`),
- * ámbar y autobús para Salidas. Color de fondo suave y el color fuerte solo en el icono y
- * en el texto — un botón a todo color por trámite gritaba demasiado para una portada que
- * la mayoría de las veces tiene dos.
+ * rosa y autobús para Salidas (el rosa de «Familias y cobros» en el escritorio; el ámbar que
+ * tenía antes es el color de «falta algo» en toda la app). Color de fondo suave y el color
+ * fuerte solo en el icono y en el texto — un botón a todo color por trámite gritaba demasiado
+ * para una portada que la mayoría de las veces tiene dos.
  *
  * Un módulo nuevo en la portada añade aquí su tema, con un color que no tenga ya otro: que
  * dos trámites se parezcan es justo el problema que esta pantalla viene a resolver.
@@ -26,9 +28,9 @@ const TEMAS: Record<ModuloPortada, { Icono: typeof Bus; tarjeta: string; icono: 
   salidas: {
     Icono: Bus,
     tarjeta:
-      'border-amber-200 bg-amber-50/70 hover:bg-amber-50 active:bg-amber-100/80 dark:border-amber-900/70 dark:bg-amber-500/10 dark:hover:bg-amber-500/15',
-    icono: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
-    texto: 'text-amber-900 dark:text-amber-100',
+      'border-pink-200 bg-pink-50/70 hover:bg-pink-50 active:bg-pink-100/80 dark:border-pink-900/70 dark:bg-pink-500/10 dark:hover:bg-pink-500/15',
+    icono: 'bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-300',
+    texto: 'text-pink-900 dark:text-pink-100',
   },
 };
 
@@ -53,13 +55,13 @@ function TarjetaAcceso({ acceso }: { acceso: AccesoPortada }) {
       {acceso.secundario && (
         <Link
           href={acceso.secundario.href}
-          className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           <span className="flex items-center gap-2.5">
-            <SearchCheck className="h-4.5 w-4.5 text-zinc-400" />
+            <SearchCheck aria-hidden className="h-4.5 w-4.5 text-zinc-500 dark:text-zinc-400" />
             {acceso.secundario.titulo}
           </span>
-          <ArrowRight className="h-4 w-4 shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 dark:text-zinc-600" />
+          <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-hover:translate-x-0.5 dark:text-zinc-500" />
         </Link>
       )}
     </div>
@@ -95,11 +97,8 @@ export function HomeLanding({
             <span className="flex items-center gap-2">
               <Eye className="h-4 w-4 shrink-0" /> Así ve la portada una familia
             </span>
-            <Link
-              href="/gestion"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-blue-600 px-3 font-semibold text-white hover:bg-blue-700"
-            >
-              <ArrowLeft className="h-4 w-4" /> Volver al escritorio
+            <Link href="/gestion" className={buttonVariants({ size: 'sm', className: 'shrink-0' })}>
+              <ArrowLeft aria-hidden /> Volver al escritorio
             </Link>
           </div>
         </div>
@@ -139,7 +138,7 @@ export function HomeLanding({
             Colegio Consolación Burriana
           </h1>
           {vacia && (
-            <p className="mt-2 text-sm text-zinc-500">
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               Por aquí no hay nada abierto ahora mismo; cuando toque algo, el colegio te avisa por correo.
             </p>
           )}
@@ -165,24 +164,18 @@ export function HomeLanding({
           className="mt-10"
         >
           {sesion && !sesion.claustro ? (
-            <form action={salir} className="flex flex-col items-center gap-1.5 text-center text-xs text-zinc-500">
+            <form action={salir} className="flex flex-col items-center gap-1 text-center text-sm text-zinc-500 dark:text-zinc-400">
               <span>
                 Has entrado como <strong className="font-medium text-zinc-700 dark:text-zinc-300">{sesion.email}</strong>, que no es una
                 cuenta del profesorado.
               </span>
-              <button
-                type="submit"
-                className="inline-flex cursor-pointer items-center gap-1.5 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
-              >
-                <LogOut className="h-3.5 w-3.5" /> Salir
+              <button type="submit" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                <LogOut aria-hidden /> Salir
               </button>
             </form>
           ) : (
-            <Link
-              href="/gestion"
-              className="inline-flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
-            >
-              <Lock className="h-3.5 w-3.5" />
+            <Link href="/gestion" className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'font-medium text-zinc-500 dark:text-zinc-400' })}>
+              <Lock aria-hidden className="size-3.5" />
               Acceso del profesorado
             </Link>
           )}

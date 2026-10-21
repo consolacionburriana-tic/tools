@@ -17,6 +17,33 @@ import { Secciones, type Seccion } from '@/components/ui/segmentado';
 // pantalla, salvo las de una cosa concreta (la ficha de un alumno, un tablero), que llevan
 // su nombre a la vista con `TituloPagina`.
 
+/**
+ * La barra de arriba de toda la app: blanca, fija al hacer scroll, 56 px. La usan la cabecera
+ * de cada módulo y la del escritorio, para que las dos sean la misma pieza.
+ */
+export function BarraSuperior({
+  izquierda,
+  derecha,
+  debajo,
+  ancho = 'normal',
+}: {
+  izquierda: React.ReactNode;
+  derecha?: React.ReactNode;
+  /** Una franja bajo la barra (un aviso). */
+  debajo?: React.ReactNode;
+  ancho?: AnchoPagina;
+}) {
+  return (
+    <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95 print:hidden">
+      <div className={cn('mx-auto flex h-14 items-center justify-between gap-3 px-4 sm:px-6', ANCHO_PAGINA[ancho])}>
+        {izquierda}
+        {derecha && <div className="flex shrink-0 items-center gap-2">{derecha}</div>}
+      </div>
+      {debajo}
+    </header>
+  );
+}
+
 export function CabeceraModulo({
   modulo,
   titulo,
@@ -35,8 +62,9 @@ export function CabeceraModulo({
 }) {
   const m = MODULOS[modulo];
   return (
-    <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95 print:hidden">
-      <div className={cn('mx-auto flex h-14 items-center justify-between gap-3 px-4 sm:px-6', ANCHO_PAGINA[ancho])}>
+    <BarraSuperior
+      ancho={ancho}
+      izquierda={
         <Link
           href={m.href}
           className="-ml-1 flex min-w-0 items-center gap-2.5 rounded-xl py-1 pr-2 pl-1 text-base font-semibold text-zinc-900 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-100"
@@ -44,20 +72,24 @@ export function CabeceraModulo({
           <IconoModulo icono={m.icono} grupo={m.grupo} tamano="sm" />
           <span className="truncate">{titulo ?? m.titulo}</span>
         </Link>
-        <div className="flex shrink-0 items-center gap-2">
+      }
+      derecha={
+        <>
           {accion}
           <Link href="/gestion" className={buttonVariants({ variant: 'outline', size: 'sm', className: 'px-3' })}>
             <ChevronLeft aria-hidden />
             <span className="sr-only sm:not-sr-only">Escritorio</span>
           </Link>
-        </div>
-      </div>
-      {aviso && (
-        <div className="border-t border-blue-100 bg-blue-50 px-4 py-2 text-center text-sm text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-          {aviso}
-        </div>
-      )}
-    </header>
+        </>
+      }
+      debajo={
+        aviso && (
+          <div className="border-t border-blue-100 bg-blue-50 px-4 py-2 text-center text-sm text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
+            {aviso}
+          </div>
+        )
+      }
+    />
   );
 }
 
