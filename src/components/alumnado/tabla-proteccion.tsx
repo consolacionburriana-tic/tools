@@ -35,6 +35,7 @@ import {
 import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista, ProteccionLista } from '@/lib/alumnado-server';
 import { BarraTabla, BotonMasivo, Celda, CeldaAlumno, ColumnaBoton, useGuardado, type TonoTabla } from './piezas-tabla';
+import { Button } from '@/components/ui/button';
 
 type Estado = boolean | null;
 type Cambios = Partial<Record<CampoProteccion, Estado>> & { desestimaCorreo?: boolean };
@@ -108,7 +109,7 @@ export function TablaProteccion({
 
   if (conPd.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-400 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
         Aquí no hay ningún alumno cuya protección de datos te toque: se ve la de tu etapa.
       </div>
     );
@@ -133,13 +134,14 @@ export function TablaProteccion({
           </>
         }
       >
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => onInforme(detalle ? ['pd', 'pd_imagen', 'pd_redes', 'pd_ampa', 'pd_ong', 'pd_correo'] : ['pd', 'pd_correo'])}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
         >
-          <FileDown className="h-3.5 w-3.5" /> Informe
-        </button>
+          <FileDown aria-hidden /> Informe
+        </Button>
         {puedeEditar && (
           <>
             <BotonMasivo
@@ -170,16 +172,18 @@ export function TablaProteccion({
               <th className="p-2 align-bottom">
                 <span className="flex items-center justify-center gap-1">
                   <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">Protección de datos</span>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setDetalle((d) => !d)}
                     aria-expanded={detalle}
                     title={detalle ? 'Plegar el detalle' : 'Ver imagen, redes, AMPA y ONG por separado'}
-                    className="inline-flex items-center rounded-md px-1 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                    className="gap-1 px-2 text-xs text-blue-700 dark:text-blue-400"
                   >
-                    {detalle ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                    {detalle ? <ChevronLeft aria-hidden /> : <ChevronRight aria-hidden />}
                     {detalle ? 'plegar' : 'detalle'}
-                  </button>
+                  </Button>
                 </span>
                 {puedeEditar && (
                   <span className="mt-1 flex justify-center gap-0.5">

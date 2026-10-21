@@ -15,6 +15,7 @@ import { Check, Eye, EyeOff, FileDown, X } from 'lucide-react';
 import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista } from '@/lib/alumnado-server';
 import { BarraTabla, Celda, CeldaAlumno, ColumnaBoton, useGuardado } from './piezas-tabla';
+import { Button } from '@/components/ui/button';
 
 type Campo = 'bancoLibros' | 'ampa';
 
@@ -57,7 +58,7 @@ export function TablaParticipacion({
 
   if (alumnos.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-400 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
         No hay alumnado aquí.
       </div>
     );
@@ -77,21 +78,13 @@ export function TablaParticipacion({
           </span>
         }
       >
-        <button
-          type="button"
-          onClick={() => setConOtro((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-        >
-          {conOtro ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        <Button type="button" variant="ghost" size="sm" aria-pressed={conOtro} onClick={() => setConOtro((v) => !v)}>
+          {conOtro ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
           {conOtro ? `Quitar ${TITULO[otro]}` : `Ver también ${TITULO[otro]}`}
-        </button>
-        <button
-          type="button"
-          onClick={() => onInforme(columnas.map((c) => COLUMNA_INFORME[c]))}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-        >
-          <FileDown className="h-3.5 w-3.5" /> Informe PDF
-        </button>
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => onInforme(columnas.map((c) => COLUMNA_INFORME[c]))}>
+          <FileDown aria-hidden /> Informe PDF
+        </Button>
       </BarraTabla>
 
       {confirmacion}

@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { Tarjeta } from '@/components/alumnado/ficha-alumno';
 import { CAMPOS_PROTECCION, PROTECCION_LABELS, type CampoProteccion, type ProteccionDatos } from '@/lib/alumnado';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
 
 type Estado = boolean | null;
 type Cambio = {
@@ -100,15 +101,15 @@ export function TarjetaProteccion({
         proteccion && puedeEditar ? (
           // El atajo del caso normal: la familia autoriza las cuatro cosas, y lo raro es el
           // «no». Para una clase entera está la tabla de la pestaña de al lado.
-          <button
+          <Button
             type="button"
+            size="sm"
             disabled={guardando === 'todo'}
             onClick={() => guardar('todo', { imagen: true, redes: true, ampa: true, ong: true }, 'proteccion')}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
           >
-            {guardando === 'todo' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            {guardando === 'todo' ? <Loader2 className="animate-spin" /> : <Check aria-hidden />}
             Todo sí
-          </button>
+          </Button>
         ) : undefined
       }
     >
@@ -142,13 +143,13 @@ export function TarjetaProteccion({
             </div>
           </div>
           {proteccion.actualizadoAt && (
-            <p className="mt-1 text-right text-[11px] text-zinc-400">
+            <p className="mt-1 text-right text-xs text-zinc-500 dark:text-zinc-400">
               Última vez: {new Date(proteccion.actualizadoAt).toLocaleDateString('es-ES')}
               {proteccion.actualizadoPor && ` · ${proteccion.actualizadoPor.split('@')[0]}`}
             </p>
           )}
           {!puedeEditar && (
-            <p className="mt-1.5 text-[11px] text-zinc-400">
+            <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
               Para cambiar algo de aquí, secretaría (o dirección/TIC): son los papeles que guardan ellos.
             </p>
           )}
@@ -249,7 +250,7 @@ function Fila({
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
       <div className="min-w-0">
         <p className="text-sm text-zinc-800 dark:text-zinc-100">{label.titulo}</p>
-        <p className="text-[11px] text-zinc-400">{label.ayuda}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{label.ayuda}</p>
       </div>
       {editable ? (
         // Tres botones de verdad y no un desplegable: en un iPad, elegir entre tres cosas
@@ -265,7 +266,7 @@ function Fila({
                 disabled={guardando}
                 aria-pressed={puesto}
                 onClick={() => !puesto && onElegir(e.valor)}
-                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${
+                className={`inline-flex h-10 items-center gap-1 rounded-lg px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 ${
                   puesto ? e.puesto : 'text-zinc-500 hover:bg-white dark:text-zinc-400 dark:hover:bg-zinc-700'
                 }`}
               >
@@ -319,7 +320,7 @@ function Interruptor({
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-sm text-zinc-800 dark:text-zinc-100">{etiqueta}</p>
-        {ayuda && <p className="text-[11px] text-zinc-400">{ayuda}</p>}
+        {ayuda && <p className="text-xs text-zinc-500 dark:text-zinc-400">{ayuda}</p>}
       </div>
       {editable ? (
         <button

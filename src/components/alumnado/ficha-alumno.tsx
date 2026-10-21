@@ -51,6 +51,8 @@ import {
 } from '@/lib/alumnado';
 import type { FichaAlumno } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
+import { Estado, type TonoEstado } from '@/components/ui/estado';
 
 const fecha = (iso: string | null | undefined, conAnio = true) => {
   if (!iso) return null;
@@ -98,7 +100,7 @@ export function FichaAlumnoPanel({
       {/* Al saltar de una ficha a otra se deja la anterior a la vista y se avisa arriba: es
           menos brusco que vaciar la pantalla, y con ~150 ms apenas se llega a ver. */}
       {cargando && (
-        <div className="pointer-events-none absolute right-0 top-0 z-10 inline-flex items-center gap-1.5 rounded-full bg-zinc-900/90 px-2.5 py-1 text-[11px] font-medium text-white dark:bg-zinc-100/90 dark:text-zinc-900">
+        <div className="pointer-events-none absolute right-0 top-0 z-10 inline-flex items-center gap-1.5 rounded-full bg-zinc-900/90 px-2.5 py-1 text-xs font-medium text-white dark:bg-zinc-100/90 dark:text-zinc-900">
           <Loader2 className="h-3 w-3 animate-spin" /> Cargando
         </div>
       )}
@@ -116,14 +118,16 @@ export function FichaAlumnoPanel({
                 {ficha.completo}
               </Copiable>
             </h2>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={onCerrar}
-              className="shrink-0 rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 lg:hidden dark:hover:bg-zinc-800"
+              className="-mt-1.5 lg:hidden"
               aria-label="Cerrar la ficha"
             >
-              <X className="h-4 w-4" />
-            </button>
+              <X aria-hidden />
+            </Button>
           </div>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-zinc-500">
             <span className="font-medium text-zinc-700 dark:text-zinc-200">{ficha.clase}</span>
@@ -162,14 +166,14 @@ export function FichaAlumnoPanel({
       {/* ── 2 · Lo que hay que saber ya ──────────────────────────────── */}
       <div className="flex flex-wrap gap-1.5">
         <Chip
-          tono={ficha.bancoLibros ? 'verde' : 'gris'}
+          tono={ficha.bancoLibros ? 'ok' : 'neutro'}
           icono={<Library className="h-3.5 w-3.5" />}
           texto={ficha.bancoLibros ? 'Banco de libros' : 'Sin banco de libros'}
           detalle={ficha.banco ? `lote ${ficha.banco.lote}${ficha.banco.entregado ? ' · entregado' : ' · sin entregar'}` : undefined}
         />
         {ficha.licencias?.participa && (
           <Chip
-            tono={ficha.licencias.pedidoHecho ? 'azul' : 'ambar'}
+            tono={ficha.licencias.pedidoHecho ? 'info' : 'aviso'}
             icono={<BookMarked className="h-3.5 w-3.5" />}
             texto={ficha.licencias.pedidoHecho ? 'Licencias pedidas' : 'Licencias pendientes'}
             detalle={
@@ -181,15 +185,15 @@ export function FichaAlumnoPanel({
             }
           />
         )}
-        {ficha.ampa && <Chip tono="violeta" icono={<Heart className="h-3.5 w-3.5" />} texto="AMPA" />}
+        {ficha.ampa && <Chip tono="neutro" icono={<Heart className="h-3.5 w-3.5" />} texto="AMPA" />}
         {/* Comedor y complementarias: solo si los tiene. Un «no come» en cada ficha sería ruido. */}
-        {ficha.comedor && <Chip tono="naranja" icono={<UtensilsCrossed className="h-3.5 w-3.5" />} texto="Comedor" />}
+        {ficha.comedor && <Chip tono="neutro" icono={<UtensilsCrossed className="h-3.5 w-3.5" />} texto="Comedor" />}
         {ficha.complementarias && (
-          <Chip tono="azul" icono={<Palette className="h-3.5 w-3.5" />} texto="Complementarias" />
+          <Chip tono="neutro" icono={<Palette className="h-3.5 w-3.5" />} texto="Complementarias" />
         )}
         {/* El estado completo del iPad, solo para quien lleva Dispositivos 1:1 (el resto recibe `texto: null`). */}
         {ficha.dispositivo?.texto && (
-          <Chip tono="gris" icono={<Tablet className="h-3.5 w-3.5" />} texto={`iPad ${ficha.dispositivo.texto.charAt(0).toLowerCase()}${ficha.dispositivo.texto.slice(1)}`} />
+          <Chip tono="neutro" icono={<Tablet className="h-3.5 w-3.5" />} texto={`iPad ${ficha.dispositivo.texto.charAt(0).toLowerCase()}${ficha.dispositivo.texto.slice(1)}`} />
         )}
         {/* El de protección de datos va con los primeros a propósito: es lo que se mira
             antes de publicar una foto, y llegar tarde a ese dato no tiene arreglo. */}
@@ -198,18 +202,18 @@ export function FichaAlumnoPanel({
             const aviso = avisoProteccion(ficha.proteccion);
             return (
               <Chip
-                tono={aviso.tono}
+                tono={TONO_PROTECCION[aviso.tono]}
                 icono={<Camera className="h-3.5 w-3.5" />}
                 texto={aviso.texto}
                 detalle={aviso.detalle}
               />
             );
           })()}
-        {ficha.familiaNumerosa && <Chip tono="violeta" texto="Familia numerosa" />}
-        {ficha.hijoDeEmpleado && <Chip tono="violeta" texto="Hijo/a de empleado" />}
+        {ficha.familiaNumerosa && <Chip tono="neutro" texto="Familia numerosa" />}
+        {ficha.hijoDeEmpleado && <Chip tono="neutro" texto="Hijo/a de empleado" />}
         {ficha.puntualidad && (
           <Chip
-            tono={ficha.puntualidad.consecuenciasPendientes > 0 ? 'rojo' : 'ambar'}
+            tono={ficha.puntualidad.consecuenciasPendientes > 0 ? 'error' : 'aviso'}
             icono={<AlertTriangle className="h-3.5 w-3.5" />}
             texto={`${ficha.puntualidad.retrasos} retraso${ficha.puntualidad.retrasos === 1 ? '' : 's'}`}
             detalle={
@@ -221,13 +225,13 @@ export function FichaAlumnoPanel({
         )}
         {ficha.abc.informes > 0 && (
           <Chip
-            tono="teal"
+            tono="info"
             icono={<ClipboardList className="h-3.5 w-3.5" />}
             texto={`${ficha.abc.informes} registro(s) ABC`}
             detalle={fecha(ficha.abc.ultimo) ?? undefined}
           />
         )}
-        {ficha.apoyos.length > 0 && <Chip tono="teal" texto={`Apoyo (${ficha.apoyos.map((a) => a.modalidad).join(', ')})`} />}
+        {ficha.apoyos.length > 0 && <Chip tono="neutro" texto={`Apoyo (${ficha.apoyos.map((a) => a.modalidad).join(', ')})`} />}
       </div>
 
       {/* ── 3 · A quién llamo ────────────────────────────────────────── */}
@@ -303,9 +307,9 @@ export function FichaAlumnoPanel({
                       haptic.tap();
                       onIrA(h.id);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-zinc-100 px-3 text-sm font-medium text-zinc-700 transition-colors outline-none hover:bg-zinc-200 focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                   >
-                    {h.completo} <span className="text-zinc-400">{h.clase}</span>
+                    {h.completo} <span className="text-xs text-zinc-500 dark:text-zinc-400">{h.clase}</span>
                   </button>
                 ))}
               </div>
@@ -345,16 +349,14 @@ export function FichaAlumnoPanel({
 
 // ─── Piezas ───────────────────────────────────────────────────────────────────
 
-const TONOS = {
-  verde: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
-  azul: 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900',
-  ambar: 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900',
-  rojo: 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900',
-  violeta: 'bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:ring-violet-900',
-  teal: 'bg-teal-50 text-teal-700 ring-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:ring-teal-900',
-  naranja: 'bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:ring-orange-900',
-  gris: 'bg-zinc-100 text-zinc-500 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700',
-} as const;
+// Lo que hay que saber ya, en pastillas de estado (`Estado`): verde/ámbar/rojo solo cuando
+// dicen hecho, falta o problema; lo demás (AMPA, comedor, familia numerosa) va en gris.
+const TONO_PROTECCION: Record<ReturnType<typeof avisoProteccion>['tono'], TonoEstado> = {
+  verde: 'ok',
+  ambar: 'aviso',
+  rojo: 'error',
+  gris: 'neutro',
+};
 
 function Chip({
   tono,
@@ -362,19 +364,16 @@ function Chip({
   detalle,
   icono,
 }: {
-  tono: keyof typeof TONOS;
+  tono: TonoEstado;
   texto: string;
   detalle?: string;
   icono?: React.ReactNode;
 }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium ring-1 ring-inset ${TONOS[tono]}`}
-    >
-      {icono}
+    <Estado tono={tono} icono={icono} className="py-1.5 whitespace-normal">
       {texto}
-      {detalle && <span className="font-normal opacity-70">· {detalle}</span>}
-    </span>
+      {detalle && <span className="font-normal opacity-80">· {detalle}</span>}
+    </Estado>
   );
 }
 
@@ -444,14 +443,14 @@ function Familiar({ familiar }: { familiar: FichaAlumno['familiares'][number] })
           {familiar.parentesco ? (PARENTESCO[familiar.parentesco] ?? familiar.parentesco.toLowerCase()) : 'familiar'}
         </span>
         {familiar.guardaCustodia && (
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+          <Estado tono="aviso" className="px-2 py-0.5">
             guarda y custodia
-          </span>
+          </Estado>
         )}
         {familiar.recibeInformacion === false && (
-          <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+          <Estado tono="neutro" className="px-2 py-0.5">
             no recibe información
-          </span>
+          </Estado>
         )}
       </div>
 
@@ -491,7 +490,8 @@ function Telefono({ etiqueta, valor }: { etiqueta: string; valor: string }) {
           <a
             href={`tel:${tel.tel}`}
             title="Llamar"
-            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+            aria-label="Llamar"
+            className="inline-flex size-10 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
           >
             <Phone className="h-3.5 w-3.5" />
           </a>
@@ -502,7 +502,8 @@ function Telefono({ etiqueta, valor }: { etiqueta: string; valor: string }) {
             target="_blank"
             rel="noreferrer"
             title="WhatsApp"
-            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-300"
+            aria-label="WhatsApp"
+            className="inline-flex size-10 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-300"
           >
             <MessageCircle className="h-3.5 w-3.5" />
           </a>
@@ -521,7 +522,8 @@ function Correo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
         <a
           href={`mailto:${valor}`}
           title="Escribir"
-          className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+          aria-label="Escribir un correo"
+          className="inline-flex size-10 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
         >
           <Mail className="h-3.5 w-3.5" />
         </a>

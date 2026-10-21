@@ -16,6 +16,12 @@ import { columnasDisponibles, type ClaveColumna, type ColumnaInforme } from '@/l
 import { TIPO_LISTA_LABEL, type TipoLista } from '@/lib/alumnado-listas';
 import type { ClaseListado, MaterialLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Selector } from '@/components/ui/selector';
 
 type Formato = 'pdf' | 'xlsx' | 'csv';
 type Ambito = 'actual' | 'todas' | 'elegir';
@@ -87,14 +93,14 @@ function ListasRapidas({ clases, claseActual }: { clases: ClaseListado[]; claseA
             type="button"
             disabled={bajando !== null}
             onClick={() => void bajar(tipo)}
-            className="flex items-start gap-2.5 rounded-xl bg-zinc-50 p-3 text-left ring-1 ring-zinc-200 transition-colors hover:bg-blue-50 hover:ring-blue-200 disabled:opacity-60 dark:bg-zinc-800/50 dark:ring-zinc-700 dark:hover:bg-blue-950/40 dark:hover:ring-blue-900"
+            className="flex min-h-11 items-start gap-2.5 rounded-xl bg-zinc-50 p-3 text-left ring-1 ring-zinc-200 transition-colors outline-none hover:bg-blue-50 hover:ring-blue-200 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 dark:bg-zinc-800/50 dark:ring-zinc-700 dark:hover:bg-blue-950/40 dark:hover:ring-blue-900"
           >
             <span className="mt-0.5 text-blue-600 dark:text-blue-400">
               {bajando === tipo ? <Loader2 className="h-4 w-4 animate-spin" /> : ICONO_LISTA[tipo]}
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">{TIPO_LISTA_LABEL[tipo].titulo}</span>
-              <span className="block text-[11px] leading-snug text-zinc-500">{TIPO_LISTA_LABEL[tipo].ayuda}</span>
+              <span className="block text-xs leading-snug text-zinc-500 dark:text-zinc-400">{TIPO_LISTA_LABEL[tipo].ayuda}</span>
             </span>
           </button>
         ))}
@@ -181,13 +187,6 @@ export function Informes({
     }
   }
 
-  const chip = (puesto: boolean) =>
-    `rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-      puesto
-        ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-    }`;
-
   return (
     <>
       <ListasRapidas clases={clases} claseActual={claseActual} />
@@ -201,49 +200,45 @@ export function Informes({
 
         {/* ── 1. Columnas ── */}
         <section className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">1 · Qué columnas</p>
+          <Rotulo as="p">1 · Qué columnas</Rotulo>
           {[...porGrupo.entries()].map(([grupo, cols]) => (
-            <div key={grupo} className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 w-full text-[11px] text-zinc-400 sm:w-36">{grupo}</span>
+            <Filtros key={grupo} etiqueta={grupo} className="gap-1.5">
+              <span className="mr-1 w-full text-xs text-zinc-500 sm:w-36 dark:text-zinc-400">{grupo}</span>
               {cols.map((c) => (
-                <button key={c.clave} type="button" onClick={() => alternar(c.clave)} className={chip(columnas.includes(c.clave))}>
+                <Filtro key={c.clave} activo={columnas.includes(c.clave)} onClick={() => alternar(c.clave)}>
                   {c.titulo}
-                </button>
+                </Filtro>
               ))}
-            </div>
+            </Filtros>
           ))}
           {materiales.length === 0 && (
-            <p className="text-[11px] text-zinc-400">Los materiales a la venta aparecerán aquí en cuanto se cree alguno.</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Los materiales a la venta aparecerán aquí en cuanto se cree alguno.</p>
           )}
         </section>
 
         {/* ── 2. Clases ── */}
         <section className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">2 · De qué clases</p>
-          <div className="flex flex-wrap gap-1">
-            {claseActual && (
-              <button type="button" onClick={() => setAmbito('actual')} className={chip(ambito === 'actual')}>
-                {claseActual.clase}
-              </button>
-            )}
-            <button type="button" onClick={() => setAmbito('todas')} className={chip(ambito === 'todas')}>
-              Todas las que veo ({clases.length})
-            </button>
-            <button type="button" onClick={() => setAmbito('elegir')} className={chip(ambito === 'elegir')}>
-              Elegir clases…
-            </button>
-          </div>
+          <Rotulo as="p">2 · De qué clases</Rotulo>
+          <Segmentado<Ambito>
+            etiqueta="De qué clases"
+            valor={ambito}
+            onChange={setAmbito}
+            opciones={[
+              ...(claseActual ? [{ valor: 'actual' as const, etiqueta: claseActual.clase }] : []),
+              { valor: 'todas', etiqueta: `Todas las que veo (${clases.length})` },
+              { valor: 'elegir', etiqueta: 'Elegir clases…' },
+            ]}
+          />
           {ambito === 'elegir' && (
-            <div className="flex flex-wrap gap-1 rounded-xl bg-zinc-50 p-2 dark:bg-zinc-800/40">
+            <Filtros etiqueta="Clases del informe" className="gap-1.5 rounded-xl bg-zinc-50 p-2 dark:bg-zinc-800/40">
               {clases.map((c) => {
                 const k = claveClase(c);
                 const puesta = elegidas.has(k);
                 return (
-                  <button
+                  <Filtro
                     key={k}
-                    type="button"
+                    activo={puesta}
                     onClick={() => {
-                      haptic.tap();
                       setElegidas((prev) => {
                         const s = new Set(prev);
                         if (puesta) s.delete(k);
@@ -251,27 +246,20 @@ export function Informes({
                         return s;
                       });
                     }}
-                    className={`rounded-lg px-2 py-1 text-xs font-medium ${
-                      puesta ? 'bg-blue-600 text-white' : 'bg-white text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700'
-                    }`}
                   >
                     {c.clase}
-                  </button>
+                  </Filtro>
                 );
               })}
-            </div>
+            </Filtros>
           )}
         </section>
 
         {/* ── 3. Opciones ── */}
         <section className="grid gap-2 sm:grid-cols-2">
           <label className="space-y-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">3 · Solo quien…</span>
-            <select
-              value={filtro}
-              onChange={(e) => setFiltro(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            >
+            <Rotulo as="p">3 · Solo quien…</Rotulo>
+            <Selector value={filtro} onChange={(e) => setFiltro(e.target.value)}>
               <option value="">Todo el mundo</option>
               {filtrables.map((c) => (
                 <optgroup key={c.clave} label={c.titulo}>
@@ -282,21 +270,20 @@ export function Informes({
                   ))}
                 </optgroup>
               ))}
-            </select>
+            </Selector>
           </label>
           <label className="space-y-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Título (opcional)</span>
-            <input
+            <Rotulo as="p">Título (opcional)</Rotulo>
+            <Input
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               maxLength={120}
               placeholder="Se pone solo con las columnas elegidas"
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </label>
         </section>
         {clasesDelInforme.length > 1 && (
-          <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+          <label className="flex min-h-10 items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
             <input type="checkbox" checked={paginaPorClase} onChange={(e) => setPaginaPorClase(e.target.checked)} className="h-4 w-4" />
             En el PDF, un folio por clase con sus tutores (para entregar a cada tutor)
           </label>
@@ -310,24 +297,20 @@ export function Informes({
           </p>
           {(
             [
-              { f: 'pdf' as const, texto: 'PDF', icono: <FileText className="h-3.5 w-3.5" />, principal: true },
-              { f: 'xlsx' as const, texto: 'Excel', icono: <FileSpreadsheet className="h-3.5 w-3.5" />, principal: false },
-              { f: 'csv' as const, texto: 'CSV', icono: <FileDown className="h-3.5 w-3.5" />, principal: false },
+              { f: 'pdf' as const, texto: 'PDF', icono: <FileText aria-hidden />, principal: true },
+              { f: 'xlsx' as const, texto: 'Excel', icono: <FileSpreadsheet aria-hidden />, principal: false },
+              { f: 'csv' as const, texto: 'CSV', icono: <FileDown aria-hidden />, principal: false },
             ]
           ).map((b) => (
-            <button
+            <Button
               key={b.f}
               type="button"
+              variant={b.principal ? 'default' : 'outline'}
               disabled={descargando !== null}
               onClick={() => void descargar(b.f)}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium transition-colors disabled:opacity-60 ${
-                b.principal
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
-              }`}
             >
-              {descargando === b.f ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : b.icono} {b.texto}
-            </button>
+              {descargando === b.f ? <Loader2 className="animate-spin" /> : b.icono} {b.texto}
+            </Button>
           ))}
         </div>
       </div>

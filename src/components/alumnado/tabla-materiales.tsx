@@ -12,7 +12,7 @@
 //    por eso a ellos el ciclo tampoco les ofrece la beca.
 
 import { useMemo, useState } from 'react';
-import { Check, FileDown, Loader2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, FileDown, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ESTADO_MATERIAL_LABEL,
@@ -26,6 +26,9 @@ import {
 import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista, ClaseListado, MaterialLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
 import { BarraTabla, Celda, CeldaAlumno, ColumnaBoton, useGuardado, type TonoTabla } from './piezas-tabla';
 import { ETAPA_LABEL, ETAPAS as TODAS_LAS_ETAPAS, type Etapa } from '@/lib/cursos';
 
@@ -106,25 +109,26 @@ export function TablaMateriales({
     <div className="space-y-2">
       <BarraTabla ambito={ambito} cuantos={alumnos.length} extra={<span className="text-zinc-400"> · {columnas.length} {columnas.length === 1 ? 'material' : 'materiales'}</span>}>
         {columnas.length > 0 && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onInforme(columnas.map((m) => `mat:${m.id}` as ClaveColumna))}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
           >
-            <FileDown className="h-3.5 w-3.5" /> Informe
-          </button>
+            <FileDown aria-hidden /> Informe
+          </Button>
         )}
         {puedeGestionar && (
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={() => {
               haptic.tap();
               setEditando('nuevo');
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
           >
-            <Plus className="h-3.5 w-3.5" /> Nuevo material
-          </button>
+            <Plus aria-hidden /> Nuevo material
+          </Button>
         )}
       </BarraTabla>
 
@@ -145,7 +149,7 @@ export function TablaMateriales({
       )}
 
       {columnas.length === 0 ? (
-        <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-400 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+        <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800">
           {materiales.length === 0
             ? puedeGestionar
               ? 'Todavía no hay materiales este curso. Crea el primero con «Nuevo material».'
@@ -167,7 +171,7 @@ export function TablaMateriales({
                       <span className="block text-center text-xs font-semibold text-zinc-700 dark:text-zinc-200" title={m.notas ?? undefined}>
                         {m.nombre}
                       </span>
-                      <span className="block text-center text-[10px] font-normal text-zinc-400" title={describirDestinos(m.destinos)}>
+                      <span className="block text-center text-xs font-normal text-zinc-500 dark:text-zinc-400" title={describirDestinos(m.destinos)}>
                         {[euros(m.importe), `${pagados}/${suyos.length}`].filter(Boolean).join(' · ')}
                       </span>
                       {puedeGestionar && (
@@ -318,7 +322,6 @@ function FormMaterial({
 
   const puestos = new Set(destinos.map(claveDestino));
   const alternar = (d: DestinoMaterial) => {
-    haptic.tap();
     const k = claveDestino(d);
     setDestinos((prev) => (puestos.has(k) ? prev.filter((x) => claveDestino(x) !== k) : [...prev, d]));
   };
@@ -356,13 +359,6 @@ function FormMaterial({
     }
   }
 
-  const chip = (puesto: boolean) =>
-    `rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-      puesto
-        ? 'bg-blue-600 text-white'
-        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-    }`;
-
   return (
     <form
       onSubmit={guardar}
@@ -372,59 +368,59 @@ function FormMaterial({
         {inicial ? `Editar «${inicial.nombre}»` : 'Nuevo material'}
       </p>
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
-        <input
+        <Input
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre (agenda, bata, cuaderno de caligrafía…)"
+          aria-label="Nombre del material"
           maxLength={80}
           required
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
         />
-        <input
+        <Input
           value={importe}
           onChange={(e) => setImporte(e.target.value)}
           placeholder="Importe €"
+          aria-label="Importe"
           inputMode="decimal"
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
         />
       </div>
-      <input
+      <Input
         value={notas}
         onChange={(e) => setNotas(e.target.value)}
         placeholder="Notas (opcional)"
+        aria-label="Notas"
         maxLength={300}
-        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
       />
 
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">¿A quién va?</p>
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="mr-1 w-16 text-[11px] text-zinc-400">Etapa</span>
+        <Filtros etiqueta="Etapas" className="gap-1.5">
+          <span className="mr-1 w-16 text-xs text-zinc-500 dark:text-zinc-400">Etapa</span>
           {etapas.map((e) => (
-            <button key={e.etapa} type="button" className={chip(puestos.has(`e:${e.etapa}`))} onClick={() => alternar({ tipo: 'etapa', etapa: e.etapa })}>
+            <Filtro key={e.etapa} activo={puestos.has(`e:${e.etapa}`)} onClick={() => alternar({ tipo: 'etapa', etapa: e.etapa })}>
               {e.texto}
-            </button>
+            </Filtro>
           ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="mr-1 w-16 text-[11px] text-zinc-400">Curso</span>
+        </Filtros>
+        <Filtros etiqueta="Cursos" className="gap-1.5">
+          <span className="mr-1 w-16 text-xs text-zinc-500 dark:text-zinc-400">Curso</span>
           {cursos.map((c) => (
-            <button key={c.curso} type="button" className={chip(puestos.has(`c:${c.curso}`))} onClick={() => alternar({ tipo: 'curso', curso: c.curso })}>
+            <Filtro key={c.curso} activo={puestos.has(`c:${c.curso}`)} onClick={() => alternar({ tipo: 'curso', curso: c.curso })}>
               {claseLarga(c.curso, null)}
-            </button>
+            </Filtro>
           ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="mr-1 w-16 text-[11px] text-zinc-400">Clase</span>
+        </Filtros>
+        <Filtros etiqueta="Clases" className="gap-1.5">
+          <span className="mr-1 w-16 text-xs text-zinc-500 dark:text-zinc-400">Clase</span>
           {clases.map((c) => {
             const k = `k:${c.curso}|${c.letra ?? ''}`;
             return (
-              <button key={k} type="button" className={chip(puestos.has(k))} onClick={() => alternar({ tipo: 'clase', curso: c.curso, letra: c.letra })}>
+              <Filtro key={k} activo={puestos.has(k)} onClick={() => alternar({ tipo: 'clase', curso: c.curso, letra: c.letra })}>
                 {c.clase}
-              </button>
+              </Filtro>
             );
           })}
-        </div>
+        </Filtros>
         <p className="text-xs text-zinc-500">
           {destinos.length === 0
             ? 'Elige una etapa, un curso o clases sueltas (se pueden mezclar).'
@@ -433,17 +429,12 @@ function FormMaterial({
       </div>
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancelar} className="rounded-xl px-3 py-2 text-xs font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+        <Button type="button" variant="ghost" onClick={onCancelar}>
           Cancelar
-        </button>
-        <button
-          type="submit"
-          disabled={guardando || !nombre.trim() || destinos.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {guardando && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        </Button>
+        <Button type="submit" cargando={guardando} disabled={!nombre.trim() || destinos.length === 0}>
           {inicial ? 'Guardar' : 'Crear material'}
-        </button>
+        </Button>
       </div>
     </form>
   );

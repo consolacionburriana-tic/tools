@@ -53,6 +53,10 @@ import { casaBusqueda, colorAvatar, iniciales, type EstadoMaterial, type Servici
 import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista, ClaseListado, FichaAlumno, MaterialLista, ProteccionLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Segmentado } from '@/components/ui/segmentado';
 import { ETAPA_LABEL as ETAPA_LABEL_ETAPAS, ETAPAS, type Etapa } from '@/lib/cursos';
 
 const ETAPA_ORDEN = ETAPAS;
@@ -326,9 +330,9 @@ export function AlumnadoPanel({
             if (!deLaEtapa || deLaEtapa.length === 0) return null;
             return (
               <div key={etapa} className="min-w-0">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                <Rotulo as="p" className="mb-1">
                   {ETAPA_LABEL[etapa]}
-                </p>
+                </Rotulo>
                 <div className="flex flex-wrap gap-1">
                   {deLaEtapa.map((c) => {
                     const k = claveClase(c);
@@ -341,15 +345,18 @@ export function AlumnadoPanel({
                           haptic.tap();
                           setClase(puesta ? null : k);
                         }}
+                        aria-pressed={puesta}
                         title={c.tutores.length > 0 ? c.tutores.join(' + ') : 'Sin tutor asignado'}
-                        className={`inline-flex items-baseline gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                        className={`inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
                           puesta
                             ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
                             : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
                         }`}
                       >
                         {c.clase}
-                        <span className={puesta ? 'opacity-60' : 'text-zinc-400'}>{c.alumnos}</span>
+                        <span className={`text-xs tabular-nums ${puesta ? 'opacity-70' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                          {c.alumnos}
+                        </span>
                       </button>
                     );
                   })}
@@ -358,56 +365,39 @@ export function AlumnadoPanel({
             );
           })}
           {clase && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 haptic.tap();
                 setClase(null);
               }}
-              className="mt-4 text-[11px] text-blue-600 hover:underline dark:text-blue-400"
+              className="mt-4 self-end text-blue-700 dark:text-blue-400"
             >
-              ver todas
-            </button>
+              Ver todas
+            </Button>
           )}
         </div>
       )}
 
       {/* ── Las vistas ───────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 overflow-x-auto rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
-        {(
-          [
-            { id: 'fichas' as const, texto: 'Fichas', icono: <List className="h-3.5 w-3.5" /> },
-            ...(hayProteccion
-              ? [{ id: 'proteccion' as const, texto: 'Protección de datos', icono: <Camera className="h-3.5 w-3.5" /> }]
-              : []),
-            { id: 'banco' as const, texto: 'Banco de libros', icono: <Library className="h-3.5 w-3.5" /> },
-            { id: 'ampa' as const, texto: 'AMPA', icono: <HeartHandshake className="h-3.5 w-3.5" /> },
-            {
-              id: 'servicios' as const,
-              texto: 'Comedor y complementarias',
-              icono: <UtensilsCrossed className="h-3.5 w-3.5" />,
-            },
-            { id: 'materiales' as const, texto: 'Venta de materiales', icono: <ShoppingBag className="h-3.5 w-3.5" /> },
-            { id: 'informes' as const, texto: 'Listas e informes', icono: <FileText className="h-3.5 w-3.5" /> },
-          ]
-        ).map((v) => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => {
-              haptic.tap();
-              setVista(v.id);
-            }}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              vista === v.id
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100'
-                : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
-            }`}
-          >
-            {v.icono} {v.texto}
-          </button>
-        ))}
-      </div>
+      <Segmentado<Vista>
+        etiqueta="Ver"
+        valor={vista}
+        onChange={setVista}
+        opciones={[
+          { valor: 'fichas', etiqueta: 'Fichas', icono: <List aria-hidden /> },
+          ...(hayProteccion
+            ? [{ valor: 'proteccion' as const, etiqueta: 'Protección de datos', icono: <Camera aria-hidden /> }]
+            : []),
+          { valor: 'banco', etiqueta: 'Banco de libros', icono: <Library aria-hidden /> },
+          { valor: 'ampa', etiqueta: 'AMPA', icono: <HeartHandshake aria-hidden /> },
+          { valor: 'servicios', etiqueta: 'Comedor y complementarias', icono: <UtensilsCrossed aria-hidden /> },
+          { valor: 'materiales', etiqueta: 'Venta de materiales', icono: <ShoppingBag aria-hidden /> },
+          { valor: 'informes', etiqueta: 'Listas e informes', icono: <FileText aria-hidden /> },
+        ]}
+      />
 
       {vista === 'proteccion' ? (
         <TablaProteccion
@@ -467,7 +457,7 @@ export function AlumnadoPanel({
       <div className={`space-y-3 ${abiertoId ? 'hidden lg:block' : ''}`}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <input
+          <Input
             ref={buscador}
             type="search"
             inputMode="search"
@@ -475,17 +465,19 @@ export function AlumnadoPanel({
             onChange={(e) => setTermino(e.target.value)}
             placeholder="Buscar por nombre, NIA o DNI…"
             aria-label="Buscar alumnado"
-            className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-9 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-900/40"
+            className="pr-12 pl-9"
           />
           {termino && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setTermino('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="absolute top-1/2 right-0.5 -translate-y-1/2"
               aria-label="Limpiar la búsqueda"
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
+              <X aria-hidden />
+            </Button>
           )}
         </div>
 
@@ -521,7 +513,7 @@ export function AlumnadoPanel({
                     }`}
                   >
                     <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold ${colorAvatar(a.id)}`}
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-semibold ${colorAvatar(a.id)}`}
                     >
                       {iniciales(a.nombre, a.apellidos)}
                     </span>
