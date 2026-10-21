@@ -37,7 +37,7 @@ import {
   UtensilsCrossed,
   X,
 } from 'lucide-react';
-import { Copiable, CopiarLista, Dato } from '@/components/alumnado/copiable';
+import { Copiable, CopiarLista, Dato } from '@/components/ui/copiable';
 import { TarjetaProteccion } from '@/components/alumnado/proteccion-datos';
 import {
   aplicaServicio,

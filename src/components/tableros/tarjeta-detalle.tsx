@@ -34,7 +34,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { copiarTexto } from '@/components/alumnado/copiable';
+import { copiarTexto } from '@/components/ui/copiable';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';

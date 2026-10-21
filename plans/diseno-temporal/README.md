@@ -12,7 +12,7 @@
 | Fichero | Qué es | Estado |
 |---|---|---|
 | [`auditoria.md`](./auditoria.md) | Lo que encontró la auditoría, módulo a módulo. Contexto para quien ejecute los planes | Hecho |
-| [`fase-1-guia-y-piezas.md`](./fase-1-guia-y-piezas.md) | Guía `docs/diseno.md`, tokens, piezas comunes en `ui/`, escaparate y red de seguridad | BORRADOR |
+| [`fase-1-guia-y-piezas.md`](./fase-1-guia-y-piezas.md) | Guía `docs/diseno.md`, tokens, piezas comunes en `ui/`, escaparate y red de seguridad | HECHO (21-oct) |
 | [`fase-2-cabeceras-y-esqueletos.md`](./fase-2-cabeceras-y-esqueletos.md) | Registro de módulos, cabecera y página comunes en los 22 layouts, `loading.tsx` en todas las rutas | BORRADOR |
 | [`fase-3-modulo-a-modulo.md`](./fase-3-modulo-a-modulo.md) | Cambiar las piezas propias de cada módulo por las comunes, en orden de uso | BORRADOR |
 | [`fase-4-repaso.md`](./fase-4-repaso.md) | Contraste, foco, tamaños, modo oscuro y capturas de antes y después | BORRADOR |
@@ -21,6 +21,11 @@
 
 **BORRADOR** = escrito con mis propuestas por defecto; lo reescribo con las decisiones de David
 antes de ejecutarlo. **LISTO** = se puede ejecutar. **HECHO** = ejecutado y verificado.
+
+> **21-oct-2026:** David decidió en el artefacto y dijo «ejecuta». Las decisiones finales y cómo
+> se aplicó cada una están en `docs/diseno.md` (sección «Decisiones»), que es lo que manda: donde
+> un plan de aquí diga otra cosa (era un borrador), vale la guía. Ritmo B: la fase 2 y la 3 se
+> hacen juntas, módulo a módulo.
 
 ## Cómo se decide
 

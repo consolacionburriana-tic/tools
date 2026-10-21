@@ -1,8 +1,8 @@
 # Fase 1 · La guía y las piezas comunes
 
 > TEMPORAL: se borra con `plans/diseno-temporal/`.
-> **Estado: BORRADOR.** Escrito con las propuestas por defecto del artefacto; se reescribe con las
-> decisiones de David antes de ejecutarlo. Lo que depende de una decisión lleva **[Dnn]**.
+> **Estado: HECHO (21-oct-2026).** Ejecutado con las decisiones finales (ver `docs/diseno.md`, que
+> manda sobre lo que diga este borrador). Lo que depende de una decisión lleva **[Dnn]**.
 
 ## Para qué
 
@@ -122,13 +122,13 @@ Enlazarla desde: `AGENTS.md` (lista de «Cómo trabajar»), `docs/04-convencione
 
 ## Hecho cuando
 
-- [ ] Tokens cambiados y los 3 `Button` existentes revisados en claro y oscuro.
-- [ ] Las piezas del paso 3 existen, con su comentario de uso, y compilan.
-- [ ] `/gestion/diseno` las enseña todas, en claro y oscuro, sin datos reales.
-- [ ] `docs/diseno.md` escrita y enlazada desde `AGENTS.md`, `04-convenciones` y `plataforma.md`.
-- [ ] `pnpm diseno:guardia` en verde con la lista de excepciones de hoy.
-- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` en verde.
-- [ ] Fila de la fase 1 en `plans/diseno-temporal/README.md` → HECHO.
+- [x] Tokens cambiados. Los 3 `Button` existentes siguen con sus clases propias (teal/índigo): se rehacen con su módulo en la fase 3.
+- [x] Las piezas del paso 3 existen, con su comentario de uso, y compilan. `PaginaFamilias` se hace con las pantallas de familias (fase 3); `TituloPagina` va en `cabecera-modulo.tsx`.
+- [x] `/gestion/diseno` las enseña todas, en claro y oscuro, sin datos reales (revisado a 1180 y 390 px).
+- [x] `docs/diseno.md` escrita y enlazada desde `AGENTS.md`, `04-convenciones` y `plataforma.md`.
+- [x] `pnpm diseno:guardia` en verde con la lista de excepciones de hoy (427 cosas en 145 ficheros).
+- [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` en verde.
+- [x] Fila de la fase 1 en `plans/diseno-temporal/README.md` → HECHO.
 
 ## Paradas
 

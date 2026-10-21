@@ -39,6 +39,9 @@ alumnado `edu_*` y login por roles `auth_*`).
 - **Antes de escribir código, lee `docs/04-convenciones-tecnicas.md`**: patrones del repo,
   gotchas del stack (@base-ui sin asChild, db lazy, force-dynamic…), reglas de datos personales
   y definition of done.
+- **Antes de pintar una pantalla, lee `docs/diseno.md`**: de dónde sale cada pieza
+  (`src/components/ui/`), las reglas (azul para actuar, 44 px, cabecera común…) y lo que no se
+  hace. `pnpm diseno:guardia` tiene que quedar en verde.
 - Si David dice **"sigue haciendo"** sin más contexto: aplica el protocolo descrito en
   `docs/plataforma.md` (buscar la primera casilla `[ ]` del hito activo, implementar, verificar,
   y marcar `[x]` en el mismo commit).

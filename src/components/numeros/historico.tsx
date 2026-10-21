@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Copy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { copiarTexto } from '@/components/alumnado/copiable';
+import { copiarTexto } from '@/components/ui/copiable';
 import { haptic } from '@/lib/haptics';
 import {
   construirTabla,

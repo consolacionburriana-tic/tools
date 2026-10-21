@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, ExternalLink, Eye, Hand, Image as ImageIcon, Loader2, Lock, Printer, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { copiarTexto } from '@/components/alumnado/copiable';
+import { copiarTexto } from '@/components/ui/copiable';
 import { Historico } from '@/components/numeros/historico';
 import { haptic } from '@/lib/haptics';
 import { tablaAImagen } from '@/lib/numeros-imagen';

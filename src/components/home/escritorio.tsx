@@ -7,39 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Apple,
-  AtSign,
-  BookMarked,
-  Bus,
-  CalendarCheck,
-  CalendarDays,
-  CalendarX2,
-  ChartColumnBig,
-  ChevronRight,
-  ClipboardCheck,
-  ClipboardList,
-  ClipboardPlus,
-  Cpu,
-  Database,
-  GraduationCap,
-  HandHeart,
-  KanbanSquare,
-  KeyRound,
-  Library,
-  ListTodo,
-  NotebookPen,
-  School,
-  Search,
-  Settings2,
-  SlidersHorizontal,
-  Tablet,
-  UserPlus,
-  Users,
-  Wallet,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
+import { ChevronRight, Cpu, School, Search, Settings2, Users, Wallet, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   buscarHerramientas,
@@ -51,6 +19,7 @@ import {
   type TonoAviso,
 } from '@/lib/escritorio';
 import { NavPending } from '@/components/ui/nav-pending';
+import { ACENTO_GRUPO, ICONOS_MODULO } from '@/components/ui/icono-modulo';
 
 export interface Cifra {
   /** Lo que va antes del número, si lo hay («Educamos al»). */
@@ -67,42 +36,6 @@ export interface Aviso {
   tono: TonoAviso;
   icono: IconoHerramienta;
 }
-
-const ICONOS: Record<IconoHerramienta, LucideIcon> = {
-  horario: CalendarCheck,
-  tableros: KanbanSquare,
-  conducta: ClipboardPlus,
-  oratorios: HandHeart,
-  alumnado: Users,
-  nouvinguts: UserPlus,
-  numeros: ChartColumnBig,
-  cuaderno: NotebookPen,
-  abc: ClipboardList,
-  licencias: BookMarked,
-  banco: Library,
-  salidas: Bus,
-  horarios: CalendarDays,
-  evaluaciones: ClipboardCheck,
-  profes: GraduationCap,
-  dispositivos: Tablet,
-  cuentas: AtSign,
-  calendarios: CalendarX2,
-  autoasm: Apple,
-  usuarios: KeyRound,
-  educamos: Database,
-  ajustes: SlidersHorizontal,
-  tareas: ListTodo,
-};
-
-/** Un color por grupo, solo en el icono: ayuda a reconocer de un vistazo sin teñir la pantalla. */
-const ACENTO: Record<Grupo, string> = {
-  dia: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
-  alumnado: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
-  familias: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-  centro: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  tic: 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
-  config: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
-};
 
 const ICONO_GRUPO: Record<Exclude<Grupo, 'dia'>, LucideIcon> = {
   alumnado: Users,
@@ -283,7 +216,7 @@ function Insignia({ badge }: { badge: Herramienta['badge'] }) {
 }
 
 function AvisoTarjeta({ aviso }: { aviso: Aviso }) {
-  const Icono = ICONOS[aviso.icono];
+  const Icono = ICONOS_MODULO[aviso.icono];
   const tono = TONO_AVISO[aviso.tono];
   return (
     <Link href={aviso.href} className={cn('group flex items-center gap-3 rounded-2xl border p-4 transition-colors', tono.tarjeta)}>
@@ -302,14 +235,14 @@ function AvisoTarjeta({ aviso }: { aviso: Aviso }) {
 
 /** Las de «Tu día»: grandes, para tocarlas sin apuntar. */
 function Tesela({ h }: { h: Herramienta }) {
-  const Icono = ICONOS[h.icono];
+  const Icono = ICONOS_MODULO[h.icono];
   return (
     <Link
       href={h.href}
       className="group relative flex min-h-32 flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors hover:border-blue-300 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:active:bg-blue-500/5"
     >
       <span className="flex items-start justify-between gap-2">
-        <span className={cn('flex h-11 w-11 items-center justify-center rounded-xl', ACENTO[h.grupo])}>
+        <span className={cn('flex h-11 w-11 items-center justify-center rounded-xl', ACENTO_GRUPO[h.grupo])}>
           <Icono className="h-5.5 w-5.5" />
         </span>
         <Insignia badge={h.badge} />
@@ -326,13 +259,13 @@ function Tesela({ h }: { h: Herramienta }) {
 }
 
 function Fila({ h, conGrupo = false }: { h: Herramienta; conGrupo?: boolean }) {
-  const Icono = ICONOS[h.icono];
+  const Icono = ICONOS_MODULO[h.icono];
   return (
     <Link
       href={h.href}
       className="group flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 active:bg-blue-50/60 dark:hover:bg-zinc-800/60 dark:active:bg-blue-500/10"
     >
-      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', ACENTO[h.grupo])}>
+      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', ACENTO_GRUPO[h.grupo])}>
         <Icono className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">

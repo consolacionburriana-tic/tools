@@ -708,6 +708,16 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
     tenga respuesta en N días sale como pendiente. Antes de nada: decidir si el buzón es un
     grupo o un buzón real (los grupos no se pueden suplantar, ver «Email» en `04`).
 
+- **Barra de plataforma con selector de módulos** (diseño, 21-oct-2026; opción D de la
+  cabecera en la decisión de diseño, ver [`diseno.md`](./diseno.md)). Hoy cada módulo tiene la
+  cabecera común (icono, nombre, acción y «Escritorio») y para pasar de un módulo a otro hay que
+  volver al escritorio. La idea: una sola barra para toda la app con el logo y un menú para saltar
+  de módulo en un toque, viendo todos. A David le gusta «verlas todas y cambiar en un click», pero
+  le preocupa dónde quedan las secciones de cada módulo. Si se hace, que conviva con las
+  secciones como están ahora (segmentado debajo de la barra) y que el menú sea el mismo buscador
+  del escritorio; encaja con la paleta de comandos de arriba. El sitio para cambiarlo es uno:
+  `components/ui/cabecera-modulo.tsx`.
+
 - **Tableros: siguientes pasos** ([`27-tableros.md`](./27-tableros.md), 3-oct-2026). Ideas que
   salieron al construirlo y que no se hicieron para no inflar la primera versión:
   - **Menciones** en los comentarios (`@Ana`) con aviso por correo, y avisar a los responsables

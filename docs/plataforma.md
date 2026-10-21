@@ -25,6 +25,8 @@ Léelo en este orden si te incorporas a una sesión de desarrollo (persona o age
 2. **[`docs/04-convenciones-tecnicas.md`](./04-convenciones-tecnicas.md)** — CÓMO se escribe
    código aquí: patrones, gotchas del stack, reglas de datos personales y definition of done.
    Lectura obligada antes de implementar nada.
+   **[`docs/diseno.md`](./diseno.md)** — CÓMO se pinta: las piezas comunes de
+   `src/components/ui/`, las reglas de diseño y lo que no se hace. Antes de tocar una pantalla.
 3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — decisiones pendientes,
    inputs que solo David puede desbloquear, decisiones ya cerradas (el histórico del *por qué*) e
    ideas sin decidir. Documento vivo.
