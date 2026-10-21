@@ -4,7 +4,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { copiarTexto } from '@/components/alumnado/copiable';
+import { Button } from '@/components/ui/button';
+import { copiarTexto } from '@/components/ui/copiable';
+import { Estado, TONO_ESTADO, type TonoEstado } from '@/components/ui/estado';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import {
@@ -39,22 +41,24 @@ export const apiTareas = {
 };
 
 // ─── Estado ──────────────────────────────────────────────────────────────────
-export const COLOR_ESTADO: Record<EstadoTarea, string> = {
-  pendiente: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-  en_curso: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
-  hecho: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
-  descartado: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+// Los estados de una tarea son estados de verdad (falta, en marcha, hecho, no aplica): van
+// con los tonos de `Estado`.
+const TONO_TAREA: Record<EstadoTarea, TonoEstado> = {
+  pendiente: 'aviso',
+  en_curso: 'info',
+  hecho: 'ok',
+  descartado: 'neutro',
 };
 
 export function EstadoBadge({ estado }: { estado: EstadoTarea }) {
   return (
-    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', COLOR_ESTADO[estado])}>
+    <Estado tono={TONO_TAREA[estado]} className="whitespace-nowrap">
       {ESTADO_LABELS[estado]}
-    </span>
+    </Estado>
   );
 }
 
-/** Un `<select>` nativo con pinta de chip: en iPad abre la rueda del sistema, que es lo cómodo. */
+/** Un `<select>` nativo con pinta de pastilla: en iPad abre la rueda del sistema, que es lo cómodo. */
 export function EstadoSelect({
   estado,
   onChange,
@@ -70,8 +74,8 @@ export function EstadoSelect({
       onChange={(e) => onChange(e.target.value as EstadoTarea)}
       aria-label="Estado"
       className={cn(
-        'field-sizing-content cursor-pointer appearance-none rounded-full border-0 px-2.5 py-1 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-        COLOR_ESTADO[estado],
+        'field-sizing-content h-10 cursor-pointer appearance-none rounded-full border-0 px-3 text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        TONO_ESTADO[TONO_TAREA[estado]],
         className,
       )}
     >
@@ -116,24 +120,16 @@ export function BotonCopiar({
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant={compacto ? 'ghost' : 'outline'}
+      size={compacto ? 'icon-sm' : 'sm'}
       onClick={copiar}
-      title={etiqueta ?? 'Copiar para pegárselo a Claude'}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors',
-        compacto
-          ? 'h-8 w-8 justify-center text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
-          : 'border border-zinc-200 px-2.5 py-1.5 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800',
-        copiado && 'text-emerald-600 dark:text-emerald-400',
-        className,
-      )}
+      aria-label={compacto ? (etiqueta ?? 'Copiar para pegárselo a Claude') : undefined}
+      className={className}
     >
-      {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      {copiado ? <Check aria-hidden /> : <Copy aria-hidden />}
       {!compacto && <span>{copiado ? 'Copiado' : (etiqueta ?? 'Copiar')}</span>}
-    </button>
+    </Button>
   );
 }
-
-export const ESTILO_CAMPO =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';

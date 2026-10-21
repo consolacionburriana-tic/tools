@@ -4,13 +4,23 @@
 // calendario y exportar. Vista previa SIEMPRE antes de escribir, porque reexportar borra
 // lo anterior de ese periodo (es una foto, no un diario) y eso no se hace a ciegas.
 import { useEffect, useState } from 'react';
-import { CalendarPlus, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
+import { CalendarPlus, Check, CheckCircle2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { haptic } from '@/lib/haptics';
 import { COLORES_GOOGLE, PLANTILLA_TITULO_DEFECTO, RANGOS_CURSO, type RangoCurso } from '@/lib/mihorario';
 import { SelectorEmoji } from '@/components/mihorario/selector-emoji';
 import { cn } from '@/lib/utils';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { ConfirmarDialogo } from '@/components/ui/confirmar';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Selector } from '@/components/ui/selector';
+import { Skeleton, SkeletonCard } from '@/components/ui/skeleton';
+import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
 
 interface Categoria {
   clave: string;
@@ -29,44 +39,53 @@ interface Previa {
   calendarConfigurado: boolean;
 }
 
-const ESTILO_CAMPO =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100';
-
 /**
  * Color del evento en Google Calendar. Google solo admite estos 11 colores fijos; los
  * eventos creados se pueden recolorear luego a mano desde el propio calendario.
  */
 function SelectorColor({ valor, onChange, etiqueta }: { valor: string; onChange: (id: string) => void; etiqueta: string }) {
+  const [abierto, setAbierto] = useState(false);
   const actual = COLORES_GOOGLE.find((c) => c.id === valor);
   return (
-    <details className="relative shrink-0">
-      <summary
-        aria-label={`Color de ${etiqueta}`}
-        title={actual?.nombre ?? 'Color por defecto del calendario'}
-        className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 [&::-webkit-details-marker]:hidden"
+    <Popover open={abierto} onOpenChange={setAbierto}>
+      <PopoverTrigger
+        aria-label={`Color de ${etiqueta}: ${actual?.nombre ?? 'el del calendario'}`}
+        className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-zinc-300 bg-white outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
       >
-        <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: actual?.hex ?? 'transparent' }} />
-      </summary>
-      <div className="absolute left-0 z-20 mt-1 grid w-44 grid-cols-4 gap-2 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-        {COLORES_GOOGLE.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            title={c.nombre}
-            aria-label={c.nombre}
-            onClick={(e) => {
-              onChange(c.id);
-              e.currentTarget.closest('details')?.removeAttribute('open');
-            }}
-            className={cn(
-              'h-8 w-8 rounded-full border border-black/10',
-              c.id === valor && 'ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-zinc-900',
-            )}
-            style={{ backgroundColor: c.hex }}
-          />
-        ))}
-      </div>
-    </details>
+        <span aria-hidden className="size-5 rounded-full border border-black/10" style={{ backgroundColor: actual?.hex ?? 'transparent' }} />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-60 p-3">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          {etiqueta}: <span className="font-medium text-zinc-900 dark:text-zinc-100">{actual?.nombre ?? 'el del calendario'}</span>
+        </p>
+        <div role="group" aria-label={`Color de ${etiqueta}`} className="grid grid-cols-5 gap-1">
+          {COLORES_GOOGLE.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              aria-label={c.nombre}
+              aria-pressed={c.id === valor}
+              onClick={() => {
+                haptic.tap();
+                onChange(c.id);
+                setAbierto(false);
+              }}
+              className="flex size-10 cursor-pointer items-center justify-center rounded-xl outline-none hover:bg-zinc-100 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800"
+            >
+              <span
+                className={cn(
+                  'flex size-7 items-center justify-center rounded-full border border-black/10 text-zinc-900',
+                  c.id === valor && 'ring-2 ring-zinc-900 ring-offset-2 ring-offset-white dark:ring-zinc-100 dark:ring-offset-zinc-900',
+                )}
+                style={{ backgroundColor: c.hex }}
+              >
+                {c.id === valor && <Check aria-hidden className="size-4" />}
+              </span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -85,6 +104,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [ultima, setUltima] = useState<{ eventosCreados: number; createdAt: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [preguntarQuitar, setPreguntarQuitar] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -190,160 +210,170 @@ export function Exportador({ periodoId }: { periodoId: string }) {
   }
 
   if (cargando) {
-    return <div className="animate-pulse rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900" />;
+    return (
+      <SkeletonCard>
+        <Skeleton className="h-4 w-52" />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Skeleton className="h-11 rounded-xl" />
+          <Skeleton className="h-11 rounded-xl" />
+        </div>
+      </SkeletonCard>
+    );
   }
 
   return (
     <div className="space-y-4">
       {!calendarConfigurado && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+        <Aviso tono="aviso">
           Google Calendar todavía no está enchufado en el servidor (falta el scope o las
           credenciales). Puedes preparar la plantilla y los emojis; el botón de exportar se
           activará en cuanto esté listo.
-        </div>
+        </Aviso>
       )}
 
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Cómo se llaman tus eventos</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Título</span>
-            <input value={plantillaTitulo} onChange={(e) => setPlantillaTitulo(e.target.value)} className={ESTILO_CAMPO} />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Descripción (opcional)</span>
-            <input value={plantillaDescripcion} onChange={(e) => setPlantillaDescripcion(e.target.value)} className={ESTILO_CAMPO} placeholder="{profes} · {actividad}" />
-          </label>
-        </div>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Huecos disponibles: <code>{'{emoji} {abrev} {materia} {detalle} {clase} {clases} {aula} {profes} {actividad}'}</code>. Los que
-          queden vacíos se recortan solos, con su separador.
-        </p>
-      </div>
+      <Tarjeta>
+        <TarjetaCabecera titulo="Cómo se llaman tus eventos" />
+        <TarjetaCuerpo>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Campo etiqueta="Título" id="mh-titulo">
+              <Input id="mh-titulo" value={plantillaTitulo} onChange={(e) => setPlantillaTitulo(e.target.value)} />
+            </Campo>
+            <Campo etiqueta="Descripción" id="mh-descripcion" opcional>
+              <Input
+                id="mh-descripcion"
+                value={plantillaDescripcion}
+                onChange={(e) => setPlantillaDescripcion(e.target.value)}
+                placeholder="{profes} · {actividad}"
+              />
+            </Campo>
+          </div>
+          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+            Huecos disponibles:{' '}
+            <code className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-xs break-words text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+              {'{emoji} {abrev} {materia} {detalle} {clase} {clases} {aula} {profes} {actividad}'}
+            </code>
+            . Los que queden vacíos se recortan solos, con su separador.
+          </p>
+        </TarjetaCuerpo>
+      </Tarjeta>
 
       {categorias.length > 0 && (
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Tus emojis, abreviaturas y colores</h2>
-          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+        <Tarjeta>
+          <TarjetaCabecera titulo="Tus emojis, abreviaturas y colores" />
+          <TarjetaCuerpo className="grid gap-1.5 sm:grid-cols-2">
             {categorias.map((c) => (
-              <div key={c.clave} className="flex items-center gap-2 rounded-lg bg-zinc-50 px-2.5 py-1.5 dark:bg-zinc-800/60">
+              <div key={c.clave} className="flex items-center gap-2 rounded-xl bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
+                {/* El emoji lo elige cada profe: se respeta tal cual. */}
                 <SelectorEmoji
                   valor={emojis[c.clave] ?? c.emoji}
                   onChange={(e) => setEmojis((prev) => ({ ...prev, [c.clave]: e }))}
                 />
-                <input
+                <Input
                   value={abreviaturas[c.clave] ?? ''}
                   onChange={(e) => setAbreviaturas((prev) => ({ ...prev, [c.clave]: e.target.value }))}
                   placeholder={c.abrev}
                   aria-label={`Abreviatura de ${c.etiqueta}`}
                   maxLength={12}
-                  className="h-10 w-20 shrink-0 rounded-lg border border-zinc-200 bg-white px-2 text-center text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  className="h-10 w-20 shrink-0 px-2 text-center"
                 />
                 <SelectorColor
                   valor={colores[c.clave] ?? c.color}
                   onChange={(id) => setColores((prev) => ({ ...prev, [c.clave]: id }))}
                   etiqueta={c.etiqueta}
                 />
-                <span className="truncate text-sm text-zinc-700 dark:text-zinc-300">{c.etiqueta}</span>
+                <span className="min-w-0 truncate text-sm text-zinc-700 dark:text-zinc-300">{c.etiqueta}</span>
               </div>
             ))}
-          </div>
-        </div>
+          </TarjetaCuerpo>
+        </Tarjeta>
       )}
 
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">¿Qué parte del curso?</h2>
-        <div className="flex flex-wrap gap-2">
-          {RANGOS_CURSO.map((r) => (
-            <button
-              key={r.valor}
-              type="button"
-              onClick={() => setRangoCurso(r.valor)}
-              className={cn(
-                'rounded-lg border px-3 py-2 text-sm transition-colors',
-                rangoCurso === r.valor
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-200'
-                  : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800',
-              )}
-            >
-              {r.etiqueta}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Los eventos empiezan y acaban dentro de ese tramo, sin salirse nunca de las fechas del periodo.
-        </p>
-      </div>
+      <Tarjeta>
+        <TarjetaCabecera
+          titulo="¿Qué parte del curso?"
+          descripcion="Los eventos empiezan y acaban dentro de ese tramo, sin salirse nunca de las fechas del periodo."
+        />
+        <TarjetaCuerpo>
+          <Segmentado
+            etiqueta="Parte del curso"
+            className="w-full sm:w-auto"
+            valor={rangoCurso}
+            onChange={setRangoCurso}
+            opciones={RANGOS_CURSO.map((r) => ({ valor: r.valor, etiqueta: r.etiqueta }))}
+          />
+        </TarjetaCuerpo>
+      </Tarjeta>
 
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">¿En qué calendario?</h2>
-        {calendarios.length > 0 ? (
-          <select value={calendarioElegido} onChange={(e) => setCalendarioElegido(e.target.value)} className={ESTILO_CAMPO}>
-            {calendarios.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-                {c.esPrincipal ? ' (principal)' : ''}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Tu calendario principal (por defecto).</p>
-        )}
-      </div>
+      <Tarjeta>
+        <TarjetaCabecera titulo="¿En qué calendario?" />
+        <TarjetaCuerpo>
+          {calendarios.length > 0 ? (
+            <Selector
+              aria-label="Calendario de Google"
+              value={calendarioElegido}
+              onChange={(e) => setCalendarioElegido(e.target.value)}
+            >
+              {calendarios.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                  {c.esPrincipal ? ' (principal)' : ''}
+                </option>
+              ))}
+            </Selector>
+          ) : (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Tu calendario principal (por defecto).</p>
+          )}
+        </TarjetaCuerpo>
+      </Tarjeta>
 
       {previa && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-500/30 dark:bg-indigo-500/10">
-          <h2 className="mb-2 text-sm font-semibold text-indigo-900 dark:text-indigo-200">
-            Esto es lo que va a entrar: {previa.totalEventos} eventos recurrentes
-          </h2>
-          <p className="mb-2 text-xs text-indigo-600 dark:text-indigo-400">Del {previa.desde} al {previa.hasta}</p>
-          <ul className="space-y-0.5 text-sm text-indigo-800 dark:text-indigo-300">
-            {previa.ejemplos.map((e, i) => (
-              <li key={i}>
-                {e.titulo} <span className="text-xs text-indigo-500 dark:text-indigo-400">· desde {e.primeraFecha}</span>
-              </li>
-            ))}
-          </ul>
-          {previa.totalEventos > previa.ejemplos.length && (
-            <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400">y {previa.totalEventos - previa.ejemplos.length} más…</p>
-          )}
-          <button
-            type="button"
-            disabled={enviando || !calendarConfigurado}
-            onClick={confirmarExportacion}
-            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            Confirmar y crear los eventos
-          </button>
-        </div>
+        <Tarjeta>
+          <TarjetaCabecera
+            titulo={`Esto es lo que va a entrar: ${previa.totalEventos} eventos recurrentes`}
+            descripcion={`Del ${previa.desde} al ${previa.hasta}`}
+          />
+          <TarjetaCuerpo>
+            <ul className="space-y-1 text-sm text-zinc-800 dark:text-zinc-200">
+              {previa.ejemplos.map((e, i) => (
+                <li key={i}>
+                  {e.titulo} <span className="text-zinc-500 tabular-nums dark:text-zinc-400">· desde {e.primeraFecha}</span>
+                </li>
+              ))}
+            </ul>
+            {previa.totalEventos > previa.ejemplos.length && (
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">y {previa.totalEventos - previa.ejemplos.length} más…</p>
+            )}
+            <Button className="mt-4 w-full sm:w-auto" cargando={enviando} disabled={!calendarConfigurado} onClick={confirmarExportacion}>
+              {!enviando && <CheckCircle2 aria-hidden />}
+              Crear {previa.totalEventos} eventos en tu calendario
+            </Button>
+          </TarjetaCuerpo>
+        </Tarjeta>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled={enviando}
-          onClick={pedirPrevia}
-          className={cn(
-            'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-            'bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900',
-          )}
-        >
-          {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
-          Ver vista previa
-        </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant={previa ? 'outline' : 'default'} cargando={enviando && !previa} disabled={enviando} onClick={pedirPrevia}>
+          {!(enviando && !previa) && <CalendarPlus aria-hidden />}
+          {previa ? 'Volver a ver la vista previa' : 'Ver vista previa'}
+        </Button>
         {ultima && (
-          <button
-            type="button"
-            disabled={enviando}
-            onClick={deshacer}
-            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            <RotateCcw className="h-4 w-4" />
+          <Button variant="destructive" disabled={enviando} onClick={() => setPreguntarQuitar(true)}>
+            <RotateCcw aria-hidden />
             Quitar del calendario ({ultima.eventosCreados} eventos)
-          </button>
+          </Button>
         )}
       </div>
+
+      {ultima && (
+        <ConfirmarDialogo
+          abierto={preguntarQuitar}
+          onCerrar={() => setPreguntarQuitar(false)}
+          onConfirmar={deshacer}
+          titulo={`¿Quitar ${ultima.eventosCreados} eventos de tu calendario?`}
+          descripcion="Se borran de Google Calendar los eventos de este horario que creaste desde aquí. Lo que hayas puesto tú a mano en el calendario no se toca."
+          boton={`Quitar ${ultima.eventosCreados} eventos`}
+        />
+      )}
     </div>
   );
 }

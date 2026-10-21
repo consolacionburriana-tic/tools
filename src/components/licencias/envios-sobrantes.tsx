@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 import { Package, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { useConfirmar } from '@/components/ui/confirmar';
 import { claveLibro } from '@/lib/licencias-exports';
 import { cursoLabel } from '@/lib/licencias';
 import { ordenNatural, puedeColocarse, type LicenciaFila } from '@/lib/licencias-envios';
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function EnviosSobrantes({ filas, onCambio }: Props) {
+  const { confirmar, dialogo } = useConfirmar();
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
 
@@ -97,11 +99,12 @@ export function EnviosSobrantes({ filas, onCambio }: Props) {
 
   async function borrar(ids: string[]) {
     if (!ids.length) return;
-    const aviso =
-      ids.length === 1
-        ? 'Se borrará ese código del almacén. No se puede deshacer. ¿Seguro?'
-        : `Se borrarán ${ids.length} códigos del almacén. No se puede deshacer. ¿Seguro?`;
-    if (!confirm(aviso)) return;
+    const si = await confirmar({
+      titulo: ids.length === 1 ? '¿Borrar ese código del almacén?' : `¿Borrar ${ids.length} códigos del almacén?`,
+      descripcion: 'No se puede deshacer.',
+      boton: ids.length === 1 ? 'Borrar código' : `Borrar ${ids.length} códigos`,
+    });
+    if (!si) return;
     setOcupado('borrando');
     try {
       const res = await fetch('/api/licencias/admin/licencias/sobrantes', {
@@ -193,7 +196,7 @@ export function EnviosSobrantes({ filas, onCambio }: Props) {
                     <td className="px-4 py-2 font-mono text-[13px]">
                       {s.codigo}
                       <span
-                        className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        className={`ml-2 rounded px-1.5 py-0.5 text-xs font-medium ${
                           s.tipo === 'banco'
                             ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
                             : 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
@@ -238,6 +241,7 @@ export function EnviosSobrantes({ filas, onCambio }: Props) {
           </div>
         );
       })}
+      {dialogo}
     </div>
   );
 }

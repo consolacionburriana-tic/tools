@@ -2,8 +2,11 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle2, Loader2, PlugZap, Sparkles, XCircle } from 'lucide-react';
+import { PlugZap, Sparkles } from 'lucide-react';
 import { MODELOS_IA, costeIA, type AjustesIA } from '@/lib/ajustes';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 /** Lo que cuesta un análisis típico de evaluación (~10.000 tokens de entrada, ~2.000 de salida). */
 function costeTipico(modelo: string): string {
@@ -67,39 +70,30 @@ export function AjustesIAForm({
 
   return (
     <div className="space-y-5">
-      <div
-        className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm ${
-          hayClave
-            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
-            : 'bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200'
-        }`}
-      >
-        {hayClave ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
-        <span>
-          {hayClave ? (
-            <>
-              La clave de la API de Anthropic está puesta{huella && <> (termina en <code className="text-xs">{huella}</code>)</>}.
-            </>
-          ) : (
-            <>
-              Falta la clave de la API de Anthropic. Es una <b>variable de entorno</b>, <code className="text-xs">ANTHROPIC_API_KEY</code>:
-              se crea en platform.claude.com (API keys) y se pega en Vercel → Settings → Environment Variables. Luego, redesplegar.
-            </>
-          )}{' '}
-          <span className="opacity-80">La clave es un secreto: nunca se guarda en la base de datos ni se enseña aquí.</span>
-        </span>
-      </div>
+      <Aviso tono={hayClave ? 'ok' : 'aviso'}>
+        {hayClave ? (
+          <>
+            La clave de la API de Anthropic está puesta{huella && <> (termina en <code className="text-xs">{huella}</code>)</>}.
+          </>
+        ) : (
+          <>
+            Falta la clave de la API de Anthropic. Es una <b>variable de entorno</b>, <code className="text-xs">ANTHROPIC_API_KEY</code>:
+            se crea en platform.claude.com (API keys) y se pega en Vercel → Settings → Environment Variables. Luego, redesplegar.
+          </>
+        )}{' '}
+        <span className="opacity-80">La clave es un secreto: nunca se guarda en la base de datos ni se enseña aquí.</span>
+      </Aviso>
 
-      <label className="flex items-center justify-between gap-4">
+      <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4">
         <span>
           <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Análisis con IA activado</span>
-          <span className="block text-xs text-zinc-500">Apagado, el botón «Analizar con IA» no sale en ningún sitio.</span>
+          <span className="block text-xs text-zinc-500 dark:text-zinc-400">Apagado, el botón «Analizar con IA» no sale en ningún sitio.</span>
         </span>
         <input
           type="checkbox"
           checked={ajustes.activado}
           onChange={(e) => setAjustes({ ...ajustes, activado: e.target.checked })}
-          className="h-5 w-5 accent-violet-600"
+          className="h-5 w-5 accent-blue-600"
         />
       </label>
 
@@ -111,10 +105,10 @@ export function AjustesIAForm({
             return (
               <label
                 key={m.id}
-                className={`cursor-pointer rounded-xl p-3 ring-1 transition-colors ${
+                className={`cursor-pointer rounded-xl border p-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50 ${
                   on
-                    ? 'bg-violet-50 ring-2 ring-violet-500 dark:bg-violet-500/10'
-                    : 'bg-white ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:ring-zinc-700 dark:hover:bg-zinc-800'
+                    ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500 dark:bg-blue-500/10'
+                    : 'border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800'
                 }`}
               >
                 <input
@@ -126,11 +120,11 @@ export function AjustesIAForm({
                   className="sr-only"
                 />
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  {on && <Sparkles className="h-3.5 w-3.5 text-violet-600" />}
+                  {on && <Sparkles aria-hidden className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                   {m.label}
                 </span>
-                <span className="mt-1 block text-xs text-zinc-500">{m.nota}</span>
-                <span className="mt-1.5 block text-[11px] text-zinc-400">Un análisis: {costeTipico(m.id)}</span>
+                <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">{m.nota}</span>
+                <span className="mt-1.5 block text-xs text-zinc-500 dark:text-zinc-400">Un análisis: {costeTipico(m.id)}</span>
               </label>
             );
           })}
@@ -139,53 +133,38 @@ export function AjustesIAForm({
 
       <label className="block">
         <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Lo que la IA debería saber del colegio</span>
-        <span className="mb-1.5 block text-xs text-zinc-500">
+        <span className="mb-1.5 block text-xs text-zinc-500 dark:text-zinc-400">
           Va en cada análisis. Por ejemplo: qué es un Godly Play o un oratorio, el lema y el rasgo carismático del curso, cómo se
           organiza la ESO… Sin nombres de alumnos.
         </span>
-        <textarea
+        <Textarea
           value={ajustes.contexto}
           onChange={(e) => setAjustes({ ...ajustes, contexto: e.target.value })}
           rows={5}
           maxLength={4000}
           placeholder="Somos un colegio de las Hermanas de la Consolación en Burriana. El lema de este curso es «Sin rodeos»…"
-          className="w-full rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 dark:bg-zinc-800/40 dark:text-zinc-100 dark:ring-zinc-700 dark:focus:bg-zinc-800"
         />
       </label>
 
-      {prueba && (
-        <p
-          className={`rounded-xl px-3 py-2.5 text-sm ${
-            prueba.ok
-              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
-              : 'bg-rose-50 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300'
-          }`}
-        >
-          {prueba.texto}
-        </p>
-      )}
+      {prueba && <Aviso tono={prueba.ok ? 'ok' : 'error'}>{prueba.texto}</Aviso>}
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={probar}
-          disabled={probando || !hayClave}
-          title={hayClave ? 'Una llamada mínima a Claude con el modelo elegido (cuesta una fracción de céntimo)' : 'Falta la clave'}
-          className="mr-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-violet-700 ring-1 ring-violet-200 hover:bg-violet-50 disabled:opacity-40 dark:text-violet-300 dark:ring-violet-500/30 dark:hover:bg-violet-500/10"
+          disabled={!hayClave}
+          cargando={probando}
+          title="Una llamada mínima a Claude con el modelo elegido (cuesta una fracción de céntimo)"
+          className="mr-auto"
         >
-          {probando ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />}
-          {probando ? 'Probando…' : 'Probar conexión'}
-        </button>
-        {cambiado && <span className="text-xs text-amber-600">Cambios sin guardar</span>}
-        <button
-          type="button"
-          onClick={guardar}
-          disabled={guardando || !cambiado}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-        >
-          {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
-          Guardar
-        </button>
+          {!probando && <PlugZap aria-hidden />}
+          {probando ? 'Probando…' : hayClave ? 'Probar conexión' : 'Probar conexión (falta la clave)'}
+        </Button>
+        {cambiado && <span className="text-xs text-amber-700 dark:text-amber-400">Cambios sin guardar</span>}
+        <Button type="button" onClick={guardar} disabled={!cambiado} cargando={guardando}>
+          Guardar ajustes de IA
+        </Button>
       </div>
     </div>
   );

@@ -1,10 +1,9 @@
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { getClasesDisponibles, claseLabel } from '@/lib/salidas-server';
 import { getTeachers } from '@/lib/educamos-server';
 import { nombreProfeBreve } from '@/lib/profes';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
 import { TripForm } from '@/components/salidas/trip-form';
 
 export const metadata = { title: 'Nueva salida · Gestión' };
@@ -12,13 +11,9 @@ export const metadata = { title: 'Nueva salida · Gestión' };
 export default async function NuevaSalidaPage() {
   const [clases, profes] = await Promise.all([getClasesDisponibles(), getTeachers()]);
   return (
-    <div className="space-y-4">
-      <Link
-        href="/gestion/salidas"
-        className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400"
-      >
-        <ChevronLeft className="h-4 w-4" /> Salidas
-      </Link>
+    <div>
+      <EnlaceVolver href="/gestion/salidas">Todas las salidas</EnlaceVolver>
+      <TituloPagina className="mt-1">Nueva salida</TituloPagina>
       <TripForm
         clases={clases.map((c) => ({ ...c, label: claseLabel(c) }))}
         profes={profes.map((p) => ({

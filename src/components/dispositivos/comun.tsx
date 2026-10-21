@@ -1,6 +1,6 @@
 'use client';
 
-// Piezas compartidas de Dispositivos 1:1: llamadas a la API, estilos y los chips de estado.
+// Piezas compartidas de Dispositivos 1:1: llamadas a la API, colores y los chips de estado.
 import { cn } from '@/lib/utils';
 import { MODALIDAD_LABEL, type EstadoSeguro, type Modalidad } from '@/lib/dispositivos';
 
@@ -16,16 +16,7 @@ export async function pedir<T>(url: string, metodo: 'GET' | 'POST' | 'PATCH' | '
   return json as T;
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
-export const ESTILO_CAMPO =
-  'h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-[15px] text-zinc-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
-
-export const ESTILO_BOTON =
-  'inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 disabled:cursor-default disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800';
-
-export const ESTILO_BOTON_PRINCIPAL =
-  'inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-default disabled:opacity-60';
-
+// ─── Colores ─────────────────────────────────────────────────────────────────
 /** Color de cada modalidad: el mismo en la tabla, en los chips y en la ficha. */
 export const COLOR_MODALIDAD: Record<Modalidad, string> = {
   comprado: 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900',

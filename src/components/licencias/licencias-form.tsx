@@ -96,12 +96,12 @@ function BookCard({ book, on, onToggle }: { book: CatalogBook; on: boolean; onTo
         <span className="flex items-center gap-2">
           <span className="font-medium text-zinc-900 dark:text-zinc-100">{book.asignatura}</span>
           {opt && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
               Optativa
             </span>
           )}
           {isValenciano(book.lengua) && (
-            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
+            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
               Valencià
             </span>
           )}

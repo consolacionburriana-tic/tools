@@ -5,9 +5,15 @@ import { AlarmClock, ArrowRightLeft, Ban, BellOff, BookOpen, BookOpenText, Calen
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
+import { Estado as EstadoPastilla } from '@/components/ui/estado';
+import { Selector } from '@/components/ui/selector';
+import { Textarea } from '@/components/ui/textarea';
 import { haptic } from '@/lib/haptics';
 import { chipAviso, chipEstado, describirUsos, esEnlaceSeguro, etiquetaClase, fechaLarga, horaBonita, opcionesSesion, ordenarOpciones, profesDe, type AccionSesion } from '@/lib/oratorios';
-import { Accion, api, capital, ChipVista } from './comun';
+import { api, capital, EstadoChip } from './comun';
 import type { Estado } from './panel';
 
 export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null; onClose: () => void }) {
@@ -22,8 +28,7 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
   const opciones = tipo && abanico.length > 0 ? ordenarOpciones(opcionesSesion(e.ctx, tipo, { curso: s.curso, letra: s.letra }, s.fecha, s.id)) : [];
   const avisable = (s.estado === 'confirmado' && s.avisoEstado !== 'enviado') || (s.estado === 'anulado' && s.avisoEstado === 'pendiente');
 
-  async function accion(a: AccionSesion, confirmar?: string) {
-    if (confirmar && !window.confirm(confirmar)) return;
+  async function accion(a: AccionSesion) {
     setTrabajando(true);
     try {
       const nueva = await api.accion(s!.id, a);
@@ -39,7 +44,6 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
   }
 
   async function borrar() {
-    if (!window.confirm('¿Borrar este borrador?')) return;
     setTrabajando(true);
     try {
       await api.borrar(s!.id);
@@ -59,31 +63,31 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogTitle className="flex flex-wrap items-center gap-2 pr-8">
-          <span>{tipo?.emoji}</span>
+      <DialogContent variante="hoja" className="sm:max-w-md">
+        <DialogTitle className="flex flex-wrap items-center gap-2 pr-10">
+          <span aria-hidden>{tipo?.emoji}</span>
           <span>[{etiquetaClase(s)}]</span>
           <span>{tipo?.nombre}</span>
           <span className="text-zinc-500">· S{s.numero}</span>
         </DialogTitle>
 
         <div className="flex flex-wrap gap-1.5">
-          <ChipVista chip={chipEstado(s, e.datos.hoy)} />
-          {aviso && <ChipVista chip={aviso} />}
+          <EstadoChip chip={chipEstado(s, e.datos.hoy)} />
+          {aviso && <EstadoChip chip={aviso} />}
           {s.googleEventId && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
-              <CalendarCheck className="h-3 w-3" /> En Calendar
-            </span>
+            <EstadoPastilla tono="ok" icono={<CalendarCheck aria-hidden />}>
+              En Calendar
+            </EstadoPastilla>
           )}
         </div>
 
         <dl className="space-y-1 text-sm">
           <div className="flex items-center gap-1.5">
-            <CalendarDays className="h-4 w-4 text-zinc-400" /> {capital(fechaLarga(s.fecha))} · {horaBonita(s.horaInicio)}–{horaBonita(s.horaFin)}
+            <CalendarDays className="h-4 w-4 text-zinc-400" aria-hidden /> {capital(fechaLarga(s.fecha))} · {horaBonita(s.horaInicio)}–{horaBonita(s.horaFin)}
           </div>
           {profesDe(s).map((p) => (
             <div key={p.id} className="flex items-center gap-1.5">
-              <BookOpen className="h-4 w-4 text-zinc-400" /> {p.materia ?? '—'} · <b>{p.nombre}</b>
+              <BookOpen className="h-4 w-4 text-zinc-400" aria-hidden /> {p.materia ?? '—'} · <b>{p.nombre}</b>
             </div>
           ))}
           {profesDe(s).length === 0 && <div className="text-amber-700 dark:text-amber-300">Sin profe: no se invitará a nadie</div>}
@@ -94,111 +98,128 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
 
         {abanico.length > 0 && (
           <div className="space-y-1">
-            <label className="flex items-center gap-1.5 text-xs text-zinc-500">
-              <BookOpenText className="h-4 w-4" aria-hidden /> Sesión
+            <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <BookOpenText className="h-4 w-4" aria-hidden />
+              <label htmlFor="ora-detalle-sesion">Sesión</label>
               {delAbanico?.enlace && esEnlaceSeguro(delAbanico.enlace) && (
-                <a href={delAbanico.enlace} target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                  Abrir <ExternalLink className="h-3 w-3" />
+                <a href={delAbanico.enlace} target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex min-h-10 items-center gap-1 text-blue-700 hover:underline dark:text-blue-400">
+                  Abrir <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                 </a>
               )}
-            </label>
-            <select
+            </div>
+            <Selector
+              id="ora-detalle-sesion"
               value={s.catalogoId ?? ''}
               disabled={ocupado}
               onChange={(ev) => void accion({ accion: 'catalogo', catalogoId: ev.target.value || null })}
-              className="min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
               <option value="">— sin elegir —</option>
               {opciones.map((o) => (
                 <option key={o.sesion.id} value={o.sesion.id}>
                   {o.sesion.nombre}
-                  {!o.aplicable ? ' · no es de este nivel' : o.choques.length ? ` · ⚠️ ya la vieron: ${describirUsos(o.choques)}` : ''}
+                  {!o.aplicable ? ' · no es de este nivel' : o.choques.length ? ` · ya la vieron: ${describirUsos(o.choques)}` : ''}
                 </option>
               ))}
-            </select>
+            </Selector>
           </div>
         )}
 
-        {s.calendarioError && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Calendar: {s.calendarioError}</p>
-        )}
-        {s.avisoError && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Correo: {s.avisoError}</p>}
+        {s.calendarioError && <Aviso tono="aviso">Calendar: {s.calendarioError}</Aviso>}
+        {s.avisoError && <Aviso tono="aviso">Correo: {s.avisoError}</Aviso>}
 
         {/* Estado */}
         <div className="flex flex-wrap gap-2">
           {s.estado === 'borrador' && (
-            <Accion tono="verde" disabled={ocupado} onClick={() => lote('confirmar')} title="Crea el evento e invita">
-              <CheckCheck className="h-4 w-4" /> Confirmar
-            </Accion>
+            <Button size="sm" disabled={ocupado} onClick={() => lote('confirmar')} title="Crea el evento e invita">
+              <CheckCheck /> Confirmar
+            </Button>
           )}
           {s.estado === 'confirmado' && (s.calendarioError || !s.googleEventId) && (
-            <Accion disabled={ocupado} onClick={() => lote('calendario')} title="Reintentar el evento de Google Calendar">
-              <RefreshCw className="h-4 w-4" /> Reintentar
-            </Accion>
+            <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('calendario')} title="Reintentar el evento de Google Calendar">
+              <RefreshCw /> Reintentar
+            </Button>
           )}
           {s.estado !== 'anulado' && (
-            <Accion disabled={ocupado} onClick={() => e.mover(s.id)} title="El siguiente hueco que toques es su sitio nuevo">
-              <ArrowRightLeft className="h-4 w-4" /> Mover
-            </Accion>
+            <Button variant="outline" size="sm" disabled={ocupado} onClick={() => e.mover(s.id)} title="El siguiente hueco que toques es su sitio nuevo">
+              <ArrowRightLeft /> Mover
+            </Button>
           )}
           {s.estado === 'confirmado' && (
-            <Accion disabled={ocupado} onClick={() => accion({ accion: 'reprogramar' }, 'Se quita del calendario y queda «por recolocar». ¿Seguimos?')} title="Buscarle otro hueco más tarde">
-              <CalendarClock className="h-4 w-4" /> Reprogramar
-            </Accion>
+            <ConfirmarEnLinea
+              etiqueta="Reprogramar"
+              icono={<CalendarClock />}
+              variante="outline"
+              peligro={false}
+              pregunta="Se quita del calendario y queda «por recolocar»."
+              confirmar="Sí, reprogramar"
+              disabled={ocupado}
+              onConfirmar={() => accion({ accion: 'reprogramar' })}
+            />
           )}
           {s.estado !== 'anulado' && s.estado !== 'borrador' && (
-            <Accion tono="rojo" disabled={ocupado} onClick={() => accion({ accion: 'anular' }, '¿Anular? Se quita del calendario.')}>
-              <Ban className="h-4 w-4" /> Anular
-            </Accion>
+            <ConfirmarEnLinea
+              etiqueta="Anular"
+              icono={<Ban />}
+              pregunta="¿Anular? Se quita del calendario."
+              confirmar="Sí, anular"
+              disabled={ocupado}
+              onConfirmar={() => accion({ accion: 'anular' })}
+            />
           )}
           {s.estado === 'borrador' && (
-            <Accion tono="rojo" disabled={ocupado} onClick={borrar}>
-              <Trash2 className="h-4 w-4" /> Borrar
-            </Accion>
+            <ConfirmarEnLinea
+              etiqueta="Borrar"
+              icono={<Trash2 />}
+              pregunta="¿Borrar este borrador?"
+              disabled={ocupado}
+              onConfirmar={borrar}
+            />
           )}
         </div>
 
         {/* Aviso por correo */}
         {avisable && (
-          <div className="space-y-1.5 rounded-xl border border-zinc-200 p-2 dark:border-zinc-700">
-            <p className="flex items-center gap-1 text-xs text-zinc-500"><Mail className="h-3.5 w-3.5" /> Aviso{s.avisoTipo === 'cambio' ? ' de cambio' : s.avisoTipo === 'anulacion' ? ' de anulación' : ''}</p>
-            <div className="flex flex-wrap gap-1.5">
-              <Accion tono="azul" disabled={ocupado} onClick={() => lote('enviar')}>
-                <Send className="h-4 w-4" /> Ya
-              </Accion>
+          <div className="space-y-2 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+            <p className="flex items-center gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <Mail className="h-4 w-4" aria-hidden /> Aviso{s.avisoTipo === 'cambio' ? ' de cambio' : s.avisoTipo === 'anulacion' ? ' de anulación' : ''}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" disabled={ocupado} onClick={() => lote('enviar')}>
+                <Send /> Enviar ya
+              </Button>
               {s.estado === 'confirmado' && (
                 <>
-                  <Accion disabled={ocupado} onClick={() => lote('programar', 7)} title="7 días antes">
-                    <AlarmClock className="h-4 w-4" /> 7d
-                  </Accion>
-                  <Accion disabled={ocupado} onClick={() => lote('programar', 10)} title="10 días antes">
-                    <AlarmClock className="h-4 w-4" /> 10d
-                  </Accion>
+                  <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('programar', 7)}>
+                    <AlarmClock /> 7 días antes
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('programar', 10)}>
+                    <AlarmClock /> 10 días antes
+                  </Button>
                 </>
               )}
-              <Accion disabled={ocupado} onClick={() => lote('manual')} title="Ya se lo he dicho en persona">
-                <Hand className="h-4 w-4" /> Dicho
-              </Accion>
-              <Accion disabled={ocupado} onClick={() => lote('no_avisar')} title="No hace falta avisar">
-                <BellOff className="h-4 w-4" />
-              </Accion>
+              <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('manual')} title="Ya se lo he dicho en persona">
+                <Hand /> Dicho
+              </Button>
+              <Button variant="ghost" size="sm" disabled={ocupado} onClick={() => lote('no_avisar')}>
+                <BellOff /> No avisar
+              </Button>
             </div>
           </div>
         )}
 
-        <textarea
+        <Textarea
           defaultValue={s.notas ?? ''}
           placeholder="Notas"
+          aria-label="Notas"
           rows={2}
           onBlur={(ev) => {
             if ((ev.target.value.trim() || null) !== (s.notas ?? null)) void accion({ accion: 'notas', notas: ev.target.value });
           }}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
 
         {s.historial.length > 0 && (
           <details className="text-xs text-zinc-500">
-            <summary className="cursor-pointer">Historial · {s.historial.length}</summary>
+            <summary className="flex min-h-10 cursor-pointer items-center">Historial · {s.historial.length}</summary>
             <ul className="mt-1 space-y-0.5">
               {[...s.historial].reverse().map((h, i) => (
                 <li key={i}>

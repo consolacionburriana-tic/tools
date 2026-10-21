@@ -2,9 +2,16 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CircleSlash, Clock, ExternalLink, Link2, Loader2, RotateCcw } from 'lucide-react';
+import { Check, CircleSlash, ExternalLink, Info, Link2, Loader2, RotateCcw, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Tarjeta } from '@/components/ui/tarjeta';
 import { type Cubo, cuboDe } from '@/lib/salidas-exports';
 
 export interface AlumnoRow {
@@ -134,171 +141,177 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
   }
 
   const enMano = tipoPago === 'mano';
-  const chips: { key: Cubo; label: string; tono: string }[] = [
-    { key: 'pendientes', label: 'Pendientes', tono: 'text-amber-600 dark:text-amber-400' },
-    { key: 'entregados', label: enMano ? 'Pagados' : 'Entregados', tono: 'text-emerald-600 dark:text-emerald-400' },
-    { key: 'no_van', label: 'No van', tono: 'text-zinc-500' },
+  const chips: { key: Cubo; label: string }[] = [
+    { key: 'pendientes', label: 'Pendientes' },
+    { key: 'entregados', label: enMano ? 'Pagados' : 'Entregados' },
+    { key: 'no_van', label: 'No van' },
   ];
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex flex-wrap gap-1.5 border-b border-zinc-100 p-3 dark:border-zinc-800">
-        {chips.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => setFiltro(c.key)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-              filtro === c.key
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                : `bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 ${c.tono}`
-            }`}
-          >
-            {c.label} · {cuentas[c.key]}
-          </button>
-        ))}
+    <Tarjeta>
+      <div className="border-b border-zinc-100 p-3 dark:border-zinc-800">
+        <Filtros etiqueta="Mostrar">
+          {chips.map((c) => (
+            <Filtro key={c.key} activo={filtro === c.key} onClick={() => setFiltro(c.key)} cuenta={cuentas[c.key]}>
+              {c.label}
+            </Filtro>
+          ))}
+        </Filtros>
       </div>
 
       {visibles.length === 0 ? (
-        <p className="p-6 text-center text-sm text-zinc-400">Nadie en este estado.</p>
+        <p className="p-6 text-center text-sm text-zinc-500 dark:text-zinc-400">Nadie en este estado.</p>
       ) : (
         <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {visibles.map((a) => (
-            <li
-              key={a.signupId ?? a.eduStudentId}
-              className={`flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 ${
-                a.manual ? 'border-l-4 border-amber-400 bg-amber-50/60 dark:bg-amber-500/10' : ''
-              }`}
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  {a.nombre}
-                  <span className="ml-2 text-xs font-normal text-zinc-400">{a.clase}</span>
-                  {a.manual && (
-                    <span className="ml-2 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-amber-950">
-                      ⚠️ ENTRADA MANUAL — enlazar alumno
-                    </span>
-                  )}
-                </p>
-                {a.manual && a.manualIdentificador && (
-                  <p className="text-xs text-amber-700 dark:text-amber-300">tecleó: {a.manualIdentificador}</p>
+          {visibles.map((a) => {
+            const girando = ocupado !== null && (ocupado === a.signupId || ocupado === a.eduStudentId);
+            return (
+              <li
+                key={a.signupId ?? a.eduStudentId}
+                className={cn(
+                  'flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3',
+                  a.manual && 'bg-amber-50/60 dark:bg-amber-500/5',
                 )}
-                {a.manual && enlazando === a.signupId && (
-                  <div className="mt-2 w-72 max-w-full rounded-xl border border-amber-300 bg-white p-2 dark:border-amber-500/40 dark:bg-zinc-900">
-                    <input
-                      autoFocus
-                      value={busquedaEnlace}
-                      onChange={(e) => setBusquedaEnlace(e.target.value)}
-                      placeholder="Busca al alumno real…"
-                      className="mb-1.5 w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm text-zinc-900 outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                    />
-                    <ul className="max-h-44 overflow-y-auto">
-                      {alumnos
-                        .filter((x) => !x.manual && x.eduStudentId)
-                        .filter((x) => x.nombre.toLowerCase().includes(busquedaEnlace.toLowerCase()))
-                        .slice(0, 8)
-                        .map((x) => (
-                          <li key={x.eduStudentId}>
-                            <button
-                              type="button"
-                              onClick={() => void enlazar(a.signupId!, x.eduStudentId!)}
-                              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm text-zinc-800 hover:bg-amber-50 dark:text-zinc-200 dark:hover:bg-amber-500/10"
-                            >
-                              <span>{x.nombre}</span>
-                              <span className="text-xs text-zinc-400">{x.clase}</span>
-                            </button>
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                )}
-                {a.justificanteSubidoAt && (
-                  <p className="text-xs text-zinc-400">
-                    subido el {new Date(a.justificanteSubidoAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    {a.emailContacto ? ` · ${a.emailContacto}` : ''}
+              >
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    {a.nombre}
+                    <Etiqueta>{a.clase}</Etiqueta>
+                    {a.manual && (
+                      <Estado tono="aviso" icono={<TriangleAlert aria-hidden />}>
+                        Entrada manual: enlaza al alumno
+                      </Estado>
+                    )}
                   </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                {ocupado !== null && (ocupado === a.signupId || ocupado === a.eduStudentId) ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-                ) : (
-                  filtro === 'pendientes' && <Clock className="h-4 w-4 text-amber-500" />
-                )}
-                {a.manual && a.signupId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBusquedaEnlace(a.nombre.split(' ')[0] ?? '');
-                      setEnlazando(enlazando === a.signupId ? null : a.signupId);
-                    }}
-                    className="inline-flex items-center gap-1 rounded-lg bg-amber-400 px-2.5 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-300"
-                  >
-                    <Link2 className="h-3.5 w-3.5" /> Enlazar
-                  </button>
-                )}
-                {a.signupId && a.justificanteEstado && (
-                  <a
-                    href={`/api/salidas/admin/justificante/${a.signupId}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" /> Ver
-                  </a>
-                )}
-                {filtro === 'pendientes' && a.eduStudentId && (
-                  <button
-                    type="button"
-                    onClick={() => void marcarPagado(a, true)}
-                    disabled={ocupado === a.eduStudentId}
-                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                    title="Marca como entregado a mano (mail, secretaría, etc.)"
-                  >
-                    {enMano ? '💶 Pagado' : '✅ Entregado'}
-                  </button>
-                )}
-                {filtro === 'pendientes' && a.eduStudentId && (
-                  <button
-                    type="button"
-                    onClick={() => void marcarNoVa(a)}
-                    disabled={ocupado === a.eduStudentId}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                  >
-                    <CircleSlash className="h-3.5 w-3.5" /> No va
-                  </button>
-                )}
-                {filtro === 'entregados' && a.eduStudentId && (
-                  <button
-                    type="button"
-                    onClick={() => void marcarPagado(a, false)}
-                    disabled={ocupado === a.eduStudentId}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> {enMano ? 'No pagado' : 'No entregado'}
-                  </button>
-                )}
-                {filtro === 'no_van' && a.signupId && (
-                  <button
-                    type="button"
-                    onClick={() => void patch(a, { estado: 'apuntado' }, { estado: 'apuntado' })}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> Sí que va
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
+                  {a.manual && a.manualIdentificador && (
+                    <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">Tecleó: {a.manualIdentificador}</p>
+                  )}
+                  {a.manual && enlazando === a.signupId && (
+                    <div className="mt-2 w-80 max-w-full space-y-1.5 rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-900">
+                      <Input
+                        autoFocus
+                        aria-label="Busca al alumno real"
+                        value={busquedaEnlace}
+                        onChange={(e) => setBusquedaEnlace(e.target.value)}
+                        placeholder="Busca al alumno real…"
+                      />
+                      <ul className="max-h-48 overflow-y-auto">
+                        {alumnos
+                          .filter((x) => !x.manual && x.eduStudentId)
+                          .filter((x) => x.nombre.toLowerCase().includes(busquedaEnlace.toLowerCase()))
+                          .slice(0, 8)
+                          .map((x) => (
+                            <li key={x.eduStudentId}>
+                              <button
+                                type="button"
+                                onClick={() => void enlazar(a.signupId!, x.eduStudentId!)}
+                                className="flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-2.5 text-left text-sm text-zinc-800 outline-none hover:bg-zinc-100 focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                              >
+                                <span>{x.nombre}</span>
+                                <span className="text-xs text-zinc-500 dark:text-zinc-400">{x.clase}</span>
+                              </button>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+                  {a.justificanteSubidoAt && (
+                    <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      Subido el{' '}
+                      {new Date(a.justificanteSubidoAt).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      {a.emailContacto ? ` · ${a.emailContacto}` : ''}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {girando && <Loader2 aria-label="Guardando" className="h-4 w-4 animate-spin text-zinc-400" />}
+                  {a.manual && a.signupId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-expanded={enlazando === a.signupId}
+                      onClick={() => {
+                        setBusquedaEnlace(a.nombre.split(' ')[0] ?? '');
+                        setEnlazando(enlazando === a.signupId ? null : a.signupId);
+                      }}
+                    >
+                      <Link2 aria-hidden /> Enlazar
+                    </Button>
+                  )}
+                  {a.signupId && a.justificanteEstado && (
+                    <a
+                      href={`/api/salidas/admin/justificante/${a.signupId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                    >
+                      <ExternalLink aria-hidden /> Ver justificante
+                    </a>
+                  )}
+                  {filtro === 'pendientes' && a.eduStudentId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void marcarPagado(a, true)}
+                      disabled={ocupado === a.eduStudentId}
+                    >
+                      <Check aria-hidden /> {enMano ? 'Pagado' : 'Entregado'}
+                    </Button>
+                  )}
+                  {filtro === 'pendientes' && a.eduStudentId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void marcarNoVa(a)}
+                      disabled={ocupado === a.eduStudentId}
+                    >
+                      <CircleSlash aria-hidden /> No va
+                    </Button>
+                  )}
+                  {filtro === 'entregados' && a.eduStudentId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void marcarPagado(a, false)}
+                      disabled={ocupado === a.eduStudentId}
+                    >
+                      <RotateCcw aria-hidden /> {enMano ? 'No pagado' : 'No entregado'}
+                    </Button>
+                  )}
+                  {filtro === 'no_van' && a.signupId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void patch(a, { estado: 'apuntado' }, { estado: 'apuntado' })}
+                    >
+                      <RotateCcw aria-hidden /> Sí que va
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
-      <p className="border-t border-zinc-100 px-4 py-2.5 text-xs text-zinc-400 dark:border-zinc-800">
-        <CircleSlash className="mr-1 inline h-3.5 w-3.5" />
-        &quot;No va&quot; se marca aquí (lo decide el profesorado).{' '}
-        {enMano
-          ? 'Pago en mano: las familias no suben nada; marca 💶 al recoger.'
-          : 'El justificante se sube desde casa, pero si se ha entregado a mano (mail, secretaría…) márcalo con ✅ Entregado.'}
+      <p className="flex gap-2 border-t border-zinc-100 px-4 py-3 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+        <span>
+          «No va» se marca aquí (lo decide el profesorado).{' '}
+          {enMano
+            ? 'Pago en mano: las familias no suben nada; marca «Pagado» al recoger el dinero.'
+            : 'El justificante se sube desde casa, pero si lo han entregado de otra forma (correo, secretaría…) márcalo con «Entregado».'}
+        </span>
       </p>
-    </div>
+    </Tarjeta>
   );
 }

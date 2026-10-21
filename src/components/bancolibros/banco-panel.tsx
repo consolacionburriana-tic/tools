@@ -2,10 +2,23 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, BarChart3, BookOpen, Check, ChevronLeft, Loader2, NotebookPen, Users, Wand2 } from 'lucide-react';
+import { BarChart3, BookOpen, Check, ChevronDown, ChevronLeft, Loader2, NotebookPen, Plus, Printer, Users, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { ETAPA_LABEL, ETAPAS, type Etapa } from '@/lib/cursos';
+import { cn } from '@/lib/utils';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Aviso } from '@/components/ui/aviso';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Progreso } from '@/components/ui/progreso';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Tarjeta, TarjetaCabecera, claseTarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { ConfirmarDialogo } from '@/components/ui/confirmar';
 
 interface ClaseOpt {
   curso: string;
@@ -62,36 +75,49 @@ interface FilaLista {
   notas: string | null;
 }
 
+// Estado de conservación del libro, de mejor a peor: el color es el de los estados de la app
+// (azul nuevo, verde bien, ámbar regular, rojo mal) y el texto lo dice siempre.
 const ESTADOS: { valor: string; label: string; activo: string }[] = [
-  { valor: 'nuevo', label: 'Nuevo', activo: 'bg-sky-600 text-white' },
-  { valor: 'mb', label: 'MB', activo: 'bg-emerald-600 text-white' },
-  { valor: 'b', label: 'B', activo: 'bg-lime-600 text-white' },
-  { valor: 'r', label: 'R', activo: 'bg-amber-500 text-white' },
+  { valor: 'nuevo', label: 'Nuevo', activo: 'bg-blue-600 text-white' },
+  { valor: 'mb', label: 'MB', activo: 'bg-emerald-700 text-white' },
+  { valor: 'b', label: 'B', activo: 'bg-emerald-500 text-white dark:bg-emerald-600' },
+  { valor: 'r', label: 'R', activo: 'bg-amber-500 text-zinc-950' },
   { valor: 'm', label: 'M', activo: 'bg-red-600 text-white' },
-  { valor: 'mojado', label: 'Moj', activo: 'bg-indigo-600 text-white' },
+  { valor: 'mojado', label: 'Moj', activo: 'bg-red-800 text-white' },
 ];
 
+/** Sí/no de una fila (entregado, borrado…): dice su estado con el texto y el tachado. */
 function Toggle({ activo, onTap, label }: { activo: boolean; onTap: () => void; label: string }) {
   return (
     <button
       type="button"
+      aria-pressed={activo}
       onClick={onTap}
-      className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+      className={cn(
+        'inline-flex h-10 items-center gap-1 rounded-xl px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         activo
-          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-          : 'bg-zinc-100 text-zinc-400 line-through dark:bg-zinc-800 dark:text-zinc-500'
-      }`}
+          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300'
+          : 'bg-zinc-100 text-zinc-500 line-through dark:bg-zinc-800 dark:text-zinc-400',
+      )}
     >
+      {activo && <Check aria-hidden className="h-3.5 w-3.5" />}
       {label}
     </button>
   );
 }
+
+type Masivo =
+  | { tipo: 'check'; campo: 'entregado' | 'docInicio' | 'docFin' }
+  | { tipo: 'registro'; campos: { estado?: string; borrado?: boolean; forrado?: boolean } };
+
+const TEXTO_CHECK = { entregado: 'el lote entregado', docInicio: 'el documento de inicio', docFin: 'el documento de fin' };
 
 export function BancoPanel({
   clases,
   resumenInicial,
   fueraDeCampania,
   puedeGestionarParticipantes,
+  curso,
 }: {
   clases: ClaseOpt[];
   resumenInicial: ResumenClase[];
@@ -102,6 +128,8 @@ export function BancoPanel({
    *  aquí: desde el 23-sep-2026 solo se lleva desde Alumnado (pestaña «AMPA»). El resto del
    *  módulo (lotes, checks, pasar lista) sigue abierto a cualquier rol con acceso. */
   puedeGestionarParticipantes: boolean;
+  /** El curso académico de la campaña («2026-27»), para el resumen. */
+  curso?: string;
 }) {
   const [clase, setClase] = useState<ClaseOpt | null>(null);
   const [tab, setTab] = useState<'alumnado' | 'libros'>('alumnado');
@@ -117,6 +145,8 @@ export function BancoPanel({
   const [manualAbierto, setManualAbierto] = useState(false);
   const [nuevoManual, setNuevoManual] = useState({ asignatura: '', nombre: '' });
   const [guardandoManual, setGuardandoManual] = useState(false);
+  /** Marcar a toda la clase de golpe: se pregunta antes, diciendo a cuántos. */
+  const [masivo, setMasivo] = useState<Masivo | null>(null);
   /** Valor del campo "lote" al entrar en el input: el onChange ya deja `a.lote` igual al
    *  tecleado, así que en el onBlur no sirve comparar contra el estado (siempre coincidiría
    *  y nunca se guardaría). Se compara contra esto. */
@@ -378,61 +408,97 @@ export function BancoPanel({
     [resumen],
   );
 
+  const conLote = alumnado?.filter((a) => a.asignacionId).length ?? 0;
+  const urlFicha = (modo: 'datos' | 'blanco') =>
+    clase && libro
+      ? `/gestion/bancolibros/ficha?curso=${encodeURIComponent(clase.curso)}&letra=${encodeURIComponent(clase.letra ?? '')}&cod=${encodeURIComponent(libro.cod)}&modo=${modo}`
+      : '#';
+
+  function pedirMasivo(m: Masivo) {
+    if (m.tipo === 'check' && conLote === 0) return void toast.info('Nadie tiene lote asignado todavía');
+    setMasivo(m);
+  }
+
+  const textoMasivo = (() => {
+    if (!masivo || !clase) return null;
+    if (masivo.tipo === 'check') {
+      return {
+        titulo: `¿Marcar ${TEXTO_CHECK[masivo.campo]} a ${conLote} ${conLote === 1 ? 'alumno' : 'alumnos'}?`,
+        descripcion: `Se marca a todo el alumnado de ${clase.label} que tiene lote. Si a alguien no le toca, desmárcalo luego en su fila.`,
+        boton: `Marcar a ${conLote}`,
+      };
+    }
+    const n = filas?.length ?? 0;
+    const que = masivo.campos.estado
+      ? 'el estado MB (muy bien)'
+      : masivo.campos.borrado
+        ? 'el libro como borrado'
+        : 'el libro como forrado';
+    return {
+      titulo: `¿Marcar ${que} a ${n} ${n === 1 ? 'alumno' : 'alumnos'}?`,
+      descripcion: `Se cambia en ${libro?.asignatura ?? libro?.nombre ?? 'este libro'} para toda la clase, también a quien ya tenía otro valor. Las excepciones se tocan luego en su fila.`,
+      boton: `Marcar a ${n}`,
+    };
+  })();
+
   // ── Render ──
   return (
     <div className="space-y-4">
+      <h1 className="sr-only">Banco de libros{curso ? `, curso ${curso}` : ''}</h1>
+
       {/* Aviso de descuadre con Licencias: alumnos que están en la BBDD central pero no en la
           campaña, así que su familia no se puede identificar en el formulario público. */}
       {puedeGestionarParticipantes && fueraDeCampania.length > 0 && (
-        <details className="anim-up rounded-2xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm dark:border-amber-900/60 dark:bg-amber-950/30">
-          <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
-            <span className="text-amber-900 dark:text-amber-200">
+        <Aviso tono="aviso">
+          <details>
+            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               <strong>
                 {fueraDeCampania.length} {fueraDeCampania.length === 1 ? 'alumno' : 'alumnos'}
               </strong>{' '}
               {fueraDeCampania.length === 1 ? 'está' : 'están'} en la BBDD central pero no en la campaña de
               Licencias: su familia teclea el NIA en el formulario y no lo encuentra.{' '}
-              <Link href="/gestion/licencias/sincronizar" className="underline underline-offset-2">
+              <Link href="/gestion/licencias/sincronizar" className="font-medium underline underline-offset-2">
                 Sincronizar alumnado de Licencias
               </Link>
-              .
-            </span>
-          </summary>
-          <ul className="mt-2 space-y-0.5 pl-6 text-amber-900/90 dark:text-amber-200/90">
-            {fueraDeCampania.map((a) => (
-              <li key={`${a.curso}|${a.letra ?? ''}|${a.nombre}`}>
-                {a.nombre} · {a.curso}
-                {a.letra ?? ''}
-              </li>
-            ))}
-          </ul>
-        </details>
+              . <span className="underline underline-offset-2">Ver quiénes</span>
+            </summary>
+            <ul className="mt-2 space-y-0.5">
+              {fueraDeCampania.map((a) => (
+                <li key={`${a.curso}|${a.letra ?? ''}|${a.nombre}`}>
+                  {a.nombre} · {a.curso}
+                  {a.letra ?? ''}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </Aviso>
       )}
+
       {/* Resumen agregado: cerrado enseña los totales de un vistazo, abierto el detalle x clase/curso */}
       <details
-        className="anim-up rounded-2xl border border-zinc-200 bg-white open:pb-1 dark:border-zinc-800 dark:bg-zinc-900"
+        className={cn(claseTarjeta, 'anim-up open:pb-1')}
         open={resumenAbierto}
         onToggle={(e) => setResumenAbierto((e.target as HTMLDetailsElement).open)}
       >
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
-          <BarChart3 className="h-4 w-4 shrink-0 text-zinc-400" />
-          <span className="font-medium text-zinc-700 dark:text-zinc-200">Resumen</span>
-          <span className="text-zinc-400">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+          <BarChart3 aria-hidden className="h-4 w-4 shrink-0 text-zinc-400" />
+          <span className="font-semibold text-zinc-800 dark:text-zinc-100">Resumen</span>
+          <span className="text-zinc-500 tabular-nums dark:text-zinc-400">
             {totalGeneral.banco}/{totalGeneral.total} en banco
           </span>
-          <ChevronLeft className="ml-auto h-4 w-4 shrink-0 -rotate-90 text-zinc-400 transition-transform [details[open]_&]:rotate-90" />
+          {curso && <Etiqueta className="ml-1">Curso {curso}</Etiqueta>}
+          <ChevronDown aria-hidden className="ml-auto h-4 w-4 shrink-0 text-zinc-400 transition-transform [details[open]_&]:rotate-180" />
         </summary>
         <div className="overflow-x-auto border-t border-zinc-100 px-1 dark:border-zinc-800">
-          <table className="w-full text-sm">
-            <thead className="text-zinc-400">
+          <table className="w-full text-sm tabular-nums">
+            <thead className="text-zinc-500 dark:text-zinc-400">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Clase</th>
                 <th className="px-3 py-2 text-right font-medium">Alumnos</th>
                 <th className="px-3 py-2 text-right font-medium">Banco</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
               {cursosOrden.map((curso) => {
                 const filas = clases.filter((c) => c.curso === curso);
                 const sub = filas.reduce(
@@ -444,7 +510,7 @@ export function BancoPanel({
                 );
                 return (
                   <Fragment key={curso}>
-                    <tr className="bg-zinc-50/60 font-semibold text-zinc-700 dark:bg-zinc-800/30 dark:text-zinc-200">
+                    <tr className="bg-zinc-50 font-semibold text-zinc-800 dark:bg-zinc-800/30 dark:text-zinc-200">
                       <td className="px-3 py-1.5">{curso}</td>
                       <td className="px-3 py-1.5 text-right">{sub.total}</td>
                       <td className="px-3 py-1.5 text-right">{sub.banco}</td>
@@ -452,8 +518,8 @@ export function BancoPanel({
                     {filas.map((c) => {
                       const r = resumenMap.get(claseKey(c.curso, c.letra));
                       return (
-                        <tr key={c.label} className="text-zinc-500 dark:text-zinc-400">
-                          <td className="py-1.5 pl-7 pr-3">↳ {c.label}</td>
+                        <tr key={c.label} className="text-zinc-600 dark:text-zinc-400">
+                          <td className="py-1.5 pr-3 pl-7">{c.label}</td>
                           <td className="px-3 py-1.5 text-right">{r?.total ?? 0}</td>
                           <td className="px-3 py-1.5 text-right">{r?.banco ?? 0}</td>
                         </tr>
@@ -468,129 +534,117 @@ export function BancoPanel({
       </details>
 
       {/* Selector de clase, agrupado por etapa (primaria → secundaria) */}
-      <div className="anim-up space-y-2.5">
+      <div className="anim-up space-y-3">
         {ETAPA_ORDEN.filter((et) => clases.some((c) => c.etapa === et)).map((et) => (
           <div key={et}>
-            <p className="mb-1 px-0.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            <Rotulo as="h2" className="mb-1.5">
               {ETAPA_LABEL[et]}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
+            </Rotulo>
+            <Filtros etiqueta={`Clases de ${ETAPA_LABEL[et]}`}>
               {clases
                 .filter((c) => c.etapa === et)
                 .map((c) => {
                   const r = resumenMap.get(claseKey(c.curso, c.letra));
                   return (
-                    <button
-                      key={c.label}
-                      type="button"
-                      onClick={() => setClase(c)}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
-                        clase?.label === c.label
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800'
-                      }`}
-                    >
+                    <Filtro key={c.label} activo={clase?.label === c.label} onClick={() => setClase(c)}>
                       {c.label}
                       {r && (
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
-                            clase?.label === c.label ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
-                          }`}
-                        >
+                        <span className="font-mono text-xs tabular-nums opacity-70">
                           {r.banco}/{r.total}
                         </span>
                       )}
-                    </button>
+                    </Filtro>
                   );
                 })}
-            </div>
+            </Filtros>
           </div>
         ))}
       </div>
 
-      {!clase && (
-        <p className="anim-up rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
-          Elige una clase para empezar.
-        </p>
-      )}
+      {!clase && <Vacio titulo="Elige una clase para empezar">Verás su alumnado, los lotes y los libros que valorar.</Vacio>}
 
       {clase && !libro && (
         <>
-          {/* Pestañas */}
-          <div className="flex flex-wrap gap-1.5">
-            {(
-              [
-                { k: 'alumnado', label: `Alumnado${alumnado ? ` · ${enBanco}/${alumnado.length} en banco` : ''}`, icon: Users },
-                { k: 'libros', label: `Libros${libros ? ` · ${libros.length}` : ''}`, icon: BookOpen },
-              ] as const
-            ).map((t) => (
-              <button
-                key={t.k}
-                type="button"
-                onClick={() => setTab(t.k)}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium ${
-                  tab === t.k
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                    : 'bg-white text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700'
-                }`}
-              >
-                <t.icon className="h-4 w-4" /> {t.label}
-              </button>
-            ))}
-          </div>
+          <Segmentado
+            etiqueta="Ver"
+            valor={tab}
+            onChange={setTab}
+            opciones={[
+              {
+                valor: 'alumnado',
+                etiqueta: `Alumnado${alumnado ? ` · ${enBanco}/${alumnado.length} en banco` : ''}`,
+                icono: <Users aria-hidden />,
+              },
+              { valor: 'libros', etiqueta: 'Libros', icono: <BookOpen aria-hidden />, cuenta: libros?.length },
+            ]}
+          />
 
           {/* ── Pestaña Alumnado ── */}
           {tab === 'alumnado' && (
-            <div className="anim-up rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 p-3 text-xs dark:border-zinc-800">
-                <span className="mr-1 text-zinc-400">Marcar a toda la clase:</span>
-                <button type="button" onClick={() => void bulkCheck('entregado')} className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
-                  ✓ Lote entregado
-                </button>
-                <button type="button" onClick={() => void bulkCheck('docInicio')} className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
-                  ✓ Doc. inicio
-                </button>
-                <button type="button" onClick={() => void bulkCheck('docFin')} className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
-                  ✓ Doc. fin
-                </button>
+            <Tarjeta className="anim-up">
+              <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 p-3 dark:border-zinc-800">
+                <span className="mr-1 text-sm text-zinc-500 dark:text-zinc-400">Marcar a toda la clase:</span>
+                <Button variant="outline" size="sm" onClick={() => pedirMasivo({ tipo: 'check', campo: 'entregado' })}>
+                  <Check aria-hidden /> Lote entregado
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => pedirMasivo({ tipo: 'check', campo: 'docInicio' })}>
+                  <Check aria-hidden /> Doc. inicio
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => pedirMasivo({ tipo: 'check', campo: 'docFin' })}>
+                  <Check aria-hidden /> Doc. fin
+                </Button>
               </div>
-              {alumnado === null ? (
-                <p className="flex items-center justify-center gap-2 p-8 text-sm text-zinc-400">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
+              {!puedeGestionarParticipantes && (
+                <p className="border-b border-zinc-100 px-4 py-2 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                  Solo dirección y TIC pueden cambiar quién está en el banco.
                 </p>
+              )}
+              {alumnado === null ? (
+                <p className="flex items-center justify-center gap-2 p-8 text-sm text-zinc-500 dark:text-zinc-400">
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Cargando…
+                </p>
+              ) : alumnado.length === 0 ? (
+                <p className="p-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Esta clase no tiene alumnado.</p>
               ) : (
                 <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                   {alumnado.map((a) => (
-                    <li key={a.eduStudentId} className={`flex flex-wrap items-center gap-2 px-3.5 py-2 ${a.banco ? '' : 'opacity-55'}`}>
+                    <li key={a.eduStudentId} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
                       {puedeGestionarParticipantes ? (
-                        <button
-                          type="button"
-                          onClick={() => void toggleBanco(a)}
-                          aria-label={a.banco ? 'Quitar del banco' : 'Meter en el banco'}
-                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                            a.banco ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'
-                          }`}
-                        >
-                          <span className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${a.banco ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
+                        <Interruptor
+                          etiquetaOculta
+                          activo={a.banco}
+                          onChange={() => void toggleBanco(a)}
+                          etiqueta={`${a.nombre} en el banco`}
+                        />
                       ) : (
-                        <span
-                          title="Solo dirección/TIC pueden cambiar quién está en el banco"
-                          className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full ${a.banco ? 'bg-emerald-500/50' : 'bg-zinc-200 dark:bg-zinc-800'}`}
-                        >
-                          <span className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${a.banco ? 'translate-x-6' : 'translate-x-1'}`} />
+                        <span className="w-11 shrink-0 text-center">
+                          <span className="sr-only">{a.banco ? 'En el banco' : 'Fuera del banco'}</span>
+                          <span
+                            aria-hidden
+                            className={cn('inline-block h-2.5 w-2.5 rounded-full', a.banco ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-600')}
+                          />
                         </span>
                       )}
-                      <span className="w-6 shrink-0 text-right text-xs font-bold text-zinc-400">{a.numeroLista}</span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{a.nombre}</span>
+                      <span className="w-6 shrink-0 text-right text-xs font-bold text-zinc-500 tabular-nums dark:text-zinc-400">
+                        {a.numeroLista}
+                      </span>
+                      <span
+                        className={cn(
+                          'min-w-0 flex-1 truncate text-sm font-medium',
+                          a.banco ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400',
+                        )}
+                      >
+                        {a.nombre}
+                      </span>
                       {a.banco && (
                         <>
                           <span className="flex items-center gap-1">
-                            <input
+                            <Input
                               type="number"
                               min={1}
                               value={a.lote ?? ''}
                               placeholder="lote"
+                              aria-label={`Lote de ${a.nombre}`}
                               onFocus={() => {
                                 if (!loteAlEnfocar.current.has(a.eduStudentId)) loteAlEnfocar.current.set(a.eduStudentId, a.lote);
                               }}
@@ -604,17 +658,20 @@ export function BancoPanel({
                                 loteAlEnfocar.current.delete(a.eduStudentId);
                                 if (v !== antes) void ponerLote(a, v);
                               }}
-                              className="w-16 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-center text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              className="h-10 w-20 px-2 text-center tabular-nums"
                             />
                             {!a.lote && (
-                              <button
-                                type="button"
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                cargando={ocupado === a.eduStudentId}
                                 onClick={() => void ponerLote(a, 'auto')}
-                                title="Asignar el siguiente número libre"
-                                className="rounded-lg bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300"
+                                aria-label={`Dar a ${a.nombre} el siguiente lote libre`}
+                                className="px-2.5"
                               >
-                                {ocupado === a.eduStudentId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                              </button>
+                                {ocupado !== a.eduStudentId && <Wand2 aria-hidden />}
+                                Siguiente
+                              </Button>
                             )}
                           </span>
                           {a.asignacionId && (
@@ -630,51 +687,47 @@ export function BancoPanel({
                   ))}
                 </ul>
               )}
-            </div>
+            </Tarjeta>
           )}
 
           {/* ── Pestaña Libros ── */}
           {tab === 'libros' && (
-            <div className="anim-stagger grid gap-2.5 sm:grid-cols-2">
+            <div className="anim-stagger grid gap-3 sm:grid-cols-2">
               {puedeGestionarParticipantes && (
                 <details
-                  className="rounded-2xl border border-dashed border-zinc-300 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 sm:col-span-2"
+                  className="rounded-2xl border border-dashed border-zinc-300 bg-white text-sm sm:col-span-2 dark:border-zinc-700 dark:bg-zinc-900"
                   open={manualAbierto}
                   onToggle={(e) => setManualAbierto((e.target as HTMLDetailsElement).open)}
                 >
-                  <summary className="cursor-pointer list-none font-medium text-zinc-600 dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-2.5 font-medium text-zinc-700 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-200 [&::-webkit-details-marker]:hidden">
                     Configurar libros a mano de {clase.curso}
+                    <ChevronDown aria-hidden className="ml-auto h-4 w-4 shrink-0 text-zinc-400 transition-transform [details[open]_&]:rotate-180" />
                   </summary>
-                  <div className="mt-2.5 space-y-2">
-                    <p className="text-xs text-zinc-400">
+                  <div className="space-y-3 px-4 pb-4">
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
                       Para cuando el catálogo de Licencias no esté listo, o una asignatura tenga varios libros. Se
                       guardan solo en este módulo.{' '}
-                      <Link href="/gestion/bancolibros/sincronizar" className="text-blue-600 underline underline-offset-2 dark:text-blue-400">
+                      <Link
+                        href="/gestion/bancolibros/sincronizar"
+                        className="font-medium text-blue-700 underline underline-offset-2 dark:text-blue-400"
+                      >
                         Importar desde el Excel de libros
                       </Link>{' '}
                       en vez de teclearlos uno a uno.
                     </p>
                     {librosManuales === null ? (
-                      <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando…
+                      <p className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                        <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Cargando…
                       </p>
                     ) : (
                       <ul className="space-y-1">
-                        {librosManuales.length === 0 && <li className="text-xs text-zinc-400">Ningún libro manual todavía.</li>}
+                        {librosManuales.length === 0 && (
+                          <li className="text-sm text-zinc-500 dark:text-zinc-400">Ningún libro manual todavía.</li>
+                        )}
                         {librosManuales.map((lm) => (
-                          <li key={lm.id} className="flex items-center gap-2 text-xs">
-                            <button
-                              type="button"
-                              onClick={() => void toggleActivoManual(lm)}
-                              className={`rounded-full px-2 py-0.5 font-medium ${
-                                lm.activo
-                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                                  : 'bg-zinc-100 text-zinc-400 line-through dark:bg-zinc-800 dark:text-zinc-500'
-                              }`}
-                            >
-                              {lm.activo ? 'Activo' : 'Inactivo'}
-                            </button>
-                            <span className="text-zinc-600 dark:text-zinc-300">
+                          <li key={lm.id} className="flex items-center gap-2 text-sm">
+                            <Toggle activo={lm.activo} onTap={() => void toggleActivoManual(lm)} label={lm.activo ? 'Activo' : 'Inactivo'} />
+                            <span className="text-zinc-700 dark:text-zinc-300">
                               {lm.asignatura ? `${lm.asignatura} · ` : ''}
                               {lm.nombre}
                             </span>
@@ -682,61 +735,62 @@ export function BancoPanel({
                         ))}
                       </ul>
                     )}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <input
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Input
                         value={nuevoManual.asignatura}
                         onChange={(e) => setNuevoManual((s) => ({ ...s, asignatura: e.target.value }))}
                         placeholder="Asignatura (opcional)"
-                        className="w-36 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        aria-label="Asignatura (opcional)"
+                        className="w-44"
                       />
-                      <input
+                      <Input
                         value={nuevoManual.nombre}
                         onChange={(e) => setNuevoManual((s) => ({ ...s, nombre: e.target.value }))}
                         placeholder="Nombre del libro"
-                        className="min-w-32 flex-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        aria-label="Nombre del libro"
+                        className="w-auto min-w-40 flex-1"
                       />
-                      <button
-                        type="button"
-                        disabled={guardandoManual || !nuevoManual.nombre.trim()}
+                      <Button
+                        cargando={guardandoManual}
+                        disabled={!nuevoManual.nombre.trim()}
                         onClick={() => void anadirLibroManual()}
-                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                       >
-                        {guardandoManual ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Añadir'}
-                      </button>
+                        {!guardandoManual && <Plus aria-hidden />}
+                        Añadir libro
+                      </Button>
                     </div>
                   </div>
                 </details>
               )}
               {libros === null ? (
-                <p className="flex items-center gap-2 p-6 text-sm text-zinc-400">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
+                <p className="flex items-center gap-2 p-6 text-sm text-zinc-500 dark:text-zinc-400">
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Cargando…
                 </p>
               ) : libros.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 sm:col-span-2">
-                  No hay libros del banco para {clase.curso} en el catálogo de Licencias
-                  {puedeGestionarParticipantes ? ': añade uno a mano arriba.' : '.'}
-                </p>
+                <Vacio titulo={`No hay libros del banco para ${clase.curso}`} className="sm:col-span-2">
+                  No están en el catálogo de Licencias{puedeGestionarParticipantes ? ': añade uno a mano arriba.' : '.'}
+                </Vacio>
               ) : (
-                libros.map((b) => {
-                  const pct = b.total > 0 ? Math.round((b.valorados / b.total) * 100) : 0;
-                  return (
-                    <button
-                      key={b.cod}
-                      type="button"
-                      onClick={() => setLibro(b)}
-                      className="rounded-2xl border border-zinc-200 bg-white p-4 text-left transition-colors hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
-                    >
-                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{b.asignatura ?? b.nombre}</p>
-                      <p className="mt-0.5 truncate text-xs text-zinc-400">{b.nombre} · {b.cod}</p>
-                      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                        <div className={`h-1.5 rounded-full ${pct === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`} style={{ width: `${pct}%` }} />
-                      </div>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        {b.valorados}/{b.total} valorados{pct === 100 && ' · ✓ completo'}
-                      </p>
-                    </button>
-                  );
-                })
+                libros.map((b) => (
+                  <button
+                    key={b.cod}
+                    type="button"
+                    onClick={() => setLibro(b)}
+                    className={cn(
+                      claseTarjeta,
+                      'p-4 text-left transition-colors outline-none hover:border-zinc-300 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:border-zinc-700',
+                    )}
+                  >
+                    <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{b.asignatura ?? b.nombre}</span>
+                    <span className="mt-0.5 block truncate text-xs text-zinc-500 dark:text-zinc-400">
+                      {b.nombre} · {b.cod}
+                    </span>
+                    <Progreso hechos={b.valorados} total={b.total} etiqueta={`Valorados de ${b.nombre}`} className="mt-3" />
+                    <span className="mt-1 block text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
+                      {b.valorados}/{b.total} valorados{b.total > 0 && b.valorados >= b.total && ' · completo'}
+                    </span>
+                  </button>
+                ))
               )}
             </div>
           )}
@@ -746,73 +800,72 @@ export function BancoPanel({
       {/* ── Pasar lista de un libro ── */}
       {clase && libro && (
         <div className="anim-up space-y-3">
-          <button type="button" onClick={() => { setLibro(null); }} className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
-            <ChevronLeft className="h-4 w-4" /> Libros de {clase.label}
-          </button>
-          <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="border-b border-zinc-100 p-3.5 dark:border-zinc-800">
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">{libro.asignatura ?? libro.nombre}</p>
-              <p className="text-xs text-zinc-400">{libro.nombre} · {clase.label} · registro de valoración</p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                <a
-                  href={`/gestion/bancolibros/ficha?curso=${encodeURIComponent(clase.curso)}&letra=${encodeURIComponent(clase.letra ?? '')}&cod=${encodeURIComponent(libro.cod)}&modo=datos`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300"
-                >
-                  🖨 Ficha con datos
-                </a>
-                <a
-                  href={`/gestion/bancolibros/ficha?curso=${encodeURIComponent(clase.curso)}&letra=${encodeURIComponent(clase.letra ?? '')}&cod=${encodeURIComponent(libro.cod)}&modo=blanco`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300"
-                >
-                  🖨 Ficha en blanco
-                </a>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="mr-1 text-zinc-400">Toda la clase:</span>
-                <button type="button" onClick={() => void bulkRegistro({ estado: 'mb' })} className="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300">
-                  Todos MB
-                </button>
-                <button type="button" onClick={() => void bulkRegistro({ borrado: true })} className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
-                  Todos borrados
-                </button>
-                <button type="button" onClick={() => void bulkRegistro({ forrado: true })} className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
-                  Todos forrados
-                </button>
-              </div>
+          <Button variant="ghost" size="sm" className="-ml-3 px-3 text-zinc-600 dark:text-zinc-400" onClick={() => setLibro(null)}>
+            <ChevronLeft aria-hidden /> Libros de {clase.label}
+          </Button>
+          <Tarjeta>
+            <TarjetaCabecera
+              titulo={libro.asignatura ?? libro.nombre}
+              descripcion={`${libro.nombre} · ${clase.label} · registro de valoración`}
+              accion={
+                <>
+                  <a href={urlFicha('datos')} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                    <Printer aria-hidden /> Ficha con datos
+                  </a>
+                  <a href={urlFicha('blanco')} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                    <Printer aria-hidden /> En blanco
+                  </a>
+                </>
+              }
+            />
+            <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+              <span className="mr-1 text-sm text-zinc-500 dark:text-zinc-400">Toda la clase:</span>
+              <Button variant="outline" size="sm" disabled={!filas?.length} onClick={() => pedirMasivo({ tipo: 'registro', campos: { estado: 'mb' } })}>
+                Todos MB
+              </Button>
+              <Button variant="outline" size="sm" disabled={!filas?.length} onClick={() => pedirMasivo({ tipo: 'registro', campos: { borrado: true } })}>
+                Todos borrados
+              </Button>
+              <Button variant="outline" size="sm" disabled={!filas?.length} onClick={() => pedirMasivo({ tipo: 'registro', campos: { forrado: true } })}>
+                Todos forrados
+              </Button>
             </div>
             {filas === null ? (
-              <p className="flex items-center justify-center gap-2 p-8 text-sm text-zinc-400">
-                <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
+              <p className="flex items-center justify-center gap-2 p-8 text-sm text-zinc-500 dark:text-zinc-400">
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Cargando…
               </p>
             ) : filas.length === 0 ? (
-              <p className="p-6 text-center text-sm text-zinc-500">
-                Nadie tiene lote asignado en {clase.label} este curso. Asigna lotes en la pestaña Alumnado.
+              <p className="p-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                Nadie tiene lote asignado en {clase.label} este curso. Asigna lotes en la vista Alumnado.
               </p>
             ) : (
               <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {filas.map((f) => (
-                  <li key={f.asignacionId} className="px-3.5 py-2">
+                  <li key={f.asignacionId} className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex h-7 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="inline-flex h-7 w-9 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-xs font-bold text-zinc-600 tabular-nums dark:bg-zinc-800 dark:text-zinc-300">
                         {f.numeroLista}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        {f.alumno}
-                        <span className="ml-1.5 text-xs font-normal text-zinc-400">lote {f.lote}</span>
+                      <span className="min-w-0 flex-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        <span className="block truncate">{f.alumno}</span>
+                        <span className="block text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                          lote {f.lote}
+                          {f.notas && notasAbiertas !== f.asignacionId ? ` · ${f.notas}` : ''}
+                        </span>
                       </span>
-                      <span className="flex gap-1">
+                      <span className="flex gap-1" role="group" aria-label={`Estado del libro de ${f.alumno}`}>
                         {ESTADOS.map((e) => (
                           <button
                             key={e.valor}
                             type="button"
+                            aria-pressed={f.estado === e.valor}
                             onClick={() => void setRegistro(f, { estado: f.estado === e.valor ? null : e.valor })}
-                            className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${
-                              f.estado === e.valor ? e.activo : 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-500'
-                            }`}
+                            className={cn(
+                              'h-10 min-w-10 rounded-xl px-2 text-xs font-bold transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                              f.estado === e.valor
+                                ? e.activo
+                                : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700',
+                            )}
                           >
                             {e.label}
                           </button>
@@ -822,39 +875,56 @@ export function BancoPanel({
                         <Toggle activo={f.borrado} onTap={() => void setRegistro(f, { borrado: !f.borrado })} label="Borrado" />
                         <Toggle activo={f.forrado} onTap={() => void setRegistro(f, { forrado: !f.forrado })} label="Forrado" />
                       </span>
-                      <button
-                        type="button"
+                      <Button
+                        variant={f.notas ? 'outline' : 'ghost'}
+                        size="icon-sm"
+                        aria-label={f.notas ? `Editar la nota de ${f.alumno}` : `Añadir una nota a ${f.alumno}`}
+                        aria-expanded={notasAbiertas === f.asignacionId}
                         onClick={() => setNotasAbiertas(notasAbiertas === f.asignacionId ? null : f.asignacionId)}
-                        className={`rounded-lg p-1.5 ${f.notas ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300' : 'text-zinc-300 hover:text-zinc-500 dark:text-zinc-600'}`}
-                        aria-label="Notas"
                       >
-                        <NotebookPen className="h-4 w-4" />
-                      </button>
+                        <NotebookPen aria-hidden />
+                      </Button>
                     </div>
                     {notasAbiertas === f.asignacionId && (
-                      <input
+                      <Input
                         autoFocus
                         defaultValue={f.notas ?? ''}
-                        placeholder="Nota (ej. 'le faltan páginas 12-14')"
+                        placeholder="Nota (ej. «le faltan las páginas 12-14»)"
+                        aria-label={`Nota de ${f.alumno}`}
                         onBlur={(e) => {
                           const v = e.target.value.trim() || null;
                           if (v !== f.notas) void setRegistro(f, { notas: v });
                           setNotasAbiertas(null);
                         }}
                         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                        className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="mt-2"
                       />
                     )}
                   </li>
                 ))}
               </ul>
             )}
-            <p className="border-t border-zinc-100 px-3.5 py-2.5 text-xs text-zinc-400 dark:border-zinc-800">
-              <Check className="mr-1 inline h-3.5 w-3.5" />
+            <p className="border-t border-zinc-100 px-4 py-3 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
               Todo se guarda al toque. Borrado y forrado vienen marcados por defecto: toca solo las excepciones.
             </p>
-          </div>
+          </Tarjeta>
         </div>
+      )}
+
+      {textoMasivo && (
+        <ConfirmarDialogo
+          abierto
+          peligro={false}
+          onCerrar={() => setMasivo(null)}
+          titulo={textoMasivo.titulo}
+          descripcion={textoMasivo.descripcion}
+          boton={textoMasivo.boton}
+          onConfirmar={async () => {
+            const m = masivo!;
+            if (m.tipo === 'check') await bulkCheck(m.campo);
+            else await bulkRegistro(m.campos);
+          }}
+        />
       )}
     </div>
   );

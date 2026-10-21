@@ -6,7 +6,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Copy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { copiarTexto } from '@/components/alumnado/copiable';
+import { Button } from '@/components/ui/button';
+import { copiarTexto } from '@/components/ui/copiable';
+import { Input } from '@/components/ui/input';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Selector } from '@/components/ui/selector';
 import { haptic } from '@/lib/haptics';
 import {
   construirTabla,
@@ -151,23 +156,19 @@ export function Historico({
 
   const botonFoto = puedeFoto && (
     <div className="flex flex-wrap items-center gap-2">
-      <input
+      <Input
         id="nota-foto"
         value={nota}
         onChange={(e) => setNota(e.target.value)}
         maxLength={200}
         placeholder="Nota (opcional): «para la memoria»"
-        className="w-60 rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        aria-label="Nota de la foto"
+        className="w-60"
       />
-      <button
-        type="button"
-        onClick={guardarFoto}
-        disabled={guardando}
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-      >
-        {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+      <Button type="button" variant="outline" onClick={guardarFoto} disabled={guardando}>
+        {guardando ? <Loader2 className="animate-spin" /> : <Camera aria-hidden />}
         Guardar una foto ahora
-      </button>
+      </Button>
     </div>
   );
 
@@ -196,30 +197,20 @@ export function Historico({
       className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm [--num-ei:#d97316] [--num-ep:#2563eb] [--num-eso:#0e9f6e] [--num-bach:#475569] dark:border-zinc-800 dark:bg-zinc-900 dark:[--num-ei:#d4772c] dark:[--num-ep:#4f80ee] dark:[--num-eso:#1f9f6d] dark:[--num-bach:#94a3b8]"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
-        <div role="group" aria-label="Qué número" className="inline-flex flex-wrap gap-0.5 rounded-xl border border-zinc-200 bg-zinc-100 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
-          {METRICAS_HISTORICO.filter((m) => m.id !== 'licencias' || permisos.licencias).map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              aria-pressed={m.id === met.id}
-              onClick={() => setMetrica(m.id)}
-              className={`cursor-pointer rounded-[10px] px-2.5 py-1.5 text-[13px] ${
-                m.id === met.id ? 'bg-white font-semibold text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'
-              }`}
-            >
-              {m.titulo}
-            </button>
-          ))}
-        </div>
+        <Segmentado
+          etiqueta="Qué número"
+          valor={met.id}
+          onChange={setMetrica}
+          opciones={METRICAS_HISTORICO.filter((m) => m.id !== 'licencias' || permisos.licencias).map((m) => ({
+            valor: m.id,
+            etiqueta: m.titulo,
+          }))}
+        />
         <div className="flex flex-wrap items-center gap-2">
           {botonFoto}
-          <button
-            type="button"
-            onClick={copiarSerie}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            <Copy className="h-4 w-4" /> Copiar la serie
-          </button>
+          <Button type="button" variant="outline" onClick={copiarSerie}>
+            <Copy aria-hidden /> Copiar la serie
+          </Button>
         </div>
       </div>
 
@@ -237,33 +228,23 @@ export function Historico({
         </div>
 
         <div className="space-y-3 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Comparar dos fotos</p>
+          <Rotulo as="p">Comparar dos fotos</Rotulo>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <select
-              aria-label="Foto de antes"
-              value={pa.id}
-              onChange={(e) => setA(e.target.value)}
-              className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-950"
-            >
+            <Selector aria-label="Foto de antes" value={pa.id} onChange={(e) => setA(e.target.value)} className="w-auto min-w-0 flex-1">
               {puntos.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.hoy ? 'Hoy' : p.largo}
                 </option>
               ))}
-            </select>
+            </Selector>
             <span className="text-zinc-400">→</span>
-            <select
-              aria-label="Foto de después"
-              value={pb.id}
-              onChange={(e) => setB(e.target.value)}
-              className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-950"
-            >
+            <Selector aria-label="Foto de después" value={pb.id} onChange={(e) => setB(e.target.value)} className="w-auto min-w-0 flex-1">
               {puntos.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.hoy ? 'Hoy' : p.largo}
                 </option>
               ))}
-            </select>
+            </Selector>
           </div>
           <Comparacion a={pa} b={pb} valor={met.valor} titulo={met.titulo} etapasPropias={etapasPropias} />
         </div>
@@ -276,7 +257,7 @@ export function Historico({
             type="button"
             onClick={() => setA(p.id)}
             title={p.largo}
-            className={`shrink-0 cursor-pointer rounded-xl border px-2.5 py-1.5 text-left text-xs ${
+            className={`min-h-11 shrink-0 cursor-pointer rounded-xl border px-2.5 py-1.5 text-left text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
               p.hoy
                 ? 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-500/10 dark:text-blue-200'
                 : p.id === pa.id
@@ -460,7 +441,7 @@ function Comparacion({
     <div className="max-h-96 overflow-auto">
       <table className="w-full border-collapse text-[13px] tabular-nums">
         <thead>
-          <tr className="text-[11.5px] text-zinc-400">
+          <tr className="text-xs text-zinc-500 dark:text-zinc-400">
             <th className="py-1.5 pr-2 text-left font-semibold">{titulo}</th>
             <th className="px-2 py-1.5 text-right font-semibold">{a.etiqueta}</th>
             <th className="px-2 py-1.5 text-right font-semibold">{b.etiqueta}</th>

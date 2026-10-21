@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess } from '@/lib/permissions';
 import { estadoCuentas, type EstadoCuentas } from '@/lib/cuentas-server';
 import { PanelCuentas } from '@/components/cuentas/panel';
+import { Aviso } from '@/components/ui/aviso';
 
 export const metadata = { title: 'Correos y grupos · Tools Consolación' };
 
@@ -23,17 +24,23 @@ export default async function CuentasPage({ searchParams }: { searchParams: Prom
   } catch (e) {
     console.error('Cuentas: error leyendo el estado:', e instanceof Error ? e.message : e);
     return (
-      <p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
-        No se puede leer el estado de las cuentas. ¿Está aplicado el SQL de Correos y grupos en Neon? (pnpm db:sql --pendientes)
-      </p>
+      <>
+        <h1 className="sr-only">Correos y grupos</h1>
+        <Aviso tono="aviso" titulo="No se puede leer el estado de las cuentas">
+          ¿Está aplicado el SQL de Correos y grupos en Neon? (<code className="font-mono text-xs">pnpm db:sql --pendientes</code>)
+        </Aviso>
+      </>
     );
   }
   return (
-    <PanelCuentas
-      inicial={estado}
-      puedeGestionar={puedeGestionar}
-      puedeLeer={puedeLeer}
-      personaInicial={persona && /^[ap]:[0-9a-f-]{36}$/.test(persona) ? persona : null}
-    />
+    <>
+      <h1 className="sr-only">Correos y grupos</h1>
+      <PanelCuentas
+        inicial={estado}
+        puedeGestionar={puedeGestionar}
+        puedeLeer={puedeLeer}
+        personaInicial={persona && /^[ap]:[0-9a-f-]{36}$/.test(persona) ? persona : null}
+      />
+    </>
   );
 }

@@ -5,13 +5,19 @@
 // La pantalla abre con la foto de Neon (rápido) y, si quien entra puede leer Google y la foto
 // tiene más de unos minutos, la refresca sola por detrás.
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, ClipboardList, FolderTree, ListChecks, Loader2, RefreshCw, ShieldCheck, Users, UsersRound, XCircle } from 'lucide-react';
+import { AtSign, ClipboardList, FolderTree, ListChecks, RefreshCw, ShieldCheck, Users, UsersRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
-import { cn } from '@/lib/utils';
 import type { FilaCuenta } from '@/lib/cuentas';
 import type { EstadoCuentas } from '@/lib/cuentas-server';
-import { BOTON, BOTON_PRIMARIO, haceTiempo, pedir, post } from './comun';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Estado } from '@/components/ui/estado';
+import { EnCurso } from '@/components/ui/progreso';
+import { Segmentado, type OpcionSegmentado } from '@/components/ui/segmentado';
+import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
+import { haceTiempo, pedir, post } from './comun';
 import { Grupos } from './grupos';
 import { ListaCuentas, type Filtro, type Quien, type VistaLista } from './lista';
 import { PorHacer } from './por-hacer';
@@ -20,12 +26,12 @@ import { Unidades } from './unidades';
 
 type Pestana = 'por-hacer' | 'cuentas' | 'grupos' | 'unidades' | 'registro';
 
-const PESTANAS: [Pestana, string, typeof Users][] = [
-  ['por-hacer', 'Por hacer', ListChecks],
-  ['cuentas', 'Cuentas', Users],
-  ['grupos', 'Grupos', UsersRound],
-  ['unidades', 'Unidades', FolderTree],
-  ['registro', 'Registro', ClipboardList],
+const PESTANAS: OpcionSegmentado<Pestana>[] = [
+  { valor: 'por-hacer', etiqueta: 'Por hacer', icono: <ListChecks /> },
+  { valor: 'cuentas', etiqueta: 'Cuentas', icono: <Users /> },
+  { valor: 'grupos', etiqueta: 'Grupos', icono: <UsersRound /> },
+  { valor: 'unidades', etiqueta: 'Unidades', icono: <FolderTree /> },
+  { valor: 'registro', etiqueta: 'Registro', icono: <ClipboardList /> },
 ];
 
 /** A partir de cuánto se vuelve a leer Google solo al abrir la pantalla. */
@@ -131,79 +137,50 @@ export function PanelCuentas({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Correos y grupos</h1>
-          <p className="max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
-            Las cuentas de Google del colegio, cruzadas con Educamos: quién no tiene correo, quién está en la unidad de otra clase,
-            qué bajas siguen con la cuenta abierta y qué grupos hay que poner al día.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmentado etiqueta="Qué ver" valor={pestana} onChange={setPestana} opciones={PESTANAS} />
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-zinc-500">
+          <span role="status" className="text-sm text-zinc-500 dark:text-zinc-400">
             {leyendo ? 'Leyendo Google…' : estado.leidoAt ? `Google leído ${haceTiempo(estado.leidoAt)}` : 'Sin leer Google'}
           </span>
           {puedeGestionar && (
-            <button type="button" className={BOTON} onClick={comprobarPermisos} disabled={comprobando}>
-              {comprobando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Permisos
-            </button>
+            <Button variant="ghost" size="sm" cargando={comprobando} onClick={comprobarPermisos}>
+              {!comprobando && <ShieldCheck />} Permisos
+            </Button>
           )}
           {puedeLeer && (
-            <button type="button" className={BOTON_PRIMARIO} onClick={() => leerGoogle()} disabled={leyendo}>
-              {leyendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Leer de Google
-            </button>
+            <Button variant="outline" size="sm" cargando={leyendo} onClick={() => leerGoogle()}>
+              {!leyendo && <RefreshCw />} Leer de Google
+            </Button>
           )}
         </div>
       </div>
 
-      {!puedeGestionar && (
-        <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-          Lo ves para consultar: los cambios los hace TIC.
-        </p>
-      )}
-
       {avisos.length > 0 && puedeGestionar && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+        <Aviso
+          tono="aviso"
+          accion={
+            <Button variant="outline" size="sm" onClick={comprobarPermisos}>
+              Ver qué falta
+            </Button>
+          }
+        >
           {avisos.map((a) => (
             <p key={a}>{a}</p>
           ))}
-          <button type="button" className="mt-1 cursor-pointer text-xs font-semibold underline" onClick={comprobarPermisos}>
-            Ver qué hay que dar en la consola
-          </button>
-        </div>
+        </Aviso>
       )}
 
       {permisos && <Permisos admin={permisos.admin} comprobaciones={permisos.comprobaciones} onCerrar={() => setPermisos(null)} />}
 
-      <nav className="flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800">
-        {PESTANAS.map(([p, l, Icono]) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => {
-              haptic.tap();
-              setPestana(p);
-            }}
-            className={cn(
-              '-mb-px inline-flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition-colors',
-              pestana === p
-                ? 'border-blue-600 font-semibold text-zinc-900 dark:text-zinc-100'
-                : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200',
-            )}
-          >
-            <Icono className="h-4 w-4" /> {l}
-          </button>
-        ))}
-      </nav>
-
       {sinLeer && !leyendo ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500 dark:border-zinc-700">
-          {puedeLeer ? 'Lee Google para empezar.' : 'TIC todavía no ha leído las cuentas de Google.'}
-        </div>
+        <Vacio icono={<AtSign />} titulo={puedeLeer ? 'Lee Google para empezar' : 'TIC todavía no ha leído las cuentas de Google'}>
+          {puedeLeer
+            ? '«Leer de Google» trae las cuentas, las unidades y los grupos del dominio para cruzarlos con Educamos.'
+            : 'En cuanto lo haga, aquí salen las cuentas cruzadas con Educamos.'}
+        </Vacio>
       ) : sinLeer ? (
-        <p className="flex items-center gap-2 text-sm text-zinc-500">
-          <Loader2 className="h-4 w-4 animate-spin" /> Leyendo las cuentas de Google…
-        </p>
+        <EnCurso texto="Leyendo las cuentas de Google…" />
       ) : (
         <>
           {pestana === 'por-hacer' && <PorHacer estado={estado} puedeGestionar={puedeGestionar} ir={ir} irA={setPestana} />}
@@ -232,38 +209,51 @@ export function PanelCuentas({
 function Permisos({ admin, comprobaciones, onCerrar }: { admin: string; comprobaciones: Comprobacion[]; onCerrar: () => void }) {
   const faltan = comprobaciones.filter((c) => !c.ok);
   return (
-    <section className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs text-zinc-500">
-          Suplantando a <b>{admin}</b> (tiene que ser administrador del dominio; se cambia con <code>GOOGLE_ADMIN_BUZON</code>)
-        </p>
-        <button type="button" onClick={onCerrar} className="cursor-pointer text-xs text-zinc-500 underline">
-          cerrar
-        </button>
-      </div>
-      <ul className="space-y-1.5">
-        {comprobaciones.map((c) => (
-          <li key={c.clave} className="flex items-start gap-2">
-            {c.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />}
-            <span>
-              <b>{c.nombre}</b> — {c.detalle}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {faltan.length > 0 ? (
-        <div className="rounded-lg bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
-          <p className="font-semibold">Qué hacer (una vez):</p>
-          <p className="mt-1">
-            Consola de admin → Seguridad → Control de API → Delegación de todo el dominio → el Client ID de la cuenta de servicio (el
-            mismo de <code>gmail.send</code>) → Editar, y añadir a lo que ya tiene, sin quitar nada:
-          </p>
-          <pre className="mt-1 overflow-x-auto rounded bg-white p-2 text-[11px] dark:bg-zinc-900">{faltan.map((c) => c.scope).join(',\n')}</pre>
-          <p className="mt-1">La API (Admin SDK API) ya está habilitada: la usa Calendarios.</p>
-        </div>
-      ) : (
-        <p className="text-xs text-emerald-700 dark:text-emerald-400">Todo listo.</p>
-      )}
-    </section>
+    <Tarjeta as="section" aria-labelledby="permisos-cuentas">
+      <TarjetaCabecera
+        id="permisos-cuentas"
+        icono={<ShieldCheck />}
+        titulo="Permisos de la cuenta de servicio"
+        descripcion={
+          <>
+            Suplantando a <b className="font-semibold text-zinc-700 dark:text-zinc-200">{admin}</b> (tiene que ser administrador del
+            dominio; se cambia con <code className="font-mono text-xs">GOOGLE_ADMIN_BUZON</code>).
+          </>
+        }
+        accion={
+          <Button variant="ghost" size="sm" onClick={onCerrar}>
+            Cerrar
+          </Button>
+        }
+      />
+      <TarjetaCuerpo className="space-y-3 text-sm">
+        <ul className="space-y-2">
+          {comprobaciones.map((c) => (
+            <li key={c.clave} className="flex flex-wrap items-start gap-x-2 gap-y-1">
+              <Estado tono={c.ok ? 'ok' : 'error'}>{c.ok ? 'Listo' : 'Falta'}</Estado>
+              <span className="min-w-0 flex-1 text-zinc-700 dark:text-zinc-300">
+                <b className="font-semibold text-zinc-900 dark:text-zinc-100">{c.nombre}</b> · {c.detalle}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {faltan.length > 0 ? (
+          <div className="space-y-1.5 rounded-xl bg-zinc-50 p-3 text-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300">
+            <p className="font-semibold text-zinc-900 dark:text-zinc-100">Qué hacer (una vez)</p>
+            <p>
+              Consola de admin → Seguridad → Control de API → Delegación de todo el dominio → el Client ID de la cuenta de servicio
+              (el mismo de <code className="font-mono text-xs">gmail.send</code>) → Editar, y añadir a lo que ya tiene, sin quitar
+              nada:
+            </p>
+            <pre className="overflow-x-auto rounded-lg bg-white p-2 font-mono text-xs dark:bg-zinc-900">
+              {faltan.map((c) => c.scope).join(',\n')}
+            </pre>
+            <p>La API (Admin SDK API) ya está habilitada: la usa Calendarios.</p>
+          </div>
+        ) : (
+          <Aviso tono="ok">Todo listo.</Aviso>
+        )}
+      </TarjetaCuerpo>
+    </Tarjeta>
   );
 }

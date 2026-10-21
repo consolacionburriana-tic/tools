@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, ChevronDown, ChevronLeft, Loader2, Mail, MessageSquare, Search, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronDown, Loader2, Mail, MessageSquare, Search, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
@@ -26,8 +26,19 @@ import {
   type ResultadoPaso,
 } from '@/lib/nouvinguts';
 import type { Candidato, FichaNouvingut, NotaVista } from '@/lib/nouvinguts-server';
-import { ChipResponsable, COLOR_TEXTO, ESTILO_CAMPO, NodoPaso, pedir, pedirFicha, textoDias } from './comun';
+import { ChipResponsable, COLOR_TEXTO, NodoPaso, pedir, pedirFicha, textoDias } from './comun';
 import { SelectorRapido } from '@/components/dispositivos/selector-rapido';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta } from '@/components/ui/tarjeta';
 
 export interface PuedeFicha {
   /** Crear su correo de Google en Correos y grupos (TIC). */
@@ -98,46 +109,35 @@ export function FichaNouvinguts({ inicial, puede }: { inicial: FichaNouvingut; p
 
   return (
     <div className="space-y-5">
-      <Link
-        href="/gestion/nouvinguts"
-        className="inline-flex min-h-8 items-center gap-1 text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400"
-      >
-        <ChevronLeft className="h-4 w-4" /> Nouvinguts
-      </Link>
-
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            {ficha.nombre
-              .split(' ')
-              .slice(0, 2)
-              .map((p) => p[0])
-              .join('')}
+      <TituloPagina
+        className="mb-0"
+        antes={<EnlaceVolver href="/gestion/nouvinguts">Todos los nouvinguts</EnlaceVolver>}
+        descripcion={
+          <span className="flex flex-wrap items-center gap-2">
+            <Etiqueta>{ficha.clase}</Etiqueta>
+            {ficha.estado === 'cerrado' ? (
+              <Estado tono="ok">Ciclo cerrado</Estado>
+            ) : (
+              <Estado tono={ficha.atascado ? 'aviso' : 'neutro'}>{textoDias(ficha.dias)} en nouvinguts</Estado>
+            )}
+            <span>{ficha.origen === 'sync' ? 'Entró con la sincronización de Educamos' : 'Apuntado a mano'}</span>
           </span>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{ficha.nombre}</h1>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <Chip>{ficha.clase}</Chip>
-              <Chip>{ficha.origen === 'sync' ? 'Entró con la sincronización de Educamos' : 'Apuntado a mano'}</Chip>
-              {ficha.estado === 'cerrado' ? (
-                <Chip tono="verde">Ciclo cerrado</Chip>
-              ) : (
-                <Chip tono={ficha.atascado ? 'naranja' : undefined}>{textoDias(ficha.dias)} en nouvinguts</Chip>
-              )}
-            </div>
-          </div>
-        </div>
-        <label className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white py-1.5 pr-1.5 pl-3 dark:border-zinc-800 dark:bg-zinc-900">
-          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Fecha de matrícula</span>
-          <input
-            type="date"
-            defaultValue={ficha.fechaMatricula}
-            disabled={ocupado === 'ficha'}
-            onChange={(e) => e.target.value && patch({ accion: 'datos', fechaMatricula: e.target.value })}
-            className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          />
-        </label>
-      </div>
+        }
+        acciones={
+          <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+            Fecha de matrícula
+            <Input
+              type="date"
+              defaultValue={ficha.fechaMatricula}
+              disabled={ocupado === 'ficha'}
+              onChange={(e) => e.target.value && patch({ accion: 'datos', fechaMatricula: e.target.value })}
+              className="w-auto"
+            />
+          </label>
+        }
+      >
+        {ficha.nombre}
+      </TituloPagina>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0">
@@ -159,14 +159,14 @@ export function FichaNouvinguts({ inicial, puede }: { inicial: FichaNouvingut; p
               ctx={ctx}
             />
           ))}
-          <div className="mt-2 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="mb-3 text-[11px] font-semibold tracking-wide text-zinc-500 uppercase">Notas generales</p>
+          <Tarjeta className="mt-2 space-y-3 p-4">
+            <Rotulo>Notas generales</Rotulo>
             <Notas paso={null} notas={notasDe(null)} ctx={ctx} />
-          </div>
+          </Tarjeta>
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-20">
-          <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <Tarjeta className="space-y-4 p-5">
             <div className="flex items-center gap-4">
               <span
                 className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
@@ -184,7 +184,7 @@ export function FichaNouvinguts({ inicial, puede }: { inicial: FichaNouvingut; p
                   {RESPONSABLE_LABEL.secretaria}: {r.pendientes.secretaria || 'nada'} · {RESPONSABLE_LABEL.tic}: {r.pendientes.tic || 'nada'}
                 </p>
                 {r.avisos > 0 && (
-                  <p className="font-medium text-orange-700 dark:text-orange-400">
+                  <p className="font-medium text-amber-700 dark:text-amber-400">
                     {r.avisos} aviso{r.avisos === 1 ? '' : 's'}
                   </p>
                 )}
@@ -196,49 +196,44 @@ export function FichaNouvinguts({ inicial, puede }: { inicial: FichaNouvingut; p
                   Cerrado {ficha.cerradoAt ? `el ${new Date(ficha.cerradoAt).toLocaleDateString('es-ES', { timeZone: CONFIGURACION.calendario.zonaHoraria })}` : ''}
                   {ficha.cerradoPor ? ` por ${ficha.cerradoPor}` : ''}.
                 </p>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  className="w-full"
                   disabled={ocupado === 'ficha'}
                   onClick={() => patch({ accion: 'reabrir' }, 'Vuelve a nouvinguts')}
-                  className="h-11 w-full cursor-pointer rounded-xl border border-zinc-300 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                 >
-                  Reabrir su ciclo
-                </button>
+                  <Undo2 /> Reabrir su ciclo
+                </Button>
               </div>
             ) : r.listo ? (
-              <button
-                type="button"
+              <Button
+                className="w-full"
                 disabled={ocupado === 'ficha'}
                 onClick={() => patch({ accion: 'cerrar' }, `${ficha.nombre} sale de nouvinguts`)}
-                className="h-11 w-full cursor-pointer rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-700"
               >
-                Cerrar ciclo: sale de nouvinguts
-              </button>
+                {ocupado === 'ficha' ? <Loader2 className="animate-spin" /> : <Check />} Cerrar ciclo: sale de nouvinguts
+              </Button>
             ) : (
-              <div className="space-y-2 text-center">
-                <button
-                  type="button"
-                  disabled
-                  className="h-11 w-full rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-sm font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50"
-                >
+              <div className="space-y-2">
+                <Button variant="outline" className="w-full border-dashed" disabled>
                   Cerrar ciclo de nouvingut
-                </button>
-                <p className="text-xs text-zinc-500">Se activa cuando no quede nada pendiente.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('Le quedan pasos sin hacer. ¿Cerrar su ciclo igualmente?')) patch({ accion: 'cerrar' }, `${ficha.nombre} sale de nouvinguts`);
-                  }}
-                  className="cursor-pointer text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-800"
-                >
-                  Cerrar aunque falte algo
-                </button>
+                </Button>
+                <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">Se activa cuando no quede nada pendiente.</p>
+                <ConfirmarEnLinea
+                  etiqueta="Cerrar aunque falte algo"
+                  pregunta="Le quedan pasos sin hacer. ¿Cerrar su ciclo igualmente?"
+                  confirmar="Sí, cerrar"
+                  variante="ghost"
+                  peligro={false}
+                  className="w-full"
+                  onConfirmar={() => patch({ accion: 'cerrar' }, `${ficha.nombre} sale de nouvinguts`)}
+                />
               </div>
             )}
-          </div>
+          </Tarjeta>
 
-          <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="text-[11px] font-semibold tracking-wide text-zinc-500 uppercase">Datos</p>
+          <Tarjeta className="space-y-3 p-5">
+            <Rotulo>Datos</Rotulo>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <Dato k="Clase" v={ficha.clase} />
               <Dato k="NIA" v={ficha.nia ?? '—'} />
@@ -248,22 +243,22 @@ export function FichaNouvinguts({ inicial, puede }: { inicial: FichaNouvingut; p
             {ficha.eduStudentId && (
               <Link
                 href={`/gestion/alumnado?alumno=${ficha.eduStudentId}`}
-                className="inline-flex min-h-8 items-center gap-1 text-sm font-medium text-blue-700 hover:underline dark:text-blue-400"
+                className="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-blue-700 hover:underline dark:text-blue-400"
               >
                 Ficha completa en Alumnado <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             )}
-          </div>
+          </Tarjeta>
 
           {ficha.notasLista.length > 0 && (
-            <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-              <p className="text-[11px] font-semibold tracking-wide text-zinc-500 uppercase">Últimas notas</p>
+            <Tarjeta className="space-y-3 p-5">
+              <Rotulo>Últimas notas</Rotulo>
               {[...ficha.notasLista]
                 .reverse()
                 .slice(0, 4)
                 .map((n) => (
                   <div key={n.id} className="border-b border-zinc-100 pb-2.5 text-sm last:border-0 last:pb-0 dark:border-zinc-800">
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
                       <span className="font-semibold text-zinc-700 dark:text-zinc-300">
                         {n.paso ? ficha.pasos.find((p) => p.clave === n.paso)?.titulo ?? 'General' : 'General'}
                       </span>{' '}
@@ -272,7 +267,7 @@ export function FichaNouvinguts({ inicial, puede }: { inicial: FichaNouvingut; p
                     <p className="mt-0.5 text-zinc-800 dark:text-zinc-200">{n.texto}</p>
                   </div>
                 ))}
-            </div>
+            </Tarjeta>
           )}
         </aside>
       </div>
@@ -312,7 +307,7 @@ function PasoFila({
       <div
         className={cn(
           'mb-2.5 min-w-0 flex-1 overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900',
-          paso.estado === 'aviso' ? 'border-orange-200 dark:border-orange-500/30' : 'border-zinc-200 dark:border-zinc-800',
+          paso.estado === 'aviso' ? 'border-amber-300 dark:border-amber-500/40' : 'border-zinc-200 dark:border-zinc-800',
           paso.estado === 'no_aplica' && 'opacity-70',
         )}
       >
@@ -320,17 +315,17 @@ function PasoFila({
           type="button"
           onClick={onToggle}
           aria-expanded={abierto}
-          className="flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3.5 text-left"
+          className="flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
         >
           <span className="min-w-0 flex-[1_1_16rem]">
-            <span className="block text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">{paso.titulo}</span>
+            <span className="block text-base font-semibold text-zinc-900 dark:text-zinc-100">{paso.titulo}</span>
             <span className={cn('block text-sm break-words', COLOR_TEXTO[paso.estado])}>{paso.texto}</span>
           </span>
           <span className="flex flex-wrap items-center gap-1.5">
             <ChipResponsable responsable={paso.responsable} />
-            <span className="rounded-md border border-zinc-200 px-2 py-0.5 text-[11px] text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{paso.fuente}</span>
+            <Etiqueta>{paso.fuente}</Etiqueta>
             {notas.length > 0 && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+              <span className="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
                 <MessageSquare className="h-3 w-3" /> {notas.length}
               </span>
             )}
@@ -339,14 +334,14 @@ function PasoFila({
         </button>
         {!abierto && ultima && (
           <p className="truncate px-4 pb-3 text-xs text-zinc-600 dark:text-zinc-400">
-            «{ultima.texto}» <span className="text-zinc-400">· {ultima.autor}, {fechaHora(ultima.at)}</span>
+            «{ultima.texto}» <span className="text-zinc-500 dark:text-zinc-400">· {ultima.autor}, {fechaHora(ultima.at)}</span>
           </p>
         )}
         {abierto && (
           <div className="space-y-4 border-t border-zinc-100 px-4 pt-3.5 pb-4 dark:border-zinc-800">
             <AccionDelPaso paso={paso} ctx={ctx} />
-            <div className="rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/40">
-              <p className="mb-2 text-[11px] font-semibold tracking-wide text-zinc-500 uppercase">Notas de este paso</p>
+            <div className="space-y-2 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/40">
+              <Rotulo as="h3">Notas de este paso</Rotulo>
               <Notas paso={paso.clave} notas={notas} ctx={ctx} />
             </div>
           </div>
@@ -391,15 +386,15 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
           {paso.estado === 'hecho' ? (
             d.dispositivo ? null : (
               <Boton variante="secundario" ocupado={enCurso} onClick={() => accion({ paso: 'ipad', hecho: false })}>
-                Deshacer
+                <Undo2 /> Deshacer
               </Boton>
             )
           ) : (
-            <Boton variante="verde" ocupado={enCurso} onClick={() => accion({ paso: 'ipad', hecho: true })}>
-              Marcar hecho
+            <Boton variante="primario" ocupado={enCurso} onClick={() => accion({ paso: 'ipad', hecho: true })}>
+              <Check /> Marcar hecho
             </Boton>
           )}
-          <span className="text-sm text-zinc-500">Cómo lo tiene se apunta en Dispositivos 1:1 (TIC, secretaría y dirección).</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">Cómo lo tiene se apunta en Dispositivos 1:1 (TIC, secretaría y dirección).</span>
         </div>
       );
 
@@ -411,11 +406,11 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
         <div className="flex flex-wrap items-center gap-2">
           {paso.estado === 'hecho' ? (
             <Boton variante="secundario" ocupado={enCurso} onClick={() => accion({ paso: clave, hecho: false })}>
-              Deshacer
+              <Undo2 /> Deshacer
             </Boton>
           ) : (
-            <Boton variante="verde" ocupado={enCurso} onClick={() => accion({ paso: clave, hecho: true })}>
-              Marcar hecho
+            <Boton variante="primario" ocupado={enCurso} onClick={() => accion({ paso: clave, hecho: true })}>
+              <Check /> Marcar hecho
             </Boton>
           )}
         </div>
@@ -432,19 +427,20 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
       const clave = paso.clave;
       const valor = clave === 'banco' ? d.bancoLibros : d.ampa;
       const decidido = paso.estado === 'hecho';
-      if (!puede.participantes) return <p className="text-sm text-zinc-500">Esto lo deciden secretaría, dirección o TIC.</p>;
+      if (!puede.participantes) return <p className="text-sm text-zinc-500 dark:text-zinc-400">Esto lo deciden secretaría, dirección o TIC.</p>;
       return (
         <div className="space-y-2">
           {!decidido && <p className="text-sm text-zinc-600 dark:text-zinc-400">En su ficha pone ahora «{valor ? 'sí' : 'no'}», sin confirmar. ¿Qué ha dicho la familia?</p>}
           <div className="flex flex-wrap items-center gap-2">
-            <Segmento
+            <Segmentado
+              etiqueta={clave === 'banco' ? '¿Entra en el banco de libros?' : '¿Es del AMPA?'}
               opciones={[
-                ['si', clave === 'banco' ? 'Sí, entra en el banco' : 'Sí, es del AMPA'],
-                ['no', clave === 'banco' ? 'No' : 'No'],
+                { valor: 'si', etiqueta: clave === 'banco' ? 'Sí, entra en el banco' : 'Sí, es del AMPA' },
+                { valor: 'no', etiqueta: 'No' },
               ]}
               valor={decidido ? (valor ? 'si' : 'no') : null}
-              ocupado={enCurso}
-              onElegir={(v) => accion({ paso: clave, valor: v === 'si' })}
+              disabled={enCurso}
+              onChange={(v) => accion({ paso: clave, valor: v === 'si' })}
             />
             {decidido && (
               <Boton variante="enlace" ocupado={false} onClick={() => accion({ paso: clave, valor: null })}>
@@ -458,17 +454,18 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
 
     case 'materiales':
       if (!d.vinculado) return <Espera />;
-      if (!puede.materiales) return <p className="text-sm text-zinc-500">Los pagos los marcan secretaría, dirección o TIC.</p>;
+      if (!puede.materiales) return <p className="text-sm text-zinc-500 dark:text-zinc-400">Los pagos los marcan secretaría, dirección o TIC.</p>;
       return (
         <div className="space-y-2">
           {d.materiales.map((m) => (
             <div key={m.id} className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{m.nombre}</span>
-              <Segmento
+              <Segmentado
+                etiqueta={m.nombre}
                 opciones={OPCIONES_MATERIAL}
                 valor={m.estado}
-                ocupado={enCurso}
-                onElegir={(v) => accion({ paso: 'materiales', materialId: m.id, estado: v === m.estado ? null : (v as EstadoMaterialNou) })}
+                disabled={enCurso}
+                onChange={(v) => accion({ paso: 'materiales', materialId: m.id, estado: v === m.estado ? null : v })}
               />
             </div>
           ))}
@@ -516,7 +513,7 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
       return (
         <div className="space-y-2">
           {l.campania && (
-            <p className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+            <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
               Pedidos de su familia en «{l.campania}»: <strong className="text-zinc-900 dark:text-zinc-100">ninguno</strong>
               {!l.enCampania && '. Además no está en el alumnado de la campaña: falta pasar el sync de alumnado en Licencias.'}
             </p>
@@ -533,18 +530,18 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
   }
 }
 
-const OPCIONES_MATERIAL: [string, string][] = [
-  ['pagado', 'Pagado'],
-  ['no', 'No'],
-  ['becado', 'Beca'],
-  ['no_aplica', 'N/A'],
+const OPCIONES_MATERIAL: { valor: EstadoMaterialNou; etiqueta: string }[] = [
+  { valor: 'pagado', etiqueta: 'Pagado' },
+  { valor: 'no', etiqueta: 'No' },
+  { valor: 'becado', etiqueta: 'Beca' },
+  { valor: 'no_aplica', etiqueta: 'No le toca' },
 ];
 
 function Proteccion({ ctx }: { ctx: Ctx }) {
   const pd = ctx.ficha.datos.proteccion!;
   const [v, setV] = useState({ imagen: pd.imagen, redes: pd.redes, ampa: pd.ampa, ong: pd.ong });
   if (!ctx.puede.proteccion) {
-    return <p className="text-sm text-zinc-500">La protección de datos la guardan secretaría, dirección o TIC.</p>;
+    return <p className="text-sm text-zinc-500 dark:text-zinc-400">La protección de datos la guardan secretaría, dirección o TIC.</p>;
   }
   const filas: [keyof typeof v, string][] = [
     ['imagen', 'Imagen y voz (fotos y vídeos del colegio)'],
@@ -557,14 +554,14 @@ function Proteccion({ ctx }: { ctx: Ctx }) {
       {filas.map(([k, texto]) => (
         <div key={k} className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm text-zinc-800 dark:text-zinc-200">{texto}</span>
-          <Segmento
+          <Segmentado
+            etiqueta={texto}
             opciones={[
-              ['si', 'Sí'],
-              ['no', 'No'],
+              { valor: 'si', etiqueta: 'Sí' },
+              { valor: 'no', etiqueta: 'No' },
             ]}
             valor={v[k] === true ? 'si' : v[k] === false ? 'no' : null}
-            ocupado={false}
-            onElegir={(x) => setV((prev) => ({ ...prev, [k]: x === 'si' }))}
+            onChange={(x) => setV((prev) => ({ ...prev, [k]: x === 'si' }))}
           />
         </div>
       ))}
@@ -609,7 +606,6 @@ function EsperandoEducamos({ ctx }: { ctx: Ctx }) {
   }
 
   async function vincular(c: Candidato) {
-    if (!window.confirm(`¿${ficha.nombre} es ${c.nombre} (${c.clase})?`)) return;
     setVinculando(c.id);
     try {
       const nueva = await pedirFicha(`/api/nouvinguts/${ficha.id}/vincular`, 'POST', { eduStudentId: c.id });
@@ -636,7 +632,6 @@ function EsperandoEducamos({ ctx }: { ctx: Ctx }) {
   }
 
   async function quitar() {
-    if (!window.confirm(`¿Quitar a ${ficha.nombre} de nouvinguts? Es para lo apuntado por error; no se puede deshacer.`)) return;
     try {
       await pedir(`/api/nouvinguts/${ficha.id}`, { method: 'DELETE' });
       toast.success('Quitado');
@@ -656,50 +651,65 @@ function EsperandoEducamos({ ctx }: { ctx: Ctx }) {
       </p>
       {lista.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-zinc-500">{resultados ? 'Resultados' : 'Se le parecen'}</p>
+          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{resultados ? 'Resultados' : 'Se le parecen'}</p>
           {lista.map((c) => (
-            <div key={c.id} className="flex items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
+            <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">{c.nombre}</span>
-                <span className="text-xs text-zinc-500">
+                <span className="block font-medium text-zinc-900 dark:text-zinc-100">{c.nombre}</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
                   {c.clase} · alta en la BBDD el {new Date(c.alta).toLocaleDateString('es-ES', { timeZone: CONFIGURACION.calendario.zonaHoraria })}
                 </span>
               </span>
-              <Boton variante="primario" ocupado={vinculando === c.id} onClick={() => vincular(c)}>
-                Es este
-              </Boton>
+              <ConfirmarEnLinea
+                etiqueta="Es este"
+                variante="default"
+                pregunta={`¿${ficha.nombre} es ${c.nombre} (${c.clase})?`}
+                confirmar="Sí, vincular"
+                peligro={false}
+                disabled={vinculando !== null}
+                onConfirmar={() => vincular(c)}
+              />
             </div>
           ))}
         </div>
       )}
-      {resultados && resultados.length === 0 && <p className="text-sm text-zinc-500">Nadie con ese nombre en la BBDD central.</p>}
+      {resultados && resultados.length === 0 && <p className="text-sm text-zinc-500 dark:text-zinc-400">Nadie con ese nombre en la BBDD central.</p>}
       <form onSubmit={buscar} className="flex gap-2">
-        <input className={ESTILO_CAMPO} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar en el alumnado para vincular a mano" />
-        <button type="submit" disabled={buscando || q.trim().length < 2} className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-zinc-300 disabled:opacity-50 dark:border-zinc-700" aria-label="Buscar">
-          {buscando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-        </button>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar en el alumnado para vincular a mano" aria-label="Buscar en el alumnado" />
+        <Button type="submit" variant="outline" size="icon" disabled={buscando || q.trim().length < 2} aria-label="Buscar">
+          {buscando ? <Loader2 className="animate-spin" /> : <Search />}
+        </Button>
       </form>
 
-      <details className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
-        <summary className="cursor-pointer text-sm font-medium text-zinc-700 dark:text-zinc-300">Corregir lo apuntado</summary>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <input aria-label="Nombre" className={`${ESTILO_CAMPO} uppercase`} value={nombre} onChange={(e) => setNombre(e.target.value.toUpperCase())} />
-          <input aria-label="Apellidos" className={`${ESTILO_CAMPO} uppercase`} value={apellidos} onChange={(e) => setApellidos(e.target.value.toUpperCase())} />
-          <select aria-label="Curso" className={ESTILO_CAMPO} value={curso} onChange={(e) => setCurso(e.target.value)}>
-            {cursos.map((c) => (
-              <option key={c.codigo} value={c.codigo}>
-                {etiquetaCurso(c.codigo)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <Boton variante="primario" ocupado={false} desactivado={!cambiado} onClick={guardarDatos}>
-            Guardar
-          </Boton>
-          <button type="button" onClick={quitar} className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-red-700 hover:underline dark:text-red-400">
-            <Trash2 className="h-4 w-4" /> Quitar: lo apunté por error
-          </button>
+      <details className="group rounded-xl border border-zinc-200 dark:border-zinc-700">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-3 text-sm font-medium text-zinc-700 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
+          Corregir lo apuntado
+          <ChevronDown aria-hidden className="h-4 w-4 text-zinc-400 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="space-y-3 px-3 pb-3">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Input aria-label="Nombre" className="uppercase" value={nombre} onChange={(e) => setNombre(e.target.value.toUpperCase())} />
+            <Input aria-label="Apellidos" className="uppercase" value={apellidos} onChange={(e) => setApellidos(e.target.value.toUpperCase())} />
+            <Selector aria-label="Curso" value={curso} onChange={(e) => setCurso(e.target.value)}>
+              {cursos.map((c) => (
+                <option key={c.codigo} value={c.codigo}>
+                  {etiquetaCurso(c.codigo)}
+                </option>
+              ))}
+            </Selector>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button size="sm" disabled={!cambiado} onClick={guardarDatos}>
+              Guardar
+            </Button>
+            <ConfirmarEnLinea
+              etiqueta="Quitar: lo apunté por error"
+              icono={<Trash2 />}
+              pregunta={`¿Quitar a ${ficha.nombre} de nouvinguts? No se puede deshacer.`}
+              confirmar="Sí, quitar"
+              onConfirmar={quitar}
+            />
+          </div>
         </div>
       </details>
     </div>
@@ -756,9 +766,9 @@ function Notas({ paso, notas, ctx }: { paso: ClavePaso | null; notas: NotaVista[
   return (
     <div className="space-y-2">
       {notas.map((n) => (
-        <div key={n.id} className="rounded-lg border border-zinc-100 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div key={n.id} className="rounded-xl border border-zinc-100 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
           <p className="whitespace-pre-line text-zinc-800 dark:text-zinc-200">{n.texto}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-500">
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-500 dark:text-zinc-400">
             {n.autor} · {fechaHora(n.at)}
             {n.enviadaA && (
               <span className="inline-flex items-center gap-1 text-blue-700 dark:text-blue-400">
@@ -770,73 +780,52 @@ function Notas({ paso, notas, ctx }: { paso: ClavePaso | null; notas: NotaVista[
       ))}
       <form onSubmit={guardar} className="space-y-2">
         <div className="flex flex-wrap gap-2">
-          <input
-            className={cn(ESTILO_CAMPO, 'flex-[1_1_14rem]')}
+          <Input
+            className="flex-[1_1_14rem]"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             placeholder={paso ? 'Apunta algo de este paso…' : 'Algo que hay que saber de este alumno…'}
             aria-label="Nota"
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon"
             aria-pressed={porCorreo}
             onClick={() => setPorCorreo((v) => !v)}
-            title="Mandar también por correo"
             aria-label="Mandar también por correo"
-            className={cn(
-              'flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border',
-              porCorreo
-                ? 'border-blue-600 bg-blue-600 text-white'
-                : 'border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
-            )}
+            className={cn(porCorreo && 'border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200')}
           >
-            <Mail className="h-4 w-4" />
-          </button>
-          <button
-            type="submit"
-            disabled={guardando || !texto.trim()}
-            className={cn(
-              'inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-medium disabled:opacity-50',
-              porCorreo
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900',
-            )}
-          >
-            {guardando && <Loader2 className="h-4 w-4 animate-spin" />} {porCorreo ? 'Guardar y mandar' : 'Guardar nota'}
-          </button>
+            <Mail />
+          </Button>
+          <Button type="submit" variant={porCorreo ? 'default' : 'outline'} cargando={guardando} disabled={!texto.trim()}>
+            {porCorreo ? 'Guardar y mandar' : 'Guardar nota'}
+          </Button>
         </div>
         {porCorreo && (
-          <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-500/30 dark:bg-blue-500/10">
+          <div className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Mandar a</span>
-              {GRUPOS_AVISO.map((g) => {
-                const on = grupos.includes(g);
-                return (
-                  <button
-                    key={g}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setGrupos((prev) => (on ? prev.filter((x) => x !== g) : [...prev, g]))}
-                    className={cn(
-                      'h-8 cursor-pointer rounded-full border px-3 text-sm',
-                      on
-                        ? 'border-blue-600 bg-blue-600 font-medium text-white'
-                        : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
-                    )}
-                  >
-                    {GRUPO_AVISO_LABEL[g]}
-                  </button>
-                );
-              })}
+              <span aria-hidden className="text-sm text-zinc-600 dark:text-zinc-300">
+                Mandar a
+              </span>
+              <Filtros etiqueta="Mandar a">
+                {GRUPOS_AVISO.map((g) => {
+                  const on = grupos.includes(g);
+                  return (
+                    <Filtro key={g} activo={on} onClick={() => setGrupos((prev) => (on ? prev.filter((x) => x !== g) : [...prev, g]))}>
+                      {GRUPO_AVISO_LABEL[g]}
+                    </Filtro>
+                  );
+                })}
+              </Filtros>
             </div>
-            <input
-              className={cn(ESTILO_CAMPO, 'h-10 text-sm')}
+            <Input
               value={otros}
               onChange={(e) => setOtros(e.target.value)}
               placeholder={`y/o correos del colegio: nombre@${COLEGIO.dominio}`}
               aria-label="Otros correos"
             />
-            <p className="text-xs text-zinc-500">Sale desde tu correo: si contestan, te llega a ti.</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Sale desde tu correo: si contestan, te llega a ti.</p>
           </div>
         )}
       </form>
@@ -851,34 +840,17 @@ function fechaHora(iso: string): string {
   return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: CONFIGURACION.calendario.zonaHoraria });
 }
 
-function Chip({ children, tono }: { children: React.ReactNode; tono?: 'naranja' | 'verde' }) {
-  return (
-    <span
-      className={cn(
-        'rounded-full border px-2.5 py-0.5 font-medium',
-        tono === 'naranja'
-          ? 'border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-300'
-          : tono === 'verde'
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
-            : 'border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 function Dato({ k, v }: { k: string; v: string }) {
   return (
     <div>
-      <dt className="text-xs text-zinc-500">{k}</dt>
+      <dt className="text-xs text-zinc-500 dark:text-zinc-400">{k}</dt>
       <dd className="text-zinc-900 dark:text-zinc-100">{v}</dd>
     </div>
   );
 }
 
 function Espera() {
-  return <p className="text-sm text-zinc-500">Se podrá hacer en cuanto esté en Educamos.</p>;
+  return <p className="text-sm text-zinc-500 dark:text-zinc-400">Se podrá hacer en cuanto esté en Educamos.</p>;
 }
 
 
@@ -888,7 +860,7 @@ function Enlace({ href, children, boton = false }: { href: string; children: Rea
       href={href}
       className={
         boton
-          ? 'inline-flex h-10 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900'
+          ? buttonVariants({ variant: 'outline', size: 'sm' })
           : 'inline-flex min-h-10 items-center gap-1 text-sm font-medium text-blue-700 hover:underline dark:text-blue-400'
       }
     >
@@ -897,67 +869,28 @@ function Enlace({ href, children, boton = false }: { href: string; children: Rea
   );
 }
 
+/** Los botones de dentro de cada paso: 40 px, con la ruedecita mientras se guarda. */
 function Boton({
   children,
   onClick,
   ocupado,
-  desactivado = false,
   variante,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   ocupado: boolean;
-  desactivado?: boolean;
-  variante: 'primario' | 'secundario' | 'verde' | 'enlace';
+  variante: 'primario' | 'secundario' | 'enlace';
 }) {
   return (
-    <button
+    <Button
       type="button"
+      size="sm"
+      variant={variante === 'primario' ? 'default' : variante === 'secundario' ? 'outline' : 'ghost'}
+      cargando={ocupado}
       onClick={onClick}
-      disabled={ocupado || desactivado}
-      className={cn(
-        'inline-flex cursor-pointer items-center gap-2 text-sm font-medium disabled:cursor-default disabled:opacity-60',
-        variante === 'primario' && 'h-10 rounded-xl bg-blue-600 px-4 text-white hover:bg-blue-700',
-        variante === 'verde' && 'h-10 rounded-xl bg-emerald-600 px-4 text-white hover:bg-emerald-700',
-        variante === 'secundario' && 'h-10 rounded-xl border border-zinc-300 bg-white px-4 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200',
-        variante === 'enlace' && 'h-10 px-1 text-zinc-500 underline underline-offset-2 hover:text-zinc-800',
-      )}
     >
-      {ocupado && <Loader2 className="h-4 w-4 animate-spin" />}
       {children}
-    </button>
-  );
-}
-
-function Segmento({
-  opciones,
-  valor,
-  ocupado,
-  onElegir,
-}: {
-  opciones: [string, string][];
-  valor: string | null;
-  ocupado: boolean;
-  onElegir: (v: string) => void;
-}) {
-  return (
-    <div className="flex rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800" role="group">
-      {opciones.map(([v, etiqueta]) => (
-        <button
-          key={v}
-          type="button"
-          disabled={ocupado}
-          aria-pressed={valor === v}
-          onClick={() => onElegir(v)}
-          className={cn(
-            'h-9 cursor-pointer rounded-lg px-3 text-sm transition-colors disabled:opacity-60',
-            valor === v ? 'bg-white font-semibold text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400',
-          )}
-        >
-          {etiqueta}
-        </button>
-      ))}
-    </div>
+    </Button>
   );
 }
 
@@ -988,12 +921,19 @@ function CampoYBoton({
       }}
     >
       <div className="flex flex-wrap gap-2">
-        <input type={tipo} className={cn(ESTILO_CAMPO, 'max-w-xs flex-[1_1_12rem]', mono && 'font-mono')} value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder} />
-        <button type="submit" disabled={ocupado || !v.trim()} className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900">
-          {ocupado && <Loader2 className="h-4 w-4 animate-spin" />} {boton}
-        </button>
+        <Input
+          type={tipo}
+          aria-label={placeholder}
+          className={cn('max-w-xs flex-[1_1_12rem]', mono && 'font-mono')}
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          placeholder={placeholder}
+        />
+        <Button type="submit" cargando={ocupado} disabled={!v.trim()}>
+          {boton}
+        </Button>
       </div>
-      {ayuda && <p className="text-xs text-zinc-500">{ayuda}</p>}
+      {ayuda && <p className="text-xs text-zinc-500 dark:text-zinc-400">{ayuda}</p>}
     </form>
   );
 }

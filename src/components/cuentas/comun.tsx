@@ -1,14 +1,15 @@
 'use client';
 
-// Piezas compartidas de Correos y grupos: llamadas a la API, chips de estado, fechas, la
-// confirmación escribiendo una palabra y la barra de progreso de las tandas.
+// Piezas compartidas de Correos y grupos: llamadas a la API, el estado de cada fila, fechas,
+// copiar y el aviso de cómo ha ido una tanda.
 import { useState } from 'react';
-import { Check, Copy, Loader2 } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
-import { cn } from '@/lib/utils';
-import { ESTADO_LABEL, nombreUo, type EstadoFila } from '@/lib/cuentas';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ESTADO_LABEL, type EstadoFila } from '@/lib/cuentas';
+import { Button } from '@/components/ui/button';
+import { copiarTexto } from '@/components/ui/copiable';
+import { Estado, type TonoEstado } from '@/components/ui/estado';
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
@@ -38,50 +39,26 @@ export async function enTandas<T, R>(
   return salida;
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// ─── Estado de una fila ──────────────────────────────────────────────────────
 
-export const CAMPO =
-  'h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
-
-export const BOTON =
-  'inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-default disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800';
-
-export const BOTON_PRIMARIO =
-  'inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-default disabled:opacity-50';
-
-export const TARJETA = 'rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900';
-
-const TONO_ESTADO: Record<EstadoFila, string> = {
-  ok: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  fuera: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-  suspendida: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300',
-  'sin-correo': 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  'no-le-toca': 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
-  baja: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300',
-  'baja-espera': 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
-  suelta: 'bg-orange-50 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300',
-  marcada: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
-  archivar: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-  archivada: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+/** El tono de cada estado: verde en su sitio, ámbar lo que hay que mover o revisar, rojo lo que
+ * hay que suspender o reactivar, azul lo que falta crear y gris lo que no pide nada. */
+const TONO_ESTADO: Record<EstadoFila, TonoEstado> = {
+  ok: 'ok',
+  fuera: 'aviso',
+  suspendida: 'error',
+  'sin-correo': 'info',
+  'no-le-toca': 'neutro',
+  baja: 'error',
+  'baja-espera': 'neutro',
+  suelta: 'aviso',
+  marcada: 'neutro',
+  archivar: 'aviso',
+  archivada: 'neutro',
 };
 
-export function ChipEstado({ estado, texto }: { estado: EstadoFila; texto?: string }) {
-  return (
-    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', TONO_ESTADO[estado])}>
-      {texto ?? ESTADO_LABEL[estado]}
-    </span>
-  );
-}
-
-export function ChipUo({ ruta, title }: { ruta: string; title?: string }) {
-  return (
-    <span
-      title={title ?? ruta}
-      className="inline-flex max-w-56 items-center truncate rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-    >
-      {nombreUo(ruta)}
-    </span>
-  );
+export function EstadoCuenta({ estado, texto }: { estado: EstadoFila; texto?: string }) {
+  return <Estado tono={TONO_ESTADO[estado]}>{texto ?? ESTADO_LABEL[estado]}</Estado>;
 }
 
 // ─── Fechas ──────────────────────────────────────────────────────────────────
@@ -116,25 +93,27 @@ export function haceTiempo(s: string | null, ahora = Date.now()): string {
 
 // ─── Copiar ──────────────────────────────────────────────────────────────────
 
+/** Copiar algo largo (la tabla de contraseñas, una contraseña) con un botón que dice «Copiado». */
 export function BotonCopiar({ texto, etiqueta = 'Copiar', className }: { texto: string; etiqueta?: string; className?: string }) {
   const [hecho, setHecho] = useState(false);
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      className={className}
       onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(texto);
-          haptic.tap();
-          setHecho(true);
-          setTimeout(() => setHecho(false), 1500);
-        } catch {
+        if (!(await copiarTexto(texto))) {
           toast.error('No se ha podido copiar');
+          return;
         }
+        haptic.success();
+        setHecho(true);
+        setTimeout(() => setHecho(false), 1500);
       }}
-      className={cn(BOTON, 'h-9', className)}
     >
-      {hecho ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />} {etiqueta}
-    </button>
+      {hecho ? <Check className="text-emerald-600 dark:text-emerald-400" /> : <Copy />}
+      {hecho ? 'Copiado' : etiqueta}
+    </Button>
   );
 }
 
@@ -152,92 +131,7 @@ export function descargarCsv(nombre: string, filas: (string | number | null)[][]
   URL.revokeObjectURL(url);
 }
 
-// ─── Progreso y confirmación ─────────────────────────────────────────────────
-
-export function Progreso({ texto, hechos, total }: { texto: string; hechos?: number; total?: number }) {
-  const pct = total ? Math.round(((hechos ?? 0) / total) * 100) : null;
-  return (
-    <div className="space-y-1.5 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:bg-blue-500/10 dark:text-blue-200">
-      <p className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> {texto}
-        {total ? <span className="ml-auto font-mono text-xs">{hechos}/{total}</span> : null}
-      </p>
-      {pct !== null && (
-        <div className="h-1.5 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-500/20">
-          <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Confirmación que obliga a escribir una palabra (SUSPENDER, QUITAR…). */
-export function ConfirmarPalabra({
-  abierto,
-  titulo,
-  descripcion,
-  palabra,
-  boton,
-  peligro = true,
-  children,
-  onCerrar,
-  onConfirmar,
-}: {
-  abierto: boolean;
-  titulo: string;
-  descripcion: string;
-  palabra: string;
-  boton: string;
-  peligro?: boolean;
-  children?: React.ReactNode;
-  onCerrar: () => void;
-  onConfirmar: () => void;
-}) {
-  const [texto, setTexto] = useState('');
-  const cerrar = () => {
-    setTexto('');
-    onCerrar();
-  };
-  return (
-    <Dialog open={abierto} onOpenChange={(o) => !o && cerrar()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{titulo}</DialogTitle>
-          <DialogDescription>{descripcion}</DialogDescription>
-        </DialogHeader>
-        {children}
-        <label className="text-sm text-zinc-600 dark:text-zinc-300">
-          Escribe <b>{palabra}</b> para confirmar
-          <input
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            autoFocus
-            className={cn(CAMPO, 'mt-1')}
-          />
-        </label>
-        <DialogFooter>
-          <button type="button" onClick={cerrar} className={BOTON}>
-            Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={texto.trim().toUpperCase() !== palabra}
-            onClick={() => {
-              setTexto('');
-              onConfirmar();
-            }}
-            className={cn(
-              'inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-xl px-4 text-sm font-semibold text-white disabled:cursor-default disabled:opacity-40',
-              peligro ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700',
-            )}
-          >
-            {boton}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// ─── Resultado de una tanda ──────────────────────────────────────────────────
 
 /** Una línea de «se ha hecho / ha fallado» tras una tanda. */
 export function avisarResultado(ok: number, fallos: number, hecho: string) {

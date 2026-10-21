@@ -20,7 +20,9 @@ import {
 } from '@/lib/dispositivos';
 import type { AlumnoDis, LineaHistorial, PanelDispositivos } from '@/lib/dispositivos-server';
 import type { Acciones } from './panel';
-import { COLOR_MODALIDAD, cuandoYQuien, ESTILO_BOTON, ESTILO_BOTON_PRINCIPAL, ESTILO_CAMPO, pedir } from './comun';
+import { COLOR_MODALIDAD, cuandoYQuien, pedir } from './comun';
+import { buttonVariants } from '@/components/ui/button';
+import { claseCampo } from '@/components/ui/input';
 
 export function FichaEstado({
   alumno: a,
@@ -130,7 +132,7 @@ export function FichaEstado({
             <label className="block space-y-1.5">
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">De qué hermano viene</span>
               <select
-                className={ESTILO_CAMPO}
+                className={claseCampo}
                 value={hermanoId}
                 onChange={(ev) => {
                   setHermanoId(ev.target.value);
@@ -155,7 +157,7 @@ export function FichaEstado({
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Curso de compra{modalidad === 'hermano' ? ' (el del hermano)' : ''}
               </span>
-              <select className={ESTILO_CAMPO} value={cursoCompra} onChange={(ev) => setCursoCompra(ev.target.value)}>
+              <select className={claseCampo} value={cursoCompra} onChange={(ev) => setCursoCompra(ev.target.value)}>
                 <option value="">No se sabe todavía</option>
                 {cursosDeCompra(panel.cursoActual, 10).map((c) => (
                   <option key={c} value={c}>
@@ -201,7 +203,7 @@ export function FichaEstado({
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">iPad del cole</span>
-                  <select className={ESTILO_CAMPO} value={aparatoId} onChange={(ev) => setAparatoId(ev.target.value)}>
+                  <select className={claseCampo} value={aparatoId} onChange={(ev) => setAparatoId(ev.target.value)}>
                     <option value="">{libres.length ? 'Sin iPad todavía' : 'No hay iPads de sustitución libres'}</option>
                     {libres.map((x) => (
                       <option key={x.id} value={x.id}>
@@ -215,7 +217,7 @@ export function FichaEstado({
                   <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                     Firmado el <span className="font-normal text-zinc-500">(opcional)</span>
                   </span>
-                  <input type="date" className={ESTILO_CAMPO} value={firmadoAt} onChange={(ev) => setFirmadoAt(ev.target.value)} />
+                  <input type="date" className={claseCampo} value={firmadoAt} onChange={(ev) => setFirmadoAt(ev.target.value)} />
                 </label>
               </div>
               {libres.length === 0 && (
@@ -232,7 +234,7 @@ export function FichaEstado({
                 <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   Modelo <span className="font-normal text-zinc-500">(opcional)</span>
                 </span>
-                <select className={ESTILO_CAMPO} value={modeloId} onChange={(ev) => setModeloId(ev.target.value)}>
+                <select className={claseCampo} value={modeloId} onChange={(ev) => setModeloId(ev.target.value)}>
                   <option value="">No se sabe</option>
                   {modelos.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -246,7 +248,7 @@ export function FichaEstado({
                   Nº de serie <span className="font-normal text-zinc-500">(opcional)</span>
                 </span>
                 <input
-                  className={cn(ESTILO_CAMPO, 'uppercase')}
+                  className={cn(claseCampo, 'uppercase')}
                   value={numeroSerie}
                   onChange={(ev) => setNumeroSerie(ev.target.value.toUpperCase())}
                   autoComplete="off"
@@ -260,7 +262,7 @@ export function FichaEstado({
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Notas <span className="font-normal text-zinc-500">(opcional)</span>
               </span>
-              <input className={ESTILO_CAMPO} value={notas} onChange={(ev) => setNotas(ev.target.value)} placeholder="Pantalla rajada, funda del cole…" />
+              <input className={claseCampo} value={notas} onChange={(ev) => setNotas(ev.target.value)} placeholder="Pantalla rajada, funda del cole…" />
             </label>
           )}
 
@@ -282,10 +284,10 @@ export function FichaEstado({
           )}
 
           <div className="flex gap-2">
-            <button type="button" className={cn(ESTILO_BOTON, 'flex-1')} onClick={onCerrar}>
+            <button type="button" className={cn(buttonVariants({ variant: 'outline' }), 'flex-1')} onClick={onCerrar}>
               Cancelar
             </button>
-            <button type="button" className={cn(ESTILO_BOTON_PRINCIPAL, 'flex-1')} onClick={() => void guardar()} disabled={ocupado}>
+            <button type="button" className={cn(buttonVariants(), 'flex-1')} onClick={() => void guardar()} disabled={ocupado}>
               {ocupado && <Loader2 className="h-4 w-4 animate-spin" />} Guardar
             </button>
           </div>

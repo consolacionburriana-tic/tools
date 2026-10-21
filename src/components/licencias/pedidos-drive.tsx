@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Check, ExternalLink, FileSpreadsheet, FileText, Loader2, Stamp, TriangleAlert } from 'lucide-react';
 import { euros } from '@/lib/licencias';
+import { useConfirmar, type OpcionesConfirmar } from '@/components/ui/confirmar';
 
 interface Fichero {
   id: string;
@@ -61,7 +62,7 @@ function Paso({
       disabled={disabled || cargando}
       className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40 cursor-pointer ${colores}`}
     >
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/15 text-[11px] font-bold">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/15 text-xs font-bold">
         {n}
       </span>
       {cargando ? <Loader2 className="h-4 w-4 animate-spin" /> : icono}
@@ -71,6 +72,7 @@ function Paso({
 }
 
 export function PedidosDrive({ drive, previa, tirada: tiradaInicial }: PedidosDriveProps) {
+  const { confirmar, dialogo } = useConfirmar();
   const [tirada, setTirada] = useState(tiradaInicial);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -82,8 +84,8 @@ export function PedidosDrive({ drive, previa, tirada: tiradaInicial }: PedidosDr
   // a mano hay que poder volver a pasarlo.
   const sinMarcar = tirada.some((f) => !f.marcadoAt);
 
-  async function accion(nombre: 'generar' | 'pdf' | 'marcar', confirmacion?: string) {
-    if (confirmacion && !confirm(confirmacion)) return;
+  async function accion(nombre: 'generar' | 'pdf' | 'marcar', confirmacion?: OpcionesConfirmar) {
+    if (confirmacion && !(await confirmar(confirmacion))) return;
     setOcupado(nombre);
     setMsg(null);
     setError(null);
@@ -166,10 +168,12 @@ export function PedidosDrive({ drive, previa, tirada: tiradaInicial }: PedidosDr
             texto="Generar los pedidos"
             icono={<FileSpreadsheet className="h-4 w-4" />}
             onClick={() =>
-              accion(
-                'generar',
-                `Se crearán ${totalFicheros} Google Sheets en Drive (se reemplazan los que ya existan con el mismo nombre). ¿Continuar?`,
-              )
+              accion('generar', {
+                titulo: `¿Generar ${totalFicheros} Google Sheets en Drive?`,
+                descripcion: 'Se reemplazan los que ya existan con el mismo nombre.',
+                boton: `Generar ${totalFicheros} pedidos`,
+                peligro: false,
+              })
             }
             cargando={ocupado === 'generar'}
             disabled={totalFicheros === 0 || ocupado !== null}
@@ -189,10 +193,12 @@ export function PedidosDrive({ drive, previa, tirada: tiradaInicial }: PedidosDr
             icono={<Stamp className="h-4 w-4" />}
             tono="verde"
             onClick={() =>
-              accion(
-                'marcar',
-                `Se marcarán como pedidos a la editorial (🧾) los ${previa.pedidosPendientes} pedidos que entraron en estos ficheros. ¿Continuar?`,
-              )
+              accion('marcar', {
+                titulo: `¿Marcar ${previa.pedidosPendientes} pedidos como pedidos a la editorial?`,
+                descripcion: 'Son los pedidos que entraron en estos ficheros.',
+                boton: `Marcar ${previa.pedidosPendientes} pedidos`,
+                peligro: false,
+              })
             }
             cargando={ocupado === 'marcar'}
             disabled={!hayTirada || !sinMarcar || ocupado !== null}
@@ -273,6 +279,7 @@ export function PedidosDrive({ drive, previa, tirada: tiradaInicial }: PedidosDr
           </table>
         </div>
       )}
+      {dialogo}
     </div>
   );
 }

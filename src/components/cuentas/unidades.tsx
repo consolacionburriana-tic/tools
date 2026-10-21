@@ -4,15 +4,22 @@
 // suspenden y cuánto se espera, y el árbol de unidades con sus cuentas. TIC lo cambia;
 // secretaría lo ve.
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ExternalLink, FolderPlus, Loader2, Save, Wand2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, FolderPlus, Save, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { ETAPA_LABEL, ETAPAS, type Etapa } from '@/lib/cursos';
 import { ENLACE_CONSOLA_UNIDADES, nombreUo, type AjustesCuentas } from '@/lib/cuentas';
 import type { EstadoCuentas } from '@/lib/cuentas-server';
+import { Aviso } from '@/components/ui/aviso';
+import { BarraAcciones } from '@/components/ui/barra-acciones';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { BOTON, BOTON_PRIMARIO, CAMPO, post, TARJETA } from './comun';
+import { Estado } from '@/components/ui/estado';
+import { claseCampo, Input } from '@/components/ui/input';
+import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
+import { post } from './comun';
 import { SelectorUo } from './dialogos';
 
 const API = '/api/cuentas/admin';
@@ -82,29 +89,27 @@ export function Unidades({
   const esPropuesta = (campo: CampoUo) => !borrador[campo] && !!estado.ajustes[campo];
 
   return (
-    <div className="space-y-5 pb-24">
+    <div className="space-y-5">
       {!estado.unidadesDeGoogle && (
-        <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <Aviso tono="aviso">
           Las unidades se están deduciendo de dónde están las cuentas, así que no salen las vacías (como una clase nueva que todavía
           no tiene a nadie). Con el permiso de unidades organizativas salen todas y se pueden crear desde aquí.
-        </p>
+        </Aviso>
       )}
 
       {/* ── Clase → unidad ───────────────────────────────────────────── */}
-      <section className={cn(TARJETA, 'overflow-hidden')}>
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-          <div>
-            <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">A qué unidad va cada clase</h2>
-            <p className="text-sm text-zinc-500">
-              Con esto se sabe quién está fuera de su sitio. Las propuestas salen del nombre de las unidades; hasta que no se
-              confirman, no se mueve a nadie.
-            </p>
-          </div>
-          {puedeGestionar && propuestasSinAceptar.length > 0 && (
-            <button
-              type="button"
-              className={BOTON}
+      <Tarjeta as="section" aria-labelledby="unidad-clase" className="overflow-hidden">
+        <TarjetaCabecera
+          id="unidad-clase"
+          titulo="A qué unidad va cada clase"
+          descripcion="Con esto se sabe quién está fuera de su sitio. Las propuestas salen del nombre de las unidades; hasta que no se confirman, no se mueve a nadie."
+        />
+        {/* El botón va aparte y no en la cabecera: así no estrecha la frase en el móvil. */}
+        {puedeGestionar && propuestasSinAceptar.length > 0 && (
+          <div className="border-b border-zinc-100 px-4 py-2.5 dark:border-zinc-800">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 haptic.tap();
                 setBorrador((b) => ({
@@ -113,150 +118,168 @@ export function Unidades({
                 }));
               }}
             >
-              <Wand2 className="h-4 w-4" /> Aceptar las {propuestasSinAceptar.length} propuestas
-            </button>
-          )}
-        </header>
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-[11px] font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-950">
-            <tr>
-              <th className="px-4 py-2">Clase</th>
-              <th className="px-4 py-2">Unidad</th>
-              <th className="hidden px-4 py-2 text-right sm:table-cell">En su sitio</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {clases.map((c) => {
-              const confirmada = borrador.clases[c.clave] ?? null;
-              const ruta = confirmada ?? (c.confirmada ? null : c.uo);
-              return (
-                <tr key={c.clave}>
-                  <td className="px-4 py-2.5">
-                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{c.nombre}</p>
-                    <p className="text-xs text-zinc-500">
-                      {c.alumnos} alumnos · {c.conCuenta} con correo
-                    </p>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {ruta ? (
-                        <button
-                          type="button"
-                          disabled={!puedeGestionar}
-                          onClick={() => setEligiendo({ tipo: 'clase', clave: c.clave, nombre: c.nombre })}
-                          className={cn(
-                            'max-w-full truncate rounded-lg border px-2.5 py-1 text-left font-mono text-xs',
-                            confirmada
-                              ? 'border-zinc-200 text-zinc-800 dark:border-zinc-700 dark:text-zinc-200'
-                              : 'border-dashed border-blue-300 text-blue-800 dark:border-blue-500/40 dark:text-blue-200',
-                            puedeGestionar && 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800',
-                          )}
-                          title={ruta}
-                        >
-                          {ruta}
-                        </button>
-                      ) : (
-                        puedeGestionar && (
+              <Wand2 /> {propuestasSinAceptar.length === 1 ? 'Aceptar la propuesta' : `Aceptar las ${propuestasSinAceptar.length} propuestas`}
+            </Button>
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50/70 text-left text-xs font-medium text-zinc-500 dark:bg-zinc-950/40 dark:text-zinc-400">
+              <tr>
+                <th className="px-4 py-2 font-medium">Clase</th>
+                <th className="px-4 py-2 font-medium">Unidad</th>
+                <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">En su sitio</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {clases.map((c) => {
+                const confirmada = borrador.clases[c.clave] ?? null;
+                const ruta = confirmada ?? (c.confirmada ? null : c.uo);
+                return (
+                  <tr key={c.clave}>
+                    <td className="px-4 py-2.5 align-top">
+                      <p className="font-medium whitespace-nowrap text-zinc-900 dark:text-zinc-100">{c.nombre}</p>
+                      <p className="text-xs whitespace-nowrap text-zinc-500 tabular-nums dark:text-zinc-400">
+                        {c.alumnos} alumnos · {c.conCuenta} con correo
+                      </p>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {ruta ? (
                           <button
                             type="button"
+                            disabled={!puedeGestionar}
                             onClick={() => setEligiendo({ tipo: 'clase', clave: c.clave, nombre: c.nombre })}
-                            className="cursor-pointer rounded-lg border border-dashed border-zinc-300 px-2.5 py-1 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                            className={cn(
+                              'inline-flex min-h-10 max-w-full items-center truncate rounded-xl border px-3 text-left font-mono text-xs text-zinc-800 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-200',
+                              confirmada ? 'border-zinc-200 dark:border-zinc-700' : 'border-dashed border-zinc-400 dark:border-zinc-500',
+                              puedeGestionar && 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800',
+                            )}
+                            title={ruta}
                           >
-                            Elegir unidad
+                            <span className="truncate">{ruta}</span>
                           </button>
-                        )
-                      )}
-                      {confirmada ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-label="Confirmada" />
-                      ) : ruta ? (
-                        <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-300">propuesta</span>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">sin unidad</span>
-                      )}
-                      {puedeGestionar && !ruta && estado.unidadesDeGoogle && (
-                        <button
-                          type="button"
-                          className="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
-                          onClick={() => setCreando({ nombre: c.nombre, padre: estado.ajustes.raizAlumnos ?? '/', paraClase: c.clave })}
-                        >
-                          crear una
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="hidden px-4 py-2.5 text-right font-mono text-xs text-zinc-600 sm:table-cell dark:text-zinc-300">
-                    {c.confirmada && c.uo ? `${c.enSuSitio} / ${c.conCuenta}` : '—'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
+                        ) : (
+                          puedeGestionar && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-dashed"
+                              onClick={() => setEligiendo({ tipo: 'clase', clave: c.clave, nombre: c.nombre })}
+                            >
+                              Elegir unidad
+                            </Button>
+                          )
+                        )}
+                        {confirmada ? (
+                          <Estado tono="ok">Confirmada</Estado>
+                        ) : ruta ? (
+                          <Estado tono="info">Propuesta</Estado>
+                        ) : (
+                          <Estado tono="aviso">Sin unidad</Estado>
+                        )}
+                        {puedeGestionar && !ruta && estado.unidadesDeGoogle && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCreando({ nombre: c.nombre, padre: estado.ajustes.raizAlumnos ?? '/', paraClase: c.clave })}
+                          >
+                            <FolderPlus /> Crear una
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-2.5 text-right font-mono text-xs text-zinc-600 tabular-nums sm:table-cell dark:text-zinc-300">
+                      {c.confirmada && c.uo ? `${c.enSuSitio} / ${c.conCuenta}` : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Tarjeta>
 
       {/* ── Archivo, raíces y esperas ────────────────────────────────── */}
-      <section className={cn(TARJETA, 'space-y-4 p-4')}>
-        <div>
-          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Bajas y archivo</h2>
-          <p className="text-sm text-zinc-500">Dónde van las cuentas que se suspenden y cuánto se espera desde que alguien se va.</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <CampoRuta
-            titulo="Archivo del alumnado"
-            ruta={valor('archivoAlumnos')}
-            propuesta={esPropuesta('archivoAlumnos')}
-            puede={puedeGestionar}
-            onElegir={() => setEligiendo({ tipo: 'campo', campo: 'archivoAlumnos', titulo: 'Archivo del alumnado' })}
-            onQuitar={() => setBorrador({ ...borrador, archivoAlumnos: null })}
-          />
-          <CampoRuta
-            titulo="Archivo del profesorado"
-            ruta={valor('archivoProfes')}
-            propuesta={esPropuesta('archivoProfes')}
-            vacio="Sin archivo: se suspenden sin moverlas"
-            puede={puedeGestionar}
-            onElegir={() => setEligiendo({ tipo: 'campo', campo: 'archivoProfes', titulo: 'Archivo del profesorado' })}
-            onQuitar={() => setBorrador({ ...borrador, archivoProfes: null })}
-          />
-        </div>
-        <label className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            disabled={!puedeGestionar}
-            checked={borrador.archivoPorCurso}
-            onChange={(e) => setBorrador({ ...borrador, archivoPorCurso: e.target.checked })}
-            className="mt-0.5"
-          />
-          <span>
-            Una subunidad por curso dentro del archivo
-            <span className="block text-xs text-zinc-500">
-              «Promoción 2025-26» para los de 4º de ESO y «Bajas 2026-27» para el resto. Así, el día que se borren las de hace
-              años, están juntas. Se crean solas.
+      <Tarjeta as="section" aria-labelledby="unidad-archivo">
+        <TarjetaCabecera
+          id="unidad-archivo"
+          titulo="Bajas y archivo"
+          descripcion="Dónde van las cuentas que se suspenden y cuánto se espera desde que alguien se va."
+        />
+        <TarjetaCuerpo className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <CampoRuta
+              id="ruta-archivo-alumnos"
+              titulo="Archivo del alumnado"
+              ruta={valor('archivoAlumnos')}
+              propuesta={esPropuesta('archivoAlumnos')}
+              puede={puedeGestionar}
+              onElegir={() => setEligiendo({ tipo: 'campo', campo: 'archivoAlumnos', titulo: 'Archivo del alumnado' })}
+              onQuitar={() => setBorrador({ ...borrador, archivoAlumnos: null })}
+            />
+            <CampoRuta
+              id="ruta-archivo-profes"
+              titulo="Archivo del profesorado"
+              ruta={valor('archivoProfes')}
+              propuesta={esPropuesta('archivoProfes')}
+              vacio="Sin archivo: se suspenden sin moverlas"
+              puede={puedeGestionar}
+              onElegir={() => setEligiendo({ tipo: 'campo', campo: 'archivoProfes', titulo: 'Archivo del profesorado' })}
+              onQuitar={() => setBorrador({ ...borrador, archivoProfes: null })}
+            />
+          </div>
+          <label className={cn('flex min-h-10 items-start gap-3 py-2 text-sm text-zinc-700 dark:text-zinc-300', puedeGestionar && 'cursor-pointer')}>
+            <input
+              type="checkbox"
+              disabled={!puedeGestionar}
+              checked={borrador.archivoPorCurso}
+              onChange={(e) => setBorrador({ ...borrador, archivoPorCurso: e.target.checked })}
+              className="mt-0.5 size-4 shrink-0 accent-blue-600"
+            />
+            <span>
+              Una subunidad por curso dentro del archivo
+              <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                «Promoción 2025-26» para los de 4º de ESO y «Bajas 2026-27» para el resto. Así, el día que se borren las de hace
+                años, están juntas. Se crean solas.
+              </span>
             </span>
-          </span>
-        </label>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Meses
-            titulo="4º de ESO, al terminar"
-            valor={borrador.graciaGraduados}
-            puede={puedeGestionar}
-            onCambiar={(n) => setBorrador({ ...borrador, graciaGraduados: n })}
-          />
-          <Meses titulo="Otras bajas del alumnado" valor={borrador.graciaBajas} puede={puedeGestionar} onCambiar={(n) => setBorrador({ ...borrador, graciaBajas: n })} />
-          <Meses titulo="Bajas del profesorado" valor={borrador.graciaProfes} puede={puedeGestionar} onCambiar={(n) => setBorrador({ ...borrador, graciaProfes: n })} />
-        </div>
-      </section>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Meses
+              id="meses-graduados"
+              titulo="4º de ESO, al terminar"
+              valor={borrador.graciaGraduados}
+              puede={puedeGestionar}
+              onCambiar={(n) => setBorrador({ ...borrador, graciaGraduados: n })}
+            />
+            <Meses
+              id="meses-bajas"
+              titulo="Otras bajas del alumnado"
+              valor={borrador.graciaBajas}
+              puede={puedeGestionar}
+              onCambiar={(n) => setBorrador({ ...borrador, graciaBajas: n })}
+            />
+            <Meses
+              id="meses-profes"
+              titulo="Bajas del profesorado"
+              valor={borrador.graciaProfes}
+              puede={puedeGestionar}
+              onCambiar={(n) => setBorrador({ ...borrador, graciaProfes: n })}
+            />
+          </div>
+        </TarjetaCuerpo>
+      </Tarjeta>
 
-      <section className={cn(TARJETA, 'space-y-4 p-4')}>
-        <div>
-          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Raíces y profesorado</h2>
-          <p className="text-sm text-zinc-500">
-            De qué unidad cuelga el alumnado y el profesorado (para saber de quién es una cuenta suelta) y dónde se crea la cuenta de
-            un profe nuevo según su etapa.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <Tarjeta as="section" aria-labelledby="unidad-raices">
+        <TarjetaCabecera
+          id="unidad-raices"
+          titulo="Raíces y profesorado"
+          descripcion="De qué unidad cuelga el alumnado y el profesorado (para saber de quién es una cuenta suelta) y dónde se crea la cuenta de un profe nuevo según su etapa."
+        />
+        <TarjetaCuerpo className="grid gap-3 sm:grid-cols-2">
           <CampoRuta
+            id="ruta-raiz-alumnos"
             titulo="Raíz del alumnado"
             ruta={valor('raizAlumnos')}
             propuesta={esPropuesta('raizAlumnos')}
@@ -265,6 +288,7 @@ export function Unidades({
             onQuitar={() => setBorrador({ ...borrador, raizAlumnos: null })}
           />
           <CampoRuta
+            id="ruta-raiz-profes"
             titulo="Raíz del profesorado"
             ruta={valor('raizProfes')}
             propuesta={esPropuesta('raizProfes')}
@@ -275,6 +299,7 @@ export function Unidades({
           {ETAPAS.filter((e) => estado.ajustes.profes[e] || borrador.profes[e] || e !== 'BACH').map((e) => (
             <CampoRuta
               key={e}
+              id={`ruta-profes-${e}`}
               titulo={`Profes nuevos de ${ETAPA_LABEL[e]}`}
               ruta={borrador.profes[e] ?? estado.ajustes.profes[e] ?? null}
               propuesta={!borrador.profes[e] && !!estado.ajustes.profes[e]}
@@ -288,28 +313,21 @@ export function Unidades({
               }}
             />
           ))}
-        </div>
-      </section>
+        </TarjetaCuerpo>
+      </Tarjeta>
 
       {/* ── El árbol ──────────────────────────────────────────────────── */}
       <Arbol estado={estado} puedeGestionar={puedeGestionar} onCrear={(padre) => setCreando({ nombre: '', padre, paraClase: null })} />
 
       {/* ── Guardar ───────────────────────────────────────────────────── */}
-      {puedeGestionar && cambiado && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-          <div className="container mx-auto flex max-w-7xl items-center justify-between gap-3 pr-14">
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">Hay cambios sin guardar.</p>
-            <div className="flex gap-2">
-              <button type="button" className={BOTON} onClick={() => setBorrador(estado.guardados)} disabled={guardando}>
-                Descartar
-              </button>
-              <button type="button" className={BOTON_PRIMARIO} onClick={guardar} disabled={guardando}>
-                {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BarraAcciones visible={puedeGestionar && cambiado} resumen="Cambios sin guardar" ancho="ancho">
+        <Button variant="ghost" onClick={() => setBorrador(estado.guardados)} disabled={guardando}>
+          Descartar
+        </Button>
+        <Button cargando={guardando} onClick={guardar}>
+          {!guardando && <Save />} Guardar
+        </Button>
+      </BarraAcciones>
 
       {eligiendo && (
         <Dialog open onOpenChange={(o) => !o && setEligiendo(null)}>
@@ -341,16 +359,15 @@ export function Unidades({
             />
             {eligiendo.tipo === 'clase' && borrador.clases[eligiendo.clave] && (
               <DialogFooter>
-                <button
-                  type="button"
-                  className={BOTON}
+                <Button
+                  variant="destructive"
                   onClick={() => {
                     ponerClase(eligiendo.clave, null);
                     setEligiendo(null);
                   }}
                 >
                   Quitar la unidad de esta clase
-                </button>
+                </Button>
               </DialogFooter>
             )}
           </DialogContent>
@@ -364,25 +381,26 @@ export function Unidades({
               <DialogTitle>Crear una unidad organizativa</DialogTitle>
               <DialogDescription>Se crea en Google ahora mismo, dentro de la que elijas.</DialogDescription>
             </DialogHeader>
-            <label className="text-sm text-zinc-700 dark:text-zinc-300">
-              Nombre
-              <input
+            <Campo etiqueta="Nombre" id="unidad-nueva">
+              <Input
+                id="unidad-nueva"
                 value={creando.nombre}
                 onChange={(e) => setCreando({ ...creando, nombre: e.target.value })}
-                className={cn(CAMPO, 'mt-1')}
                 placeholder="5ºA"
                 autoFocus
               />
-            </label>
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">Dentro de</p>
-            <SelectorUo unidades={estado.unidades} valor={creando.padre} onElegir={(padre) => setCreando({ ...creando, padre })} alto="max-h-48" />
+            </Campo>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Dentro de</p>
+              <SelectorUo unidades={estado.unidades} valor={creando.padre} onElegir={(padre) => setCreando({ ...creando, padre })} alto="max-h-48" />
+            </div>
             <DialogFooter>
-              <button type="button" className={BOTON} onClick={() => setCreando(null)}>
+              <Button variant="outline" onClick={() => setCreando(null)}>
                 Cancelar
-              </button>
-              <button type="button" className={BOTON_PRIMARIO} disabled={!creando.nombre.trim()} onClick={crearUnidad}>
-                <FolderPlus className="h-4 w-4" /> Crear {creando.nombre.trim() ? `«${creando.nombre.trim()}»` : ''}
-              </button>
+              </Button>
+              <Button disabled={!creando.nombre.trim()} onClick={crearUnidad}>
+                <FolderPlus /> Crear {creando.nombre.trim() ? `«${creando.nombre.trim()}»` : ''}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -392,6 +410,7 @@ export function Unidades({
 }
 
 function CampoRuta({
+  id,
   titulo,
   ruta,
   propuesta,
@@ -400,6 +419,7 @@ function CampoRuta({
   onElegir,
   onQuitar,
 }: {
+  id: string;
   titulo: string;
   ruta: string | null;
   propuesta: boolean;
@@ -409,50 +429,63 @@ function CampoRuta({
   onQuitar: () => void;
 }) {
   return (
-    <div className="space-y-1">
-      <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">{titulo}</p>
-      <div className="flex items-center gap-2">
+    <Campo etiqueta={titulo} id={id}>
+      <div className="flex flex-wrap items-center gap-2">
         <button
+          id={id}
           type="button"
           disabled={!puede}
           onClick={onElegir}
           className={cn(
-            'min-w-0 flex-1 truncate rounded-xl border px-3 py-2 text-left font-mono text-xs',
-            propuesta ? 'border-dashed border-blue-300 text-blue-800 dark:border-blue-500/40 dark:text-blue-200' : 'border-zinc-200 dark:border-zinc-700',
-            puede && 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800',
+            claseCampo,
+            'min-w-0 flex-1 truncate text-left font-mono text-sm sm:text-sm disabled:opacity-100',
+            propuesta && 'border-dashed',
+            puede && 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900',
           )}
           title={ruta ?? undefined}
         >
-          {ruta ?? <span className="font-sans text-zinc-500">{vacio}</span>}
+          {ruta ?? <span className="font-sans text-zinc-500 dark:text-zinc-400">{vacio}</span>}
         </button>
-        {propuesta && <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-300">propuesta</span>}
+        {propuesta && <Estado tono="info">Propuesta</Estado>}
         {puede && ruta && !propuesta && (
-          <button type="button" onClick={onQuitar} className="cursor-pointer text-xs text-zinc-500 underline">
-            quitar
-          </button>
+          <Button variant="ghost" size="sm" onClick={onQuitar}>
+            Quitar
+          </Button>
         )}
       </div>
-    </div>
+    </Campo>
   );
 }
 
-function Meses({ titulo, valor, puede, onCambiar }: { titulo: string; valor: number; puede: boolean; onCambiar: (n: number) => void }) {
+function Meses({
+  id,
+  titulo,
+  valor,
+  puede,
+  onCambiar,
+}: {
+  id: string;
+  titulo: string;
+  valor: number;
+  puede: boolean;
+  onCambiar: (n: number) => void;
+}) {
   return (
-    <label className="space-y-1 text-sm">
-      <span className="block text-xs font-semibold tracking-wide text-zinc-500 uppercase">{titulo}</span>
-      <span className="flex items-center gap-2">
-        <input
+    <Campo etiqueta={titulo} id={id}>
+      <span className="flex items-center gap-2 text-sm">
+        <Input
+          id={id}
           type="number"
           min={0}
           max={36}
           value={valor}
           disabled={!puede}
           onChange={(e) => onCambiar(Math.max(0, Math.min(36, Number(e.target.value) || 0)))}
-          className={cn(CAMPO, 'w-20 text-center font-mono')}
+          className="w-24 text-center tabular-nums"
         />
         <span className="text-zinc-600 dark:text-zinc-400">{valor === 1 ? 'mes' : 'meses'}</span>
       </span>
-    </label>
+    </Campo>
   );
 }
 
@@ -485,39 +518,39 @@ function Arbol({ estado, puedeGestionar, onCrear }: { estado: EstadoCuentas; pue
     const t = total(ruta);
     const tieneHijas = (hijas.get(ruta)?.length ?? 0) > 0;
     const abierta = abiertas.has(ruta);
+    const nombre = ruta === '/' ? estado.dominio : nombreUo(ruta);
     return (
       <li key={ruta}>
-        <div className="flex items-center gap-2 py-1.5 pr-4 text-sm" style={{ paddingLeft: `${1 + nivel * 1.25}rem` }}>
-          <button
-            type="button"
-            disabled={!tieneHijas}
-            onClick={() => {
-              const n = new Set(abiertas);
-              if (abierta) n.delete(ruta);
-              else n.add(ruta);
-              setAbiertas(n);
-            }}
-            className={cn('w-4 text-zinc-400', tieneHijas && 'cursor-pointer')}
-            aria-label={abierta ? 'Plegar' : 'Desplegar'}
-          >
-            {tieneHijas ? (abierta ? '▾' : '▸') : ''}
-          </button>
-          <span className={cn('min-w-0 flex-1 truncate', ruta === '/' ? 'font-semibold' : 'text-zinc-800 dark:text-zinc-200')}>
-            {ruta === '/' ? estado.dominio : nombreUo(ruta)}
+        <div className="flex min-h-10 items-center gap-1 pr-2 text-sm" style={{ paddingLeft: `${0.5 + nivel * 1.25}rem` }}>
+          {tieneHijas ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-zinc-500"
+              aria-label={`${abierta ? 'Plegar' : 'Desplegar'} ${nombre}`}
+              onClick={() => {
+                const n = new Set(abiertas);
+                if (abierta) n.delete(ruta);
+                else n.add(ruta);
+                setAbiertas(n);
+              }}
+            >
+              {abierta ? <ChevronDown /> : <ChevronRight />}
+            </Button>
+          ) : (
+            <span aria-hidden className="size-10 shrink-0" />
+          )}
+          <span className={cn('min-w-0 flex-1 truncate', ruta === '/' ? 'font-semibold text-zinc-900 dark:text-zinc-100' : 'text-zinc-800 dark:text-zinc-200')}>
+            {nombre}
           </span>
-          <span className="shrink-0 font-mono text-xs text-zinc-500" title="Activas · suspendidas (contando las de dentro)">
+          <span className="shrink-0 text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
             {t.activas}
-            {t.cuentas - t.activas > 0 && <span className="text-zinc-400"> · {t.cuentas - t.activas} susp.</span>}
+            {t.cuentas - t.activas > 0 && <span> · {t.cuentas - t.activas} susp.</span>}
           </span>
           {puedeGestionar && estado.unidadesDeGoogle && (
-            <button
-              type="button"
-              onClick={() => onCrear(ruta)}
-              title="Crear una unidad dentro"
-              className="cursor-pointer rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
-            >
-              <FolderPlus className="h-3.5 w-3.5" />
-            </button>
+            <Button variant="ghost" size="icon-sm" className="text-zinc-500" onClick={() => onCrear(ruta)} aria-label={`Crear una unidad dentro de ${nombre}`}>
+              <FolderPlus />
+            </Button>
           )}
           {u && !u.deGoogle && ruta !== '/' && <span className="sr-only">deducida</span>}
         </div>
@@ -527,17 +560,18 @@ function Arbol({ estado, puedeGestionar, onCrear }: { estado: EstadoCuentas; pue
   }
 
   return (
-    <section className={cn(TARJETA, 'overflow-hidden')}>
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-        <div>
-          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Las unidades</h2>
-          <p className="text-sm text-zinc-500">Cuentas activas en cada una, contando las de dentro.</p>
-        </div>
-        <a href={ENLACE_CONSOLA_UNIDADES} target="_blank" rel="noreferrer" className={BOTON}>
-          <ExternalLink className="h-4 w-4" /> Abrir en la consola
-        </a>
-      </header>
+    <Tarjeta as="section" aria-labelledby="unidad-arbol" className="overflow-hidden">
+      <TarjetaCabecera
+        id="unidad-arbol"
+        titulo="Las unidades"
+        descripcion="Cuentas activas en cada una y las suspendidas («susp.»), contando las de dentro."
+        accion={
+          <a href={ENLACE_CONSOLA_UNIDADES} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <ExternalLink /> Abrir en la consola
+          </a>
+        }
+      />
       <ul className="py-1">{nodo('/', 0)}</ul>
-    </section>
+    </Tarjeta>
   );
 }

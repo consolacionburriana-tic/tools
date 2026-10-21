@@ -23,7 +23,9 @@ import {
 } from '@/lib/dispositivos';
 import type { AparatoDis, LineaHistorial, PanelDispositivos } from '@/lib/dispositivos-server';
 import type { Acciones } from './panel';
-import { cuandoYQuien, ESTILO_BOTON, ESTILO_BOTON_PRINCIPAL, ESTILO_CAMPO, normalizar, pedir } from './comun';
+import { cuandoYQuien, normalizar, pedir } from './comun';
+import { buttonVariants } from '@/components/ui/button';
+import { claseCampo } from '@/components/ui/input';
 
 type Filtro = 'todos' | 'almacen' | 'asignados' | 'prestados' | 'temporal' | 'reparacion' | 'baja';
 const FILTRO_LABEL: Record<Filtro, string> = {
@@ -144,7 +146,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Código, nº de serie o persona…"
-            className="h-11 w-full rounded-xl border border-zinc-300 bg-white pr-3 pl-9 text-[15px] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950"
+            className={cn(claseCampo, 'pl-9')}
           />
         </label>
         <div className="flex flex-wrap gap-1.5">
@@ -164,7 +166,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
             </button>
           ))}
         </div>
-        <button type="button" className={cn(ESTILO_BOTON_PRINCIPAL, 'ml-auto')} onClick={() => setAlta(true)}>
+        <button type="button" className={cn(buttonVariants(), 'ml-auto')} onClick={() => setAlta(true)}>
           <Plus className="h-4 w-4" /> Dar de alta
         </button>
       </div>
@@ -361,7 +363,7 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
                 type="number"
                 min={1}
                 max={200}
-                className={ESTILO_CAMPO}
+                className={claseCampo}
                 value={cantidad}
                 onChange={(e) => setCantidad(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
               />
@@ -370,7 +372,7 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
             <label className="block space-y-1.5">
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Números de serie, uno por línea</span>
               <textarea
-                className={cn(ESTILO_CAMPO, 'h-36 py-2 font-mono text-sm uppercase')}
+                className={cn(claseCampo, 'h-36 py-2 font-mono text-sm uppercase')}
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder={'Pega aquí la columna del Excel'}
@@ -379,7 +381,7 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
           )}
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Modelo</span>
-            <select className={ESTILO_CAMPO} value={modeloId} onChange={(e) => setModeloId(e.target.value)}>
+            <select className={claseCampo} value={modeloId} onChange={(e) => setModeloId(e.target.value)}>
               <option value="">Sin modelo</option>
               {panel.modelos
                 .filter((m) => m.activo)
@@ -394,14 +396,14 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Notas <span className="font-normal text-zinc-500">(opcional, para todos)</span>
             </span>
-            <input className={ESTILO_CAMPO} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Comprados en 2026, con funda…" />
+            <input className={claseCampo} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Comprados en 2026, con funda…" />
           </label>
           {n > 0 && (
             <p className="rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300">
               Se crean {n === 1 ? `el ${codigos[0]}` : `del ${codigos[0]} al ${codigos[codigos.length - 1]}`}.
             </p>
           )}
-          <button type="button" className={cn(ESTILO_BOTON_PRINCIPAL, 'w-full')} disabled={ocupado || n === 0} onClick={() => void crear()}>
+          <button type="button" className={cn(buttonVariants(), 'w-full')} disabled={ocupado || n === 0} onClick={() => void crear()}>
             {ocupado && <Loader2 className="h-4 w-4 animate-spin" />} Dar de alta {n > 0 ? n : ''}
           </button>
         </div>
@@ -540,7 +542,7 @@ function FichaAparato({
                     {a.titular.activo ? detalle : 'Ya no está en el cole: hay que recogerlo'}
                   </span>
                 </span>
-                <button type="button" className={ESTILO_BOTON} disabled={ocupado} onClick={() => void hacer({ titular: null }, `${a.codigo} devuelto`)}>
+                <button type="button" className={buttonVariants({ variant: 'outline' })} disabled={ocupado} onClick={() => void hacer({ titular: null }, `${a.codigo} devuelto`)}>
                   <Undo2 className="h-4 w-4" /> Devolver
                 </button>
               </div>
@@ -552,11 +554,11 @@ function FichaAparato({
                   ¿Cómo se le da a <span className="font-semibold">{elegido.nombre}</span>?
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <button type="button" className={cn(ESTILO_BOTON, 'h-auto flex-col items-start py-2.5 text-left')} disabled={ocupado} onClick={() => void darA(elegido.id, 'prestado')}>
+                  <button type="button" className={cn(buttonVariants({ variant: 'outline' }), 'h-auto flex-col items-start py-2.5 text-left')} disabled={ocupado} onClick={() => void darA(elegido.id, 'prestado')}>
                     <span className="font-semibold">Prestado para el curso</span>
                     <span className="text-xs font-normal text-zinc-500">Pasa a «Prestado» con el {a.codigo}</span>
                   </button>
-                  <button type="button" className={cn(ESTILO_BOTON, 'h-auto flex-col items-start py-2.5 text-left')} disabled={ocupado} onClick={() => void darA(elegido.id, 'temporal')}>
+                  <button type="button" className={cn(buttonVariants({ variant: 'outline' }), 'h-auto flex-col items-start py-2.5 text-left')} disabled={ocupado} onClick={() => void darA(elegido.id, 'temporal')}>
                     <span className="font-semibold">Mientras arreglan el suyo</span>
                     <span className="text-xs font-normal text-zinc-500">Sigue como está; solo se apunta que lo tiene</span>
                   </button>
@@ -569,7 +571,7 @@ function FichaAparato({
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Dárselo a…</span>
                 <input
-                  className={ESTILO_CAMPO}
+                  className={claseCampo}
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                   placeholder={a.uso === 'profesorado' ? 'Nombre del profe' : 'Nombre del alumno'}
@@ -599,16 +601,16 @@ function FichaAparato({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5">
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Código</span>
-              <input className={cn(ESTILO_CAMPO, 'uppercase')} value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} />
+              <input className={cn(claseCampo, 'uppercase')} value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} />
             </label>
             <label className="block space-y-1.5">
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Nº de serie</span>
-              <input className={cn(ESTILO_CAMPO, 'uppercase')} value={numeroSerie} onChange={(e) => setNumeroSerie(e.target.value.toUpperCase())} autoComplete="off" />
+              <input className={cn(claseCampo, 'uppercase')} value={numeroSerie} onChange={(e) => setNumeroSerie(e.target.value.toUpperCase())} autoComplete="off" />
             </label>
           </div>
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Modelo</span>
-            <select className={ESTILO_CAMPO} value={modeloId} onChange={(e) => setModeloId(e.target.value)}>
+            <select className={claseCampo} value={modeloId} onChange={(e) => setModeloId(e.target.value)}>
               <option value="">Sin modelo</option>
               {panel.modelos
                 .filter((m) => m.activo || m.id === modeloId)
@@ -641,25 +643,25 @@ function FichaAparato({
           </fieldset>
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Notas</span>
-            <input className={ESTILO_CAMPO} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Pantalla rajada, en el SAT desde…" />
+            <input className={claseCampo} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Pantalla rajada, en el SAT desde…" />
           </label>
 
           {confirmarBorrar ? (
             <div className="flex flex-wrap items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-900 dark:bg-red-500/10 dark:text-red-200">
               <span className="flex-1">¿Borrar el {a.codigo}? Solo para un alta por error: si ya tiene historia, se da de baja.</span>
-              <button type="button" className={ESTILO_BOTON} onClick={() => setConfirmarBorrar(false)}>
+              <button type="button" className={buttonVariants({ variant: 'outline' })} onClick={() => setConfirmarBorrar(false)}>
                 Cancelar
               </button>
-              <button type="button" className={cn(ESTILO_BOTON, 'border-red-300 text-red-700')} disabled={ocupado} onClick={() => void borrar()}>
+              <button type="button" className={buttonVariants({ variant: 'destructive' })} disabled={ocupado} onClick={() => void borrar()}>
                 Borrar
               </button>
             </div>
           ) : (
             <div className="flex gap-2">
-              <button type="button" className={ESTILO_BOTON} disabled={ocupado} onClick={() => setConfirmarBorrar(true)} aria-label="Borrar (alta por error)">
+              <button type="button" className={buttonVariants({ variant: 'outline' })} disabled={ocupado} onClick={() => setConfirmarBorrar(true)} aria-label="Borrar (alta por error)">
                 <Trash2 className="h-4 w-4" />
               </button>
-              <button type="button" className={cn(ESTILO_BOTON_PRINCIPAL, 'flex-1')} disabled={ocupado} onClick={() => void guardar()}>
+              <button type="button" className={cn(buttonVariants(), 'flex-1')} disabled={ocupado} onClick={() => void guardar()}>
                 {ocupado && <Loader2 className="h-4 w-4 animate-spin" />} Guardar
               </button>
             </div>

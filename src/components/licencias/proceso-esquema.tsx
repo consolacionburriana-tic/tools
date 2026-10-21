@@ -298,7 +298,7 @@ export function ProcesoEsquema() {
               }`}
             >
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
                   on ? 'bg-white/25' : 'bg-zinc-100 dark:bg-zinc-800'
                 }`}
               >
@@ -325,7 +325,7 @@ export function ProcesoEsquema() {
           return (
             <li key={p.n} className="relative">
               <span
-                className={`absolute -left-[31px] top-3 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white ${fase.color.punto}`}
+                className={`absolute -left-[31px] top-3 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white ${fase.color.punto}`}
               >
                 {p.n}
               </span>

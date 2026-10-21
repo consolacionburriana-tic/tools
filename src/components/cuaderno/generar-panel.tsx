@@ -11,7 +11,6 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle,
   CheckCheck,
   ExternalLink,
   FileWarning,
@@ -21,11 +20,12 @@ import {
   RotateCcw,
   ScrollText,
   Square,
+  TriangleAlert,
   UserPlus,
   X,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Aviso, Tarjeta } from '@/components/cuaderno/cuaderno-panel';
 import {
   claseKey,
   ETAPA_LABEL,
@@ -39,7 +39,17 @@ import {
 } from '@/components/cuaderno/tipos';
 import { etiquetaEtapas } from '@/lib/cuaderno/campos';
 import { haptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
 import type { Etapa } from '@/lib/cursos';
+import { Aviso } from '@/components/ui/aviso';
+import { BarraAcciones } from '@/components/ui/barra-acciones';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { EnCurso, Progreso } from '@/components/ui/progreso';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Estado } from '@/components/ui/estado';
+import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
+import { Casilla } from './casilla';
 
 interface DocumentoPrevisto {
   plantillaNombre: string;
@@ -110,15 +120,6 @@ export function GenerarPanel({
     [clases, seleccionClases],
   );
 
-  const porEtapa = useMemo(() => {
-    const mapa = new Map<string, ClaseUI[]>();
-    for (const clase of clases) {
-      const k = clase.etapa ?? 'otras';
-      mapa.set(k, [...(mapa.get(k) ?? []), clase]);
-    }
-    return mapa;
-  }, [clases]);
-
   const cuerpoPeticion = useCallback(
     () => ({
       clases: clasesElegidas.map((c) => ({ curso: c.curso, letra: c.letra })),
@@ -160,17 +161,6 @@ export function GenerarPanel({
       clearTimeout(temporizador);
     };
   }, [cuerpoPeticion, clasesElegidas.length, seleccionPlantillas.size, tiradaId]);
-
-  function alternarClase(clase: ClaseUI) {
-    haptic.tap();
-    const k = claseKey(clase.curso, clase.letra);
-    setSeleccionClases((s) => {
-      const nueva = new Set(s);
-      if (nueva.has(k)) nueva.delete(k);
-      else nueva.add(k);
-      return nueva;
-    });
-  }
 
   async function lanzar() {
     setLanzando(true);
@@ -215,265 +205,179 @@ export function GenerarPanel({
   }
 
   const bloqueado = !listoParaGenerar || (plan?.bloqueos.length ?? 0) > 0 || (plan?.previsto.length ?? 0) === 0;
+  const documentos = plan?.previsto.length ?? 0;
 
   return (
     <div className="space-y-3">
       {!listoParaGenerar && (
-        <Aviso tono="ambar">
-          Antes de generar hace falta la carpeta base de Drive (arriba, en «Carpeta de Drive»).
-        </Aviso>
+        <Aviso tono="aviso">Antes de generar hace falta la carpeta base de Drive (arriba, en «Carpeta de Drive»).</Aviso>
       )}
 
       {faltas.length > 0 && (
-        <Tarjeta>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-amber-500" />
-              <p className="text-sm text-zinc-700 dark:text-zinc-200">
-                <strong>{faltas.length}</strong> alumno(s) sin todas sus hojas de {cursoEscolar}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                haptic.tap();
-                setSoloSinHoja(true);
-                setSeleccionClases(new Set(faltas.map((f) => f.clase).flatMap((clase) => clasesDe(clases, clase))));
-              }}
-              className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
-            >
-              Preparar tirada solo para ellos
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-zinc-500">
+        <Aviso
+          tono="aviso"
+          icono={<UserPlus />}
+          titulo={`${faltas.length} ${faltas.length === 1 ? 'alumno' : 'alumnos'} sin todas sus hojas de ${cursoEscolar}`}
+        >
+          <p>
             {faltas
               .slice(0, 8)
               .map((f) => `${f.clase} · ${f.nombre}`)
               .join(' · ')}
             {faltas.length > 8 ? ` y ${faltas.length - 8} más` : ''}
           </p>
-        </Tarjeta>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => {
+              haptic.tap();
+              setSoloSinHoja(true);
+              setSeleccionClases(new Set(faltas.map((f) => f.clase).flatMap((clase) => clasesDe(clases, clase))));
+            }}
+          >
+            Preparar tirada solo para ellos
+          </Button>
+        </Aviso>
       )}
 
       {/* Clases */}
-      <Tarjeta>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            Clases {seleccionClases.size > 0 && <span className="text-zinc-400">· {seleccionClases.size}</span>}
-          </h3>
-          <div className="flex gap-1.5">
-            <BotonMini onClick={() => setSeleccionClases(new Set(clases.map((c) => claseKey(c.curso, c.letra))))}>
-              Todas
-            </BotonMini>
-            <BotonMini onClick={() => setSeleccionClases(new Set())}>Ninguna</BotonMini>
-          </div>
-        </div>
-
-        <div className="mt-3 space-y-3">
-          {[...ETAPA_ORDEN, 'otras'].map((etapa) => {
-            const deLaEtapa = porEtapa.get(etapa);
-            if (!deLaEtapa || deLaEtapa.length === 0) return null;
-            const todasPuestas = deLaEtapa.every((c) => seleccionClases.has(claseKey(c.curso, c.letra)));
-            return (
-              <div key={etapa}>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                    {ETAPA_LABEL[etapa as Etapa] ?? 'Sin etapa'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSeleccionClases((s) => {
-                        const nueva = new Set(s);
-                        for (const c of deLaEtapa) {
-                          const k = claseKey(c.curso, c.letra);
-                          if (todasPuestas) nueva.delete(k);
-                          else nueva.add(k);
-                        }
-                        return nueva;
-                      })
-                    }
-                    className="text-[11px] text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    {todasPuestas ? 'quitar' : 'todas'}
-                  </button>
-                </div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {deLaEtapa.map((clase) => {
-                    const elegida = seleccionClases.has(claseKey(clase.curso, clase.letra));
-                    const problema = clase.tutores.length === 0 || clase.sinTutorPersonal > 0;
-                    return (
-                      <button
-                        key={claseKey(clase.curso, clase.letra)}
-                        type="button"
-                        onClick={() => alternarClase(clase)}
-                        title={
-                          clase.tutores.length === 0
-                            ? 'Sin tutor asignado este curso'
-                            : clase.sinTutorPersonal > 0
-                              ? `${clase.sinTutorPersonal} alumno(s) sin tutor personal: se quedarían fuera`
-                              : clase.tutores.map((t) => t.nombre).join(' · ')
-                        }
-                        className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
-                          elegida
-                            ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-                        }`}
-                      >
-                        {problema && <AlertTriangle className="h-3 w-3 text-amber-500" />}
-                        <span>{clase.clase}</span>
-                        <span className={elegida ? 'opacity-60' : 'text-zinc-400'}>{clase.numAlumnos}</span>
-                        {clase.tutores.length > 0 && (
-                          <span className={elegida ? 'opacity-60' : 'text-zinc-400'}>
-                            · {clase.tutores.map((t) => t.corto).join(' + ')}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Tarjeta>
+      <SelectorClases clases={clases} seleccion={seleccionClases} onCambio={setSeleccionClases} conProblemas />
 
       {/* Plantillas */}
       <Tarjeta>
-        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Documentos a generar</h3>
-        <div className="mt-3 space-y-1.5">
+        <TarjetaCabecera titulo="Documentos a generar" descripcion="Las que están listas salen ya marcadas." />
+        <TarjetaCuerpo className="space-y-1 py-2">
           {activas.length === 0 && (
-            <p className="text-sm text-zinc-500">No hay plantillas activas. Añádelas en la pestaña «Plantillas».</p>
+            <p className="py-2 text-sm text-zinc-500 dark:text-zinc-400">
+              No hay plantillas activas. Añádelas en «Plantillas».
+            </p>
           )}
           {activas.map((plantilla) => {
             const lista = plantillaLista(plantilla);
-            const elegida = seleccionPlantillas.has(plantilla.id);
             return (
-              <button
+              <Casilla
                 key={plantilla.id}
-                type="button"
+                marcada={seleccionPlantillas.has(plantilla.id)}
                 disabled={!lista}
-                onClick={() => {
-                  haptic.tap();
+                onCambio={() =>
                   setSeleccionPlantillas((s) => {
                     const nueva = new Set(s);
                     if (nueva.has(plantilla.id)) nueva.delete(plantilla.id);
                     else nueva.add(plantilla.id);
                     return nueva;
-                  });
-                }}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                  !lista
-                    ? 'cursor-not-allowed bg-zinc-50 opacity-60 dark:bg-zinc-800/50'
-                    : elegida
-                      ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                      : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800'
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[10px] ${
-                    elegida ? 'border-current' : 'border-zinc-300 dark:border-zinc-600'
-                  }`}
-                >
-                  {elegida ? '✓' : ''}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">
-                    {plantilla.orden} · {plantilla.nombre}
-                  </span>
-                  <span className={`block text-xs ${elegida ? 'opacity-70' : 'text-zinc-500'}`}>
+                  })
+                }
+                detalle={
+                  <>
                     {etiquetaEtapas(plantilla)}
-                    {!lista && ' · le faltan etiquetas por mapear'}
-                  </span>
+                    {!lista && (
+                      <span className="ml-1 inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                        · <FileWarning aria-hidden className="h-3.5 w-3.5" /> le faltan etiquetas por mapear
+                      </span>
+                    )}
+                  </>
+                }
+              >
+                <span className="font-medium">
+                  {plantilla.orden} · {plantilla.nombre}
                 </span>
-                {!lista && <FileWarning className="h-4 w-4 shrink-0 text-amber-500" />}
-              </button>
+              </Casilla>
             );
           })}
-        </div>
+        </TarjetaCuerpo>
       </Tarjeta>
 
       {/* Opciones */}
       <Tarjeta>
-        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Opciones</h3>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          <Opcion activo={conPdf} onClick={() => setConPdf((v) => !v)}>
+        <TarjetaCabecera titulo="Opciones" />
+        <TarjetaCuerpo className="grid gap-x-6 py-2 sm:grid-cols-2">
+          <Casilla marcada={conPdf} onCambio={setConPdf}>
             Generar también el PDF
-          </Opcion>
-          <Opcion activo={conPdf && cuadernoCompletoPdf} onClick={() => setCuadernoCompletoPdf((v) => !v)}>
+          </Casilla>
+          <Casilla marcada={conPdf && cuadernoCompletoPdf} disabled={!conPdf} onCambio={setCuadernoCompletoPdf}>
             Un PDF con todo el cuaderno de cada tutor
-          </Opcion>
-          <Opcion activo={compartir} onClick={() => setCompartir((v) => !v)}>
+          </Casilla>
+          <Casilla marcada={compartir} onCambio={setCompartir}>
             Compartir la carpeta con sus tutores
-          </Opcion>
-          <Opcion activo={compartir && avisarPorCorreo} onClick={() => setAvisarPorCorreo((v) => !v)}>
+          </Casilla>
+          <Casilla marcada={compartir && avisarPorCorreo} disabled={!compartir} onCambio={setAvisarPorCorreo}>
             Avisarles por correo
-          </Opcion>
-          <Opcion activo={soloSinHoja} onClick={() => setSoloSinHoja((v) => !v)}>
+          </Casilla>
+          <Casilla
+            marcada={soloSinHoja}
+            onCambio={setSoloSinHoja}
+            detalle={
+              soloSinHoja
+                ? 'Los documentos irán a una subcarpeta propia dentro de la carpeta de cada clase, que ya está compartida.'
+                : undefined
+            }
+          >
             Solo el alumnado sin hoja
-          </Opcion>
-        </div>
-        {soloSinHoja && (
-          <p className="mt-2 text-xs text-zinc-500">
-            Los documentos irán a una subcarpeta propia dentro de la carpeta de cada clase, que ya está compartida.
-          </p>
-        )}
+          </Casilla>
+        </TarjetaCuerpo>
       </Tarjeta>
 
       {/* Vista previa */}
       {(cargandoPlan || plan) && (
         <Tarjeta>
-          <div className="flex items-center gap-2">
-            <h3 className="flex-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">Lo que va a salir</h3>
-            {cargandoPlan && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
-          </div>
+          <TarjetaCabecera
+            titulo="Lo que va a salir"
+            accion={cargandoPlan ? <Loader2 aria-label="Calculando" className="h-4 w-4 animate-spin text-zinc-500" /> : undefined}
+          />
           {plan && (
-            <div className="mt-3 space-y-2">
+            <TarjetaCuerpo className="space-y-2">
               {plan.bloqueos.map((b) => (
-                <Aviso key={b} tono="rojo">
+                <Aviso key={b} tono="error">
                   {b}
                 </Aviso>
               ))}
               {plan.avisos.map((a) => (
-                <Aviso key={a} tono="ambar">
+                <Aviso key={a} tono="aviso">
                   {a}
                 </Aviso>
               ))}
               {plan.previsto.length > 0 && (
                 <>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-200">
-                    <strong>{plan.previsto.length}</strong> documento(s) ·{' '}
+                  <p className="text-sm text-zinc-700 tabular-nums dark:text-zinc-200">
+                    <strong>{plan.previsto.length}</strong> {plan.previsto.length === 1 ? 'documento' : 'documentos'} ·{' '}
                     {new Set(plan.previsto.map((p) => p.clase)).size} clase(s) ·{' '}
                     {plan.previsto.reduce((s, p) => s + p.numAlumnos, 0)} hojas de alumno
                   </p>
-                  <details className="text-xs text-zinc-500">
-                    <summary className="cursor-pointer font-medium">Ver la lista</summary>
-                    <ul className="mt-2 space-y-0.5">
+                  <details className="group text-sm text-zinc-600 dark:text-zinc-400">
+                    <summary className="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1.5 rounded-xl font-medium text-zinc-700 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
+                      Ver la lista
+                      <ChevronDown aria-hidden className="h-4 w-4 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <ul className="mt-1 space-y-0.5 text-xs">
                       {plan.previsto.map((p) => (
                         <li key={p.nombre} className="truncate">
-                          {p.nombre} <span className="text-zinc-400">· {p.numAlumnos} alumnos</span>
+                          {p.nombre} <span className="text-zinc-500">· {p.numAlumnos} alumnos</span>
                         </li>
                       ))}
                     </ul>
                   </details>
                 </>
               )}
-            </div>
+            </TarjetaCuerpo>
           )}
         </Tarjeta>
       )}
 
-      <div className="sticky bottom-4 flex justify-end">
-        <button
-          type="button"
-          onClick={lanzar}
-          disabled={bloqueado || lanzando}
-          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-blue-700 disabled:opacity-40"
-        >
-          {lanzando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          Generar {plan?.previsto.length ? `${plan.previsto.length} documentos` : 'el cuaderno'}
-        </button>
-      </div>
+      <BarraAcciones
+        resumen={
+          seleccionClases.size === 0 || seleccionPlantillas.size === 0
+            ? 'Elige clases y documentos'
+            : documentos > 0
+              ? `${documentos} ${documentos === 1 ? 'documento' : 'documentos'} · ${seleccionClases.size} ${seleccionClases.size === 1 ? 'clase' : 'clases'}`
+              : undefined
+        }
+      >
+        <Button onClick={lanzar} disabled={bloqueado} cargando={lanzando}>
+          {!lanzando && <Play />}
+          Generar {documentos ? `${documentos} documentos` : 'el cuaderno'}
+        </Button>
+      </BarraAcciones>
     </div>
   );
 }
@@ -482,43 +386,131 @@ function clasesDe(clases: ClaseUI[], etiqueta: string): string[] {
   return clases.filter((c) => c.clase === etiqueta).map((c) => claseKey(c.curso, c.letra));
 }
 
-function BotonMini({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-lg bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300"
-    >
-      {children}
-    </button>
-  );
-}
+/**
+ * Elegir clases por etapa, con sus tutores al lado. Lo usan «Generar» y «Listas». Con
+ * `conProblemas`, debajo de cada etapa se dice qué clases no tienen tutor (o tienen alumnado
+ * sin tutor personal), que es lo que antes solo contaba el `title` de cada pastilla.
+ */
+export function SelectorClases({
+  clases,
+  seleccion,
+  onCambio,
+  conProblemas = false,
+}: {
+  clases: ClaseUI[];
+  seleccion: Set<string>;
+  onCambio: (s: Set<string>) => void;
+  conProblemas?: boolean;
+}) {
+  const porEtapa = useMemo(() => {
+    const mapa = new Map<string, ClaseUI[]>();
+    for (const clase of clases) {
+      const k = clase.etapa ?? 'otras';
+      mapa.set(k, [...(mapa.get(k) ?? []), clase]);
+    }
+    return mapa;
+  }, [clases]);
 
-function Opcion({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
+  function alternar(k: string) {
+    const nueva = new Set(seleccion);
+    if (nueva.has(k)) nueva.delete(k);
+    else nueva.add(k);
+    onCambio(nueva);
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() => {
-        haptic.tap();
-        onClick();
-      }}
-      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
-        activo
-          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-          : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
-      }`}
-    >
-      {activo && <CheckCheck className="h-3.5 w-3.5" />}
-      {children}
-    </button>
+    <Tarjeta>
+      <TarjetaCabecera
+        titulo="Clases"
+        descripcion={seleccion.size === 0 ? 'Toca las que quieras' : seleccion.size === 1 ? '1 elegida' : `${seleccion.size} elegidas`}
+        accion={
+          <>
+            <Button variant="outline" size="sm" onClick={() => onCambio(new Set(clases.map((c) => claseKey(c.curso, c.letra))))}>
+              Todas
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onCambio(new Set())}>
+              Ninguna
+            </Button>
+          </>
+        }
+      />
+      <TarjetaCuerpo className="space-y-4">
+        {[...ETAPA_ORDEN, 'otras'].map((etapa) => {
+          const deLaEtapa = porEtapa.get(etapa);
+          if (!deLaEtapa || deLaEtapa.length === 0) return null;
+          const todasPuestas = deLaEtapa.every((c) => seleccion.has(claseKey(c.curso, c.letra)));
+          const problemas = deLaEtapa.filter((c) => c.tutores.length === 0 || (conProblemas && c.sinTutorPersonal > 0));
+          return (
+            <div key={etapa} className="space-y-2">
+              <Rotulo
+                as="h3"
+                accion={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const nueva = new Set(seleccion);
+                      for (const c of deLaEtapa) {
+                        const k = claseKey(c.curso, c.letra);
+                        if (todasPuestas) nueva.delete(k);
+                        else nueva.add(k);
+                      }
+                      onCambio(nueva);
+                    }}
+                  >
+                    {todasPuestas ? 'Quitar todas' : 'Todas'}
+                  </Button>
+                }
+              >
+                {ETAPA_LABEL[etapa as Etapa] ?? 'Sin etapa'}
+              </Rotulo>
+              <Filtros etiqueta={`Clases de ${ETAPA_LABEL[etapa as Etapa] ?? 'otras etapas'}`}>
+                {deLaEtapa.map((clase) => {
+                  const k = claseKey(clase.curso, clase.letra);
+                  const problema = clase.tutores.length === 0 || (conProblemas && clase.sinTutorPersonal > 0);
+                  return (
+                    <Filtro
+                      key={k}
+                      activo={seleccion.has(k)}
+                      onClick={() => alternar(k)}
+                      cuenta={clase.numAlumnos}
+                      icono={problema ? <TriangleAlert aria-label="Con aviso" className="text-amber-500" /> : undefined}
+                    >
+                      {clase.clase}
+                      {clase.tutores.length > 0 && (
+                        <span className="font-normal opacity-70">· {clase.tutores.map((t) => t.corto).join(' + ')}</span>
+                      )}
+                    </Filtro>
+                  );
+                })}
+              </Filtros>
+              {problemas.length > 0 && (
+                <ul className="space-y-0.5 text-xs text-amber-700 dark:text-amber-400">
+                  {problemas.map((c) => (
+                    <li key={claseKey(c.curso, c.letra)}>
+                      {c.clase}:{' '}
+                      {c.tutores.length === 0
+                        ? conProblemas
+                          ? 'sin tutor asignado este curso'
+                          : 'sin tutor asignado: la lista se genera igual, pero no hay con quién compartirla'
+                        : `${c.sinTutorPersonal} ${c.sinTutorPersonal === 1 ? 'alumno' : 'alumnos'} sin tutor personal: se quedarían fuera`}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </TarjetaCuerpo>
+    </Tarjeta>
   );
 }
 
 // ─── Progreso en vivo ─────────────────────────────────────────────────────────
 
 /**
- * Barra de progreso de una tirada. Lee el estado de la BBDD cada 3 segundos; el trabajo lo
- * hace el worker en el servidor, así que se puede cerrar esta pantalla sin parar nada.
+ * El progreso de una tirada. Lee el estado de la BBDD cada 3 segundos; el trabajo lo hace el
+ * worker en el servidor, así que se puede cerrar esta pantalla sin parar nada.
  */
 export function TiradaEnMarcha({
   tiradaId,
@@ -572,18 +564,9 @@ export function TiradaEnMarcha({
     }
   }
 
-  if (!progreso) {
-    return (
-      <Tarjeta>
-        <div className="flex items-center gap-2 text-sm text-zinc-500">
-          <Loader2 className="h-4 w-4 animate-spin" /> Preparando la tirada…
-        </div>
-      </Tarjeta>
-    );
-  }
+  if (!progreso) return <EnCurso texto="Preparando la tirada…" />;
 
   const { total, hechos, errores, tirada } = progreso;
-  const porcentaje = total > 0 ? Math.round((hechos / total) * 100) : 0;
   const enMarcha = tirada.estado === 'pendiente' || tirada.estado === 'ejecutando';
   // Lo que le faltaba al panel: decir POR QUÉ no pasa nada. Con el latido y los pases del
   // worker se distingue «va lento» de «no ha arrancado nunca», que es lo que pasó de verdad.
@@ -601,114 +584,113 @@ export function TiradaEnMarcha({
   return (
     <div className="space-y-3">
       <Tarjeta>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Ejecución {tirada.numero} ·{' '}
-              {enMarcha ? 'en marcha' : tirada.estado === 'hecha' ? 'terminada' : tirada.estado}
-            </h3>
-            <p className="text-xs text-zinc-500">
-              {hechos} de {total} documento(s)
+        <TarjetaCabecera
+          titulo={`Ejecución ${tirada.numero}`}
+          descripcion={
+            <>
+              {hechos} de {total} {total === 1 ? 'documento' : 'documentos'}
               {errores > 0 ? ` · ${errores} con error` : ''}
-            </p>
-          </div>
-          <div className="flex gap-1.5">
+            </>
+          }
+          accion={<EstadoTirada estado={tirada.estado} />}
+        />
+        <TarjetaCuerpo className="space-y-3">
+          {enMarcha ? (
+            <EnCurso
+              texto={diagnostico ?? 'Lo está haciendo el servidor: puedes cerrar esta pantalla (o el portátil) y volver luego.'}
+              hechos={hechos}
+              total={total}
+            />
+          ) : (
+            <Progreso hechos={hechos} total={total} etiqueta={`Documentos de la ejecución ${tirada.numero}`} cuenta />
+          )}
+          {tirada.error && <Aviso tono="aviso">{tirada.error}</Aviso>}
+          {enMarcha && diagnostico && (
+            <Aviso tono="aviso">
+              El worker no ha dado señales de vida. Pulsa «Seguir ahora» para empujarla desde aquí; si vuelve a quedarse
+              parada, mira la bitácora de abajo.
+            </Aviso>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {enMarcha && (
+              <Button size="sm" onClick={() => accion('seguir')} disabled={ocupado}>
+                <RefreshCw className={cn(ocupado && 'animate-spin')} /> Seguir ahora
+              </Button>
+            )}
+            {errores > 0 && (
+              <Button size="sm" variant={enMarcha ? 'outline' : 'default'} onClick={() => accion('reintentar')} disabled={ocupado}>
+                <RotateCcw /> Reintentar los fallidos
+              </Button>
+            )}
             {tirada.carpetaCursoUrl && (
               <a
                 href={tirada.carpetaCursoUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
               >
-                Abrir en Drive <ExternalLink className="h-3.5 w-3.5" />
+                Abrir en Drive <ExternalLink aria-hidden />
               </a>
             )}
             {enMarcha && (
-              <button
-                type="button"
-                onClick={() => accion('seguir')}
-                disabled={ocupado}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${ocupado ? 'animate-spin' : ''}`} /> Seguir ahora
-              </button>
+              <Button size="sm" variant="destructive" onClick={() => accion('cancelar')} disabled={ocupado}>
+                <Square /> Parar
+              </Button>
             )}
-            {enMarcha && (
-              <button
-                type="button"
-                onClick={() => accion('cancelar')}
-                disabled={ocupado}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 dark:border-red-900 dark:text-red-400"
-              >
-                <Square className="h-3.5 w-3.5" /> Parar
-              </button>
-            )}
-            {errores > 0 && (
-              <button
-                type="button"
-                onClick={() => accion('reintentar')}
-                disabled={ocupado}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
-              >
-                <RotateCcw className="h-3.5 w-3.5" /> Reintentar los fallidos
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onCerrar}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              <X className="h-3.5 w-3.5" /> Cerrar
-            </button>
+            <Button size="sm" variant="ghost" onClick={onCerrar}>
+              <X /> Cerrar
+            </Button>
           </div>
-        </div>
-
-        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${errores > 0 ? 'bg-amber-500' : 'bg-blue-600'}`}
-            style={{ width: `${porcentaje}%` }}
-          />
-        </div>
-        {enMarcha && (
-          <p className="mt-2 text-xs text-zinc-500">
-            {diagnostico ?? 'Lo está haciendo el servidor: puedes cerrar esta pantalla (o el portátil) y volver luego.'}
-          </p>
-        )}
-        {tirada.error && <div className="mt-2">{<Aviso tono="ambar">{tirada.error}</Aviso>}</div>}
-        {enMarcha && diagnostico && (
-          <div className="mt-2">
-            <Aviso tono="ambar">
-              El worker no ha dado señales de vida. Pulsa «Seguir ahora» para empujarla desde aquí; si vuelve a
-              quedarse parada, mira la bitácora de abajo.
-            </Aviso>
-          </div>
-        )}
+        </TarjetaCuerpo>
       </Tarjeta>
 
       <Bitacora eventos={progreso.eventos ?? []} />
 
       <Tarjeta>
-        <div className="max-h-96 space-y-1 overflow-y-auto">
+        <TarjetaCabecera titulo="Documentos" descripcion={`${progreso.items.length} en esta ejecución`} />
+        <ul className="max-h-96 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
           {progreso.items.map((item) => (
-            <div key={item.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs">
-              <Estado estado={item.estado} />
-              <span className="min-w-0 flex-1 truncate text-zinc-600 dark:text-zinc-300">
-                {item.indiceTutor}.{' '}
-                {nombrePlantilla.get(item.plantillaId) ?? 'Plantilla'} — {item.curso}
-                {item.letra} <span className="text-zinc-400">· {item.alumnoIds.length} alumnos</span>
+            <li key={item.id} className="flex min-h-11 items-center gap-2 px-4 py-1 text-sm">
+              <IconoItem estado={item.estado} />
+              <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-300">
+                {item.indiceTutor}. {nombrePlantilla.get(item.plantillaId) ?? 'Plantilla'} — {item.curso}
+                {item.letra}{' '}
+                <span className="text-zinc-500 dark:text-zinc-400">· {item.alumnoIds.length} alumnos</span>
               </span>
-              {item.error && <span className="max-w-56 truncate text-amber-600 dark:text-amber-400">{item.error}</span>}
+              {item.error && (
+                <span className="max-w-56 truncate text-xs text-amber-700 dark:text-amber-400">{item.error}</span>
+              )}
               {item.docUrl && (
-                <a href={item.docUrl} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400">
-                  <ExternalLink className="h-3.5 w-3.5" />
+                <a
+                  href={item.docUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Abrir el documento"
+                  className={buttonVariants({ variant: 'ghost', size: 'icon-sm', className: 'text-blue-700 dark:text-blue-400' })}
+                >
+                  <ExternalLink />
                 </a>
               )}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </Tarjeta>
     </div>
   );
+}
+
+const ESTADO_TIRADA: Record<string, { texto: string; tono: 'ok' | 'aviso' | 'error' | 'info' | 'neutro' }> = {
+  pendiente: { texto: 'En cola', tono: 'neutro' },
+  ejecutando: { texto: 'En marcha', tono: 'info' },
+  hecha: { texto: 'Terminada', tono: 'ok' },
+  error: { texto: 'Con errores', tono: 'error' },
+  cancelada: { texto: 'Cancelada', tono: 'neutro' },
+};
+
+/** El estado de una tirada en su pastilla (también lo usa el historial). */
+export function EstadoTirada({ estado }: { estado: string }) {
+  const e = ESTADO_TIRADA[estado] ?? { texto: estado, tono: 'neutro' as const };
+  return <Estado tono={e.tono}>{e.texto}</Estado>;
 }
 
 /**
@@ -720,35 +702,36 @@ function Bitacora({ eventos }: { eventos: EventoUI[] }) {
   if (eventos.length === 0) return null;
   const color = (nivel: string) =>
     nivel === 'error'
-      ? 'text-red-600 dark:text-red-400'
+      ? 'text-red-700 dark:text-red-400'
       : nivel === 'aviso'
-        ? 'text-amber-600 dark:text-amber-400'
-        : 'text-zinc-600 dark:text-zinc-300';
+        ? 'text-amber-700 dark:text-amber-400'
+        : 'text-zinc-700 dark:text-zinc-300';
   return (
     <Tarjeta>
       <button
         type="button"
+        aria-expanded={abierta}
         onClick={() => {
           haptic.tap();
           setAbierta((a) => !a);
         }}
-        className="flex w-full items-center gap-2 text-left"
+        className="flex min-h-12 w-full items-center gap-2 rounded-2xl px-4 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <ScrollText className="h-4 w-4 text-zinc-400" />
-        <h3 className="flex-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-          Bitácora <span className="text-zinc-400">· {eventos.length} línea(s)</span>
-        </h3>
-        <span className="text-xs text-zinc-400">{abierta ? 'ocultar' : 'ver'}</span>
+        <ScrollText aria-hidden className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+        <span className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          Bitácora <span className="font-normal text-zinc-500 dark:text-zinc-400">· {eventos.length} líneas</span>
+        </span>
+        <ChevronDown aria-hidden className={cn('h-4 w-4 text-zinc-500 transition-transform', abierta && 'rotate-180')} />
       </button>
       {abierta && (
-        <div className="mt-2 max-h-72 space-y-0.5 overflow-y-auto font-mono text-[11px] leading-relaxed">
+        <div className="max-h-72 space-y-0.5 overflow-y-auto border-t border-zinc-100 px-4 py-3 font-mono text-xs leading-relaxed dark:border-zinc-800">
           {eventos.map((evento) => (
             <div key={evento.id} className="flex gap-2">
-              <span className="shrink-0 text-zinc-400">
+              <span className="shrink-0 text-zinc-500 tabular-nums dark:text-zinc-400">
                 {new Date(evento.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
-              <span className="shrink-0 text-zinc-400">{evento.fase}</span>
-              <span className={`min-w-0 flex-1 ${color(evento.nivel)}`}>{evento.mensaje}</span>
+              <span className="shrink-0 text-zinc-500 dark:text-zinc-400">{evento.fase}</span>
+              <span className={cn('min-w-0 flex-1', color(evento.nivel))}>{evento.mensaje}</span>
             </div>
           ))}
         </div>
@@ -757,10 +740,19 @@ function Bitacora({ eventos }: { eventos: EventoUI[] }) {
   );
 }
 
-function Estado({ estado }: { estado: string }) {
-  if (estado === 'hecho') return <CheckCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />;
-  if (estado === 'haciendo') return <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-blue-500" />;
-  if (estado === 'error') return <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" />;
-  if (estado === 'omitido') return <X className="h-3.5 w-3.5 shrink-0 text-zinc-400" />;
-  return <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-zinc-300 dark:border-zinc-600" />;
+const TEXTO_ITEM: Record<string, string> = {
+  hecho: 'Hecho',
+  haciendo: 'Haciéndose',
+  error: 'Con error',
+  omitido: 'Omitido',
+};
+
+/** Icono del estado de un documento, con su nombre para el lector de pantalla. */
+function IconoItem({ estado }: { estado: string }) {
+  const texto = <span className="sr-only">{TEXTO_ITEM[estado] ?? 'Pendiente'}:</span>;
+  if (estado === 'hecho') return <>{texto}<CheckCheck aria-hidden className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" /></>;
+  if (estado === 'haciendo') return <>{texto}<Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin text-blue-600 dark:text-blue-400" /></>;
+  if (estado === 'error') return <>{texto}<TriangleAlert aria-hidden className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" /></>;
+  if (estado === 'omitido') return <>{texto}<X aria-hidden className="h-4 w-4 shrink-0 text-zinc-500" /></>;
+  return <>{texto}<span aria-hidden className="h-4 w-4 shrink-0 rounded-full border border-zinc-300 dark:border-zinc-600" /></>;
 }

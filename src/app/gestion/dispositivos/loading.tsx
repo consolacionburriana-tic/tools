@@ -1,13 +1,19 @@
+import { Skeleton, SkeletonPage, SkeletonTabla } from '@/components/ui/skeleton';
+
 export default function Loading() {
   return (
-    <div className="space-y-5">
-      <div className="h-16 w-2/3 animate-pulse rounded-2xl bg-zinc-200/60 dark:bg-zinc-800/60" />
-      <div className="h-10 animate-pulse rounded-2xl bg-zinc-200/60 dark:bg-zinc-800/60" />
-      <div className="space-y-2">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-14 animate-pulse rounded-2xl bg-zinc-200/60 dark:bg-zinc-800/60" />
-        ))}
+    <SkeletonPage label="Cargando los dispositivos 1:1">
+      <div className="space-y-5">
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-[52px] w-full max-w-xl rounded-2xl" />
+        <div className="flex flex-wrap gap-2">
+          <Skeleton className="h-11 w-72 rounded-xl" />
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-10 w-28 rounded-full" />
+          ))}
+        </div>
+        <SkeletonTabla n={8} columnas={5} />
       </div>
-    </div>
+    </SkeletonPage>
   );
 }

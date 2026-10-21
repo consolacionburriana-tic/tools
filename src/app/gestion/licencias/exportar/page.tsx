@@ -1,7 +1,12 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { ChevronLeft, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
+import { Subpantalla } from '@/components/licencias/subpantalla';
+import { Aviso } from '@/components/ui/aviso';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Tarjeta } from '@/components/ui/tarjeta';
 import { getCurrentCampaign } from '@/lib/licencias-server';
 import {
   getEducamosRows,
@@ -15,23 +20,25 @@ export const metadata = { title: 'Exportar · Licencias' };
 
 function ExportCard({ tipo, titulo, desc, n }: { tipo: string; titulo: string; desc: string; n: number }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <Tarjeta className="flex flex-wrap items-center gap-3 p-4">
       <div className="min-w-0 flex-1">
-        <p className="font-medium text-zinc-900 dark:text-zinc-100">{titulo}</p>
-        <p className="text-xs text-zinc-500">{desc}</p>
+        <p className="font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{desc}</p>
       </div>
-      <span className="shrink-0 text-sm text-zinc-400">{n} filas</span>
-      <a
-        href={`/api/licencias/admin/export?tipo=${tipo}`}
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ${
-          n > 0
-            ? 'bg-blue-600 text-white hover:bg-blue-700'
-            : 'pointer-events-none bg-zinc-100 text-zinc-400 dark:bg-zinc-800'
-        }`}
-      >
-        <Download className="h-4 w-4" /> CSV
-      </a>
-    </div>
+      <span className="shrink-0 text-sm text-zinc-500 tabular-nums dark:text-zinc-400">{n} filas</span>
+      {n > 0 ? (
+        <a
+          href={`/api/licencias/admin/export?tipo=${tipo}`}
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+        >
+          <Download aria-hidden /> CSV
+        </a>
+      ) : (
+        <Button variant="outline" size="sm" disabled>
+          <Download aria-hidden /> CSV
+        </Button>
+      )}
+    </Tarjeta>
   );
 }
 
@@ -51,47 +58,32 @@ export default async function ExportarPage() {
   const enviarNo = enviar.filter((r) => r.grupo === 'NO').length;
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="font-semibold text-zinc-900 dark:text-zinc-100">Exportar</h1>
-            <p className="text-xs text-zinc-500">{campaign?.name ?? 'Sin campaña'}</p>
-          </div>
-          <Link
-            href="/gestion/licencias"
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
-          >
-            <ChevronLeft className="h-4 w-4" /> Panel
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl space-y-3 px-4 py-6">
-        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+    <Subpantalla ancho="estrecho" titulo="Exportar" descripcion={campaign?.name}>
+      <div className="space-y-3">
+        <Aviso tono="info">
           Los códigos ya se pegan y se mandan desde la app, en{' '}
           <Link href="/gestion/licencias/envios" className="font-semibold underline">
             Envío de licencias
           </Link>
-          . Estas descargas se quedan como salvavidas: son el mismo formato de las hojas del Sheet, por si algún día
-          hay que hacerlo a mano.
-        </p>
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Plantillas de envío (FormMule)</h2>
+          . Estas descargas se quedan como salvavidas: son el mismo formato de las hojas del Sheet, por si algún día hay
+          que hacerlo a mano.
+        </Aviso>
+        <Rotulo className="pt-3">Plantillas de envío (FormMule)</Rotulo>
         <ExportCard tipo="enviar-no" titulo="ENVIAR · NO Banco de Libros" desc="Una fila por licencia de pago de alumnos no-BdL" n={enviarNo} />
         <ExportCard tipo="enviar-si" titulo="ENVIAR · SÍ Banco de Libros" desc="Licencias de pago de alumnos del banco (inglés, francés…)" n={enviarSi} />
         <ExportCard tipo="gratis" titulo="ENVIAR · GRATIS Banco de Libros" desc="Libros del banco (gratis) para cada alumno BdL" n={gratis.length} />
 
-        <h2 className="pt-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Pagos</h2>
+        <Rotulo className="pt-3">Pagos</Rotulo>
         <ExportCard tipo="pagos" titulo="Pagos consolidado" desc="Total por alumno" n={pagos.length} />
         <ExportCard tipo="educamos" titulo="Educamos" desc="ID Educamos + importe (por curso)" n={educamos.length} />
         <ExportCard tipo="libros" titulo="Pagos por libro" desc="Unidades por libro/editorial" n={libros.length} />
 
-        <p className="pt-3 text-xs text-zinc-400">
-          Estas descargas CSV son el equivalente a las hojas del Google Sheet (las pegas o las usa FormMule).
-          La columna «Licencia Activación» va vacía para que la rellenes con los códigos de las editoriales: si en vez
-          de eso los pegas en Envío de licencias, la app manda los correos y va marcando una a una las enviadas.
+        <p className="pt-3 text-sm text-zinc-500 dark:text-zinc-400">
+          Estas descargas CSV son el equivalente a las hojas del Google Sheet (las pegas o las usa FormMule). La columna
+          «Licencia Activación» va vacía para que la rellenes con los códigos de las editoriales: si en vez de eso los
+          pegas en Envío de licencias, la app manda los correos y va marcando una a una las enviadas.
         </p>
-      </main>
-    </div>
+      </div>
+    </Subpantalla>
   );
 }

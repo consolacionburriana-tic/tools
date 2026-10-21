@@ -8,6 +8,7 @@ import { PESTANAS_ORA } from '@/lib/oratorios';
 import { accesoComunActivo, getDatosPanel, getMisSesiones } from '@/lib/oratorios-server';
 import { PanelOratorios, type Pestana } from '@/components/oratorios/panel';
 import { MisOratorios } from '@/components/oratorios/mis-oratorios';
+import { Vacio } from '@/components/ui/vacio';
 
 export const metadata = { title: 'Oratorios, Godly Play y Talleres · Gestión' };
 
@@ -20,17 +21,29 @@ export default async function OratoriosPage({ searchParams }: { searchParams: Pr
   if (canAccess(user, 'oratorios')) {
     const [datos, { tab }] = await Promise.all([getDatosPanel(user), searchParams]);
     const tabInicial: Pestana = (PESTANAS_ORA as readonly string[]).includes(tab ?? '') ? (tab as Pestana) : 'planificar';
-    return <PanelOratorios datos={datos} tabInicial={tabInicial} />;
+    return (
+      <>
+        <h1 className="sr-only">Oratorios, Godly Play y Talleres</h1>
+        <PanelOratorios datos={datos} tabInicial={tabInicial} />
+      </>
+    );
   }
 
   if (!(await accesoComunActivo())) {
     return (
-      <div className="mx-auto max-w-md py-16 text-center text-zinc-600 dark:text-zinc-400">
-        <HandHeart className="mx-auto h-10 w-10 text-zinc-400" />
-        <p className="mt-3">Todavía no está abierto al claustro.</p>
-      </div>
+      <>
+        <h1 className="sr-only">Oratorios, Godly Play y Talleres</h1>
+        <Vacio icono={<HandHeart />} titulo="Todavía no está abierto al claustro">
+          Cuando quien lo lleva lo abra, aquí verás las sesiones que te tocan.
+        </Vacio>
+      </>
     );
   }
   const datos = await getMisSesiones(user.email);
-  return <MisOratorios datos={datos} email={user.email} />;
+  return (
+    <>
+      <h1 className="sr-only">Mis oratorios</h1>
+      <MisOratorios datos={datos} email={user.email} />
+    </>
+  );
 }

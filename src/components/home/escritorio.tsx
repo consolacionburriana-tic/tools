@@ -7,39 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Apple,
-  AtSign,
-  BookMarked,
-  Bus,
-  CalendarCheck,
-  CalendarDays,
-  CalendarX2,
-  ChartColumnBig,
-  ChevronRight,
-  ClipboardCheck,
-  ClipboardList,
-  ClipboardPlus,
-  Cpu,
-  Database,
-  GraduationCap,
-  HandHeart,
-  KanbanSquare,
-  KeyRound,
-  Library,
-  ListTodo,
-  NotebookPen,
-  School,
-  Search,
-  Settings2,
-  SlidersHorizontal,
-  Tablet,
-  UserPlus,
-  Users,
-  Wallet,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
+import { ChevronRight, Cpu, School, Search, Settings2, Users, Wallet, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   buscarHerramientas,
@@ -51,6 +19,11 @@ import {
   type TonoAviso,
 } from '@/lib/escritorio';
 import { NavPending } from '@/components/ui/nav-pending';
+import { ACENTO_GRUPO, ICONOS_MODULO } from '@/components/ui/icono-modulo';
+import { Estado, type TonoEstado } from '@/components/ui/estado';
+import { Input } from '@/components/ui/input';
+import { Rotulo } from '@/components/ui/rotulo';
+import { claseTarjeta } from '@/components/ui/tarjeta';
 
 export interface Cifra {
   /** Lo que va antes del número, si lo hay («Educamos al»). */
@@ -68,42 +41,6 @@ export interface Aviso {
   icono: IconoHerramienta;
 }
 
-const ICONOS: Record<IconoHerramienta, LucideIcon> = {
-  horario: CalendarCheck,
-  tableros: KanbanSquare,
-  conducta: ClipboardPlus,
-  oratorios: HandHeart,
-  alumnado: Users,
-  nouvinguts: UserPlus,
-  numeros: ChartColumnBig,
-  cuaderno: NotebookPen,
-  abc: ClipboardList,
-  licencias: BookMarked,
-  banco: Library,
-  salidas: Bus,
-  horarios: CalendarDays,
-  evaluaciones: ClipboardCheck,
-  profes: GraduationCap,
-  dispositivos: Tablet,
-  cuentas: AtSign,
-  calendarios: CalendarX2,
-  autoasm: Apple,
-  usuarios: KeyRound,
-  educamos: Database,
-  ajustes: SlidersHorizontal,
-  tareas: ListTodo,
-};
-
-/** Un color por grupo, solo en el icono: ayuda a reconocer de un vistazo sin teñir la pantalla. */
-const ACENTO: Record<Grupo, string> = {
-  dia: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
-  alumnado: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
-  familias: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-  centro: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  tic: 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
-  config: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
-};
-
 const ICONO_GRUPO: Record<Exclude<Grupo, 'dia'>, LucideIcon> = {
   alumnado: Users,
   familias: Wallet,
@@ -112,11 +49,8 @@ const ICONO_GRUPO: Record<Exclude<Grupo, 'dia'>, LucideIcon> = {
   config: Settings2,
 };
 
-const TONO_BADGE: Record<TonoAviso, string> = {
-  azul: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200',
-  ambar: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200',
-  rojo: 'bg-red-600 text-white',
-};
+/** Las insignias de las herramientas son estados: azul informa, ámbar pide algo, rojo urge. */
+const TONO_BADGE: Record<TonoAviso, TonoEstado> = { azul: 'info', ambar: 'aviso', rojo: 'error' };
 
 const TONO_AVISO: Record<TonoAviso, { tarjeta: string; icono: string }> = {
   azul: {
@@ -170,7 +104,7 @@ export function Escritorio({
     .filter((x) => x.lista.length > 0);
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-8 px-4 pt-6 pb-16 sm:px-6 lg:pt-8">
+    <main className="mx-auto w-full max-w-7xl space-y-8 px-4 pt-6 pb-20 sm:px-6 lg:pt-8">
       {/* ── Saludo, cifras y buscador ─────────────────────────────────── */}
       <section className="anim-up flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
@@ -189,8 +123,8 @@ export function Escritorio({
           )}
         </div>
         <div className="relative w-full lg:max-w-sm">
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <input
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
+          <Input
             ref={buscador}
             type="search"
             value={consulta}
@@ -201,7 +135,7 @@ export function Escritorio({
             }}
             placeholder="Buscar herramienta"
             aria-label="Buscar herramienta"
-            className="h-12 w-full rounded-2xl border border-zinc-200 bg-white pr-12 pl-10 text-[15px] text-zinc-900 shadow-sm outline-none placeholder:text-zinc-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 [&::-webkit-search-cancel-button]:hidden"
+            className="h-12 rounded-2xl pr-12 pl-10 [&::-webkit-search-cancel-button]:hidden"
           />
           {consulta ? (
             <button
@@ -211,12 +145,12 @@ export function Escritorio({
                 buscador.current?.focus();
               }}
               aria-label="Borrar la búsqueda"
-              className="absolute top-1/2 right-2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
+              className="absolute top-1/2 right-1 flex size-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-xl text-zinc-500 outline-none hover:bg-zinc-100 hover:text-zinc-800 focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             >
               <X className="h-4 w-4" />
             </button>
           ) : (
-            <kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-md border border-zinc-200 px-1.5 font-mono text-xs text-zinc-400 lg:block dark:border-zinc-700">
+            <kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-md border border-zinc-200 px-1.5 font-mono text-xs text-zinc-500 lg:block dark:border-zinc-700 dark:text-zinc-400">
               /
             </kbd>
           )}
@@ -265,25 +199,13 @@ export function Escritorio({
   );
 }
 
-function Rotulo({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <h2 id={id} className="px-1 text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
-      {children}
-    </h2>
-  );
-}
-
 function Insignia({ badge }: { badge: Herramienta['badge'] }) {
   if (!badge) return null;
-  return (
-    <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', TONO_BADGE[badge.tono])}>
-      {badge.texto}
-    </span>
-  );
+  return <Estado tono={TONO_BADGE[badge.tono]}>{badge.texto}</Estado>;
 }
 
 function AvisoTarjeta({ aviso }: { aviso: Aviso }) {
-  const Icono = ICONOS[aviso.icono];
+  const Icono = ICONOS_MODULO[aviso.icono];
   const tono = TONO_AVISO[aviso.tono];
   return (
     <Link href={aviso.href} className={cn('group flex items-center gap-3 rounded-2xl border p-4 transition-colors', tono.tarjeta)}>
@@ -295,21 +217,24 @@ function AvisoTarjeta({ aviso }: { aviso: Aviso }) {
         <span className="block text-sm text-zinc-600 dark:text-zinc-300">{aviso.texto}</span>
       </span>
       <NavPending />
-      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-hover:translate-x-0.5" />
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-hover:translate-x-0.5 dark:text-zinc-400" />
     </Link>
   );
 }
 
 /** Las de «Tu día»: grandes, para tocarlas sin apuntar. */
 function Tesela({ h }: { h: Herramienta }) {
-  const Icono = ICONOS[h.icono];
+  const Icono = ICONOS_MODULO[h.icono];
   return (
     <Link
       href={h.href}
-      className="group relative flex min-h-32 flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors hover:border-blue-300 active:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:active:bg-blue-500/5"
+      className={cn(
+        claseTarjeta,
+        'group relative flex min-h-32 flex-col gap-3 p-4 transition-colors hover:border-zinc-300 active:bg-zinc-50 dark:hover:border-zinc-700 dark:active:bg-zinc-800/60',
+      )}
     >
       <span className="flex items-start justify-between gap-2">
-        <span className={cn('flex h-11 w-11 items-center justify-center rounded-xl', ACENTO[h.grupo])}>
+        <span className={cn('flex h-11 w-11 items-center justify-center rounded-xl', ACENTO_GRUPO[h.grupo])}>
           <Icono className="h-5.5 w-5.5" />
         </span>
         <Insignia badge={h.badge} />
@@ -326,13 +251,13 @@ function Tesela({ h }: { h: Herramienta }) {
 }
 
 function Fila({ h, conGrupo = false }: { h: Herramienta; conGrupo?: boolean }) {
-  const Icono = ICONOS[h.icono];
+  const Icono = ICONOS_MODULO[h.icono];
   return (
     <Link
       href={h.href}
       className="group flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 active:bg-blue-50/60 dark:hover:bg-zinc-800/60 dark:active:bg-blue-500/10"
     >
-      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', ACENTO[h.grupo])}>
+      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', ACENTO_GRUPO[h.grupo])}>
         <Icono className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
@@ -340,12 +265,12 @@ function Fila({ h, conGrupo = false }: { h: Herramienta; conGrupo?: boolean }) {
           <span className="font-medium text-zinc-900 dark:text-zinc-100">{h.titulo}</span>
           <Insignia badge={h.badge} />
         </span>
-        <span className="line-clamp-2 block text-[13px] leading-snug text-zinc-500 dark:text-zinc-400">
+        <span className="line-clamp-2 block text-sm leading-snug text-zinc-500 dark:text-zinc-400">
           {conGrupo ? `${GRUPO_TITULO[h.grupo]} · ${h.desc}` : h.desc}
         </span>
       </span>
       <NavPending />
-      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 dark:text-zinc-600" />
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-hover:translate-x-0.5 dark:text-zinc-500" />
     </Link>
   );
 }
@@ -355,13 +280,15 @@ function GrupoPanel({ grupo, lista }: { grupo: Exclude<Grupo, 'dia'>; lista: Her
   return (
     <section
       aria-labelledby={`grupo-${grupo}`}
-      className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+      className={cn(claseTarjeta, 'overflow-hidden')}
     >
       <h2
         id={`grupo-${grupo}`}
-        className="flex items-center gap-2 border-b border-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:text-zinc-100"
+        className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:text-zinc-100"
       >
-        <Icono className="h-4 w-4 text-zinc-400" />
+        <span aria-hidden className={cn('flex size-6 items-center justify-center rounded-md', ACENTO_GRUPO[grupo])}>
+          <Icono className="h-3.5 w-3.5" />
+        </span>
         {GRUPO_TITULO[grupo]}
       </h2>
       <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -378,7 +305,7 @@ function GrupoPanel({ grupo, lista }: { grupo: Exclude<Grupo, 'dia'>; lista: Her
 function Resultados({ resultados, consulta }: { resultados: Herramienta[]; consulta: string }) {
   if (resultados.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700">
+      <p className="rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
         Ninguna herramienta casa con «{consulta.trim()}».
       </p>
     );
@@ -388,7 +315,7 @@ function Resultados({ resultados, consulta }: { resultados: Herramienta[]; consu
       <Rotulo id="resultados">
         {resultados.length} {resultados.length === 1 ? 'herramienta' : 'herramientas'} · Intro abre la primera
       </Rotulo>
-      <ul className="grid gap-x-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm md:grid-cols-2 dark:border-zinc-800 dark:bg-zinc-900">
+      <ul className={cn(claseTarjeta, 'grid gap-x-4 overflow-hidden md:grid-cols-2')}>
         {resultados.map((h) => (
           <li key={h.clave} className="border-b border-zinc-100 last:border-b-0 dark:border-zinc-800">
             <Fila h={h} conGrupo />

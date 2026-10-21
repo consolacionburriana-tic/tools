@@ -73,3 +73,25 @@ export function SkeletonPage({ label, children }: { label: string; children: Rea
     </div>
   );
 }
+
+/** Tabla: la fila de cabecera y `n` filas, dentro de una tarjeta (Licencias, Correos, AUTOASM). */
+export function SkeletonTabla({ n = 8, columnas = 5 }: { n?: number; columnas?: number }) {
+  return (
+    <SkeletonCard className="overflow-hidden p-0">
+      <div className="flex gap-4 border-b border-zinc-100 bg-zinc-50/70 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+        {Array.from({ length: columnas }).map((_, i) => (
+          <Skeleton key={i} className="h-3 flex-1" />
+        ))}
+      </div>
+      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {Array.from({ length: n }).map((_, i) => (
+          <div key={i} className="flex gap-4 px-4 py-3.5">
+            {Array.from({ length: columnas }).map((_, j) => (
+              <Skeleton key={j} className={cn('h-4 flex-1', j === 0 && 'flex-[2]')} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </SkeletonCard>
+  );
+}

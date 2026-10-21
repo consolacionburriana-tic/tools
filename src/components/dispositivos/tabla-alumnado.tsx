@@ -22,7 +22,9 @@ import {
 } from '@/lib/dispositivos';
 import type { AlumnoDis, AparatoDis, EstadoDis, PanelDispositivos } from '@/lib/dispositivos-server';
 import type { Acciones } from './panel';
-import { COLOR_MODALIDAD, COLOR_SEGURO, ESTILO_BOTON, ESTILO_BOTON_PRINCIPAL, normalizar, pedir } from './comun';
+import { COLOR_MODALIDAD, COLOR_SEGURO, normalizar, pedir } from './comun';
+import { buttonVariants } from '@/components/ui/button';
+import { claseCampo } from '@/components/ui/input';
 
 export type FiltroAlumnado = 'todos' | 'sin' | Modalidad | 'vencido' | 'falta';
 
@@ -144,7 +146,7 @@ export function TablaAlumnado({
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar en todo el alcance…"
-            className="h-11 w-full rounded-xl border border-zinc-300 bg-white pr-3 pl-9 text-[15px] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950"
+            className={cn(claseCampo, 'pl-9')}
           />
         </label>
         <div className="flex flex-wrap gap-1.5">
@@ -451,10 +453,10 @@ function EnBloque({
             ¿{texto} a los {n} sin informar de {donde}?
           </span>
           <div className="ml-auto flex gap-2">
-            <button type="button" className={ESTILO_BOTON} onClick={() => setConfirmar(false)} disabled={ocupado}>
+            <button type="button" className={buttonVariants({ variant: 'outline' })} onClick={() => setConfirmar(false)} disabled={ocupado}>
               Cancelar
             </button>
-            <button type="button" className={ESTILO_BOTON_PRINCIPAL} onClick={() => void aplicar()} disabled={ocupado}>
+            <button type="button" className={buttonVariants()} onClick={() => void aplicar()} disabled={ocupado}>
               {ocupado && <Loader2 className="h-4 w-4 animate-spin" />} Sí, a los {n}
             </button>
           </div>
@@ -494,7 +496,7 @@ function EnBloque({
           )}
           <button
             type="button"
-            className={cn(ESTILO_BOTON, 'ml-auto h-10')}
+            className={cn(buttonVariants({ variant: 'outline' }), 'ml-auto h-10')}
             disabled={!modalidad}
             onClick={() => {
               haptic.tap();

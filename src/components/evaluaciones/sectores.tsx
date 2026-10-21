@@ -12,9 +12,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, TriangleAlert } from 'lucide-react';
+import { Plus, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { IconoAudiencia } from '@/components/evaluaciones/ui';
 import { AUDIENCIAS, COLOR_AUDIENCIA, RASGOS_AUDIENCIA, type Audiencia } from '@/lib/evaluaciones';
 import type { SectorGrupo } from '@/lib/evaluaciones-server';
 
@@ -25,10 +28,12 @@ const QUIEN: Record<Audiencia, string> = {
 };
 
 const ESTADO_PUNTO: Record<string, string> = {
-  borrador: 'bg-zinc-300 dark:bg-zinc-600',
+  borrador: 'bg-zinc-400 dark:bg-zinc-500',
   abierto: 'bg-emerald-500',
   cerrado: 'bg-amber-500',
 };
+
+const ESTADO_TEXTO: Record<string, string> = { borrador: 'Borrador', abierto: 'Abierta', cerrado: 'Cerrada' };
 
 type Destino = 'editor' | 'enviar' | 'resultados';
 
@@ -106,20 +111,31 @@ export function SectoresTabs({
           const color = COLOR_AUDIENCIA[s.audiencia];
           const contenido = (
             <>
-              <span aria-hidden className="text-lg leading-none">{a?.emoji}</span>
+              <span
+                aria-hidden
+                style={{ background: `color-mix(in oklab, ${color} 14%, transparent)`, color }}
+                className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+              >
+                <IconoAudiencia audiencia={s.audiencia} />
+              </span>
               <span className="min-w-0 text-left">
-                <span className={`block text-sm font-semibold ${activo ? 'text-zinc-900 dark:text-zinc-50' : 'text-zinc-600 dark:text-zinc-300'}`}>
+                <span
+                  className={cn(
+                    'block text-sm font-semibold',
+                    activo ? 'text-zinc-900 dark:text-zinc-50' : 'text-zinc-700 dark:text-zinc-300',
+                  )}
+                >
                   {a?.label}
                 </span>
                 {s.estado && (
-                  <span className="flex items-center gap-1.5 text-[11px] text-zinc-500">
-                    <span className={`h-1.5 w-1.5 rounded-full ${ESTADO_PUNTO[s.estado] ?? ESTADO_PUNTO.borrador}`} />
-                    {s.estado}
-                    {s.respuestas > 0 && <span>· {s.respuestas} resp.</span>}
+                  <span className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span aria-hidden className={cn('size-1.5 rounded-full', ESTADO_PUNTO[s.estado] ?? ESTADO_PUNTO.borrador)} />
+                    {ESTADO_TEXTO[s.estado] ?? s.estado}
+                    {s.respuestas > 0 && <span className="tabular-nums">· {s.respuestas} resp.</span>}
                     {s.huecos > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400" title="Frases a medias">
-                        <TriangleAlert className="h-3 w-3" />
-                        {s.huecos}
+                      <span className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400">
+                        <TriangleAlert aria-hidden className="size-3" />
+                        {s.huecos} a medias
                       </span>
                     )}
                   </span>
@@ -128,46 +144,41 @@ export function SectoresTabs({
             </>
           );
           const base =
-            'relative flex items-center gap-2.5 overflow-hidden rounded-xl px-3.5 py-2.5 pt-3 transition-[background-color,box-shadow] duration-150';
-          const barra = (
-            <span
-              aria-hidden
-              style={{ background: color }}
-              className={`absolute inset-x-0 top-0 h-[3px] ${activo ? 'opacity-100' : 'opacity-40'}`}
-            />
-          );
+            'flex min-h-12 items-center gap-2.5 rounded-xl border px-3 py-2 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50';
           return activo ? (
             <span
               key={s.id}
               aria-current="page"
-              className={`${base} bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-zinc-200/80 dark:bg-zinc-900 dark:ring-zinc-700`}
+              className={cn(base, 'border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900')}
             >
-              {barra}
               {contenido}
             </span>
           ) : (
             <Link
               key={s.id}
               href={hrefSector(s.id, destino, query)}
-              className={`${base} bg-zinc-100/70 hover:bg-white hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:bg-zinc-800/40 dark:hover:bg-zinc-900`}
+              className={cn(
+                base,
+                'border-transparent bg-zinc-200/60 hover:bg-white dark:bg-zinc-800/60 dark:hover:bg-zinc-900',
+              )}
             >
-              {barra}
               {contenido}
             </Link>
           );
         })}
         {faltan.map((a) => (
-          <button
+          <Button
             key={a.value}
             type="button"
+            variant="outline"
             disabled={creando !== null}
+            cargando={creando === a.value}
             onClick={() => void anadir(a.value)}
-            title={`Crear el formulario de ${a.label.toLowerCase()} para las mismas actividades, con su preset`}
-            className="flex items-center gap-2 rounded-xl border border-dashed border-zinc-300 px-3.5 py-2.5 text-sm font-medium text-zinc-500 transition-colors duration-150 hover:border-zinc-400 hover:text-zinc-800 disabled:opacity-40 dark:border-zinc-700 dark:hover:border-zinc-500 dark:hover:text-zinc-200"
+            className="h-auto min-h-12 border-dashed"
           >
-            {creando === a.value ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            <span aria-hidden>{a.emoji}</span> {a.label}
-          </button>
+            {creando !== a.value && <Plus aria-hidden />}
+            Añadir {a.label.toLowerCase()}
+          </Button>
         ))}
       </div>
     </nav>
@@ -191,15 +202,18 @@ export function BandaSector({ audiencia }: { audiencia: Audiencia }) {
         borderColor: `color-mix(in oklab, ${color} 22%, transparent)`,
       }}
     >
-      <p className="flex items-center gap-2 text-sm font-semibold" style={{ color: `color-mix(in oklab, ${color} 75%, currentColor)` }}>
-        <span aria-hidden className="text-base leading-none">{a?.emoji}</span>
+      <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <span style={{ color }}>
+          <IconoAudiencia audiencia={audiencia} />
+        </span>
         Preguntas para {QUIEN[audiencia]}
+        <span className="sr-only">({a?.label})</span>
       </p>
       <div className="flex flex-wrap gap-1">
         {r.rasgos.map((x) => (
           <span
             key={x}
-            className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-zinc-600 ring-1 ring-black/5 dark:bg-zinc-900/50 dark:text-zinc-300 dark:ring-white/10"
+            className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-zinc-700 ring-1 ring-black/5 dark:bg-zinc-900/60 dark:text-zinc-300 dark:ring-white/10"
           >
             {x}
           </span>

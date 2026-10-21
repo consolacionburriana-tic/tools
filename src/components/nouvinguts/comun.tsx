@@ -22,10 +22,8 @@ export function pedirFicha(url: string, metodo: 'POST' | 'PATCH', cuerpo: unknow
   return pedir<{ ficha: FichaNouvingut }>(url, { method: metodo, body: JSON.stringify(cuerpo) }).then((r) => r.ficha);
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
-export const ESTILO_CAMPO =
-  'h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-[15px] text-zinc-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
-
+// ─── Estados de un paso ──────────────────────────────────────────────────────
+// Los colores de estado de toda la app: verde hecho, ámbar aviso, gris lo demás.
 export const ETIQUETA_ESTADO: Record<EstadoPaso, string> = {
   hecho: 'hecho',
   pendiente: 'pendiente',
@@ -36,8 +34,8 @@ export const ETIQUETA_ESTADO: Record<EstadoPaso, string> = {
 export const COLOR_TEXTO: Record<EstadoPaso, string> = {
   hecho: 'text-emerald-700 dark:text-emerald-400',
   pendiente: 'text-zinc-500 dark:text-zinc-400',
-  aviso: 'font-semibold text-orange-700 dark:text-orange-400',
-  no_aplica: 'text-zinc-400 dark:text-zinc-500',
+  aviso: 'font-semibold text-amber-700 dark:text-amber-400',
+  no_aplica: 'text-zinc-500 dark:text-zinc-400',
 };
 
 const COLOR_RESPONSABLE: Record<Responsable, string> = {
@@ -52,7 +50,7 @@ export const BORDE_RESPONSABLE: Record<Responsable, string> = {
 
 export function ChipResponsable({ responsable }: { responsable: Responsable }) {
   return (
-    <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', COLOR_RESPONSABLE[responsable])}>
+    <span className={cn('rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap', COLOR_RESPONSABLE[responsable])}>
       {RESPONSABLE_LABEL[responsable]}
     </span>
   );
@@ -71,7 +69,7 @@ export function NodoPaso({ estado, grande = false }: { estado: EstadoPaso; grand
   }
   if (estado === 'aviso') {
     return (
-      <span className={cn('relative flex shrink-0 items-center justify-center rounded-full bg-orange-600 text-white', tam)}>
+      <span className={cn('relative flex shrink-0 items-center justify-center rounded-full bg-amber-600 text-white', tam)}>
         <AlertTriangle className={icono} strokeWidth={3} />
       </span>
     );

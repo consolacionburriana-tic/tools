@@ -8,6 +8,7 @@ import { getAlumnosFueraDeCampania, getResumenClases } from '@/lib/bancolibros-s
 import { etapasDeAlcance } from '@/lib/alumnado-server';
 import { cursoEnAlcance } from '@/lib/bancolibros-alcance';
 import { BancoPanel } from '@/components/bancolibros/banco-panel';
+import { academicYearActual } from '@/lib/constants';
 
 export const metadata = { title: 'Banco de libros · Gestión' };
 
@@ -29,6 +30,7 @@ export default async function BancoLibrosPage() {
       resumenInicial={resumen.filter((r) => cursoEnBanco(r.curso) && cursoEnAlcance(etapas, r.curso))}
       fueraDeCampania={fueraDeCampania.filter((a) => cursoEnAlcance(etapas, a.curso))}
       puedeGestionarParticipantes={puedeGestionarParticipantesBanco(user?.role ?? null)}
+      curso={academicYearActual()}
     />
   );
 }

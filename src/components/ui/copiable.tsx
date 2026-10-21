@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
 
 export async function copiarTexto(texto: string): Promise<boolean> {
   try {
@@ -87,7 +88,7 @@ export function Copiable({ valor, children, etiqueta, className = '', mono, mult
       {copiado ? (
         <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
       ) : (
-        <Copy className="h-3.5 w-3.5 shrink-0 text-zinc-300 transition-colors group-hover:text-zinc-500 dark:text-zinc-600 dark:group-hover:text-zinc-400" />
+        <Copy className="h-3.5 w-3.5 shrink-0 text-zinc-400 transition-colors group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300" />
       )}
     </button>
   );
@@ -108,7 +109,7 @@ export function Dato({
   const limpio = (valor ?? '').trim();
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-2 py-0.5">
-      <span className="shrink-0 text-xs text-zinc-400">{etiqueta}</span>
+      <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{etiqueta}</span>
       {limpio ? (
         <Copiable
           valor={limpio}
@@ -119,7 +120,7 @@ export function Dato({
           {children ?? limpio}
         </Copiable>
       ) : (
-        <span className="text-sm text-zinc-300 dark:text-zinc-600">—</span>
+        <span className="text-sm text-zinc-400 dark:text-zinc-500">—</span>
       )}
     </div>
   );
@@ -140,8 +141,10 @@ export function CopiarLista({
   useEffect(() => () => { if (temporizador.current) clearTimeout(temporizador.current); }, []);
   if (valores.length === 0) return null;
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="sm"
       onClick={async () => {
         if (!(await copiarTexto(valores.join(separador)))) return;
         haptic.success();
@@ -149,17 +152,16 @@ export function CopiarLista({
         if (temporizador.current) clearTimeout(temporizador.current);
         temporizador.current = setTimeout(() => setCopiado(false), 1400);
       }}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
     >
       {copiado ? (
         <>
-          <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Copiado
+          <Check className="text-emerald-600 dark:text-emerald-400" /> Copiado
         </>
       ) : (
         <>
-          <Copy className="h-3.5 w-3.5" /> {etiqueta} ({valores.length})
+          <Copy /> {etiqueta} ({valores.length})
         </>
       )}
-    </button>
+    </Button>
   );
 }

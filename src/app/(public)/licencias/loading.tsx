@@ -12,7 +12,7 @@ export default function Loading() {
           <Skeleton className="mt-2 h-4 w-32" />
         </div>
         <SkeletonPage label="Cargando la solicitud de licencias…">
-          <div className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
             <Skeleton className="h-5 w-56" />
             <Skeleton className="mt-3 h-4 w-full" />
             <Skeleton className="mt-2 h-4 w-3/4" />

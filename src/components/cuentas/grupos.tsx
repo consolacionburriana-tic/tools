@@ -5,7 +5,7 @@
 // primero se ve qué cambia, luego se aplica. Idea de asistente-grupos (pfelipm), con las
 // personas sacadas de Educamos en vez de una hoja.
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ExternalLink, Loader2, Minus, Plus, RefreshCw, Settings2, Trash2, UsersRound } from 'lucide-react';
+import { ExternalLink, Minus, Plus, RefreshCw, Search, Settings2, UsersRound, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -23,8 +23,21 @@ import {
   type ReglasGrupo,
 } from '@/lib/cuentas';
 import type { EstadoCuentas, GrupoFila, PreviaGrupo } from '@/lib/cuentas-server';
+import { Aviso } from '@/components/ui/aviso';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { ConfirmarDialogo } from '@/components/ui/confirmar';
+import { Copiable } from '@/components/ui/copiable';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { BOTON, BOTON_PRIMARIO, BotonCopiar, CAMPO, ConfirmarPalabra, haceTiempo, post, Progreso, TARJETA } from './comun';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Input } from '@/components/ui/input';
+import { EnCurso } from '@/components/ui/progreso';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta, TarjetaCabecera } from '@/components/ui/tarjeta';
+import { Textarea } from '@/components/ui/textarea';
+import { Vacio } from '@/components/ui/vacio';
+import { haceTiempo, post } from './comun';
 import { SelectorUo } from './dialogos';
 
 const API = '/api/cuentas/admin/grupos';
@@ -69,19 +82,20 @@ export function Grupos({
 
   if (estado.grupos.length === 0) {
     return (
-      <div className={cn(TARJETA, 'space-y-3 p-6 text-center')}>
-        <UsersRound className="mx-auto h-8 w-8 text-zinc-400" />
-        <p className="font-medium text-zinc-900 dark:text-zinc-100">Todavía no se han leído los grupos</p>
-        <p className="mx-auto max-w-lg text-sm text-zinc-500">
-          Hace falta que la cuenta de servicio tenga el permiso de grupos en la delegación del dominio. Cuando lo tenga, «Leer de
-          Google» los trae todos.
-        </p>
-        {puedeGestionar && (
-          <button type="button" className={BOTON} onClick={verPermisos}>
-            Ver qué permisos faltan
-          </button>
-        )}
-      </div>
+      <Vacio
+        icono={<UsersRound />}
+        titulo="Todavía no se han leído los grupos"
+        accion={
+          puedeGestionar && (
+            <Button size="sm" onClick={verPermisos}>
+              Ver qué permisos faltan
+            </Button>
+          )
+        }
+      >
+        Hace falta que la cuenta de servicio tenga el permiso de grupos en la delegación del dominio. Cuando lo tenga, «Leer de
+        Google» los trae todos.
+      </Vacio>
     );
   }
 
@@ -95,125 +109,123 @@ export function Grupos({
         {puedeGestionar && (
           <div className="flex flex-wrap gap-2">
             {gestionados.length > 0 && (
-              <button type="button" className={BOTON} onClick={revisarTodos} disabled={revisando !== null}>
-                {revisando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Revisar todos
-              </button>
+              <Button variant="outline" size="sm" cargando={revisando !== null} onClick={revisarTodos}>
+                {revisando === null && <RefreshCw />} Revisar todos
+              </Button>
             )}
-            <button type="button" className={BOTON_PRIMARIO} onClick={() => setEditando('nuevo')}>
-              <Plus className="h-4 w-4" /> Grupo nuevo
-            </button>
+            <Button size="sm" onClick={() => setEditando('nuevo')}>
+              <Plus /> Grupo nuevo
+            </Button>
           </div>
         )}
       </div>
 
       {gestionados.length > 0 && (
-        <section className="grid gap-3 lg:grid-cols-2">
+        <section aria-label="Grupos gestionados desde aquí" className="grid gap-3 lg:grid-cols-2">
           {gestionados.map((g) => {
             const p = previas[g.email];
             return (
-              <article key={g.email} className={cn(TARJETA, 'flex flex-col gap-3 p-4')}>
+              <Tarjeta as="article" key={g.email} className="flex flex-col gap-3 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-zinc-900 dark:text-zinc-100">{g.nombre ?? g.email}</p>
-                    <p className="truncate font-mono text-xs text-zinc-500">{g.email}</p>
+                    <h2 className="truncate font-semibold text-zinc-900 dark:text-zinc-100">{g.nombre ?? g.email}</h2>
+                    <Copiable valor={g.email} etiqueta="Correo del grupo" mono className="-ml-1.5 max-w-full text-xs text-zinc-500 dark:text-zinc-400" />
                   </div>
-                  <span className="shrink-0 font-mono text-sm text-zinc-600 dark:text-zinc-300">{g.miembros ?? '—'} miembros</span>
+                  <span className="shrink-0 text-sm text-zinc-600 tabular-nums dark:text-zinc-300">{g.miembros ?? '—'} miembros</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {g.fuentes.map((f) => (
-                    <span key={f} className="rounded-md bg-blue-50 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-500/15 dark:text-blue-200">
-                      {f}
-                    </span>
+                    <Etiqueta key={f}>{f}</Etiqueta>
                   ))}
-                  {g.reglas.extra.length > 0 && (
-                    <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                      + {g.reglas.extra.length} a mano
-                    </span>
-                  )}
-                  <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                    {MODO_GRUPO_LABEL[g.reglas.modo]}
-                  </span>
+                  {g.reglas.extra.length > 0 && <Etiqueta>+ {g.reglas.extra.length} a mano</Etiqueta>}
+                  <Etiqueta>{MODO_GRUPO_LABEL[g.reglas.modo]}</Etiqueta>
                 </div>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {!g.enGoogle
                     ? 'No ha salido en la última lectura de Google: ¿se ha borrado?'
                     : g.ultimaSyncAt
                       ? `Aplicado ${haceTiempo(g.ultimaSyncAt)} por ${g.ultimaSyncPor} (+${g.ultimaSync?.anadidos ?? 0} −${g.ultimaSync?.quitados ?? 0})`
                       : 'Todavía no se ha aplicado desde aquí'}
                 </p>
-                {p && 'error' in p && <p className="text-xs text-red-600">{p.error}</p>}
+                {p && 'error' in p && <p className="text-sm text-red-700 dark:text-red-400">{p.error}</p>}
                 {p && !('error' in p) && (
-                  <p className="text-sm">
+                  <p>
                     {p.plan.anadir.length + p.plan.quitar.length === 0 ? (
-                      <span className="text-emerald-700 dark:text-emerald-400">Al día con sus reglas</span>
+                      <Estado tono="ok">Al día con sus reglas</Estado>
                     ) : (
-                      <>
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">+{p.plan.anadir.length} entran</span>
-                        {' · '}
-                        <span className="font-semibold text-red-700 dark:text-red-400">−{p.plan.quitar.length} salen</span>
-                      </>
+                      <Estado tono="aviso">
+                        +{p.plan.anadir.length} entran · −{p.plan.quitar.length} salen
+                      </Estado>
                     )}
                   </p>
                 )}
                 <div className="mt-auto flex flex-wrap gap-2">
                   {puedeGestionar && (
-                    <button
-                      type="button"
-                      className={cn(BOTON_PRIMARIO, 'h-9')}
+                    <Button
+                      size="sm"
+                      cargando={revisando === g.email}
                       disabled={revisando !== null || !g.enGoogle}
                       onClick={async () => {
                         const r = await revisar(g.email);
                         if (r) setViendo(g.email);
                       }}
                     >
-                      {revisando === g.email ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Revisar
-                    </button>
+                      {revisando !== g.email && <RefreshCw />} Revisar
+                    </Button>
                   )}
                   {p && !('error' in p) && p.plan.anadir.length + p.plan.quitar.length > 0 && (
-                    <button type="button" className={cn(BOTON, 'h-9')} onClick={() => setViendo(g.email)}>
+                    <Button variant="outline" size="sm" onClick={() => setViendo(g.email)}>
                       Ver cambios
-                    </button>
+                    </Button>
                   )}
                   {puedeGestionar && (
-                    <button type="button" className={cn(BOTON, 'h-9')} onClick={() => setEditando(g)}>
-                      <Settings2 className="h-4 w-4" /> Reglas
-                    </button>
+                    <Button variant="outline" size="sm" onClick={() => setEditando(g)}>
+                      <Settings2 /> Reglas
+                    </Button>
                   )}
                   <EnlacesGrupo g={g} />
                 </div>
-              </article>
+              </Tarjeta>
             );
           })}
         </section>
       )}
 
-      <section className={cn(TARJETA, 'overflow-hidden')}>
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-          <div>
-            <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Los demás grupos del dominio</h2>
-            <p className="text-sm text-zinc-500">Se ven, pero no se tocan hasta que se les ponen reglas.</p>
-          </div>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar grupo" className={cn(CAMPO, 'max-w-60')} />
-        </header>
+      <Tarjeta as="section" aria-labelledby="otros-grupos" className="overflow-hidden">
+        <TarjetaCabecera
+          id="otros-grupos"
+          titulo="Los demás grupos del dominio"
+          descripcion="Se ven, pero no se tocan hasta que se les ponen reglas."
+          accion={
+            <div className="relative w-full sm:w-60">
+              <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar grupo" aria-label="Buscar grupo" className="pl-9" />
+            </div>
+          }
+        />
         <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {otros.map((g) => (
-            <li key={g.email} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-              <div className="min-w-0 flex-1">
+            <li key={g.email} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
+              <div className="min-w-0 flex-[1_1_14rem]">
                 <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{g.nombre ?? g.email}</p>
-                <p className="truncate font-mono text-xs text-zinc-500">{g.email}</p>
+                <Copiable valor={g.email} etiqueta="Correo del grupo" mono className="-ml-1.5 max-w-full text-xs text-zinc-500 dark:text-zinc-400" />
               </div>
-              <span className="font-mono text-xs text-zinc-500">{g.miembros ?? '—'}</span>
-              <EnlacesGrupo g={g} />
-              {puedeGestionar && (
-                <button type="button" className={cn(BOTON, 'h-9')} onClick={() => setEditando(g)}>
-                  <Settings2 className="h-4 w-4" /> Ponerle reglas
-                </button>
-              )}
+              <span className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">{g.miembros ?? '—'} miembros</span>
+              <div className="flex flex-wrap gap-2">
+                <EnlacesGrupo g={g} />
+                {puedeGestionar && (
+                  <Button variant="outline" size="sm" onClick={() => setEditando(g)}>
+                    <Settings2 /> Ponerle reglas
+                  </Button>
+                )}
+              </div>
             </li>
           ))}
-          {otros.length === 0 && <li className="px-4 py-6 text-center text-sm text-zinc-500">Ninguno</li>}
+          {otros.length === 0 && (
+            <li className="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">{q ? 'Ningún grupo se llama así' : 'Ninguno'}</li>
+          )}
         </ul>
-      </section>
+      </Tarjeta>
 
       {editando && (
         <EditorReglas
@@ -245,13 +257,24 @@ export function Grupos({
 function EnlacesGrupo({ g }: { g: GrupoFila }) {
   return (
     <>
-      <BotonCopiar texto={g.email} etiqueta="Copiar" />
-      <a href={enlaceGrupo(g.email)} target="_blank" rel="noreferrer" className={cn(BOTON, 'h-9')} title="Abrir en Google Groups">
-        <ExternalLink className="h-4 w-4" /> Groups
+      <a
+        href={enlaceGrupo(g.email)}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Abrir en Google Groups"
+        className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+      >
+        <ExternalLink /> Groups
       </a>
       {g.googleId && (
-        <a href={enlaceConsolaGrupo(g.googleId)} target="_blank" rel="noreferrer" className={cn(BOTON, 'h-9')} title="Abrir en la consola">
-          <ExternalLink className="h-4 w-4" /> Consola
+        <a
+          href={enlaceConsolaGrupo(g.googleId)}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Abrir en la consola"
+          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+        >
+          <ExternalLink /> Consola
         </a>
       )}
     </>
@@ -323,27 +346,31 @@ function VerCambios({
             {plan.gestores > 0 ? ` (más ${plan.gestores} propietario${plan.gestores === 1 ? '' : 's'} o gestor${plan.gestores === 1 ? '' : 'es'}, que no se tocan)` : ''}.
           </DialogDescription>
         </DialogHeader>
-        {plan.avisos.map((a) => (
-          <p key={a} className="flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-300">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {a}
-          </p>
-        ))}
+        {plan.avisos.length > 0 && (
+          <Aviso tono="aviso">
+            {plan.avisos.map((a) => (
+              <p key={a}>{a}</p>
+            ))}
+          </Aviso>
+        )}
         <div className="grid max-h-[50vh] gap-3 overflow-y-auto sm:grid-cols-2">
           <ListaCambio
             titulo={`Entran (${plan.anadir.length})`}
-            tono="verde"
+            tono="entra"
             items={plan.anadir.map((m) => ({ clave: m.email, texto: m.nombre ?? m.email, sub: `${m.email} · ${m.motivo}` }))}
           />
           <ListaCambio
             titulo={`Salen (${plan.quitar.length})`}
-            tono="rojo"
+            tono="sale"
             items={plan.quitar.map((m) => ({ clave: m.email, texto: m.email, sub: m.motivo }))}
           />
         </div>
         {previa.sinCorreo.length > 0 && (
-          <details className="text-sm text-zinc-600 dark:text-zinc-400">
-            <summary className="cursor-pointer">{previa.sinCorreo.length} de las reglas no tienen cuenta activa (no entran)</summary>
-            <ul className="mt-1 list-disc pl-5 text-xs">
+          <details className="group rounded-xl border border-zinc-200 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center rounded-xl px-3 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+              {previa.sinCorreo.length} de las reglas no tienen cuenta activa (no entran)
+            </summary>
+            <ul className="list-disc px-3 pb-3 pl-8 text-xs">
               {previa.sinCorreo.map((s) => (
                 <li key={`${s.nombre}-${s.motivo}`}>
                   {s.nombre} · {s.motivo}
@@ -352,30 +379,25 @@ function VerCambios({
             </ul>
           </details>
         )}
-        {aplicando && <Progreso texto="Aplicando en Google…" hechos={aplicando.hechos} total={aplicando.total} />}
+        {aplicando && <EnCurso texto="Aplicando en Google…" hechos={aplicando.hechos} total={aplicando.total} />}
         <DialogFooter>
-          <button type="button" className={BOTON} onClick={onCerrar} disabled={!!aplicando}>
+          <Button variant="outline" onClick={onCerrar} disabled={!!aplicando}>
             Cerrar
-          </button>
+          </Button>
           {total > 0 && (
-            <button
-              type="button"
-              className={BOTON_PRIMARIO}
-              disabled={!!aplicando}
-              onClick={() => (plan.muchasBajas ? setConfirmar(true) : aplicar(null))}
-            >
-              {aplicando && <Loader2 className="h-4 w-4 animate-spin" />} Aplicar {total} cambio{total === 1 ? '' : 's'}
-            </button>
+            <Button cargando={!!aplicando} onClick={() => (plan.muchasBajas ? setConfirmar(true) : aplicar(null))}>
+              Aplicar {total} cambio{total === 1 ? '' : 's'}
+            </Button>
           )}
         </DialogFooter>
-        <ConfirmarPalabra
+        <ConfirmarDialogo
           abierto={confirmar}
           titulo={`Salen ${plan.quitar.length} del grupo`}
           descripcion="Son muchas bajas de golpe. Si las reglas están bien, adelante; si no, revísalas antes."
           palabra="QUITAR"
-          boton="Aplicar"
+          boton={`Aplicar ${total} cambio${total === 1 ? '' : 's'}`}
           onCerrar={() => setConfirmar(false)}
-          onConfirmar={() => aplicar('QUITAR')}
+          onConfirmar={() => void aplicar('QUITAR')}
         />
       </DialogContent>
     </Dialog>
@@ -388,30 +410,27 @@ function ListaCambio({
   items,
 }: {
   titulo: string;
-  tono: 'verde' | 'rojo';
+  tono: 'entra' | 'sale';
   items: { clave: string; texto: string; sub: string }[];
 }) {
-  const Icono = tono === 'verde' ? Plus : Minus;
+  // Entrar y salir de un grupo: el «+» en verde y el «−» en rojo, como en cualquier diferencia.
+  const Icono = tono === 'entra' ? Plus : Minus;
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-800">
-      <p
-        className={cn(
-          'border-b border-zinc-100 px-3 py-2 text-sm font-semibold dark:border-zinc-800',
-          tono === 'verde' ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400',
-        )}
-      >
+      <p className="flex items-center gap-1.5 border-b border-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:text-zinc-100">
+        <Icono aria-hidden className={cn('size-4', tono === 'entra' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')} />
         {titulo}
       </p>
       {items.length === 0 ? (
-        <p className="px-3 py-4 text-center text-xs text-zinc-500">Nadie</p>
+        <p className="px-3 py-4 text-center text-sm text-zinc-500 dark:text-zinc-400">Nadie</p>
       ) : (
         <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {items.map((i) => (
             <li key={i.clave} className="flex items-start gap-2 px-3 py-1.5">
-              <Icono className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', tono === 'verde' ? 'text-emerald-600' : 'text-red-600')} />
+              <Icono aria-hidden className={cn('mt-0.5 size-3.5 shrink-0', tono === 'entra' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')} />
               <span className="min-w-0">
                 <span className="block truncate text-sm text-zinc-900 dark:text-zinc-100">{i.texto}</span>
-                <span className="block truncate text-xs text-zinc-500">{i.sub}</span>
+                <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">{i.sub}</span>
               </span>
             </li>
           ))}
@@ -503,117 +522,128 @@ function EditorReglas({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{grupo ? (grupo.nombre ?? grupo.email) : 'Grupo nuevo'}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="break-all">
             {grupo ? grupo.email : 'Se crea en Google con estas reglas. Los ajustes de quién puede escribir son los del dominio.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+        <div className="space-y-4">
           {grupo === null && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="text-sm">
-                Correo del grupo
-                <input
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Campo etiqueta="Correo del grupo" id="grupo-email" error={correoNuevoMal}>
+                <Input
+                  id="grupo-email"
                   value={nuevo.email}
                   onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })}
                   placeholder={`claustro@${estado.dominio}`}
-                  className={cn(CAMPO, 'mt-1 font-mono')}
+                  aria-invalid={!!correoNuevoMal || undefined}
+                  className="font-mono"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
-                {correoNuevoMal && <span className="text-xs text-red-600">{correoNuevoMal}</span>}
-              </label>
-              <label className="text-sm">
-                Nombre
-                <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} className={cn(CAMPO, 'mt-1')} />
-              </label>
-              <label className="text-sm sm:col-span-2">
-                Descripción (opcional)
-                <input value={nuevo.descripcion} onChange={(e) => setNuevo({ ...nuevo, descripcion: e.target.value })} className={cn(CAMPO, 'mt-1')} />
-              </label>
+              </Campo>
+              <Campo etiqueta="Nombre" id="grupo-nombre">
+                <Input id="grupo-nombre" value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
+              </Campo>
+              <Campo etiqueta="Descripción" id="grupo-descripcion" opcional className="sm:col-span-2">
+                <Input
+                  id="grupo-descripcion"
+                  value={nuevo.descripcion}
+                  onChange={(e) => setNuevo({ ...nuevo, descripcion: e.target.value })}
+                />
+              </Campo>
             </div>
           )}
 
           {grupo && (
-            <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" checked={gestionado} onChange={(e) => setGestionado(e.target.checked)} className="mt-0.5" />
+            <label className="flex min-h-10 cursor-pointer items-start gap-3 py-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                checked={gestionado}
+                onChange={(e) => setGestionado(e.target.checked)}
+                className="mt-0.5 size-4 shrink-0 accent-blue-600"
+              />
               <span>
                 Mantener este grupo desde aquí
-                <span className="block text-xs text-zinc-500">Si lo quitas, se queda como está en Google y deja de revisarse.</span>
+                <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                  Si lo quitas, se queda como está en Google y deja de revisarse.
+                </span>
               </span>
             </label>
           )}
 
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Quién está</p>
+          <section aria-labelledby="quien-esta" className="space-y-2">
+            <h3 id="quien-esta" className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              Quién está
+            </h3>
             {reglas.fuentes.length === 0 ? (
-              <p className="text-xs text-zinc-500">Todavía nadie: añade una fuente.</p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">Todavía nadie: añade una fuente.</p>
             ) : (
-              <ul className="flex flex-wrap gap-1.5">
+              <ul className="flex flex-wrap gap-2">
                 {reglas.fuentes.map((f, i) => (
                   <li
                     key={describirFuente(f)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-blue-50 py-1 pr-1 pl-2.5 text-sm text-blue-800 dark:bg-blue-500/15 dark:text-blue-200"
+                    className="inline-flex h-10 items-center rounded-xl border border-zinc-200 bg-white pl-3 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
                   >
                     {describirFuente(f)}
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="rounded-l-none text-zinc-500"
                       onClick={() => setReglas({ ...reglas, fuentes: reglas.fuentes.filter((_, j) => j !== i) })}
-                      className="cursor-pointer rounded p-0.5 hover:bg-blue-100 dark:hover:bg-blue-500/20"
-                      aria-label="Quitar"
+                      aria-label={`Quitar «${describirFuente(f)}»`}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      <X />
+                    </Button>
                   </li>
                 ))}
               </ul>
             )}
             <div className="flex flex-wrap items-end gap-2 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
-              <label className="text-xs">
-                Añadir
-                <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoNueva)} className={cn(CAMPO, 'mt-1 w-44')}>
+              <Campo etiqueta="Añadir" id="fuente-tipo" className="w-full sm:w-48">
+                <Selector id="fuente-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as TipoNueva)}>
                   {(Object.keys(TIPO_FUENTE_LABEL) as TipoNueva[]).map((t) => (
                     <option key={t} value={t}>
                       {TIPO_FUENTE_LABEL[t]}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Selector>
+              </Campo>
               {tipo !== 'uo' && (
-                <label className="text-xs">
-                  Etapa
-                  <select value={etapa} onChange={(e) => setEtapa(e.target.value as Etapa | '')} className={cn(CAMPO, 'mt-1 w-36')}>
+                <Campo etiqueta="Etapa" id="fuente-etapa" className="w-[calc(50%-0.25rem)] sm:w-40">
+                  <Selector id="fuente-etapa" value={etapa} onChange={(e) => setEtapa(e.target.value as Etapa | '')}>
                     <option value="">Todas</option>
                     {ETAPAS.map((e) => (
                       <option key={e} value={e}>
                         {ETAPA_LABEL[e]}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Selector>
+                </Campo>
               )}
               {tipo === 'alumnos' && (
                 <>
-                  <label className="text-xs">
-                    Curso
-                    <select value={curso} onChange={(e) => setCurso(e.target.value)} className={cn(CAMPO, 'mt-1 w-28')}>
+                  <Campo etiqueta="Curso" id="fuente-curso" className="w-[calc(50%-0.25rem)] sm:w-32">
+                    <Selector id="fuente-curso" value={curso} onChange={(e) => setCurso(e.target.value)}>
                       <option value="">Todos</option>
                       {cursos.map((c) => (
                         <option key={c} value={c}>
                           {c}
                         </option>
                       ))}
-                    </select>
-                  </label>
-                  <label className="text-xs">
-                    Clase
-                    <select value={clase} onChange={(e) => setClase(e.target.value)} className={cn(CAMPO, 'mt-1 w-32')}>
+                    </Selector>
+                  </Campo>
+                  <Campo etiqueta="Clase" id="fuente-clase" className="w-[calc(50%-0.25rem)] sm:w-36">
+                    <Selector id="fuente-clase" value={clase} onChange={(e) => setClase(e.target.value)}>
                       <option value="">Todas</option>
                       {estado.cruce.clases.map((c) => (
                         <option key={c.clave} value={c.clave}>
                           {c.nombre}
                         </option>
                       ))}
-                    </select>
-                  </label>
+                    </Selector>
+                  </Campo>
                 </>
               )}
               {tipo === 'uo' && (
@@ -621,43 +651,51 @@ function EditorReglas({
                   <SelectorUo unidades={estado.unidades} valor={ruta} onElegir={setRuta} alto="max-h-40" />
                 </div>
               )}
-              <button type="button" className={cn(BOTON, 'h-10')} onClick={anadirFuente} disabled={tipo === 'uo' && !ruta}>
-                <Plus className="h-4 w-4" /> Añadir
-              </button>
+              <Button variant="outline" onClick={anadirFuente} disabled={tipo === 'uo' && !ruta}>
+                <Plus /> Añadir
+              </Button>
             </div>
-          </div>
+          </section>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              Siempre están (uno por línea)
-              <textarea
+            <Campo etiqueta="Siempre están (uno por línea)" id="grupo-extra">
+              <Textarea
+                id="grupo-extra"
                 value={extraTexto}
                 onChange={(e) => setExtraTexto(e.target.value)}
-                rows={3}
-                className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                className="font-mono text-sm sm:text-sm"
                 placeholder="externo@gmail.com"
               />
-            </label>
-            <label className="text-sm">
-              Nunca están (uno por línea)
-              <textarea
+            </Campo>
+            <Campo etiqueta="Nunca están (uno por línea)" id="grupo-excluidos">
+              <Textarea
+                id="grupo-excluidos"
                 value={excluidosTexto}
                 onChange={(e) => setExcluidosTexto(e.target.value)}
-                rows={3}
-                className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                className="font-mono text-sm sm:text-sm"
               />
-            </label>
+            </Campo>
           </div>
-          {malos.length > 0 && <p className="text-xs text-red-600">Revisa: {malos.join(', ')}</p>}
+          {malos.length > 0 && (
+            <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+              Revisa: {malos.join(', ')}
+            </p>
+          )}
 
-          <fieldset className="space-y-1.5 text-sm">
-            <legend className="mb-1 font-semibold text-zinc-800 dark:text-zinc-200">Al aplicar</legend>
+          <fieldset>
+            <legend className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Al aplicar</legend>
             {MODOS_GRUPO.map((m) => (
-              <label key={m} className="flex items-start gap-2">
-                <input type="radio" checked={reglas.modo === m} onChange={() => setReglas({ ...reglas, modo: m })} className="mt-0.5" />
+              <label key={m} className="flex min-h-10 cursor-pointer items-start gap-3 py-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                <input
+                  type="radio"
+                  name="modo-grupo"
+                  checked={reglas.modo === m}
+                  onChange={() => setReglas({ ...reglas, modo: m })}
+                  className="mt-0.5 size-4 shrink-0 accent-blue-600"
+                />
                 <span>
                   {MODO_GRUPO_LABEL[m]}
-                  <span className="block text-xs text-zinc-500">{MODO_GRUPO_AYUDA[m]}</span>
+                  <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{MODO_GRUPO_AYUDA[m]}</span>
                 </span>
               </label>
             ))}
@@ -665,17 +703,16 @@ function EditorReglas({
         </div>
 
         <DialogFooter>
-          <button type="button" className={BOTON} onClick={onCerrar} disabled={guardando}>
+          <Button variant="outline" onClick={onCerrar} disabled={guardando}>
             Cancelar
-          </button>
-          <button
-            type="button"
-            className={BOTON_PRIMARIO}
-            disabled={guardando || malos.length > 0 || (grupo === null && (!nuevo.email || !!correoNuevoMal || !nuevo.nombre.trim()))}
+          </Button>
+          <Button
+            cargando={guardando}
+            disabled={malos.length > 0 || (grupo === null && (!nuevo.email || !!correoNuevoMal || !nuevo.nombre.trim()))}
             onClick={guardar}
           >
-            {guardando && <Loader2 className="h-4 w-4 animate-spin" />} {grupo ? 'Guardar' : 'Crear el grupo'}
-          </button>
+            {grupo ? 'Guardar las reglas' : 'Crear el grupo'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

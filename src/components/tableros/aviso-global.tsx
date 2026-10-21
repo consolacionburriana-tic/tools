@@ -15,6 +15,7 @@ import { AlarmClock, ChevronRight, EyeOff, X } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { esUrgente, estadoVence, resumenUrgente, textoResumenUrgente, type TarjetaMia } from '@/lib/tableros';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { api, ChipVence } from './comun';
 
 const SIN_AVISO = ['/gestion/tableros', '/gestion/login', '/gestion/sin-acceso'];
@@ -110,20 +111,15 @@ export function AvisoTableros() {
               <span
                 className={cn(
                   'flex h-7 w-7 items-center justify-center rounded-full',
-                  rojo ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400' : 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400',
+                  rojo ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
                 )}
               >
                 <AlarmClock className="h-4 w-4" />
               </span>
               <p className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{texto}</p>
-              <button
-                type="button"
-                onClick={() => setAbierto(false)}
-                aria-label="Cerrar"
-                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setAbierto(false)} aria-label="Cerrar" className="-mr-2">
+                <X aria-hidden />
+              </Button>
             </div>
             <ul className="max-h-72 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
               {ordenadas.slice(0, 8).map((t) => (
@@ -131,12 +127,12 @@ export function AvisoTableros() {
                   <Link
                     href={`/gestion/tableros/${t.tableroId}?t=${t.id}`}
                     onClick={() => setAbierto(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                    className="flex min-h-11 items-center gap-2.5 px-4 py-2.5 outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset dark:hover:bg-zinc-800/60"
                   >
-                    <span className="text-base">{t.tableroEmoji}</span>
+                    <span aria-hidden className="text-base">{t.tableroEmoji}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{t.titulo}</span>
-                      <span className="block truncate text-xs text-zinc-500">
+                      <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
                         {t.equipoNombre} · {t.tableroNombre}
                       </span>
                     </span>
@@ -146,19 +142,15 @@ export function AvisoTableros() {
               ))}
             </ul>
             <div className="flex items-center justify-between gap-2 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
-              <button
-                type="button"
-                onClick={ocultar}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-              >
-                <EyeOff className="h-3.5 w-3.5" /> Ocultar hasta mañana
-              </button>
+              <Button type="button" variant="ghost" size="sm" onClick={ocultar} className="px-2.5">
+                <EyeOff aria-hidden /> Ocultar hasta mañana
+              </Button>
               <Link
                 href="/gestion/tableros"
                 onClick={() => setAbierto(false)}
-                className="inline-flex items-center gap-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'px-2.5 text-blue-700 dark:text-blue-400' })}
               >
-                Todo lo mío <ChevronRight className="h-3.5 w-3.5" />
+                Todo lo mío <ChevronRight aria-hidden />
               </Link>
             </div>
           </motion.div>
@@ -174,17 +166,16 @@ export function AvisoTableros() {
               setAbierto(true);
             }}
             aria-label={texto}
-            title={texto}
             className={cn(
               // Blanca, como el botón de fallitos de la derecha; el color va solo en el punto y el texto.
-              'flex items-center gap-2 rounded-full border border-zinc-200 bg-white/95 py-1.5 pr-3.5 pl-2 text-sm font-medium shadow-md backdrop-blur transition-colors hover:bg-white active:scale-95 dark:border-zinc-700 dark:bg-zinc-900/95 dark:hover:bg-zinc-900',
-              rojo ? 'text-red-700 dark:text-red-300' : 'text-orange-700 dark:text-orange-300',
+              'flex min-h-10 items-center gap-2 rounded-full border border-zinc-200 bg-white/95 py-1.5 pr-3.5 pl-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 text-sm font-medium shadow-md backdrop-blur transition-colors hover:bg-white active:scale-95 dark:border-zinc-700 dark:bg-zinc-900/95 dark:hover:bg-zinc-900',
+              rojo ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300',
             )}
           >
             <span
               className={cn(
                 'flex h-6 w-6 items-center justify-center rounded-full',
-                rojo ? 'bg-red-50 dark:bg-red-500/15' : 'bg-orange-50 dark:bg-orange-500/15',
+                rojo ? 'bg-red-50 dark:bg-red-500/15' : 'bg-amber-50 dark:bg-amber-500/15',
               )}
             >
               <AlarmClock className="h-3.5 w-3.5" />

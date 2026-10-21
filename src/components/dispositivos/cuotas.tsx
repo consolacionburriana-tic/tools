@@ -10,7 +10,7 @@ import { haptic } from '@/lib/haptics';
 import { CONCEPTO_LABEL, cuotaDe, resumenCuotas, type Concepto } from '@/lib/dispositivos';
 import type { PanelDispositivos } from '@/lib/dispositivos-server';
 import type { Acciones } from './panel';
-import { ESTILO_BOTON } from './comun';
+import { buttonVariants } from '@/components/ui/button';
 
 type Grupo = Concepto | 'falta';
 
@@ -45,10 +45,10 @@ export function Cuotas({ panel, acciones }: { panel: PanelDispositivos; acciones
           La foto de hoy: lo que paga cada uno según cómo tiene el iPad. Cómo y cuándo se cobra está pendiente de secretaría y Jose Miguel.
         </p>
         <div className="flex gap-2">
-          <a href="/api/dispositivos/cuotas?formato=xlsx" className={ESTILO_BOTON} onClick={() => haptic.tap()}>
+          <a href="/api/dispositivos/cuotas?formato=xlsx" className={buttonVariants({ variant: 'outline' })} onClick={() => haptic.tap()}>
             <FileSpreadsheet className="h-4 w-4" /> Excel
           </a>
-          <a href="/api/dispositivos/cuotas?formato=csv" className={ESTILO_BOTON} onClick={() => haptic.tap()}>
+          <a href="/api/dispositivos/cuotas?formato=csv" className={buttonVariants({ variant: 'outline' })} onClick={() => haptic.tap()}>
             <FileDown className="h-4 w-4" /> CSV
           </a>
         </div>

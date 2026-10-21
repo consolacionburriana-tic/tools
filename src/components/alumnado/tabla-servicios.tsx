@@ -21,6 +21,8 @@ import { aplicaServicio, SERVICIO_LABEL, SERVICIOS, type Servicio } from '@/lib/
 import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista } from '@/lib/alumnado-server';
 import { BarraTabla, Celda, CeldaAlumno, ColumnaBoton, useGuardado } from './piezas-tabla';
+import { Button } from '@/components/ui/button';
+import { Filtro, Filtros } from '@/components/ui/filtro';
 
 type Filtro = 'todos' | Servicio | 'ninguno';
 
@@ -61,7 +63,7 @@ export function TablaServicios({
 
   if (alumnos.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-400 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="rounded-2xl bg-white p-6 text-center text-sm text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
         No hay alumnado aquí.
       </div>
     );
@@ -86,38 +88,30 @@ export function TablaServicios({
           </span>
         }
       >
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() =>
             onInforme(
               columnas.map((s) => s as ClaveColumna),
               filtro === 'comedor' || filtro === 'complementarias' ? `${filtro}:si` : undefined,
             )
           }
-          className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
         >
-          <FileDown className="h-3.5 w-3.5" />
+          <FileDown aria-hidden />
           {filtro === 'comedor' ? 'Lista del comedor' : filtro === 'complementarias' ? 'Lista de complementarias' : 'Informe PDF'}
-        </button>
+        </Button>
       </BarraTabla>
 
       {/* ── Filtrar: la pregunta de verdad es «¿quién se queda a comer?» ── */}
-      <div className="flex flex-wrap gap-1">
+      <Filtros etiqueta="Mostrar">
         {opciones.map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            onClick={() => setFiltro(o.id)}
-            className={`inline-flex items-baseline gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              filtro === o.id
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-            }`}
-          >
-            {o.texto} <span className={filtro === o.id ? 'opacity-60' : 'text-zinc-400'}>{o.n}</span>
-          </button>
+          <Filtro key={o.id} activo={filtro === o.id} cuenta={o.n} onClick={() => setFiltro(o.id)}>
+            {o.texto}
+          </Filtro>
         ))}
-      </div>
+      </Filtros>
 
       {confirmacion}
 

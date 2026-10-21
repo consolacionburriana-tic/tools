@@ -13,11 +13,14 @@ export default async function NouvingutsPage() {
   if (!user) redirect('/gestion/login');
   const { nouvinguts, proceso, ajustes } = await listaNouvinguts('abierto', user.role);
   return (
-    <ListaNouvinguts
-      iniciales={nouvinguts}
-      proceso={proceso}
-      diasAtasco={ajustes.diasAtasco}
-      puedeProceso={canAccess(user, 'nouvinguts-proceso')}
-    />
+    <>
+      <h1 className="sr-only">Nouvinguts: el alumnado nuevo</h1>
+      <ListaNouvinguts
+        iniciales={nouvinguts}
+        proceso={proceso}
+        diasAtasco={ajustes.diasAtasco}
+        puedeProceso={canAccess(user, 'nouvinguts-proceso')}
+      />
+    </>
   );
 }

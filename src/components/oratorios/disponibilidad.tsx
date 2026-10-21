@@ -1,7 +1,8 @@
 'use client';
 
-// ⏰ Mis huecos: la semana tipo de quien lo lleva, con su horario pintado debajo. Cada toque
-// cicla ⭐ → 👍 → 🤏 → nada y se guarda solo. «⚡ Desde mi horario» marca como ⭐ las horas
+// Mis huecos: la semana tipo de quien lo lleva, con su horario pintado debajo. Cada toque
+// cicla óptima → alternativa → último recurso → nada y se guarda solo. «Desde mi horario» marca
+// como óptimas las horas
 // que el horario ya tiene como Oratorio. Va con `key` = la persona: cambiar de responsable
 // monta una rejilla nueva con la suya.
 import { Eraser, Zap } from 'lucide-react';
@@ -9,9 +10,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
+import { Filtro, Filtros } from '@/components/ui/filtro';
 import { ETAPAS_VISIBLES, etapaDeCurso, nombreClase } from '@/lib/cursos';
 import { aMin, diaCorto, ETAPA_LABELS, franjasDeEtapas, horaBonita, NIVEL_INFO, nivelEn, periodoDeFecha, siguienteNivel, type Disponibilidad, type Nivel } from '@/lib/oratorios';
-import { Accion, api, Pastilla } from './comun';
+import { api, IconoNivel } from './comun';
 import { SelectorResponsable } from './planificar';
 import type { Estado } from './panel';
 
@@ -85,7 +90,7 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
       else nuevos.push(hueco);
     }
     guardar(nuevos);
-    toast.success(`${oratorio.length} horas de Oratorio marcadas como ⭐`);
+    toast.success(`${oratorio.length} horas de Oratorio marcadas como óptimas`);
   }
 
   // Si se sale con un cambio sin guardar (el guardado espera 0,7 s), el navegador pregunta.
@@ -102,31 +107,40 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <SelectorResponsable e={e} />
-        {ETAPAS_VISIBLES.map((et) => (
-          <Pastilla key={et} activa={etapas.includes(et)} onClick={() => setEtapas(etapas.includes(et) ? etapas.filter((x) => x !== et) : [...etapas, et])}>
-            {ETAPA_LABELS[et]}
-          </Pastilla>
-        ))}
-        <span className="ml-auto text-xs text-zinc-500">{estado === 'ok' ? 'Guardado' : 'Guardando…'}</span>
+        <Filtros etiqueta="Etapas de la rejilla">
+          {ETAPAS_VISIBLES.map((et) => (
+            <Filtro key={et} activo={etapas.includes(et)} onClick={() => setEtapas(etapas.includes(et) ? etapas.filter((x) => x !== et) : [...etapas, et])}>
+              {ETAPA_LABELS[et]}
+            </Filtro>
+          ))}
+        </Filtros>
+        <span role="status" className="ml-auto text-xs text-zinc-500">
+          {estado === 'ok' ? 'Guardado' : 'Guardando…'}
+        </span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Accion onClick={desdeMiHorario} disabled={!profeId} title="Marca ⭐ las horas de Oratorio de tu horario">
-          <Zap className="h-4 w-4" /> Desde mi horario
-        </Accion>
+        <Button variant="outline" onClick={desdeMiHorario} disabled={!profeId} title="Marca como óptimas las horas de Oratorio de tu horario">
+          <Zap /> Desde mi horario
+        </Button>
         {huecos.length > 0 && (
-          <Accion tono="rojo" onClick={() => window.confirm('¿Vaciar todos los huecos?') && guardar([])} title="Vaciar">
-            <Eraser className="h-4 w-4" />
-          </Accion>
+          <ConfirmarEnLinea
+            etiqueta="Vaciar"
+            icono={<Eraser />}
+            tamano="default"
+            pregunta="¿Vaciar todos los huecos?"
+            confirmar="Sí, vaciar"
+            onConfirmar={() => guardar([])}
+          />
         )}
-        <span className="flex gap-3 text-sm">
+        <span className="flex flex-wrap gap-3 text-sm text-zinc-700 dark:text-zinc-300">
           {(Object.keys(NIVEL_INFO) as Nivel[]).map((n) => (
-            <span key={n} title={NIVEL_INFO[n].label}>
-              {NIVEL_INFO[n].emoji} <span className="tabular-nums">{cuenta(n)}</span>
+            <span key={n} className="inline-flex items-center gap-1">
+              <IconoNivel nivel={n} /> {NIVEL_INFO[n].label} <span className="font-semibold tabular-nums">{cuenta(n)}</span>
             </span>
           ))}
         </span>
       </div>
-      {!profeId && <p className="text-sm text-amber-700 dark:text-amber-300">{email} no está en la BBDD central de profes: no se puede pintar su horario.</p>}
+      {!profeId && <Aviso tono="aviso">{email} no está en la BBDD central de profes: no se puede pintar su horario.</Aviso>}
 
       <div className="-mx-4 overflow-x-auto px-4">
         <div className="grid min-w-[560px] gap-1" style={{ gridTemplateColumns: '3.5rem repeat(5, minmax(0, 1fr))' }}>
@@ -158,9 +172,9 @@ function FilaHuecos({
 }) {
   return (
     <>
-      <div className="flex flex-col items-end justify-center pr-1 text-[11px] leading-tight text-zinc-500 tabular-nums">
+      <div className="flex flex-col items-end justify-center pr-1 text-xs leading-tight text-zinc-500 tabular-nums">
         <span>{horaBonita(franja.horaInicio)}</span>
-        <span className="text-zinc-400">{horaBonita(franja.horaFin)}</span>
+        <span>{horaBonita(franja.horaFin)}</span>
       </div>
       {[1, 2, 3, 4, 5].map((dia) => {
         const nivel = nivelEn(huecos, dia, franja);
@@ -174,11 +188,17 @@ function FilaHuecos({
             type="button"
             onClick={() => onTocar(dia, franja)}
             className={cn(
-              'flex min-h-14 flex-col items-start gap-0.5 rounded-lg border p-1.5 text-left text-[11px] transition-colors',
+              'flex min-h-14 flex-col items-start gap-0.5 rounded-lg border p-1.5 text-left text-xs transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
               nivel ? FONDO[nivel] : 'border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800',
             )}
           >
-            <span className="text-base leading-none">{nivel ? NIVEL_INFO[nivel].emoji : ''}</span>
+            {nivel ? (
+              <span className="inline-flex items-center gap-1 font-semibold">
+                <IconoNivel nivel={nivel} /> {NIVEL_INFO[nivel].label}
+              </span>
+            ) : (
+              <span className="sr-only">Sin marcar</span>
+            )}
             {etiquetas.length > 0 && (
               <span className={cn('w-full truncate', nivel ? 'opacity-80' : 'text-zinc-500')}>
                 {esOratorio ? 'Oratorio · ' : ''}

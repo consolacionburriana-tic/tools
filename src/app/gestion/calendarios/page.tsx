@@ -18,5 +18,10 @@ export default async function CalendariosPage() {
     console.error('Calendarios: error leyendo el inventario:', e instanceof Error ? e.message : e);
     error = 'No se puede leer el inventario. ¿Está aplicado el SQL de calendarios en Neon? (pnpm db:sql --pendientes)';
   }
-  return <VistaCalendarios calendarios={calendarios} clases={clases} errorInicial={error} />;
+  return (
+    <>
+      <h1 className="sr-only">Classrooms y calendarios</h1>
+      <VistaCalendarios calendarios={calendarios} clases={clases} errorInicial={error} />
+    </>
+  );
 }

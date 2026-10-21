@@ -142,17 +142,23 @@ src/components/<modulo>/          # componentes propios del módulo
 
 ## UI
 
+- **El diseño tiene su guía: [`docs/diseno.md`](./diseno.md).** De dónde sale cada pieza (todo
+  lo común está en `src/components/ui/`: `Button`, `Input`, `Segmentado`, `Estado`, `Tarjeta`,
+  `Confirmar`, `PaginaModulo`…), las reglas y lo que no se hace. Ningún módulo se pinta sus
+  botones, campos o cabecera. Escaparate en `/gestion/diseno`; guardia, `pnpm diseno:guardia`.
 - **shadcn/ui sobre @base-ui/react, NO Radix**: los Triggers (`PopoverTrigger`, `DialogTrigger`…)
-  **no tienen `asChild`** — se les pasa `className` directamente o el render prop.
-- Mobile-first pensado para **iPad** (los usuarios reales): objetivos táctiles generosos,
-  botón de guardar sticky con `safe-area-inset`, formularios completables en <90s.
+  **no tienen `asChild`** — se les pasa `className` directamente o el render prop. Un `Link` con
+  forma de botón: `className={buttonVariants({ … })}`.
+- Mobile-first pensado para **iPad** (los usuarios reales): 44 px para lo que se toca, nada que
+  dependa del ratón, barra de guardar fija con `safe-area-inset` (`BarraAcciones`), formularios
+  completables en <90s.
 - **Dark mode automático** (next-themes): todo componente nuevo se revisa en claro y oscuro.
 - Animaciones con `motion/react` (transiciones de confirmación, checks "latentes" — ver
   Licencias como referencia). Haptics con `ios-haptics` vía `src/lib/haptics.ts`:
   `haptic.tap()` toque, `haptic.success()` éxito, `haptic.warning()` error/aviso.
-- Gráficos con **recharts** (referencia: panel del ABC). Toasts con **sonner**. Iconos
-  **lucide-react**. Marca: logo `public/logobur.png` y acento azul (referencia: portada y
-  formulario de Licencias).
+- Gráficos con **recharts** y la paleta de datos (`--datos-*` en `globals.css`). Toasts con
+  **sonner**. Iconos **lucide-react** (nada de emojis en la interfaz). Marca: logo
+  `public/logobur.png` y azul.
 - Textos de interfaz **en castellano**, tono cercano (como "¿algo más?").
 
 ## Cuenta de servicio de Google
@@ -302,3 +308,6 @@ está listado en el §6 de [`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md
 4. Si cambió el estado global de un módulo, se actualiza la tabla maestra de `plataforma.md`.
 5. Decisiones nuevas que hayan surgido: apuntadas en `00-desarrollos-futuros.md`, nunca
    resueltas en silencio.
+6. Si tocaste pantallas: `pnpm diseno:guardia` en verde y la lista «Antes de dar una pantalla
+   por hecha» de [`diseno.md`](./diseno.md) repasada (claro/oscuro, 390 y 1180 px, 44 px,
+   `loading.tsx`, estado vacío).

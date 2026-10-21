@@ -1,12 +1,11 @@
 'use client';
 
-// Piezas compartidas de los Tableros: llamadas a la API, colores, avatares y chips.
-import { AlertTriangle, CalendarClock, Flag } from 'lucide-react';
+// Piezas compartidas de los Tableros: llamadas a la API, colores y chips.
+import { AlertTriangle, CalendarClock, Check, Flag } from 'lucide-react';
+import { Estado, type TonoEstado } from '@/components/ui/estado';
 import { cn } from '@/lib/utils';
 import {
   estadoVence,
-  iniciales,
-  indiceColorPersona,
   PRIORIDAD_LABELS,
   textoVence,
   type EntradaAccionEquipo as AccionEquipo,
@@ -16,6 +15,7 @@ import {
   type ColorTablero,
   type EntradaCrearEquipo as CrearEquipo,
   type DatosTablero,
+  type EstadoVence,
   type Equipo,
   type Miembro,
   type Persona,
@@ -106,7 +106,7 @@ export const FONDO_SUAVE: Record<ColorTablero, string> = {
   rosa: 'bg-gradient-to-br from-pink-100 via-rose-50 to-fuchsia-100 dark:from-pink-950/60 dark:via-zinc-950 dark:to-rose-950/60',
   teal: 'bg-gradient-to-br from-teal-100 via-cyan-50 to-sky-100 dark:from-teal-950/60 dark:via-zinc-950 dark:to-cyan-950/60',
   ambar: 'bg-gradient-to-br from-amber-100 via-yellow-50 to-orange-100 dark:from-amber-950/60 dark:via-zinc-950 dark:to-orange-950/60',
-  gris: 'bg-gradient-to-br from-zinc-200 via-zinc-100 to-slate-200 dark:from-zinc-900 dark:via-zinc-950 dark:to-slate-900',
+  gris: 'bg-gradient-to-br from-zinc-200 via-zinc-100 to-zinc-200 dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900',
 };
 
 /** La muestra de color en los selectores. */
@@ -133,33 +133,13 @@ export const ETIQUETA_CLASES: Record<ColorEtiqueta, { fondo: string; barra: stri
   gris: { fondo: 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200', barra: 'bg-zinc-400' },
 };
 
-export const PRIORIDAD_CLASES: Record<Prioridad, string> = {
-  baja: 'bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300',
-  media: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200',
-  alta: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-200',
-  urgente: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-500/15 dark:text-red-300 dark:ring-red-500/30',
+/** El tono de la pastilla de prioridad: lo urgente en rojo, lo alto en ámbar, lo demás tranquilo. */
+export const TONO_PRIORIDAD: Record<Prioridad, TonoEstado> = {
+  baja: 'neutro',
+  media: 'info',
+  alta: 'aviso',
+  urgente: 'error',
 };
-
-/** El borde izquierdo de la tarjeta según su prioridad: se lee de lejos. */
-export const PRIORIDAD_BORDE: Record<Prioridad, string> = {
-  baja: 'border-l-slate-300 dark:border-l-slate-600',
-  media: 'border-l-blue-400',
-  alta: 'border-l-orange-500',
-  urgente: 'border-l-red-600',
-};
-
-const AVATAR = [
-  'bg-blue-500',
-  'bg-emerald-500',
-  'bg-violet-500',
-  'bg-orange-500',
-  'bg-pink-500',
-  'bg-teal-500',
-  'bg-amber-500',
-  'bg-indigo-500',
-  'bg-rose-500',
-  'bg-cyan-600',
-];
 
 export const EMOJIS_TABLERO = [
   '📋', '✅', '🧑‍💻', '🛠️', '💻', '📱', '🖨️', '📽️', '🌐', '🔧',
@@ -167,92 +147,34 @@ export const EMOJIS_TABLERO = [
   '📣', '📆', '💡', '🚀', '⭐', '🧹', '📦', '🧾', '👥', '🗂️',
 ];
 
-// ─── Avatares ────────────────────────────────────────────────────────────────
-export function Avatar({
-  email,
-  nombre,
-  className,
-  title,
-}: {
-  email: string;
-  nombre?: string | null;
-  className?: string;
-  title?: string;
-}) {
-  return (
-    <span
-      title={title ?? nombre ?? email}
-      className={cn(
-        'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white ring-2 ring-white select-none dark:ring-zinc-900',
-        AVATAR[indiceColorPersona(email, AVATAR.length)],
-        className,
-      )}
-    >
-      {iniciales(nombre, email)}
-    </span>
-  );
-}
-
-export function Avatares({
-  emails,
-  personas,
-  max = 3,
-  className,
-  tamano = 'h-6 w-6 text-[10px]',
-}: {
-  emails: string[];
-  personas: readonly Persona[];
-  max?: number;
-  className?: string;
-  tamano?: string;
-}) {
-  if (emails.length === 0) return null;
-  const vistos = emails.slice(0, max);
-  const resto = emails.length - vistos.length;
-  return (
-    <span className={cn('flex -space-x-1.5', className)}>
-      {vistos.map((e) => (
-        <Avatar key={e} email={e} nombre={personas.find((p) => p.email === e)?.nombre} className={tamano} />
-      ))}
-      {resto > 0 && (
-        <span
-          className={cn(
-            'inline-flex items-center justify-center rounded-full bg-zinc-200 font-semibold text-zinc-600 ring-2 ring-white dark:bg-zinc-700 dark:text-zinc-200 dark:ring-zinc-900',
-            tamano,
-          )}
-        >
-          +{resto}
-        </span>
-      )}
-    </span>
-  );
+// ─── Personas ────────────────────────────────────────────────────────────────
+/** De una lista de correos a personas con nombre, para `Avatares`. */
+export function personasDe(emails: readonly string[], personas: readonly Persona[]): Persona[] {
+  return emails.map((email) => ({ email, nombre: personas.find((p) => p.email === email)?.nombre ?? email }));
 }
 
 // ─── Chips ───────────────────────────────────────────────────────────────────
 export function ChipPrioridad({ prioridad, className }: { prioridad: Prioridad; className?: string }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold',
-        PRIORIDAD_CLASES[prioridad],
-        className,
-      )}
+    <Estado
+      tono={TONO_PRIORIDAD[prioridad]}
+      icono={prioridad === 'urgente' ? <AlertTriangle aria-hidden /> : <Flag aria-hidden />}
+      className={className}
     >
-      {prioridad === 'urgente' ? <AlertTriangle className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
       {PRIORIDAD_LABELS[prioridad]}
-    </span>
+    </Estado>
   );
 }
 
-const VENCE_CLASES = {
-  vencida: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-500/15 dark:text-red-300 dark:ring-red-500/30',
-  hoy: 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:ring-orange-500/30',
-  manana: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',
-  pronto: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',
-  futura: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
-  hecha: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200 line-through decoration-emerald-600/40',
-  sin: '',
-} as const;
+const TONO_VENCE: Record<EstadoVence, TonoEstado> = {
+  vencida: 'error',
+  hoy: 'aviso',
+  manana: 'aviso',
+  pronto: 'aviso',
+  futura: 'neutro',
+  hecha: 'ok',
+  sin: 'neutro',
+};
 
 export function ChipVence({
   vence,
@@ -267,41 +189,43 @@ export function ChipVence({
 }) {
   const { estado } = estadoVence(vence, hoy, hecha);
   return (
-    <span
-      className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold', VENCE_CLASES[estado], className)}
-      title={`Fecha límite: ${vence}`}
-    >
-      <CalendarClock className="h-3 w-3" />
+    <Estado tono={TONO_VENCE[estado]} icono={<CalendarClock aria-hidden />} className={className}>
+      <span className="sr-only">Fecha límite: </span>
       {textoVence(vence, hoy)}
-    </span>
+    </Estado>
   );
 }
 
-export const ESTILO_CAMPO =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
+const NOMBRE_COLOR: Record<ColorTablero, string> = {
+  azul: 'Azul',
+  violeta: 'Violeta',
+  verde: 'Verde',
+  naranja: 'Naranja',
+  rosa: 'Rosa',
+  teal: 'Turquesa',
+  ambar: 'Ámbar',
+  gris: 'Gris',
+};
 
-export const BOTON_PRIMARIO =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50';
-
-export const BOTON_SECUNDARIO =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800';
-
-/** Selector de color de tablero/equipo: una fila de círculos. */
+/** Selector de color de tablero/equipo: una fila de círculos de 40 px, el elegido con su marca. */
 export function SelectorColor({ valor, onChange }: { valor: ColorTablero; onChange: (c: ColorTablero) => void }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div role="group" aria-label="Color" className="flex flex-wrap gap-2">
       {(Object.keys(MUESTRA_TABLERO) as ColorTablero[]).map((c) => (
         <button
           key={c}
           type="button"
           onClick={() => onChange(c)}
-          aria-label={c}
+          aria-label={NOMBRE_COLOR[c]}
+          aria-pressed={valor === c}
           className={cn(
-            'h-8 w-8 rounded-full transition-transform',
+            'flex size-10 items-center justify-center rounded-full text-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
             MUESTRA_TABLERO[c],
-            valor === c ? 'scale-110 ring-2 ring-zinc-900 ring-offset-2 dark:ring-white dark:ring-offset-zinc-900' : 'hover:scale-105',
+            valor === c && 'ring-2 ring-zinc-900 ring-offset-2 dark:ring-white dark:ring-offset-zinc-900',
           )}
-        />
+        >
+          {valor === c && <Check aria-hidden className="size-4" />}
+        </button>
       ))}
     </div>
   );

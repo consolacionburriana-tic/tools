@@ -7,11 +7,10 @@
 //      poder publicar ahí las evaluaciones). Se filtra por texto libre y fecha de creación.
 //   B) Revisar las viejas y borrarlas (por defecto, las de 3 años o más).
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, Loader2, Search, Trash2, UserPlus } from 'lucide-react';
+import { ExternalLink, GraduationCap, Search, Trash2, UserPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   ANIOS_POR_DEFECTO,
   ESTADO_CLASE_LABELS,
@@ -20,6 +19,21 @@ import {
   type ClaseFila,
 } from '@/lib/calendarios';
 import { COLEGIO } from '@/lib/colegio';
+import { Aviso } from '@/components/ui/aviso';
+import { BarraAcciones } from '@/components/ui/barra-acciones';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { ConfirmarDialogo } from '@/components/ui/confirmar';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { EnCurso } from '@/components/ui/progreso';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
+import { Casilla, CasillaFila } from './casilla';
 
 type FiltroEstado = 'todas' | 'ARCHIVED' | 'ACTIVE' | 'otras';
 const FILTROS_ESTADO: [FiltroEstado, string][] = [
@@ -33,6 +47,8 @@ const API = '/api/calendarios/admin/clases';
 
 const fecha = (s: string | null) =>
   s ? new Date(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+
+const clases = (n: number) => (n === 1 ? '1 clase' : `${n} clases`);
 
 /** 1 de julio del curso en vigor, en formato de <input type="date">. */
 function inicioCursoActual(): string {
@@ -53,7 +69,7 @@ interface Resultado {
 }
 
 export function PanelClases({ iniciales }: { iniciales: ClaseFila[] }) {
-  const [clases, setClases] = useState(iniciales);
+  const [lista, setClases] = useState(iniciales);
   const [soloViejas, setSoloViejas] = useState(true);
   const [anios, setAnios] = useState(ANIOS_POR_DEFECTO);
   const [estado, setEstado] = useState<FiltroEstado>('todas');
@@ -78,8 +94,8 @@ export function PanelClases({ iniciales }: { iniciales: ClaseFila[] }) {
     recargar().catch(() => null);
   }, []);
 
-  const vivas = clases.filter((c) => !c.borradoAt && c.estado !== 'DESAPARECIDA');
-  const borradas = clases.filter((c) => c.borradoAt);
+  const vivas = lista.filter((c) => !c.borradoAt && c.estado !== 'DESAPARECIDA');
+  const borradas = lista.filter((c) => c.borradoAt);
   const viejas = vivas.filter((c) => c.antiguedad !== null && c.antiguedad >= anios);
 
   const visibles = useMemo(() => {
@@ -104,7 +120,7 @@ export function PanelClases({ iniciales }: { iniciales: ClaseFila[] }) {
   }, [vivas, viejas, borradas, verBorradas, soloViejas, estado, busqueda, desde, hasta]);
 
   const seleccionables = verBorradas ? [] : visibles;
-  const elegidas = clases.filter((c) => seleccion.has(c.id));
+  const elegidas = lista.filter((c) => seleccion.has(c.id));
 
   function alternar(id: string) {
     haptic.tap();
@@ -169,150 +185,122 @@ export function PanelClases({ iniciales }: { iniciales: ClaseFila[] }) {
   const ocupado = progreso !== null;
 
   return (
-    <div className="space-y-5 pb-24">
+    <div className="space-y-5">
       {/* ── Filtros ────────────────────────────────────────────────────── */}
-      <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex flex-wrap items-center gap-3 text-zinc-700 dark:text-zinc-300">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className="h-4 w-4"
-              checked={soloViejas}
-              disabled={verBorradas}
-              onChange={(e) => setSoloViejas(e.target.checked)}
-            />
+      <Tarjeta as="section" aria-label="Qué clases ver" className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Casilla marcada={soloViejas} disabled={verBorradas} onCambio={setSoloViejas}>
             Solo las de
-          </label>
-          <input
+          </Casilla>
+          <Input
             type="number"
             min={1}
             max={20}
             value={anios}
             onChange={(e) => setAnios(Math.max(1, Math.min(20, Number(e.target.value) || ANIOS_POR_DEFECTO)))}
-            className="w-16 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-900"
+            aria-label="Años de antigüedad"
+            className="w-20 text-center tabular-nums"
           />
-          <span>
-            años o más <span className="text-xs text-zinc-500">(del {cursoLimite(anios)} hacia atrás)</span>
+          <span className="text-sm text-zinc-800 dark:text-zinc-200">
+            años o más <span className="text-zinc-500 dark:text-zinc-400">(del {cursoLimite(anios)} hacia atrás)</span>
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-zinc-700 dark:text-zinc-300">
-          <span className="text-xs text-zinc-500">Creadas</span>
-          <label className="flex items-center gap-1 text-xs">
-            desde
-            <input
-              type="date"
-              value={desde}
-              onChange={(e) => setDesde(e.target.value)}
-              className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </label>
-          <label className="flex items-center gap-1 text-xs">
-            hasta
-            <input
-              type="date"
-              value={hasta}
-              onChange={(e) => setHasta(e.target.value)}
-              className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </label>
+        <div className="flex flex-wrap items-end gap-2">
+          <Campo etiqueta="Creadas desde" id="cal-clases-desde" className="min-w-40 flex-1 sm:w-48 sm:flex-none">
+            <Input id="cal-clases-desde" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+          </Campo>
+          <Campo etiqueta="Hasta" id="cal-clases-hasta" className="min-w-40 flex-1 sm:w-48 sm:flex-none">
+            <Input id="cal-clases-hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+          </Campo>
           {/* Las clases del curso se crean a partir del 1 de julio, casi siempre antes de noviembre */}
-          <button
-            type="button"
+          <Button
+            variant="outline"
             onClick={() => {
               haptic.tap();
               setDesde(inicioCursoActual());
               setHasta('');
               setSoloViejas(false);
             }}
-            className="rounded-lg border border-blue-200 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-300 dark:hover:bg-blue-500/10"
           >
             Las de este curso
-          </button>
+          </Button>
           {(desde || hasta) && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => {
                 setDesde('');
                 setHasta('');
               }}
-              className="text-xs text-zinc-500 underline"
             >
-              quitar fechas
-            </button>
+              Quitar fechas
+            </Button>
           )}
         </div>
 
-        <p className="text-xs text-zinc-500">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
           {vivas.length === 0
-            ? 'Todavía no hay clases: escanea el dominio en la pestaña de calendarios.'
-            : `${visibles.length} clases con estos filtros · ${viejas.length} de ${vivas.length} tienen ${anios} años o más`}
+            ? 'Todavía no hay clases: escanea el dominio en «Calendarios».'
+            : `${clases(visibles.length)} con estos filtros · ${viejas.length} de ${vivas.length} tienen ${anios} años o más`}
         </p>
-      </section>
+      </Tarjeta>
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Selector
+          aria-label="Estado de la clase"
           value={estado}
           onChange={(e) => setEstado(e.target.value as FiltroEstado)}
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="sm:w-56"
         >
           {FILTROS_ESTADO.map(([v, l]) => (
             <option key={v} value={v}>
               {l}
             </option>
           ))}
-        </select>
+        </Selector>
         <div className="relative min-w-48 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <input
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <Input
+            type="search"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Texto libre: «tutoría», «matemáticas», «3ESO», un profe…"
-            className="w-full rounded-xl border border-zinc-200 bg-white py-2 pr-3 pl-9 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-900"
+            aria-label="Buscar clases"
+            className="pl-9"
           />
         </div>
         {borradas.length > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              haptic.tap();
-              setVerBorradas((v) => !v);
-              setSeleccion(new Set());
-            }}
-            className={cn(
-              'rounded-xl border px-3 py-2 text-sm',
-              verBorradas
-                ? 'border-zinc-400 bg-zinc-100 font-semibold dark:border-zinc-500 dark:bg-zinc-800'
-                : 'border-zinc-200 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300',
-            )}
-          >
-            Borradas {borradas.length}
-          </button>
+          <Filtros etiqueta="Mostrar">
+            <Filtro
+              activo={verBorradas}
+              cuenta={borradas.length}
+              onClick={() => {
+                setVerBorradas((v) => !v);
+                setSeleccion(new Set());
+              }}
+            >
+              Borradas
+            </Filtro>
+          </Filtros>
         )}
       </div>
 
-      {progreso && (
-        <p className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:bg-blue-500/10 dark:text-blue-200">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> {progreso}
-        </p>
-      )}
+      {progreso && <EnCurso texto={progreso} />}
 
       {/* ── Lista ──────────────────────────────────────────────────────── */}
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        {seleccionables.length > 0 && (
-          <label className="flex items-center gap-3 border-b border-zinc-100 px-4 py-2.5 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              className="h-4 w-4"
-              checked={seleccionables.every((c) => seleccion.has(c.id))}
-              onChange={alternarTodas}
-            />
-            Seleccionar las {seleccionables.length} que se ven
-          </label>
-        )}
-        {visibles.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-zinc-500">No hay clases con estos filtros.</p>
-        ) : (
+      {visibles.length === 0 ? (
+        <Vacio icono={<GraduationCap />} titulo="No hay clases con estos filtros">
+          {vivas.length === 0 ? 'Escanea el dominio en «Calendarios» y saldrán aquí.' : 'Prueba a quitar algún filtro.'}
+        </Vacio>
+      ) : (
+        <Tarjeta as="section" aria-label="Clases" className="overflow-hidden">
+          {seleccionables.length > 0 && (
+            <div className="border-b border-zinc-100 px-4 py-1 dark:border-zinc-800">
+              <Casilla marcada={seleccionables.every((c) => seleccion.has(c.id))} onCambio={alternarTodas}>
+                Elegir las {seleccionables.length} que se ven
+              </Casilla>
+            </div>
+          )}
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {visibles.map((c) => (
               <FilaClase
@@ -324,46 +312,47 @@ export function PanelClases({ iniciales }: { iniciales: ClaseFila[] }) {
               />
             ))}
           </ul>
-        )}
-      </section>
+        </Tarjeta>
+      )}
 
       {/* ── Barra de acciones ──────────────────────────────────────────── */}
-      {seleccion.size > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-          <div className="container mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">
-              {seleccion.size} clase(s)
-              <button type="button" onClick={() => setSeleccion(new Set())} className="ml-3 text-xs text-zinc-500 underline">
-                quitar selección
-              </button>
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={ocupado}
-                onClick={() => {
-                  haptic.tap();
-                  setDialogo('profe');
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                <UserPlus className="h-4 w-4" /> Añadir profe
-              </button>
-              <button
-                type="button"
-                disabled={ocupado}
-                onClick={() => {
-                  haptic.tap();
-                  setDialogo('borrar');
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                <Trash2 className="h-4 w-4" /> Borrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BarraAcciones
+        visible={seleccion.size > 0}
+        ancho="ancho"
+        resumen={
+          <span className="hidden sm:inline">
+            {clases(seleccion.size)} {seleccion.size === 1 ? 'elegida' : 'elegidas'}
+          </span>
+        }
+      >
+        <Button variant="ghost" onClick={() => setSeleccion(new Set())}>
+          <X aria-hidden />
+          <span className="sr-only sm:not-sr-only">Quitar selección</span>
+        </Button>
+        <Button
+          disabled={ocupado}
+          onClick={() => {
+            haptic.tap();
+            setDialogo('profe');
+          }}
+        >
+          <UserPlus />
+          {/* En el móvil no caben los tres botones con el texto entero (y el hueco de Tareas) */}
+          <span className="sm:hidden">Profe</span>
+          <span className="hidden sm:inline">Añadir profe</span>
+        </Button>
+        <Button
+          variant="destructive"
+          disabled={ocupado}
+          onClick={() => {
+            haptic.tap();
+            setDialogo('borrar');
+          }}
+        >
+          <Trash2 /> Borrar {seleccion.size}
+          <span className="sr-only sm:not-sr-only">{seleccion.size === 1 ? 'clase' : 'clases'}</span>
+        </Button>
+      </BarraAcciones>
 
       <DialogoProfe
         abierto={dialogo === 'profe'}
@@ -402,45 +391,33 @@ function FilaClase({
   resultado: Resultado | undefined;
   onAlternar?: () => void;
 }) {
+  const nombre = c.nombre ?? '(sin nombre)';
   return (
-    <li className={cn('flex items-start gap-3 px-4 py-3', marcada && 'bg-blue-50/60 dark:bg-blue-500/5')}>
-      {onAlternar && <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={marcada} onChange={onAlternar} />}
+    <li className={cn('flex items-start gap-3 px-4 py-3', marcada && 'bg-blue-50/70 dark:bg-blue-500/10')}>
+      {onAlternar && <CasillaFila marcada={marcada} onCambio={onAlternar} etiqueta={`Elegir ${nombre}`} />}
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-medium text-zinc-900 dark:text-zinc-100">
-          <span className="truncate">{c.nombre ?? '(sin nombre)'}</span>
-          {c.seccion && <span className="text-xs font-normal text-zinc-500">{c.seccion}</span>}
-          {c.curso && (
-            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-              {c.curso}
-            </span>
-          )}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-zinc-900 dark:text-zinc-100">
+          <span className="truncate">{nombre}</span>
+          {c.seccion && <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">{c.seccion}</span>}
+          {c.curso && <Etiqueta>{c.curso}</Etiqueta>}
           {c.estado && (
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                c.estado === 'ACTIVE'
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                  : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
-              )}
-            >
-              {ESTADO_CLASE_LABELS[c.estado] ?? c.estado}
-            </span>
+            <Estado tono={c.estado === 'ACTIVE' ? 'ok' : 'neutro'}>{ESTADO_CLASE_LABELS[c.estado] ?? c.estado}</Estado>
           )}
         </p>
-        <p className="mt-0.5 text-xs text-zinc-500">
+        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
           {c.ownerEmail ?? 'Propietario desconocido'} · creada el {fecha(c.creadaAt)} · último cambio {fecha(c.actualizadaAt)}
           {c.calendarioVivo && ' · su calendario sigue vivo'}
         </p>
         {c.borradoAt && (
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
             Borrada el {fecha(c.borradoAt)} por {c.borradoPor}
           </p>
         )}
         {!c.borradoAt && c.borradoError && !resultado && (
-          <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">No se pudo borrar: {c.borradoError}</p>
+          <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">No se pudo borrar: {c.borradoError}</p>
         )}
         {resultado && (
-          <p className={cn('mt-0.5 text-xs', resultado.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
+          <p className={cn('mt-0.5 text-xs', resultado.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400')}>
             {resultado.mensaje}
           </p>
         )}
@@ -450,9 +427,9 @@ function FilaClase({
           href={c.enlace}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className={buttonVariants({ variant: 'outline', size: 'sm', className: '-my-1 shrink-0' })}
         >
-          <ExternalLink className="h-3.5 w-3.5" /> Classroom
+          <ExternalLink aria-hidden /> Classroom
         </a>
       )}
     </li>
@@ -472,47 +449,48 @@ function DialogoProfe({
 }) {
   const [email, setEmail] = useState('');
   const valido = new RegExp(`^[^\\s@]+@${COLEGIO.dominio.replace(/\./g, '\\.')}$`, 'i').test(email.trim());
+  const enviar = () => {
+    if (!valido) return;
+    onConfirmar(email.trim().toLowerCase());
+    setEmail('');
+  };
   return (
     <Dialog open={abierto} onOpenChange={(o) => !o && onCerrar()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Añadir un profe a {n} clase(s)</DialogTitle>
+          <DialogTitle>Añadir un profe a {clases(n)}</DialogTitle>
           <DialogDescription>
             Entra directamente como profesor/a, sin invitación: la verá en su Classroom y podrá publicar en ella. Si ya era
             profe de alguna, se deja como está.
           </DialogDescription>
         </DialogHeader>
-        <label className="text-sm text-zinc-600 dark:text-zinc-300">
-          Cuenta del colegio
-          <input
+        <Campo etiqueta="Cuenta del colegio" id="cal-profe-email">
+          <Input
+            id="cal-profe-email"
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoComplete="off"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && enviar()}
             placeholder={`alguien@${COLEGIO.dominio}`}
-            autoFocus
-            className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-900"
           />
-        </label>
+        </Campo>
         <DialogFooter>
-          <button type="button" onClick={onCerrar} className="rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
+          <Button variant="outline" onClick={onCerrar}>
             Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={!valido}
-            onClick={() => {
-              onConfirmar(email.trim().toLowerCase());
-              setEmail('');
-            }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
-          >
-            <UserPlus className="h-4 w-4" /> Añadir
-          </button>
+          </Button>
+          <Button disabled={!valido} onClick={enviar}>
+            <UserPlus /> Añadir a {clases(n)}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
+/** Borrar clases es lo más gordo del módulo: se escribe BORRAR, como con los calendarios. */
 function DialogoBorrar({
   abierto,
   n,
@@ -528,58 +506,28 @@ function DialogoBorrar({
   onCerrar: () => void;
   onConfirmar: (conCalendario: boolean) => void;
 }) {
-  const [texto, setTexto] = useState('');
   const [conCalendario, setConCalendario] = useState(true);
-  const cerrar = () => {
-    setTexto('');
-    onCerrar();
-  };
   return (
-    <Dialog open={abierto} onOpenChange={(o) => !o && cerrar()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Borrar {n} clase(s) de Classroom</DialogTitle>
-          <DialogDescription>
-            Se eliminan para todo el mundo, con sus tareas, comentarios y notas. Esto no se deshace. Las que no estén
-            archivadas se archivan antes (Classroom lo exige). Su carpeta de Drive no se toca.
-          </DialogDescription>
-        </DialogHeader>
-        {(activas > 0 || deEsteCurso > 0) && (
-          <ul className="space-y-1 text-sm text-amber-700 dark:text-amber-400">
-            {activas > 0 && <li>· {activas} siguen activas</li>}
-            {deEsteCurso > 0 && <li>· {deEsteCurso} son de este curso</li>}
+    <ConfirmarDialogo
+      abierto={abierto}
+      onCerrar={onCerrar}
+      onConfirmar={() => onConfirmar(conCalendario)}
+      titulo={`¿Borrar ${clases(n)} de Classroom?`}
+      descripcion="Se eliminan para todo el mundo, con sus tareas, comentarios y notas. Esto no se deshace. Las que no estén archivadas se archivan antes (Classroom lo exige). Su carpeta de Drive no se toca."
+      boton={`Borrar ${clases(n)}`}
+      palabra="BORRAR"
+    >
+      {(activas > 0 || deEsteCurso > 0) && (
+        <Aviso tono="aviso">
+          <ul className="list-disc space-y-0.5 pl-4">
+            {activas > 0 && <li>{activas === 1 ? '1 sigue activa' : `${activas} siguen activas`}</li>}
+            {deEsteCurso > 0 && <li>{deEsteCurso === 1 ? '1 es de este curso' : `${deEsteCurso} son de este curso`}</li>}
           </ul>
-        )}
-        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <input type="checkbox" className="h-4 w-4" checked={conCalendario} onChange={(e) => setConCalendario(e.target.checked)} />
-          Borrar también su calendario
-        </label>
-        <label className="text-sm text-zinc-600 dark:text-zinc-300">
-          Escribe <b>BORRAR</b> para confirmar
-          <input
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            autoFocus
-            className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-red-400 dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </label>
-        <DialogFooter>
-          <button type="button" onClick={cerrar} className="rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
-            Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={texto.trim() !== 'BORRAR'}
-            onClick={() => {
-              setTexto('');
-              onConfirmar(conCalendario);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40"
-          >
-            <Trash2 className="h-4 w-4" /> Borrar de verdad
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </Aviso>
+      )}
+      <Casilla marcada={conCalendario} onCambio={setConCalendario}>
+        Borrar también su calendario
+      </Casilla>
+    </ConfirmarDialogo>
   );
 }

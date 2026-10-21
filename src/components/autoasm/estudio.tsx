@@ -8,13 +8,11 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import {
-  AlertTriangle,
   ArrowRight,
   CalendarClock,
-  CheckCircle2,
-  ChevronLeft,
+  ChevronDown,
+  CircleCheck,
   Info,
-  Loader2,
   RefreshCw,
   Settings2,
   Sparkles,
@@ -22,6 +20,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
 import {
   ESPEC,
@@ -51,6 +50,18 @@ import {
   type ProyectoAsm,
   type SnapshotCentro,
 } from '@/lib/autoasm-construir';
+import { Aviso } from '@/components/ui/aviso';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { ConfirmarEnLinea, useConfirmar } from '@/components/ui/confirmar';
+import { Estado } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Interruptor } from '@/components/ui/interruptor';
+import { NavPending } from '@/components/ui/nav-pending';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta, TarjetaCabecera, claseTarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 import { ESTILO, num } from '@/components/autoasm/paleta';
 import { useProyecto } from '@/components/autoasm/proyecto-store';
 import { ZonaSubida } from '@/components/autoasm/zona-subida';
@@ -68,6 +79,7 @@ export function EstudioAsm() {
   const [alcanceLocal, setAlcanceLocal] = useState<string | null>(OPCIONES_POR_DEFECTO.desdeCurso);
   const [horario, setHorario] = useState<ResultadoHorario | null>(null);
   const [estado, setEstado] = useState<EstadoApi | null>(null);
+  const { confirmar, dialogo } = useConfirmar();
 
   // En qué punto está el curso: si ya se subió algo a ASM y qué alumnado ha entrado
   // después. Es lo que hace que el módulo avise en vez de esperar a que alguien se acuerde.
@@ -100,8 +112,16 @@ export function EstudioAsm() {
     if (proyecto) guardar({ ...proyecto, opciones: { ...proyecto.opciones, desdeCurso: desde } });
   }
 
-  function empezarPlantilla() {
-    if (proyecto && !confirm('Esto reemplaza el proyecto que tienes empezado. ¿Seguimos?')) return;
+  async function empezarPlantilla() {
+    if (
+      proyecto &&
+      !(await confirmar({
+        titulo: '¿Empezar de nuevo con la estructura del centro?',
+        descripcion: 'Esto reemplaza el proyecto que tienes empezado en este navegador.',
+        boton: 'Reemplazar el proyecto',
+      }))
+    )
+      return;
     aplicar(proyectoDesdePlantilla(proyecto?.opciones ?? opcionesNuevas), 'Estructura del centro cargada: cursos y clases listos, faltan las personas.');
   }
 
@@ -266,218 +286,194 @@ export function EstudioAsm() {
   const listo = proyecto !== null && conteo.errores === 0 && totalFilas > 0;
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-24 dark:bg-zinc-950">
-      <Cabecera proyecto={proyecto} errores={conteo.errores} avisos={conteo.avisos} listo={listo} />
+    <div className="space-y-8">
+      <Resumen proyecto={proyecto} errores={conteo.errores} avisos={conteo.avisos} listo={listo} />
 
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-        {estado && <AvisoEstado estado={estado} />}
+      {estado && <AvisoEstado estado={estado} />}
 
-        {/* PASO 1 · Origen ------------------------------------------------ */}
-        <Paso n={1} titulo="De dónde salen los datos" sub="Puedes combinarlos: la estructura del año pasado + el alumnado de hoy.">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <AccionOrigen
-              titulo="Estructura del centro"
-              desc="Los cursos y clases que ya existen en ASM (tutorías, asignaturas, PDC y compartidos). Sin personas."
-              boton="Cargar estructura"
-              icono={<Sparkles className="h-5 w-5" />}
-              onClick={empezarPlantilla}
-              ocupado={trabajando !== null}
-            />
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <ZonaSubida onFicheros={subir} ocupado={trabajando !== null} />
-              {trabajando === 'subida' && (
-                <p className="mt-2 flex items-center justify-center gap-2 text-xs text-zinc-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Leyendo…
-                </p>
-              )}
-            </div>
-            <AccionOrigen
-              titulo="Alumnado y profesorado"
-              desc="Se traen de la BBDD central del colegio, con su NIA como identificador y su correo del centro."
-              boton={trabajando === 'centro' ? 'Trayendo…' : 'Traer del centro'}
-              icono={trabajando === 'centro' ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
-              onClick={traerDelCentro}
-              ocupado={trabajando !== null}
-              destacado
-              extra={
-                <label className="mt-3 block">
-                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Alumnado desde</span>
-                  <select
-                    value={desdeCurso ?? 'todos'}
-                    onChange={(e) => cambiarAlcance(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-                  >
-                    {CURSOS_CENTRO.map((c) => (
-                      <option key={c.curso} value={c.curso}>{c.label} y superiores</option>
-                    ))}
-                    <option value="todos">Todo el centro</option>
-                  </select>
-                  <span className="mt-1 block text-[11px] text-zinc-500">
-                    El profesorado entra siempre entero, sin filtro.
-                  </span>
-                </label>
-              }
-            />
-            <AccionOrigen
-              titulo="Clases desde el horario"
-              desc="Cada asignación docente es una clase: materia, profes y grupos que van juntos. Se propone y tú decides."
-              boton={trabajando === 'horario' ? 'Leyendo…' : 'Ver qué dice el horario'}
-              icono={trabajando === 'horario' ? <Loader2 className="h-5 w-5 animate-spin" /> : <CalendarClock className="h-5 w-5" />}
-              onClick={traerDelHorario}
-              ocupado={trabajando !== null}
-            />
-          </div>
-
-          {horario && <PanelHorario resultado={horario} onAplicar={aplicarHorario} onDescartar={() => setHorario(null)} />}
-
-          <button
-            type="button"
-            onClick={() => setVerAjustes((v) => !v)}
-            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
-          >
-            <Settings2 className="h-3.5 w-3.5" /> Cómo se trae del centro
-          </button>
-          {verAjustes && (
-            <div className="mt-2 space-y-2 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <Interruptor
-                valor={sync.regenerarMatriculas}
-                onChange={(v) => setSync({ ...sync, regenerarMatriculas: v })}
-                titulo="Rehacer las matrículas"
-                desc="Cada clase con regla de grupos vuelve a llenarse con el alumnado de esos grupos. Lo normal en septiembre."
-              />
-              <Interruptor
-                valor={sync.repartirProfes}
-                onChange={(v) => setSync({ ...sync, repartirProfes: v })}
-                titulo="Meter solos a TIC, tutores y dirección"
-                desc="TIC entra en todas las tutorías; en las clases de curso entero entran además los tutores de ese nivel y dirección/jefatura. Si no caben los 12 que admite ASM, se cae antes dirección que TIC."
-              />
-              <p className="pt-1 text-xs text-zinc-500">
-                A quien ya no está en la BBDD central no se le borra: se <strong>archiva</strong> (conserva su cuenta y su
-                iCloud, sale de las clases y deja de estorbar en las pantallas). Las cuentas de los iPads compartidos no se
-                tocan nunca.
-              </p>
-            </div>
-          )}
-        </Paso>
-
-        {/* PASO 2 · Los ficheros ------------------------------------------ */}
-        <Paso n={2} titulo="Los seis ficheros" sub="Toca cualquiera para navegar por sus filas y comprobar lo que sea.">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {ORDEN_ARCHIVOS.map((archivo, i) => (
-              <motion.div
-                key={archivo}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, delay: i * 0.03, ease: 'easeOut' }}
-              >
-                <TarjetaArchivo
-                  archivo={archivo}
-                  filas={proyecto?.archivos[archivo].length ?? 0}
-                  errores={porArchivo[archivo]?.errores ?? 0}
-                  avisos={porArchivo[archivo]?.avisos ?? 0}
-                  vacio={proyecto === null}
-                />
-              </motion.div>
-            ))}
-          </div>
-          {proyecto && (
-            <button
-              type="button"
-              onClick={rehacerMatriculas}
-              className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              <RefreshCw className="h-4 w-4" /> Rehacer matrículas con las reglas de grupo
-            </button>
-          )}
-        </Paso>
-
-        {/* PASO 3 · Revisión ---------------------------------------------- */}
-        <Paso n={3} titulo="Revisión" sub="Lo mismo que mira ASM al importar, pero aquí y sin esperar.">
-          {proyecto === null ? (
-            <p className="text-sm text-zinc-500">{cargando ? 'Cargando…' : 'Todavía no hay nada que revisar.'}</p>
-          ) : (
-            <PanelIncidencias incidencias={incidencias} />
-          )}
-        </Paso>
-
-        {/* PASO 4 · Descarga y entrega ------------------------------------ */}
-        <Paso n={4} titulo="Descargar y subir" sub="Un ZIP con los seis CSV… y quién lo sube, que si no, no es una entrega.">
-          <PanelEntrega
-            proyecto={proyecto}
-            errores={conteo.errores}
-            avisos={conteo.avisos}
-            onOpciones={(csv) => proyecto && guardar({ ...proyecto, opciones: { ...proyecto.opciones, csv } })}
+      {/* PASO 1 · Origen ------------------------------------------------ */}
+      <Paso n={1} titulo="De dónde salen los datos" sub="Puedes combinarlos: la estructura del año pasado + el alumnado de hoy.">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <AccionOrigen
+            titulo="Estructura del centro"
+            desc="Los cursos y clases que ya existen en ASM (tutorías, asignaturas, PDC y compartidos). Sin personas."
+            boton="Cargar estructura"
+            icono={<Sparkles />}
+            onClick={() => void empezarPlantilla()}
+            ocupado={trabajando !== null}
           />
-        </Paso>
-
-        {proyecto && <PanelCompartidas proyecto={proyecto} onGuardar={guardar} />}
-
-        {proyecto && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
-            <div>
-              <p className="font-medium text-zinc-700 dark:text-zinc-300">El borrador se guarda solo en este navegador</p>
-              <p>
-                Última vez: {new Date(proyecto.actualizado).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
-                {proyecto.historial.length > 0 && ` · ${proyecto.historial[proyecto.historial.length - 1].texto}`}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (!confirm('Se borra el borrador de este navegador. ¿Seguro?')) return;
-                guardar(null);
-                toast.success('Borrador borrado.');
-              }}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Borrar borrador
-            </button>
+          <div className={cn(claseTarjeta, 'p-4')}>
+            <ZonaSubida onFicheros={subir} ocupado={trabajando !== null} leyendo={trabajando === 'subida'} />
           </div>
+          <AccionOrigen
+            titulo="Alumnado y profesorado"
+            desc="Se traen de la BBDD central del colegio, con su NIA como identificador y su correo del centro."
+            boton={trabajando === 'centro' ? 'Trayendo…' : 'Traer del centro'}
+            icono={<RefreshCw />}
+            onClick={traerDelCentro}
+            ocupado={trabajando !== null}
+            cargando={trabajando === 'centro'}
+            destacado
+            extra={
+              <Campo etiqueta="Alumnado desde" id="asm-alcance" ayuda="El profesorado entra siempre entero, sin filtro." className="mt-3">
+                <Selector id="asm-alcance" value={desdeCurso ?? 'todos'} onChange={(e) => cambiarAlcance(e.target.value)}>
+                  {CURSOS_CENTRO.map((c) => (
+                    <option key={c.curso} value={c.curso}>
+                      {c.label} y superiores
+                    </option>
+                  ))}
+                  <option value="todos">Todo el centro</option>
+                </Selector>
+              </Campo>
+            }
+          />
+          <AccionOrigen
+            titulo="Clases desde el horario"
+            desc="Cada asignación docente es una clase: materia, profes y grupos que van juntos. Se propone y tú decides."
+            boton={trabajando === 'horario' ? 'Leyendo…' : 'Ver qué dice el horario'}
+            icono={<CalendarClock />}
+            onClick={traerDelHorario}
+            ocupado={trabajando !== null}
+            cargando={trabajando === 'horario'}
+          />
+        </div>
+
+        {horario && <PanelHorario resultado={horario} onAplicar={aplicarHorario} onDescartar={() => setHorario(null)} />}
+
+        <Button variant="ghost" size="sm" className="mt-3 -ml-3" aria-expanded={verAjustes} onClick={() => setVerAjustes((v) => !v)}>
+          <Settings2 /> Cómo se trae del centro
+          <ChevronDown className={cn('transition-transform', verAjustes && 'rotate-180')} />
+        </Button>
+        {verAjustes && (
+          <Tarjeta className="mt-2 space-y-2 p-4">
+            <Interruptor
+              activo={sync.regenerarMatriculas}
+              onChange={(v) => setSync({ ...sync, regenerarMatriculas: v })}
+              etiqueta="Rehacer las matrículas"
+              descripcion="Cada clase con regla de grupos vuelve a llenarse con el alumnado de esos grupos. Lo normal en septiembre."
+            />
+            <Interruptor
+              activo={sync.repartirProfes}
+              onChange={(v) => setSync({ ...sync, repartirProfes: v })}
+              etiqueta="Meter solos a TIC, tutores y dirección"
+              descripcion="TIC entra en todas las tutorías; en las clases de curso entero entran además los tutores de ese nivel y dirección/jefatura. Si no caben los 12 que admite ASM, se cae antes dirección que TIC."
+            />
+            <p className="pt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              A quien ya no está en la BBDD central no se le borra: se <strong>archiva</strong> (conserva su cuenta y su
+              iCloud, sale de las clases y deja de estorbar en las pantallas). Las cuentas de los iPads compartidos no se
+              tocan nunca.
+            </p>
+          </Tarjeta>
         )}
-      </main>
+      </Paso>
+
+      {/* PASO 2 · Los ficheros ------------------------------------------ */}
+      <Paso n={2} titulo="Los seis ficheros" sub="Toca cualquiera para navegar por sus filas y comprobar lo que sea.">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {ORDEN_ARCHIVOS.map((archivo, i) => (
+            <motion.div
+              key={archivo}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, delay: i * 0.03, ease: 'easeOut' }}
+            >
+              <TarjetaArchivo
+                archivo={archivo}
+                filas={proyecto?.archivos[archivo].length ?? 0}
+                errores={porArchivo[archivo]?.errores ?? 0}
+                avisos={porArchivo[archivo]?.avisos ?? 0}
+                vacio={proyecto === null}
+              />
+            </motion.div>
+          ))}
+        </div>
+        {proyecto && (
+          <Button variant="outline" className="mt-3" onClick={rehacerMatriculas}>
+            <RefreshCw /> Rehacer matrículas con las reglas de grupo
+          </Button>
+        )}
+      </Paso>
+
+      {/* PASO 3 · Revisión ---------------------------------------------- */}
+      <Paso n={3} titulo="Revisión" sub="Lo mismo que mira ASM al importar, pero aquí y sin esperar.">
+        {proyecto === null ? (
+          <Vacio titulo={cargando ? 'Cargando…' : 'Todavía no hay nada que revisar'} className="py-8">
+            {!cargando && 'Empieza por el paso 1: en cuanto haya datos, aquí sale lo que ASM rechazaría.'}
+          </Vacio>
+        ) : (
+          <PanelIncidencias incidencias={incidencias} />
+        )}
+      </Paso>
+
+      {/* PASO 4 · Descarga y entrega ------------------------------------ */}
+      <Paso n={4} titulo="Descargar y subir" sub="Un ZIP con los seis CSV… y quién lo sube, que si no, no es una entrega.">
+        <PanelEntrega
+          proyecto={proyecto}
+          errores={conteo.errores}
+          avisos={conteo.avisos}
+          onOpciones={(csv) => proyecto && guardar({ ...proyecto, opciones: { ...proyecto.opciones, csv } })}
+        />
+      </Paso>
+
+      {proyecto && <PanelCompartidas proyecto={proyecto} onGuardar={guardar} />}
+
+      {proyecto && (
+        <Tarjeta className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="text-sm">
+            <p className="font-medium text-zinc-800 dark:text-zinc-200">El borrador se guarda solo en este navegador</p>
+            <p className="text-zinc-500 dark:text-zinc-400">
+              Última vez: {new Date(proyecto.actualizado).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+              {proyecto.historial.length > 0 && ` · ${proyecto.historial[proyecto.historial.length - 1].texto}`}
+            </p>
+          </div>
+          <ConfirmarEnLinea
+            etiqueta="Borrar borrador"
+            icono={<Trash2 />}
+            pregunta="Se borra el borrador de este navegador."
+            onConfirmar={() => {
+              guardar(null);
+              toast.success('Borrador borrado.');
+            }}
+          />
+        </Tarjeta>
+      )}
+      {dialogo}
     </div>
   );
 }
 
 // ─── Piezas ───────────────────────────────────────────────────────────────────
 
-function Cabecera({ proyecto, errores, avisos, listo }: { proyecto: ProyectoAsm | null; errores: number; avisos: number; listo: boolean }) {
+/** Lo que antes decía la cabecera oscura: qué es esto y cómo está el proyecto. */
+function Resumen({ proyecto, errores, avisos, listo }: { proyecto: ProyectoAsm | null; errores: number; avisos: number; listo: boolean }) {
   return (
-    <header className="relative overflow-hidden border-b border-zinc-200 bg-gradient-to-br from-zinc-900 via-blue-950 to-zinc-900 dark:border-zinc-800">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.14] [background-image:linear-gradient(to_right,white_1px,transparent_1px),linear-gradient(to_bottom,white_1px,transparent_1px)] [background-size:34px_34px]"
-      />
-      <div className="relative mx-auto max-w-5xl px-4 py-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-300">Apple School Manager</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-white">AUTOASM</h1>
-            <p className="mt-1 max-w-xl text-sm text-zinc-300">
-              Los seis CSV que come ASM, generados desde los datos del colegio, revisados antes de subirlos y empaquetados en un ZIP.
-            </p>
-          </div>
-          <Link
-            href="/gestion"
-            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl border border-white/20 px-3 text-sm text-white/90 transition-colors hover:bg-white/10"
-          >
-            <ChevronLeft className="h-4 w-4" /> Escritorio
-          </Link>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {proyecto === null ? (
-            <Pastilla tono="neutro" icono={<Info className="h-3.5 w-3.5" />} texto="Sin proyecto: empieza por el paso 1" />
-          ) : listo ? (
-            <Pastilla tono="ok" icono={<CheckCircle2 className="h-3.5 w-3.5" />} texto="Listo para importar" />
-          ) : (
-            <Pastilla tono="error" icono={<TriangleAlert className="h-3.5 w-3.5" />} texto={`${errores} error(es) que ASM rechazaría`} />
-          )}
-          {avisos > 0 && <Pastilla tono="aviso" icono={<AlertTriangle className="h-3.5 w-3.5" />} texto={`${avisos} aviso(s)`} />}
-          {proyecto && <Pastilla tono="neutro" texto={proyecto.opciones.locationName} />}
-        </div>
+    <div className="space-y-3">
+      <p className="max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
+        Los seis CSV que pide Apple School Manager, hechos con los datos del colegio, revisados aquí antes de subirlos y
+        empaquetados en un ZIP.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        {proyecto === null ? (
+          <Estado tono="neutro" icono={<Info />}>
+            Sin proyecto: empieza por el paso 1
+          </Estado>
+        ) : listo ? (
+          <Estado tono="ok" icono={<CircleCheck />}>
+            Listo para importar
+          </Estado>
+        ) : (
+          <Estado tono="error" icono={<TriangleAlert />}>
+            {errores} {errores === 1 ? 'error' : 'errores'} que ASM rechazaría
+          </Estado>
+        )}
+        {avisos > 0 && (
+          <Estado tono="aviso" icono={<TriangleAlert />}>
+            {avisos} {avisos === 1 ? 'aviso' : 'avisos'}
+          </Estado>
+        )}
+        {proyecto && <Etiqueta>{proyecto.opciones.locationName}</Etiqueta>}
       </div>
-    </header>
+    </div>
   );
 }
 
@@ -500,79 +496,70 @@ function AvisoEstado({ estado }: { estado: EstadoApi }) {
   if (nuevos.length === 0 && !estado.esTemporada) {
     if (!estado.ultimaSubida) return null;
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-500/10">
-        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-        <p className="text-sm text-emerald-900 dark:text-emerald-200">
-          Al día: la última entrega se subió el{' '}
-          {new Date(estado.ultimaSubida.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
-          {estado.ultimaSubida.modo === 'ftp' ? ' por FTP' : ' a mano'}, y desde entonces no ha entrado alumnado nuevo.
-        </p>
-      </div>
+      <Aviso tono="ok">
+        Al día: la última entrega se subió el{' '}
+        {new Date(estado.ultimaSubida.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+        {estado.ultimaSubida.modo === 'ftp' ? ' por FTP' : ' a mano'}, y desde entonces no ha entrado alumnado nuevo.
+      </Aviso>
     );
   }
 
   const visibles = todos ? nuevos : nuevos.slice(0, 12);
   return (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-500/10">
-      <p className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
-        <AlertTriangle className="h-5 w-5 shrink-0" />
-        {nuevos.length > 0
-          ? `${nuevos.length} alumno(s) no han pasado por aquí`
-          : 'Arranque de curso: todavía no se ha subido nada a Apple School Manager'}
-      </p>
+    <Aviso
+      tono="aviso"
+      titulo={
+        nuevos.length > 0
+          ? `${nuevos.length} ${nuevos.length === 1 ? 'alumno no ha pasado' : 'alumnos no han pasado'} por aquí`
+          : 'Arranque de curso: todavía no se ha subido nada a Apple School Manager'
+      }
+    >
       {nuevos.length > 0 ? (
         <>
-          <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+          <p>
             Se dieron de alta en la BBDD central después de la última subida
-            {estado.ultimaSubida && ` (${new Date(estado.ultimaSubida.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })})`}
+            {estado.ultimaSubida &&
+              ` (${new Date(estado.ultimaSubida.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })})`}
             , así que hoy no tienen cuenta en el iPad. Trae del centro y vuelve a entregar.
           </p>
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {visibles.map((a) => (
-              <li key={`${a.nombre}-${a.alta}`} className="rounded-full bg-white/70 px-2.5 py-1 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
-                {a.nombre} <span className="opacity-70">· {a.grupo}</span>
+              <li
+                key={`${a.nombre}-${a.alta}`}
+                className="rounded-md bg-white/80 px-2 py-1 text-xs text-amber-950 dark:bg-amber-500/15 dark:text-amber-100"
+              >
+                {a.nombre} <span className="text-amber-800 dark:text-amber-300">· {a.grupo}</span>
               </li>
             ))}
           </ul>
           {!todos && nuevos.length > visibles.length && (
-            <button type="button" onClick={() => setTodos(true)} className="mt-2 text-xs font-medium text-amber-900 underline dark:text-amber-200">
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => setTodos(true)}>
               Ver los {nuevos.length - visibles.length} restantes
-            </button>
+            </Button>
           )}
         </>
       ) : (
-        <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-          En julio, agosto y septiembre este módulo sube al principio del escritorio hasta que haya una entrega subida.
-        </p>
+        <p>En julio, agosto y septiembre este módulo sube al principio del escritorio hasta que haya una entrega subida.</p>
       )}
-    </div>
-  );
-}
-
-function Pastilla({ tono, texto, icono }: { tono: 'ok' | 'aviso' | 'error' | 'neutro'; texto: string; icono?: React.ReactNode }) {
-  const tonos = {
-    ok: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/30',
-    aviso: 'bg-amber-500/15 text-amber-200 ring-amber-400/30',
-    error: 'bg-red-500/15 text-red-200 ring-red-400/30',
-    neutro: 'bg-white/10 text-zinc-200 ring-white/15',
-  } as const;
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${tonos[tono]}`}>
-      {icono}
-      {texto}
-    </span>
+    </Aviso>
   );
 }
 
 function Paso({ n, titulo, sub, children }: { n: number; titulo: string; sub: string; children: React.ReactNode }) {
   return (
-    <section>
-      <div className="mb-3 flex items-baseline gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+    <section aria-labelledby={`asm-paso-${n}`}>
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span
+          aria-hidden
+          className="flex size-6 shrink-0 items-center justify-center self-center rounded-full bg-zinc-900 text-xs font-bold text-white tabular-nums dark:bg-zinc-100 dark:text-zinc-900"
+        >
           {n}
         </span>
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</h2>
-        <p className="hidden text-xs text-zinc-500 sm:block">{sub}</p>
+        <h2 id={`asm-paso-${n}`} className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          <span className="sr-only">Paso {n}: </span>
+          {titulo}
+        </h2>
+        <p className="basis-full text-sm text-zinc-500 sm:basis-auto dark:text-zinc-400">{sub}</p>
       </div>
       {children}
     </section>
@@ -586,6 +573,7 @@ function AccionOrigen({
   icono,
   onClick,
   ocupado,
+  cargando,
   destacado,
   extra,
 }: {
@@ -595,29 +583,24 @@ function AccionOrigen({
   icono: React.ReactNode;
   onClick: () => void;
   ocupado?: boolean;
+  cargando?: boolean;
   destacado?: boolean;
   extra?: React.ReactNode;
 }) {
   return (
-    <div className={`flex flex-col rounded-2xl border bg-white p-4 dark:bg-zinc-900 ${destacado ? 'border-blue-300 dark:border-blue-800' : 'border-zinc-200 dark:border-zinc-800'}`}>
-      <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${destacado ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>
+    <div className={cn(claseTarjeta, 'flex flex-col p-4')}>
+      <span
+        aria-hidden
+        className="flex size-10 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 [&_svg]:size-5"
+      >
         {icono}
       </span>
-      <p className="mt-3 font-medium text-zinc-900 dark:text-zinc-100">{titulo}</p>
-      <p className="mt-1 flex-1 text-xs text-zinc-500">{desc}</p>
+      <h3 className="mt-3 font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</h3>
+      <p className="mt-1 flex-1 text-sm text-zinc-500 dark:text-zinc-400">{desc}</p>
       {extra}
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={ocupado}
-        className={`mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors disabled:opacity-50 ${
-          destacado
-            ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
-            : 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
-        }`}
-      >
+      <Button variant={destacado ? 'default' : 'outline'} className="mt-3" onClick={onClick} disabled={ocupado} cargando={cargando}>
         {boton}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -641,33 +624,39 @@ function TarjetaArchivo({
   return (
     <Link
       href={`/gestion/autoasm/${archivo}`}
-      className={`group flex h-full flex-col rounded-2xl border border-zinc-200 bg-white p-4 transition-colors dark:border-zinc-800 dark:bg-zinc-900 ${estilo.borde}`}
+      className={cn(
+        claseTarjeta,
+        'group flex h-full flex-col p-4 transition-colors outline-none hover:border-zinc-300 focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-zinc-50 dark:hover:border-zinc-700 dark:active:bg-zinc-800/60',
+      )}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${estilo.fondo}`}>
-          <Icono className={`h-5 w-5 ${estilo.icono}`} />
+        <span aria-hidden className={cn('flex size-10 items-center justify-center rounded-xl', estilo.fondo)}>
+          <Icono className={cn('size-5', estilo.icono)} />
         </span>
         <span className="text-right">
-          <span className="block text-2xl font-bold leading-none text-zinc-900 tabular-nums dark:text-zinc-100">{vacio ? '—' : num(filas)}</span>
-          <span className="text-[11px] text-zinc-400">filas</span>
+          <span className="block text-2xl leading-none font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">
+            {vacio ? '—' : num(filas)}
+          </span>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">filas</span>
         </span>
       </div>
-      <p className="mt-3 font-medium text-zinc-900 dark:text-zinc-100">{espec.titulo}</p>
-      <p className="font-mono text-[11px] text-zinc-400">{espec.fichero}</p>
-      <p className="mt-1 flex-1 text-xs text-zinc-500">{espec.descripcion}</p>
-      <div className="mt-3 flex items-center gap-2">
+      <h3 className="mt-3 font-semibold text-zinc-900 dark:text-zinc-100">{espec.titulo}</h3>
+      <p className="font-mono text-xs text-zinc-500 dark:text-zinc-400">{espec.fichero}</p>
+      <p className="mt-1 flex-1 text-sm text-zinc-500 dark:text-zinc-400">{espec.descripcion}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {errores > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-300">
-            {errores} error{errores === 1 ? '' : 'es'}
-          </span>
+          <Estado tono="error">
+            {errores} {errores === 1 ? 'error' : 'errores'}
+          </Estado>
         )}
         {avisos > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-            {avisos} aviso{avisos === 1 ? '' : 's'}
-          </span>
+          <Estado tono="aviso">
+            {avisos} {avisos === 1 ? 'aviso' : 'avisos'}
+          </Estado>
         )}
-        <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-zinc-400 transition-colors group-hover:text-zinc-700 dark:group-hover:text-zinc-200">
-          Explorar <ArrowRight className="h-3.5 w-3.5" />
+        <span className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+          Explorar <NavPending />
+          <ArrowRight aria-hidden className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </span>
       </div>
     </Link>
@@ -684,50 +673,38 @@ function PanelIncidencias({ incidencias }: { incidencias: Incidencia[] }) {
 
   if (incidencias.length === 0) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-500/10">
-        <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600 dark:text-emerald-400" />
-        <p className="text-sm text-emerald-900 dark:text-emerald-200">
-          Ni un problema: identificadores únicos, referencias completas y todos los campos obligatorios puestos.
-        </p>
-      </div>
+      <Aviso tono="ok">
+        Ni un problema: identificadores únicos, referencias completas y todos los campos obligatorios puestos.
+      </Aviso>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex gap-2 border-b border-zinc-200 p-3 dark:border-zinc-800">
-        {(['error', 'aviso'] as const).map((nivel) => {
-          const n = nivel === 'error' ? errores : avisos;
-          const activo = ver === nivel;
-          return (
-            <button
-              key={nivel}
-              type="button"
-              onClick={() => { setVer(nivel); setTodo(false); }}
-              className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition-colors ${
-                activo
-                  ? nivel === 'error'
-                    ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
-                    : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
-                  : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-              }`}
-            >
-              {nivel === 'error' ? <TriangleAlert className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-              {n} {nivel === 'error' ? 'errores' : 'avisos'}
-            </button>
-          );
-        })}
+    <Tarjeta>
+      <div className="border-b border-zinc-100 p-3 dark:border-zinc-800">
+        <Segmentado
+          etiqueta="Qué incidencias ver"
+          valor={ver}
+          onChange={(v) => {
+            setVer(v);
+            setTodo(false);
+          }}
+          opciones={[
+            { valor: 'error', etiqueta: 'Errores', cuenta: errores },
+            { valor: 'aviso', etiqueta: 'Avisos', cuenta: avisos },
+          ]}
+        />
       </div>
       {grupos.length === 0 ? (
-        <p className="p-4 text-sm text-zinc-500">Nada por aquí.</p>
+        <p className="p-4 text-sm text-zinc-500 dark:text-zinc-400">{ver === 'error' ? 'Ningún error.' : 'Ningún aviso.'}</p>
       ) : (
         <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {(todo ? grupos : grupos.slice(0, GRUPOS_VISIBLES)).map((g) => (
-            <li key={g.clave} className="flex items-start gap-3 p-3">
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${ver === 'error' ? 'bg-red-500' : 'bg-amber-500'}`} />
+            <li key={g.clave} className="flex items-start gap-3 px-4 py-3">
+              <span aria-hidden className={cn('mt-1.5 size-2 shrink-0 rounded-full', ver === 'error' ? 'bg-red-500' : 'bg-amber-500')} />
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-zinc-900 dark:text-zinc-100">{g.ejemplo.mensaje}</p>
-                <p className="mt-0.5 text-xs text-zinc-500">
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="font-mono">{ESPEC[g.ejemplo.archivo].fichero}</span>
                   {g.total > 1 && ` · ${g.total} filas`}
                   {g.claves.length > 0 && ` · ${g.claves.slice(0, 4).join(', ')}${g.claves.length > 4 ? '…' : ''}`}
@@ -735,30 +712,24 @@ function PanelIncidencias({ incidencias }: { incidencias: Incidencia[] }) {
               </div>
               <Link
                 href={`/gestion/autoasm/${g.ejemplo.archivo}${
-                  g.ejemplo.clave
-                    ? `?q=${encodeURIComponent(g.ejemplo.clave)}&abrir=${encodeURIComponent(g.ejemplo.clave)}`
-                    : ''
+                  g.ejemplo.clave ? `?q=${encodeURIComponent(g.ejemplo.clave)}&abrir=${encodeURIComponent(g.ejemplo.clave)}` : ''
                 }`}
-                className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                className={buttonVariants({ variant: 'outline', size: 'sm', className: '-my-1 shrink-0' })}
               >
                 Ver
               </Link>
             </li>
           ))}
           {!todo && grupos.length > GRUPOS_VISIBLES && (
-            <li className="p-3">
-              <button
-                type="button"
-                onClick={() => setTodo(true)}
-                className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-              >
+            <li className="px-4 py-2">
+              <Button variant="ghost" size="sm" className="-ml-3" onClick={() => setTodo(true)}>
                 Ver los {grupos.length - GRUPOS_VISIBLES} tipos restantes
-              </button>
+              </Button>
             </li>
           )}
         </ul>
       )}
-    </div>
+    </Tarjeta>
   );
 }
 
@@ -779,92 +750,62 @@ function PanelHorario({
   const visibles = todo ? cambian : cambian.slice(0, 8);
 
   return (
-    <div className="mt-3 rounded-2xl border border-emerald-200 bg-white dark:border-emerald-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
-        <p className="font-medium text-zinc-900 dark:text-zinc-100">Lo que dice el horario</p>
-        <p className="mt-0.5 text-xs text-zinc-500">
-          {num(cambian.length)} clases cambian ({num(nuevas.length)} nuevas) · {num(resultado.propuestas.length - cambian.length)} ya estaban igual ·{' '}
-          {num(resultado.clasesSinHorario.length)} clases de ASM que el horario no menciona (no se tocan)
-        </p>
-      </div>
+    <Tarjeta className="mt-3">
+      <TarjetaCabecera
+        titulo="Lo que dice el horario"
+        descripcion={`${num(cambian.length)} clases cambian (${num(nuevas.length)} nuevas) · ${num(
+          resultado.propuestas.length - cambian.length,
+        )} ya estaban igual · ${num(resultado.clasesSinHorario.length)} clases de ASM que el horario no menciona (no se tocan)`}
+      />
 
       {cambian.length > 0 && (
         <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {visibles.map((p) => (
-            <li key={p.asignacionId} className="flex items-start gap-3 p-3">
-              <span className={`mt-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                p.estado === 'nueva'
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
-                  : 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
-              }`}>
-                {p.estado === 'nueva' ? 'nueva' : 'cambia'}
-              </span>
+            <li key={p.asignacionId} className="flex items-start gap-3 px-4 py-3">
+              <Estado tono={p.estado === 'nueva' ? 'info' : 'neutro'} className="mt-0.5">
+                {p.estado === 'nueva' ? 'Nueva' : 'Cambia'}
+              </Estado>
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-zinc-900 dark:text-zinc-100">
-                  {p.className} <span className="font-mono text-[11px] text-zinc-400">{p.classId}</span>
+                  {p.className} <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">{p.classId}</span>
                 </p>
                 {p.cambios.map((c) => (
-                  <p key={c} className="text-xs text-zinc-500">{c}</p>
+                  <p key={c} className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {c}
+                  </p>
                 ))}
                 {p.avisos.map((a) => (
-                  <p key={a} className="text-xs text-amber-600 dark:text-amber-400">{a}</p>
+                  <p key={a} className="text-xs text-amber-700 dark:text-amber-400">
+                    {a}
+                  </p>
                 ))}
               </div>
             </li>
           ))}
           {!todo && cambian.length > visibles.length && (
-            <li className="p-3">
-              <button type="button" onClick={() => setTodo(true)} className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">
+            <li className="px-4 py-2">
+              <Button variant="ghost" size="sm" className="-ml-3" onClick={() => setTodo(true)}>
                 Ver las {cambian.length - visibles.length} restantes
-              </button>
+              </Button>
             </li>
           )}
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={onAplicar}
-          disabled={cambian.length === 0}
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
-        >
+      <div className="flex flex-wrap items-center gap-2 border-t border-zinc-100 p-3 dark:border-zinc-800">
+        <Button onClick={onAplicar} disabled={cambian.length === 0}>
           Aplicar {num(cambian.length)} cambios
-        </button>
-        <button
-          type="button"
-          onClick={onDescartar}
-          className="inline-flex min-h-11 items-center rounded-xl border border-zinc-200 px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
+        </Button>
+        <Button variant="outline" onClick={onDescartar}>
           Descartar
-        </button>
+        </Button>
         {avisos.length > 0 && (
-          <span className="text-xs text-amber-600 dark:text-amber-400">
+          <span className="text-sm text-amber-700 dark:text-amber-400">
             {avisos.length === 1 ? '1 aviso que mirar antes' : `${avisos.length} avisos que mirar antes`}
           </span>
         )}
       </div>
-    </div>
-  );
-}
-
-function Interruptor({ valor, onChange, titulo, desc }: { valor: boolean; onChange: (v: boolean) => void; titulo: string; desc: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={valor}
-      onClick={() => { haptic.tap(); onChange(!valor); }}
-      className="flex w-full items-start gap-3 rounded-xl p-2 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
-    >
-      <span className={`mt-0.5 flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors ${valor ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
-        <span className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${valor ? 'translate-x-4' : ''}`} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">{titulo}</span>
-        <span className="block text-xs text-zinc-500">{desc}</span>
-      </span>
-    </button>
+    </Tarjeta>
   );
 }
 

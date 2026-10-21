@@ -1,8 +1,7 @@
 'use client';
 
-import { motion } from 'motion/react';
 import { Check } from 'lucide-react';
-import { haptic } from '@/lib/haptics';
+import { Filtro, Filtros } from '@/components/ui/filtro';
 
 interface Option {
   value: string;
@@ -13,12 +12,13 @@ interface ChipMultiselectProps {
   options: Option[];
   value: string[];
   onChange: (value: string[]) => void;
-  emphasized?: boolean;
+  /** Para el lector de pantalla («Conductas»). */
+  etiqueta?: string;
 }
 
-export function ChipMultiselect({ options, value, onChange, emphasized = false }: ChipMultiselectProps) {
+// Marcar varias de la lista: las pastillas comunes (`Filtro`), con el visto en las marcadas.
+export function ChipMultiselect({ options, value, onChange, etiqueta = 'Marca las que correspondan' }: ChipMultiselectProps) {
   const toggle = (optValue: string) => {
-    haptic.tap();
     if (value.includes(optValue)) {
       onChange(value.filter((v) => v !== optValue));
     } else {
@@ -27,30 +27,21 @@ export function ChipMultiselect({ options, value, onChange, emphasized = false }
   };
 
   return (
-    <div className="flex flex-wrap gap-2" role="group">
+    <Filtros etiqueta={etiqueta}>
       {options.map((opt) => {
         const selected = value.includes(opt.value);
         return (
-          <motion.button
+          <Filtro
             key={opt.value}
-            type="button"
-            aria-pressed={selected}
-            whileTap={{ scale: 0.95 }}
+            activo={selected}
             onClick={() => toggle(opt.value)}
-            className={[
-              'min-h-[48px] px-4 py-2 rounded-xl border text-sm font-medium transition-colors duration-150 cursor-pointer select-none flex items-center gap-1.5',
-              selected
-                ? emphasized
-                  ? 'bg-teal-600 border-teal-500 text-white shadow-sm dark:bg-teal-500 dark:border-teal-400'
-                  : 'bg-teal-50 border-teal-400 text-teal-800 shadow-sm dark:bg-teal-900/40 dark:border-teal-500 dark:text-teal-200'
-                : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800/50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-600',
-            ].join(' ')}
+            icono={selected ? <Check aria-hidden /> : undefined}
+            className="h-12 px-5"
           >
-            {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
             {opt.label}
-          </motion.button>
+          </Filtro>
         );
       })}
-    </div>
+    </Filtros>
   );
 }

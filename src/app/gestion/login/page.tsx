@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Image from 'next/image';
 import { auth, signIn } from '@/auth';
 import { COLEGIO } from '@/lib/colegio';
+import { Button } from '@/components/ui/button';
 
 export const metadata = { title: 'Entrar · Tools Consolación' };
 
@@ -25,29 +26,26 @@ export default async function LoginPage({
             <Image src="/logobur.png" alt="Consolación Burriana" width={180} height={90} priority className="h-auto w-[170px]" />
           </div>
           <h1 className="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Tools Consolación</h1>
-          <p className="text-sm text-zinc-500">Entra con tu cuenta del colegio</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Entra con tu cuenta del colegio</p>
         </div>
 
         <form
-          className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+          className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900"
           action={async () => {
             'use server';
             await signIn('google', { redirectTo: destino });
           }}
         >
-          <button
-            type="submit"
-            className="inline-flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
+          <Button type="submit" size="lg" className="w-full">
+            <svg className="size-5" viewBox="0 0 24 24" aria-hidden>
               <path
                 fill="currentColor"
                 d="M21.35 11.1H12v2.9h5.35c-.5 2.5-2.6 4.3-5.35 4.3a5.8 5.8 0 1 1 0-11.6c1.5 0 2.85.55 3.9 1.45l2.15-2.15A8.9 8.9 0 0 0 12 3.1a8.9 8.9 0 1 0 0 17.8c5.15 0 8.85-3.6 8.85-8.7 0-.4-.05-.75-.1-1.1Z"
               />
             </svg>
             Entrar con Google
-          </button>
-          <p className="mt-3 text-center text-xs text-zinc-400">Solo cuentas @{COLEGIO.dominio} · la sesión dura todo el curso</p>
+          </Button>
+          <p className="mt-3 text-center text-xs text-zinc-500 dark:text-zinc-400">Solo cuentas @{COLEGIO.dominio} · la sesión dura todo el curso</p>
         </form>
       </div>
     </div>

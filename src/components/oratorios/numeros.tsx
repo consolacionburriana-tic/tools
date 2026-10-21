@@ -1,26 +1,16 @@
 'use client';
 
-// 📊 Números: hechas / programadas / por hacer por clase y unidad (mes o trimestre, según el
+// Números: hechas / programadas / por hacer por clase y unidad (mes o trimestre, según el
 // objetivo del tipo), a qué profes se ha molestado más y cuántas fechas hay cada mes.
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { Cifra, Cifras } from '@/components/ui/cifra';
+import { claseTarjeta } from '@/components/ui/tarjeta';
 import { nombreClase } from '@/lib/cursos';
 import { clasesDeTipo, molestiasPorProfe, nombreMesCorto, progresoTipo, sesionesPorMes, unidadesCurso, type CeldaProgreso } from '@/lib/oratorios';
 import { FRECUENCIA_LABELS } from '@/lib/oratorios';
-import { SelectorTipo, Puntos } from './planificar';
+import { PUNTO, Puntos, SelectorTipo } from './planificar';
 import type { Estado } from './panel';
-
-function Tarjeta({ emoji, n, texto, tono }: { emoji: string; n: number; texto: string; tono: string }) {
-  // `emoji` es el del estado (el mismo de los chips de la lista): aquí hace de leyenda.
-  return (
-    <div className={cn('rounded-2xl border p-3', tono)}>
-      <p className="text-2xl font-bold tabular-nums">
-        <span className="text-lg" aria-hidden>{emoji}</span> {n}
-      </p>
-      <p className="text-xs opacity-80">{texto}</p>
-    </div>
-  );
-}
 
 function Celda({ c }: { c: CeldaProgreso }) {
   // Verde solo si está cubierto de verdad (hechas + programadas); con borradores, gris.
@@ -33,7 +23,7 @@ function Celda({ c }: { c: CeldaProgreso }) {
         'px-1.5 py-1 text-center',
         cubierto ? 'bg-emerald-50 dark:bg-emerald-500/10' : conBorrador ? 'bg-zinc-50 dark:bg-zinc-800/40' : empezado ? 'bg-amber-50 dark:bg-amber-500/10' : '',
       )}
-      title={`✔️ ${c.hechas} · 📅 ${c.programadas} · 📝 ${c.borradores} · ○ ${c.porHacer}`}
+      title={`${c.hechas} hechas · ${c.programadas} confirmadas · ${c.borradores} borradores · ${c.porHacer} por hacer`}
     >
       <Puntos t={c} />
     </td>
@@ -76,16 +66,16 @@ export function Numeros({ e }: { e: Estado }) {
         Objetivo: {tipo.cantidad} {FRECUENCIA_LABELS[tipo.frecuencia]} por clase · {clases.length} clases
       </p>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Tarjeta emoji="✔️" n={total.hechas} texto="Hechas" tono="border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200" />
-        <Tarjeta emoji="📅" n={total.programadas} texto="Programadas" tono="border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200" />
-        <Tarjeta emoji="📝" n={total.borradores} texto="Borradores" tono="border-zinc-200 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200" />
-        <Tarjeta emoji="○" n={total.porHacer} texto="Por hacer" tono="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200" />
-      </div>
+      <Cifras>
+        <Cifra etiqueta="Hechas" valor={total.hechas} punto={PUNTO.hechas} />
+        <Cifra etiqueta="Programadas" valor={total.programadas} punto={PUNTO.programadas} />
+        <Cifra etiqueta="Borradores" valor={total.borradores} punto={PUNTO.borradores} />
+        <Cifra etiqueta="Por hacer" valor={total.porHacer} punto={PUNTO.porHacer} />
+      </Cifras>
 
       {/* Clase × unidad */}
       <div className="-mx-4 overflow-x-auto px-4">
-        <table className="w-full min-w-max overflow-hidden rounded-xl border border-zinc-200 bg-white text-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <table className={cn(claseTarjeta, 'w-full min-w-max overflow-hidden text-sm')}>
           <thead className="bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-800/60">
             <tr>
               <th className="px-2 py-1.5 text-left">Clase</th>
@@ -111,27 +101,35 @@ export function Numeros({ e }: { e: Estado }) {
             ))}
           </tbody>
         </table>
-        <p className="mt-1 text-[11px] text-zinc-400">
-          <span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-500" />
-          hecha · <span className="mx-1 inline-block h-2 w-2 rounded-full bg-blue-500" />
-          programada · <span className="mx-1 inline-block h-2 w-2 rounded-full bg-zinc-400" />
-          borrador · <span className="mx-1 inline-block h-2 w-2 rounded-full ring-1 ring-zinc-300" />
-          por hacer
+        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+          {(
+            [
+              ['hechas', 'hecha'],
+              ['programadas', 'programada'],
+              ['borradores', 'borrador'],
+              ['porHacer', 'por hacer'],
+            ] as const
+          ).map(([k, texto]) => (
+            <span key={k} className="inline-flex items-center gap-1.5">
+              <span aria-hidden className={cn('inline-block h-2 w-2 rounded-full', PUNTO[k])} />
+              {texto}
+            </span>
+          ))}
         </p>
       </div>
 
       {/* Por número de sesión */}
       {porNumero.length > 0 && (
         <section className="space-y-1">
-          <h3 className="text-sm font-semibold">Por sesión</h3>
+          <h2 className="text-sm font-semibold">Por sesión</h2>
           <div className="flex flex-wrap gap-2">
             {porNumero.map((p) => (
-              <div key={p.n} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+              <div key={p.n} className={cn(claseTarjeta, 'px-3 py-2 text-sm')}>
                 <b>
-                  {tipo.emoji} S{p.n}
+                  <span aria-hidden>{tipo.emoji}</span> S{p.n}
                 </b>{' '}
-                <span className="tabular-nums">
-                  ✔️{p.hechas} 📅{p.programadas} {p.borradores > 0 && `📝${p.borradores} `}○{p.faltan}
+                <span className="text-zinc-600 tabular-nums dark:text-zinc-400">
+                  {p.hechas} hechas · {p.programadas} programadas{p.borradores > 0 && ` · ${p.borradores} borradores`} · faltan {p.faltan}
                 </span>
               </div>
             ))}
@@ -141,7 +139,7 @@ export function Numeros({ e }: { e: Estado }) {
 
       {/* Molestias por profe */}
       <section className="space-y-1">
-        <h3 className="text-sm font-semibold">A quién se ha quitado la hora (todos los tipos)</h3>
+        <h2 className="text-sm font-semibold">A quién se ha quitado la hora (todos los tipos)</h2>
         {molestias.length === 0 ? (
           <p className="text-sm text-zinc-500">Todavía a nadie.</p>
         ) : (
@@ -164,17 +162,17 @@ export function Numeros({ e }: { e: Estado }) {
                   <tr key={m.profeId} className="border-t border-zinc-100 dark:border-zinc-800">
                     <td className="py-1 pr-2 whitespace-nowrap">{m.nombre}</td>
                     {m.porTrimestre.map((n, i) => (
-                      <td key={i} className={cn('px-2 py-1 text-center tabular-nums', n >= 3 ? 'font-bold text-rose-600' : n === 2 ? 'font-semibold text-orange-600' : '')}>
+                      <td key={i} className={cn('px-2 py-1 text-center tabular-nums', n >= 3 ? 'font-bold text-red-700 dark:text-red-400' : n === 2 ? 'font-semibold text-amber-700 dark:text-amber-400' : '')}>
                         {n || '·'}
                       </td>
                     ))}
                     <td className="px-2 py-1 text-center font-semibold tabular-nums">
                       {m.total}
-                      {m.borradores > 0 && <span className="ml-1 text-xs font-normal text-zinc-400">+{m.borradores} borr.</span>}
+                      {m.borradores > 0 && <span className="ml-1 text-xs font-normal text-zinc-500">+{m.borradores} borr.</span>}
                     </td>
                     <td className="py-1">
                       <div className="flex h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                        <div className="bg-blue-500" style={{ width: `${(m.total / maxMolestia) * 100}%` }} />
+                        <div style={{ background: 'var(--datos-1)', width: `${(m.total / maxMolestia) * 100}%` }} />
                         <div className="bg-zinc-300 dark:bg-zinc-600" style={{ width: `${(m.borradores / maxMolestia) * 100}%` }} />
                       </div>
                     </td>
@@ -189,16 +187,17 @@ export function Numeros({ e }: { e: Estado }) {
       {/* Por mes */}
       {meses.length > 0 && (
         <section className="space-y-1">
-          <h3 className="text-sm font-semibold">Fechas por mes</h3>
+          <h2 className="text-sm font-semibold">Fechas por mes</h2>
           <div className="flex flex-wrap gap-2">
             {meses.map((mes) => (
-              <div key={mes} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+              <div key={mes} className={cn(claseTarjeta, 'px-3 py-2 text-sm')}>
                 <b className="capitalize">{nombreMesCorto(Number(mes.slice(5, 7)))}</b>{' '}
                 {e.tipos
                   .filter((t) => porMes.get(mes)?.get(t.id))
                   .map((t) => (
-                    <span key={t.id} className="ml-1 tabular-nums">
-                      {t.emoji}
+                    <span key={t.id} className="ml-1 tabular-nums" title={t.nombre}>
+                      <span aria-hidden>{t.emoji}</span>
+                      <span className="sr-only">{t.nombre}: </span>
                       {porMes.get(mes)!.get(t.id)}
                     </span>
                   ))}

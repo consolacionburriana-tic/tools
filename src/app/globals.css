@@ -55,8 +55,9 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  /* La marca: azul 600 de Tailwind. Es el color de todo lo que se pulsa (docs/diseno.md). */
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -66,7 +67,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.623 0.214 259.815);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -90,8 +91,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -101,7 +102,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.623 0.214 259.815);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -227,6 +228,17 @@ a:not(.no-press):active,
   --eval-familias: #199e70;
   --eval-ord-lo: #1c5cab; /* sobre fondo oscuro, "Nada" es el que recede */
   --eval-ord-hi: #9ec5f4;
+}
+
+/* La paleta de datos de TODA la app (gráficos de ABC, Puntualidad, Números…) es la de
+   Evaluaciones: estos alias son el nombre genérico. Categórica en orden fijo (1, 2, 3) y
+   ordinal de un solo tono (de --datos-ord-lo a --datos-ord-hi). Ver docs/diseno.md. */
+:root {
+  --datos-1: var(--eval-alumnos);
+  --datos-2: var(--eval-profesores);
+  --datos-3: var(--eval-familias);
+  --datos-ord-lo: var(--eval-ord-lo);
+  --datos-ord-hi: var(--eval-ord-hi);
 }
 
 /* Deriva muy lenta de las manchas de fondo del formulario público de Evaluaciones

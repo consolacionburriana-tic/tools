@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { LetraBadge } from '@/components/evaluaciones/color-picker';
 import { PanelIA, type EstadoIA, type InsightCliente } from '@/components/evaluaciones/resultados-ia';
-import { PANEL, Rotulo, Segmentado } from '@/components/evaluaciones/ui';
+import { Rotulo } from '@/components/evaluaciones/ui';
+import { Segmentado } from '@/components/ui/segmentado';
+import { claseTarjeta as PANEL } from '@/components/ui/tarjeta';
 import {
   claseLabel,
   clasificarComentario,
@@ -85,7 +87,7 @@ function Nota({ pct, escala }: { pct: number | null; escala: string }) {
   return (
     <span className={`text-sm font-bold tabular-nums ${TONO_TEXTO[tonoDe(pct)]}`}>
       {enEscala.toFixed(1)}
-      <span className="text-[10px] font-normal text-zinc-400"> / {max}</span>
+      <span className="text-xs font-normal text-zinc-400"> / {max}</span>
     </span>
   );
 }
@@ -155,7 +157,7 @@ function LeyendaEscala({ escala }: { escala: string }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {puntos.map((p, i) => (
-        <span key={p.valor} className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <span key={p.valor} className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
           <span className="inline-block h-2 w-2 rounded-full" style={{ background: tonoOrdinal(i, puntos.length) }} />
           {p.label}
         </span>
@@ -180,7 +182,7 @@ function FilaSiNo({ texto, mostrarTexto, f }: { texto: string; mostrarTexto: boo
           <div className="h-2 bg-blue-500" style={{ width: `${pctSi}%` }} />
         </div>
         <span className="w-14 shrink-0 text-right text-zinc-500">No {100 - pctSi} %</span>
-        <span className="w-8 shrink-0 text-right text-[11px] text-zinc-400">{f.n}</span>
+        <span className="w-8 shrink-0 text-right text-xs text-zinc-400">{f.n}</span>
       </div>
     </div>
   );
@@ -191,7 +193,7 @@ function Procedencia({ clase, etapa }: { clase: string | null; etapa: string | n
   const texto = clase ?? (etapa ? etapaLabel(etapa) : null);
   if (!texto) return null;
   return (
-    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
       {texto}
     </span>
   );
@@ -237,7 +239,7 @@ function PanelDestacados({ lista }: { lista: ComentarioDestacado[] }) {
     <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
       <p className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
         <Star className="h-4 w-4 text-amber-500" fill="currentColor" /> Destacados
-        <span className="rounded-full bg-amber-200/70 px-1.5 text-[11px] tabular-nums text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+        <span className="rounded-full bg-amber-200/70 px-1.5 text-xs tabular-nums text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
           {lista.length}
         </span>
       </p>
@@ -246,7 +248,7 @@ function PanelDestacados({ lista }: { lista: ComentarioDestacado[] }) {
           <div key={d.answerId} className="flex gap-2 rounded-xl bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:bg-zinc-900">
             <div className="min-w-0 flex-1">
               <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-100">“{d.valor.trim()}”</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                 <Procedencia clase={d.clase} etapa={d.etapa} />
                 <span className="truncate" title={d.pregunta}>
                   {d.bloque}
@@ -459,7 +461,7 @@ export function ResultadosPanel({
                         className={`inline-flex items-center gap-1.5 ${CHIP} ${activa ? CHIP_ON : CHIP_OFF}`}
                       >
                         {etapaLabel(e.etapa)}
-                        <span className={`text-[11px] ${activa ? 'text-blue-100' : 'text-zinc-400'}`}>{e.respuestas}</span>
+                        <span className={`text-xs ${activa ? 'text-blue-100' : 'text-zinc-400'}`}>{e.respuestas}</span>
                         {e.mediaPct !== null && (
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${TONO_BARRA[tonoDe(e.mediaPct)]}`}
@@ -494,7 +496,7 @@ export function ResultadosPanel({
                         className={`inline-flex items-center gap-1.5 ${CHIP} ${activa ? CHIP_ON : CHIP_OFF}`}
                       >
                         {claseLabel(c)}
-                        <span className={`text-[11px] ${activa ? 'text-blue-100' : 'text-zinc-400'}`}>
+                        <span className={`text-xs ${activa ? 'text-blue-100' : 'text-zinc-400'}`}>
                           {c.respuestas}
                           {c.objetivo > 0 && `/${c.objetivo}`}
                         </span>
@@ -571,7 +573,7 @@ export function ResultadosPanel({
                     <span className="hidden sm:inline">{p.label}</span>
                     {p.n !== null && (
                       <span
-                        className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                        className={`rounded-full px-1.5 text-xs tabular-nums ${
                           activa ? 'bg-zinc-100 text-zinc-600 dark:bg-zinc-600 dark:text-zinc-200' : 'bg-zinc-200/70 dark:bg-zinc-700'
                         }`}
                       >
@@ -759,7 +761,7 @@ function VistaResumen({
                 {col.lista.map((f) => (
                   <li key={f.clave}>
                     <div className="flex items-start gap-2">
-                      {variosBloques && <LetraBadge letra={f.letra} color={f.color} className="!h-5 !w-5 !rounded-md !text-[10px]" />}
+                      {variosBloques && <LetraBadge letra={f.letra} color={f.color} className="!h-5 !w-5 !rounded-md !text-xs" />}
                       <span
                         className="min-w-0 flex-1 text-sm leading-snug text-zinc-700 dark:text-zinc-300"
                         title={f.pregunta !== f.texto ? f.pregunta : undefined}
@@ -838,7 +840,7 @@ function VistaResumen({
             </div>
             <span className="shrink-0 text-sm">
               <Cien pct={b.mediaPct} />
-              <span className="text-[10px] font-normal text-zinc-400"> / 100</span>
+              <span className="text-xs font-normal text-zinc-400"> / 100</span>
             </span>
           </div>
 
@@ -872,7 +874,7 @@ function VistaResumen({
                         )}
                         <div className="mt-1 flex items-center gap-2">
                           <Barra pct={f.mediaPct} />
-                          <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-zinc-400">{f.n}</span>
+                          <span className="w-8 shrink-0 text-right text-xs tabular-nums text-zinc-400">{f.n}</span>
                         </div>
                         <div className="mt-1">
                           <Distribucion distribucion={f.distribucion} n={f.n} />
@@ -977,14 +979,14 @@ function TarjetaComentario({ c, busqueda }: { c: Comentario; busqueda?: string }
           <Resaltado texto={c.valor} busqueda={busqueda} />
           {c.repetido > 1 && (
             <span
-              className="ml-2 rounded-full bg-blue-100 px-1.5 py-0.5 align-middle text-[11px] font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
+              className="ml-2 rounded-full bg-blue-100 px-1.5 py-0.5 align-middle text-xs font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
               title={`${c.repetido} personas escribieron lo mismo`}
             >
               ×{c.repetido}
             </span>
           )}
         </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
           <Procedencia clase={c.clase} etapa={c.etapa} />
           {c.pct !== null && (
             <span title="Valoración media de quien lo escribió">
@@ -1068,15 +1070,14 @@ function VistaComentarios({
               className="w-full rounded-lg bg-zinc-50 py-2 pl-8 pr-3 text-sm text-zinc-900 ring-1 ring-transparent placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800/40 dark:text-zinc-100 dark:focus:bg-zinc-800"
             />
           </label>
-          <Segmentado
+          <Segmentado etiqueta="Orden de los comentarios"
             opciones={[
-              { valor: 'criticos', label: 'Críticos primero' },
-              { valor: 'repetidos', label: 'Más repetidos' },
-              { valor: 'largos', label: 'Más largos' },
+              { valor: 'criticos', etiqueta: 'Críticos primero' },
+              { valor: 'repetidos', etiqueta: 'Más repetidos' },
+              { valor: 'largos', etiqueta: 'Más largos' },
             ]}
             valor={orden}
             onChange={setOrden}
-            capitalizar={false}
           />
         </div>
         {grupos.length > 1 && (
@@ -1108,7 +1109,7 @@ function VistaComentarios({
         return (
           <div key={g.id} className={`${PANEL} p-4`}>
             <div className="mb-3 flex items-start gap-2">
-              <LetraBadge letra={g.letra} color={g.color} className="!h-6 !w-6 !text-[11px]" />
+              <LetraBadge letra={g.letra} color={g.color} className="!h-6 !w-6 !text-xs" />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold leading-snug text-zinc-900 dark:text-zinc-100">{g.texto}</p>
                 <p className="text-xs text-zinc-400">
@@ -1216,14 +1217,13 @@ function VistaCriticos({ criticas, audiencia }: { criticas: RespuestaCritica[]; 
           <Frown className="mr-1 inline h-4 w-4 -translate-y-px text-rose-500" />
           Quien peor ha valorado, de la nota más baja a la más alta. Anónimo: {quien}.
         </p>
-        <Segmentado
+        <Segmentado etiqueta="Qué valoraciones ver"
           opciones={[
-            { valor: '45', label: `Descontentos · ${bajo45}` },
-            { valor: '70', label: `Bajo 70 · ${bajo70}` },
-            { valor: 'todas', label: `Las ${criticas.length} más bajas` },
+            { valor: '45', etiqueta: `Descontentos · ${bajo45}` },
+            { valor: '70', etiqueta: `Bajo 70 · ${bajo70}` },
+            { valor: 'todas', etiqueta: `Las ${criticas.length} más bajas` },
           ]}
           valor={umbral}
-          capitalizar={false}
           onChange={(v) => {
             setUmbral(v);
             setCuantas(POR_PAGINA);
@@ -1277,7 +1277,7 @@ function TarjetaCritica({ c }: { c: RespuestaCritica }) {
       <div className="flex items-center gap-3">
         <div className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl ${TONO_FICHA[tono]}`}>
           <span className="text-base font-bold leading-none tabular-nums">{Math.round(c.mediaPct)}</span>
-          <span className="text-[9px] leading-none opacity-70">/100</span>
+          <span className="text-xs leading-none opacity-70">/100</span>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <Procedencia clase={c.clase} etapa={c.etapa} />
@@ -1294,7 +1294,7 @@ function TarjetaCritica({ c }: { c: RespuestaCritica }) {
           {comentarios.map((x) => (
             <div key={x.id} className="flex gap-2 rounded-xl bg-zinc-50 py-2.5 pl-3.5 pr-2 dark:bg-zinc-800/40">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-zinc-400">{x.pregunta}</p>
+                <p className="text-xs text-zinc-400">{x.pregunta}</p>
                 <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-100">“{x.valor}”</p>
               </div>
               <BotonEstrella c={{ id: x.id, valor: x.valor, pregunta: x.pregunta, bloque: x.bloque, clase: c.clase, etapa: c.etapa }} />

@@ -12,6 +12,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpDown, Check, Eraser, Loader2, Scissors, SplitSquareVertical, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
+import { Estado } from '@/components/ui/estado';
+import { Aviso } from '@/components/ui/aviso';
 import {
   aplicarCorte,
   type ClaseConTutoresUI,
@@ -43,25 +46,23 @@ interface RepartoRespuesta {
   descolgados: number;
 }
 
-// Un color por tutor (hasta tres: David confirma que más no va a haber).
+// Un color por tutor (hasta tres: David confirma que más no va a haber). Son colores de
+// categoría (de quién es cada alumno): tinte suave y sin verde, ámbar ni rojo, que son estados.
 const COLORES = [
   {
-    activo: 'bg-blue-600 text-white ring-blue-600',
-    suave: 'text-blue-700 ring-blue-300 hover:bg-blue-50 dark:text-blue-300 dark:ring-blue-500/40 dark:hover:bg-blue-500/10',
-    linea: 'bg-blue-500',
-    punto: 'bg-blue-500',
+    activo:
+      'bg-sky-100 font-semibold text-sky-900 ring-2 ring-sky-500 dark:bg-sky-500/20 dark:text-sky-100 dark:ring-sky-400',
+    linea: 'bg-sky-500',
   },
   {
-    activo: 'bg-amber-500 text-white ring-amber-500',
-    suave: 'text-amber-700 ring-amber-300 hover:bg-amber-50 dark:text-amber-300 dark:ring-amber-500/40 dark:hover:bg-amber-500/10',
-    linea: 'bg-amber-500',
-    punto: 'bg-amber-500',
-  },
-  {
-    activo: 'bg-violet-600 text-white ring-violet-600',
-    suave: 'text-violet-700 ring-violet-300 hover:bg-violet-50 dark:text-violet-300 dark:ring-violet-500/40 dark:hover:bg-violet-500/10',
+    activo:
+      'bg-violet-100 font-semibold text-violet-900 ring-2 ring-violet-500 dark:bg-violet-500/20 dark:text-violet-100 dark:ring-violet-400',
     linea: 'bg-violet-500',
-    punto: 'bg-violet-500',
+  },
+  {
+    activo:
+      'bg-fuchsia-100 font-semibold text-fuchsia-900 ring-2 ring-fuchsia-500 dark:bg-fuchsia-500/20 dark:text-fuchsia-100 dark:ring-fuchsia-400',
+    linea: 'bg-fuchsia-500',
   },
 ];
 
@@ -184,14 +185,14 @@ export function RepartoAlumnos({
 
   if (cargando) {
     return (
-      <p className="flex items-center gap-1.5 py-3 text-xs text-zinc-400">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando el alumnado de la clase…
+      <p className="flex items-center gap-2 py-3 text-sm text-zinc-500 dark:text-zinc-400">
+        <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Cargando el alumnado de la clase…
       </p>
     );
   }
   if (!datos) return null;
   if (datos.alumnos.length === 0) {
-    return <p className="py-3 text-xs text-zinc-400">Esta clase no tiene alumnado activo.</p>;
+    return <p className="py-3 text-sm text-zinc-500 dark:text-zinc-400">Esta clase no tiene alumnado activo.</p>;
   }
 
   const ids = datos.alumnos.map((a) => a.id);
@@ -221,81 +222,60 @@ export function RepartoAlumnos({
   }
 
   return (
-    <div className="anim-up mt-2.5 space-y-2 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
+    <div className="anim-up mt-3 space-y-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
       {/* Quién lleva a cuántos */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         {tutores.map((t, i) => (
-          <span key={t.teacherId} className="inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
-            <span className={`h-2 w-2 rounded-full ${COLORES[i % COLORES.length].punto}`} />
+          <span key={t.teacherId} className="inline-flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+            <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${COLORES[i % COLORES.length].linea}`} />
             {t.nombre} <strong className="tabular-nums">{cuentas[t.teacherId] ?? 0}</strong>
           </span>
         ))}
-        {huecos > 0 && (
-          <span className="inline-flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-300">
-            <span className="h-2 w-2 rounded-full bg-amber-400/60 ring-1 ring-amber-500" />
-            {huecos} sin asignar
-          </span>
-        )}
+        {huecos > 0 && <Estado tono="aviso">{huecos} sin asignar</Estado>}
       </div>
 
       {/* Acciones rápidas del reparto */}
-      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        <button
-          type="button"
-          onClick={() => aplicar(repartoPorMitades(ids, tutorIds))}
-          className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-700 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300"
-        >
-          <SplitSquareVertical className="h-3.5 w-3.5" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={() => aplicar(repartoPorMitades(ids, tutorIds))}>
+          <SplitSquareVertical aria-hidden />
           {tutores.length > 2 ? 'Repartir en partes iguales' : 'Repartir por mitades'}
-        </button>
-        <button
-          type="button"
-          onClick={() => aplicar(invertirReparto(reparto, tutorIds))}
-          className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-        >
-          <ArrowUpDown className="h-3.5 w-3.5" /> Invertir el orden
-        </button>
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => aplicar(invertirReparto(reparto, tutorIds))}>
+          <ArrowUpDown aria-hidden /> Invertir el orden
+        </Button>
         {huecos > 0 && huecos < ids.length && (
-          <button
-            type="button"
-            onClick={() => aplicar(completarHuecos(ids, reparto))}
-            className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300"
-          >
-            <UserPlus className="h-3.5 w-3.5" /> Completar los {huecos} que faltan
-          </button>
+          <Button variant="outline" size="sm" onClick={() => aplicar(completarHuecos(ids, reparto))}>
+            <UserPlus aria-hidden /> Completar los {huecos} que faltan
+          </Button>
         )}
-        <button
-          type="button"
-          onClick={() => aplicar(Object.fromEntries(ids.map((id) => [id, null])))}
-          className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-        >
-          <Eraser className="h-3.5 w-3.5" /> Limpiar
-        </button>
-        <span className="ml-auto text-zinc-400">
+        <Button variant="ghost" size="sm" onClick={() => aplicar(Object.fromEntries(ids.map((id) => [id, null])))}>
+          <Eraser aria-hidden /> Limpiar
+        </Button>
+        <span className="ml-auto text-sm text-zinc-500 dark:text-zinc-400" aria-live="polite">
           {guardando ? (
-            <span className="inline-flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> Guardando…
+            <span className="inline-flex items-center gap-1.5">
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Guardando…
             </span>
           ) : guardado ? (
-            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-              <Check className="h-3 w-3" /> Guardado
-            </span>
+            <Estado tono="ok" icono={<Check aria-hidden />}>
+              Guardado
+            </Estado>
           ) : null}
         </span>
       </div>
 
       {datos.descolgados > 0 && (
-        <p className="rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+        <Aviso tono="aviso">
           {datos.descolgados} {datos.descolgados === 1 ? 'alumno tenía' : 'alumnos tenían'} como tutor personal a
           alguien que ya no tutoriza esta clase. Se ha dejado en blanco: reasígnalo.
-        </p>
+        </Aviso>
       )}
 
-      <p className="text-[11px] leading-snug text-zinc-400">
-        Haz clic en la línea entre dos alumnos para cortar ahí: de ese punto hacia arriba son de un tutor y hacia
-        abajo del otro (al pasar por encima se ve cómo quedaría). Y haz clic en un tutor de cualquier fila para
-        cambiar solo a ese alumno, o con <kbd className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Mayús</kbd> para
-        asignar de golpe todo el tramo desde el último que tocaste.
+      <p className="text-sm leading-snug text-zinc-600 dark:text-zinc-400">
+        Toca la línea entre dos alumnos para cortar ahí: de ese punto hacia arriba son de un tutor y hacia abajo del
+        otro (con ratón, al pasar por encima se ve cómo quedaría). Y toca un tutor en cualquier fila para cambiar solo
+        a ese alumno, o con <kbd className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Mayús</kbd> para asignar de
+        golpe todo el tramo desde el último que tocaste.
       </p>
 
       {/* La lista, en orden alfabético (el mismo que se usa para repartir) */}
@@ -320,16 +300,17 @@ export function RepartoAlumnos({
                   onSalir={() => setEnElAire((n) => (n === i ? null : n))}
                 />
               )}
-              <div className="flex items-center gap-2 py-0.5">
+              <div className="flex items-center gap-2">
                 {/* Barra de color: quién lleva a este alumno de un vistazo, sin leer chips */}
                 <span
-                  className={`h-5 w-1 shrink-0 rounded-full transition-colors ${color?.linea ?? 'bg-zinc-200 dark:bg-zinc-700'} ${
+                  aria-hidden
+                  className={`h-6 w-1 shrink-0 rounded-full transition-colors ${color?.linea ?? 'bg-zinc-200 dark:bg-zinc-700'} ${
                     cambiaEnLaPrevia ? 'opacity-60' : ''
                   }`}
                 />
-                <span className="w-5 shrink-0 text-right text-[11px] tabular-nums text-zinc-400">{i + 1}</span>
+                <span className="w-5 shrink-0 text-right text-xs tabular-nums text-zinc-500 dark:text-zinc-400">{i + 1}</span>
                 <span
-                  className={`min-w-0 flex-1 truncate text-xs ${
+                  className={`min-w-0 flex-1 truncate text-sm ${
                     indiceDe(reparto[a.id]) >= 0
                       ? 'text-zinc-800 dark:text-zinc-100'
                       : 'text-zinc-500 italic dark:text-zinc-400'
@@ -337,7 +318,7 @@ export function RepartoAlumnos({
                 >
                   {a.nombre}
                 </span>
-                <span className="flex shrink-0 gap-1">
+                <span className="flex shrink-0 gap-1.5">
                   {tutores.map((t, j) => {
                     const activo = reparto[a.id] === t.teacherId;
                     const c = COLORES[j % COLORES.length];
@@ -346,10 +327,12 @@ export function RepartoAlumnos({
                         key={t.teacherId}
                         type="button"
                         aria-pressed={activo}
-                        title={`${t.nombre} · clic para asignarle este alumno, Mayús+clic para el tramo entero`}
+                        aria-label={`${t.nombre} para ${a.nombre}`}
                         onClick={(e) => tocarChip(i, t.teacherId, e.shiftKey)}
-                        className={`cursor-pointer rounded-full px-2 py-1 text-[11px] font-medium ring-1 transition-colors ${
-                          activo ? c.activo : `bg-white ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700 ${c.suave}`
+                        className={`h-10 cursor-pointer rounded-full px-3 text-xs outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                          activo
+                            ? c.activo
+                            : 'bg-white font-medium text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800'
                         }`}
                       >
                         {etiquetaCorta(t.nombre)}
@@ -364,33 +347,28 @@ export function RepartoAlumnos({
       </ul>
 
       {/* Confirmación de "esto ya está revisado para este curso" */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
         {datos.confirmadoAt ? (
           <>
-            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-              <Check className="h-3.5 w-3.5" /> Reparto confirmado el{' '}
-              {new Date(datos.confirmadoAt).toLocaleDateString('es-ES')}
+            <Estado tono="ok" icono={<Check aria-hidden />}>
+              Reparto confirmado el {new Date(datos.confirmadoAt).toLocaleDateString('es-ES')}
               {datos.confirmadoPor ? ` por ${datos.confirmadoPor}` : ''}
-            </span>
-            <button
-              type="button"
-              disabled={confirmando}
-              onClick={() => void confirmar(false)}
-              className="text-zinc-400 underline hover:text-zinc-600 disabled:opacity-50 dark:hover:text-zinc-300"
-            >
+            </Estado>
+            <Button variant="ghost" size="sm" disabled={confirmando} onClick={() => void confirmar(false)}>
               Quitar la confirmación
-            </button>
+            </Button>
           </>
         ) : (
-          <button
-            type="button"
-            disabled={confirmando || guardando}
+          <Button
+            variant="outline"
+            size="sm"
+            cargando={confirmando}
+            disabled={guardando}
             onClick={() => void confirmar(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {confirmando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            {!confirmando && <Check aria-hidden />}
             Confirmar el reparto de este curso
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -437,7 +415,7 @@ function Corte({
       onFocus={onEntrar}
       onBlur={onSalir}
       aria-label={`Cortar aquí: los ${numero} de arriba para un tutor y los ${total - numero} de abajo para otro`}
-      className="group relative flex h-5 w-full cursor-pointer items-center px-1 focus:outline-none"
+      className="group relative flex h-6 w-full cursor-pointer items-center rounded-md px-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <span
         className={
@@ -447,12 +425,13 @@ function Corte({
         }
       />
       {etiqueta && arriba && abajo && (
-        <span className="absolute left-7 whitespace-nowrap rounded-full bg-white px-1.5 text-[10px] font-medium text-zinc-500 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+        <span className="absolute left-7 whitespace-nowrap rounded-full bg-white px-2 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
           {numero} ↑ {etiquetaCorta(arriba)} · {total - numero} ↓ {etiquetaCorta(abajo)}
         </span>
       )}
       <Scissors
-        className={`absolute right-1.5 h-3 w-3 transition-colors ${
+        aria-hidden
+        className={`absolute right-1.5 h-3.5 w-3.5 transition-colors ${
           esCorte || enElAire ? 'text-zinc-500 dark:text-zinc-300' : 'text-zinc-300 dark:text-zinc-600'
         }`}
       />

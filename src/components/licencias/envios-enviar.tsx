@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Eye, Loader2, Save, Send, TestTube2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useConfirmar } from '@/components/ui/confirmar';
 import { haptic } from '@/lib/haptics';
 import { VARIABLES_LICENCIA, type Destino, type LicenciaFila, type TipoLicencia } from '@/lib/licencias-envios';
 
@@ -67,6 +68,7 @@ export function EnviosEnviar({
   onHecho,
 }: Props) {
   const preset = presets.find((p) => p.clave === tipo) ?? presets[0];
+  const { pedirTexto, dialogo } = useConfirmar();
   const [asunto, setAsunto] = useState(preset?.subject ?? '');
   const [cuerpo, setCuerpo] = useState(preset?.body ?? '');
   const [fusionar, setFusionar] = useState(false);
@@ -222,7 +224,7 @@ export function EnviosEnviar({
   }
 
   async function guardarPlantilla() {
-    const nombre = prompt('Nombre de la plantilla');
+    const nombre = await pedirTexto({ titulo: 'Guardar la plantilla', etiqueta: 'Nombre de la plantilla', boton: 'Guardar plantilla' });
     if (!nombre) return;
     setOcupado('guardar');
     try {
@@ -494,6 +496,7 @@ export function EnviosEnviar({
               : `${forzar ? 'Reenviar' : 'Enviar'} ${correos} correo(s)`}
           </button>
         </div>
+        {dialogo}
       </DialogContent>
     </Dialog>
   );

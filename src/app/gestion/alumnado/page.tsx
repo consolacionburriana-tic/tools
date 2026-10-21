@@ -49,6 +49,7 @@ export default async function AlumnadoPage({
 
   return (
     <div className="space-y-3">
+      <h1 className="sr-only">Alumnado</h1>
       <ResumenAlumnado total={alumnos.length} clases={clases.length} etapas={alcance.etapas} />
       <AlumnadoPanel
         alumnos={alumnos}

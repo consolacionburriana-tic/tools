@@ -13,6 +13,10 @@ import { useState } from 'react';
 import { ChevronDown, IdCard, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { agruparProfes, type ProfeItem } from '@/lib/profes';
 
 export interface ProfeNombreUI extends ProfeItem {
@@ -32,32 +36,33 @@ export function NombresPanel({ profes }: { profes: ProfeNombreUI[] }) {
   const aMano = profes.filter((p) => p.nombreMostrado).length;
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+    <Tarjeta as="section">
       <button
         type="button"
+        aria-expanded={abierto}
         onClick={() => setAbierto((v) => !v)}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left"
+        className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <IdCard className="h-4 w-4 text-zinc-400" />
+        <IdCard aria-hidden className="h-5 w-5 shrink-0 text-zinc-400" />
         <span className="flex-1">
-          <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Nombre visible</span>
-          <span className="block text-xs text-zinc-500">
+          <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Nombre visible</span>
+          <span className="block text-sm text-zinc-500 dark:text-zinc-400">
             Cómo sale cada profe en el ASM, el cuaderno, los correos y los paneles
             {aMano > 0 ? ` · ${aMano} escrito(s) a mano` : ''}
           </span>
         </span>
-        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${abierto ? 'rotate-180' : ''}`} />
       </button>
 
       {abierto && (
         <div className="space-y-4 border-t border-zinc-100 px-4 py-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
             Escribe solo el <strong>nombre</strong> (los apellidos salen solos). Déjalo en blanco y se usa el que se
             saca de Educamos.
           </p>
           {grupos.map((grupo) => (
             <div key={grupo.clave}>
-              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-400">{grupo.label}</h3>
+              <Rotulo as="h3" className="mb-1.5">{grupo.label}</Rotulo>
               <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {grupo.items.map((profe) => (
                   <FilaProfe key={profe.id} profe={profe} />
@@ -67,7 +72,7 @@ export function NombresPanel({ profes }: { profes: ProfeNombreUI[] }) {
           ))}
         </div>
       )}
-    </section>
+    </Tarjeta>
   );
 }
 
@@ -107,33 +112,36 @@ function FilaProfe({ profe }: { profe: ProfeNombreUI }) {
         <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">
           {[pila, profe.apellidos].filter(Boolean).join(' ')}
         </p>
-        <p className="truncate text-[11px] text-zinc-400">
+        <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
           Educamos: {profe.educamos}
           {profe.esTutor && profe.claseTutor ? ` · tutor/a de ${profe.claseTutor}` : ''}
         </p>
       </div>
       <div className="flex items-center gap-1.5">
-        <input
+        <Input
           value={valor}
           onChange={(e) => setValor(e.target.value)}
           onBlur={(e) => void guardar(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           placeholder={profe.pilaSugerida}
           aria-label={`Nombre visible de ${profe.educamos}`}
-          className="w-36 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
+          className="h-10 w-40"
         />
         {guardando ? (
-          <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+          <span className="flex size-10 items-center justify-center">
+            <Loader2 aria-label="Guardando" className="h-4 w-4 animate-spin text-zinc-400" />
+          </span>
         ) : (
           guardado !== '' && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => void guardar('')}
+              aria-label="Volver al nombre de Educamos"
               title="Volver al nombre de Educamos"
-              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
+              <RotateCcw aria-hidden />
+            </Button>
           )
         )}
       </div>

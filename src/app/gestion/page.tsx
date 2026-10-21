@@ -22,6 +22,8 @@ import { herramientasDe, saludo } from '@/lib/escritorio';
 import { CONFIGURACION } from '@/lib/configuracion';
 import { Escritorio, type Aviso, type Cifra } from '@/components/home/escritorio';
 import { SelectorTema } from '@/components/home/selector-tema';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { BarraSuperior } from '@/components/ui/cabecera-modulo';
 
 export const metadata = { title: 'Escritorio · Tools Consolación' };
 
@@ -144,25 +146,23 @@ export default async function EscritorioPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/90">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+      <BarraSuperior
+        ancho="ancho"
+        izquierda={
           <div className="flex min-w-0 items-center gap-3">
             <Image src="/logobur.png" alt="" width={36} height={36} className="h-9 w-auto shrink-0 rounded-lg bg-white" />
             <div className="min-w-0">
-              <p className="truncate font-semibold text-zinc-900 dark:text-zinc-100">Tools Consolación</p>
-              <p className="truncate text-xs text-zinc-500">
+              <p className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">Tools Consolación</p>
+              <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                 {user.nombre ?? user.email} · {ROLE_LABELS[user.role]}
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/?vista=familia"
-              title="Ver la portada como la ve una familia, sin sesión"
-              aria-label="Ver como familia"
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              <Eye className="h-4 w-4" /> <span className="hidden md:inline">Ver como familia</span>
+        }
+        derecha={
+          <>
+            <Link href="/?vista=familia" aria-label="Ver la portada como la ve una familia" className={buttonVariants({ variant: 'outline', size: 'sm', className: 'px-3' })}>
+              <Eye aria-hidden /> <span className="hidden md:inline">Ver como familia</span>
             </Link>
             <SelectorTema />
             <form
@@ -171,16 +171,13 @@ export default async function EscritorioPage() {
                 await signOut({ redirectTo: '/gestion/login' });
               }}
             >
-              <button
-                aria-label="Salir"
-                className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <LogOut className="h-4 w-4" /> <span className="hidden md:inline">Salir</span>
-              </button>
+              <Button type="submit" variant="outline" size="sm" aria-label="Salir" className="px-3">
+                <LogOut aria-hidden /> <span className="hidden md:inline">Salir</span>
+              </Button>
             </form>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <Escritorio
         saludo={pila ? `${saludo(ahora, ZONA)}, ${pila}` : saludo(ahora, ZONA)}

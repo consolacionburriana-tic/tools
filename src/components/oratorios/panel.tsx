@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import { Segmentado } from '@/components/ui/segmentado';
 import { crearContexto, nivelesDeTipo, PESTANAS_ORA, type Disponibilidad, type SesionCatalogo, type SesionOra, type TipoMomento } from '@/lib/oratorios';
 import type { AjustesOra, DatosPanel } from '@/lib/oratorios-server';
 import { api } from './comun';
@@ -120,7 +121,6 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
 
   function cambiarPestana(p: Pestana) {
     setPestana(p);
-    haptic.tap();
     const url = new URL(window.location.href);
     url.searchParams.set('tab', p);
     window.history.replaceState(null, '', url);
@@ -156,24 +156,17 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
 
   return (
     <div className="space-y-4">
-      <nav className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
-        {PESTANAS.map((p) => (
-          <button
-            key={p.clave}
-            type="button"
-            onClick={() => cambiarPestana(p.clave)}
-            className={cn(
-              'inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition-colors',
-              pestana === p.clave
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800',
-            )}
-          >
-            <p.Icono className="h-4 w-4" aria-hidden />
-            <span className={cn(pestana === p.clave ? 'inline' : 'hidden sm:inline')}>{p.texto}</span>
-          </button>
-        ))}
-      </nav>
+      <Segmentado
+        etiqueta="Pantalla de oratorios"
+        valor={pestana}
+        onChange={cambiarPestana}
+        opciones={PESTANAS.map((p) => ({
+          valor: p.clave,
+          icono: <p.Icono aria-hidden />,
+          // En el móvil, solo la activa dice su nombre; las demás lo llevan para el lector.
+          etiqueta: <span className={cn(pestana !== p.clave && 'sr-only sm:not-sr-only')}>{p.texto}</span>,
+        }))}
+      />
 
       {pestana === 'planificar' && <Planificar e={estado} />}
       {pestana === 'sesiones' && <ListaSesiones e={estado} />}

@@ -6,6 +6,12 @@
 
 import { useMemo, useState } from 'react';
 import { Plus, Tablet, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
+import { Input } from '@/components/ui/input';
+import { Tarjeta } from '@/components/ui/tarjeta';
+import { Plegable } from '@/components/autoasm/entrega';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cabecerasDe, type FilaCsv } from '@/lib/autoasm';
@@ -85,42 +91,42 @@ export function PanelCompartidas({
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <button type="button" onClick={() => setAbierto((v) => !v)} className="flex w-full items-center justify-between gap-2 p-4 text-left">
-        <span className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-          <Tablet className="h-4 w-4 text-zinc-400" /> Cuentas de iPad compartido
-        </span>
-        <span className="text-xs text-zinc-500">
-          {cuentas.length === 0 ? 'ninguna' : `${num(cuentas.length)}${grupos.length > 0 ? ` · ${grupos.join(', ')}` : ''}`}
-        </span>
-      </button>
+    <Tarjeta>
+      <Plegable
+        abierto={abierto}
+        onClick={() => setAbierto((v) => !v)}
+        icono={<Tablet />}
+        titulo="Cuentas de iPad compartido"
+        resumen={cuentas.length === 0 ? 'Ninguna' : `${num(cuentas.length)}${grupos.length > 0 ? ` · ${grupos.join(', ')}` : ''}`}
+      />
 
       {abierto && (
-        <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">
+        <div className="space-y-3 border-t border-zinc-100 p-4 dark:border-zinc-800">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
             El sync de la BBDD central no las toca ni las archiva nunca: solo se tocan aquí.
           </p>
 
           {cuentas.length > 0 && (
-            <ul className="mt-3 divide-y divide-zinc-100 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+            <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
               {cuentas.map((cuenta) => (
-                <li key={cuenta.person_id} className="flex items-center gap-3 px-3 py-2">
+                <li key={cuenta.person_id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-zinc-900 dark:text-zinc-100">{cuenta.first_name}</span>
-                    <span className="block truncate font-mono text-[11px] text-zinc-400">{cuenta.person_id} · {cuenta.grade_level}</span>
+                    <span className="block truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                      {cuenta.person_id} · {cuenta.grade_level}
+                    </span>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!confirm(`Quitar ${cuenta.person_id} del fichero. En ASM desaparece esa cuenta compartida. ¿Seguimos?`)) return;
+                  <ConfirmarEnLinea
+                    etiqueta="Quitar"
+                    icono={<Trash2 />}
+                    variante="ghost"
+                    pregunta={`¿Quitar ${cuenta.person_id}? En ASM desaparece esa cuenta compartida.`}
+                    confirmar="Sí, quitar"
+                    onConfirmar={() => {
                       onGuardar(darDeBaja(proyecto, cuenta.person_id));
                       haptic.warning();
                     }}
-                    className="rounded-lg p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                    aria-label={`Quitar ${cuenta.person_id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  />
                 </li>
               ))}
             </ul>
@@ -128,7 +134,7 @@ export function PanelCompartidas({
 
           {anadiendo ? (
             <form
-              className="mt-3 grid gap-3 sm:grid-cols-4"
+              className="grid gap-3 sm:grid-cols-4"
               onSubmit={(e) => {
                 e.preventDefault();
                 const datos = new FormData(e.currentTarget);
@@ -140,45 +146,37 @@ export function PanelCompartidas({
                 });
               }}
             >
-              <label className="block">
-                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Identificador</span>
-                <input name="prefijo" required defaultValue="aluprimaria" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Nombre visible</span>
-                <input name="nombre" required defaultValue="Alu Primaria" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Grupo</span>
-                <input name="grupo" required defaultValue={grupos[0] ?? 'Primaria Compartido'} list="grupos-compartidos" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
+              <Campo etiqueta="Identificador" id="comp-prefijo">
+                <Input id="comp-prefijo" name="prefijo" required defaultValue="aluprimaria" autoCapitalize="none" />
+              </Campo>
+              <Campo etiqueta="Nombre visible" id="comp-nombre">
+                <Input id="comp-nombre" name="nombre" required defaultValue="Alu Primaria" />
+              </Campo>
+              <Campo etiqueta="Grupo" id="comp-grupo">
+                <Input id="comp-grupo" name="grupo" required defaultValue={grupos[0] ?? 'Primaria Compartido'} list="grupos-compartidos" />
                 <datalist id="grupos-compartidos">
-                  {grupos.map((g) => <option key={g} value={g} />)}
+                  {grupos.map((g) => (
+                    <option key={g} value={g} />
+                  ))}
                 </datalist>
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Cuántas</span>
-                <input name="cuantas" type="number" min={1} max={60} defaultValue={5} className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
-              </label>
-              <div className="sm:col-span-4">
-                <button type="submit" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900">
-                  Crear cuentas
-                </button>
-                <button type="button" onClick={() => setAnadiendo(false)} className="ml-2 min-h-11 rounded-xl px-3 text-sm text-zinc-500">
+              </Campo>
+              <Campo etiqueta="Cuántas" id="comp-cuantas">
+                <Input id="comp-cuantas" name="cuantas" type="number" min={1} max={60} defaultValue={5} />
+              </Campo>
+              <div className="flex flex-wrap gap-2 sm:col-span-4">
+                <Button type="submit">Crear cuentas</Button>
+                <Button type="button" variant="ghost" onClick={() => setAnadiendo(false)}>
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
           ) : (
-            <button
-              type="button"
-              onClick={() => setAnadiendo(true)}
-              className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              <Plus className="h-4 w-4" /> Añadir cuentas
-            </button>
+            <Button variant="outline" onClick={() => setAnadiendo(true)}>
+              <Plus /> Añadir cuentas
+            </Button>
           )}
         </div>
       )}
-    </div>
+    </Tarjeta>
   );
 }

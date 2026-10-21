@@ -276,23 +276,7 @@ export function porOrden<T extends { orden: number; createdAt?: string }>(a: T, 
 
 // ─── Personas ────────────────────────────────────────────────────────────────
 
-/** `Ana Pérez` → `AP` · `David` → `DA` · correo suelto → sus dos primeras letras. */
-export function iniciales(nombre: string | null | undefined, email?: string | null): string {
-  const limpio = (nombre ?? '').trim();
-  if (limpio) {
-    const trozos = limpio.split(/\s+/).filter((t) => /\p{L}/u.test(t));
-    if (trozos.length >= 2) return (trozos[0][0] + trozos[1][0]).toUpperCase();
-    if (trozos.length === 1) return trozos[0].slice(0, 2).toUpperCase();
-  }
-  return (email ?? '?').slice(0, 2).toUpperCase();
-}
-
-/** Índice de color estable por persona (el mismo círculo de color en todas partes). */
-export function indiceColorPersona(email: string, colores: number): number {
-  let h = 0;
-  for (const c of email.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return h % colores;
-}
+export { iniciales, indiceColorPersona } from '@/lib/personas';
 
 /** El nombre que se enseña de alguien: el de la lista de miembros o, si ya no está, su correo. */
 export function nombreDe(email: string, personas: readonly Persona[]): string {

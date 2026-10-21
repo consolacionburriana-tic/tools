@@ -6,9 +6,19 @@
 // Manager, que hoy David hace a mano y aquí es un paso opcional.
 
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Download, History, Loader2, Lock, Send, Server, TriangleAlert } from 'lucide-react';
+import { ChevronDown, CircleCheck, Download, History, Lock, Send, Server, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { Estado, type TonoEstado } from '@/components/ui/estado';
+import { Input } from '@/components/ui/input';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta } from '@/components/ui/tarjeta';
 import { ESPEC, ORDEN_ARCHIVOS, serializarArchivo, type ArchivoAsm } from '@/lib/autoasm';
 import type { ProyectoAsm } from '@/lib/autoasm-construir';
 import { descargarZip, nombreZip } from '@/components/autoasm/descargas';
@@ -39,10 +49,10 @@ interface ConfigFtp {
   actualizado: string | null;
 }
 
-const MODOS: Record<EntregaApi['modo'], { texto: string; clase: string }> = {
-  ftp: { texto: 'subido por FTP', clase: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' },
-  manual: { texto: 'subido a mano', clase: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' },
-  descargado: { texto: 'solo descargado', clase: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' },
+const MODOS: Record<EntregaApi['modo'], { texto: string; tono: TonoEstado }> = {
+  ftp: { texto: 'Subido por FTP', tono: 'ok' },
+  manual: { texto: 'Subido a mano', tono: 'ok' },
+  descargado: { texto: 'Solo descargado', tono: 'aviso' },
 };
 
 export function PanelEntrega({
@@ -194,72 +204,74 @@ export function PanelEntrega({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex flex-wrap items-center gap-2">
-          <Opcion activo={csv?.delimitador === ','} onClick={() => csv && onOpciones({ ...csv, delimitador: ',' })} titulo="Separado por comas" nota="lo que pide Apple" />
-          <Opcion activo={csv?.delimitador === ';'} onClick={() => csv && onOpciones({ ...csv, delimitador: ';' })} titulo="Separado por puntos y coma" nota="como los abre Excel en español" />
-          <Opcion activo={csv?.bom === true} onClick={() => csv && onOpciones({ ...csv, bom: !csv.bom })} titulo="Con BOM" nota="tildes correctas al abrir en Excel" />
+      <Tarjeta className="space-y-4 p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Separador</p>
+            <Segmentado
+              etiqueta="Separador de los CSV"
+              valor={csv?.delimitador ?? null}
+              disabled={!csv}
+              onChange={(v) => csv && onOpciones({ ...csv, delimitador: v })}
+              opciones={[
+                { valor: ',', etiqueta: 'Comas' },
+                { valor: ';', etiqueta: 'Puntos y coma' },
+              ]}
+            />
+          </div>
+          <Interruptor
+            activo={csv?.bom === true}
+            disabled={!csv}
+            onChange={(v) => csv && onOpciones({ ...csv, bom: v })}
+            etiqueta="Con BOM"
+            descripcion="Tildes correctas al abrir en Excel"
+            className="self-end"
+          />
         </div>
-        <p className="mt-3 text-xs text-zinc-500">
-          Para subir a Apple School Manager, comas y sin BOM. El punto y coma solo si vas a revisarlo antes en Excel.
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Para subir a Apple School Manager, comas y sin BOM (lo que pide Apple). El punto y coma y el BOM, solo si vas a
+          revisarlo antes en Excel en español.
         </p>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={descargar}
-            disabled={!proyecto || trabajando !== null || totalFilas === 0}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40"
-          >
-            {trabajando === 'zip' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={descargar} disabled={!proyecto || trabajando !== null || totalFilas === 0} cargando={trabajando === 'zip'}>
+            {trabajando !== 'zip' && <Download />}
             Descargar el ZIP {totalFilas > 0 && `· ${num(totalFilas)} filas`}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
             onClick={subirPorFtp}
             disabled={!proyecto || trabajando !== null || totalFilas === 0 || !config}
-            title={config ? `Subir a ${config.host}` : 'Configura antes el FTP'}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-300 px-5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-40 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+            cargando={trabajando === 'ftp'}
           >
-            {trabajando === 'ftp' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Subir por FTP
-          </button>
+            {trabajando !== 'ftp' && <Send />}
+            {config ? `Subir por FTP a ${config.host}` : 'Subir por FTP'}
+          </Button>
+          {!config && <span className="text-sm text-zinc-500 dark:text-zinc-400">Configura antes el FTP (abajo).</span>}
         </div>
 
         {errores > 0 && (
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
-            <TriangleAlert className="h-3.5 w-3.5" /> Puedes descargarlo igual, pero con {errores} error(es) ASM lo rechazará.
+          <p className="flex items-center gap-1.5 text-sm text-red-700 dark:text-red-400">
+            <TriangleAlert aria-hidden className="h-4 w-4 shrink-0" /> Puedes descargarlo igual, pero con {errores}{' '}
+            {errores === 1 ? 'error' : 'errores'} ASM lo rechazará.
           </p>
         )}
 
         {pendiente && (
-          <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-500/5">
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">¿Y este fichero, quién lo sube?</p>
-            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-              Queda apuntado como “solo descargado” hasta que se suba. Dilo aquí y el histórico dirá la verdad.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={marcarManual}
-                disabled={trabajando !== null}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-              >
-                {trabajando === 'manual' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          <Aviso tono="info" titulo="¿Y este fichero, quién lo sube?">
+            <p>Queda apuntado como «solo descargado» hasta que se suba. Dilo aquí y el histórico dirá la verdad.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" onClick={subirPorFtp} disabled={trabajando !== null || !config}>
+                <Send /> Súbelo tú por FTP
+              </Button>
+              <Button size="sm" variant="outline" onClick={marcarManual} disabled={trabajando !== null} cargando={trabajando === 'manual'}>
+                {trabajando !== 'manual' && <CircleCheck />}
                 Lo subo yo a mano
-              </button>
-              <button
-                type="button"
-                onClick={subirPorFtp}
-                disabled={trabajando !== null || !config}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
-              >
-                <Send className="h-4 w-4" /> Súbelo tú por FTP
-              </button>
+              </Button>
             </div>
-          </div>
+          </Aviso>
         )}
-      </div>
+      </Tarjeta>
 
       <FormularioFtp
         config={config}
@@ -268,31 +280,24 @@ export function PanelEntrega({
         onGuardado={(c) => { setConfig(c); setVerFormFtp(false); }}
       />
 
-      <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <button
-          type="button"
+      <Tarjeta>
+        <Plegable
+          abierto={verHistorico}
           onClick={() => setVerHistorico((v) => !v)}
-          className="flex w-full items-center justify-between gap-2 p-4 text-left"
-        >
-          <span className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            <History className="h-4 w-4 text-zinc-400" /> Histórico de entregas
-          </span>
-          <span className="text-xs text-zinc-500">
-            {entregas.length === 0 ? 'todavía ninguna' : `${num(entregas.length)} apuntadas`}
-          </span>
-        </button>
+          icono={<History />}
+          titulo="Histórico de entregas"
+          resumen={entregas.length === 0 ? 'Todavía ninguna' : `${num(entregas.length)} apuntadas`}
+        />
         {verHistorico && entregas.length > 0 && (
-          <ul className="divide-y divide-zinc-100 border-t border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          <ul className="divide-y divide-zinc-100 border-t border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
             {entregas.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-baseline gap-2 p-3 text-sm">
-                <span className="text-zinc-900 dark:text-zinc-100">
+              <li key={e.id} className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm">
+                <span className="text-zinc-900 tabular-nums dark:text-zinc-100">
                   {new Date(e.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${MODOS[e.modo].clase}`}>{MODOS[e.modo].texto}</span>
-                {e.estado === 'error' && (
-                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-300">falló</span>
-                )}
-                <span className="text-xs text-zinc-500">
+                <Estado tono={MODOS[e.modo].tono}>{MODOS[e.modo].texto}</Estado>
+                {e.estado === 'error' && <Estado tono="error">Falló</Estado>}
+                <span className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
                   {num(e.alumnos)} alumnos · {num(e.clases)} clases · {num(e.matriculas)} matrículas
                   {e.quien && ` · ${e.quien}`}
                 </span>
@@ -300,24 +305,38 @@ export function PanelEntrega({
             ))}
           </ul>
         )}
-      </div>
+      </Tarjeta>
     </div>
   );
 }
 
-function Opcion({ activo, onClick, titulo, nota }: { activo: boolean; onClick: () => void; titulo: string; nota: string }) {
+/** La cabecera de una tarjeta que se abre y se cierra (FTP, histórico, iPads compartidos). */
+export function Plegable({
+  abierto,
+  onClick,
+  icono,
+  titulo,
+  resumen,
+}: {
+  abierto: boolean;
+  onClick: () => void;
+  icono: React.ReactNode;
+  titulo: string;
+  resumen: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`min-h-11 rounded-xl border px-3 text-left text-sm transition-colors ${
-        activo
-          ? 'border-blue-400 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-500/10 dark:text-blue-200'
-          : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
-      }`}
+      aria-expanded={abierto}
+      className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      <span className="block font-medium">{titulo}</span>
-      <span className="block text-[11px] opacity-70">{nota}</span>
+      <span aria-hidden className="text-zinc-500 dark:text-zinc-400 [&_svg]:size-4">
+        {icono}
+      </span>
+      <span className="min-w-0 flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</span>
+      <span className="min-w-0 truncate text-right text-sm text-zinc-500 dark:text-zinc-400">{resumen}</span>
+      <ChevronDown aria-hidden className={cn('h-4 w-4 shrink-0 text-zinc-500 transition-transform', abierto && 'rotate-180')} />
     </button>
   );
 }
@@ -367,63 +386,50 @@ function FormularioFtp({
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <button type="button" onClick={onAbrir} className="flex w-full items-center justify-between gap-2 p-4 text-left">
-        <span className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-          <Server className="h-4 w-4 text-zinc-400" /> FTP de Apple School Manager
-        </span>
-        <span className="text-xs text-zinc-500">
-          {config ? `${config.protocolo.toUpperCase()} · ${config.host}${config.ruta}` : 'sin configurar'}
-        </span>
-      </button>
+    <Tarjeta>
+      <Plegable
+        abierto={abierto}
+        onClick={onAbrir}
+        icono={<Server />}
+        titulo="FTP de Apple School Manager"
+        resumen={config ? `${config.protocolo.toUpperCase()} · ${config.host}${config.ruta}` : 'Sin configurar'}
+      />
 
       {abierto && (
-        <form onSubmit={enviar} className="space-y-3 border-t border-zinc-200 p-4 dark:border-zinc-800">
+        <form onSubmit={enviar} className="space-y-3 border-t border-zinc-100 p-4 dark:border-zinc-800">
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Protocolo</span>
-              <select name="protocolo" defaultValue={config?.protocolo ?? 'ftps'} className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+            <Campo etiqueta="Protocolo" id="ftp-protocolo">
+              <Selector id="ftp-protocolo" name="protocolo" defaultValue={config?.protocolo ?? 'ftps'}>
                 <option value="ftps">FTPS (FTP sobre TLS)</option>
                 <option value="ftp">FTP</option>
                 <option value="sftp">SFTP (por SSH)</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Servidor</span>
-              <input name="host" required defaultValue={config?.host ?? ''} placeholder="ftp.escuela.com" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Puerto <span className="opacity-60">(vacío = el de siempre)</span></span>
-              <input name="puerto" type="number" min={1} max={65535} defaultValue={config?.puerto ?? ''} className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Usuario</span>
-              <input name="usuario" required defaultValue={config?.usuario ?? ''} className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                Contraseña {config && <span className="opacity-60">(vacía = no la cambies)</span>}
-              </span>
-              <input name="password" type="password" autoComplete="new-password" required={!config} className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Carpeta remota</span>
-              <input name="ruta" defaultValue={config?.ruta ?? '/'} className="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
-            </label>
+              </Selector>
+            </Campo>
+            <Campo etiqueta="Servidor" id="ftp-host">
+              <Input id="ftp-host" name="host" required defaultValue={config?.host ?? ''} placeholder="ftp.escuela.com" />
+            </Campo>
+            <Campo etiqueta="Puerto" id="ftp-puerto" ayuda="Vacío = el de siempre.">
+              <Input id="ftp-puerto" name="puerto" type="number" min={1} max={65535} defaultValue={config?.puerto ?? ''} />
+            </Campo>
+            <Campo etiqueta="Usuario" id="ftp-usuario">
+              <Input id="ftp-usuario" name="usuario" required defaultValue={config?.usuario ?? ''} autoCapitalize="none" />
+            </Campo>
+            <Campo etiqueta="Contraseña" id="ftp-password" ayuda={config ? 'Vacía = no la cambies.' : undefined}>
+              <Input id="ftp-password" name="password" type="password" autoComplete="new-password" required={!config} />
+            </Campo>
+            <Campo etiqueta="Carpeta remota" id="ftp-ruta">
+              <Input id="ftp-ruta" name="ruta" defaultValue={config?.ruta ?? '/'} />
+            </Campo>
           </div>
-          <p className="flex items-start gap-1.5 text-xs text-zinc-500">
-            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p className="flex items-start gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+            <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
             La contraseña se guarda cifrada (AES-256-GCM) y no vuelve a salir de Neon: al editar, este campo siempre aparece vacío.
           </p>
-          <button
-            type="submit"
-            disabled={guardando}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            {guardando && <Loader2 className="h-4 w-4 animate-spin" />} Guardar el FTP
-          </button>
+          <Button type="submit" cargando={guardando}>
+            Guardar el FTP
+          </Button>
         </form>
       )}
-    </div>
+    </Tarjeta>
   );
 }

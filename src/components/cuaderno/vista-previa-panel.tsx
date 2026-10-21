@@ -9,9 +9,14 @@
 // quien haga falta, sin tocar Educamos.
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Eye, Loader2, Pencil, RotateCcw } from 'lucide-react';
+import { Check, Eye, Loader2, Pencil, RotateCcw, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
-import { Aviso, Tarjeta } from '@/components/cuaderno/cuaderno-panel';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { Input } from '@/components/ui/input';
+import { Selector } from '@/components/ui/selector';
+import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
 import { claseKey, type ClaseUI, type PlantillaUI } from '@/components/cuaderno/tipos';
 import { AMBITO_LABELS, type Ambito } from '@/lib/cuaderno/campos';
 import { haptic } from '@/lib/haptics';
@@ -75,7 +80,7 @@ export function VistaPreviaPanel({ plantillas, clases }: { plantillas: Plantilla
 
   if (utiles.length === 0) {
     return (
-      <Aviso tono="ambar">
+      <Aviso tono="aviso">
         Todavía no hay ninguna plantilla leída. Añade una en «Plantillas» y pulsa «Analizar».
       </Aviso>
     );
@@ -83,40 +88,30 @@ export function VistaPreviaPanel({ plantillas, clases }: { plantillas: Plantilla
 
   return (
     <div className="space-y-3">
-      <Tarjeta>
+      <Tarjeta className="p-4">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex-1 min-w-48 text-xs text-zinc-500">
-            Plantilla
-            <select
-              value={plantillaId}
-              onChange={(e) => setPlantillaId(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
+          <Campo etiqueta="Plantilla" id="vp-plantilla" className="min-w-48 flex-1">
+            <Selector id="vp-plantilla" value={plantillaId} onChange={(e) => setPlantillaId(e.target.value)}>
               {utiles.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.orden} · {p.nombre}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="flex-1 min-w-40 text-xs text-zinc-500">
-            Con los datos de
-            <select
-              value={clase}
-              onChange={(e) => setClase(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
+            </Selector>
+          </Campo>
+          <Campo etiqueta="Con los datos de" id="vp-clase" className="min-w-40 flex-1">
+            <Selector id="vp-clase" value={clase} onChange={(e) => setClase(e.target.value)}>
               {clases.map((c) => (
                 <option key={claseKey(c.curso, c.letra)} value={claseKey(c.curso, c.letra)}>
                   {c.clase} · {c.numAlumnos} alumnos
                 </option>
               ))}
-            </select>
-          </label>
-          {cargando && <Loader2 className="mb-2 h-4 w-4 animate-spin text-zinc-400" />}
+            </Selector>
+          </Campo>
+          {cargando && <Loader2 aria-label="Cargando" className="mb-3.5 h-4 w-4 animate-spin text-zinc-500" />}
         </div>
         {datos && (
-          <p className="mt-2 text-xs text-zinc-500">
+          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
             Ejemplo con {datos.ejemplo.alumno ?? 'sin alumnado'}
             {datos.ejemplo.tutor ? ` · tutor/a ${datos.ejemplo.tutor}` : ''} · {datos.ejemplo.clase}. Lo que se repite
             por alumno se enseña una vez; en el documento sale para cada uno.
@@ -124,10 +119,10 @@ export function VistaPreviaPanel({ plantillas, clases }: { plantillas: Plantilla
         )}
       </Tarjeta>
 
-      {error && <Aviso tono="ambar">{error}</Aviso>}
+      {error && <Aviso tono="aviso">{error}</Aviso>}
 
       {datos && datos.sinMapear.length > 0 && (
-        <Aviso tono="ambar">
+        <Aviso tono="aviso">
           <strong>{datos.sinMapear.length} etiqueta(s) de la plantilla no existen</strong>:{' '}
           {datos.sinMapear.map((e) => `<<${e}>>`).join(', ')}. Corrígelas en el Google Doc, o dales su campo en
           «Plantillas» → Analizar. Tal como están saldrán impresas en crudo.
@@ -145,42 +140,41 @@ export function VistaPreviaPanel({ plantillas, clases }: { plantillas: Plantilla
 function Campos({ campos }: { campos: CampoPrevisto[] }) {
   return (
     <Tarjeta>
-      <div className="flex items-center gap-2">
-        <Eye className="h-4 w-4 text-zinc-400" />
-        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-          Lo que va a salir <span className="text-zinc-400">· {campos.length} etiqueta(s)</span>
-        </h3>
-      </div>
-      <div className="mt-3 space-y-1">
+      <TarjetaCabecera
+        icono={<Eye />}
+        titulo="Lo que va a salir"
+        descripcion={`${campos.length} ${campos.length === 1 ? 'etiqueta' : 'etiquetas'}`}
+      />
+      <TarjetaCuerpo className="space-y-1">
         {campos.map((campo) => (
           <div
             key={campo.etiqueta}
             className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg px-2 py-1.5 text-xs ${
-              campo.problema ? 'bg-red-50 dark:bg-red-950/40' : 'odd:bg-zinc-50 dark:odd:bg-zinc-800/40'
+              campo.problema ? 'bg-red-50 dark:bg-red-500/10' : 'odd:bg-zinc-50 dark:odd:bg-zinc-800/40'
             }`}
           >
-            <code className="shrink-0 font-mono text-zinc-500">&lt;&lt;{campo.etiqueta}&gt;&gt;</code>
+            <code className="shrink-0 font-mono text-zinc-500 dark:text-zinc-400">&lt;&lt;{campo.etiqueta}&gt;&gt;</code>
             {campo.problema ? (
-              <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-                <AlertTriangle className="h-3.5 w-3.5" /> no existe ese campo
+              <span className="flex items-center gap-1 text-red-700 dark:text-red-400">
+                <TriangleAlert aria-hidden className="h-3.5 w-3.5" /> no existe ese campo
               </span>
             ) : campo.tipo !== 'campo' ? (
-              <span className="text-zinc-400">
+              <span className="text-zinc-500 dark:text-zinc-400">
                 {campo.tipo === 'filas' ? 'marca de fila repetible' : 'condición: el párrafo desaparece si no hay dato'}
               </span>
             ) : (
               <>
                 <span className="min-w-0 flex-1 font-medium text-zinc-900 dark:text-zinc-100">
-                  {campo.valor || <span className="font-normal italic text-zinc-400">(en blanco)</span>}
+                  {campo.valor || <span className="font-normal text-zinc-500 italic dark:text-zinc-400">(en blanco)</span>}
                 </span>
-                <span className="shrink-0 text-zinc-400">
+                <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
                   {campo.ambito ? (AMBITO_LABELS[campo.ambito as Ambito] ?? campo.ambito) : ''}
                 </span>
               </>
             )}
           </div>
         ))}
-      </div>
+      </TarjetaCuerpo>
     </Tarjeta>
   );
 }
@@ -206,16 +200,15 @@ function Tutores({
   if (tutores.length === 0) return null;
   return (
     <Tarjeta>
-      <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Cómo se llaman los tutores en las hojas</h3>
-      <p className="mt-1 text-xs text-zinc-500">
-        De Educamos llegan con todos sus nombres de pila y en mayúsculas. Si alguno no queda bien, escríbelo aquí
-        —solo para el cuaderno—; para cambiarlo en todas partes, el «Nombre visible» de Profesorado.
-      </p>
-      <div className="mt-3 space-y-2">
+      <TarjetaCabecera
+        titulo="Cómo se llaman los tutores en las hojas"
+        descripcion="De Educamos llegan con todos sus nombres de pila y en mayúsculas. Si alguno no queda bien, escríbelo aquí —solo para el cuaderno—; para cambiarlo en todas partes, el «Nombre visible» de Profesorado."
+      />
+      <TarjetaCuerpo className="space-y-2">
         {tutores.map((t) => (
           <TutorEditable key={t.teacherId} tutor={t} onCambio={onCambio} />
         ))}
-      </div>
+      </TarjetaCuerpo>
     </Tarjeta>
   );
 }
@@ -263,60 +256,57 @@ function TutorEditable({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{tutor.usual}</p>
-          <p className="truncate text-xs text-zinc-500">
+          <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
             en carpetas «{tutor.corto}»
             {tutor.completo !== tutor.usual && ` · en Educamos «${tutor.completo}»`}
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
+          aria-expanded={abierto}
           onClick={() => {
             haptic.tap();
             setAbierto((a) => !a);
           }}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-white dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
-          <Pencil className="h-3.5 w-3.5" /> {abierto ? 'Cerrar' : 'Cambiar'}
-        </button>
+          <Pencil /> {abierto ? 'Cerrar' : 'Cambiar'}
+        </Button>
       </div>
 
       {abierto && (
-        <div className="mt-2 space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-          <label className="block text-xs text-zinc-500">
-            Nombre de pila (lo normal: «Pepe» donde Educamos dice «José Manuel»)
-            <input
+        <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+          <Campo
+            etiqueta="Nombre de pila"
+            ayuda="Lo normal: «Pepe» donde Educamos dice «José Manuel»."
+            id={`pila-${tutor.teacherId}`}
+          >
+            <Input
+              id={`pila-${tutor.teacherId}`}
               value={pila}
               onChange={(e) => setPila(e.target.value)}
               placeholder={tutor.usual.split(' ')[0]}
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
-          </label>
-          <label className="block text-xs text-zinc-500">
-            Nombre entero (solo si ni los apellidos valen; manda sobre lo de arriba)
-            <input
+          </Campo>
+          <Campo
+            etiqueta="Nombre entero"
+            ayuda="Solo si ni los apellidos valen; manda sobre lo de arriba."
+            id={`completo-${tutor.teacherId}`}
+          >
+            <Input
+              id={`completo-${tutor.teacherId}`}
               value={completo}
               onChange={(e) => setCompleto(e.target.value)}
               placeholder={tutor.usual}
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
-          </label>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => guardar()}
-              disabled={ocupado}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
-            >
-              <Check className="h-3.5 w-3.5" /> Guardar
-            </button>
-            <button
-              type="button"
-              onClick={() => guardar(true)}
-              disabled={ocupado}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-white disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> Volver al de Educamos
-            </button>
+          </Campo>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => guardar()} disabled={ocupado}>
+              <Check /> Guardar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => guardar(true)} disabled={ocupado}>
+              <RotateCcw /> Volver al de Educamos
+            </Button>
           </div>
         </div>
       )}

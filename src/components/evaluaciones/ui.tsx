@@ -1,147 +1,107 @@
 'use client';
 
-// Vocabulario visual del módulo de Evaluaciones. Vive aquí y no suelto por cada
-// componente porque el problema que resuelve es de CONJUNTO: antes cada pantalla
-// inventaba sus propios bordes, radios y espaciados, y el resultado era que todo
-// pesaba visualmente igual — nada destacaba y nada se agrupaba.
-//
-// La regla es una jerarquía de tres niveles, y cada uno se distingue por SUPERFICIE,
-// no por más bordes:
-//
-//   Nivel 0 · la página        → fondo gris muy claro
-//   Nivel 1 · panel            → blanco elevado con un anillo finísimo (`PANEL`)
-//   Nivel 2 · actividad        → NO es una caja: es un encabezado + una guía de color
-//                                vertical que enhebra sus preguntas (`GuiaActividad`)
-//   Nivel 3 · pregunta         → tarjeta blanca discreta dentro de la guía
-//
-// Y una decisión que quita la mitad del ruido: los campos de texto no llevan borde
-// permanente. Se insinúan con un fondo tenue y solo se "encienden" al enfocarlos
-// (edición en sitio). Un editor no debería parecer un formulario de alta.
-import { ChevronDown } from 'lucide-react';
+// Piezas propias de Evaluaciones que no existen en `components/ui/` porque solo las usa
+// este módulo: el icono de cada colectivo y categoría, la guía de color que enhebra las
+// preguntas de una actividad, la tinta legible sobre el color de una actividad y la zona
+// plegable del editor. Botones, campos, segmentados y rótulos son los comunes.
+import {
+  ChevronDown,
+  Church,
+  GraduationCap,
+  Lightbulb,
+  School,
+  Tag,
+  UsersRound,
+  Presentation,
+  type LucideIcon,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { Rotulo as RotuloComun } from '@/components/ui/rotulo';
+import type { Audiencia, Categoria } from '@/lib/evaluaciones';
 
-// ─── Superficies ──────────────────────────────────────────────────────────────
-
-/** Panel de nivel 1: lo que antes era `border border-zinc-200`, con menos peso. */
-export const PANEL =
-  'rounded-2xl bg-white ring-1 ring-zinc-200/70 shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:bg-zinc-900 dark:ring-zinc-800';
-
-/** Tarjeta de nivel 3 (preguntas): más pequeña y más callada que un panel. */
-export const TARJETA =
-  'rounded-xl bg-white ring-1 ring-zinc-200/60 dark:bg-zinc-900 dark:ring-zinc-800';
-
-// ─── Campos de texto ──────────────────────────────────────────────────────────
-
-const CAMPO_BASE =
-  'w-full rounded-lg bg-transparent ring-1 ring-transparent transition-[background-color,box-shadow] duration-150 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:bg-zinc-800';
-
-/** Título grande editable: parece un título hasta que lo tocas. */
-export const CAMPO_TITULO = `${CAMPO_BASE} px-2 py-1 text-xl font-bold tracking-tight text-zinc-900 hover:bg-zinc-100 dark:text-zinc-50 dark:hover:bg-zinc-800/70`;
-
-/** Campo normal: fondo tenue permanente (en iPad no hay hover que lo revele). */
-export const CAMPO = `${CAMPO_BASE} bg-zinc-50 px-3 py-2 text-sm text-zinc-900 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:text-zinc-100 dark:hover:bg-zinc-800/70`;
-
-/** Campo compacto, para filas y opciones dentro de una pregunta. */
-export const CAMPO_MINI = `${CAMPO_BASE} bg-zinc-50 px-2.5 py-1.5 text-sm text-zinc-900 hover:bg-zinc-100 dark:bg-zinc-800/40 dark:text-zinc-100 dark:hover:bg-zinc-800/70`;
-
-// ─── Botones ──────────────────────────────────────────────────────────────────
-
-/** Acción secundaria: sin borde, se rellena al pasar por encima. */
-export const BTN_SUAVE =
-  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors duration-150 hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800';
-
-/** Acción principal de una zona. */
-export const BTN_PRIMARIO =
-  'inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-150 hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white';
-
-/** Icono de acción sobre una tarjeta: callado hasta que hace falta. */
-export const BTN_ICONO =
-  'rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200';
-
-// ─── Piezas ───────────────────────────────────────────────────────────────────
-
-/** Rótulo de sección. Pequeño, en versalitas, gris: ordena sin gritar. */
+/**
+ * Rótulo de grupo en mayúsculas. Es el común, como párrafo: lo usa también Ajustes del
+ * colegio, que lo pinta dentro de un bloque que ya tiene su encabezado.
+ */
 export function Rotulo({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={`text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 ${className}`}>
+    <RotuloComun as="p" className={className}>
       {children}
-    </p>
+    </RotuloComun>
   );
 }
 
-/** Dato de cabecera: etiqueta arriba en gris, valor debajo. */
-export function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-baseline gap-1.5">
-      <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{etiqueta}</span>
-      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{children}</span>
-    </span>
-  );
+// ─── Iconos de colectivo y de categoría ──────────────────────────────────────
+
+const ICONO_AUDIENCIA: Record<Audiencia, LucideIcon> = {
+  alumnos: GraduationCap,
+  profesores: Presentation,
+  familias: UsersRound,
+};
+
+const ICONO_CATEGORIA: Record<Categoria, LucideIcon> = {
+  pastoral: Church,
+  innovacion: Lightbulb,
+  general: School,
+  otra: Tag,
+};
+
+export function IconoAudiencia({ audiencia, className }: { audiencia: string; className?: string }) {
+  const Icono = ICONO_AUDIENCIA[audiencia as Audiencia] ?? UsersRound;
+  return <Icono aria-hidden className={cn('size-4 shrink-0', className)} />;
+}
+
+export function IconoCategoria({ categoria, className }: { categoria: string; className?: string }) {
+  const Icono = ICONO_CATEGORIA[categoria as Categoria] ?? Tag;
+  return <Icono aria-hidden className={cn('size-4 shrink-0', className)} />;
+}
+
+// ─── Tinta sobre el color de una actividad ───────────────────────────────────
+
+function luminancia(hex: string): number | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const canal = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
 }
 
 /**
- * Control segmentado (elige uno de N). Sustituye a N botones sueltos: al ir dentro
- * de un mismo carril con fondo, se lee de un golpe que son alternativas de lo mismo
- * y cuál está activa — que era justo lo que no se distinguía.
+ * El color del texto que va encima de un color de actividad: blanco o casi negro, el que
+ * contraste más. Los verdes, ámbar y naranjas de la paleta no llegan a 4,5:1 con blanco
+ * en un número pequeño. Si el color no es un hex (una variable CSS), blanco.
  */
-export function Segmentado<T extends string>({
-  opciones,
-  valor,
-  onChange,
-  capitalizar = true,
-}: {
-  opciones: { valor: T; label: string; deshabilitada?: boolean; pista?: string; tono?: 'normal' | 'verde' }[];
-  valor: T;
-  onChange: (v: T) => void;
-  /** Los estados ("borrador", "abierto") van en minúscula y se capitalizan; frases, no. */
-  capitalizar?: boolean;
-}) {
-  return (
-    <div className="inline-flex rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
-      {opciones.map((o) => {
-        const activa = valor === o.valor;
-        return (
-          <button
-            key={o.valor}
-            type="button"
-            disabled={o.deshabilitada}
-            title={o.pista}
-            onClick={() => onChange(o.valor)}
-            className={`rounded-[7px] px-3 py-1 text-xs font-semibold ${capitalizar ? 'capitalize' : ''} transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
-              activa
-                ? o.tono === 'verde'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50'
-                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+export function tintaSobre(color: string | null | undefined): string {
+  const l = color ? luminancia(color) : null;
+  if (l === null) return '#ffffff';
+  const conBlanco = 1.05 / (l + 0.05);
+  const conNegro = (l + 0.05) / 0.05; // zinc-950 ≈ negro a estos efectos
+  return conNegro > conBlanco ? '#09090b' : '#ffffff';
 }
 
+// ─── Guía de la actividad ────────────────────────────────────────────────────
+
 /**
- * Guía vertical del color de la actividad. Es la pieza que resuelve "no diferencio
- * bien las cosas": una línea fina del color de la actividad recorre todas SUS
- * preguntas, así que se ve de un vistazo dónde empieza y acaba cada bloque sin
- * necesidad de meterlo todo en otra caja gris.
+ * Guía vertical del color de la actividad: una línea fina que recorre todas SUS preguntas
+ * del editor, para ver de un vistazo dónde empieza y acaba cada bloque sin otra caja.
+ * No es la raya de una tarjeta: va por fuera de ellas.
  */
 export function GuiaActividad({ color, children }: { color: string; children: React.ReactNode }) {
   return (
     <div className="relative pl-4 sm:pl-5">
-      <span
-        aria-hidden
-        style={{ background: color }}
-        className="absolute bottom-1 left-0 top-1 w-[3px] rounded-full opacity-70"
-      />
+      <span aria-hidden style={{ background: color }} className="absolute top-1 bottom-1 left-0 w-[3px] rounded-full opacity-70" />
       {children}
     </div>
   );
 }
 
-/** Cabecera plegable de una zona secundaria (ajustes, catálogo…). */
+// ─── Zona plegable ───────────────────────────────────────────────────────────
+
+/** Tarjeta con cabecera que pliega su contenido (los ajustes del editor). */
 export function Plegable({
   titulo,
   icono,
@@ -156,16 +116,18 @@ export function Plegable({
   children: React.ReactNode;
 }) {
   return (
-    <div className={PANEL}>
+    <div className={claseTarjeta}>
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200"
+        aria-expanded={abierto}
+        className="flex min-h-12 w-full items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-zinc-800 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-zinc-200 [&_svg]:size-4"
       >
         {icono}
         {titulo}
         <ChevronDown
-          className={`ml-auto h-4 w-4 text-zinc-400 transition-transform duration-200 ${abierto ? 'rotate-180' : ''}`}
+          aria-hidden
+          className={cn('ml-auto text-zinc-500 transition-transform duration-200 dark:text-zinc-400', abierto && 'rotate-180')}
         />
       </button>
       {abierto && <div className="border-t border-zinc-100 p-4 dark:border-zinc-800">{children}</div>}

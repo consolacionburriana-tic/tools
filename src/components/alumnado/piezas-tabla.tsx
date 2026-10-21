@@ -10,6 +10,8 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
+import { ConfirmarDialogo } from '@/components/ui/confirmar';
 
 /** Un cambio masivo esperando el «sí, hazlo»: qué va a pasar, en palabras, y a cuántos. */
 export interface Pendiente {
@@ -25,8 +27,8 @@ export interface Pendiente {
  *
  * Lo masivo NO se confirma con un segundo toque sobre el mismo botón (así estuvo hasta el
  * 23-sep-2026 y David lo dio por roto: el primer toque solo cambiaba de color y parecía que no
- * hacía nada). Ahora el primer toque abre una barra que dice en palabras qué va a pasar y a
- * cuántos alumnos, con un botón grande para hacerlo y otro para cancelar.
+ * hacía nada). El primer toque abre la confirmación (`ConfirmarDialogo`), que dice en palabras
+ * qué va a pasar y a cuántos alumnos, con un botón para hacerlo y otro para cancelar.
  */
 export function useGuardado() {
   const [guardando, setGuardando] = useState<string | null>(null);
@@ -55,75 +57,26 @@ export function useGuardado() {
     }
   }
 
-  /** Primer paso de lo masivo: enseña la barra de confirmación. */
+  /** Primer paso de lo masivo: abre la confirmación. */
   function pedir(p: Pendiente) {
     haptic.tap();
     setPendiente(p);
   }
 
-  async function confirmar() {
-    if (!pendiente) return;
-    const p = pendiente;
-    setPendiente(null);
-    await p.hacer();
-  }
-
   const confirmacion = (
-    <BarraConfirmacion
-      pendiente={pendiente}
-      ocupada={Boolean(pendiente && guardando === pendiente.clave)}
-      onConfirmar={() => void confirmar()}
-      onCancelar={() => setPendiente(null)}
+    <ConfirmarDialogo
+      abierto={pendiente !== null}
+      onCerrar={() => setPendiente(null)}
+      onConfirmar={async () => {
+        if (pendiente) await pendiente.hacer();
+      }}
+      titulo={pendiente?.pregunta ?? ''}
+      boton={pendiente?.boton ?? ''}
+      peligro={pendiente?.tono === 'rojo'}
     />
   );
 
   return { guardando, pendiente, enviar, pedir, confirmacion };
-}
-
-function BarraConfirmacion({
-  pendiente,
-  ocupada,
-  onConfirmar,
-  onCancelar,
-}: {
-  pendiente: Pendiente | null;
-  ocupada: boolean;
-  onConfirmar: () => void;
-  onCancelar: () => void;
-}) {
-  if (!pendiente) return null;
-  const color =
-    pendiente.tono === 'verde'
-      ? 'bg-emerald-600 hover:bg-emerald-700'
-      : pendiente.tono === 'rojo'
-        ? 'bg-red-600 hover:bg-red-700'
-        : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900';
-  return (
-    <div
-      role="alertdialog"
-      aria-label="Confirmar cambio masivo"
-      className="sticky top-16 z-10 flex flex-wrap items-center gap-2 rounded-2xl bg-amber-50 px-4 py-3 shadow-md ring-2 ring-amber-400 dark:bg-amber-950/80 dark:ring-amber-600"
-    >
-      <p className="mr-auto text-sm font-medium text-amber-900 dark:text-amber-100">{pendiente.pregunta}</p>
-      <button
-        type="button"
-        onClick={onCancelar}
-        className="rounded-xl px-3.5 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900"
-      >
-        Cancelar
-      </button>
-      <button
-        type="button"
-        onClick={onConfirmar}
-        disabled={ocupada}
-        autoFocus
-        className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${color}`}
-      >
-        {ocupada && <Loader2 className="h-4 w-4 animate-spin" />}
-        {pendiente.boton}
-      </button>
-    </div>
-  );
 }
 
 export const CELDA_TONO = {
@@ -160,7 +113,7 @@ export function Celda({
       <span
         aria-label={etiqueta}
         title={etiqueta}
-        className={`pointer-events-none inline-flex h-8 min-w-9 items-center justify-center rounded-lg px-1 text-[11px] font-semibold ${CELDA_TONO[tono]}`}
+        className={`pointer-events-none inline-flex h-8 min-w-9 items-center justify-center rounded-lg px-1 text-xs font-semibold ${CELDA_TONO[tono]}`}
       >
         {contenido}
       </span>
@@ -173,7 +126,7 @@ export function Celda({
       disabled={ocupada}
       aria-label={etiqueta}
       title={etiqueta}
-      className={`inline-flex h-9 ${ancho} items-center justify-center rounded-lg px-1 text-[11px] font-semibold transition-colors disabled:opacity-60 ${CELDA_TONO[tono]}`}
+      className={`inline-flex h-10 ${ancho} items-center justify-center rounded-lg px-1 text-xs font-semibold transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 ${CELDA_TONO[tono]}`}
     >
       {contenido}
     </button>
@@ -213,7 +166,7 @@ export function ColumnaBoton({
       disabled={ocupada}
       title={titulo}
       aria-label={titulo}
-      className={`inline-flex h-7 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-semibold ring-1 transition-colors disabled:opacity-60 ${base} ${
+      className={`inline-flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold ring-1 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 ${base} ${
         activa ? 'ring-2 ring-amber-400' : ''
       }`}
     >
@@ -238,24 +191,18 @@ export function BotonMasivo({
   onClick: () => void;
   icono?: React.ReactNode;
 }) {
-  const colores =
-    tono === 'verde'
-      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-      : tono === 'gris'
-        ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-        : 'bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white';
   return (
-    <button
+    <Button
       type="button"
+      size="sm"
+      variant={tono === 'verde' ? 'default' : 'outline'}
       onClick={onClick}
       disabled={ocupada}
-      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-colors disabled:opacity-60 ${
-        activa ? `${colores} ring-2 ring-amber-400` : colores
-      }`}
+      className={activa ? 'ring-2 ring-amber-400' : undefined}
     >
-      {ocupada ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : icono}
+      {ocupada ? <Loader2 className="animate-spin" /> : icono}
       {texto}
-    </button>
+    </Button>
   );
 }
 
@@ -281,7 +228,7 @@ export function CeldaAlumno({ numero, nombre, clase }: { numero: number | null; 
         {numero !== null && <span className="mr-1.5 text-xs text-zinc-400">{numero}</span>}
         {nombre}
       </span>
-      {clase && <span className="block truncate text-[11px] text-zinc-400">{clase}</span>}
+      {clase && <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">{clase}</span>}
     </td>
   );
 }

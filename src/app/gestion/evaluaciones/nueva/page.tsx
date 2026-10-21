@@ -4,6 +4,7 @@ import { academicYearActual } from '@/lib/constants';
 import { academicYearAnterior } from '@/lib/evaluaciones';
 import { getActividades, getClasesDisponibles, getForms } from '@/lib/evaluaciones-server';
 import { NuevaEvaluacion } from '@/components/evaluaciones/nueva-evaluacion';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
 
 export const metadata = { title: 'Nueva evaluación · Gestión' };
 
@@ -18,13 +19,17 @@ export default async function NuevaEvaluacionPage() {
   ]);
 
   return (
-    <NuevaEvaluacion
-      academicYear={actual}
-      academicYearAnterior={anterior}
-      clases={clases}
-      actividades={actividades.map((a) => ({ id: a.id, nombre: a.nombre, categoria: a.categoria, fecha: a.fecha }))}
-      actividadesAnterior={actividadesAnterior.map((a) => ({ id: a.id, nombre: a.nombre, categoria: a.categoria, fecha: a.fecha }))}
-      formsAnterior={formsAnterior.map((f) => ({ id: f.id, titulo: f.titulo, audiencia: f.audiencia, actividades: f.actividades, grupoId: f.grupoId }))}
-    />
+    <>
+      <EnlaceVolver href="/gestion/evaluaciones">Todas las evaluaciones</EnlaceVolver>
+      <TituloPagina antes={actual}>Nueva evaluación</TituloPagina>
+      <NuevaEvaluacion
+        academicYear={actual}
+        academicYearAnterior={anterior}
+        clases={clases}
+        actividades={actividades.map((a) => ({ id: a.id, nombre: a.nombre, categoria: a.categoria, fecha: a.fecha }))}
+        actividadesAnterior={actividadesAnterior.map((a) => ({ id: a.id, nombre: a.nombre, categoria: a.categoria, fecha: a.fecha }))}
+        formsAnterior={formsAnterior.map((f) => ({ id: f.id, titulo: f.titulo, audiencia: f.audiencia, actividades: f.actividades, grupoId: f.grupoId }))}
+      />
+    </>
   );
 }

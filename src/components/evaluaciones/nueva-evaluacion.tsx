@@ -16,6 +16,7 @@ import {
   type Audiencia,
   type Categoria,
 } from '@/lib/evaluaciones';
+import { Input } from '@/components/ui/input';
 
 interface ActividadOpt {
   id: string;
@@ -82,8 +83,6 @@ interface Props {
 
 const claseKey = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
 
-const inputCls =
-  'w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100';
 
 /**
  * Alta de una evaluación en una pantalla. El orden está pensado para los mínimos
@@ -375,7 +374,7 @@ export function NuevaEvaluacion({
                     {r.rasgos.map((x) => (
                       <span
                         key={x}
-                        className="rounded-full bg-white px-2 py-0.5 text-[11px] text-zinc-600 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700"
+                        className="rounded-full bg-white px-2 py-0.5 text-xs text-zinc-600 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700"
                       >
                         {x}
                       </span>
@@ -394,7 +393,7 @@ export function NuevaEvaluacion({
           <p className="mb-2.5 text-xs text-zinc-500">Escribe el nombre y pulsa Enter. Puedes poner varias en el mismo formulario.</p>
 
           <div className="flex gap-2">
-            <input
+            <Input
               value={borrador}
               onChange={(e) => setBorrador(e.target.value)}
               onKeyDown={(e) => {
@@ -404,7 +403,6 @@ export function NuevaEvaluacion({
                 }
               }}
               placeholder="Convivencia de inicio de curso"
-              className={inputCls}
             />
             <button
               type="button"
@@ -557,11 +555,10 @@ export function NuevaEvaluacion({
         <div className="anim-up sticky bottom-0 space-y-3 rounded-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_1px_2px_rgba(0,0,0,0.03)] ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Título</label>
-            <input
+            <Input
               value={tituloManual}
               onChange={(e) => setTituloManual(e.target.value)}
               placeholder={tituloAuto}
-              className={inputCls}
             />
             {conjunta && (
               <div className="mt-2 flex flex-wrap gap-1.5">

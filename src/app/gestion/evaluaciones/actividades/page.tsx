@@ -1,11 +1,10 @@
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { academicYearActual } from '@/lib/constants';
 import { academicYearAnterior } from '@/lib/evaluaciones';
 import { getActividades } from '@/lib/evaluaciones-server';
 import { ActividadesPanel } from '@/components/evaluaciones/actividades-panel';
+import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
 
 export const metadata = { title: 'Actividades · Evaluaciones' };
 
@@ -20,9 +19,12 @@ export default async function ActividadesPage({ searchParams }: { searchParams: 
 
   return (
     <div className="space-y-4">
-      <Link href="/gestion/evaluaciones" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-blue-600">
-        <ChevronLeft className="h-4 w-4" /> Evaluaciones
-      </Link>
+      <div>
+        <EnlaceVolver href="/gestion/evaluaciones">Todas las evaluaciones</EnlaceVolver>
+        <TituloPagina antes={year} className="mb-0">
+          Actividades
+        </TituloPagina>
+      </div>
       <ActividadesPanel
         academicYear={year}
         academicYearAnterior={anterior}

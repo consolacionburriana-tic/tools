@@ -12,7 +12,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, ExternalLink, Eye, Hand, Image as ImageIcon, Loader2, Lock, Printer, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { copiarTexto } from '@/components/alumnado/copiable';
+import { Button } from '@/components/ui/button';
+import { copiarTexto } from '@/components/ui/copiable';
+import { Rotulo } from '@/components/ui/rotulo';
+import { Segmentado } from '@/components/ui/segmentado';
 import { Historico } from '@/components/numeros/historico';
 import { haptic } from '@/lib/haptics';
 import { tablaAImagen } from '@/lib/numeros-imagen';
@@ -106,37 +109,25 @@ function ConNegritas({ texto }: { texto: string }) {
   );
 }
 
+/** Las vistas y valores de la pantalla, con el segmentado común (`ui/segmentado`). */
 function Segmentos<T extends string>({
   opciones,
   valor,
   onChange,
   etiqueta,
-  grande,
 }: {
   opciones: readonly (readonly [T, string])[];
   valor: T;
   onChange: (v: T) => void;
   etiqueta: string;
-  grande?: boolean;
 }) {
   return (
-    <div role="group" aria-label={etiqueta} className="inline-flex flex-wrap gap-0.5 rounded-xl border border-zinc-200 bg-zinc-100 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
-      {opciones.map(([v, l]) => (
-        <button
-          key={v}
-          type="button"
-          aria-pressed={v === valor}
-          onClick={() => onChange(v)}
-          className={`cursor-pointer whitespace-nowrap rounded-[10px] ${grande ? 'px-4 py-2 text-sm' : 'px-3 py-1.5 text-[13.5px]'} transition-colors ${
-            v === valor
-              ? 'bg-white font-semibold text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
-              : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-          }`}
-        >
-          {l}
-        </button>
-      ))}
-    </div>
+    <Segmentado<T>
+      etiqueta={etiqueta}
+      valor={valor}
+      onChange={onChange}
+      opciones={opciones.map(([v, l]) => ({ valor: v, etiqueta: l }))}
+    />
   );
 }
 
@@ -144,7 +135,7 @@ function Segmentos<T extends string>({
 function Campo({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[13px] font-medium text-zinc-500 dark:text-zinc-400">{etiqueta}</span>
+      <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{etiqueta}</span>
       {children}
     </div>
   );
@@ -317,9 +308,6 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
   }
 
   const nombrePrimera = prefs.nivel === 'etapas' ? 'Etapa' : prefs.nivel === 'cursos' ? 'Curso' : 'Clase';
-  const boton =
-    'inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors';
-
   return (
     <div className="space-y-5 print:space-y-3">
       {/* Para imprimir: A4 y los colores de las filas tal cual. */}
@@ -328,7 +316,8 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
       {/* Cabecera: qué es, de cuándo, y Hoy | Histórico */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 print:text-xl">
+          {/* Sin título a la vista (ya lo dice la cabecera); en papel sí, que la hoja va suelta. */}
+          <h1 className="sr-only print:not-sr-only print:text-xl print:font-bold print:text-zinc-900">
             Números del cole<span className="hidden print:inline"> · {pestana.titulo}</span>
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500">
@@ -340,7 +329,6 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
         <div className="print:hidden">
           <Segmentos
             etiqueta="Vista"
-            grande
             opciones={[
               ['hoy', 'Hoy'],
               ['historico', 'Cómo ha ido cambiando'],
@@ -450,7 +438,7 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
                 type="button"
                 aria-pressed={!prefs.basico}
                 onClick={() => cambiar({ basico: !prefs.basico })}
-                className={`inline-flex cursor-pointer items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-[13.5px] transition-colors ${
+                className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border pr-3.5 pl-2 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
                   !prefs.basico
                     ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-500/10 dark:text-blue-200'
                     : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
@@ -474,23 +462,15 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={copiarTabla} className={`${boton} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`}>
-                <Copy className="h-4 w-4" /> Copiar tabla
-              </button>
-              <button
-                type="button"
-                onClick={paraWhatsapp}
-                className={`${boton} border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
-              >
-                <ImageIcon className="h-4 w-4" /> WhatsApp
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className={`${boton} border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`}
-              >
-                <Printer className="h-4 w-4" /> Imprimir
-              </button>
+              <Button type="button" onClick={copiarTabla}>
+                <Copy aria-hidden /> Copiar tabla
+              </Button>
+              <Button type="button" variant="outline" onClick={paraWhatsapp}>
+                <ImageIcon aria-hidden /> WhatsApp
+              </Button>
+              <Button type="button" variant="outline" onClick={() => window.print()}>
+                <Printer aria-hidden /> Imprimir
+              </Button>
             </div>
           </div>
 
@@ -513,7 +493,7 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
 
           {/* La tabla */}
           <div className="max-h-[70vh] overflow-auto print:max-h-none print:overflow-visible">
-            <table className="w-full border-separate border-spacing-0 text-[14px] tabular-nums print:text-[11px]">
+            <table className="w-full border-separate border-spacing-0 text-[14px] tabular-nums print:text-xs">
               <thead>
                 <tr>
                   <th className="sticky left-0 top-0 z-20 min-w-40 border-b border-zinc-200 bg-white px-3 py-2 text-left align-bottom text-[12px] font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 print:static print:min-w-0">
@@ -555,23 +535,19 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
           {/* Debajo: la frase y lo que llama la atención */}
           <div className="grid border-t border-zinc-200 md:grid-cols-2 dark:border-zinc-800 print:block print:border-0">
             <div className="space-y-2 border-b border-zinc-200 p-4 md:border-b-0 md:border-r dark:border-zinc-800 print:border-0 print:px-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 print:hidden">
+              <Rotulo as="p" className="print:hidden">
                 Una frase para pegar · toca el nombre de una fila para cambiarla
-              </p>
+              </Rotulo>
               <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 text-[14.5px] leading-relaxed text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 print:border-0 print:bg-transparent print:p-0 print:text-[12px]">
                 {frase}
               </p>
-              <button
-                type="button"
-                onClick={() => copiarValor(frase, 'frase')}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 print:hidden"
-              >
-                {copiada === 'frase' ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+              <Button type="button" variant="outline" size="sm" onClick={() => copiarValor(frase, 'frase')} className="print:hidden">
+                {copiada === 'frase' ? <Check className="text-green-600" /> : <Copy aria-hidden />}
                 {copiada === 'frase' ? 'Copiada' : 'Copiar la frase'}
-              </button>
+              </Button>
             </div>
             <div className="space-y-2 p-4 print:hidden">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Lo que llama la atención</p>
+              <Rotulo as="p">Lo que llama la atención</Rotulo>
               {atencion.length ? (
                 <ul className="space-y-1.5 text-[13.5px] text-zinc-600 dark:text-zinc-400">
                   {atencion.map((t) => (
@@ -612,16 +588,16 @@ export function NumerosPanel({ datos, permisos, etapasPropias, preferencias, pue
             <p className="text-sm text-zinc-600 dark:text-zinc-300">{imagen.mensaje}</p>
             {/* eslint-disable-next-line @next/next/no-img-element -- es un blob local, no una imagen optimizable */}
             <img src={imagen.url} alt="La tabla como imagen" className="max-w-full rounded-lg border border-zinc-200" />
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => {
                 URL.revokeObjectURL(imagen.url);
                 setImagen(null);
               }}
-              className="cursor-pointer rounded-lg border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700"
             >
               Cerrar
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -695,7 +671,7 @@ function FilaVista({
           >
             {cel.texto}
             {!cel.vacia && modo === 'n' && c.barra && cel.pct !== null && fila.tipo !== 'clase' && (
-              <span className="ml-1.5 text-[11.5px] font-normal text-zinc-400">{Math.round(cel.pct)} %</span>
+              <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">{Math.round(cel.pct)} %</span>
             )}
             {!cel.vacia && c.barra && cel.pct !== null && (
               <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800 print:hidden">
@@ -770,9 +746,9 @@ function QuienesSon({ pedida, onCerrar }: { pedida: Pedida; onCerrar: () => void
               {estado.cargando ? `${pedida.total} alumnos` : `${alumnos.length} ${alumnos.length === 1 ? 'alumno' : 'alumnos'}`}
             </p>
           </div>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="cursor-pointer rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <X className="h-5 w-5" />
-          </button>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onCerrar} aria-label="Cerrar">
+            <X className="size-5" />
+          </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {estado.cargando ? (
@@ -804,15 +780,10 @@ function QuienesSon({ pedida, onCerrar }: { pedida: Pedida; onCerrar: () => void
         </div>
         <div className="flex items-center justify-between gap-2 border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <span className="text-xs text-zinc-400">Toca un nombre para abrir su ficha</span>
-          <button
-            type="button"
-            onClick={copiar}
-            disabled={!alumnos.length}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {copiada ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          <Button type="button" onClick={copiar} disabled={!alumnos.length}>
+            {copiada ? <Check aria-hidden /> : <Copy aria-hidden />}
             {copiada ? 'Copiada' : 'Copiar la lista'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

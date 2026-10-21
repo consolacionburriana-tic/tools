@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Copy, Download, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
+import { useConfirmar } from '@/components/ui/confirmar';
 import { compararClases, ordenCurso } from '@/lib/cursos';
 import type { MissingStudent } from '@/lib/licencias-server';
 
@@ -60,6 +61,7 @@ function Cabecera({
 }
 
 export function FaltanList({ data }: { data: MissingStudent[] }) {
+  const { confirmar, dialogo } = useConfirmar();
   const [students, setStudents] = useState(data);
   const [showCompleted, setShowCompleted] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -166,9 +168,12 @@ export function FaltanList({ data }: { data: MissingStudent[] }) {
     if (ids.length === 0) return;
     if (
       completar &&
-      !confirm(
-        `¿Marcar ${ids.length} alumno${ids.length === 1 ? '' : 's'} como que NO va${ids.length === 1 ? '' : 'n'} a hacer el pedido? Dejará${ids.length === 1 ? '' : 'n'} de contar como pendiente${ids.length === 1 ? '' : 's'}.`,
-      )
+      !(await confirmar({
+        titulo: `¿Marcar ${ids.length} alumno${ids.length === 1 ? '' : 's'} como que NO va${ids.length === 1 ? '' : 'n'} a hacer el pedido?`,
+        descripcion: `Dejará${ids.length === 1 ? '' : 'n'} de contar como pendiente${ids.length === 1 ? '' : 's'}.`,
+        boton: `Marcar ${ids.length} sin pedido`,
+        peligro: false,
+      }))
     )
       return;
     setBulkBusy(true);
@@ -405,6 +410,7 @@ export function FaltanList({ data }: { data: MissingStudent[] }) {
           </tbody>
         </table>
       </div>
+      {dialogo}
     </div>
   );
 }

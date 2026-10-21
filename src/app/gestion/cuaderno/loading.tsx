@@ -2,35 +2,25 @@ import { Skeleton, SkeletonCard, SkeletonPage } from '@/components/ui/skeleton';
 
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <div>
-            <Skeleton className="h-4 w-40" />
-            <Skeleton className="mt-1.5 h-3 w-80" />
-          </div>
-          <Skeleton className="h-8 w-24 rounded-lg" />
-        </div>
-      </header>
-      <SkeletonPage label="Cargando el cuaderno de tutor…">
-        <main className="mx-auto max-w-5xl space-y-3 px-4 py-6">
-          <div className="flex gap-1.5">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-9 w-28 rounded-xl" />
-            ))}
-          </div>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <SkeletonCard key={i}>
-              <Skeleton className="h-4 w-32" />
-              <div className="mt-3 space-y-2">
-                {Array.from({ length: 4 }).map((_, j) => (
-                  <Skeleton key={j} className="h-8 w-full rounded-lg" />
-                ))}
-              </div>
-            </SkeletonCard>
-          ))}
-        </main>
-      </SkeletonPage>
-    </div>
+    <SkeletonPage label="Cargando el cuaderno de tutor">
+      <div className="space-y-4">
+        <SkeletonCard className="flex items-center gap-3">
+          <Skeleton className="h-4 w-4 rounded" />
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-6 w-28 rounded-full" />
+        </SkeletonCard>
+        <Skeleton className="h-12 w-full max-w-2xl rounded-2xl" />
+        {[0, 1, 2].map((i) => (
+          <SkeletonCard key={i}>
+            <Skeleton className="h-4 w-32" />
+            <div className="mt-4 flex flex-wrap gap-2">
+              {Array.from({ length: 6 }).map((_, j) => (
+                <Skeleton key={j} className="h-10 w-28 rounded-full" />
+              ))}
+            </div>
+          </SkeletonCard>
+        ))}
+      </div>
+    </SkeletonPage>
   );
 }
