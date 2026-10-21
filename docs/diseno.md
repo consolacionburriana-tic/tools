@@ -17,6 +17,7 @@ chips (`BOTON_PRIMARIO`, `ESTILO_CAMPO`…): usa estas.
 |---|---|---|
 | El marco de un módulo (cabecera, secciones, ancho) | `PaginaModulo` en su `layout.tsx` | `ui/cabecera-modulo` |
 | El nombre de lo que se ve (un alumno, un tablero) | `TituloPagina`, con `EnlaceVolver` encima | `ui/cabecera-modulo` |
+| Una pantalla de familias (Licencias, Salidas) | `PaginaFamilias` | `ui/pagina-familias` |
 | Un botón, o un enlace con forma de botón | `Button` (con `cargando` mientras guarda), `buttonVariants()` | `ui/button` |
 | Un campo, un texto largo, un desplegable | `Input`, `Textarea`, `Selector`, y `Campo` para etiqueta y ayuda | `ui/input`, `ui/textarea`, `ui/selector`, `ui/campo` |
 | Cambiar de vista en una pantalla, o elegir entre 2-4 valores cortos (Sí / No) | `Segmentado` | `ui/segmentado` |
