@@ -97,6 +97,9 @@ export default async function Layout({ children }: { children: React.ReactNode }
 - **Sin título visible** que repita el módulo: la página empieza por lo suyo (filtros, datos), y
   lleva su `<h1 className="sr-only">` para el lector de pantalla. La página de **una cosa** (un
   alumno, un tablero, una salida) sí lleva su nombre a la vista, con `TituloPagina`.
+- Un módulo que es un **índice** de muchas pantallas (Licencias): su portada es el índice, con
+  `TarjetaEnlace`; cada subpantalla lleva `EnlaceVolver` al índice y su nombre con `TituloPagina`,
+  porque sin barra de secciones hace falta saber dónde estás.
 - **Un ancho por módulo** (no por pantalla, para que nada salte al navegar): `estrecho` 768 px
   (formularios y ajustes), `normal` 1024 (listas y fichas), `ancho` 1280 (tablas y rejillas),
   `completo` (tableros). Un formulario dentro de un módulo ancho se estrecha con `max-w-2xl`.
