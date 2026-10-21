@@ -1,14 +1,24 @@
 'use client';
 
-// 📚 Sesiones: el abanico de lo que se hace en cada momento (no confundir con la Agenda, que son
+// Sesiones: el abanico de lo que se hace en cada momento (no confundir con la Agenda, que son
 // los momentos planificados). Cada tipo tiene las suyas, con nombre, enlace y el curso en que se
 // crearon; cada fila se despliega para editarla y, a la vista, qué niveles pueden hacerla sin
-// repetirla (✓ libre · 📅 se hace este curso · ⚠ ya la vieron en un curso anterior). Ficha: docs/26-oratorios.md
-import { Archive, ArchiveRestore, BookOpenText, CalendarCheck, Check, ChevronDown, ExternalLink, Plus, Trash2, TriangleAlert } from 'lucide-react';
+// repetirla (libre · este curso · ya la vieron en un curso anterior). Ficha: docs/26-oratorios.md
+import { Archive, ArchiveRestore, BookOpenText, Check, ChevronDown, ExternalLink, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
+import { Estado as EstadoPastilla } from '@/components/ui/estado';
+import { Etiqueta } from '@/components/ui/etiqueta';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Selector } from '@/components/ui/selector';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { Vacio } from '@/components/ui/vacio';
 import { nombreClase } from '@/lib/cursos';
 import {
   cursosAcademicosElegibles,
@@ -22,11 +32,9 @@ import {
   type SesionOra,
   type TipoMomento,
 } from '@/lib/oratorios';
-import { Accion, api, Pastilla } from './comun';
+import { api } from './comun';
 import { SelectorTipo } from './planificar';
 import type { Estado } from './panel';
-
-const campo = 'min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900';
 
 export function Abanico({ e }: { e: Estado }) {
   const tipo = e.tipos.find((t) => t.id === e.tipoId) ?? e.tipos[0];
@@ -50,9 +58,9 @@ export function Abanico({ e }: { e: Estado }) {
       <SelectorTipo e={e} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Accion tono="azul" onClick={() => setAbierta('nueva')} disabled={abierta === 'nueva'}>
-          <Plus className="h-4 w-4" /> Nueva sesión
-        </Accion>
+        <Button onClick={() => setAbierta('nueva')} disabled={abierta === 'nueva'}>
+          <Plus /> Nueva sesión
+        </Button>
         <span className="text-sm text-zinc-500 tabular-nums">
           {activas.length} {activas.length === 1 ? 'sesión' : 'sesiones'}
         </span>
@@ -62,15 +70,15 @@ export function Abanico({ e }: { e: Estado }) {
       </div>
 
       {abierta === 'nueva' && (
-        <section className="rounded-xl border border-blue-300 bg-white p-3 dark:border-blue-500/40 dark:bg-zinc-900">
+        <section className={cn(claseTarjeta, 'p-4')}>
           <EditorSesion e={e} tipo={tipo} niveles={niveles} sesion={null} onGuardada={(s) => { guardada(s); setAbierta(s.id); }} onCerrar={() => setAbierta(null)} />
         </section>
       )}
 
       {activas.length === 0 && abierta !== 'nueva' && (
-        <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700">
-          Todavía no hay sesiones de {tipo.nombre}. Añade las de tu abanico (nombre y enlace) y el planificador te propondrá la que toca para cada clase.
-        </p>
+        <Vacio icono={<BookOpenText />} titulo={`Todavía no hay sesiones de ${tipo.nombre}`}>
+          Añade las de tu abanico (nombre y enlace) y el planificador te propondrá la que toca para cada clase.
+        </Vacio>
       )}
 
       <ul className="space-y-2">
@@ -81,9 +89,11 @@ export function Abanico({ e }: { e: Estado }) {
 
       {archivadas.length > 0 && (
         <div className="space-y-2">
-          <Pastilla activa={verArchivadas} onClick={() => setVerArchivadas(!verArchivadas)}>
-            <Archive className="h-4 w-4" /> Archivadas <span className="tabular-nums opacity-70">{archivadas.length}</span>
-          </Pastilla>
+          <Filtros etiqueta="Archivadas">
+            <Filtro activo={verArchivadas} onClick={() => setVerArchivadas(!verArchivadas)} icono={<Archive />} cuenta={archivadas.length}>
+              Ver archivadas
+            </Filtro>
+          </Filtros>
           {verArchivadas && (
             <ul className="space-y-2">
               {archivadas.map((s) => (
@@ -133,25 +143,32 @@ function FilaSesion({
     });
 
   return (
-    <li className={cn('rounded-xl border bg-white dark:bg-zinc-900', abierta ? 'border-blue-300 dark:border-blue-500/40' : 'border-zinc-200 dark:border-zinc-800', !sesion.activo && 'opacity-70')}>
-      <button type="button" onClick={onAbrir} aria-expanded={abierta} className="flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800">
+    <li className={cn(claseTarjeta, !sesion.activo && 'opacity-70')}>
+      <button
+        type="button"
+        onClick={onAbrir}
+        aria-expanded={abierta}
+        className="flex min-h-14 w-full items-start gap-3 rounded-2xl px-3 py-2.5 text-left outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800"
+      >
         <BookOpenText className="mt-0.5 h-5 w-5 shrink-0 text-zinc-400" aria-hidden />
         <span className="min-w-0 flex-1 space-y-1">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="font-medium">{sesion.nombre}</span>
             <span className="text-xs text-zinc-500">{sesion.academicYear ? `curso ${sesion.academicYear}` : 'sin hacer'}</span>
-            {sesion.cursos && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800 dark:bg-violet-500/15 dark:text-violet-300">solo {sesion.cursos.map(etiquetaNivel).join(', ')}</span>}
+            {!sesion.activo && <EstadoPastilla tono="neutro">Archivada</EstadoPastilla>}
+            {sesion.cursos && <Etiqueta>solo {sesion.cursos.map(etiquetaNivel).join(', ')}</Etiqueta>}
             {planificadas.length > 0 && (
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-800 dark:bg-blue-500/15 dark:text-blue-300" title="Momentos de este curso con esta sesión">
-                {planificadas.length} {planificadas.length === 1 ? 'momento' : 'momentos'}
-              </span>
+              <Etiqueta title="Momentos de este curso con esta sesión">
+                {planificadas.length} {planificadas.length === 1 ? 'momento' : 'momentos'} este curso
+              </Etiqueta>
             )}
           </span>
           {niveles.length > 0 && (
             <span className="flex flex-wrap gap-1">
               {porNivel.map(({ nivel, vistas, enMarcha }) => (
-                <span
+                <EstadoPastilla
                   key={nivel}
+                  tono={vistas.length ? 'aviso' : enMarcha.length ? 'neutro' : 'ok'}
                   title={
                     vistas.length
                       ? `Ya la han visto: ${describirUsos(vistas)}`
@@ -159,29 +176,14 @@ function FilaSesion({
                         ? `Este curso la hacen: ${describirUsos(enMarcha)}`
                         : 'Los alumnos de este nivel no la han visto'
                   }
-                  className={cn(
-                    'inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-semibold',
-                    vistas.length
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
-                      : enMarcha.length
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300'
-                        : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
-                  )}
                 >
-                  {etiquetaNivel(nivel)}{' '}
-                  {vistas.length ? (
-                    <TriangleAlert className="h-3 w-3" aria-label="ya la han visto" />
-                  ) : enMarcha.length ? (
-                    <CalendarCheck className="h-3 w-3" aria-label="se hace este curso" />
-                  ) : (
-                    <Check className="h-3 w-3" aria-label="libre" />
-                  )}
-                </span>
+                  {etiquetaNivel(nivel)} · {vistas.length ? 'ya la vieron' : enMarcha.length ? 'este curso' : 'libre'}
+                </EstadoPastilla>
               ))}
             </span>
           )}
         </span>
-        <ChevronDown className={cn('mt-1 h-4 w-4 shrink-0 text-zinc-400 transition-transform', abierta && 'rotate-180')} aria-hidden />
+        <ChevronDown className={cn('mt-1 h-4 w-4 shrink-0 text-zinc-500 transition-transform', abierta && 'rotate-180')} aria-hidden />
       </button>
 
       {abierta && (
@@ -207,6 +209,7 @@ function MomentosDeLaSesion({ planificadas }: { planificadas: SesionOra[] }) {
         {planificadas.map((s) => (
           <li key={s.id} className={cn('rounded-md border px-2 py-0.5 tabular-nums', s.estado === 'borrador' ? 'border-dashed border-zinc-400 text-zinc-600 dark:text-zinc-300' : 'border-zinc-200 dark:border-zinc-700')}>
             {nombreClase(s.curso, s.letra)} · {fechaCorta(s.fecha)}
+            {s.estado === 'borrador' && ' · borrador'}
           </li>
         ))}
       </ul>
@@ -241,6 +244,7 @@ function EditorSesion({
   // Un curso guardado que ya no está en la lista (de hace mucho) tiene que seguir saliendo.
   const opcionesCurso = curso && !elegibles.includes(curso) ? [curso, ...elegibles] : elegibles;
   const enlaceMal = enlace.trim() !== '' && !esEnlaceSeguro(enlace.trim());
+  const idBase = `ora-abanico-${sesion?.id ?? 'nueva'}`;
 
   async function guardar(cambios: Partial<{ activo: boolean }> = {}) {
     setTrabajando(true);
@@ -265,7 +269,7 @@ function EditorSesion({
   }
 
   async function borrar() {
-    if (!sesion || !window.confirm(`¿Borrar «${sesion.nombre}»? Si ya está elegida en algún momento, se archiva en su lugar.`)) return;
+    if (!sesion) return;
     setTrabajando(true);
     try {
       await api.borrarSesionAbanico(sesion.id);
@@ -281,26 +285,22 @@ function EditorSesion({
   }
 
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      <label className="text-xs text-zinc-500 sm:col-span-2">
-        Nombre
-        <input value={nombre} onChange={(ev) => setNombre(ev.target.value)} placeholder="La primera vez en el oratorio" className={campo} autoFocus={!sesion} />
-      </label>
-      <label className="text-xs text-zinc-500">
-        Enlace
-        <span className="flex gap-1">
-          <input type="url" inputMode="url" value={enlace} onChange={(ev) => setEnlace(ev.target.value)} placeholder="https://docs.google.com/…" className={cn(campo, enlaceMal && 'border-rose-400')} />
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Campo etiqueta="Nombre" id={`${idBase}-nombre`} className="sm:col-span-2">
+        <Input id={`${idBase}-nombre`} value={nombre} onChange={(ev) => setNombre(ev.target.value)} placeholder="La primera vez en el oratorio" autoFocus={!sesion} />
+      </Campo>
+      <Campo etiqueta="Enlace" id={`${idBase}-enlace`} error={enlaceMal ? 'Tiene que empezar por https://' : undefined}>
+        <span className="flex gap-2">
+          <Input id={`${idBase}-enlace`} type="url" inputMode="url" value={enlace} onChange={(ev) => setEnlace(ev.target.value)} placeholder="https://docs.google.com/…" aria-invalid={enlaceMal || undefined} />
           {enlace.trim() && !enlaceMal && (
-            <a href={enlace.trim()} target="_blank" rel="noopener noreferrer" aria-label="Abrir el enlace" className="inline-flex min-h-10 shrink-0 items-center rounded-lg border border-zinc-200 px-2 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
-              <ExternalLink className="h-4 w-4" />
+            <a href={enlace.trim()} target="_blank" rel="noopener noreferrer" aria-label="Abrir el enlace" className={buttonVariants({ variant: 'outline', size: 'icon' })}>
+              <ExternalLink />
             </a>
           )}
         </span>
-        {enlaceMal && <span className="text-rose-600">Tiene que empezar por https://</span>}
-      </label>
-      <label className="text-xs text-zinc-500">
-        Curso en que se creó
-        <select value={curso} onChange={(ev) => setCurso(ev.target.value)} className={campo}>
+      </Campo>
+      <Campo etiqueta="Curso en que se creó" id={`${idBase}-curso`}>
+        <Selector id={`${idBase}-curso`} value={curso} onChange={(ev) => setCurso(ev.target.value)}>
           <option value="">— sin curso: aún no se ha hecho —</option>
           {opcionesCurso.map((c) => (
             <option key={c} value={c}>
@@ -308,41 +308,46 @@ function EditorSesion({
               {c === e.datos.academicYear ? ' (este curso)' : ''}
             </option>
           ))}
-        </select>
-      </label>
-      <div className="space-y-1 sm:col-span-2">
-        <p className="text-xs text-zinc-500">Para qué niveles</p>
-        <div className="flex flex-wrap gap-1.5">
-          <Pastilla activa={cursos === null} onClick={() => setCursos(null)}>
+        </Selector>
+      </Campo>
+      <div className="space-y-1.5 sm:col-span-2">
+        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Para qué niveles</p>
+        <Filtros etiqueta="Para qué niveles">
+          <Filtro activo={cursos === null} onClick={() => setCursos(null)}>
             Todos
-          </Pastilla>
+          </Filtro>
           {niveles.map((n) => (
-            <Pastilla key={n} activa={cursos?.includes(n) ?? false} onClick={() => setCursos(cursos?.includes(n) ? cursos.filter((x) => x !== n) : [...(cursos ?? []), n])}>
+            <Filtro key={n} activo={cursos?.includes(n) ?? false} onClick={() => setCursos(cursos?.includes(n) ? cursos.filter((x) => x !== n) : [...(cursos ?? []), n])}>
               {etiquetaNivel(n)}
-            </Pastilla>
+            </Filtro>
           ))}
-        </div>
-        <p className="text-[11px] text-zinc-400">
+        </Filtros>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
           Una sesión de un curso anterior se da por vista por esos niveles aquella vez. Si es solo de un nivel («la primera vez», 1º), el resto no la verá.
         </p>
       </div>
       <div className="flex flex-wrap gap-2 sm:col-span-2">
-        <Accion tono="azul" disabled={trabajando || !nombre.trim() || enlaceMal} onClick={() => void guardar()}>
-          <Check className="h-4 w-4" /> Guardar
-        </Accion>
+        <Button disabled={!nombre.trim() || enlaceMal} cargando={trabajando} onClick={() => void guardar()}>
+          {!trabajando && <Check />} Guardar
+        </Button>
         {sesion ? (
           <>
-            <Accion disabled={trabajando} onClick={() => void guardar({ activo: !sesion.activo })} title={sesion.activo ? 'Deja de proponerse, pero cuenta lo que ya se hizo' : 'Vuelve a proponerse'}>
-              {sesion.activo ? <Archive className="h-4 w-4" /> : <ArchiveRestore className="h-4 w-4" />} {sesion.activo ? 'Archivar' : 'Recuperar'}
-            </Accion>
-            <Accion tono="rojo" disabled={trabajando} onClick={() => void borrar()}>
-              <Trash2 className="h-4 w-4" />
-            </Accion>
+            <Button variant="outline" disabled={trabajando} onClick={() => void guardar({ activo: !sesion.activo })} title={sesion.activo ? 'Deja de proponerse, pero cuenta lo que ya se hizo' : 'Vuelve a proponerse'}>
+              {sesion.activo ? <Archive /> : <ArchiveRestore />} {sesion.activo ? 'Archivar' : 'Recuperar'}
+            </Button>
+            <ConfirmarEnLinea
+              etiqueta="Borrar"
+              icono={<Trash2 />}
+              tamano="default"
+              pregunta={`¿Borrar «${sesion.nombre}»? Si ya está elegida en algún momento, se archiva en su lugar.`}
+              disabled={trabajando}
+              onConfirmar={borrar}
+            />
           </>
         ) : (
-          <Accion disabled={trabajando} onClick={onCerrar}>
+          <Button variant="outline" disabled={trabajando} onClick={onCerrar}>
             Cancelar
-          </Accion>
+          </Button>
         )}
       </div>
     </div>

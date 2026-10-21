@@ -1,19 +1,25 @@
 'use client';
 
-// ⚙️ Ajustes: los tipos de momento (objetivo, calendario, texto del correo, a qué clases va),
+// Ajustes: los tipos de momento (objetivo, calendario, texto del correo, a qué clases va),
 // los trimestres del curso y el «acceso común» del claustro.
 import { Check, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Input } from '@/components/ui/input';
+import { Interruptor } from '@/components/ui/interruptor';
+import { Selector } from '@/components/ui/selector';
+import { claseTarjeta } from '@/components/ui/tarjeta';
+import { Textarea } from '@/components/ui/textarea';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { ETAPAS_VISIBLES, nombreClase } from '@/lib/cursos';
 import { claveClase, clasesDeTipo, ETAPA_LABELS, FRECUENCIA_LABELS, FRECUENCIAS, fechaCorta, type EntradaTipo, type TipoMomento, type Trimestre } from '@/lib/oratorios';
-import { Accion, api, Pastilla } from './comun';
+import { api } from './comun';
 import type { Estado } from './panel';
-
-const campo = 'min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900';
 
 export function Ajustes({ e }: { e: Estado }) {
   const [editando, setEditando] = useState<TipoMomento | 'nuevo' | null>(null);
@@ -41,53 +47,56 @@ export function Ajustes({ e }: { e: Estado }) {
     <div className="space-y-6">
       {/* Tipos */}
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Tipos de momento</h3>
+        <h2 className="text-base font-semibold">Tipos de momento</h2>
         <ul className="space-y-2">
           {e.tipos.map((t) => (
             <li key={t.id}>
               <button
                 type="button"
                 onClick={() => setEditando(t)}
-                className={cn('flex w-full items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-left hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800', !t.activo && 'opacity-50')}
+                className={cn(claseTarjeta, 'flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left outline-none hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-zinc-800', !t.activo && 'opacity-60')}
               >
-                <span className="text-2xl">{t.emoji}</span>
+                <span aria-hidden className="text-2xl">{t.emoji}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{t.nombre}</span>
+                  <span className="block font-medium">
+                    {t.nombre}
+                    {!t.activo && <span className="ml-2 text-sm font-normal text-zinc-500">· inactivo</span>}
+                  </span>
                   <span className="block truncate text-xs text-zinc-500">
                     {t.cantidad} {FRECUENCIA_LABELS[t.frecuencia]} · {t.clases?.length ? `${t.clases.length} clases` : t.etapas.map((x) => ETAPA_LABELS[x]).join(' + ') || '—'} · aviso {t.avisoDias} días antes ·{' '}
                     {t.calendarioId ? 'con calendario' : 'sin calendario'}
                   </span>
                 </span>
-                <Pencil className="h-4 w-4 text-zinc-400" />
+                <Pencil className="h-4 w-4 text-zinc-500" aria-label="Editar" />
               </button>
             </li>
           ))}
         </ul>
-        <Accion onClick={() => setEditando('nuevo')}>
-          <Plus className="h-4 w-4" /> Nuevo tipo
-        </Accion>
+        <Button variant="outline" onClick={() => setEditando('nuevo')}>
+          <Plus /> Nuevo tipo
+        </Button>
       </section>
 
       {/* Trimestres */}
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">
-          Trimestres {e.ajustes.academicYear} {!e.ajustes.guardados && <span className="font-normal text-amber-600">· propuestos, sin guardar</span>}
-        </h3>
+        <h2 className="text-base font-semibold">
+          Trimestres {e.ajustes.academicYear} {!e.ajustes.guardados && <span className="text-sm font-normal text-amber-700 dark:text-amber-400">· propuestos, sin guardar</span>}
+        </h2>
         <div className="grid gap-2 sm:grid-cols-3">
           {trimestres.map((t, i) => (
-            <div key={i} className="rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
+            <div key={i} className={cn(claseTarjeta, 'p-3')}>
               <p className="mb-1 text-xs font-semibold text-zinc-500">T{i + 1}</p>
-              <div className="flex items-center gap-1">
-                <input type="date" value={t.inicio} onChange={(ev) => setTrimestres(trimestres.map((x, j) => (j === i ? { ...x, inicio: ev.target.value } : x)))} className={campo} />
-                <input type="date" value={t.fin} onChange={(ev) => setTrimestres(trimestres.map((x, j) => (j === i ? { ...x, fin: ev.target.value } : x)))} className={campo} />
+              <div className="flex flex-col gap-2">
+                <Input type="date" aria-label={`Inicio del T${i + 1}`} value={t.inicio} onChange={(ev) => setTrimestres(trimestres.map((x, j) => (j === i ? { ...x, inicio: ev.target.value } : x)))} />
+                <Input type="date" aria-label={`Fin del T${i + 1}`} value={t.fin} onChange={(ev) => setTrimestres(trimestres.map((x, j) => (j === i ? { ...x, fin: ev.target.value } : x)))} />
               </div>
             </div>
           ))}
         </div>
         {(cambiados || !e.ajustes.guardados) && (
-          <Accion tono="azul" disabled={guardando} onClick={() => void guardarAjustes({ trimestres })}>
-            <Check className="h-4 w-4" /> Guardar trimestres
-          </Accion>
+          <Button cargando={guardando} onClick={() => void guardarAjustes({ trimestres })}>
+            {!guardando && <Check />} Guardar trimestres
+          </Button>
         )}
         <p className="text-xs text-zinc-500">
           Fuera de trimestre no se planifica. Festivos: los del centro ({e.datos.festivos.length}), de Mi horario.
@@ -97,20 +106,16 @@ export function Ajustes({ e }: { e: Estado }) {
 
       {/* Acceso común */}
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Acceso del claustro</h3>
-        <label className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-          <input
-            type="checkbox"
-            className="mt-1 h-5 w-5"
-            checked={e.ajustes.accesoComun}
+        <h2 className="text-base font-semibold">Acceso del claustro</h2>
+        <div className={cn(claseTarjeta, 'p-3')}>
+          <Interruptor
+            activo={e.ajustes.accesoComun}
             disabled={guardando}
-            onChange={(ev) => void guardarAjustes({ accesoComun: ev.target.checked })}
+            onChange={(v) => void guardarAjustes({ accesoComun: v })}
+            etiqueta="Cada profe ve lo suyo"
+            descripcion="Las sesiones confirmadas que le quitan una hora (o que lleva). Nunca los borradores."
           />
-          <span className="text-sm">
-            <b>Cada profe ve lo suyo</b>
-            <span className="block text-zinc-500">Las sesiones confirmadas que le quitan una hora (o que lleva). Nunca los borradores.</span>
-          </span>
-        </label>
+        </div>
       </section>
 
       {editando && (
@@ -168,95 +173,86 @@ function EditorTipo({ e, tipo, onClose }: { e: Estado; tipo: TipoMomento | null;
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogTitle>{tipo ? `${tipo.emoji} ${tipo.nombre}` : 'Nuevo tipo'}</DialogTitle>
-        <div className="grid grid-cols-4 gap-2">
-          <label className="text-xs text-zinc-500">
-            Emoji
-            <input value={f.emoji} onChange={(ev) => set('emoji', ev.target.value)} className={cn(campo, 'text-center text-lg')} />
-          </label>
-          <label className="col-span-3 text-xs text-zinc-500">
-            Nombre (título del evento)
-            <input value={f.nombre} onChange={(ev) => set('nombre', ev.target.value)} placeholder="Taller de robótica" className={campo} />
-          </label>
-          <label className="col-span-4 text-xs text-zinc-500">
-            En el correo: «un momento de …»
-            <input value={f.nombreCorreo} onChange={(ev) => set('nombreCorreo', ev.target.value)} placeholder={f.nombre.toLowerCase()} className={campo} />
-          </label>
-          <label className="text-xs text-zinc-500">
-            Objetivo
-            <input type="number" min={1} max={20} value={f.cantidad} onChange={(ev) => set('cantidad', Number(ev.target.value) || 1)} className={campo} />
-          </label>
-          <label className="col-span-3 text-xs text-zinc-500">
-            por clase
-            <select value={f.frecuencia} onChange={(ev) => set('frecuencia', ev.target.value as EntradaTipo['frecuencia'])} className={campo}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogTitle className="pr-10">{tipo ? `${tipo.emoji} ${tipo.nombre}` : 'Nuevo tipo'}</DialogTitle>
+        <div className="grid grid-cols-4 gap-3">
+          <Campo etiqueta="Emoji" id="ora-tipo-emoji">
+            <Input id="ora-tipo-emoji" value={f.emoji} onChange={(ev) => set('emoji', ev.target.value)} className="text-center text-lg" />
+          </Campo>
+          <Campo etiqueta="Nombre (título del evento)" id="ora-tipo-nombre" className="col-span-3">
+            <Input id="ora-tipo-nombre" value={f.nombre} onChange={(ev) => set('nombre', ev.target.value)} placeholder="Taller de robótica" />
+          </Campo>
+          <Campo etiqueta="En el correo: «un momento de …»" id="ora-tipo-correo" className="col-span-4">
+            <Input id="ora-tipo-correo" value={f.nombreCorreo} onChange={(ev) => set('nombreCorreo', ev.target.value)} placeholder={f.nombre.toLowerCase()} />
+          </Campo>
+          <Campo etiqueta="Objetivo" id="ora-tipo-cantidad">
+            <Input id="ora-tipo-cantidad" type="number" min={1} max={20} value={f.cantidad} onChange={(ev) => set('cantidad', Number(ev.target.value) || 1)} />
+          </Campo>
+          <Campo etiqueta="por clase" id="ora-tipo-frecuencia" className="col-span-3">
+            <Selector id="ora-tipo-frecuencia" value={f.frecuencia} onChange={(ev) => set('frecuencia', ev.target.value as EntradaTipo['frecuencia'])}>
               {FRECUENCIAS.map((x) => (
                 <option key={x} value={x}>
                   {FRECUENCIA_LABELS[x]}
                 </option>
               ))}
-            </select>
-          </label>
-          <div className="col-span-4 space-y-1">
-            <p className="text-xs text-zinc-500">Clases</p>
-            <div className="flex flex-wrap gap-1.5">
+            </Selector>
+          </Campo>
+          <div className="col-span-4 space-y-1.5">
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Clases</p>
+            <Filtros etiqueta="Etapas">
               {ETAPAS_VISIBLES.map((et) => (
-                <Pastilla key={et} activa={f.etapas.includes(et)} onClick={() => set('etapas', f.etapas.includes(et) ? f.etapas.filter((x) => x !== et) : [...f.etapas, et])}>
+                <Filtro key={et} activo={f.etapas.includes(et)} onClick={() => set('etapas', f.etapas.includes(et) ? f.etapas.filter((x) => x !== et) : [...f.etapas, et])}>
                   {ETAPA_LABELS[et]}
-                </Pastilla>
+                </Filtro>
               ))}
-              <Pastilla activa={fijas} onClick={() => set('clases', fijas ? null : automaticas)} title="Elegir clase a clase">
-                Elegir a mano
-              </Pastilla>
-            </div>
+              <Filtro activo={fijas} onClick={() => set('clases', fijas ? null : automaticas)}>
+                Elegir clase a clase
+              </Filtro>
+            </Filtros>
             {fijas && (
-              <div className="flex flex-wrap gap-1">
+              <Filtros etiqueta="Clases elegidas">
                 {e.datos.clases.map((c) => {
                   const k = claveClase(c);
                   const on = f.clases!.includes(k);
                   return (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => set('clases', on ? f.clases!.filter((x) => x !== k) : [...f.clases!, k])}
-                      className={cn('rounded-md border px-2 py-1 text-xs', on ? 'border-blue-600 bg-blue-600 text-white' : 'border-zinc-200 dark:border-zinc-700')}
-                    >
+                    <Filtro key={k} activo={on} onClick={() => set('clases', on ? f.clases!.filter((x) => x !== k) : [...f.clases!, k])}>
                       {nombreClase(c.curso, c.letra)}
-                    </button>
+                    </Filtro>
                   );
                 })}
-              </div>
+              </Filtros>
             )}
-            {!fijas && <p className="text-[11px] text-zinc-400">{automaticas.length} clases</p>}
+            {!fijas && <p className="text-xs text-zinc-500">{automaticas.length} clases</p>}
           </div>
-          <label className="col-span-4 text-xs text-zinc-500">
-            Calendario de Google (id)
-            <input value={f.calendarioId ?? ''} onChange={(ev) => set('calendarioId', ev.target.value || null)} placeholder="c_…@group.calendar.google.com" className={cn(campo, 'font-mono text-xs')} />
-          </label>
-          <label className="col-span-4 text-xs text-zinc-500">
-            Texto extra del correo
-            <textarea value={f.textoCorreo ?? ''} onChange={(ev) => set('textoCorreo', ev.target.value || null)} rows={3} className={cn(campo, 'py-1.5')} />
-          </label>
-          <label className="col-span-4 flex items-start gap-3 rounded-xl border border-zinc-200 p-2 text-sm dark:border-zinc-700">
-            <input type="checkbox" checked={f.sinRepetir} onChange={(ev) => set('sinRepetir', ev.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
-            <span>
-              <b>Que no se repita una sesión en la vida escolar del alumno</b>
-              <span className="block text-xs text-zinc-500">
-                Al elegir la sesión de cada momento, las que ya vieron los alumnos de esa clase (este curso o antes) salen avisadas y no se proponen solas.
-              </span>
-            </span>
-          </label>
-          <label className="col-span-2 text-xs text-zinc-500">
-            Aviso, días antes
-            <input type="number" min={0} max={60} value={f.avisoDias} onChange={(ev) => set('avisoDias', Number(ev.target.value) || 0)} className={campo} />
-          </label>
-          <label className="col-span-2 flex items-end gap-2 pb-2 text-sm">
-            <input type="checkbox" checked={f.activo} onChange={(ev) => set('activo', ev.target.checked)} className="h-5 w-5" /> Activo
-          </label>
+          <Campo etiqueta="Calendario de Google (id)" id="ora-tipo-calendario" className="col-span-4">
+            <Input id="ora-tipo-calendario" value={f.calendarioId ?? ''} onChange={(ev) => set('calendarioId', ev.target.value || null)} placeholder="c_…@group.calendar.google.com" className="font-mono text-sm sm:text-sm" />
+          </Campo>
+          <Campo etiqueta="Texto extra del correo" id="ora-tipo-texto" className="col-span-4">
+            <Textarea id="ora-tipo-texto" value={f.textoCorreo ?? ''} onChange={(ev) => set('textoCorreo', ev.target.value || null)} rows={3} />
+          </Campo>
+          <div className="col-span-4">
+            <Interruptor
+              activo={f.sinRepetir}
+              onChange={(v) => set('sinRepetir', v)}
+              etiqueta="Que no se repita una sesión en la vida escolar del alumno"
+              descripcion="Al elegir la sesión de cada momento, las que ya vieron los alumnos de esa clase (este curso o antes) salen avisadas y no se proponen solas."
+            />
+          </div>
+          <Campo etiqueta="Aviso, días antes" id="ora-tipo-aviso" className="col-span-2">
+            <Input id="ora-tipo-aviso" type="number" min={0} max={60} value={f.avisoDias} onChange={(ev) => set('avisoDias', Number(ev.target.value) || 0)} />
+          </Campo>
+          <div className="col-span-2 flex items-end">
+            <Interruptor activo={f.activo} onChange={(v) => set('activo', v)} etiqueta="Activo" />
+          </div>
         </div>
-        <Accion tono="azul" disabled={guardando || !f.nombre.trim()} onClick={guardar}>
-          <Check className="h-4 w-4" /> Guardar
-        </Accion>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button disabled={!f.nombre.trim()} cargando={guardando} onClick={guardar}>
+            {!guardando && <Check />} Guardar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

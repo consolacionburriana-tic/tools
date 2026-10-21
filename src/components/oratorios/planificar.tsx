@@ -1,12 +1,19 @@
 'use client';
 
-// 🗓️ Planificar: el asistente. Semana a semana, los huecos de quien lo lleva y quién cabe en
-// cada uno (con la materia y el profe que pierde la hora y sus avisos en símbolos). Dos
+// Planificar: el asistente. Semana a semana, los huecos de quien lo lleva y quién cabe en
+// cada uno (con la materia y el profe que pierde la hora y sus avisos). Dos
 // toques por sesión: el hueco y la clase. Ficha: docs/26-oratorios.md
 import { ArrowRightLeft, BookOpen, BookOpenText, CalendarClock, CalendarOff, ChevronLeft, ChevronRight, Check, CheckCheck, Plus, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
+import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
+import { Campo } from '@/components/ui/campo';
+import { useConfirmar } from '@/components/ui/confirmar';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+import { claseCampo, Input } from '@/components/ui/input';
+import { Selector } from '@/components/ui/selector';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import {
@@ -52,7 +59,7 @@ import {
   type SesionOra,
 } from '@/lib/oratorios';
 import { ETAPAS, nombreClase } from '@/lib/cursos';
-import { Accion, api, Avisos, capital, ChipVista, Pastilla, SelectChip } from './comun';
+import { api, AvisosCandidato, capital, EstadoChip, IconoNivel } from './comun';
 import type { Estado } from './panel';
 
 type Franja = { horaInicio: string; horaFin: string };
@@ -65,15 +72,15 @@ const FONDO_NIVEL: Record<Nivel, string> = {
 
 export function SelectorTipo({ e }: { e: Estado }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <Filtros etiqueta="Tipo de momento">
       {e.tipos
         .filter((t) => t.activo)
         .map((t) => (
-          <Pastilla key={t.id} activa={t.id === e.tipoId} onClick={() => e.setTipoId(t.id)}>
+          <Filtro key={t.id} activo={t.id === e.tipoId} onClick={() => e.setTipoId(t.id)}>
             <span aria-hidden>{t.emoji}</span> {t.nombre}
-          </Pastilla>
+          </Filtro>
         ))}
-    </div>
+    </Filtros>
   );
 }
 
@@ -81,7 +88,13 @@ export function SelectorResponsable({ e }: { e: Estado }) {
   const conCorreo = e.datos.profes.filter((p) => p.email);
   const esta = conCorreo.some((p) => p.email === e.responsable);
   return (
-    <SelectChip value={e.responsable} onChange={e.setResponsable} title="Quién lo lleva (e invita)">
+    <Selector
+      value={e.responsable}
+      onChange={(ev) => e.setResponsable(ev.target.value)}
+      aria-label="Quién lo lleva (e invita)"
+      title="Quién lo lleva (e invita)"
+      className="w-auto max-w-full"
+    >
       {!esta && <option value={e.responsable}>{e.responsable}</option>}
       {conCorreo.map((p) => (
         <option key={p.id} value={p.email!}>
@@ -89,7 +102,7 @@ export function SelectorResponsable({ e }: { e: Estado }) {
           {p.email === e.datos.yo.email ? ' (yo)' : ''}
         </option>
       ))}
-    </SelectChip>
+    </Selector>
   );
 }
 
@@ -110,6 +123,7 @@ export function Planificar({ e }: { e: Estado }) {
   // La sesión del abanico que se fuerza para los momentos nuevos; sin forzar, cada clase lleva
   // la suya por defecto (lo normal: la misma en todas, salvo las hechas a medida para un nivel).
   const [forzadaEn, setForzadaEn] = useState<{ tipoId: string; id: string } | null>(null);
+  const { confirmar, dialogo } = useConfirmar();
 
   const clases = useMemo(() => (tipo ? clasesDeTipo(tipo, e.datos.clases) : []), [tipo, e.datos.clases]);
   const sinHorario = useMemo(() => clasesSinHorario(clases, e.datos.horario), [clases, e.datos.horario]);
@@ -261,10 +275,12 @@ export function Planificar({ e }: { e: Estado }) {
         <SelectorTipo e={e} />
         <SelectorResponsable e={e} />
         {abanico.length > 0 && (
-          <SelectChip
+          <Selector
             value={forzada?.id ?? ''}
-            onChange={(v) => setForzadaEn(v ? { tipoId: tipo.id, id: v } : null)}
+            onChange={(ev) => setForzadaEn(ev.target.value ? { tipoId: tipo.id, id: ev.target.value } : null)}
+            aria-label="Qué sesión se hace en los momentos que crees"
             title="Qué sesión se hace en los momentos que crees: la automática elige la que toca para cada clase"
+            className="w-auto max-w-full"
           >
             <option value="">Sesión: automática{propuestaAuto ? ` · ${propuestaAuto.nombre}` : ''}</option>
             {abanico.map((c) => (
@@ -272,30 +288,32 @@ export function Planificar({ e }: { e: Estado }) {
                 Sesión: {c.nombre}
               </option>
             ))}
-          </SelectChip>
+          </Selector>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {rapidos.map((r) => (
-          <Pastilla key={r.clave} activa={claveRango === r.clave} onClick={() => elegirRango(r.clave, r.rango)}>
-            {r.etiqueta}
-          </Pastilla>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <Filtros etiqueta="Fechas">
+          {rapidos.map((r) => (
+            <Filtro key={r.clave} activo={claveRango === r.clave} onClick={() => elegirRango(r.clave, r.rango)}>
+              {r.etiqueta}
+            </Filtro>
+          ))}
+        </Filtros>
         <span className="inline-flex items-center gap-1 text-sm">
-          <input
+          <Input
             type="date"
             aria-label="Desde"
             value={rango.inicio}
             onChange={(ev) => ev.target.value && elegirRango('libre', { inicio: ev.target.value, fin: ev.target.value > rango.fin ? ev.target.value : rango.fin })}
-            className="min-h-9 rounded-full border border-zinc-200 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-auto"
           />
           →
-          <input
+          <Input
             type="date"
             aria-label="Hasta"
             value={rango.fin}
             onChange={(ev) => ev.target.value && elegirRango('libre', { inicio: ev.target.value < rango.inicio ? ev.target.value : rango.inicio, fin: ev.target.value })}
-            className="min-h-9 rounded-full border border-zinc-200 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-auto"
           />
         </span>
       </div>
@@ -305,62 +323,70 @@ export function Planificar({ e }: { e: Estado }) {
 
       {/* Acciones */}
       <div className="flex flex-wrap gap-2">
-        <Accion tono="azul" onClick={autocompletarRango} disabled={trabajando || e.ocupado} title="Reparte el rango en tus huecos ⭐ y luego 👍">
-          <Sparkles className="h-4 w-4" /> Autocompletar
-        </Accion>
-        <Accion
-          tono="verde"
+        <Button variant="outline" onClick={autocompletarRango} disabled={trabajando || e.ocupado} title="Reparte el rango en tus huecos de nivel óptimo y luego en los alternativos">
+          <Sparkles /> Autocompletar
+        </Button>
+        <Button
           disabled={borradores.length === 0 || e.ocupado}
           title="Crea los eventos en Google Calendar e invita a los profes"
-          onClick={() => {
-            if (window.confirm(`¿Confirmar ${borradores.length}? Se crean los eventos y se invita a los profes.`)) void e.lote('confirmar', borradores.map((b) => b.id));
+          onClick={async () => {
+            const si = await confirmar({
+              titulo: `¿Confirmar ${borradores.length} ${borradores.length === 1 ? 'sesión' : 'sesiones'}?`,
+              descripcion: 'Se crean los eventos en Google Calendar y se invita a los profes.',
+              boton: `Confirmar ${borradores.length}`,
+              peligro: false,
+            });
+            if (si) void e.lote('confirmar', borradores.map((b) => b.id));
           }}
         >
-          <CheckCheck className="h-4 w-4" /> Confirmar {borradores.length > 0 && <span className="tabular-nums">({borradores.length})</span>}
-        </Accion>
+          <CheckCheck /> Confirmar {borradores.length > 0 && <span className="tabular-nums">({borradores.length})</span>}
+        </Button>
         {borradores.length > 0 && (
-          <Accion
-            tono="rojo"
+          <Button
+            variant="destructive"
             disabled={e.ocupado}
-            title="Descartar los borradores del rango"
-            onClick={() => {
-              if (window.confirm(`¿Descartar ${borradores.length} borradores?`)) void e.lote('descartar', borradores.map((b) => b.id));
+            onClick={async () => {
+              const si = await confirmar({
+                titulo: `¿Descartar ${borradores.length} ${borradores.length === 1 ? 'borrador' : 'borradores'}?`,
+                descripcion: 'Se quitan los borradores de este rango que aún no se han confirmado.',
+                boton: `Descartar ${borradores.length}`,
+              });
+              if (si) void e.lote('descartar', borradores.map((b) => b.id));
             }}
           >
-            <Trash2 className="h-4 w-4" /> {borradores.length}
-          </Accion>
+            <Trash2 /> Descartar {borradores.length}
+          </Button>
         )}
-        <Accion onClick={() => setManual({ fecha: e.datos.hoy, franja: null })} title="Una clase sin horario o una hora rara">
-          <Plus className="h-4 w-4" /> A mano
-        </Accion>
+        <Button variant="outline" onClick={() => setManual({ fecha: e.datos.hoy, franja: null })} title="Una clase sin horario o una hora rara">
+          <Plus /> A mano
+        </Button>
       </div>
 
-      {disp.length === 0 && (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-          Sin huecos marcados: márcalos en «Mis huecos» y el asistente te los enseña aquí.
-        </p>
-      )}
+      {disp.length === 0 && <Aviso tono="aviso">Sin huecos marcados: márcalos en «Mis huecos» y el asistente te los enseña aquí.</Aviso>}
 
       {/* Mover / por recolocar */}
       {moviendo ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-300 bg-violet-50 px-3 py-2 text-sm text-violet-900 dark:border-violet-500/40 dark:bg-violet-500/10 dark:text-violet-200">
-          <span className="inline-flex items-center gap-1.5">
-            <ArrowRightLeft className="h-4 w-4" /> <b>{etiquetaClase(moviendo)}</b> · S{moviendo.numero} — toca su hueco nuevo
-          </span>
-          <button type="button" onClick={() => e.mover(null)} className="ml-auto rounded-lg p-1 hover:bg-violet-100 dark:hover:bg-violet-500/20" aria-label="Dejar de mover">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <Aviso
+          tono="info"
+          icono={<ArrowRightLeft />}
+          accion={
+            <Button variant="ghost" size="sm" onClick={() => e.mover(null)}>
+              <X /> Dejar de mover
+            </Button>
+          }
+        >
+          <b>{etiquetaClase(moviendo)}</b> · S{moviendo.numero}: toca su hueco nuevo
+        </Aviso>
       ) : (
         porRecolocar.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 text-sm text-violet-700 dark:text-violet-300">
-              <CalendarClock className="h-4 w-4" /> Por recolocar
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-amber-800 dark:text-amber-300">
+              <CalendarClock className="h-4 w-4" aria-hidden /> Por recolocar
             </span>
             {porRecolocar.map((s) => (
-              <Pastilla key={s.id} onClick={() => e.mover(s.id)} className="border-violet-300 dark:border-violet-500/40">
+              <Button key={s.id} variant="outline" size="sm" onClick={() => e.mover(s.id)}>
                 {etiquetaClase(s)} · S{s.numero}
-              </Pastilla>
+              </Button>
             ))}
           </div>
         )
@@ -368,24 +394,27 @@ export function Planificar({ e }: { e: Estado }) {
 
       {/* La semana */}
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setSemana(sumarDias(semana, -7))} className="rounded-lg border border-zinc-200 p-2 dark:border-zinc-700" aria-label="Semana anterior">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
+        <Button variant="outline" size="icon-sm" onClick={() => setSemana(sumarDias(semana, -7))} aria-label="Semana anterior">
+          <ChevronLeft />
+        </Button>
         <span className="min-w-32 text-center text-sm font-semibold tabular-nums">
           {fechaCorta(dias[0])} – {fechaCorta(dias[4])}
         </span>
-        <button type="button" onClick={() => setSemana(sumarDias(semana, 7))} className="rounded-lg border border-zinc-200 p-2 dark:border-zinc-700" aria-label="Semana siguiente">
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        <Button variant="outline" size="icon-sm" onClick={() => setSemana(sumarDias(semana, 7))} aria-label="Semana siguiente">
+          <ChevronRight />
+        </Button>
         {semana !== lunesDe(e.datos.hoy) && (
-          <button type="button" onClick={() => setSemana(lunesDe(e.datos.hoy))} className="rounded-lg px-2 py-1 text-sm text-blue-600 dark:text-blue-400">
+          <Button variant="ghost" size="sm" onClick={() => setSemana(lunesDe(e.datos.hoy))}>
             Hoy
-          </button>
+          </Button>
         )}
-        <span className="ml-auto hidden gap-2 text-xs text-zinc-500 sm:flex">
+        <span className="ml-auto hidden flex-wrap gap-3 text-xs text-zinc-600 sm:flex dark:text-zinc-400">
           {(Object.keys(NIVEL_INFO) as Nivel[]).map((n) => (
-            <span key={n}>
-              {NIVEL_INFO[n].emoji} {NIVEL_INFO[n].label}
+            <span key={n} className="inline-flex items-center gap-1">
+              <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded border', FONDO_NIVEL[n])}>
+                <IconoNivel nivel={n} className="h-3 w-3" />
+              </span>
+              {NIVEL_INFO[n].label}
             </span>
           ))}
         </span>
@@ -402,7 +431,7 @@ export function Planificar({ e }: { e: Estado }) {
                 <span className={cn(festivo && 'line-through')}>
                   {diaCorto(diaSemana(d))} {fechaCorta(d)}
                 </span>
-                {festivo && <span className="block text-[10px] font-normal">festivo</span>}
+                {festivo && <span className="block text-xs font-normal">festivo</span>}
               </div>
             );
           })}
@@ -432,6 +461,7 @@ export function Planificar({ e }: { e: Estado }) {
         />
       )}
       {manual && <DialogoManual e={e} tipoId={tipo.id} fecha={manual.fecha} franja={manual.franja} claveInicial={manual.clave} forzadaId={forzada?.id ?? null} onClose={() => setManual(null)} />}
+      {dialogo}
     </div>
   );
 }
@@ -445,13 +475,14 @@ function BarraObjetivo({ progreso, unidades, sinHorario }: { progreso: ReturnTyp
     <div className="-mx-4 overflow-x-auto px-4">
       <div className="flex gap-1.5">
         <span className={cn('inline-flex shrink-0 items-center rounded-full px-2.5 text-sm font-semibold', pendientes ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300')} title="Por hacer en el rango">
-          <Target className="mr-1 h-3.5 w-3.5" /> {pendientes || <Check className="h-3.5 w-3.5" />}
+          <Target className="mr-1 h-3.5 w-3.5" aria-hidden /> {pendientes ? `${pendientes} por hacer` : <><Check className="mr-1 h-3.5 w-3.5" aria-hidden /> Todo hecho</>}
         </span>
         {progreso.map((f) => (
-          <span key={f.clave} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900" title={`✔️ ${f.total.hechas} · 📅 ${f.total.programadas} · 📝 ${f.total.borradores} · ○ ${f.total.porHacer}${sinHorario.has(f.clave) ? ' · sin horario importado: se apunta a mano' : ''}`}>
+          <span key={f.clave} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900" title={`${f.total.hechas} hechas · ${f.total.programadas} confirmadas · ${f.total.borradores} borradores · ${f.total.porHacer} por hacer${sinHorario.has(f.clave) ? ' · sin horario importado: se apunta a mano' : ''}`}>
             <span className="font-semibold">{nombreClase(f.clase.curso, f.clase.letra)}</span>
-            {sinHorario.has(f.clave) && <CalendarOff className="h-3 w-3 text-zinc-400" aria-label="Sin horario importado: se apunta a mano" />}
+            {sinHorario.has(f.clave) && <CalendarOff className="h-3 w-3 text-zinc-500" aria-label="Sin horario importado: se apunta a mano" />}
             <Puntos t={f.total} />
+            <span className="text-zinc-600 tabular-nums dark:text-zinc-400">{f.total.porHacer > 0 ? `faltan ${f.total.porHacer}` : 'hecho'}</span>
           </span>
         ))}
       </div>
@@ -459,19 +490,30 @@ function BarraObjetivo({ progreso, unidades, sinHorario }: { progreso: ReturnTyp
   );
 }
 
+/** El color de cada punto: verde lleno, hecha; verde claro, confirmada; gris, borrador; hueco, por hacer. */
+export const PUNTO = {
+  hechas: 'bg-emerald-600 dark:bg-emerald-400',
+  programadas: 'bg-emerald-300 dark:bg-emerald-700',
+  borradores: 'bg-zinc-400 dark:bg-zinc-500',
+  porHacer: 'ring-1 ring-inset ring-zinc-400 dark:ring-zinc-500',
+} as const;
+
 export function Puntos({ t }: { t: { hechas: number; programadas: number; borradores: number; porHacer: number } }) {
   const puntos = [
-    ...Array(t.hechas).fill('bg-emerald-500'),
-    ...Array(t.programadas).fill('bg-blue-500'),
-    ...Array(t.borradores).fill('bg-zinc-400 dark:bg-zinc-500'),
-    ...Array(t.porHacer).fill('ring-1 ring-inset ring-zinc-300 dark:ring-zinc-600'),
+    ...Array(t.hechas).fill(PUNTO.hechas),
+    ...Array(t.programadas).fill(PUNTO.programadas),
+    ...Array(t.borradores).fill(PUNTO.borradores),
+    ...Array(t.porHacer).fill(PUNTO.porHacer),
   ];
   return (
-    <span className="inline-flex gap-0.5">
+    <span className="inline-flex items-center gap-0.5">
+      <span className="sr-only">
+        {t.hechas} hechas, {t.programadas} confirmadas, {t.borradores} borradores y {t.porHacer} por hacer
+      </span>
       {puntos.slice(0, 12).map((c, i) => (
-        <span key={i} className={cn('h-2 w-2 rounded-full', c)} />
+        <span key={i} aria-hidden className={cn('h-2 w-2 rounded-full', c)} />
       ))}
-      {puntos.length > 12 && <span className="text-[10px] text-zinc-400">+{puntos.length - 12}</span>}
+      {puntos.length > 12 && <span aria-hidden className="text-xs text-zinc-500">+{puntos.length - 12}</span>}
     </span>
   );
 }
@@ -504,9 +546,9 @@ function FilaFranja({
   const tipo = e.tipos.find((t) => t.id === tipoId)!;
   return (
     <>
-      <div className="flex flex-col items-end justify-center pr-1 text-[11px] leading-tight text-zinc-500 tabular-nums">
+      <div className="flex flex-col items-end justify-center pr-1 text-xs leading-tight text-zinc-500 tabular-nums">
         <span>{horaBonita(franja.horaInicio)}</span>
-        <span className="text-zinc-400">{horaBonita(franja.horaFin)}</span>
+        <span>{horaBonita(franja.horaFin)}</span>
       </div>
       {dias.map((fecha) => {
         const dia = diaSemana(fecha);
@@ -538,18 +580,23 @@ function FilaFranja({
             onClick={() => onTocar(fecha, franja)}
             onKeyDown={(ev) => ev.key === 'Enter' && onTocar(fecha, franja)}
             className={cn(
-              'relative flex min-h-16 flex-col gap-1 rounded-lg border p-1 text-left text-[11px] transition-colors',
+              'relative flex min-h-16 flex-col gap-1 rounded-lg border p-1 text-left text-xs transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
               nivel && lectivo && 'pr-4',
               !lectivo
                 ? 'cursor-default border-transparent bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(0,0,0,0.04)_6px,rgba(0,0,0,0.04)_12px)] opacity-60'
                 : nivel
                   ? cn(FONDO_NIVEL[nivel], 'cursor-pointer hover:brightness-95')
                   : 'cursor-pointer border-zinc-100 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800',
-              destino && 'ring-2 ring-violet-400',
+              destino && 'ring-2 ring-blue-400',
               moviendo && !destino && lectivo && 'opacity-40',
             )}
           >
-            {nivel && lectivo && <span className="absolute top-0.5 right-1 text-[10px]">{NIVEL_INFO[nivel].emoji}</span>}
+            {nivel && lectivo && (
+              <span className="absolute top-1 right-1 text-zinc-600 dark:text-zinc-300">
+                <IconoNivel nivel={nivel} className="h-3 w-3" />
+                <span className="sr-only">Hueco {NIVEL_INFO[nivel].label.toLowerCase()}</span>
+              </span>
+            )}
             {aqui.map((s) => {
               const t = e.tipos.find((x) => x.id === s.tipoId);
               const chip = chipEstado(s, e.datos.hoy);
@@ -564,33 +611,33 @@ function FilaFranja({
                   }}
                   title={`${t?.nombre ?? ''} · ${s.profes.map((p) => p.nombre).join(', ')}${ajena ? ` · lo lleva ${s.responsableNombre ?? s.responsableEmail}` : ''}${s.catalogoId ? ` · ${e.catalogo.find((c) => c.id === s.catalogoId)?.nombre ?? ''}` : ''}`}
                   className={cn(
-                    'flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left font-medium',
+                    'flex w-full flex-wrap items-center gap-x-1 rounded-md border px-1 py-0.5 text-left font-medium',
                     s.estado === 'borrador'
-                      ? 'border border-dashed border-zinc-400 bg-white/80 text-zinc-700 dark:border-zinc-500 dark:bg-zinc-900/80 dark:text-zinc-200'
-                      : 'bg-blue-600 text-white dark:bg-blue-500',
+                      ? 'border-dashed border-zinc-400 bg-white/80 text-zinc-700 dark:border-zinc-500 dark:bg-zinc-900/80 dark:text-zinc-200'
+                      : 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200',
                     ajena && 'opacity-60',
-                    s.id === moviendo?.id && 'ring-2 ring-violet-500',
+                    s.id === moviendo?.id && 'ring-2 ring-blue-500',
                   )}
                 >
                   <span aria-hidden>{t?.emoji}</span>
                   <span className="truncate">{nombreClase(s.curso, s.letra)}</span>
                   <span className="ml-auto opacity-80">S{s.numero}</span>
-                  <span aria-hidden>{chip.emoji}</span>
+                  <span className="w-full font-normal opacity-80">{chip.texto}</span>
                 </button>
               );
             })}
-            {destino && <Avisos avisos={destino.avisos} />}
+            {destino && <AvisosCandidato avisos={destino.avisos} />}
             {sugerencia && (
               <span className="flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
                 <span className="inline-flex items-center gap-0.5">
                   <Plus className="h-3 w-3" /> {nombreClase(sugerencia.clase.curso, sugerencia.clase.letra)}
                 </span>
-                <Avisos avisos={sugerencia.avisos.filter((a) => a.nivel !== 'info')} />
+                <AvisosCandidato avisos={sugerencia.avisos.filter((a) => a.nivel !== 'info')} />
               </span>
             )}
             {propias.length > 0 && (
-              <span className="mt-auto flex items-center gap-0.5 truncate text-[10px] text-zinc-400" title="Tu horario">
-                <BookOpen className="h-3 w-3 shrink-0" /> {[...new Set(propias.map((p) => (p.curso ? nombreClase(p.curso, p.letra) : p.materia)))].join(', ')}
+              <span className="mt-auto flex items-center gap-0.5 truncate text-xs text-zinc-500" title="Tu horario">
+                <BookOpen className="h-3 w-3 shrink-0" aria-label="Tu horario" /> {[...new Set(propias.map((p) => (p.curso ? nombreClase(p.curso, p.letra) : p.materia)))].join(', ')}
               </span>
             )}
           </div>
@@ -638,13 +685,17 @@ function DialogoHueco({
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
-        <DialogTitle className="flex items-center gap-2">
-          <span>{nivel ? NIVEL_INFO[nivel].emoji : '·'}</span>
+        <DialogTitle className="flex flex-wrap items-center gap-x-2 pr-10">
           <span>{capital(fechaLarga(fecha))}</span>
           <span className="text-zinc-500 tabular-nums">
             {horaBonita(franja.horaInicio)}–{horaBonita(franja.horaFin)}
           </span>
         </DialogTitle>
+        {nivel && (
+          <p className="-mt-2 inline-flex items-center gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+            <IconoNivel nivel={nivel} /> Hueco {NIVEL_INFO[nivel].label.toLowerCase()}
+          </p>
+        )}
 
         {propias.length > 0 && (
           <p className="rounded-lg bg-zinc-100 px-2 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
@@ -661,11 +712,11 @@ function DialogoHueco({
                   onClose();
                   e.abrir(s.id);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg bg-zinc-100 px-2 py-1.5 text-left text-sm dark:bg-zinc-800"
+                className="flex min-h-10 w-full items-center gap-2 rounded-lg bg-zinc-100 px-2 py-1.5 text-left text-sm dark:bg-zinc-800"
               >
-                <span>{e.tipos.find((t) => t.id === s.tipoId)?.emoji}</span>
+                <span aria-hidden>{e.tipos.find((t) => t.id === s.tipoId)?.emoji}</span>
                 <b>{etiquetaClase(s)}</b> S{s.numero}
-                <ChipVista chip={chipEstado(s, e.datos.hoy)} corto className="ml-auto" />
+                <EstadoChip chip={chipEstado(s, e.datos.hoy)} className="ml-auto" />
               </button>
             ))}
           </div>
@@ -691,7 +742,7 @@ function DialogoHueco({
                   <span className="text-xs text-zinc-500 tabular-nums">
                     {horaBonita(c.hora.horaInicio)}–{horaBonita(c.hora.horaFin)}
                   </span>
-                  <Avisos avisos={c.avisos} className="ml-auto" />
+                  <AvisosCandidato avisos={c.avisos} className="ml-auto justify-end" />
                 </span>
                 {(() => {
                   const delAbanico = sesionDe(c);
@@ -727,24 +778,23 @@ function DialogoHueco({
             </p>
             <div className="flex flex-wrap gap-1.5">
               {sinHorario.map((c) => (
-                <Pastilla key={claveClase(c)} onClick={() => onManual(claveClase(c))} disabled={trabajando}>
+                <Button key={claveClase(c)} variant="outline" size="sm" onClick={() => onManual(claveClase(c))} disabled={trabajando}>
                   {nombreClase(c.curso, c.letra)}
-                </Pastilla>
+                </Button>
               ))}
             </div>
           </div>
         )}
         <div className="flex flex-wrap gap-2">
           {utiles.length > 0 && utiles.length < candidatos.length && (
-            <Accion onClick={() => setVerTodas(!verTodas)}>{verTodas ? 'Solo las que faltan' : `+ ${candidatos.length - utiles.length} ya cubiertas`}</Accion>
+            <Button variant="outline" size="sm" onClick={() => setVerTodas(!verTodas)}>
+              {verTodas ? 'Solo las que faltan' : `+ ${candidatos.length - utiles.length} ya cubiertas`}
+            </Button>
           )}
-          <Accion onClick={() => onManual()}>
-            <Plus className="h-4 w-4" /> A mano
-          </Accion>
+          <Button variant="outline" size="sm" onClick={() => onManual()}>
+            <Plus /> A mano
+          </Button>
         </div>
-        <p className="text-[11px] leading-relaxed text-zinc-400">
-          🔴 misma hora y profe que la anterior · ×N veces este trimestre · 🟡 mismo profe · 📅 ya tiene ese día · ⏱️ muy seguido · 🚌 salida · ✓ cubierta
-        </p>
       </DialogContent>
     </Dialog>
   );
@@ -813,54 +863,56 @@ function DialogoManual({
     }
   }
 
-  const campo = 'min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900';
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogTitle>Sesión a mano</DialogTitle>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="col-span-2 text-xs text-zinc-500">
-            Clase
-            <select value={clave} onChange={(ev) => setClave(ev.target.value)} className={campo}>
+        <div className="grid grid-cols-2 gap-3">
+          <Campo etiqueta="Clase" id="ora-manual-clase" className="col-span-2">
+            <Selector id="ora-manual-clase" value={clave} onChange={(ev) => setClave(ev.target.value)}>
               {e.datos.clases.map((c) => (
                 <option key={claveClase(c)} value={claveClase(c)}>
                   {nombreClase(c.curso, c.letra)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="col-span-2 text-xs text-zinc-500">
-            Día
-            <input type="date" value={fecha} onChange={(ev) => setFecha(ev.target.value)} className={campo} />
-          </label>
-          <label className="text-xs text-zinc-500">
-            De
-            <input type="time" value={inicio} onChange={(ev) => setInicio(ev.target.value)} className={campo} />
-          </label>
-          <label className="text-xs text-zinc-500">
-            a
-            <input type="time" value={fin} onChange={(ev) => setFin(ev.target.value)} className={campo} />
-          </label>
+            </Selector>
+          </Campo>
+          <Campo etiqueta="Día" id="ora-manual-dia" className="col-span-2">
+            <Input id="ora-manual-dia" type="date" value={fecha} onChange={(ev) => setFecha(ev.target.value)} />
+          </Campo>
+          <Campo etiqueta="De" id="ora-manual-de">
+            <Input id="ora-manual-de" type="time" value={inicio} onChange={(ev) => setInicio(ev.target.value)} />
+          </Campo>
+          <Campo etiqueta="a" id="ora-manual-a">
+            <Input id="ora-manual-a" type="time" value={fin} onChange={(ev) => setFin(ev.target.value)} />
+          </Campo>
           {abanico.length > 0 && (
-            <label className="col-span-2 text-xs text-zinc-500">
-              Sesión
-              <select value={catalogoId} onChange={(ev) => setCatalogoElegido(ev.target.value)} className={campo}>
+            <Campo etiqueta="Sesión" id="ora-manual-sesion" className="col-span-2">
+              <Selector id="ora-manual-sesion" value={catalogoId} onChange={(ev) => setCatalogoElegido(ev.target.value)}>
                 <option value="">— sin elegir —</option>
                 {abanico.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nombre}
                   </option>
                 ))}
-              </select>
-            </label>
+              </Selector>
+            </Campo>
           )}
-          <label className="col-span-2 text-xs text-zinc-500">
-            Profe que pierde la hora {delHorario && <span className="text-emerald-600">· del horario</span>}
+          <Campo
+            etiqueta={
+              <>
+                Profe que pierde la hora {delHorario && <span className="font-normal text-emerald-700 dark:text-emerald-400">· del horario</span>}
+              </>
+            }
+            id="ora-manual-profes"
+            className="col-span-2"
+          >
             <select
+              id="ora-manual-profes"
               multiple
               value={profeIds}
               onChange={(ev) => setElegidos([...ev.target.selectedOptions].map((o) => o.value))}
-              className={cn(campo, 'h-32')}
+              className={cn(claseCampo, 'h-32 py-2')}
             >
               {e.datos.profes.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -868,11 +920,16 @@ function DialogoManual({
                 </option>
               ))}
             </select>
-          </label>
+          </Campo>
         </div>
-        <Accion tono="azul" onClick={guardar} disabled={guardando}>
-          Guardar borrador
-        </Accion>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={guardar} cargando={guardando}>
+            Guardar borrador
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
