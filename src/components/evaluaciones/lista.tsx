@@ -4,14 +4,14 @@
 // de una evaluación conjunta. Recibe los datos ya leídos (la página los trae del servidor).
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart3, CalendarRange, ChevronRight, ClipboardList, ExternalLink, GitCompare, ListChecks, Plus, Send } from 'lucide-react';
+import { BarChart3, ClipboardList, ExternalLink, GitCompare, ListChecks, Lock, Plus, Send } from 'lucide-react';
 import { AUDIENCIAS, COLOR_AUDIENCIA, opcionesAcademicYear, type Audiencia } from '@/lib/evaluaciones';
 import type { FormResumen } from '@/lib/evaluaciones-server';
 import { buttonVariants } from '@/components/ui/button';
 import { Estado, type TonoEstado } from '@/components/ui/estado';
-import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Anillo } from '@/components/ui/anillo';
+import { Segmentado } from '@/components/ui/segmentado';
 import { NavPending } from '@/components/ui/nav-pending';
-import { Progreso } from '@/components/ui/progreso';
 import { Tarjeta, TarjetaEnlace } from '@/components/ui/tarjeta';
 import { Vacio } from '@/components/ui/vacio';
 import { EliminarEvaluacion } from '@/components/evaluaciones/eliminar-evaluacion';
@@ -20,12 +20,16 @@ import { IconoAudiencia } from '@/components/evaluaciones/ui';
 const ESTADO: Record<string, { tono: TonoEstado; texto: string }> = {
   borrador: { tono: 'neutro', texto: 'Borrador' },
   abierto: { tono: 'ok', texto: 'Abierta' },
-  cerrado: { tono: 'aviso', texto: 'Cerrada' },
+  cerrado: { tono: 'neutro', texto: 'Cerrada' },
 };
 
 function EstadoForm({ estado }: { estado: string }) {
   const e = ESTADO[estado] ?? { tono: 'neutro' as const, texto: estado };
-  return <Estado tono={e.tono}>{e.texto}</Estado>;
+  return (
+    <Estado tono={e.tono} icono={estado === 'cerrado' ? <Lock /> : undefined}>
+      {e.texto}
+    </Estado>
+  );
 }
 
 export function ListaEvaluaciones({
@@ -44,14 +48,12 @@ export function ListaEvaluaciones({
   return (
     <div className="anim-stagger space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Filtros etiqueta="Curso escolar">
-          {opcionesAcademicYear(actual).map((y) => (
-            <Filtro key={y} activo={y === year} onClick={() => router.push(`/gestion/evaluaciones?anio=${y}`)}>
-              {y}
-              {y === actual && <span className="text-xs font-normal opacity-80">actual</span>}
-            </Filtro>
-          ))}
-        </Filtros>
+        <Segmentado
+          etiqueta="Curso escolar"
+          valor={year}
+          onChange={(y) => y !== year && router.push(`/gestion/evaluaciones?anio=${y}`)}
+          opciones={opcionesAcademicYear(actual).map((y) => ({ valor: y, etiqueta: y === actual ? `${y} · actual` : y }))}
+        />
         <Link href="/gestion/evaluaciones/actividades" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
           <ListChecks aria-hidden /> Actividades
           <span className="font-normal text-zinc-500 tabular-nums dark:text-zinc-400">{actividades}</span>
@@ -123,124 +125,98 @@ function porcentaje(f: FormResumen): number | null {
   return f.objetivo && f.objetivo > 0 ? Math.round((f.respuestas / f.objetivo) * 100) : null;
 }
 
+/** El color de una evaluación: el de su actividad o, si no tiene, el de su colectivo. */
+function colorDe(f: FormResumen): string {
+  return f.color ?? COLOR_AUDIENCIA[f.audiencia as Audiencia] ?? 'var(--color-blue-600)';
+}
+
+/**
+ * Lo que se puede hacer con una evaluación. Solo una acción destaca, la que toca ahora:
+ * enviarla si es un borrador, mirar los resultados si ya está abierta o cerrada.
+ */
 function Acciones({ f }: { f: FormResumen }) {
+  const borrador = f.estado === 'borrador';
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {f.estado !== 'borrador' && (
-        <Link href={`/evaluaciones/${f.token}`} target="_blank" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-          <ExternalLink aria-hidden /> Ver enlace
+    <div className="flex shrink-0 items-center gap-1">
+      {!borrador && (
+        <Link
+          href={`/evaluaciones/${f.token}`}
+          target="_blank"
+          aria-label="Abrir el enlace de la encuesta"
+          className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
+        >
+          <ExternalLink aria-hidden />
         </Link>
       )}
-      <Link href={`/gestion/evaluaciones/${f.id}/enviar`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+      <Link href={`/gestion/evaluaciones/${f.id}/enviar`} className={buttonVariants({ variant: borrador ? 'suave' : 'ghost', size: 'sm' })}>
         <Send aria-hidden /> Enviar
         <NavPending />
       </Link>
-      <Link href={`/gestion/evaluaciones/${f.id}/resultados`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-        <BarChart3 aria-hidden /> Resultados
-        <NavPending />
-      </Link>
+      {!borrador && (
+        <Link href={`/gestion/evaluaciones/${f.id}/resultados`} className={buttonVariants({ variant: 'suave', size: 'sm' })}>
+          <BarChart3 aria-hidden /> Resultados
+          <NavPending />
+        </Link>
+      )}
     </div>
   );
 }
 
-function Respuestas({ f }: { f: FormResumen }) {
+function textoRespuestas(f: FormResumen): string {
   const pct = porcentaje(f);
-  return (
-    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-      <span className="font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">{f.respuestas}</span> respuestas
-      {pct !== null && (
-        <span className="tabular-nums">
-          {' '}
-          de {f.objetivo} ({pct} %)
-        </span>
-      )}
-    </p>
-  );
-}
-
-function Barra({ f, nombre }: { f: FormResumen; nombre: string }) {
-  if (!f.objetivo || f.objetivo <= 0) return null;
-  return <Progreso hechos={f.respuestas} total={f.objetivo} etiqueta={`Respuestas de ${nombre}`} className="mt-3" />;
+  return pct !== null ? `${f.respuestas} de ${f.objetivo} respuestas` : `${f.respuestas} ${f.respuestas === 1 ? 'respuesta' : 'respuestas'}`;
 }
 
 function TarjetaForm({ f }: { f: FormResumen }) {
   const audiencia = AUDIENCIAS.find((a) => a.value === f.audiencia);
   return (
-    <Tarjeta className="p-4">
+    <Tarjeta className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4">
+      <Anillo hechos={f.respuestas} total={f.objetivo} color={colorDe(f)} etiqueta={textoRespuestas(f)} />
       <Link
         href={`/gestion/evaluaciones/${f.id}`}
-        className="group -m-2 flex items-start gap-3 rounded-xl p-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="group min-w-0 flex-[1_1_16rem] rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span
-          aria-hidden
-          style={{ background: f.color ?? '#2563eb' }}
-          className="mt-1.5 size-2.5 shrink-0 rounded-full"
-        />
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-zinc-900 group-hover:text-blue-700 dark:text-zinc-100 dark:group-hover:text-blue-400">
-              {f.titulo}
-            </span>
-            <EstadoForm estado={f.estado} />
-          </span>
-          <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="inline-flex items-center gap-1">
-              <IconoAudiencia audiencia={f.audiencia} className="size-3.5" />
-              {audiencia?.label}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <CalendarRange aria-hidden className="size-3.5" />
-              {f.academicYear}
-            </span>
-            {f.actividades.length > 0 && <span className="truncate">{f.actividades.join(' · ')}</span>}
-          </span>
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold text-zinc-900 group-hover:text-blue-700 dark:text-zinc-100 dark:group-hover:text-blue-400">{f.titulo}</span>
+          <EstadoForm estado={f.estado} />
+          <NavPending />
         </span>
-        <NavPending className="mt-1" />
-        <ChevronRight aria-hidden className="mt-1 size-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
+        <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+          <span className="inline-flex items-center gap-1" style={{ color: COLOR_AUDIENCIA[f.audiencia as Audiencia] }}>
+            <IconoAudiencia audiencia={f.audiencia} className="size-4" />
+            <span className="text-zinc-600 dark:text-zinc-300">{audiencia?.label}</span>
+          </span>
+          <span className="tabular-nums">{textoRespuestas(f)}</span>
+          {f.actividades.length > 0 && <span className="truncate">{f.actividades.join(' · ')}</span>}
+        </span>
       </Link>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <Respuestas f={f} />
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Acciones f={f} />
-          <EliminarEvaluacion
-            formId={f.id}
-            nombre={`«${f.titulo}»`}
-            respuestas={f.respuestas}
-            etiqueta={`Eliminar «${f.titulo}»`}
-            compacto
-            volverA={null}
-          />
-        </div>
+      <div className="flex items-center gap-1">
+        <Acciones f={f} />
+        <EliminarEvaluacion formId={f.id} nombre={`«${f.titulo}»`} respuestas={f.respuestas} etiqueta={`Eliminar «${f.titulo}»`} compacto volverA={null} />
       </div>
-      <Barra f={f} nombre={f.titulo} />
     </Tarjeta>
   );
 }
 
 /**
- * Evaluación conjunta: una sola tarjeta con la cabecera común (qué se evalúa) y una fila
- * por sector. Cada fila lleva el icono de su colectivo en el color de los gráficos y sus
- * propias acciones, porque cada sector se envía y se mira por separado.
+ * Evaluación conjunta: una sola tarjeta con lo que se evalúa arriba y una fila por sector,
+ * cada una con su anillo en el color de su colectivo (el mismo de los gráficos), porque cada
+ * sector se envía y se mira por separado.
  */
 function TarjetaConjunta({ forms }: { forms: FormResumen[] }) {
   const primero = forms[0];
   const total = forms.reduce((n, f) => n + f.respuestas, 0);
   return (
     <Tarjeta>
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 p-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pt-4 pb-3">
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-zinc-900 dark:text-zinc-100">{tituloBase(primero)}</span>
             <Estado tono="neutro">Conjunta · {forms.length} sectores</Estado>
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="inline-flex items-center gap-1">
-              <CalendarRange aria-hidden className="size-3.5" />
-              {primero.academicYear}
-            </span>
-            {primero.actividades.length > 0 && <span className="truncate">{primero.actividades.join(' · ')}</span>}
             <span className="tabular-nums">{total} respuestas en total</span>
+            {primero.actividades.length > 0 && <span className="truncate">{primero.actividades.join(' · ')}</span>}
           </p>
         </div>
         <EliminarEvaluacion
@@ -256,26 +232,27 @@ function TarjetaConjunta({ forms }: { forms: FormResumen[] }) {
       <div className="divide-y divide-zinc-100 border-t border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
         {forms.map((f) => {
           const a = AUDIENCIAS.find((x) => x.value === f.audiencia);
-          const color = COLOR_AUDIENCIA[f.audiencia as Audiencia] ?? '#2563eb';
+          const color = COLOR_AUDIENCIA[f.audiencia as Audiencia] ?? 'var(--color-blue-600)';
           return (
-            <div key={f.id} className="px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                <Link
-                  href={`/gestion/evaluaciones/${f.id}`}
-                  className="group flex min-h-10 min-w-0 items-center gap-2 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                >
+            <div key={f.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+              <Anillo hechos={f.respuestas} total={f.objetivo} color={color} tamano="sm" etiqueta={`${a?.label}: ${textoRespuestas(f)}`} />
+              <Link
+                href={`/gestion/evaluaciones/${f.id}`}
+                className="group min-w-0 flex-[1_1_12rem] rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <span className="flex flex-wrap items-center gap-2">
                   <span style={{ color }}>
-                    <IconoAudiencia audiencia={f.audiencia} />
+                    <IconoAudiencia audiencia={f.audiencia} className="size-4" />
                   </span>
                   <span className="text-sm font-semibold text-zinc-900 group-hover:text-blue-700 dark:text-zinc-100 dark:group-hover:text-blue-400">
                     {a?.label}
                   </span>
                   <EstadoForm estado={f.estado} />
                   <NavPending />
-                </Link>
-                <Respuestas f={f} />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                </span>
+                <span className="mt-0.5 block text-sm text-zinc-500 tabular-nums dark:text-zinc-400">{textoRespuestas(f)}</span>
+              </Link>
+              <div className="flex items-center gap-1">
                 <Acciones f={f} />
                 <EliminarEvaluacion
                   formId={f.id}
@@ -286,7 +263,6 @@ function TarjetaConjunta({ forms }: { forms: FormResumen[] }) {
                   volverA={null}
                 />
               </div>
-              <Barra f={f} nombre={`${tituloBase(f)} · ${a?.label}`} />
             </div>
           );
         })}

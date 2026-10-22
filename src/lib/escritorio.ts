@@ -327,7 +327,7 @@ const HERRAMIENTAS: readonly Definicion[] = [
   {
     clave: 'ajustes',
     titulo: 'Ajustes del colegio',
-    desc: 'IA, etapas, calendario y variables de entorno',
+    desc: 'Etapas, calendario y variables de entorno',
     href: '/gestion/ajustes',
     grupo: 'config',
     icono: 'ajustes',

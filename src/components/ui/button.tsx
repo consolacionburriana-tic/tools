@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils"
 /**
  * El botón de la app (guía: docs/diseno.md). 44 px de alto, para el dedo en el iPad.
  *
- * - `default`: la acción principal, en azul. Una por pantalla o por tarjeta.
+ * - `default`: la acción principal, en azul. Una por pantalla.
+ * - `suave`: azul tenue, para la acción que toca en cada fila de una lista (Resultados,
+ *   Enviar): se ve a la primera sin que la lista entera grite.
  * - `outline`: la secundaria (Cancelar, Exportar…). `ghost`: la terciaria, sin caja.
  * - `destructive`: borrar o quitar, en contorno rojo. `destructive-solid`, en rojo relleno,
  *   solo para el «sí» de una confirmación.
@@ -23,6 +25,8 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800",
+        suave:
+          "bg-blue-50 text-blue-700 hover:bg-blue-100 active:bg-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:hover:bg-blue-500/25",
         outline:
           "border-zinc-300 bg-white font-medium text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 aria-expanded:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:active:bg-zinc-700 dark:aria-expanded:bg-zinc-800",
         secondary:

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { Code2, Cloud, MousePointerClick, Palette, Sparkles } from 'lucide-react';
+import { ChevronDown, Code2, Cloud, MousePointerClick, Palette, Sparkles } from 'lucide-react';
 import { getAjustesIA, hayClaveIA } from '@/lib/ajustes-server';
 import { inventarioCentro, inventarioEntorno, type OrigenAjuste } from '@/lib/ajustes-inventario';
 import { AjustesIAForm } from '@/components/ajustes/ia-form';
@@ -45,27 +45,6 @@ export default async function AjustesPage() {
           <Origen origen="codigo" /> con un cambio en el repo (por ahora)
         </span>
       </div>
-
-      <section className="space-y-2">
-        <Rotulo className="flex items-center gap-1.5">
-          <Sparkles aria-hidden className="h-3.5 w-3.5" /> Inteligencia artificial (Claude)
-        </Rotulo>
-        <Tarjeta>
-          <TarjetaCuerpo>
-            <AjustesIAForm inicial={{ activado: ia.activado, modelo: ia.modelo, contexto: ia.contexto }} hayClave={hayClaveIA()} huella={huellaClaveIA()} />
-            {ia.updatedAt && (
-              <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                Último cambio: {ia.updatedAt.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}
-                {ia.updatedByEmail && ` · ${ia.updatedByEmail}`}
-              </p>
-            )}
-          </TarjetaCuerpo>
-        </Tarjeta>
-        <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Se usa en Evaluaciones → Resultados («Lo que ve la IA»). Se mandan las cifras y los comentarios escritos, sin nombres ni
-          correos (en profesorado la base de datos ni siquiera los tiene). Cada análisis se guarda y no se repite solo.
-        </p>
-      </section>
 
       {secciones.map((s) => (
         <section key={s.titulo} className="space-y-2">
@@ -120,6 +99,31 @@ export default async function AjustesPage() {
           descripcion="El escaparate de botones, campos, tarjetas y demás piezas comunes, con su línea de import."
         />
       </section>
+      {/* La IA va al final y plegada: se toca muy de vez en cuando y no es lo que se viene a mirar. */}
+      <details className="group rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Análisis con inteligencia artificial</span>
+            <span className="block text-sm text-zinc-500 dark:text-zinc-400">
+              Por ahora solo lo usa Evaluaciones. {ia.activado ? 'Activado.' : 'Desactivado.'}
+            </span>
+          </span>
+          <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="space-y-3 border-t border-zinc-100 px-4 pt-3 pb-4 dark:border-zinc-800">
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            Se usa en Evaluaciones → Resultados («Lo que ve la IA») para resumir lo que dicen las respuestas. <strong className="font-semibold text-zinc-900 dark:text-zinc-100">No se le envía ningún dato personal</strong>: solo las cifras y los comentarios escritos, sin nombres ni correos. Cada análisis se guarda y no se repite solo.
+          </p>
+          <AjustesIAForm inicial={{ activado: ia.activado, modelo: ia.modelo, contexto: ia.contexto }} hayClave={hayClaveIA()} huella={huellaClaveIA()} />
+          {ia.updatedAt && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Último cambio: {ia.updatedAt.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}
+              {ia.updatedByEmail && ` · ${ia.updatedByEmail}`}
+            </p>
+          )}
+        </div>
+      </details>
     </div>
   );
 }
