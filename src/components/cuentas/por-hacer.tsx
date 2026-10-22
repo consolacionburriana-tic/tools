@@ -182,8 +182,16 @@ export function PorHacer({
   return (
     <div className="space-y-5">
       <Cifras className="sm:grid-cols-3">
-        <Cifra etiqueta="Alumnado con correo" valor={`${conCorreo(alumnos)} de ${alumnos.length}`} />
-        <Cifra etiqueta="Profesorado con correo" valor={`${conCorreo(profes)} de ${profes.length}`} />
+        <Cifra
+          etiqueta="Alumnado con correo"
+          valor={`${conCorreo(alumnos)} de ${alumnos.length}`}
+          barra={alumnos.length > 0 ? conCorreo(alumnos) / alumnos.length : undefined}
+        />
+        <Cifra
+          etiqueta="Profesorado con correo"
+          valor={`${conCorreo(profes)} de ${profes.length}`}
+          barra={profes.length > 0 ? conCorreo(profes) / profes.length : undefined}
+        />
         <Cifra
           etiqueta="Cuentas en Google"
           valor={enGoogle.length}

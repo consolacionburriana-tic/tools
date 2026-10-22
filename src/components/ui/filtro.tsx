@@ -23,11 +23,18 @@ export function Filtros({
   );
 }
 
+const PUNTO = {
+  ok: 'bg-emerald-500',
+  aviso: 'bg-amber-500',
+  error: 'bg-red-500',
+} as const;
+
 export function Filtro({
   activo,
   onClick,
   cuenta,
   icono,
+  tono,
   disabled,
   className,
   children,
@@ -36,6 +43,8 @@ export function Filtro({
   onClick: () => void;
   cuenta?: number;
   icono?: React.ReactNode;
+  /** Un punto de estado delante (pendientes en ámbar, hechos en verde) para leer la fila de un vistazo. */
+  tono?: keyof typeof PUNTO;
   disabled?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -57,6 +66,7 @@ export function Filtro({
         className,
       )}
     >
+      {tono && <span aria-hidden className={cn('size-2 shrink-0 rounded-full', PUNTO[tono])} />}
       {icono}
       {children}
       {cuenta !== undefined && <span className="font-mono text-xs tabular-nums opacity-70">{cuenta}</span>}

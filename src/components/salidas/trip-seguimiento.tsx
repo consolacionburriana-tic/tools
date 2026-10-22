@@ -141,9 +141,9 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
   }
 
   const enMano = tipoPago === 'mano';
-  const chips: { key: Cubo; label: string }[] = [
-    { key: 'pendientes', label: 'Pendientes' },
-    { key: 'entregados', label: enMano ? 'Pagados' : 'Entregados' },
+  const chips: { key: Cubo; label: string; tono?: 'ok' | 'aviso' }[] = [
+    { key: 'pendientes', label: 'Pendientes', tono: 'aviso' },
+    { key: 'entregados', label: enMano ? 'Pagados' : 'Entregados', tono: 'ok' },
     { key: 'no_van', label: 'No van' },
   ];
 
@@ -152,7 +152,7 @@ export function TripSeguimiento({ alumnos: inicial, tripId, tipoPago = 'transfer
       <div className="border-b border-zinc-100 p-3 dark:border-zinc-800">
         <Filtros etiqueta="Mostrar">
           {chips.map((c) => (
-            <Filtro key={c.key} activo={filtro === c.key} onClick={() => setFiltro(c.key)} cuenta={cuentas[c.key]}>
+            <Filtro key={c.key} activo={filtro === c.key} onClick={() => setFiltro(c.key)} cuenta={cuentas[c.key]} tono={c.tono}>
               {c.label}
             </Filtro>
           ))}

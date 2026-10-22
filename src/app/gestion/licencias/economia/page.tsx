@@ -31,8 +31,17 @@ export default async function EconomiaPage() {
         <div className="space-y-6">
           <Cifras className="sm:grid-cols-3">
             <Cifra etiqueta="Ingresos previstos" valor={euros(stats.ingresos)} nota="Pedidos confirmados" />
-            <Cifra etiqueta="Cobrado" valor={euros(stats.cobrado)} nota="Marcado como pagado en Pedidos" />
-            <Cifra etiqueta="Pendiente de cobro" valor={euros(stats.ingresos - stats.cobrado)} />
+            <Cifra
+              etiqueta="Cobrado"
+              valor={euros(stats.cobrado)}
+              nota="Marcado como pagado en Pedidos"
+              barra={stats.ingresos > 0 ? stats.cobrado / stats.ingresos : undefined}
+            />
+            <Cifra
+              etiqueta="Pendiente de cobro"
+              valor={euros(stats.ingresos - stats.cobrado)}
+              tono={stats.ingresos - stats.cobrado > 0 ? 'aviso' : 'ok'}
+            />
           </Cifras>
 
           <section aria-labelledby="eco-curso">

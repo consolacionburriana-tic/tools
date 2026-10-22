@@ -226,10 +226,10 @@ export function Escaparate() {
             <Filtro activo={filtro === 'todos'} onClick={() => setFiltro('todos')} cuenta={24}>
               Todos
             </Filtro>
-            <Filtro activo={filtro === 'aviso'} onClick={() => setFiltro('aviso')} cuenta={3}>
+            <Filtro activo={filtro === 'aviso'} onClick={() => setFiltro('aviso')} cuenta={3} tono="aviso">
               Con aviso
             </Filtro>
-            <Filtro activo={filtro === 'hechos'} onClick={() => setFiltro('hechos')} cuenta={21}>
+            <Filtro activo={filtro === 'hechos'} onClick={() => setFiltro('hechos')} cuenta={21} tono="ok">
               Hechos
             </Filtro>
           </Filtros>
@@ -290,13 +290,13 @@ export function Escaparate() {
       <Pieza
         id="cifras"
         titulo="Cifras · Cifra"
-        para="Dos columnas en el móvil, cuatro desde el iPad. Barra para la parte del total; punto para la categoría."
+        para="Dos columnas en el móvil, cuatro desde el iPad. Barra para la parte del total; punto para la categoría; tono para lo que pide atención."
         importa="import { Cifra, Cifras } from '@/components/ui/cifra';"
       >
         <Cifras>
           <Cifra etiqueta="Alumnado" valor="639" nota="12 altas este mes" />
           <Cifra etiqueta="Infantil" valor="118" punto="bg-violet-500" barra={118 / 639} />
-          <Cifra etiqueta="Primaria" valor="287" punto="bg-sky-500" barra={287 / 639} />
+          <Cifra etiqueta="Sin pagar" valor="23" tono="aviso" nota="Ver quién" />
           <Cifra etiqueta="Pagado" valor="92 %" icono={<Coins />} barra={0.92} />
         </Cifras>
       </Pieza>

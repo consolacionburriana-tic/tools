@@ -112,7 +112,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
 `text-[11px]`. Cifras con `tabular-nums`. Castellano de tú; los botones dicen lo que pasa
 («Guardar retraso», «Borrar 4 calendarios»), no «Aceptar».
 
-**Botón principal.** Azul relleno, **uno por pantalla** (o por tarjeta). El resto, `outline` o
+**Botón principal.** Azul relleno, **uno por pantalla**. En una lista, la acción que toca en cada fila va en `suave` (azul tenue), para que se vea sin que la lista grite. El resto, `outline` o
 `ghost`. Borrar o quitar, `destructive` (contorno rojo); el rojo relleno, solo para el «sí» de una
 confirmación.
 
@@ -123,6 +123,12 @@ y de 20 px en títulos y tarjetas.
 
 **Estados.** Pastilla rellena suave (`Estado`), siempre con el texto del estado: el color solo lo
 refuerza.
+
+**Que se lea de un vistazo.** Lo que pide atención lleva su color de estado, sin que haga falta
+leer: la cifra que falta en ámbar (`Cifra tono="aviso"`), cuánto va hecho con su barra o su anillo
+(`barra`, `Progreso`, `Anillo`, que se ponen en verde al llegar al 100 %) y los filtros de un estado
+con su punto (`Filtro tono`). Solo donde ayuda a decidir algo: una cifra neutra se queda en negro,
+y si todo tiene color nada destaca.
 
 **Iconos, no emojis.** Solo iconos de **lucide** en la interfaz. Los emojis, únicamente dentro de
 lo que escribe la gente (el nombre de un tablero, un comentario); nunca para decir un estado.

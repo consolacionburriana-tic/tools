@@ -88,7 +88,7 @@ export function TarjetaEnlace({
       )}
     >
       {icono && (
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 [&_svg]:size-5">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300 [&_svg]:size-5">
           {icono}
         </span>
       )}
