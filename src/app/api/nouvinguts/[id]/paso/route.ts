@@ -1,7 +1,7 @@
 import { after, NextResponse } from 'next/server';
 import { accionPasoSchema } from '@/lib/nouvinguts';
 import { accionPaso, avisarCambio } from '@/lib/nouvinguts-server';
-import { puedeEditarProteccionDatos, puedeGestionarMateriales, puedeGestionarParticipantesBanco } from '@/lib/permissions';
+import { puedeEditarProteccionDatos, puedeGestionarMateriales, puedeGestionarParticipantesBanco, puedeGestionarServicios } from '@/lib/permissions';
 import { conFicha, fallo, firma, idValido, isGuardResponse, leer, requireModule } from '../../respuesta';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       proteccion: puedeEditarProteccionDatos(guard.role),
       participantes: puedeGestionarParticipantesBanco(guard.role),
       materiales: puedeGestionarMateriales(guard.role),
+      servicios: puedeGestionarServicios(guard.role),
     });
     // Si con esto ha terminado una parte (secretaría o TIC) o ya está listo, avisa a quien toque.
     after(() => avisarCambio(id, antes, firma(guard)));

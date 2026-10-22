@@ -48,6 +48,8 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
    | Protección de datos | Secretaría | Automático: decidida cuando alguien la ha guardado (`pd_actualizado_at`). Se puede guardar desde aquí (sí/no de las cuatro) |
    | Banco de libros | Secretaría | Sí/No desde aquí, que escribe en el banco (`setBanco`). Solo desde 3º EP (`cursoEnBanco`, ajuste del centro) |
    | AMPA | Secretaría | Sí/No desde aquí, que escribe en la ficha (`setAmpa`) |
+   | Comedor | Secretaría | Sí/No desde aquí, que escribe en la ficha (`guardarServicios`) |
+   | Complementarias | Secretaría | Igual, solo en Infantil y Primaria |
    | Materiales comprados | Secretaría | Automático: los materiales de su clase en Venta de materiales; hecho cuando todos tienen estado. Se marcan desde aquí |
    | Foto en Educamos | Secretaría | A mano |
    | Correo de Google | TIC | Automático: `email_google` de su ficha; se puede escribir aquí, o crearlo en Correos y grupos con un clic (`docs/30-cuentas.md`) |
@@ -72,7 +74,19 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
     datos, participantes del banco, materiales: secretaría, dirección y TIC).
 11. **Bajas**: prediseñadas con el mismo motor (devolver lote, recoger iPad, sacar de ASM,
     licencias, suspender correo, baja en Educamos), sin construir todavía.
-12. **Correos** (David, 19-oct-2026):
+12. **Todos los pasos son libres** (David, 22-oct-2026: «yo voy anotando aunque no haya
+    sincronización y luego hago el sync más adelante»). Nada espera a Educamos:
+    - Sin vincular, lo que se contesta en un paso (nº de matrícula, protección de datos, banco,
+      AMPA, comedor, complementarias, correo, «no pedirá licencias») se guarda en su marca y hace
+      de ficha. **Al vincularlo** (sola en la sincronización o a mano) se vuelca en su ficha
+      central con el código de cada módulo (`volcarApuntado`). El nº de matrícula y el correo
+      solo si Educamos no los trae: lo de Educamos manda.
+    - Lo que sabe otro módulo (materiales, correo, ASM, iPad) se puede **marcar hecho a mano**,
+      vinculado o no («Hecho a mano el 21/10 · Ana»). Si luego el dato llega de verdad, manda el
+      dato.
+    - Los materiales, sin vincular, solo se pueden marcar a mano: qué materiales le tocan
+      depende de su clase, que la da Educamos.
+13. **Correos** (David, 19-oct-2026):
     - **Automáticos, configurables en Proceso** (SuperTIC/TIC): cada evento va a los grupos que
       se marquen —Dirección, Secretaría, TIC (TIC incluye SuperTIC)—, que son las personas
       activas con ese rol en Usuarios, nunca a quien lo provoca. Por defecto:
@@ -140,6 +154,11 @@ queda nada, alguien **cierra su ciclo** y sale de la lista.
 - [x] Avisos automáticos configurables en Proceso: llega uno nuevo, secretaría/TIC ha terminado su parte, listo para cerrar (destinatarios y transiciones probados contra Neon sin mandar nada)
 - [x] Nota con «mandar también por correo» a grupos y correos del colegio, desde el buzón de quien la escribe; `nou_notas.enviada_a` aplicado en Neon (`nouvinguts-correos.sql`)
 - [~] Primer correo real de cada tipo (no se mandó ninguno en las pruebas: el entorno tiene credenciales reales)
+
+### Fase 3 · pasos libres y servicios (22-oct-2026)
+- [x] Todos los pasos se pueden contestar sin esperar a Educamos; lo apuntado se vuelca en la ficha central al vincular
+- [x] «Marcar hecho a mano» en materiales, correo, ASM e iPad
+- [x] Pasos nuevos: Comedor y Complementarias (escriben con `guardarServicios`)
 
 ### Más adelante
 - [x] Crear el correo de Google desde el paso: enlaza a Correos y grupos con el alumno ya elegido (`/gestion/cuentas?persona=a:<id>`, 20-oct-2026; solo a quien tiene el módulo `cuentas`)

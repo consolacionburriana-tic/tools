@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { correoAlta, correoNota, correoParteTerminada } from '@/lib/nouvinguts-email';
 import {
+  accionPasoSchema,
   AJUSTES_POR_DEFECTO,
   correosSueltos,
   eventosDeCambio,
@@ -36,6 +37,8 @@ function datos(extra: Partial<DatosNouvingut> = {}): DatosNouvingut {
     desestimaCorreo: false,
     bancoLibros: true,
     ampa: false,
+    comedor: null,
+    complementarias: null,
     emailGoogle: null,
     materiales: [{ id: 'm1', nombre: 'Agenda', estado: null }],
     asmSubidaAt: null,
@@ -100,10 +103,19 @@ describe('estadoPaso', () => {
     expect(estadoPaso(paso('matricula'), datos({ matricula: ' 2026/0412 ' })).estado).toBe('hecho');
   });
 
-  it('sin vincular, lo que depende de Educamos espera y lo manual se puede marcar', () => {
+  it('sin vincular, todo se puede ir apuntando: nada espera a Educamos', () => {
     const d = datos({ vinculado: false, curso: '6PRI', proteccion: null });
     expect(estadoPaso(paso('educamos'), d).estado).toBe('pendiente');
-    expect(estadoPaso(paso('matricula'), d).texto).toBe('Cuando esté en Educamos');
+    expect(estadoPaso(paso('matricula'), d)).toEqual({ estado: 'pendiente', texto: 'Sin número todavía' });
+    // Lo apuntado hace de ficha: el servidor lo pone en `d` (aquí, a mano).
+    expect(estadoPaso(paso('matricula'), { ...d, matricula: '2026/0412' }).estado).toBe('hecho');
+    const comedor = { ...d, comedor: true, marcas: { comedor: { valor: 'si', porNombre: null, at: '2026-10-20T08:00:00Z' } } };
+    expect(estadoPaso(paso('comedor'), comedor)).toEqual({ estado: 'hecho', texto: 'Se queda a comer' });
+    const asm = { ...d, marcas: { asm: { valor: 'hecho', porNombre: 'David', at: '2026-10-20T08:00:00Z' } } };
+    expect(estadoPaso(paso('asm'), asm)).toEqual({ estado: 'hecho', texto: 'Hecho a mano el 20/10 · David' });
+    expect(estadoPaso(paso('licencias'), { ...d, marcas: { licencias: { valor: 'no_pedira', porNombre: null, at: '2026-10-20T08:00:00Z' } } }).texto).toBe(
+      'No pedirá licencias',
+    );
     expect(estadoPaso(paso('claves'), { ...d, marcas: { claves: { valor: 'hecho', porNombre: 'Mª José', at: '2026-10-07T09:00:00Z' } } })).toEqual({
       estado: 'hecho',
       texto: 'Entregadas el 07/10 · Mª José',
@@ -145,7 +157,7 @@ describe('estadoPaso', () => {
 
   it('iPad: lo dice Dispositivos 1:1; la marca a mano sigue valiendo para quien no tenga el módulo', () => {
     expect(estadoPaso(paso('ipad'), datos())).toEqual({ estado: 'pendiente', texto: 'Sin informar en Dispositivos 1:1' });
-    expect(estadoPaso(paso('ipad'), datos({ vinculado: false })).texto).toBe('Cuando esté en Educamos');
+    expect(estadoPaso(paso('ipad'), datos({ vinculado: false })).texto).toBe('Sin iPad todavía');
     const prestado = { modalidad: 'prestado', texto: 'Prestado S3 · en el cole', cursoCompra: null, aCasa: false };
     expect(estadoPaso(paso('ipad'), datos({ dispositivo: prestado }))).toEqual({ estado: 'hecho', texto: 'Prestado S3 · en el cole' });
     const marca = { valor: 'hecho', porNombre: 'Ana', at: '2026-10-20T09:00:00Z' };
@@ -297,5 +309,41 @@ describe('avisos por correo', () => {
     expect(parte.subject).toContain('le toca a TIC');
     expect(parte.html).toContain('iPad');
     expect(correoNota(a, { texto: 'línea 1\nlínea 2', paso: 'Foto en Educamos', autor: 'Mª José' }).subject).toBe('Foto en Educamos · ANA <PÉREZ> (nouvinguts)');
+  });
+});
+
+describe('pasos libres', () => {
+  it('cualquier paso automático se puede dar por hecho a mano, también vinculado', () => {
+    const m = { valor: 'hecho', porNombre: 'Ana', at: '2026-10-21T10:00:00Z' };
+    expect(estadoPaso(paso('asm'), datos()).estado).toBe('aviso');
+    expect(estadoPaso(paso('asm'), datos({ marcas: { asm: m } })).texto).toBe('Hecho a mano el 21/10 · Ana');
+    expect(estadoPaso(paso('materiales'), datos({ marcas: { materiales: m } })).estado).toBe('hecho');
+    // Lo que dicen los datos manda si ya está hecho.
+    expect(estadoPaso(paso('asm'), datos({ asmSubidaAt: '2026-10-22T08:00:00Z', marcas: { asm: m } })).texto).toBe('En la subida a ASM del 22/10');
+  });
+
+  it('comedor para todos; complementarias solo en Infantil y Primaria', () => {
+    expect(estadoPaso(paso('comedor'), datos()).estado).toBe('pendiente');
+    expect(estadoPaso(paso('complementarias'), datos()).estado).toBe('no_aplica'); // 2º ESO
+    expect(estadoPaso(paso('complementarias'), datos({ curso: '3PRI' })).estado).toBe('pendiente');
+    const no = datos({ curso: '3PRI', complementarias: false, marcas: { complementarias: { valor: 'no', porNombre: null, at: '2026-10-21T10:00:00Z' } } });
+    expect(estadoPaso(paso('complementarias'), no)).toEqual({ estado: 'hecho', texto: 'No va a complementarias' });
+  });
+
+  it('un «hecho» a mano no cuenta como decisión de sí/no', () => {
+    const m = { valor: 'hecho', porNombre: null, at: '2026-10-21T10:00:00Z' };
+    expect(estadoPaso(paso('banco'), datos({ marcas: { banco: m } })).estado).toBe('pendiente');
+  });
+});
+
+describe('accionPasoSchema', () => {
+  it('acepta marcar a mano y contestar el mismo paso (materiales, correo)', () => {
+    expect(accionPasoSchema.safeParse({ paso: 'materiales', hecho: true }).success).toBe(true);
+    expect(accionPasoSchema.safeParse({ paso: 'materiales', materialId: '11111111-1111-4111-8111-111111111111', estado: 'pagado' }).success).toBe(true);
+    expect(accionPasoSchema.safeParse({ paso: 'correo', hecho: false }).success).toBe(true);
+    expect(accionPasoSchema.safeParse({ paso: 'correo', email: 'Ana@Cole.test' }).data).toEqual({ paso: 'correo', email: 'ana@cole.test' });
+    expect(accionPasoSchema.safeParse({ paso: 'comedor', valor: true }).success).toBe(true);
+    expect(accionPasoSchema.safeParse({ paso: 'banco', hecho: true }).success).toBe(false);
+    expect(accionPasoSchema.safeParse({ paso: 'educamos', hecho: true }).success).toBe(false);
   });
 });

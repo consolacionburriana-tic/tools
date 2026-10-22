@@ -2,7 +2,13 @@ export const dynamic = 'force-dynamic';
 
 import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth-guards';
-import { canAccess, puedeEditarProteccionDatos, puedeGestionarMateriales, puedeGestionarParticipantesBanco } from '@/lib/permissions';
+import {
+  canAccess,
+  puedeEditarProteccionDatos,
+  puedeGestionarMateriales,
+  puedeGestionarParticipantesBanco,
+  puedeGestionarServicios,
+} from '@/lib/permissions';
 import { fichaNouvingut } from '@/lib/nouvinguts-server';
 import { FichaNouvinguts } from '@/components/nouvinguts/ficha';
 
@@ -24,6 +30,7 @@ export default async function FichaNouvingutPage({ params }: { params: Promise<{
         proteccion: puedeEditarProteccionDatos(user.role),
         participantes: puedeGestionarParticipantesBanco(user.role),
         materiales: puedeGestionarMateriales(user.role),
+        servicios: puedeGestionarServicios(user.role),
         dispositivos: canAccess(user, 'dispositivos'),
       }}
     />
