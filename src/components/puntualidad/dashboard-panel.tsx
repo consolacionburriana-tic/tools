@@ -185,6 +185,7 @@ export function DashboardPanel({
           icono={<AlertTriangle />}
           etiqueta="Consecuencias sin fecha"
           valor={datos.consecuenciasPendientes}
+          tono={datos.consecuenciasPendientes > 0 ? 'aviso' : undefined}
           nota="esperando que el tutor ponga el día"
           href="/gestion/puntualidad/consecuencias"
         />

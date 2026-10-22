@@ -28,12 +28,12 @@ import { ANCHO_PASO, BORDE_RESPONSABLE, LineaPasos, Leyenda, pedir, textoDias } 
 type FiltroLista = 'todos' | 'aviso' | 'atasco' | 'esperando' | 'listos';
 type Dueno = 'todos' | Responsable;
 
-const FILTROS: [FiltroLista, string, (n: NouvingutVista) => boolean][] = [
+const FILTROS: [FiltroLista, string, (n: NouvingutVista) => boolean, ('ok' | 'aviso')?][] = [
   ['todos', 'Todos', () => true],
-  ['aviso', 'Con aviso', (n) => n.resumen.avisos > 0],
-  ['atasco', 'Atascados', (n) => n.atascado],
+  ['aviso', 'Con aviso', (n) => n.resumen.avisos > 0, 'aviso'],
+  ['atasco', 'Atascados', (n) => n.atascado, 'aviso'],
   ['esperando', 'Esperando a Educamos', (n) => !n.eduStudentId],
-  ['listos', 'Listos para cerrar', (n) => n.resumen.listo],
+  ['listos', 'Listos para cerrar', (n) => n.resumen.listo, 'ok'],
 ];
 
 export function ListaNouvinguts({
@@ -142,11 +142,11 @@ export function ListaNouvinguts({
       {pestana === 'abierto' && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Filtros etiqueta="Mostrar">
-            {FILTROS.map(([clave, etiqueta, pasa]) => {
+            {FILTROS.map(([clave, etiqueta, pasa, tono]) => {
               const n = iniciales.filter(pasa).length;
               if (clave !== 'todos' && n === 0) return null;
               return (
-                <Filtro key={clave} activo={filtro === clave} onClick={() => setFiltro(clave)} cuenta={n}>
+                <Filtro key={clave} activo={filtro === clave} onClick={() => setFiltro(clave)} cuenta={n} tono={tono}>
                   {etiqueta}
                 </Filtro>
               );

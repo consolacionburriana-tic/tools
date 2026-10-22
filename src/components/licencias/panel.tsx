@@ -167,6 +167,7 @@ export function PanelLicencias({ campaign, stats }: { campaign: CampanaPanel | n
           <Cifra
             etiqueta="Faltan"
             valor={stats.sinPedido}
+            tono={stats.sinPedido > 0 ? 'aviso' : 'ok'}
             nota={stats.noHaranPedido > 0 ? `y ${stats.noHaranPedido} no harán pedido` : 'Ver quién'}
             href="/gestion/licencias/faltan"
           />

@@ -92,9 +92,22 @@ export function AccesosPanel({ inicial, diasValidez }: { inicial: Estado; diasVa
         <>
           <Cifras>
             <Cifra etiqueta="Familias con correo" valor={estado.familias} />
-            <Cifra etiqueta="Con enlace" valor={estado.conEnlace} />
-            <Cifra etiqueta="Sin enlace" valor={faltan} nota={faltan > 0 ? 'Genéralos abajo' : undefined} />
-            <Cifra etiqueta="Ya lo han usado" valor={estado.usados} />
+            <Cifra
+              etiqueta="Con enlace"
+              valor={estado.conEnlace}
+              barra={estado.familias > 0 ? estado.conEnlace / estado.familias : undefined}
+            />
+            <Cifra
+              etiqueta="Sin enlace"
+              valor={faltan}
+              nota={faltan > 0 ? 'Genéralos abajo' : undefined}
+              tono={faltan > 0 ? 'aviso' : 'ok'}
+            />
+            <Cifra
+              etiqueta="Ya lo han usado"
+              valor={estado.usados}
+              barra={estado.conEnlace > 0 ? estado.usados / estado.conEnlace : undefined}
+            />
           </Cifras>
 
           <div className="flex flex-wrap gap-2">

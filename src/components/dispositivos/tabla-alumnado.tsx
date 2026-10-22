@@ -25,6 +25,7 @@ import type { Acciones } from './panel';
 import { COLOR_MODALIDAD, COLOR_SEGURO, normalizar, pedir } from './comun';
 import { buttonVariants } from '@/components/ui/button';
 import { claseCampo } from '@/components/ui/input';
+import { Filtro, Filtros } from '@/components/ui/filtro';
 
 export type FiltroAlumnado = 'todos' | 'sin' | Modalidad | 'vencido' | 'falta';
 
@@ -149,32 +150,23 @@ export function TablaAlumnado({
             className={cn(claseCampo, 'pl-9')}
           />
         </label>
-        <div className="flex flex-wrap gap-1.5">
+        <Filtros etiqueta="Mostrar">
           {(Object.keys(FILTRO_LABEL) as FiltroAlumnado[]).map((f) => {
             const n = cuenta(f);
             if (n === 0 && f !== 'todos' && f !== filtro) return null;
             return (
-              <button
+              <Filtro
                 key={f}
-                type="button"
-                onClick={() => {
-                  haptic.tap();
-                  setFiltro(f);
-                }}
-                className={cn(
-                  'h-10 cursor-pointer rounded-full border px-3.5 text-sm transition-colors',
-                  filtro === f
-                    ? 'border-zinc-900 bg-zinc-100 font-semibold text-zinc-900 dark:border-zinc-100 dark:bg-zinc-800 dark:text-zinc-100'
-                    : f === 'sin' || f === 'falta' || f === 'vencido'
-                      ? 'border-dashed border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200'
-                      : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
-                )}
+                activo={filtro === f}
+                onClick={() => setFiltro(f)}
+                cuenta={n}
+                tono={n > 0 && (f === 'sin' || f === 'falta' || f === 'vencido') ? 'aviso' : undefined}
               >
-                {FILTRO_LABEL[f]} <span className="ml-1 font-semibold">{n}</span>
-              </button>
+                {FILTRO_LABEL[f]}
+              </Filtro>
             );
           })}
-        </div>
+        </Filtros>
       </div>
 
       {sinInformar.length > 0 && (filtro === 'sin' || filtro === 'todos') && (
