@@ -19,6 +19,7 @@ import {
   GRUPOS_AVISO,
   type GrupoAviso,
   etiquetaCurso,
+  PASOS_A_MANO,
   RESPONSABLE_LABEL,
   type AccionPaso,
   type ClavePaso,
@@ -46,6 +47,8 @@ export interface PuedeFicha {
   proteccion: boolean;
   participantes: boolean;
   materiales: boolean;
+  /** Comedor y complementarias (secretaría, dirección y TIC). */
+  servicios: boolean;
   /** Tiene Dispositivos 1:1: el paso «iPad» se resuelve aquí mismo. */
   dispositivos: boolean;
 }
@@ -366,12 +369,23 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
       );
 
     case 'matricula':
-      if (!d.vinculado) return <Espera />;
-      return paso.estado === 'hecho' ? null : <CampoYBoton placeholder="Ej. 2026/0412" boton="Guardar y resolver" mono ocupado={enCurso} onGuardar={(v) => accion({ paso: 'matricula', numero: v }, 'Número de matrícula guardado en su ficha')} ayuda="Se guarda en su ficha central. Que no se olvide meterlo también en Educamos." />;
+      return paso.estado === 'hecho' ? null : (
+        <CampoYBoton
+          placeholder="Ej. 2026/0412"
+          boton="Guardar y resolver"
+          mono
+          ocupado={enCurso}
+          onGuardar={(v) => accion({ paso: 'matricula', numero: v }, d.vinculado ? 'Número de matrícula guardado en su ficha' : 'Apuntado')}
+          ayuda={
+            d.vinculado
+              ? 'Se guarda en su ficha central. Que no se olvide meterlo también en Educamos.'
+              : 'Queda apuntado y pasa a su ficha al sincronizar Educamos (si Educamos no trae otro).'
+          }
+        />
+      );
 
     case 'ipad':
-      if (!d.vinculado) return <Espera />;
-      if (puede.dispositivos) {
+      if (d.vinculado && puede.dispositivos) {
         return (
           <SelectorRapido
             eduStudentId={ficha.eduStudentId!}
@@ -418,24 +432,38 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
     }
 
     case 'proteccion':
-      if (!d.vinculado || !d.proteccion) return <Espera />;
+      if (!d.proteccion) return null;
       return <Proteccion key={d.proteccion.actualizadoAt ?? 'sin'} ctx={ctx} />;
 
     case 'banco':
-    case 'ampa': {
-      if (!d.vinculado) return <Espera />;
+    case 'ampa':
+    case 'comedor':
+    case 'complementarias': {
       const clave = paso.clave;
-      const valor = clave === 'banco' ? d.bancoLibros : d.ampa;
+      const valor = { banco: d.bancoLibros, ampa: d.ampa, comedor: d.comedor, complementarias: d.complementarias }[clave];
       const decidido = paso.estado === 'hecho';
-      if (!puede.participantes) return <p className="text-sm text-zinc-500 dark:text-zinc-400">Esto lo deciden secretaría, dirección o TIC.</p>;
+      const pregunta = {
+        banco: '¿Entra en el banco de libros?',
+        ampa: '¿Es del AMPA?',
+        comedor: '¿Se queda a comer?',
+        complementarias: '¿Va a complementarias?',
+      }[clave];
+      const si = { banco: 'Sí, entra en el banco', ampa: 'Sí, es del AMPA', comedor: 'Sí, se queda', complementarias: 'Sí, va' }[clave];
+      const servicio = clave === 'comedor' || clave === 'complementarias';
+      if (!(servicio ? puede.servicios : puede.participantes)) {
+        return <p className="text-sm text-zinc-500 dark:text-zinc-400">Esto lo deciden secretaría, dirección o TIC.</p>;
+      }
       return (
         <div className="space-y-2">
-          {!decidido && <p className="text-sm text-zinc-600 dark:text-zinc-400">En su ficha pone ahora «{valor ? 'sí' : 'no'}», sin confirmar. ¿Qué ha dicho la familia?</p>}
+          {!decidido && d.vinculado && valor !== null && (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">En su ficha pone ahora «{valor ? 'sí' : 'no'}», sin confirmar. ¿Qué ha dicho la familia?</p>
+          )}
+          {!d.vinculado && <p className="text-sm text-zinc-600 dark:text-zinc-400">Queda apuntado y pasa a su ficha al sincronizar Educamos.</p>}
           <div className="flex flex-wrap items-center gap-2">
             <Segmentado
-              etiqueta={clave === 'banco' ? '¿Entra en el banco de libros?' : '¿Es del AMPA?'}
+              etiqueta={pregunta}
               opciones={[
-                { valor: 'si', etiqueta: clave === 'banco' ? 'Sí, entra en el banco' : 'Sí, es del AMPA' },
+                { valor: 'si', etiqueta: si },
                 { valor: 'no', etiqueta: 'No' },
               ]}
               valor={decidido ? (valor ? 'si' : 'no') : null}
@@ -453,7 +481,7 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
     }
 
     case 'materiales':
-      if (!d.vinculado) return <Espera />;
+      if (!d.vinculado) return <AMano paso={paso} ctx={ctx} ayuda="Qué materiales le tocan se sabrá cuando esté en Educamos." />;
       if (!puede.materiales) return <p className="text-sm text-zinc-500 dark:text-zinc-400">Los pagos los marcan secretaría, dirección o TIC.</p>;
       return (
         <div className="space-y-2">
@@ -469,23 +497,27 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
               />
             </div>
           ))}
-          <Enlace href={`/gestion/alumnado`}>Venta de materiales en Alumnado</Enlace>
+          <div className="flex flex-wrap items-center gap-3">
+            <Enlace href={`/gestion/alumnado`}>Venta de materiales en Alumnado</Enlace>
+            <AMano paso={paso} ctx={ctx} />
+          </div>
         </div>
       );
 
     case 'correo':
       return (
         <div className="space-y-3">
-          {d.vinculado && paso.estado !== 'hecho' && (
+          {paso.estado !== 'hecho' && (
             <CampoYBoton
               tipo="email"
               placeholder="nombre.apellido@…"
-              boton="Guardar en su ficha"
+              boton={d.vinculado ? 'Guardar en su ficha' : 'Apuntar'}
               ocupado={enCurso}
-              onGuardar={(v) => accion({ paso: 'correo', email: v }, 'Correo guardado en su ficha')}
+              onGuardar={(v) => accion({ paso: 'correo', email: v }, d.vinculado ? 'Correo guardado en su ficha' : 'Apuntado')}
+              ayuda={d.vinculado ? undefined : 'Pasa a su ficha al sincronizar Educamos (si Educamos no trae otro).'}
             />
           )}
-          {!d.vinculado && <Espera />}
+          <AMano paso={paso} ctx={ctx} />
           {d.vinculado && paso.estado !== 'hecho' && puede.correo && (
             <Enlace href={`/gestion/cuentas?persona=a:${ficha.eduStudentId}`} boton>
               Crear su correo en Correos y grupos
@@ -495,18 +527,35 @@ function AccionDelPaso({ paso, ctx }: { paso: ResultadoPaso; ctx: Ctx }) {
       );
 
     case 'asm':
-      if (!d.vinculado) return <Espera />;
-      return paso.estado === 'hecho' ? null : (
+      return (
         <div className="space-y-2">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Ninguna subida a Apple School Manager le incluye todavía: prepara los CSV con él y súbelos.</p>
-          <Enlace href="/gestion/autoasm" boton>
-            Preparar en AUTOASM
-          </Enlace>
+          {paso.estado !== 'hecho' && (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {d.vinculado
+                ? 'Ninguna subida a Apple School Manager le incluye todavía: prepara los CSV con él y súbelos.'
+                : 'Si ya lo has metido en Apple School Manager a mano, márcalo.'}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {d.vinculado && paso.estado !== 'hecho' && (
+              <Enlace href="/gestion/autoasm" boton>
+                Preparar en AUTOASM
+              </Enlace>
+            )}
+            <AMano paso={paso} ctx={ctx} />
+          </div>
         </div>
       );
 
     case 'licencias': {
-      if (!d.vinculado) return <Espera />;
+      if (!d.vinculado) {
+        const noPedira = paso.estado === 'hecho';
+        return (
+          <Boton variante="secundario" ocupado={enCurso} onClick={() => accion({ paso: 'licencias', noPedira: !noPedira })}>
+            {noPedira ? 'Deshacer «no pedirá licencias»' : 'No pedirá licencias'}
+          </Boton>
+        );
+      }
       const l = d.licencias;
       if (l.pedidoAt) return <Enlace href="/gestion/licencias">Ver en Licencias</Enlace>;
       const noPedira = paso.estado === 'hecho';
@@ -849,8 +898,29 @@ function Dato({ k, v }: { k: string; v: string }) {
   );
 }
 
-function Espera() {
-  return <p className="text-sm text-zinc-500 dark:text-zinc-400">Se podrá hacer en cuanto esté en Educamos.</p>;
+/**
+ * «Marcar hecho a mano» para los pasos que sabe otro módulo (materiales, correo, ASM, iPad): todos
+ * los pasos son libres y se pueden dar por hechos sin esperar a Educamos ni a ese módulo.
+ */
+function AMano({ paso, ctx, ayuda }: { paso: ResultadoPaso; ctx: Ctx; ayuda?: string }) {
+  if (!(PASOS_A_MANO as readonly string[]).includes(paso.clave)) return null;
+  const clave = paso.clave as (typeof PASOS_A_MANO)[number];
+  const aMano = paso.marca?.valor === 'hecho';
+  if (paso.estado === 'hecho' && !aMano) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {aMano ? (
+        <Boton variante="enlace" ocupado={ctx.ocupado === clave} onClick={() => ctx.accion({ paso: clave, hecho: false })}>
+          Deshacer lo marcado a mano
+        </Boton>
+      ) : (
+        <Boton variante="secundario" ocupado={ctx.ocupado === clave} onClick={() => ctx.accion({ paso: clave, hecho: true })}>
+          <Check /> Marcar hecho a mano
+        </Boton>
+      )}
+      {ayuda && <span className="text-sm text-zinc-500 dark:text-zinc-400">{ayuda}</span>}
+    </div>
+  );
 }
 
 

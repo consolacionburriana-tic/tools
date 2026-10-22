@@ -27,10 +27,10 @@ import {
   type NouAlumno,
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
-import { aplicaMaterial, estadoVisible, type DestinoMaterial, type EstadoMaterial } from '@/lib/alumnado';
+import { aplicaMaterial, estadoVisible, SERVICIOS, type DestinoMaterial, type EstadoMaterial, type Servicio } from '@/lib/alumnado';
 import { entraEnAlcance } from '@/lib/autoasm-construir';
 import { esModalidad, textoEstado, type Modalidad } from '@/lib/dispositivos';
-import { guardarProteccion } from '@/lib/alumnado-server';
+import { guardarProteccion, guardarServicios } from '@/lib/alumnado-server';
 import { setAmpa, setBanco } from '@/lib/bancolibros-server';
 import { guardarEstadosMaterial } from '@/lib/materiales-server';
 import { setStudentManualCompleted } from '@/lib/licencias-server';
@@ -177,6 +177,8 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
           pdOng: eduStudents.pdOng,
           pdDesestimaCorreo: eduStudents.pdDesestimaCorreo,
           pdActualizadoAt: eduStudents.pdActualizadoAt,
+          comedor: eduStudents.comedor,
+          complementarias: eduStudents.complementarias,
           active: eduStudents.active,
           createdAt: eduStudents.createdAt,
         })
@@ -262,12 +264,14 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
     const a = f.eduStudentId ? alumnoPorId.get(f.eduStudentId) : undefined;
     const curso = a ? a.curso : f.curso;
     const lic = a ? licPorEdu.get(a.id) : undefined;
+    const mp = marcasPorId.get(f.id) ?? {};
     const datos: DatosNouvingut = {
       vinculado: !!a,
       activo: a?.active ?? true,
       avisoVinculo: f.avisoVinculo,
       curso,
-      matricula: a?.matricula ?? null,
+      // Sin vincular, lo que se ha apuntado aquí hace de ficha (y se vuelca en la suya al vincular).
+      matricula: a ? a.matricula : (mp.matricula?.valor ?? null),
       proteccion: a
         ? {
             actualizadoAt: a.pdActualizadoAt?.toISOString() ?? null,
@@ -276,11 +280,13 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
             ampa: a.pdAmpa,
             ong: a.pdOng,
           }
-        : null,
+        : proteccionApuntada(mp.proteccion),
       desestimaCorreo: a?.pdDesestimaCorreo ?? false,
-      bancoLibros: a?.bancoLibros ?? null,
-      ampa: a?.ampa ?? null,
-      emailGoogle: a?.emailGoogle ?? null,
+      bancoLibros: a ? a.bancoLibros : siNoApuntado(mp.banco),
+      ampa: a ? a.ampa : siNoApuntado(mp.ampa),
+      comedor: a ? a.comedor : siNoApuntado(mp.comedor),
+      complementarias: a ? a.complementarias : siNoApuntado(mp.complementarias),
+      emailGoogle: a ? a.emailGoogle : correoApuntado(mp.correo),
       materiales: a
         ? materiales
             .filter((m) => aplicaMaterial(m.destinos as DestinoMaterial[], { curso: a.curso, letra: a.letra }))
@@ -320,6 +326,93 @@ async function cargar(filtro: Filtro, veBecas: boolean) {
     return { vista, datos, fila: f, alumno: a };
   });
   return { vistas, proceso, ajustes };
+}
+
+// ─── Lo apuntado antes de que esté en Educamos ────────────────────────────────
+// Todos los pasos son libres: sin vincular, la respuesta se guarda en su marca (`valor`) y hace
+// de ficha; al vincular, `volcarApuntado` la pasa a la ficha central con el código de cada módulo.
+
+function siNoApuntado(m: MarcaPaso | undefined): boolean | null {
+  return m?.valor === 'si' ? true : m?.valor === 'no' ? false : null;
+}
+
+function correoApuntado(m: MarcaPaso | undefined): string | null {
+  return m && m.valor.includes('@') ? m.valor : null;
+}
+
+type PermisosPD = { imagen: boolean | null; redes: boolean | null; ampa: boolean | null; ong: boolean | null };
+
+function leerPD(valor: string | undefined): PermisosPD | null {
+  if (!valor) return null;
+  try {
+    const v = JSON.parse(valor) as Partial<PermisosPD>;
+    const b = (x: unknown) => (x === true || x === false ? x : null);
+    return { imagen: b(v.imagen), redes: b(v.redes), ampa: b(v.ampa), ong: b(v.ong) };
+  } catch {
+    return null;
+  }
+}
+
+/** Sin decidir, como entra un alta: «sí a todo» (decisión de David, 17-sep-2026). */
+function proteccionApuntada(m: MarcaPaso | undefined): DatosNouvingut['proteccion'] {
+  const pd = leerPD(m?.valor);
+  return pd ? { actualizadoAt: m!.at, ...pd } : { actualizadoAt: null, imagen: true, redes: true, ampa: true, ong: true };
+}
+
+/**
+ * Al vincular un apuntado con su ficha de Educamos, lo decidido aquí pasa a su sitio: banco,
+ * AMPA, comedor, complementarias y protección de datos se escriben con el código de su módulo;
+ * el nº de matrícula y el correo solo si Educamos no los trae (lo de Educamos manda); «no pedirá
+ * licencias», en Licencias si está en su campaña. Nunca lanza: lo que falle se queda apuntado.
+ */
+async function volcarApuntado(nouId: string, eduId: string): Promise<void> {
+  try {
+    const [marcas, [edu], [lic]] = await Promise.all([
+      db.select().from(nouMarcas).where(eq(nouMarcas.nouvingutId, nouId)),
+      db
+        .select({ curso: eduStudents.curso, matricula: eduStudents.matricula, emailGoogle: eduStudents.emailGoogle })
+        .from(eduStudents)
+        .where(eq(eduStudents.id, eduId))
+        .limit(1),
+      db
+        .select({ id: licStudents.id })
+        .from(licStudents)
+        .where(
+          and(
+            eq(licStudents.eduStudentId, eduId),
+            inArray(licStudents.campaignId, db.select({ id: licCampaigns.id }).from(licCampaigns).orderBy(desc(licCampaigns.createdAt)).limit(1)),
+          ),
+        )
+        .limit(1),
+    ]);
+    if (!edu) return;
+    const de = new Map(marcas.map((m) => [m.paso, m]));
+    const si = (paso: string) => (de.get(paso)?.valor === 'si' ? true : de.get(paso)?.valor === 'no' ? false : null);
+    const trabajos: Promise<unknown>[] = [];
+    const banco = si('banco');
+    if (banco !== null) trabajos.push(setBanco(eduId, banco));
+    const ampa = si('ampa');
+    if (ampa !== null) trabajos.push(setAmpa([eduId], ampa));
+    const servicios: Partial<Record<Servicio, boolean>> = {};
+    for (const sv of SERVICIOS) {
+      const v = si(sv);
+      if (v !== null) servicios[sv] = v;
+    }
+    if (Object.keys(servicios).length) trabajos.push(guardarServicios([{ id: eduId, curso: edu.curso }], servicios));
+    const pdMarca = de.get('proteccion');
+    const pd = leerPD(pdMarca?.valor);
+    if (pd) trabajos.push(guardarProteccion(eduId, pd, pdMarca!.por ?? 'nouvinguts'));
+    const set: Record<string, unknown> = {};
+    const matricula = de.get('matricula')?.valor;
+    if (matricula && !edu.matricula?.trim()) set.matricula = matricula;
+    const correo = de.get('correo')?.valor;
+    if (correo?.includes('@') && !edu.emailGoogle?.trim()) set.emailGoogle = correo;
+    if (Object.keys(set).length) trabajos.push(db.update(eduStudents).set({ ...set, updatedAt: new Date() }).where(eq(eduStudents.id, eduId)));
+    if (lic && de.get('licencias')?.valor === 'no_pedira') trabajos.push(setStudentManualCompleted(lic.id, true, MOTIVO_NO_PEDIRA));
+    await Promise.all(trabajos);
+  } catch (error) {
+    console.error('Nouvinguts · volcar lo apuntado al vincular:', error instanceof Error ? error.message : error);
+  }
 }
 
 function veBecasDe(role: string | null): boolean {
@@ -557,6 +650,8 @@ export async function registrarAltas(altas: (AltaEducamos & { fecha: string })[]
   resultado.vinculados = vinculos.length;
   resultado.dudosos = dudosos.length;
   if (statements.length) await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
+  // Lo que se apuntó antes de la sincronización pasa ahora a su ficha central.
+  for (const v of vinculos) await volcarApuntado(v.apuntadoId, v.altaId);
   return resultado;
 }
 
@@ -603,9 +698,9 @@ async function filaDe(id: string): Promise<NouAlumno> {
   return fila;
 }
 
-function vinculado(fila: NouAlumno): string {
-  if (!fila.eduStudentId) throw new ErrorNouvinguts('Todavía no está en Educamos');
-  return fila.eduStudentId;
+async function cursoDe(eduId: string): Promise<string | null> {
+  const [f] = await db.select({ curso: eduStudents.curso }).from(eduStudents).where(eq(eduStudents.id, eduId)).limit(1);
+  return f?.curso ?? null;
 }
 
 async function marcar(id: string, paso: ClavePaso, valor: string | null, firma: Firma): Promise<void> {
@@ -626,6 +721,7 @@ export interface PermisosPaso {
   proteccion: boolean;
   participantes: boolean;
   materiales: boolean;
+  servicios: boolean;
 }
 
 /** Un paso desde la ficha. Lo que vive en otro módulo se escribe con el código de ese módulo. */
@@ -648,47 +744,69 @@ async function resumenDe(id: string): Promise<ResumenPasos | null> {
 
 async function escribirPaso(id: string, fila: NouAlumno, accion: AccionPaso, firma: Firma, permisos: PermisosPaso): Promise<void> {
   switch (accion.paso) {
+    // Todos los pasos son libres: sin vincular (`edu` null), la respuesta se apunta aquí y se
+    // vuelca en su ficha al vincular (`volcarApuntado`).
     case 'claves':
     case 'foto':
     case 'vinculo_correo':
     case 'ipad':
-      await marcar(id, accion.paso, accion.hecho ? 'hecho' : null, firma);
-      return;
+    case 'materiales':
+    case 'correo':
+    case 'asm':
+      if ('hecho' in accion) {
+        await marcar(id, accion.paso, accion.hecho ? 'hecho' : null, firma);
+        return;
+      }
+      break;
+  }
+  const edu = fila.eduStudentId;
+  switch (accion.paso) {
     case 'matricula': {
       // Un vacío del Excel nunca pisa (computeSyncPlan), así que lo escrito aquí se queda.
-      await db.update(eduStudents).set({ matricula: accion.numero, updatedAt: new Date() }).where(eq(eduStudents.id, vinculado(fila)));
+      if (!edu) return marcar(id, 'matricula', accion.numero, firma);
+      await db.update(eduStudents).set({ matricula: accion.numero, updatedAt: new Date() }).where(eq(eduStudents.id, edu));
       return;
     }
     case 'proteccion': {
       if (!permisos.proteccion) throw new ErrorNouvinguts('La protección de datos la guardan secretaría, dirección o TIC', 403);
       const { imagen, redes, ampa, ong } = accion;
-      await guardarProteccion(vinculado(fila), { imagen, redes, ampa, ong }, firma.email);
+      if (!edu) return marcar(id, 'proteccion', JSON.stringify({ imagen, redes, ampa, ong }), firma);
+      await guardarProteccion(edu, { imagen, redes, ampa, ong }, firma.email);
       return;
     }
     case 'banco':
-    case 'ampa': {
-      if (!permisos.participantes) throw new ErrorNouvinguts('Esto lo deciden secretaría, dirección o TIC', 403);
-      const edu = vinculado(fila);
-      if (accion.valor !== null) {
-        if (accion.paso === 'banco') await setBanco(edu, accion.valor);
-        else await setAmpa([edu], accion.valor);
+    case 'ampa':
+    case 'comedor':
+    case 'complementarias': {
+      const servicio = accion.paso === 'comedor' || accion.paso === 'complementarias';
+      if (servicio ? !permisos.servicios : !permisos.participantes) {
+        throw new ErrorNouvinguts('Esto lo deciden secretaría, dirección o TIC', 403);
       }
-      await marcar(id, accion.paso, accion.valor === null ? null : 'decidido', firma);
+      if (edu && accion.valor !== null) {
+        if (accion.paso === 'banco') await setBanco(edu, accion.valor);
+        else if (accion.paso === 'ampa') await setAmpa([edu], accion.valor);
+        else await guardarServicios([{ id: edu, curso: await cursoDe(edu) }], { [accion.paso]: accion.valor });
+      }
+      await marcar(id, accion.paso, accion.valor === null ? null : accion.valor ? 'si' : 'no', firma);
       return;
     }
     case 'materiales': {
       if (!permisos.materiales) throw new ErrorNouvinguts('Los pagos los marcan secretaría, dirección o TIC', 403);
-      const hecho = await guardarEstadosMaterial(accion.materialId, [vinculado(fila)], accion.estado, firma.email, () => true);
+      if (!edu) throw new ErrorNouvinguts('Hasta que esté en Educamos no se sabe qué materiales le tocan: márcalo hecho a mano');
+      if (!('materialId' in accion)) return;
+      const hecho = await guardarEstadosMaterial(accion.materialId, [edu], accion.estado, firma.email, () => true);
       if (!hecho || hecho.ids.length === 0) throw new ErrorNouvinguts('Ese material no es de su clase', 404);
       return;
     }
     case 'correo':
-      await db.update(eduStudents).set({ emailGoogle: accion.email, updatedAt: new Date() }).where(eq(eduStudents.id, vinculado(fila)));
+      if (!('email' in accion)) return;
+      if (!edu) return marcar(id, 'correo', accion.email, firma);
+      await db.update(eduStudents).set({ emailGoogle: accion.email, updatedAt: new Date() }).where(eq(eduStudents.id, edu));
       return;
     case 'licencias': {
       // Si está en el alumnado de la campaña, «no pedirá» se guarda en Licencias (deja de salir
       // en «Quién falta»); si no, se queda aquí.
-      const edu = vinculado(fila);
+      if (!edu) return marcar(id, 'licencias', accion.noPedira ? 'no_pedira' : null, firma);
       const [lic] = await db
         .select({ id: licStudents.id })
         .from(licStudents)
@@ -886,6 +1004,7 @@ export async function vincularNouvingut(id: string, eduStudentId: string): Promi
   const ahora = new Date();
   if (!existente) {
     await db.update(nouAlumnos).set({ eduStudentId, avisoVinculo: null, updatedAt: ahora }).where(eq(nouAlumnos.id, id));
+    await volcarApuntado(id, eduStudentId);
     return { id };
   }
   const marcasApuntado = await db.select().from(nouMarcas).where(eq(nouMarcas.nouvingutId, id));
@@ -906,6 +1025,7 @@ export async function vincularNouvingut(id: string, eduStudentId: string): Promi
       .where(eq(nouAlumnos.id, existente.id)),
     db.delete(nouAlumnos).where(eq(nouAlumnos.id, id)),
   ]);
+  await volcarApuntado(existente.id, eduStudentId);
   return { id: existente.id };
 }
 

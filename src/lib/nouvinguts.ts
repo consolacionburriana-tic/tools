@@ -7,6 +7,7 @@
 // de las altas de Educamos con lo apuntado a mano y quién NO es nouvingut (3 años de verano).
 import { z } from 'zod';
 import { CONFIGURACION } from '@/lib/configuracion';
+import { aplicaServicio } from '@/lib/alumnado';
 import { cursoBaseEso, cursoEnBanco, ETAPAS_VISIBLES, etapaDeCurso, nivelDeCurso, ordenCurso, type Etapa } from '@/lib/cursos';
 
 // ─── Pasos ────────────────────────────────────────────────────────────────────
@@ -18,6 +19,8 @@ export const CLAVES_PASO = [
   'proteccion',
   'banco',
   'ampa',
+  'comedor',
+  'complementarias',
   'materiales',
   'foto',
   'correo',
@@ -60,6 +63,8 @@ export const PASOS: readonly DefinicionPaso[] = [
   { clave: 'proteccion', titulo: 'Protección de datos', corto: 'PD', responsable: 'secretaria', desde: null, manual: false, fuente: 'Automático · Alumnado' },
   { clave: 'banco', titulo: 'Banco de libros', corto: 'Banco', responsable: 'secretaria', desde: null, manual: false, fuente: 'Se decide aquí · Banco de libros', desdeFijo: 'Según el banco de libros' },
   { clave: 'ampa', titulo: 'AMPA', corto: 'AMPA', responsable: 'secretaria', desde: null, manual: false, fuente: 'Se decide aquí · Alumnado' },
+  { clave: 'comedor', titulo: 'Comedor', corto: 'Com.', responsable: 'secretaria', desde: null, manual: false, fuente: 'Se decide aquí · Alumnado' },
+  { clave: 'complementarias', titulo: 'Complementarias', corto: 'Compl.', responsable: 'secretaria', desde: null, manual: false, fuente: 'Se decide aquí · Alumnado', desdeFijo: 'Infantil y Primaria' },
   { clave: 'materiales', titulo: 'Materiales comprados', corto: 'Mat.', responsable: 'secretaria', desde: null, manual: false, fuente: 'Automático · Venta de materiales' },
   { clave: 'foto', titulo: 'Foto en Educamos', corto: 'Foto', responsable: 'secretaria', desde: null, manual: true, fuente: 'A mano' },
   { clave: 'correo', titulo: 'Correo de Google', corto: 'Correo', responsable: 'tic', desde: null, manual: false, fuente: 'Automático · ficha del alumno' },
@@ -187,6 +192,8 @@ export interface DatosNouvingut {
   desestimaCorreo: boolean;
   bancoLibros: boolean | null;
   ampa: boolean | null;
+  comedor: boolean | null;
+  complementarias: boolean | null;
   emailGoogle: string | null;
   /** Los materiales vivos que van a su clase, con su estado (null = sin información). */
   materiales: { id: string; nombre: string; estado: EstadoMaterialNou | null }[];
@@ -234,9 +241,13 @@ export function fechaCorta(iso: string | null | undefined): string {
   return `${d}/${m}`;
 }
 
-const ESPERANDO = 'Cuando esté en Educamos';
 
 type Estado = { estado: EstadoPaso; texto: string };
+
+function decidido(m: MarcaPaso | undefined, valor: boolean | null, si: string, no: string): Estado {
+  if (!m || m.valor === 'hecho') return { estado: 'pendiente', texto: 'Todavía no se sabe' };
+  return { estado: 'hecho', texto: valor ? si : no };
+}
 
 function porMarca(m: MarcaPaso | undefined, hecho: string, pendiente: string): Estado {
   return m ? { estado: 'hecho', texto: `${hecho} el ${fechaCorta(m.at)}${m.porNombre ? ` · ${m.porNombre}` : ''}` } : { estado: 'pendiente', texto: pendiente };
@@ -254,30 +265,46 @@ export function estadoPaso(paso: PasoProceso, d: DatosNouvingut): Estado {
   if ((paso.clave === 'correo' || paso.clave === 'vinculo_correo') && d.desestimaCorreo) {
     return { estado: 'no_aplica', texto: 'La familia desestima el correo' };
   }
+  if (paso.clave === 'complementarias' && d.curso && !aplicaServicio('complementarias', d.curso)) {
+    return { estado: 'no_aplica', texto: 'Solo Infantil y Primaria' };
+  }
+  const base = estadoBase(paso.clave, d, m);
+  // Todos los pasos son libres: cualquiera de PASOS_A_MANO se puede dar por hecho a mano, sin
+  // esperar a la sincronización de Educamos ni al módulo que lo sabe (David, 22-oct-2026).
+  if (base.estado !== 'hecho' && m?.valor === 'hecho' && !paso.manual && (PASOS_A_MANO as readonly string[]).includes(paso.clave)) {
+    return porMarca(m, 'Hecho a mano', '');
+  }
+  return base;
+}
 
-  switch (paso.clave) {
+/** Lo que dicen los datos (y las decisiones apuntadas aquí). Sin vincular, nada espera a Educamos. */
+function estadoBase(clave: ClavePaso, d: DatosNouvingut, m: MarcaPaso | undefined): Estado {
+  switch (clave) {
     case 'educamos':
       if (d.vinculado) return d.activo ? { estado: 'hecho', texto: 'Vinculado a su ficha de Educamos' } : { estado: 'aviso', texto: 'Dado de baja en Educamos' };
       if (d.avisoVinculo) return { estado: 'aviso', texto: d.avisoVinculo };
       return { estado: 'pendiente', texto: 'Esperando a la sincronización de Educamos' };
     case 'matricula':
-      if (!d.vinculado) return { estado: 'pendiente', texto: ESPERANDO };
-      return d.matricula?.trim()
-        ? { estado: 'hecho', texto: `Nº ${d.matricula.trim()}` }
-        : { estado: 'aviso', texto: 'NO ESTÁ EN EDUCAMOS el número de matrícula' };
+      if (d.matricula?.trim()) return { estado: 'hecho', texto: `Nº ${d.matricula.trim()}` };
+      return d.vinculado
+        ? { estado: 'aviso', texto: 'NO ESTÁ EN EDUCAMOS el número de matrícula' }
+        : { estado: 'pendiente', texto: 'Sin número todavía' };
     case 'proteccion':
-      if (!d.vinculado || !d.proteccion) return { estado: 'pendiente', texto: ESPERANDO };
-      return d.proteccion.actualizadoAt
+      return d.proteccion?.actualizadoAt
         ? { estado: 'hecho', texto: textoProteccion(d.proteccion) }
         : { estado: 'pendiente', texto: 'Todavía no se sabe' };
+    // Sí/no que se decide aquí. Vinculado, el valor es el de su ficha; sin vincular, el apuntado
+    // (el servidor lo pone en `d` y lo pasa a su ficha al vincular).
     case 'banco':
-      if (!d.vinculado) return { estado: 'pendiente', texto: ESPERANDO };
-      return m ? { estado: 'hecho', texto: d.bancoLibros ? 'Sí, entra en el banco' : 'No entra en el banco' } : { estado: 'pendiente', texto: 'Todavía no se sabe' };
+      return decidido(m, d.bancoLibros, 'Sí, entra en el banco', 'No entra en el banco');
     case 'ampa':
-      if (!d.vinculado) return { estado: 'pendiente', texto: ESPERANDO };
-      return m ? { estado: 'hecho', texto: d.ampa ? 'Es del AMPA' : 'No es del AMPA' } : { estado: 'pendiente', texto: 'Todavía no se sabe' };
+      return decidido(m, d.ampa, 'Es del AMPA', 'No es del AMPA');
+    case 'comedor':
+      return decidido(m, d.comedor, 'Se queda a comer', 'No se queda a comer');
+    case 'complementarias':
+      return decidido(m, d.complementarias, 'Va a complementarias', 'No va a complementarias');
     case 'materiales': {
-      if (!d.vinculado) return { estado: 'pendiente', texto: ESPERANDO };
+      if (!d.vinculado) return { estado: 'pendiente', texto: 'Se verá cuando esté en Educamos (o márcalo a mano)' };
       if (d.materiales.length === 0) return { estado: 'no_aplica', texto: 'No hay materiales a la venta para su clase' };
       const sin = d.materiales.filter((x) => x.estado === null).length;
       if (sin === 0) return { estado: 'hecho', texto: d.materiales.map((x) => `${x.nombre}: ${TEXTO_MATERIAL[x.estado!]}`).join(' · ') };
@@ -285,14 +312,14 @@ export function estadoPaso(paso: PasoProceso, d: DatosNouvingut): Estado {
     }
     case 'correo':
       if (d.emailGoogle?.trim()) return { estado: 'hecho', texto: d.emailGoogle.trim() };
-      return { estado: 'pendiente', texto: d.vinculado ? 'Sin correo en su ficha' : ESPERANDO };
+      return { estado: 'pendiente', texto: d.vinculado ? 'Sin correo en su ficha' : 'Sin correo todavía' };
     case 'asm':
-      if (!d.vinculado) return { estado: 'pendiente', texto: ESPERANDO };
+      if (!d.vinculado) return { estado: 'pendiente', texto: 'Sin subir a ASM' };
       return d.asmSubidaAt
         ? { estado: 'hecho', texto: `En la subida a ASM del ${fechaCorta(d.asmSubidaAt)}` }
         : { estado: 'aviso', texto: 'No está en Apple School Manager' };
     case 'licencias': {
-      if (!d.vinculado) return { estado: 'pendiente', texto: ESPERANDO };
+      if (!d.vinculado) return m ? { estado: 'hecho', texto: 'No pedirá licencias' } : { estado: 'pendiente', texto: 'Sin pedido' };
       const l = d.licencias;
       if (l.pedidoAt) return { estado: 'hecho', texto: `Pedido hecho el ${fechaCorta(l.pedidoAt)}` };
       if (l.noPedira || m) return { estado: 'hecho', texto: 'No pedirá licencias' };
@@ -310,7 +337,7 @@ export function estadoPaso(paso: PasoProceso, d: DatosNouvingut): Estado {
       // Lo dice Dispositivos 1:1. La marca a mano queda para quien no tenga ese módulo.
       if (d.dispositivo) return { estado: 'hecho', texto: d.dispositivo.texto };
       if (m) return porMarca(m, 'Resuelto a mano', '');
-      return { estado: 'pendiente', texto: d.vinculado ? 'Sin informar en Dispositivos 1:1' : ESPERANDO };
+      return { estado: 'pendiente', texto: d.vinculado ? 'Sin informar en Dispositivos 1:1' : 'Sin iPad todavía' };
   }
 }
 
@@ -577,22 +604,30 @@ export const editarSchema = z.union([
   }),
 ]);
 
-const pasoManual = z.enum(['claves', 'foto', 'vinculo_correo', 'ipad']);
+// Lo que se resuelve con un «marcar hecho»: los pasos a mano y, a mano, los que sabe otro sitio.
+export const PASOS_A_MANO = ['claves', 'foto', 'vinculo_correo', 'ipad', 'materiales', 'correo', 'asm'] as const;
+const pasoManual = z.enum(PASOS_A_MANO);
 const permiso = z.boolean().nullable();
 
-export const accionPasoSchema = z.discriminatedUnion('paso', [
-  z.object({ paso: pasoManual, hecho: z.boolean() }),
-  z.object({ paso: z.literal('matricula'), numero: z.string().trim().min(1, 'Escribe el número').max(40) }),
-  z.object({ paso: z.literal('proteccion'), imagen: permiso, redes: permiso, ampa: permiso, ong: permiso }),
-  z.object({ paso: z.literal('banco'), valor: z.boolean().nullable() }),
-  z.object({ paso: z.literal('ampa'), valor: z.boolean().nullable() }),
-  z.object({
-    paso: z.literal('materiales'),
-    materialId: z.string().uuid(),
-    estado: z.enum(['pagado', 'no', 'becado', 'no_aplica']).nullable(),
-  }),
-  z.object({ paso: z.literal('correo'), email: z.string().trim().toLowerCase().email('Correo no válido').max(200) }),
-  z.object({ paso: z.literal('licencias'), noPedira: z.boolean() }),
+// Dos formas: «marcar hecho / deshacer» (cualquier paso de PASOS_A_MANO) o contestar el paso.
+// Van en una unión y no en el mismo discriminatedUnion porque `materiales` y `correo` tienen las dos.
+export const accionPasoSchema = z.union([
+  z.object({ paso: pasoManual, hecho: z.boolean() }).strict(),
+  z.discriminatedUnion('paso', [
+    z.object({ paso: z.literal('matricula'), numero: z.string().trim().min(1, 'Escribe el número').max(40) }),
+    z.object({ paso: z.literal('proteccion'), imagen: permiso, redes: permiso, ampa: permiso, ong: permiso }),
+    z.object({ paso: z.literal('banco'), valor: z.boolean().nullable() }),
+    z.object({ paso: z.literal('ampa'), valor: z.boolean().nullable() }),
+    z.object({ paso: z.literal('comedor'), valor: z.boolean().nullable() }),
+    z.object({ paso: z.literal('complementarias'), valor: z.boolean().nullable() }),
+    z.object({
+      paso: z.literal('materiales'),
+      materialId: z.string().uuid(),
+      estado: z.enum(['pagado', 'no', 'becado', 'no_aplica']).nullable(),
+    }),
+    z.object({ paso: z.literal('correo'), email: z.string().trim().toLowerCase().email('Correo no válido').max(200) }),
+    z.object({ paso: z.literal('licencias'), noPedira: z.boolean() }),
+  ]),
 ]);
 export type AccionPaso = z.infer<typeof accionPasoSchema>;
 
