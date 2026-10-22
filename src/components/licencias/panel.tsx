@@ -27,6 +27,7 @@ import { Rotulo } from '@/components/ui/rotulo';
 import { Tarjeta, TarjetaCabecera, TarjetaCuerpo, TarjetaEnlace } from '@/components/ui/tarjeta';
 import { Textarea } from '@/components/ui/textarea';
 import { Vacio } from '@/components/ui/vacio';
+import { Progreso } from '@/components/ui/progreso';
 import { CampanaEstado } from './campana-estado';
 
 // La portada de Licencias: la campaña (abrir, cerrar, fecha de cierre), las cifras y el
@@ -216,7 +217,17 @@ export function PanelLicencias({ campaign, stats }: { campaign: CampanaPanel | n
                         {pdc ? `↳ ${c.curso}` : c.curso}
                       </td>
                       <td className="px-4 py-2.5 text-right text-zinc-700 dark:text-zinc-300">{c.total}</td>
-                      <td className="px-4 py-2.5 text-right text-zinc-700 dark:text-zinc-300">{c.conPedido}</td>
+                      <td className="px-4 py-2.5 text-right text-zinc-700 dark:text-zinc-300">
+                        <span className="inline-flex items-center justify-end gap-2.5">
+                          <Progreso
+                            hechos={c.conPedido}
+                            total={c.conPedido + c.sinPedido}
+                            etiqueta={`Pedidos de ${c.curso}`}
+                            className="hidden w-16 sm:flex"
+                          />
+                          {c.conPedido}
+                        </span>
+                      </td>
                       <td
                         className={cn(
                           'px-4 py-2.5 text-right font-medium',
