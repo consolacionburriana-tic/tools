@@ -7,7 +7,7 @@ import { AjustesIAForm } from '@/components/ajustes/ia-form';
 import { huellaClaveIA } from '@/lib/evaluaciones-ia-server';
 import { Rotulo } from '@/components/ui/rotulo';
 import { Estado, type TonoEstado } from '@/components/ui/estado';
-import { Tarjeta, TarjetaCuerpo, TarjetaEnlace } from '@/components/ui/tarjeta';
+import { Tarjeta, TarjetaEnlace } from '@/components/ui/tarjeta';
 
 export const metadata = { title: 'Ajustes del colegio · Tools Consolación' };
 
