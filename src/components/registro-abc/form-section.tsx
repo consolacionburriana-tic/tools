@@ -13,7 +13,7 @@ interface FormSectionProps {
 
 export function FormSection({ title, required, multiselect, error, children }: FormSectionProps) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-3" data-campo-error={error ? 'true' : undefined}>
       <div className="flex items-center gap-2 flex-wrap">
         <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{title}</h2>
         {required && (
@@ -25,7 +25,7 @@ export function FormSection({ title, required, multiselect, error, children }: F
       </div>
       {children}
       {error && (
-        <p role="alert" className="mt-1 text-sm text-red-700 dark:text-red-400">
+        <p role="alert" className="mt-1 text-sm font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       )}

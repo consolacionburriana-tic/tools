@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { format, parseISO, subDays, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -13,6 +12,8 @@ import { Filtro, Filtros } from '@/components/ui/filtro';
 import { SkeletonRows } from '@/components/ui/skeleton';
 import { claseTarjeta } from '@/components/ui/tarjeta';
 import { Vacio } from '@/components/ui/vacio';
+import { Aviso } from '@/components/ui/aviso';
+import { FichaRegistroModal, type FichaRegistroData } from '@/components/registro-abc/ficha-registro';
 import { BEHAVIORS, CONTEXTS, TIME_SLOTS } from '@/lib/constants';
 import type { Teacher } from '@/db/schema';
 import type { AbcStudentPanel } from '@/lib/abc-server';
@@ -100,6 +101,7 @@ export default function RegistrosPage() {
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [filtrosListos, setFiltrosListos] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Los filtros guardados solo se leen en el cliente (evita el desajuste con el HTML
   // del servidor); hasta que carguen no se persiste nada, para no pisarlos con el default.
@@ -147,9 +149,18 @@ export default function RegistrosPage() {
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- carga al montar/cambiar el filtro: el spinner tiene que encenderse aquí
     setLoading(true);
+    setError(null);
     fetch(`/api/reports?${params}`)
-      .then((r) => r.json())
-      .then((data) => { setReports(data); setLoading(false); });
+      .then(async (r) => {
+        if (!r.ok) throw new Error(r.status === 401 ? 'Tu sesión ha caducado o no tienes acceso al módulo.' : `Error ${r.status} del servidor`);
+        return r.json();
+      })
+      .then((data) => setReports(data))
+      .catch((e: unknown) => {
+        setReports([]);
+        setError(`No se han podido cargar los registros. ${e instanceof Error ? e.message : ''}`.trim());
+      })
+      .finally(() => setLoading(false));
   }, [mode, timePreset, selectedStudentIds, page]);
 
   const studentMap = useMemo(() => {
@@ -185,8 +196,10 @@ export default function RegistrosPage() {
         onStudentsChange={setSelectedStudentIds}
       />
 
+      {error && <Aviso tono="error">{error}</Aviso>}
+
       {mode === 'list'
-        ? <ListView reports={reports} studentMap={studentMap} loading={loading} page={page} onPageChange={setPage} />
+        ? <ListView reports={reports} studentMap={studentMap} teacherMap={teacherMap} loading={loading} page={page} onPageChange={setPage} />
         : <RegistrosCharts reports={reports} loading={loading} timePreset={timePreset} studentMap={studentMap} teacherMap={teacherMap} selectedStudentIds={selectedStudentIds} />
       }
     </div>
@@ -286,14 +299,50 @@ function FiltersBar({
 
 // ─────────────────────────────────────────────────────────────────────────
 function ListView({
-  reports, studentMap, loading, page, onPageChange,
+  reports, studentMap, teacherMap, loading, page, onPageChange,
 }: {
   reports: ReportRow[];
   studentMap: Map<string, AbcStudentPanel>;
+  teacherMap: Map<string, Teacher>;
   loading: boolean;
   page: number;
   onPageChange: (p: number) => void;
 }) {
+  const [abierto, setAbierto] = useState<string | null>(null);
+
+  // Las fichas que se leen en la ventana: las del listado, con las siglas y quién registró ya resueltos
+  const fichas: FichaRegistroData[] = useMemo(
+    () =>
+      reports.map((r) => {
+        const alumno = studentMap.get(r.studentId);
+        const profe = r.teacherId ? teacherMap.get(r.teacherId) : undefined;
+        return {
+          id: r.id,
+          siglas: alumno?.siglas ?? '—',
+          clase: alumno?.clase ?? '',
+          reportDate: r.reportDate,
+          registradoPor: profe ? `${profe.firstName} ${profe.lastName}`.trim() : (r.otherTeacherName ?? 'Desconocido'),
+          context: r.context,
+          contextNote: r.contextNote,
+          timeSlot: r.timeSlot,
+          presentPeople: r.presentPeople ?? [],
+          presentNames: r.presentNames,
+          behaviors: r.behaviors ?? [],
+          involvedWith: r.involvedWith,
+          situationDescription: r.situationDescription,
+          antecedents: r.antecedents,
+          consequences: r.consequences,
+          redirectActions: r.redirectActions,
+          reasons: r.reasons ?? [],
+          reasonOther: r.reasonOther,
+          effectivenessRating: r.effectivenessRating,
+          comments: r.comments,
+          createdAt: r.createdAt,
+        };
+      }),
+    [reports, studentMap, teacherMap],
+  );
+
   return (
     <div className="space-y-3">
       {loading ? (
@@ -307,9 +356,10 @@ function ListView({
             const behaviors = r.behaviors ?? [];
             return (
               <li key={r.id}>
-                <Link
-                  href={`/gestion/abc/registros/${r.id}`}
-                  className="flex items-center gap-4 px-5 py-3.5 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset dark:hover:bg-zinc-800/50"
+                <button
+                  type="button"
+                  onClick={() => setAbierto(r.id)}
+                  className="flex w-full cursor-pointer items-center gap-4 px-5 py-3.5 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset dark:hover:bg-zinc-800/50"
                 >
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-sm font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                     {student?.siglas?.charAt(0) ?? '?'}
@@ -341,12 +391,14 @@ function ListView({
                     </p>
                   </div>
                   <ChevronRight aria-hidden className="size-4 shrink-0 text-zinc-400" />
-                </Link>
+                </button>
               </li>
             );
           })}
         </ul>
       )}
+
+      <FichaRegistroModal fichas={fichas} abierto={abierto} onCambiar={setAbierto} />
 
       <div className="flex items-center justify-center gap-3">
         <Button variant="outline" size="sm" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1}>

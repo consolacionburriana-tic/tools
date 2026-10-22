@@ -60,6 +60,18 @@ posteriori lo ya construido y deja abierto lo que falta.
   efectividad/comentarios van en un bloque plegado por defecto con la etiqueta «Opcional» y el
   título «Comentarios opcionales que nos ayudan a entender la situación» (se abre solo si el
   borrador ya traía algo). El texto sale en el correo de aviso, el detalle y el listado del panel.
+- **Guardar fuera del `<form>` (2026-10-22):** desde el rediseño del 21-oct el botón «Guardar registro»
+  vive en `BarraAcciones`, que es un portal a `document.body`: quedaba fuera del `<form>` en el DOM y
+  pulsarlo no enviaba nada (María no podía mandar su registro). Regla: **un `type="submit"` dentro de
+  `BarraAcciones` lleva `form="<id>"`** apuntando al formulario. Además, el formulario ya no falla en
+  silencio: mensajes de validación en castellano, aviso con lo que falta + scroll al primer campo con
+  error, y los fallos del servidor (sesión caducada, BBDD, red) salen en un toast largo y en un aviso
+  rojo fijo con el motivo exacto; el borrador no se pierde.
+- **Leer un registro sin salir de la lista (2026-10-22):** en «Últimos registros» del panel y en el
+  Listado, cada fila abre la ficha completa en una ventana (hoja desde abajo en el móvil), con
+  anterior/siguiente y enlace a la página completa (`/gestion/abc/registros/[id]`, donde se borra).
+  Componente `FichaRegistroModal` (`src/components/registro-abc/ficha-registro.tsx`). Orientación
+  (Paloma) ve el panel: el rol `orientacion` lleva el módulo `abc`.
 - **Sin exponer desde la portada pública junto a Licencias** (ver retoques en `licencias-v2.md`):
   la portada de `/` solo enlaza a Licencias + administración, no expone directamente el ABC.
 

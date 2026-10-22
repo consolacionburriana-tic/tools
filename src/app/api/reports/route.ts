@@ -129,7 +129,10 @@ export async function POST(request: Request) {
     return NextResponse.json(report, { status: 201 });
   } catch (error) {
     console.error('Error guardando registro:', error);
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    // El detalle va a quien guarda (ya con sesión): si es la BBDD, tiene que poder decirlo.
+    const causa = (error as { cause?: { message?: string } })?.cause?.message;
+    const detalle = causa ?? (error instanceof Error ? error.message : String(error));
+    return NextResponse.json({ error: 'Error interno al guardar', detalle }, { status: 500 });
   }
 }
 
