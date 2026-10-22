@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { BarraAcciones } from '@/components/ui/barra-acciones';
+import { Aviso } from '@/components/ui/aviso';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/draft-storage';
 import { haptic } from '@/lib/haptics';
 import { CONTEXTS, TIME_SLOTS, PRESENT_PEOPLE, BEHAVIORS, REASONS } from '@/lib/constants';
@@ -29,12 +30,15 @@ const seleccionAlumno = z.object({
   label: z.string(),
 });
 
+// Los mensajes salen tal cual bajo cada campo: tienen que decir qué falta, no «Invalid option».
 const schema = z.object({
-  student: seleccionAlumno.nullable(),
-  reportDate: z.date(),
-  context: z.enum(['aula', 'patio', 'comedor', 'otros']),
+  student: seleccionAlumno.nullable().refine((v): boolean => v !== null, { message: 'Elige un alumno' }),
+  reportDate: z.date({ error: 'Elige la fecha' }),
+  context: z.enum(['aula', 'patio', 'comedor', 'otros'], { error: 'Elige dónde ocurre' }),
   contextNote: z.string().optional(),
-  timeSlot: z.enum(['primera_hora', 'antes_patio', 'bajadas', 'patio', 'almuerzo', 'despues_patio', 'ultima_hora']),
+  timeSlot: z.enum(['primera_hora', 'antes_patio', 'bajadas', 'patio', 'almuerzo', 'despues_patio', 'ultima_hora'], {
+    error: 'Elige cuándo ocurre',
+  }),
   presentPeople: z.array(z.string()).min(1, 'Selecciona al menos una persona'),
   presentNames: z.string().optional(),
   behaviors: z.array(z.string()).min(1, 'Selecciona al menos una conducta'),
@@ -51,6 +55,37 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+// Para decir en voz alta qué falta (el botón de guardar está abajo y el campo puede quedar lejos).
+const TITULO_CAMPO: Partial<Record<keyof FormValues, string>> = {
+  student: 'Alumno',
+  reportDate: 'Fecha',
+  context: '¿Dónde ocurre?',
+  timeSlot: '¿Cuándo ocurre?',
+  presentPeople: '¿Qué personas estaban presentes?',
+  behaviors: 'Conducta que te preocupa',
+};
+
+// El botón de guardar va en un portal (`BarraAcciones`), fuera del <form> en el DOM: sin
+// `form="…"` apuntando a este id, pulsarlo no enviaba nada.
+const FORM_ID = 'registro-abc-form';
+
+/** Lo que dijo el servidor, en cristiano: el estado, el motivo y, si lo hay, el detalle técnico. */
+async function motivoDelServidor(res: Response): Promise<string> {
+  let cuerpo: { error?: string; detalle?: string; issues?: { path?: (string | number)[]; message?: string }[] } = {};
+  try {
+    cuerpo = await res.json();
+  } catch {
+    // respuesta sin JSON (p. ej. una página de error de la plataforma)
+  }
+  if (res.status === 401) return 'Tu sesión ha caducado. Vuelve a entrar con tu cuenta del colegio y guarda de nuevo.';
+  const partes = [`Error ${res.status}${cuerpo.error ? `: ${cuerpo.error}` : ''}`];
+  if (cuerpo.issues?.length) {
+    partes.push(cuerpo.issues.map((i) => `${i.path?.join('.') || 'datos'} — ${i.message}`).join(' · '));
+  }
+  if (cuerpo.detalle) partes.push(cuerpo.detalle.slice(0, 300));
+  return partes.join(' · ');
+}
+
 interface RegistroFormProps {
   alumnos: AlumnoSeguimiento[];
   /** Quién registra (de la sesión) — solo informativo, el servidor lo resuelve por su cuenta */
@@ -63,6 +98,8 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [opcionalAbierto, setOpcionalAbierto] = useState(false);
+  // Error del guardado (red, sesión, servidor, BBDD): se queda en pantalla hasta el siguiente intento.
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
 
   const {
     control,
@@ -131,10 +168,11 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
 
   const onSubmit = async (data: FormValues) => {
     if (!data.student) {
-      toast.error('Selecciona un alumno');
+      toast.error('Elige un alumno');
       haptic.warning();
       return;
     }
+    setErrorGuardado(null);
     setSubmitting(true);
     try {
       const { student, ...resto } = data;
@@ -150,7 +188,13 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error('Error del servidor');
+      if (!res.ok) {
+        const motivo = await motivoDelServidor(res);
+        await haptic.warning();
+        setErrorGuardado(motivo);
+        toast.error('No se ha guardado el registro', { description: motivo, duration: 10000 });
+        return;
+      }
 
       await haptic.success();
       clearDraft();
@@ -160,16 +204,33 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         setSuccess(false);
         onSuccess?.();
       }, 2500);
-    } catch {
+    } catch (err) {
       await haptic.warning();
-      toast.error('No se pudo guardar el registro. Inténtalo de nuevo.');
+      const motivo =
+        err instanceof TypeError
+          ? 'No hay conexión con el servidor. Comprueba el wifi o los datos y vuelve a intentarlo.'
+          : `Error inesperado: ${err instanceof Error ? err.message : String(err)}`;
+      setErrorGuardado(motivo);
+      toast.error('No se ha guardado el registro', { description: motivo, duration: 10000 });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const onError = () => {
+  // Si falta algo: se dice qué (arriba, en un aviso) y se baja/sube hasta el primer campo con error.
+  const onError = (errs: FieldErrors<FormValues>) => {
     haptic.warning();
+    const faltan = (Object.keys(errs) as (keyof FormValues)[]).map((k) => TITULO_CAMPO[k] ?? String(k));
+    setErrorGuardado(null);
+    toast.error(faltan.length === 1 ? 'Falta un campo obligatorio' : `Faltan ${faltan.length} campos obligatorios`, {
+      description: faltan.join(' · '),
+      duration: 8000,
+    });
+    // Esperar al pintado de los mensajes de error para localizar el primero en la página
+    setTimeout(() => {
+      const primero = document.querySelector<HTMLElement>('[data-campo-error="true"]');
+      primero?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
   };
 
   if (success) {
@@ -199,7 +260,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8">
+    <form id={FORM_ID} onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8" noValidate>
 
       {/* ── Header ABC ─────────────────────────────────────────────── */}
       <div className="space-y-1">
@@ -452,12 +513,19 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         </FormSection>
       </OptionalBlock>
 
+      {errorGuardado && (
+        <Aviso tono="error" titulo="No se ha guardado el registro">
+          <p className="break-words">{errorGuardado}</p>
+          <p className="mt-1">Lo que has escrito sigue aquí: pulsa «Guardar registro» para reintentarlo.</p>
+        </Aviso>
+      )}
+
       {/* Guardar: la barra fija común, con quién registra a la izquierda */}
       <BarraAcciones
         ancho="estrecho"
         resumen={<span className="block truncate">Registra {registradoPor}</span>}
       >
-        <Button type="submit" size="lg" cargando={submitting}>
+        <Button type="submit" form={FORM_ID} size="lg" cargando={submitting}>
           {submitting ? 'Guardando…' : 'Guardar registro'}
         </Button>
       </BarraAcciones>
