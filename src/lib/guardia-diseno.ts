@@ -32,7 +32,7 @@ export type Cuentas = Partial<Record<Regla, number>>;
 /** Las reglas que se miran en un fichero, según dónde está. */
 export function reglasPara(ruta: string): Regla[] {
   const r = ruta.replaceAll('\\', '/');
-  if (r.includes('/components/ui/') || r.includes('/galeria-temporal/')) return [];
+  if (r.includes('/components/ui/')) return [];
   const todas = Object.keys(REGLAS) as Regla[];
   // La cabecera propia solo cuenta en las pantallas de gestión: las de familias tienen la suya.
   return r.includes('/app/gestion/') ? todas : todas.filter((x) => x !== 'cabecera');

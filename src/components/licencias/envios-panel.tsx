@@ -44,6 +44,7 @@ import {
   type TipoLicencia,
 } from '@/lib/licencias-envios';
 import { useConfirmar } from '@/components/ui/confirmar';
+import { Cifra, Cifras } from '@/components/ui/cifra';
 import { EnviosAsignar } from '@/components/licencias/envios-asignar';
 import { EnviosEnviar } from '@/components/licencias/envios-enviar';
 import { EnviosSobrantes } from '@/components/licencias/envios-sobrantes';
@@ -82,22 +83,6 @@ const ESTADOS: { valor: EstadoFiltro; label: string }[] = [
 
 function fecha(d: string | null) {
   return d ? new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
-}
-
-function Kpi({ label, valor, nota, tono }: { label: string; valor: string; nota?: string; tono?: 'ok' | 'aviso' }) {
-  const color =
-    tono === 'ok'
-      ? 'text-emerald-600 dark:text-emerald-400'
-      : tono === 'aviso'
-        ? 'text-amber-600 dark:text-amber-400'
-        : 'text-zinc-900 dark:text-zinc-100';
-  return (
-    <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">{label}</p>
-      <p className={`text-xl font-semibold ${color}`}>{valor}</p>
-      {nota && <p className="text-xs text-zinc-400">{nota}</p>}
-    </div>
-  );
 }
 
 export function EnviosPanel({ presets }: { presets: Preset[] }) {
@@ -400,18 +385,18 @@ export function EnviosPanel({ presets }: { presets: Preset[] }) {
       </div>
 
       {r && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          <Kpi label="Licencias" valor={String(r.total)} nota={r.descartadas ? `${r.descartadas} descartadas` : undefined} />
-          <Kpi label="Falta el código" valor={String(r.sinCodigo)} tono={r.sinCodigo ? 'aviso' : undefined} />
-          <Kpi label="Listas para enviar" valor={String(r.listasParaEnviar)} tono={r.listasParaEnviar ? 'ok' : undefined} />
-          <Kpi label="Enviadas" valor={`${r.enviadas}`} nota={`${pct}% del total`} />
-          <Kpi
-            label="Incidencias"
+        <Cifras className="sm:grid-cols-5">
+          <Cifra etiqueta="Licencias" valor={String(r.total)} nota={r.descartadas ? `${r.descartadas} descartadas` : undefined} />
+          <Cifra etiqueta="Falta el código" valor={String(r.sinCodigo)} tono={r.sinCodigo ? 'aviso' : undefined} />
+          <Cifra etiqueta="Listas para enviar" valor={String(r.listasParaEnviar)} tono={r.listasParaEnviar ? 'ok' : undefined} />
+          <Cifra etiqueta="Enviadas" valor={`${r.enviadas}`} nota={`${pct}% del total`} barra={pct / 100} />
+          <Cifra
+            etiqueta="Incidencias"
             valor={String(r.conError + r.sinCorreo)}
             nota={r.sinCorreo ? `${r.sinCorreo} sin correo` : r.conError ? `${r.conError} con error` : 'ninguna'}
             tono={r.conError + r.sinCorreo ? 'aviso' : undefined}
           />
-        </div>
+        </Cifras>
       )}
 
       <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
