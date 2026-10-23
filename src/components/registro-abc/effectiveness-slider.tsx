@@ -67,6 +67,19 @@ export function EffectivenessSlider({ value, onChange }: EffectivenessSliderProp
     onChange(newVal);
   };
 
+  // Con el teclado: flechas de medio en medio, Re Pág / Av Pág de uno en uno, Inicio y Fin.
+  const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const pasos: Record<string, number> = { ArrowRight: 0.5, ArrowUp: 0.5, ArrowLeft: -0.5, ArrowDown: -0.5, PageUp: 1, PageDown: -1 };
+    let nuevo: number | null = null;
+    if (e.key in pasos) nuevo = (value ?? 0) + pasos[e.key];
+    else if (e.key === 'Home') nuevo = 0;
+    else if (e.key === 'End') nuevo = 5;
+    if (nuevo === null) return;
+    e.preventDefault();
+    haptic.tap();
+    onChange(Math.round(Math.max(0, Math.min(5, nuevo)) * 10) / 10);
+  };
+
   return (
     <div className="space-y-4">
       {/* Número grande */}
@@ -92,7 +105,9 @@ export function EffectivenessSlider({ value, onChange }: EffectivenessSliderProp
       {/* Track */}
       <div
         ref={trackRef}
-        className="relative h-10 flex items-center cursor-pointer select-none touch-none"
+        className="relative flex h-10 cursor-pointer touch-none items-center rounded-full outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        tabIndex={0}
+        onKeyDown={handleKey}
         onClick={handleTrackClick}
         onPointerDown={(e) => {
           setDragging(true);
@@ -108,6 +123,7 @@ export function EffectivenessSlider({ value, onChange }: EffectivenessSliderProp
         aria-valuemin={0}
         aria-valuemax={5}
         aria-valuenow={value ?? 0}
+        aria-valuetext={value !== null ? `${displayVal.toFixed(1)} de 5` : 'Sin valorar'}
         aria-label="Efectividad de la reconducción"
       >
         {/* Barra de fondo */}
