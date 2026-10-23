@@ -1069,6 +1069,18 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   interfaz: la pestaña «Vista previa» ya enseña etiqueta a etiqueta lo que va a salir y ya avisa
   de las que no existen. **Cuando sobren tokens**; con lo de ahora se trabaja bien.
 
+## Diseño: lo que quedó por mirar al cerrar la unificación (2026-10-23)
+
+La unificación terminó con `pnpm diseno:guardia` a cero y la guía en `docs/diseno.md`. Al
+borrar los planes temporales quedaron sin repasar a mano, por si alguna vez se miran:
+
+- Contraste del catálogo de colores de actividad de la encuesta de Evaluaciones (algunos con texto
+  blanco pequeño por debajo de 4,5:1).
+- ABC: el deslizador de efectividad, que se pueda usar con el teclado.
+- La página pública de consecuencias de Puntualidad lleva su propia cabecera (es pública, no es
+  un módulo; está bien así salvo que se quiera la de familias).
+- Capturas en claro y oscuro, a 390 y 1180 px, de una página por módulo con datos reales.
+
 ## Backlog de módulos futuros (mencionados, sin desarrollar todavía)
 
 - Nada más identificado por ahora aparte de los módulos ya fichados. Añadir aquí cualquier
