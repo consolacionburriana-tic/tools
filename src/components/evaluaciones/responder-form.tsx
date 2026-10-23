@@ -17,6 +17,7 @@ import {
 import { Celebracion, sortearCelebracion, type IdCelebracion } from '@/components/evaluaciones/celebraciones';
 import { ProgresoAnillo } from '@/components/evaluaciones/progreso-anillo';
 import { EstrellasInput } from '@/components/evaluaciones/estrellas-input';
+import { tintaSobre } from '@/components/evaluaciones/ui';
 import { ETAPA_LABEL, ETAPAS_VISIBLES as ETAPAS_CENTRO } from '@/lib/cursos';
 
 export interface PreguntaPublica {
@@ -491,10 +492,10 @@ export function ResponderForm({
                                       key={p.valor}
                                       type="button"
                                       onClick={() => marcarEscala(clave, p.valor)}
-                                      style={activo ? { backgroundColor: acento } : undefined}
+                                      style={activo ? { backgroundColor: acento, color: tintaSobre(acento) } : undefined}
                                       className={`rounded-xl px-1 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
                                         activo
-                                          ? 'text-white shadow-sm'
+                                          ? 'shadow-sm'
                                           : sinContestar
                                             ? 'bg-rose-50 text-rose-500 ring-1 ring-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30'
                                             : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
@@ -534,17 +535,17 @@ export function ResponderForm({
                             key={o.clave}
                             type="button"
                             onClick={() => marcarOpcion(q, o.clave)}
-                            style={activo ? { backgroundColor: acento } : undefined}
+                            style={activo ? { backgroundColor: acento, color: tintaSobre(acento) } : undefined}
                             className={`flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-sm transition-colors ${
                               activo
-                                ? 'text-white'
+                                ? ''
                                 : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
                             }`}
                           >
                             <span
                               className={`flex h-5 w-5 shrink-0 items-center justify-center border-2 ${
                                 q.tipo === 'varias' ? 'rounded-md' : 'rounded-full'
-                              } ${activo ? 'border-white' : 'border-zinc-300 dark:border-zinc-600'}`}
+                              } ${activo ? 'border-current' : 'border-zinc-300 dark:border-zinc-600'}`}
                             >
                               {activo && <span className="h-2 w-2 rounded-full bg-white" />}
                             </span>
@@ -620,8 +621,8 @@ export function ResponderForm({
             type="button"
             onClick={() => void enviar()}
             disabled={enviando}
-            style={{ backgroundColor: colorForm }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 font-semibold text-white brightness-100 transition-[filter] hover:brightness-90 disabled:opacity-50"
+            style={{ backgroundColor: colorForm, color: tintaSobre(colorForm) }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 font-semibold brightness-100 transition-[filter] hover:brightness-90 disabled:opacity-50"
           >
             {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             Enviar mis respuestas
