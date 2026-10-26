@@ -14,6 +14,7 @@ import {
   asmEntregas,
   disAlumnos,
   disAparatos,
+  disCargadores,
   disHistorial,
   disModelos,
   eduStudents,
@@ -30,6 +31,7 @@ import { nombresDe } from '@/lib/personas';
 import {
   compararCodigos,
   ESTADO_APARATO_LABEL,
+  ESTADO_CARGADOR_LABEL,
   esUso,
   etiquetaModelo,
   llevaCompra,
@@ -42,6 +44,7 @@ import {
   USO_LABEL,
   type EstadoAlumnoInput,
   type EstadoAparato,
+  type EstadoCargador,
   type Modalidad,
   type Uso,
 } from '@/lib/dispositivos';
@@ -106,6 +109,14 @@ export interface TitularDis {
   activo: boolean;
 }
 
+export interface CargadorDis {
+  id: string;
+  /** Lo que lleva escrito el cargador: suele ser el código de su iPad. */
+  codigo: string;
+  estado: EstadoCargador;
+  notas: string | null;
+}
+
 export interface AparatoDis {
   id: string;
   uso: Uso;
@@ -114,6 +125,8 @@ export interface AparatoDis {
   numeroSerie: string | null;
   estado: EstadoAparato;
   notas: string | null;
+  /** Su cargador, o null si no tiene (o no se sabe). */
+  cargador: CargadorDis | null;
   titular: TitularDis | null;
   asignadoAt: string | null;
 }
@@ -241,6 +254,16 @@ async function leerAparatos(ids?: string[]): Promise<AparatoDis[]> {
     .leftJoin(eduStudents, eq(eduStudents.id, disAparatos.eduStudentId))
     .leftJoin(eduTeachers, eq(eduTeachers.id, disAparatos.eduTeacherId))
     .where(ids ? inArray(disAparatos.id, ids) : undefined);
+  const cargadores = await db
+    .select()
+    .from(disCargadores)
+    .where(ids ? inArray(disCargadores.aparatoId, ids) : undefined);
+  const cargadorDe = new Map(
+    cargadores.map((c): [string, CargadorDis] => [
+      c.aparatoId,
+      { id: c.id, codigo: c.codigo, estado: c.estado as EstadoCargador, notas: c.notas },
+    ]),
+  );
 
   return filas
     .map(({ a, ...t }): AparatoDis => {
@@ -270,6 +293,7 @@ async function leerAparatos(ids?: string[]): Promise<AparatoDis[]> {
         numeroSerie: a.numeroSerie,
         estado: a.estado as EstadoAparato,
         notas: a.notas,
+        cargador: cargadorDe.get(a.id) ?? null,
         titular,
         asignadoAt: iso(a.asignadoAt),
       };
@@ -673,7 +697,7 @@ async function nombreDe(a: { tipo: 'alumno' | 'profe'; id: string }): Promise<st
 
 /** Alta de iPads del cole: N en serie, o uno por cada nº de serie pegado. */
 export async function altaAparatos(
-  input: { uso: Uso; modeloId?: string | null; cantidad?: number; series?: string[]; notas?: string | null },
+  input: { uso: Uso; modeloId?: string | null; cantidad?: number; series?: string[]; notas?: string | null; conCargador?: boolean },
   firma: Firma,
 ): Promise<AparatoDis[]> {
   const existentes = await db.select({ codigo: disAparatos.codigo, serie: disAparatos.numeroSerie }).from(disAparatos);
@@ -698,7 +722,15 @@ export async function altaAparatos(
       })),
     )
     .returning({ id: disAparatos.id, codigo: disAparatos.codigo });
-  await apuntar(filas.map((f) => ({ aparatoId: f.id, texto: `Alta (${USO_LABEL[input.uso].toLowerCase()})` })), firma);
+  if (input.conCargador) {
+    await db
+      .insert(disCargadores)
+      .values(filas.map((f) => ({ aparatoId: f.id, codigo: f.codigo, actualizadoPor: firma.email })));
+  }
+  await apuntar(
+    filas.map((f) => ({ aparatoId: f.id, texto: `Alta (${USO_LABEL[input.uso].toLowerCase()})${input.conCargador ? ' con cargador' : ''}` })),
+    firma,
+  );
   return leerAparatos(filas.map((f) => f.id));
 }
 
@@ -711,6 +743,7 @@ export async function editarAparato(
     numeroSerie?: string | null;
     estado?: EstadoAparato;
     notas?: string | null;
+    cargador?: { codigo?: string; estado?: EstadoCargador; notas?: string | null } | null;
     titular?: { tipo: 'alumno' | 'profe'; id: string } | null;
   },
   firma: Firma,
@@ -739,6 +772,8 @@ export async function editarAparato(
     lineas.push({ aparatoId: id, texto: ESTADO_APARATO_LABEL[input.estado] });
   }
 
+  if (input.cargador !== undefined) await cambiarCargador(ap, input.cargador, firma, lineas);
+
   // Se devuelve si se pide, si se da de baja (de baja no lo tiene nadie) o si pasa a otra
   // persona: desde la ficha del iPad, darlo a otro es un gesto explícito.
   const mismo =
@@ -765,6 +800,41 @@ export async function editarAparato(
   return fila;
 }
 
+/** Crea, cambia o quita el cargador de un iPad (`null` = quitarlo: ya no se sabe que tenga). */
+async function cambiarCargador(
+  ap: typeof disAparatos.$inferSelect,
+  input: { codigo?: string; estado?: EstadoCargador; notas?: string | null } | null,
+  firma: Firma,
+  lineas: NuevaLinea[],
+): Promise<void> {
+  const [actual] = await db.select().from(disCargadores).where(eq(disCargadores.aparatoId, ap.id)).limit(1);
+  if (input === null) {
+    if (!actual) return;
+    await db.delete(disCargadores).where(eq(disCargadores.id, actual.id));
+    lineas.push({ aparatoId: ap.id, texto: `Cargador ${actual.codigo} quitado` });
+    return;
+  }
+  const codigo = input.codigo !== undefined ? normalizarCodigo(input.codigo) : (actual?.codigo ?? ap.codigo);
+  if (!codigo) throw new ErrorDispositivos('El código del cargador no puede quedar vacío');
+  const valores = {
+    codigo,
+    estado: input.estado ?? actual?.estado ?? 'activo',
+    notas: input.notas !== undefined ? input.notas || null : (actual?.notas ?? null),
+    actualizadoPor: firma.email,
+    updatedAt: new Date(),
+  };
+  if (!actual) {
+    await db.insert(disCargadores).values({ aparatoId: ap.id, ...valores });
+    lineas.push({ aparatoId: ap.id, texto: `Cargador ${codigo} añadido` });
+    return;
+  }
+  await db.update(disCargadores).set(valores).where(eq(disCargadores.id, actual.id));
+  if (valores.estado !== actual.estado) {
+    lineas.push({ aparatoId: ap.id, texto: `Cargador ${codigo}: ${ESTADO_CARGADOR_LABEL[valores.estado as EstadoCargador].toLowerCase()}` });
+  }
+  if (valores.codigo !== actual.codigo) lineas.push({ aparatoId: ap.id, texto: `Cargador ${actual.codigo} → ${valores.codigo}` });
+}
+
 /**
  * Quitar un iPad dado de alta por error. Solo si nunca ha tenido titular ni ha pasado nada
  * con él: lo que tiene historia no se borra, se da de baja.
@@ -782,6 +852,7 @@ export async function borrarAparato(id: string): Promise<void> {
     throw new ErrorDispositivos('Este iPad ya tiene historia: dalo de baja en vez de borrarlo', 409);
   }
   await db.delete(disHistorial).where(eq(disHistorial.aparatoId, id));
+  await db.delete(disCargadores).where(eq(disCargadores.aparatoId, id));
   await db.delete(disAparatos).where(eq(disAparatos.id, id));
 }
 

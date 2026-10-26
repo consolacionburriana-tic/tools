@@ -73,6 +73,27 @@ Detalle en [`29-dispositivos.md`](./29-dispositivos.md).
 10. **Tutores y profes ven el aviso en la ficha y un icono en la lista** de Alumnado (no solo en
     la ficha).
 
+### Dispositivos 1:1: cargadores y volcado del Excel de iPads de sustitución (26-oct-2026) — revisar con David
+
+Detalle en [`29-dispositivos.md`](./29-dispositivos.md).
+
+1. **El cargador es una pieza propia, unida a su iPad** (`dis_cargadores`, uno por iPad), con su
+   estado (operativo, perdido, de baja) y lo que lleva escrito. No es una columna del iPad: puede
+   perderse sin que el iPad deje de estar operativo.
+2. **Sin fila de cargador = sin cargador.** La lista lo enseña en ámbar y hay filtro «Sin cargador»
+   (cuenta también los perdidos y de baja).
+3. **S16: el Excel pone `s11` en la columna del cargador** (repetido del de S11). Se ha dado por
+   S16 y queda anotado en el cargador. Confirmar la etiqueta física.
+4. **S15 no se ha dado de alta**: en el Excel es una fila vacía (sin nº de serie ni modelo). El
+   siguiente código libre sigue siendo S22.
+5. **Cuatro filas del Excel no tienen código de sustitución y se han dejado fuera**: dos con
+   `(Propiedad)` (iPads de alumnos, no del cole; una repite el nº de serie de S6), una «No se puede
+   restaurar» y una «Inactivo». Si se quieren, se dan de alta como de baja.
+6. **Titular de S10 sin vincular**: el Excel solo dice «Yevanheli» y no casa con ningún alumno activo; hay que darlo a mano desde «iPads del cole».
+7. **Los titulares del curso 26/27 se han vinculado como «mientras arreglan el suyo»**: el iPad
+   queda a nombre del alumno pero **no se le cambia la modalidad** (ni cuotas). Falta confirmar si
+   «entregado» es prestado a casa y «no casa» es prestado que se queda en el cole.
+
 ### Correos y grupos: lo que decidí yo al construirlo (20-oct-2026) — revisar con David
 
 Ficha: [`30-cuentas.md`](./30-cuentas.md). David pidió el módulo, las operaciones y «TIC gestiona,

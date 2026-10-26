@@ -58,6 +58,11 @@ Cuatro preguntas a las que responde:
    Bárbara y Amparo tienen toda la información y la vuelcan: por eso hay **alta en serie** (cuántos y
    de qué modelo) y **pegar números de serie** (una línea, un iPad).
 
+   **Cargadores** (26-oct-2026): cada iPad del cole puede llevar su cargador, que es una pieza propia
+   con su estado (operativo, perdido, de baja) y lo que lleva escrito (`S3`). Un iPad sin cargador
+   sale en ámbar en la lista y en el filtro «Sin cargador»; el alta en serie los crea con el mismo
+   código del iPad.
+
 5. **Quién tiene un iPad del cole vive en el iPad, no en el alumno.** Un aparato del inventario
    tiene como mucho un titular (un alumno o un profe). El alumno prestado no guarda «el S12»:
    se busca qué aparato le tiene a él. Una sola verdad, la lección de
@@ -107,6 +112,9 @@ Cuatro preguntas a las que responde:
     `codigo` único (`S1`, `P1`), modelo, nº de serie, estado
     (`activo`|`reparacion`|`baja`), notas y **titular** (`edu_student_id` o `edu_teacher_id`,
     nunca los dos) con fecha de asignación.
+  - `dis_cargadores`: el cargador de un iPad del cole (SQL `dispositivos-cargadores.sql`).
+    `aparato_id` único (un cargador por iPad), `codigo` (lo que lleva escrito, suele ser el del
+    iPad; no único a propósito), estado (`activo`|`perdido`|`baja`) y notas.
   - `dis_alumnos`: una fila por alumno informado (PK `edu_student_id`): `modalidad`
     (`comprado`|`casa`|`prestado`|`hermano`), tipo (`ipad`), curso de compra, `a_casa` (del
     prestado), fecha de firma, de qué hermano viene, modelo y nº de serie opcionales y notas.
@@ -149,6 +157,10 @@ de serie, préstamo con su iPad, cuotas, Excel y CSV, la ficha de Alumnado como 
 orientación, y el paso «iPad» de un nouvingut). Todo lo de prueba se borró después: las tablas
 `dis_*` están vacías salvo el modelo de partida.
 
+### Fase 2b · cargadores y volcado de sustitución (26-oct-2026)
+- [x] Tabla `dis_cargadores` (`dispositivos-cargadores.sql`) y su pieza en la ficha del iPad, la lista y el alta en serie
+- [x] Volcado del Excel «iPad de Sustitución/Beca»: iPads S1–S21 con su cargador (ver decisiones en `00-desarrollos-futuros.md`)
+
 ### Fase 3 · estrenarlo
-- [ ] Que Bárbara y Amparo vuelquen el inventario y el estado del alumnado
+- [ ] Que Bárbara y Amparo vuelquen el estado del alumnado (el inventario de sustitución ya está volcado)
 - [ ] Cerrar con secretaría y Jose Miguel cómo se cobra (pendiente arriba)
