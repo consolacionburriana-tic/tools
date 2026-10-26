@@ -15,7 +15,7 @@ interface StudentPickerProps {
 
 // Sin buscador a propósito: el alumnado del ABC se da de alta a mano en el panel (son unos
 // pocos, con muchas necesidades), así que aquí salen todos de un vistazo — dos iniciales y
-// su clase — y se elige de un toque. El elegido, en negro como las pastillas de `Filtro`.
+// su clase — y se elige de un toque. El elegido, en verde como el resto de pastillas del formulario.
 export function StudentPicker({ alumnos, value, onChange }: StudentPickerProps) {
   if (alumnos.length === 0) {
     return (
@@ -41,7 +41,7 @@ export function StudentPicker({ alumnos, value, onChange }: StudentPickerProps) 
             className={cn(
               'inline-flex min-h-12 cursor-pointer items-baseline gap-1.5 rounded-xl border px-4 py-3 text-base font-semibold tracking-wide transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
               activo
-                ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                ? 'border-emerald-700 bg-emerald-700 text-white dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
                 : 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800',
             )}
           >

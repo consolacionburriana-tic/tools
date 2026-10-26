@@ -36,17 +36,32 @@ export const PRESENT_PEOPLE = [
 
 export type PresentPeopleValue = (typeof PRESENT_PEOPLE)[number]['value'];
 
-// Conductas
+// Conductas. El orden es el del formulario y va por familias —agresión, palabras, objetos,
+// regulación, disrupción— para encontrar la que toca sin leerlas todas. Los `value` ya
+// guardados no se tocan: solo se añaden nuevos.
 export const BEHAVIORS = [
+  // Agresión física
   { value: 'agresion_fisica_iguales', label: 'Agresión física entre iguales' },
   { value: 'agresion_fisica_adultos', label: 'Agresión física a adultos' },
+  { value: 'empujar', label: 'Empujar' },
+  { value: 'escupir_morder', label: 'Escupir o morder' },
+  // Palabras
   { value: 'insultos_iguales', label: 'Insultos a iguales' },
   { value: 'insultos_adultos', label: 'Insultos a adultos' },
-  { value: 'autolesiones', label: 'Autolesiones' },
-  { value: 'chillidos', label: 'Chillidos' },
-  { value: 'huir', label: 'Huir' },
+  { value: 'palabrotas', label: 'Palabrotas / lenguaje malsonante' },
+  { value: 'amenazas', label: 'Amenazas' },
+  { value: 'burlas', label: 'Burlas o humillar a un compañero' },
+  // Objetos
   { value: 'lanzar_objetos', label: 'Lanzar objetos' },
-  { value: 'empujar', label: 'Empujar' },
+  { value: 'romper_material', label: 'Romper material o mobiliario' },
+  // Regulación emocional
+  { value: 'chillidos', label: 'Chillidos' },
+  { value: 'rabieta', label: 'Rabieta o crisis' },
+  { value: 'autolesiones', label: 'Autolesiones' },
+  { value: 'huir', label: 'Huir' },
+  // En clase
+  { value: 'negarse', label: 'Negarse a la tarea o a obedecer' },
+  { value: 'interrumpir', label: 'Interrumpir o molestar en clase' },
 ] as const;
 
 export type BehaviorValue = (typeof BEHAVIORS)[number]['value'];

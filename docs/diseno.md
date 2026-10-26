@@ -165,6 +165,7 @@ Solo estas pueden salirse de las reglas, y solo en lo que se dice:
 | **Horarios y Mi horario** | El color de cada materia en la rejilla (raya y tinte suave). |
 | **Números del cole** | Las pestañas con punto de color, el mismo color en sus cifras, y la tabla de informe. |
 | **Fichas para imprimir** (Banco de libros, Números) | Estilo «papel oficial»: blanco y negro, rayas y mayúsculas. |
+| **Formulario rápido del Registro ABC** (`/registro-abc`) | Verde esmeralda (700) en lo que se elige y en «Guardar registro», y la nota de cabecera teñida. Decidido por David el 26-oct-2026 («está aburridísimo»). Es `Filtro acento="verde"`; no se usa en ningún otro sitio. |
 | **Celebración al terminar** (Licencias, Salidas, Evaluaciones, al enviar) | La animación de «hecho». |
 
 ## 4. Lo que no se hace

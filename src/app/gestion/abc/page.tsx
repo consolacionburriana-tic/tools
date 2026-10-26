@@ -2,8 +2,9 @@ export const dynamic = 'force-dynamic';
 
 import { db } from '@/db';
 import { students, eduStudents, eduTeachers, teachers, behaviorReports } from '@/db/schema';
-import { eq, count, desc, gte } from 'drizzle-orm';
-import { claseDeAlumno, siglasDeAlumno } from '@/lib/abc';
+import { and, count, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { PERIODOS, claseDeAlumno, periodoValido, rangoDePeriodo, siglasDeAlumno } from '@/lib/abc';
+import { getAbcStudentsPanel } from '@/lib/abc-server';
 import { nombreProfe } from '@/lib/profes';
 import { format, subDays } from 'date-fns';
 import { Users, GraduationCap, FileText, TrendingUp } from 'lucide-react';
@@ -13,21 +14,39 @@ import { Cifra, Cifras } from '@/components/ui/cifra';
 import { Rotulo } from '@/components/ui/rotulo';
 import { Vacio } from '@/components/ui/vacio';
 import { UltimosRegistros } from '@/components/registro-abc/ultimos-registros';
+import { PanelFiltros } from '@/components/registro-abc/panel-filtros';
 import type { FichaRegistroData } from '@/components/registro-abc/ficha-registro';
 
 export const metadata = {
   title: 'Registro ABC · Tools Consolación',
 };
 
-export default async function AdminPage() {
-  const weekAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
+// Los filtros llegan por la URL (`?periodo=30&alumnos=id1,id2`); sin nada, el curso en vigor y todo el alumnado.
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string; alumnos?: string }>;
+}) {
+  const { periodo: periodoUrl, alumnos: alumnosUrl } = await searchParams;
+  const periodo = periodoValido(periodoUrl);
+  const alumnado = await getAbcStudentsPanel();
+  // Solo cuentan los alumnos que existen: un id inventado en la URL no filtra nada.
+  const alumnoIds = (alumnosUrl ?? '').split(',').filter((id) => alumnado.some((a) => a.id === id));
+
+  const rango = rangoDePeriodo(periodo);
+  const filtroAlumno = alumnoIds.length > 0 ? inArray(behaviorReports.studentId, alumnoIds) : undefined;
+  const filtroPeriodo = rango
+    ? and(gte(behaviorReports.reportDate, format(rango.from, 'yyyy-MM-dd')), lte(behaviorReports.reportDate, format(rango.to, 'yyyy-MM-dd')))
+    : undefined;
+  const filtros = and(filtroPeriodo, filtroAlumno);
+  const weekAgo = format(subDays(new Date(), 6), 'yyyy-MM-dd');
 
   const [[{ totalStudents }], [{ totalTeachers }], [{ totalReports }], [{ weeklyReports }], recentReports] =
     await Promise.all([
       db.select({ totalStudents: count() }).from(students).where(eq(students.active, true)),
       db.select({ totalTeachers: count() }).from(eduTeachers).where(eq(eduTeachers.etapa, 'ESO')),
-      db.select({ totalReports: count() }).from(behaviorReports),
-      db.select({ weeklyReports: count() }).from(behaviorReports).where(gte(behaviorReports.reportDate, weekAgo)),
+      db.select({ totalReports: count() }).from(behaviorReports).where(filtros),
+      db.select({ weeklyReports: count() }).from(behaviorReports).where(and(gte(behaviorReports.reportDate, weekAgo), filtroAlumno)),
       db
         .select({
           report: behaviorReports,
@@ -49,7 +68,8 @@ export default async function AdminPage() {
         .leftJoin(eduStudents, eq(students.eduStudentId, eduStudents.id))
         .leftJoin(eduTeachers, eq(behaviorReports.eduTeacherId, eduTeachers.id))
         .leftJoin(teachers, eq(behaviorReports.teacherId, teachers.id))
-        .orderBy(desc(behaviorReports.createdAt))
+        .where(filtros)
+        .orderBy(desc(behaviorReports.reportDate), desc(behaviorReports.createdAt))
         .limit(10),
     ]);
 
@@ -103,13 +123,13 @@ export default async function AdminPage() {
       href: '/gestion/profes',
     },
     {
-      label: 'Total registros',
+      label: `Registros · ${PERIODOS.find((p) => p.value === periodo)?.label.toLowerCase()}`,
       value: totalReports,
       icon: FileText,
       href: '/gestion/abc/registros',
     },
     {
-      label: 'Registros esta semana',
+      label: 'Últimos 7 días',
       value: weeklyReports,
       icon: TrendingUp,
       href: '/gestion/abc/registros',
@@ -119,6 +139,12 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6">
       <h1 className="sr-only">Panel del Registro ABC</h1>
+
+      <PanelFiltros
+        periodo={periodo}
+        alumnoIds={alumnoIds}
+        alumnos={alumnado.map((a) => ({ id: a.id, siglas: a.siglas, clase: a.clase }))}
+      />
 
       <Cifras>
         {cards.map((card) => (
@@ -144,7 +170,7 @@ export default async function AdminPage() {
           Últimos registros
         </Rotulo>
         {fichas.length === 0 ? (
-          <Vacio titulo="Sin registros todavía." />
+          <Vacio titulo={periodo === 'all' && alumnoIds.length === 0 ? 'Sin registros todavía.' : 'Sin registros con estos filtros.'} />
         ) : (
           <UltimosRegistros fichas={fichas} />
         )}

@@ -36,6 +36,7 @@ export function ChipMultiselect({ options, value, onChange, etiqueta = 'Marca la
             activo={selected}
             onClick={() => toggle(opt.value)}
             icono={selected ? <Check aria-hidden /> : undefined}
+            acento="verde"
             className="h-12 px-5"
           >
             {opt.label}

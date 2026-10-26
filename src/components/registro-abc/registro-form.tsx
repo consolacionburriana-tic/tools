@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { StudentPicker, type StudentSelection } from './student-picker';
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { BarraAcciones } from '@/components/ui/barra-acciones';
 import { Aviso } from '@/components/ui/aviso';
+import { cn } from '@/lib/utils';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/draft-storage';
 import { haptic } from '@/lib/haptics';
 import { CONTEXTS, TIME_SLOTS, PRESENT_PEOPLE, BEHAVIORS, REASONS } from '@/lib/constants';
@@ -86,6 +87,43 @@ async function motivoDelServidor(res: Response): Promise<string> {
   return partes.join(' · ');
 }
 
+/** El formulario en blanco: el alumno por defecto ya elegido, hoy, y el aula (lo más habitual). */
+function valoresIniciales(alumno: AlumnoSeguimiento | null): FormValues {
+  return {
+    student: alumno ? { abcStudentId: alumno.abcStudentId, label: alumno.siglas } : null,
+    reportDate: new Date(),
+    context: 'aula',
+    contextNote: '',
+    timeSlot: undefined as unknown as FormValues['timeSlot'],
+    presentPeople: [],
+    presentNames: '',
+    behaviors: [],
+    involvedWith: '',
+    situationDescription: '',
+    reasons: [],
+    reasonOther: '',
+    antecedents: '',
+    consequences: '',
+    redirectActions: '',
+    effectivenessRating: null,
+    comments: '',
+  };
+}
+
+/** ¿Hay algo escrito o marcado aparte de lo que ya viene de serie? Un borrador vacío no se guarda. */
+function hayAlgo(v: FormValues): boolean {
+  return Boolean(
+    v.timeSlot ||
+      v.presentPeople?.length ||
+      v.behaviors?.length ||
+      v.reasons?.length ||
+      v.effectivenessRating !== null ||
+      [v.contextNote, v.presentNames, v.involvedWith, v.situationDescription, v.reasonOther, v.antecedents, v.consequences, v.redirectActions, v.comments].some(
+        (t) => t && t.trim() !== '',
+      ),
+  );
+}
+
 interface RegistroFormProps {
   alumnos: AlumnoSeguimiento[];
   /** Quién registra (de la sesión) — solo informativo, el servidor lo resuelve por su cuenta */
@@ -106,29 +144,12 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      // Viene elegido el alumno marcado por defecto en el panel (o el único que haya)
-      student: alumnoInicial ? { abcStudentId: alumnoInicial.abcStudentId, label: alumnoInicial.siglas } : null,
-      reportDate: new Date(),
-      context: 'aula',
-      contextNote: '',
-      timeSlot: undefined,
-      presentPeople: [],
-      presentNames: '',
-      behaviors: [],
-      involvedWith: '',
-      situationDescription: '',
-      reasons: [],
-      reasonOther: '',
-      antecedents: '',
-      consequences: '',
-      redirectActions: '',
-      effectivenessRating: null,
-      comments: '',
-    },
+    // Viene elegido el alumno marcado por defecto en el panel (o el único que haya)
+    defaultValues: valoresIniciales(alumnoInicial),
   });
 
   // Restaurar borrador al montar
@@ -150,18 +171,29 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
     }
   }, [setValue]);
 
-  // Auto-save con debounce
+  // Auto-save con debounce. Un formulario vacío no deja borrador, y tras guardar no se vuelve a
+  // escribir (el registro ya está enviado: restaurarlo después sería duplicarlo).
   const formValues = watch();
   const debouncedSave = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (success) return;
     if (debouncedSave.current) clearTimeout(debouncedSave.current);
     debouncedSave.current = setTimeout(() => {
-      saveDraft(formValues as unknown as Record<string, unknown>);
+      if (hayAlgo(formValues)) saveDraft(formValues as unknown as Record<string, unknown>);
+      else clearDraft();
     }, 500);
     return () => {
       if (debouncedSave.current) clearTimeout(debouncedSave.current);
     };
-  }, [formValues]);
+  }, [formValues, success]);
+
+  // Lo obligatorio que falta, en vivo: la barra de abajo lo dice sin tener que pulsar «Guardar».
+  const pendientes = [
+    !formValues.student && 'Alumno',
+    !formValues.timeSlot && 'Cuándo',
+    !formValues.presentPeople?.length && 'Presentes',
+    !formValues.behaviors?.length && 'Conducta',
+  ].filter((x): x is string => Boolean(x));
 
   const contextVal = watch('context');
   const reasons = watch('reasons');
@@ -201,7 +233,11 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
       setSuccess(true);
 
       setTimeout(() => {
+        // Formulario limpio para el siguiente: sin esto, volvía a salir con lo recién enviado.
+        reset(valoresIniciales(alumnoInicial));
+        setOpcionalAbierto(false);
         setSuccess(false);
+        window.scrollTo({ top: 0 });
         onSuccess?.();
       }, 2500);
     } catch (err) {
@@ -262,20 +298,29 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
   return (
     <form id={FORM_ID} onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8" noValidate>
 
-      {/* ── Header ABC ─────────────────────────────────────────────── */}
-      <div className="space-y-1">
-        <p className="text-base font-medium text-zinc-800 dark:text-zinc-200">
-          Análisis <span className="font-bold">A</span>ntecedentes — <span className="font-bold">C</span>onducta —{' '}
-          <span className="font-bold">C</span>onsecuencias
-        </p>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Rellena los campos obligatorios (*). Los demás son opcionales y puedes completarlos después.
-        </p>
+      {/* ── Cabecera ABC: la nota verde del formulario ───────────── */}
+      <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/40">
+        <span
+          aria-hidden
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white dark:bg-emerald-600 [&_svg]:size-5"
+        >
+          <ClipboardList />
+        </span>
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-base font-semibold text-emerald-950 dark:text-emerald-100">
+            Análisis <span className="font-bold">A</span>ntecedentes — <span className="font-bold">C</span>onducta —{' '}
+            <span className="font-bold">C</span>onsecuencias
+          </p>
+          <p className="text-sm text-emerald-900/80 dark:text-emerald-200/80">
+            Con lo marcado con * ya se puede guardar; lo demás es opcional y puedes completarlo después.
+          </p>
+          <p className="truncate text-sm text-emerald-900/80 dark:text-emerald-200/80">Registras como {registradoPor}</p>
+        </div>
       </div>
 
       {/* ── Campos obligatorios ────────────────────────────────────── */}
 
-      <FormSection title="Alumno" required error={errors.student?.message}>
+      <FormSection title="Alumno" required hecho={Boolean(formValues.student)} error={errors.student?.message}>
         <Controller
           name="student"
           control={control}
@@ -289,7 +334,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         />
       </FormSection>
 
-      <FormSection title="Fecha" required error={errors.reportDate?.message}>
+      <FormSection title="Fecha" required hecho={Boolean(formValues.reportDate)} error={errors.reportDate?.message}>
         <Controller
           name="reportDate"
           control={control}
@@ -299,7 +344,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         />
       </FormSection>
 
-      <FormSection title="¿Dónde ocurre?" required error={errors.context?.message}>
+      <FormSection title="¿Dónde ocurre?" required hecho={Boolean(contextVal)} error={errors.context?.message}>
         <Controller
           name="context"
           control={control}
@@ -332,7 +377,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         </AnimatePresence>
       </FormSection>
 
-      <FormSection title="¿Cuándo ocurre?" required error={errors.timeSlot?.message}>
+      <FormSection title="¿Cuándo ocurre?" required hecho={Boolean(formValues.timeSlot)} error={errors.timeSlot?.message}>
         <Controller
           name="timeSlot"
           control={control}
@@ -346,6 +391,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         title="¿Qué personas estaban presentes?"
         required
         multiselect
+        hecho={Boolean(formValues.presentPeople?.length)}
         error={errors.presentPeople?.message}
       >
         <Controller
@@ -359,16 +405,12 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           name="presentNames"
           control={control}
           render={({ field }) => (
-            <Textarea
-              {...field}
-              placeholder="Nombres (opcional)"
-              className="mt-2 min-h-[72px]"
-            />
+            <Input {...field} placeholder="Nombres (opcional)" className="mt-2" />
           )}
         />
       </FormSection>
 
-      <FormSection title="Conducta que te preocupa" required multiselect error={errors.behaviors?.message}>
+      <FormSection title="Conducta que te preocupa" required multiselect hecho={Boolean(formValues.behaviors?.length)} error={errors.behaviors?.message}>
         <Controller
           name="behaviors"
           control={control}
@@ -446,7 +488,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         open={opcionalAbierto}
         onToggle={() => setOpcionalAbierto((v) => !v)}
       >
-        <FormSection title="Antecedentes">
+        <FormSection plano title="Antecedentes">
           <Controller
             name="antecedents"
             control={control}
@@ -460,7 +502,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           />
         </FormSection>
 
-        <FormSection title="Consecuencias">
+        <FormSection plano title="Consecuencias">
           <Controller
             name="consequences"
             control={control}
@@ -474,7 +516,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           />
         </FormSection>
 
-        <FormSection title="Acciones para reconducir">
+        <FormSection plano title="Acciones para reconducir">
           <Controller
             name="redirectActions"
             control={control}
@@ -488,7 +530,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           />
         </FormSection>
 
-        <FormSection title="¿Ha servido para reconducir?">
+        <FormSection plano title="¿Ha servido para reconducir?">
           <Controller
             name="effectivenessRating"
             control={control}
@@ -498,7 +540,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
           />
         </FormSection>
 
-        <FormSection title="Otros comentarios">
+        <FormSection plano title="Otros comentarios">
           <Controller
             name="comments"
             control={control}
@@ -520,12 +562,33 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         </Aviso>
       )}
 
-      {/* Guardar: la barra fija común, con quién registra a la izquierda */}
+      {/* Guardar: la barra fija común, con lo que falta (o «Todo listo») a la izquierda */}
       <BarraAcciones
         ancho="estrecho"
-        resumen={<span className="block truncate">Registra {registradoPor}</span>}
+        resumen={
+          <span role="status" className="flex items-center gap-1.5">
+            {pendientes.length === 0 ? (
+              <>
+                <CheckCircle2 aria-hidden className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span className="font-medium text-emerald-700 dark:text-emerald-400">Todo listo</span>
+              </>
+            ) : (
+              <>
+                <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-amber-500')} />
+                <span className="truncate sm:hidden">Faltan {pendientes.length}</span>
+                <span className="hidden truncate sm:inline">Falta: {pendientes.join(' · ')}</span>
+              </>
+            )}
+          </span>
+        }
       >
-        <Button type="submit" form={FORM_ID} size="lg" cargando={submitting}>
+        <Button
+          type="submit"
+          form={FORM_ID}
+          size="lg"
+          cargando={submitting}
+          className="bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+        >
           {submitting ? 'Guardando…' : 'Guardar registro'}
         </Button>
       </BarraAcciones>

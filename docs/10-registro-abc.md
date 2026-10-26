@@ -72,6 +72,16 @@ posteriori lo ya construido y deja abierto lo que falta.
   anterior/siguiente y enlace a la página completa (`/gestion/abc/registros/[id]`, donde se borra).
   Componente `FichaRegistroModal` (`src/components/registro-abc/ficha-registro.tsx`). Orientación
   (Paloma) ve el panel: el rol `orientacion` lleva el módulo `abc`.
+- **Panel con filtros y formulario con color (2026-10-26):** el Panel (`/gestion/abc`) filtra por periodo
+  (7/30/90 días, **Este curso** por defecto, Todo) y por alumno (varios a la vez); viven en la URL
+  (`?periodo=30&alumnos=id,id`) y se dejan anotados en el navegador con la misma clave que la lista de
+  Registros, así que «Ver todos» abre la lista con lo mismo. Los periodos están en `lib/abc.ts`
+  (`PERIODOS`, `rangoDePeriodo`). Formulario en verde (excepción en `docs/diseno.md`), cada obligatoria
+  con su círculo que se llena al contestarla, y la barra de abajo dice en vivo qué falta («Todo listo»).
+  Conductas nuevas, agrupadas por familias: palabrotas/lenguaje malsonante, amenazas, burlas, escupir o
+  morder, romper material, rabieta o crisis, negarse a la tarea, interrumpir. Dos arreglos de paso: tras
+  guardar el formulario se queda **en blanco** (antes volvía con lo recién enviado y re-guardaba el
+  borrador), y los borradores caducan a las 12 h.
 - **Sin exponer desde la portada pública junto a Licencias** (ver retoques en `licencias-v2.md`):
   la portada de `/` solo enlaza a Licencias + administración, no expone directamente el ABC.
 
