@@ -1,23 +1,49 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Etiqueta } from '@/components/ui/etiqueta';
 
 interface FormSectionProps {
   title: string;
   required?: boolean;
   multiselect?: boolean;
+  /** Solo en las obligatorias: si ya está contestada, el círculo se llena de verde. */
+  hecho?: boolean;
+  /** Sin caja propia (dentro del bloque opcional, que ya es una caja). */
+  plano?: boolean;
   error?: string;
   children: React.ReactNode;
 }
 
-export function FormSection({ title, required, multiselect, error, children }: FormSectionProps) {
+export function FormSection({ title, required, multiselect, hecho, plano, error, children }: FormSectionProps) {
   return (
-    <section className="space-y-3" data-campo-error={error ? 'true' : undefined}>
+    <section
+      className={cn(
+        'space-y-3',
+        !plano &&
+          'rounded-2xl border bg-white p-4 transition-colors sm:p-5 dark:bg-zinc-900 ' +
+            (error ? 'border-red-300 dark:border-red-900' : hecho ? 'border-emerald-200 dark:border-emerald-900/60' : 'border-zinc-200 dark:border-zinc-800'),
+      )}
+      data-campo-error={error ? 'true' : undefined}
+    >
       <div className="flex items-center gap-2 flex-wrap">
+        {required && (
+          <span
+            aria-hidden
+            className={cn(
+              'flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+              hecho
+                ? 'border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500 dark:text-emerald-950'
+                : 'border-zinc-300 dark:border-zinc-600',
+            )}
+          >
+            {hecho && <Check className="size-3.5" strokeWidth={3} />}
+          </span>
+        )}
         <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{title}</h2>
         {required && (
-          <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400" aria-label="obligatorio">
+          <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400" aria-label={hecho ? 'obligatorio, hecho' : 'obligatorio, pendiente'}>
             *
           </span>
         )}

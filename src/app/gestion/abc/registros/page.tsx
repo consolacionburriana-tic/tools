@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { format, parseISO, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Check, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ import { Vacio } from '@/components/ui/vacio';
 import { Aviso } from '@/components/ui/aviso';
 import { FichaRegistroModal, type FichaRegistroData } from '@/components/registro-abc/ficha-registro';
 import { BEHAVIORS, CONTEXTS, TIME_SLOTS } from '@/lib/constants';
+import { FILTROS_ABC_KEY, PERIODOS, periodoValido, rangoDePeriodo } from '@/lib/abc';
 import type { Teacher } from '@/db/schema';
 import type { AbcStudentPanel } from '@/lib/abc-server';
 
@@ -47,23 +48,10 @@ export type ReportRow = {
   createdAt: string;
 };
 
-export const TIME_PRESETS: { value: string; label: string }[] = [
-  { value: '7', label: '7 días' },
-  { value: '30', label: '30 días' },
-  { value: '90', label: '90 días' },
-  { value: 'curso', label: 'Este curso' },
-  { value: 'all', label: 'Todo' },
-];
+export const TIME_PRESETS: { value: string; label: string }[] = [...PERIODOS];
 
 export function getDateRange(preset: string): { from: Date; to: Date } | null {
-  const now = new Date();
-  if (preset === 'all') return null;
-  if (preset === 'curso') {
-    const year = now.getMonth() < 8 ? now.getFullYear() - 1 : now.getFullYear();
-    return { from: new Date(year, 8, 1), to: endOfDay(now) };
-  }
-  const days = parseInt(preset);
-  return { from: startOfDay(subDays(now, days - 1)), to: endOfDay(now) };
+  return rangoDePeriodo(preset);
 }
 
 export function label<T extends { value: string; label: string }>(arr: readonly T[], val: string): string {
@@ -72,18 +60,17 @@ export function label<T extends { value: string; label: string }>(arr: readonly 
 
 // Recuerda el filtro temporal y de alumnos entre visitas (por navegador, no por usuario):
 // David entra a mirar siempre el mismo caso, no tiene sentido reconfigurar cada vez.
-const FILTROS_KEY = 'abc-registros-filtros';
 type FiltrosGuardados = { timePreset: string; selectedStudentIds: string[] };
 
 function cargarFiltros(): FiltrosGuardados {
-  const porDefecto: FiltrosGuardados = { timePreset: 'curso', selectedStudentIds: [] };
+  const porDefecto: FiltrosGuardados = { timePreset: periodoValido(null), selectedStudentIds: [] };
   if (typeof window === 'undefined') return porDefecto;
   try {
-    const raw = localStorage.getItem(FILTROS_KEY);
+    const raw = localStorage.getItem(FILTROS_ABC_KEY);
     if (!raw) return porDefecto;
     const guardado = JSON.parse(raw) as Partial<FiltrosGuardados>;
     return {
-      timePreset: guardado.timePreset ?? porDefecto.timePreset,
+      timePreset: periodoValido(guardado.timePreset),
       selectedStudentIds: Array.isArray(guardado.selectedStudentIds) ? guardado.selectedStudentIds : [],
     };
   } catch {
@@ -118,7 +105,7 @@ export default function RegistrosPage() {
   useEffect(() => {
     if (!filtrosListos) return;
     try {
-      localStorage.setItem(FILTROS_KEY, JSON.stringify({ timePreset, selectedStudentIds }));
+      localStorage.setItem(FILTROS_ABC_KEY, JSON.stringify({ timePreset, selectedStudentIds }));
     } catch {
       // localStorage no disponible: sin persistencia, sin más
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format, subDays } from 'date-fns';
+import { differenceInCalendarDays, format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,8 +20,11 @@ interface DateQuickPickerProps {
 
 export function DateQuickPicker({ value, onChange }: DateQuickPickerProps) {
   const today = new Date();
-  const [selected, setSelected] = useState<QuickOption>('hoy');
   const [calendarOpen, setCalendarOpen] = useState(false);
+  // Se deduce de la fecha elegida (no de lo último pulsado): un borrador restaurado que trae
+  // «ayer» enseña «Ayer» marcado, y una fecha del calendario que cae en hoy se queda en «Hoy».
+  const diasAtras = differenceInCalendarDays(today, value);
+  const selected: QuickOption = diasAtras === 0 ? 'hoy' : diasAtras === 1 ? 'ayer' : diasAtras === 2 ? 'anteayer' : 'otra';
 
   const quickOptions: { key: QuickOption; label: string; date: Date }[] = [
     { key: 'hoy', label: 'Hoy', date: today },
@@ -30,7 +33,6 @@ export function DateQuickPicker({ value, onChange }: DateQuickPickerProps) {
   ];
 
   const handleQuick = (opt: (typeof quickOptions)[number]) => {
-    setSelected(opt.key);
     onChange(opt.date);
   };
 
@@ -38,7 +40,7 @@ export function DateQuickPicker({ value, onChange }: DateQuickPickerProps) {
     <div className="space-y-3">
       <Filtros etiqueta="Fecha">
         {quickOptions.map((opt) => (
-          <Filtro key={opt.key} activo={selected === opt.key} onClick={() => handleQuick(opt)} className="h-12 px-5">
+          <Filtro key={opt.key} activo={selected === opt.key} onClick={() => handleQuick(opt)} acento="verde" className="h-12 px-5">
             {opt.label}
           </Filtro>
         ))}
@@ -50,7 +52,7 @@ export function DateQuickPicker({ value, onChange }: DateQuickPickerProps) {
             className={cn(
               'inline-flex h-12 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-5 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4',
               selected === 'otra'
-                ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                ? 'border-emerald-700 bg-emerald-700 text-white dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
                 : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800',
             )}
           >
@@ -64,7 +66,6 @@ export function DateQuickPicker({ value, onChange }: DateQuickPickerProps) {
               onSelect={(date) => {
                 if (date) {
                   haptic.tap();
-                  setSelected('otra');
                   onChange(date);
                   setCalendarOpen(false);
                 }

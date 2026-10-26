@@ -1103,3 +1103,9 @@ borrar los planes temporales quedaron sin repasar a mano, por si alguna vez se m
 
 - Nada más identificado por ahora aparte de los módulos ya fichados. Añadir aquí cualquier
   módulo nuevo que se os ocurra antes de tener claro su alcance.
+
+## Registro ABC · ideas para rellenar aún más rápido (26-oct-2026)
+- Sugerir «¿Cuándo ocurre?» según la hora y el horario del colegio (hoy no hay horas de patio/almuerzo
+  en `configuracion.ts`; harían falta). Sugerirlo, no marcarlo: un valor puesto de oficio se cuela sin mirar.
+- «Repetir el último registro de este alumno» (mismos sitio, momento y presentes) para rachas del mismo día.
+- Dictado por voz en «Describe la situación» (el micrófono del teclado del iPad ya vale; ver si merece botón propio).

@@ -21,7 +21,7 @@ export function ChipSelect({ options, value, onChange, etiqueta = 'Elige una opc
   return (
     <Filtros etiqueta={etiqueta}>
       {options.map((opt) => (
-        <Filtro key={opt.value} activo={value === opt.value} onClick={() => onChange(opt.value)} className="h-12 px-5">
+        <Filtro key={opt.value} activo={value === opt.value} onClick={() => onChange(opt.value)} acento="verde" className="h-12 px-5">
           {opt.label}
         </Filtro>
       ))}
