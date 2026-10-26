@@ -5,20 +5,23 @@
 // su modelo, nº de serie, estado y quién lo tiene. Bárbara y Amparo lo vuelcan de una vez: por
 // eso el alta es en serie («6 de este modelo») o pegando la columna de números de serie del Excel.
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, History, Loader2, Plus, Search, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, History, Loader2, Plug, Plus, Search, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
 import {
   ESTADO_APARATO_LABEL,
+  ESTADO_CARGADOR_LABEL,
   ESTADOS_APARATO,
+  ESTADOS_CARGADOR,
   parsearSeries,
   siguientesCodigos,
   USO_EXPLICA,
   USO_LABEL,
   USOS,
   type EstadoAparato,
+  type EstadoCargador,
   type Uso,
 } from '@/lib/dispositivos';
 import type { AparatoDis, LineaHistorial, PanelDispositivos } from '@/lib/dispositivos-server';
@@ -27,7 +30,7 @@ import { cuandoYQuien, normalizar, pedir } from './comun';
 import { buttonVariants } from '@/components/ui/button';
 import { claseCampo } from '@/components/ui/input';
 
-type Filtro = 'todos' | 'almacen' | 'asignados' | 'prestados' | 'temporal' | 'reparacion' | 'baja';
+type Filtro = 'todos' | 'almacen' | 'asignados' | 'prestados' | 'temporal' | 'reparacion' | 'sin_cargador' | 'baja';
 const FILTRO_LABEL: Record<Filtro, string> = {
   todos: 'Todos',
   almacen: 'En el almacén',
@@ -35,13 +38,23 @@ const FILTRO_LABEL: Record<Filtro, string> = {
   prestados: 'Prestados',
   temporal: 'Mientras arreglan el suyo',
   reparacion: 'En reparación',
+  sin_cargador: 'Sin cargador',
   baja: 'De baja',
 };
 /** Los de sustitución se reparten en prestados y temporales; los de profesorado, solo «dados». */
 const FILTROS: Record<Uso, Filtro[]> = {
-  sustitucion: ['todos', 'almacen', 'prestados', 'temporal', 'reparacion', 'baja'],
-  profesorado: ['todos', 'almacen', 'asignados', 'reparacion', 'baja'],
+  sustitucion: ['todos', 'almacen', 'prestados', 'temporal', 'reparacion', 'sin_cargador', 'baja'],
+  profesorado: ['todos', 'almacen', 'asignados', 'reparacion', 'sin_cargador', 'baja'],
 };
+
+const COLOR_CARGADOR: Record<EstadoCargador, string> = {
+  activo: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
+  perdido: 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200',
+  baja: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+};
+
+/** ¿Tiene un cargador que sirva? Sin cargador, perdido o de baja = no. */
+const conCargadorQueSirve = (a: AparatoDis) => a.cargador?.estado === 'activo';
 
 const COLOR_ESTADO: Record<EstadoAparato, string> = {
   activo: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
@@ -67,6 +80,8 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
         return !a.titular && a.estado === 'activo';
       case 'asignados':
         return Boolean(a.titular);
+      case 'sin_cargador':
+        return a.estado !== 'baja' && !conCargadorQueSirve(a);
       case 'prestados':
         return a.titular?.tipo === 'alumno' && prestado.has(a.titular.id);
       case 'temporal':
@@ -195,6 +210,15 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
                 {a.notas && <span className="block truncate text-xs text-zinc-500">{a.notas}</span>}
               </span>
               <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', COLOR_ESTADO[a.estado])}>{ESTADO_APARATO_LABEL[a.estado]}</span>
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                  a.cargador ? COLOR_CARGADOR[a.cargador.estado] : 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200',
+                )}
+              >
+                <Plug className="h-3 w-3" />
+                {a.cargador ? (a.cargador.estado === 'activo' ? 'Cargador' : `Cargador ${ESTADO_CARGADOR_LABEL[a.cargador.estado].toLowerCase()}`) : 'Sin cargador'}
+              </span>
               <span className="w-full text-sm sm:w-64 sm:text-right">
                 {a.titular ? (
                   <span className={cn(!a.titular.activo && 'font-semibold text-red-700 dark:text-red-300')}>
@@ -299,6 +323,7 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
   const [texto, setTexto] = useState('');
   const [modeloId, setModeloId] = useState(panel.modelos.find((m) => m.activo)?.id ?? '');
   const [notas, setNotas] = useState('');
+  const [conCargador, setConCargador] = useState(true);
   const [ocupado, setOcupado] = useState(false);
   const series = parsearSeries(texto);
   const n = modo === 'cantidad' ? cantidad : series.length;
@@ -311,6 +336,7 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
         uso,
         modeloId: modeloId || null,
         notas: notas.trim() || null,
+        conCargador,
         ...(modo === 'cantidad' ? { cantidad } : { series }),
       });
       acciones.mezclarAparatos(r.aparatos);
@@ -398,6 +424,10 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
             </span>
             <input className={claseCampo} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Comprados en 2026, con funda…" />
           </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <input type="checkbox" checked={conCargador} onChange={(e) => setConCargador(e.target.checked)} className="h-4 w-4" />
+            Cada iPad con su cargador (mismo código)
+          </label>
           {n > 0 && (
             <p className="rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300">
               Se crean {n === 1 ? `el ${codigos[0]}` : `del ${codigos[0]} al ${codigos[codigos.length - 1]}`}.
@@ -431,6 +461,10 @@ function FichaAparato({
   const [numeroSerie, setNumeroSerie] = useState(a.numeroSerie ?? '');
   const [estado, setEstado] = useState<EstadoAparato>(a.estado);
   const [notas, setNotas] = useState(a.notas ?? '');
+  const [tieneCargador, setTieneCargador] = useState(Boolean(a.cargador));
+  const [cargadorCodigo, setCargadorCodigo] = useState(a.cargador?.codigo ?? a.codigo);
+  const [cargadorEstado, setCargadorEstado] = useState<EstadoCargador>(a.cargador?.estado ?? 'activo');
+  const [cargadorNotas, setCargadorNotas] = useState(a.cargador?.notas ?? '');
   const [busca, setBusca] = useState('');
   const [elegido, setElegido] = useState<{ id: string; nombre: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -496,6 +530,7 @@ function FichaAparato({
       numeroSerie: numeroSerie.trim() || null,
       estado,
       notas: notas.trim() || null,
+      cargador: tieneCargador ? { codigo: cargadorCodigo, estado: cargadorEstado, notas: cargadorNotas.trim() || null } : null,
     });
     if (ok) onCerrar();
   }
@@ -645,6 +680,42 @@ function FichaAparato({
             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Notas</span>
             <input className={claseCampo} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Pantalla rajada, en el SAT desde…" />
           </label>
+
+          {/* Su cargador */}
+          <fieldset className="space-y-2 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
+            <legend className="sr-only">Cargador</legend>
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <input type="checkbox" checked={tieneCargador} onChange={(e) => setTieneCargador(e.target.checked)} className="h-4 w-4" />
+              <Plug className="h-4 w-4" /> Tiene cargador
+            </label>
+            {tieneCargador && (
+              <div className="space-y-2">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Lo que lleva escrito</span>
+                    <input className={cn(claseCampo, 'uppercase')} value={cargadorCodigo} onChange={(e) => setCargadorCodigo(e.target.value.toUpperCase())} />
+                  </label>
+                  <div className="grid grid-cols-3 gap-2 self-end">
+                    {ESTADOS_CARGADOR.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        aria-pressed={cargadorEstado === s}
+                        onClick={() => setCargadorEstado(s)}
+                        className={cn(
+                          'h-11 cursor-pointer rounded-xl border text-xs',
+                          cargadorEstado === s ? cn(COLOR_CARGADOR[s], 'border-transparent font-semibold') : 'border-zinc-300 dark:border-zinc-700',
+                        )}
+                      >
+                        {ESTADO_CARGADOR_LABEL[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <input className={claseCampo} value={cargadorNotas} onChange={(e) => setCargadorNotas(e.target.value)} placeholder="Notas del cargador (cable roto, sin bloque…)" />
+              </div>
+            )}
+          </fieldset>
 
           {confirmarBorrar ? (
             <div className="flex flex-wrap items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-900 dark:bg-red-500/10 dark:text-red-200">

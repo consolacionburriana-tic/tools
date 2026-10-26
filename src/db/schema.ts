@@ -2448,6 +2448,24 @@ export const disAparatos = pgTable('dis_aparatos', {
 ]);
 export type DisAparato = typeof disAparatos.$inferSelect;
 
+// El cargador de un iPad del cole. Va unido a su iPad (uno como mucho, `aparato_id` único) y tiene
+// su propio estado: puede perderse o romperse sin que el iPad deje de estar operativo. `codigo` es
+// lo que lleva escrito el cargador (suele ser el del iPad, «S3»): no es único a propósito, para no
+// impedir apuntar lo que de verdad pone en la etiqueta.
+export const disCargadores = pgTable('dis_cargadores', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  aparatoId: uuid('aparato_id').notNull().references(() => disAparatos.id),
+  codigo: text('codigo').notNull(),
+  estado: text('estado').notNull().default('activo'), // 'activo' | 'perdido' | 'baja'
+  notas: text('notas'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('dis_cargadores_aparato_uq').on(t.aparatoId),
+]);
+export type DisCargador = typeof disCargadores.$inferSelect;
+
 // Cómo tiene el dispositivo cada alumno. Sin fila = sin informar.
 export const disAlumnos = pgTable('dis_alumnos', {
   eduStudentId: uuid('edu_student_id').primaryKey().references(() => eduStudents.id),

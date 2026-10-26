@@ -66,6 +66,15 @@ export const ESTADO_APARATO_LABEL: Record<EstadoAparato, string> = {
   baja: 'De baja',
 };
 
+/** El estado de un cargador: puede perderse o romperse sin que el iPad deje de funcionar. */
+export const ESTADOS_CARGADOR = ['activo', 'perdido', 'baja'] as const;
+export type EstadoCargador = (typeof ESTADOS_CARGADOR)[number];
+export const ESTADO_CARGADOR_LABEL: Record<EstadoCargador, string> = {
+  activo: 'Operativo',
+  perdido: 'Perdido',
+  baja: 'De baja',
+};
+
 // ─── Cursos escolares ─────────────────────────────────────────────────────────
 
 const RE_CURSO = /^(\d{4})-(\d{2})$/;
@@ -322,6 +331,8 @@ export const altaAparatosSchema = z
     cantidad: z.number().int().min(1).max(200).optional(),
     series: z.array(z.string().trim().min(1).max(60)).max(400).optional(),
     notas: texto(500),
+    /** Cada iPad nace con su cargador (con el mismo código). */
+    conCargador: z.boolean().optional(),
   })
   .refine((v) => Boolean(v.cantidad) !== Boolean(v.series?.length), 'Di cuántos, o pega los números de serie');
 
@@ -332,6 +343,15 @@ export const editarAparatoSchema = z.object({
   numeroSerie: texto(60),
   estado: z.enum(ESTADOS_APARATO).optional(),
   notas: texto(500),
+  /** El cargador del iPad: datos o estado (lo crea si no tenía), o `null` para quitarlo. */
+  cargador: z
+    .object({
+      codigo: z.string().trim().min(1).max(20).optional(),
+      estado: z.enum(ESTADOS_CARGADOR).optional(),
+      notas: texto(300),
+    })
+    .nullable()
+    .optional(),
   titular: z
     .union([
       z.object({ tipo: z.literal('alumno'), id }),
