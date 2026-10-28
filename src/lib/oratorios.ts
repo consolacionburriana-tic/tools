@@ -143,6 +143,8 @@ export interface Disponibilidad {
   horaInicio: string;
   horaFin: string;
   nivel: Nivel;
+  /** Para qué niveles es el hueco ('1PRI', '2PRI'…); null o ausente = para todos. */
+  cursos?: string[] | null;
 }
 
 export interface Trimestre {
@@ -600,10 +602,45 @@ export function franjasDeEtapas(tramos: readonly TramoRejilla[], etapas: readonl
   return [...vistas.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio) || aMin(a.horaFin) - aMin(b.horaFin));
 }
 
+/** El hueco marcado en un día y franja: el que empieza a esa hora o, si no, el que la pisa. */
+export function huecoEn(disp: readonly Disponibilidad[], dia: number, franja: { horaInicio: string; horaFin: string }): Disponibilidad | null {
+  return disp.find((d) => d.dia === dia && d.horaInicio === franja.horaInicio) ?? disp.find((d) => d.dia === dia && solapa(d, franja)) ?? null;
+}
+
 export function nivelEn(disp: readonly Disponibilidad[], dia: number, franja: { horaInicio: string; horaFin: string }): Nivel | null {
-  const exacta = disp.find((d) => d.dia === dia && d.horaInicio === franja.horaInicio);
-  if (exacta) return exacta.nivel;
-  return disp.find((d) => d.dia === dia && solapa(d, franja))?.nivel ?? null;
+  return huecoEn(disp, dia, franja)?.nivel ?? null;
+}
+
+/**
+ * Las clases que caben en un hueco: si el hueco es solo para unos niveles («los lunes a las
+ * 16:15, 1er ciclo»), las de esos niveles; si no (o no hay hueco marcado), todas.
+ */
+export function clasesDeHueco<C extends Clase>(clases: readonly C[], hueco: Pick<Disponibilidad, 'cursos'> | null): C[] {
+  const cursos = hueco?.cursos;
+  if (!cursos || cursos.length === 0) return [...clases];
+  const set = new Set(cursos);
+  return clases.filter((c) => set.has(nivelDe(c.curso)));
+}
+
+/** «1º-2º Prim.», «1º Prim., 3º ESO»…: los niveles de un hueco, cortos, para la rejilla. */
+export function etiquetaCursosHueco(cursos: readonly string[] | null | undefined): string | null {
+  if (!cursos || cursos.length === 0) return null;
+  const orden = [...cursos].sort((a, b) => (ordinalNivel(a) ?? 99) - (ordinalNivel(b) ?? 99));
+  // Seguidos de la misma etapa se juntan: 1PRI 2PRI → «1º-2º Prim.».
+  const tramos: string[][] = [];
+  for (const n of orden) {
+    const ultimo = tramos[tramos.length - 1];
+    const prev = ultimo?.[ultimo.length - 1];
+    if (prev && etapaDeCurso(prev) === etapaDeCurso(n) && (ordinalNivel(n) ?? -9) - (ordinalNivel(prev) ?? -99) === 1) ultimo.push(n);
+    else tramos.push([n]);
+  }
+  return tramos
+    .map((t) => {
+      if (t.length === 1) return etiquetaNivel(t[0]);
+      const fin = etiquetaNivel(t[t.length - 1]);
+      return `${nivelDeCurso(t[0])}º-${fin}`;
+    })
+    .join(', ');
 }
 
 // ─── Avisos de un candidato ──────────────────────────────────────────────────
@@ -841,7 +878,7 @@ export function autocompletar(
       for (const hueco of huecos) {
         const ocupado = sesiones.some((s) => estaActiva(s) && s.responsableEmail === responsable.email && s.fecha === fecha && solapa(s, hueco));
         if (ocupado) continue;
-        const elegido = candidatosHueco(local, tipo, clases, fecha, hueco).find(
+        const elegido = candidatosHueco(local, tipo, clasesDeHueco(clases, hueco), fecha, hueco).find(
           (c) => c.necesita > 0 && !c.avisos.some((a) => a.codigo === 'mismo_hueco' || a.codigo === 'mismo_dia'),
         );
         if (!elegido) continue;
@@ -1236,7 +1273,15 @@ export const accionLoteSchema = z.object({
 export const disponibilidadSchema = z.object({
   responsableEmail: z.string().email(),
   huecos: z
-    .array(z.object({ dia: z.number().int().min(1).max(5), horaInicio: hora, horaFin: hora, nivel: z.enum(NIVELES) }))
+    .array(
+      z.object({
+        dia: z.number().int().min(1).max(5),
+        horaInicio: hora,
+        horaFin: hora,
+        nivel: z.enum(NIVELES),
+        cursos: z.array(z.string().min(1).max(20)).max(30).nullish(),
+      }),
+    )
     .max(100),
 });
 

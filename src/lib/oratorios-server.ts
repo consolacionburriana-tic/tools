@@ -199,12 +199,16 @@ export async function getAjustes(academicYear = academicYearActual()): Promise<A
   return ajustesDeFila(academicYear, fila, ordinario[0]?.inicio ?? null);
 }
 
+function aDisponibilidad(f: typeof oraDisponibilidad.$inferSelect): Disponibilidad {
+  return { dia: f.diaSemana, horaInicio: f.horaInicio, horaFin: f.horaFin, nivel: f.nivel as Nivel, cursos: f.cursos?.length ? f.cursos : null };
+}
+
 export async function getDisponibilidad(email: string): Promise<Disponibilidad[]> {
   const filas = await db
     .select()
     .from(oraDisponibilidad)
     .where(eq(oraDisponibilidad.responsableEmail, email.toLowerCase()));
-  return filas.map((f) => ({ dia: f.diaSemana, horaInicio: f.horaInicio, horaFin: f.horaFin, nivel: f.nivel as Nivel }));
+  return filas.map(aDisponibilidad);
 }
 
 export interface PersonaOra {
@@ -398,7 +402,7 @@ export async function getDatosPanel(user: { email: string; nombre: string | null
   ]);
   const disponibilidad: Record<string, Disponibilidad[]> = {};
   for (const f of disp) {
-    (disponibilidad[f.responsableEmail] ??= []).push({ dia: f.diaSemana, horaInicio: f.horaInicio, horaFin: f.horaFin, nivel: f.nivel as Nivel });
+    (disponibilidad[f.responsableEmail] ??= []).push(aDisponibilidad(f));
   }
   const email = user.email.toLowerCase();
   const yoProfe = profes.find((p) => p.email === email) ?? null;
@@ -509,7 +513,14 @@ export async function guardarDisponibilidad(email: string, huecos: Disponibilida
   for (const h of huecos) unicos.set(`${h.dia}|${h.horaInicio}`, h);
   if (unicos.size > 0) {
     await db.insert(oraDisponibilidad).values(
-      [...unicos.values()].map((h) => ({ responsableEmail: correo, diaSemana: h.dia, horaInicio: h.horaInicio, horaFin: h.horaFin, nivel: h.nivel })),
+      [...unicos.values()].map((h) => ({
+        responsableEmail: correo,
+        diaSemana: h.dia,
+        horaInicio: h.horaInicio,
+        horaFin: h.horaFin,
+        nivel: h.nivel,
+        cursos: h.cursos?.length ? [...new Set(h.cursos)] : null,
+      })),
     );
   }
   return getDisponibilidad(correo);

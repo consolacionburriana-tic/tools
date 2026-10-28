@@ -3,9 +3,10 @@
 // Mis huecos: la semana tipo de quien lo lleva, con su horario pintado debajo. Cada toque
 // cicla óptima → alternativa → último recurso → nada y se guarda solo. «Desde mi horario» marca
 // como óptimas las horas
-// que el horario ya tiene como Oratorio. Va con `key` = la persona: cambiar de responsable
-// monta una rejilla nueva con la suya.
-import { Eraser, Zap } from 'lucide-react';
+// que el horario ya tiene como Oratorio. Con «Al tocar: Cursos», el toque dice para qué niveles
+// es el hueco (Jose Miguel: «los lunes de 16:15 son para 1er ciclo siempre»). Va con `key` = la
+// persona: cambiar de responsable monta una rejilla nueva con la suya.
+import { Eraser, Star, Users, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
@@ -14,8 +15,24 @@ import { Aviso } from '@/components/ui/aviso';
 import { Button } from '@/components/ui/button';
 import { ConfirmarEnLinea } from '@/components/ui/confirmar';
 import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Segmentado } from '@/components/ui/segmentado';
 import { ETAPAS_VISIBLES, etapaDeCurso, nombreClase } from '@/lib/cursos';
-import { aMin, diaCorto, ETAPA_LABELS, franjasDeEtapas, horaBonita, NIVEL_INFO, nivelEn, periodoDeFecha, siguienteNivel, type Disponibilidad, type Nivel } from '@/lib/oratorios';
+import {
+  aMin,
+  diaCorto,
+  ETAPA_LABELS,
+  etiquetaCursosHueco,
+  etiquetaNivel,
+  franjasDeEtapas,
+  horaBonita,
+  huecoEn,
+  NIVEL_INFO,
+  nivelesDeTipo,
+  periodoDeFecha,
+  siguienteNivel,
+  type Disponibilidad,
+  type Nivel,
+} from '@/lib/oratorios';
 import { api, IconoNivel } from './comun';
 import { SelectorResponsable } from './planificar';
 import type { Estado } from './panel';
@@ -41,6 +58,10 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
   const [etapas, setEtapas] = useState<string[]>(() => (etapasMias.length ? etapasMias : (e.tipos.find((t) => t.activo)?.etapas ?? ['ESO'])));
   const [huecos, setHuecos] = useState<Disponibilidad[]>(e.disponibilidad[email] ?? []);
   const [estado, setEstado] = useState<'ok' | 'guardando' | 'sucio'>('ok');
+  // Qué hace el toque: ciclar el nivel, o poner los cursos elegidos (null = todos).
+  const [modo, setModo] = useState<'nivel' | 'cursos'>('nivel');
+  const [pincel, setPincel] = useState<string[] | null>(null);
+  const niveles = useMemo(() => nivelesDeTipo({ clases: null, etapas }, e.datos.clases), [etapas, e.datos.clases]);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const franjas = useMemo(() => {
@@ -70,10 +91,16 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
 
   function tocar(dia: number, f: { horaInicio: string; horaFin: string }) {
     haptic.tap();
-    const actual = nivelEn(huecos, dia, f);
+    const actual = huecoEn(huecos, dia, f);
     const sin = huecos.filter((h) => !(h.dia === dia && h.horaInicio === f.horaInicio));
-    const siguiente = siguienteNivel(actual);
-    guardar(siguiente ? [...sin, { dia, horaInicio: f.horaInicio, horaFin: f.horaFin, nivel: siguiente }] : sin);
+    if (modo === 'cursos') {
+      // Un hueco sin marcar se marca ⭐ a la vez: si dices para quién es, es que lo quieres.
+      const cursos = pincel && pincel.length > 0 ? pincel : null;
+      guardar([...sin, { dia, horaInicio: f.horaInicio, horaFin: f.horaFin, nivel: actual?.nivel ?? 'optima', cursos }]);
+      return;
+    }
+    const siguiente = siguienteNivel(actual?.nivel ?? null);
+    guardar(siguiente ? [...sin, { dia, horaInicio: f.horaInicio, horaFin: f.horaFin, nivel: siguiente, cursos: actual?.cursos ?? null }] : sin);
   }
 
   function desdeMiHorario() {
@@ -85,7 +112,7 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
     const nuevos = [...huecos];
     for (const h of oratorio) {
       const i = nuevos.findIndex((x) => x.dia === h.dia && x.horaInicio === h.horaInicio);
-      const hueco = { dia: h.dia, horaInicio: h.horaInicio, horaFin: h.horaFin, nivel: 'optima' as const };
+      const hueco = { dia: h.dia, horaInicio: h.horaInicio, horaFin: h.horaFin, nivel: 'optima' as const, cursos: i >= 0 ? (nuevos[i].cursos ?? null) : null };
       if (i >= 0) nuevos[i] = hueco;
       else nuevos.push(hueco);
     }
@@ -140,6 +167,34 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
           ))}
         </span>
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmentado
+          etiqueta="Al tocar un hueco"
+          valor={modo}
+          onChange={setModo}
+          opciones={[
+            { valor: 'nivel', etiqueta: 'Nivel', icono: <Star aria-hidden /> },
+            { valor: 'cursos', etiqueta: 'Para qué cursos', icono: <Users aria-hidden /> },
+          ]}
+        />
+        {modo === 'cursos' && (
+          <Filtros etiqueta="Cursos que se ponen al tocar">
+            <Filtro activo={pincel === null || pincel.length === 0} onClick={() => setPincel(null)}>
+              Todos
+            </Filtro>
+            {niveles.map((n) => (
+              <Filtro key={n} activo={pincel?.includes(n) ?? false} onClick={() => setPincel(pincel?.includes(n) ? pincel.filter((x) => x !== n) : [...(pincel ?? []), n])}>
+                {etiquetaNivel(n)}
+              </Filtro>
+            ))}
+          </Filtros>
+        )}
+      </div>
+      {modo === 'cursos' && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Elige los cursos y toca los huecos: el asistente solo propondrá ahí esas clases. «Todos» lo deja abierto a cualquiera.
+        </p>
+      )}
       {!profeId && <Aviso tono="aviso">{email} no está en la BBDD central de profes: no se puede pintar su horario.</Aviso>}
 
       <div className="-mx-4 overflow-x-auto px-4">
@@ -177,7 +232,9 @@ function FilaHuecos({
         <span>{horaBonita(franja.horaFin)}</span>
       </div>
       {[1, 2, 3, 4, 5].map((dia) => {
-        const nivel = nivelEn(huecos, dia, franja);
+        const hueco = huecoEn(huecos, dia, franja);
+        const nivel = hueco?.nivel ?? null;
+        const paraQuien = etiquetaCursosHueco(hueco?.cursos);
         const aqui = mio.filter((h) => h.dia === dia && aMin(h.horaInicio) < aMin(franja.horaFin) && aMin(franja.horaInicio) < aMin(h.horaFin));
         const esOratorio = aqui.some((h) => h.actividad === 'oratorio');
         const etiquetas = [...new Set(aqui.map((h) => (h.curso ? nombreClase(h.curso, h.letra) : h.materia)).filter(Boolean))].sort();
@@ -198,6 +255,11 @@ function FilaHuecos({
               </span>
             ) : (
               <span className="sr-only">Sin marcar</span>
+            )}
+            {paraQuien && (
+              <span className="inline-flex max-w-full items-center gap-1 truncate rounded bg-white/70 px-1 font-medium dark:bg-black/30" title={`Solo ${paraQuien}`}>
+                <Users className="h-3 w-3 shrink-0" aria-hidden /> {paraQuien}
+              </span>
             )}
             {etiquetas.length > 0 && (
               <span className={cn('w-full truncate', nivel ? 'opacity-80' : 'text-zinc-500')}>

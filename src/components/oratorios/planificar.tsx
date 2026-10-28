@@ -24,6 +24,7 @@ import {
   chipEstado,
   claseDeClave,
   claveClase,
+  clasesDeHueco,
   clasesDeTipo,
   clasesSinHorario,
   diaCorto,
@@ -37,6 +38,7 @@ import {
   franjasDeEtapas,
   horaBonita,
   horaDeClase,
+  huecoEn,
   lunesDe,
   necesidadEnFecha,
   NIVEL_INFO,
@@ -448,8 +450,8 @@ export function Planificar({ e }: { e: Estado }) {
           fecha={hueco.fecha}
           franja={hueco.franja}
           nivel={nivelEn(disp, diaSemana(hueco.fecha), hueco.franja)}
-          candidatos={candidatosHueco(ctx, tipo, clases, hueco.fecha, hueco.franja)}
-          sinHorario={sinHorario.filter((c) => necesidadEnFecha(ctx, tipo, c, hueco.fecha) > 0)}
+          candidatos={candidatosHueco(ctx, tipo, clasesDeHueco(clases, huecoEn(disp, diaSemana(hueco.fecha), hueco.franja)), hueco.fecha, hueco.franja)}
+          sinHorario={clasesDeHueco(sinHorario, huecoEn(disp, diaSemana(hueco.fecha), hueco.franja)).filter((c) => necesidadEnFecha(ctx, tipo, c, hueco.fecha) > 0)}
           sesionDe={(c) => (abanico.length > 0 ? { sesion: sesionPara(c.clase, hueco.fecha) } : null)}
           trabajando={trabajando}
           onElegir={(c) => void crear(c, hueco.fecha)}
@@ -569,7 +571,7 @@ function FilaFranja({
 
         let sugerencia: Candidato | null = null;
         if (!moviendo && lectivo && nivel && mias.length === 0 && fecha >= e.datos.hoy) {
-          sugerencia = candidatosHueco(ctx, tipo, clases, fecha, franja).find((c) => c.necesita > 0) ?? null;
+          sugerencia = candidatosHueco(ctx, tipo, clasesDeHueco(clases, huecoEn(disp, dia, franja)), fecha, franja).find((c) => c.necesita > 0) ?? null;
         }
 
         return (
