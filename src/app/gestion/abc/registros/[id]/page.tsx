@@ -158,7 +158,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           content={behaviors.map((b) => label(BEHAVIORS, b)).join(' · ')}
           hint={report.involvedWith ? `Con: ${report.involvedWith}` : '¿Qué hizo?'}
         />
-        <AbcPanel letter="C" title="Consecuencias" content={report.consequences} hint="¿Qué pasó después?" />
+        <AbcPanel letter="C" title="Consecuencias aplicadas al alumno/a por su conducta" content={report.consequences} hint="Lo que se le aplicó" />
       </div>
 
       {/* ── Hipótesis + Reconducción ──────────────────────────────────── */}

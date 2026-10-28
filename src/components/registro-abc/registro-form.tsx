@@ -165,7 +165,7 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
       }
     }
     // Si el borrador ya traía algo del bloque opcional, se deja abierto para que se vea
-    const opcionales = ['antecedents', 'consequences', 'redirectActions', 'effectivenessRating', 'comments'] as const;
+    const opcionales = ['antecedents', 'redirectActions', 'effectivenessRating', 'comments'] as const;
     if (opcionales.some((k) => draft[k] !== null && draft[k] !== undefined && draft[k] !== '')) {
       setOpcionalAbierto(true);
     }
@@ -481,6 +481,20 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
         />
       </FormSection>
 
+      <FormSection title="Consecuencias aplicadas al alumno/a por su conducta">
+        <Controller
+          name="consequences"
+          control={control}
+          render={({ field }) => (
+            <Textarea
+              {...field}
+              placeholder="¿Qué consecuencias se le han aplicado?"
+              className="min-h-[96px]"
+            />
+          )}
+        />
+      </FormSection>
+
       {/* ── Análisis A-B-C completo (opcional, plegado) ───────────── */}
 
       <OptionalBlock
@@ -496,20 +510,6 @@ export function RegistroForm({ alumnos, registradoPor, onSuccess }: RegistroForm
               <Textarea
                 {...field}
                 placeholder="¿Qué ocurre antes de que se desarrolle esta conducta?"
-                className="min-h-[96px]"
-              />
-            )}
-          />
-        </FormSection>
-
-        <FormSection plano title="Consecuencias">
-          <Controller
-            name="consequences"
-            control={control}
-            render={({ field }) => (
-              <Textarea
-                {...field}
-                placeholder="¿Qué ocurre después?"
                 className="min-h-[96px]"
               />
             )}
