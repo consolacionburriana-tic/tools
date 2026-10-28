@@ -113,7 +113,7 @@ export function FichaRegistro({ f }: { f: FichaRegistroData }) {
         </Bloque>
       )}
       {f.consequences && (
-        <Bloque titulo="C · Consecuencias">
+        <Bloque titulo="C · Consecuencias aplicadas al alumno/a por su conducta">
           <Texto>{f.consequences}</Texto>
         </Bloque>
       )}

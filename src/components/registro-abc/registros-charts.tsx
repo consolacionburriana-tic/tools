@@ -429,7 +429,7 @@ function RecordDetail({
     { label: 'Producido con', value: report.involvedWith },
     { label: 'Situación problemática', value: report.situationDescription },
     { label: 'A · Antecedentes', value: report.antecedents },
-    { label: 'C · Consecuencias', value: report.consequences },
+    { label: 'C · Consecuencias aplicadas al alumno/a por su conducta', value: report.consequences },
     { label: 'Acciones de reconducción', value: report.redirectActions },
     { label: 'Comentarios', value: report.comments },
     { label: 'Personas presentes (nombres)', value: report.presentNames },

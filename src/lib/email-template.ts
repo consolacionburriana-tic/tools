@@ -123,7 +123,7 @@ export function buildReportEmail(data: ReportEmailData): { subject: string; html
       ${section('Hipótesis · ¿Por qué?', reasonPills, true)}
 
       ${data.antecedents ? section('Antecedentes', `<span style="color:#374151;">${data.antecedents}</span>`) : ''}
-      ${data.consequences ? section('Consecuencias', `<span style="color:#374151;">${data.consequences}</span>`) : ''}
+      ${data.consequences ? section('Consecuencias aplicadas al alumno/a por su conducta', `<span style="color:#374151;">${data.consequences}</span>`) : ''}
       ${data.redirectActions ? section('Acciones de reconducción', `<span style="color:#374151;">${data.redirectActions}</span>`) : ''}
 
       ${data.effectivenessRating != null ? section('Efectividad de reconducción',

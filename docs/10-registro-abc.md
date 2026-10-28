@@ -82,6 +82,10 @@ posteriori lo ya construido y deja abierto lo que falta.
   morder, romper material, rabieta o crisis, negarse a la tarea, interrumpir. Dos arreglos de paso: tras
   guardar el formulario se queda **en blanco** (antes volvía con lo recién enviado y re-guardaba el
   borrador), y los borradores caducan a las 12 h.
+- **Consecuencias, la última de las visibles (2026-10-28):** el campo sale del bloque plegado y va al final
+  de lo que se ve (tras «Describe la situación problemática»), sigue siendo opcional y se llama
+  «Consecuencias aplicadas al alumno/a por su conducta» (también en la ficha, el detalle, el informe y
+  el correo). Dentro del bloque opcional quedan Antecedentes, Acciones para reconducir, Efectividad y Otros comentarios.
 - **Sin exponer desde la portada pública junto a Licencias** (ver retoques en `licencias-v2.md`):
   la portada de `/` solo enlaza a Licencias + administración, no expone directamente el ABC.
 
