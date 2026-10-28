@@ -90,9 +90,7 @@ Detalle en [`29-dispositivos.md`](./29-dispositivos.md).
    `(Propiedad)` (iPads de alumnos, no del cole; una repite el nº de serie de S6), una «No se puede
    restaurar» y una «Inactivo». Si se quieren, se dan de alta como de baja.
 6. **Titular de S10 sin vincular**: el Excel solo dice «Yevanheli» y no casa con ningún alumno activo; hay que darlo a mano desde «iPads del cole».
-7. **Los titulares del curso 26/27 se han vinculado como «mientras arreglan el suyo»**: el iPad
-   queda a nombre del alumno pero **no se le cambia la modalidad** (ni cuotas). Falta confirmar si
-   «entregado» es prestado a casa y «no casa» es prestado que se queda en el cole.
+7. **Resuelto (David, 26-oct-2026)**: «entregado» = prestado a casa; «no casa» = prestado que se queda en el cole. Al ir a marcarlos, casi todos ya estaban así en Neon. Quedan dos que no coinciden y no se han tocado: **S3** (el Excel dice entregado, Neon dice que se queda en el cole) y **S9** (el Excel dice «no casa», Neon lo tiene como «Comprado»).
 
 ### Correos y grupos: lo que decidí yo al construirlo (20-oct-2026) — revisar con David
 
