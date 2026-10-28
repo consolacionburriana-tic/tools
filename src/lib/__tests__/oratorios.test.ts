@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   autocompletar,
+  clasesDeHueco,
+  etiquetaCursosHueco,
   avisoAlConfirmar,
   avisoTrasCambio,
   candidatosHueco,
@@ -257,6 +259,30 @@ describe('horario', () => {
   });
 });
 
+describe('para qué cursos es un hueco', () => {
+  const CLASES = [
+    { curso: '1PRI', letra: 'A' },
+    { curso: '2PRI', letra: 'A' },
+    { curso: '3PRI', letra: 'A' },
+    { curso: '3ºPPDC', letra: null },
+  ];
+
+  it('sin cursos (o sin hueco) caben todas; con cursos, solo esas, el PDC como su curso de ESO', () => {
+    expect(clasesDeHueco(CLASES, null)).toHaveLength(4);
+    expect(clasesDeHueco(CLASES, { cursos: null })).toHaveLength(4);
+    expect(clasesDeHueco(CLASES, { cursos: [] })).toHaveLength(4);
+    expect(clasesDeHueco(CLASES, { cursos: ['1PRI', '2PRI'] }).map((c) => c.curso)).toEqual(['1PRI', '2PRI']);
+    expect(clasesDeHueco(CLASES, { cursos: ['3ESO'] }).map((c) => c.curso)).toEqual(['3ºPPDC']);
+  });
+
+  it('la etiqueta junta los niveles seguidos de la misma etapa', () => {
+    expect(etiquetaCursosHueco(null)).toBeNull();
+    expect(etiquetaCursosHueco(['2PRI', '1PRI'])).toBe('1º-2º Prim.');
+    expect(etiquetaCursosHueco(['1PRI', '3PRI'])).toBe('1º Prim., 3º Prim.');
+    expect(etiquetaCursosHueco(['3PRI'])).toBe('3º Prim.');
+  });
+});
+
 // ─── Avisos y candidatos ──────────────────────────────────────────────────────
 
 describe('candidatos de un hueco', () => {
@@ -369,6 +395,13 @@ describe('autocompletar', () => {
       profeId: null,
     });
     expect(p).toEqual([]); // el único hueco ⭐ es su misma hora de siempre
+  });
+
+  it('un hueco solo para unos cursos solo propone clases de esos cursos', () => {
+    const YO = { email: 'yo@consolacionburriana.com', profeId: null };
+    const RANGO = { inicio: '2026-10-01', fin: '2026-10-31' };
+    expect(autocompletar(ctx(), ORATORIO, CLASES_ESO, RANGO, [{ ...DISP[0], cursos: ['2ESO'] }], YO)).toEqual([]);
+    expect(autocompletar(ctx(), ORATORIO, CLASES_ESO, RANGO, [{ ...DISP[0], cursos: ['1ESO'] }], YO)).toHaveLength(2);
   });
 
   it('usa los 👍 cuando los ⭐ no bastan, y 🤏 nunca', () => {

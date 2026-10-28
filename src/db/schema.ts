@@ -2046,6 +2046,7 @@ export const oraDisponibilidad = pgTable('ora_disponibilidad', {
   horaInicio: text('hora_inicio').notNull(), // 'HH:MM'
   horaFin: text('hora_fin').notNull(),
   nivel: text('nivel').notNull(), // 'optima' | 'alternativa' | 'ultima'
+  cursos: jsonb('cursos').$type<string[]>(), // para qué niveles ('1PRI'…); null = todos
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   uniqueIndex('ora_disponibilidad_uq').on(t.responsableEmail, t.diaSemana, t.horaInicio),

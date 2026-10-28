@@ -80,6 +80,12 @@ se ve de un vistazo qué horas tienes libres y cuáles son de Oratorio o de Aten
 Cada toque en una franja cicla ⭐ → 👍 → 🤏 → nada. El botón **⚡ Desde mi horario** marca de
 golpe como ⭐ las horas que tu horario ya tiene como «Oratorio».
 
+**Para qué cursos es cada hueco** (Jose Miguel, 23 y 26-oct-2026: «los lunes de 16:15 son para 1er
+ciclo siempre»): con **Al tocar: Para qué cursos**, se eligen los niveles (pastillas) y cada toque
+se los pone al hueco (uno sin marcar se marca ⭐ a la vez); «Todos» lo deja abierto. El hueco
+enseña sus cursos («1º-2º Prim.») y el asistente, la sugerencia de la semana y el autocompletar solo
+proponen ahí clases de esos niveles. Ciclar el nivel no le quita los cursos.
+
 Se guarda por **persona responsable** (no por tipo) y por **día + hora de inicio y fin**, no
 por id de tramo: reimportar horarios regenera los tramos y la disponibilidad no se pierde.
 
@@ -332,7 +338,8 @@ construirlo (🤖, para revisar):
 
 21. 🤖 **Un tipo más, sin código nuevo.** `ora_tipos` fila `taller_pc`: «Taller de Pensamiento
     Computacional», 💻, **1 al mes por clase**, etapas `["EP"]` (las 12 clases de 1º a 6º de
-    Primaria, sacadas del alumnado activo), aviso **7 días antes** como Oratorio y **sin texto extra**
+    Primaria, sacadas del alumnado activo; **Infantil añadido el 28-oct-2026**, fallito de Jose
+    Miguel «me falta infantil»: etapas `["EI","EP"]`, cambiado en Neon como se haría en Ajustes), aviso **7 días antes** como Oratorio y **sin texto extra**
     en el correo. Ampliarlo a infantil o a ESO es marcar la etapa en Ajustes.
 22. 🤖 **Sin correo mensual agrupado ni hueco fijo por curso.** La nota original pedía un correo
     antes de empezar el mes con todas las sesiones; al decir David «como los oratorios», se entiende
@@ -454,7 +461,11 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
       19-oct-2026), así que ve todos los módulos
 - [ ] **David**: cargar los horarios de primaria (reimportar el `.docx` con
       `pnpm horarios:importar`); hasta entonces, ➕ A mano
-- [ ] **Jose Miguel**: marcar su disponibilidad (⭐ 👍 🤏) y planificar el primer mes
+- [x] Infantil en el taller (`etapas` = EI + EP en Neon, 28-oct-2026)
+- [x] **Para qué cursos es cada hueco** (`ora_disponibilidad.cursos`, `oratorios-huecos-cursos.sql`
+      aplicado en Neon el 28-oct-2026): pincel de cursos en Mis huecos, asistente y autocompletar
+      filtrados, tests con datos inventados
+- [ ] **Jose Miguel**: marcar su disponibilidad (⭐ 👍 🤏, y para qué cursos) y planificar el primer mes
 - [ ] Primer correo real del taller
 
 ### Quizá, más adelante
@@ -462,7 +473,11 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
   correo con todas las sesiones del mes a cada profe afectado, programado para los últimos días
   hábiles del mes anterior.
 - **Frecuencia «cada N semanas»** (el horario trae «1 sesión cada 6 semanas»).
-- **Hueco fijo por curso** (1ºA: lunes a tal hora todos los meses) en vez de elegirlo cada vez.
+- **Hueco fijo por clase** (1ºA: lunes a tal hora todos los meses) en vez de elegirlo cada vez. Por
+  curso/ciclo ya está: cada hueco de la disponibilidad dice para qué niveles es.
+- **Subir el horario de quien lo lleva y que reconozca solo los huecos de cada curso** (la otra
+  idea de Jose Miguel, 26-oct-2026). Se hizo la sencilla (elegir los cursos de cada hueco a mano);
+  con el horario de primaria en Neon, «⚡ Desde mi horario» podría ponerlos solo.
 - Escribir y seguir la sesión desde la propia app (hoy: nombre + enlace).
 - Poner la sesión (y su enlace) en el evento de Calendar y/o en el correo al profe.
 - «Esta sesión se puede repetir» por sesión, además de por tipo.
