@@ -278,6 +278,23 @@ exactamente la deuda que documenta
     - **Pendiente de TIC** (una vez): añadir `https://www.googleapis.com/auth/drive.file` a la
       delegación de dominio. Hasta entonces el botón avisa y la descarga sigue valiendo.
 
+20. **Protección de datos para Comunicación** (David, 2-nov-2026).
+
+    - **«Parcial» ya no es siempre ámbar.** Si imagen y redes están en sí y el único no (o los
+      noes) es de **AMPA u ONG**, hacia el colegio no cambia nada y lo ve todo el mundo: la celda
+      sale en **verde apagado con «parcial»** (`generalProteccion` = `externos`). El ámbar se
+      queda para quien ha dicho que no a imagen o a redes, o los deja a medias con algún no.
+      En el informe sale «Parcial (no ONG)», en verde, y cuenta como sí en el total.
+    - **Filtro «No pueden salir en fotos»** (imagen **o** redes en no: `noPuedeSalirEnFotos`; AMPA y
+      ONG no cuentan, y «no consta» tampoco: ahí no hay una negativa). Chips en la pestaña
+      —Todos · No pueden salir en fotos · Con algún no · Sin contestar—; lo masivo y el informe
+      trabajan sobre las filas que se ven. Con el filtro puesto, «Informe: no pueden salir» abre
+      el informe a medida con la columna nueva **«Puede salir en fotos y web»** (`pd_fotos`) ya
+      filtrada a «No» y el detalle de los cuatro permisos.
+    - **El rol `comunicacion` ya existía** (decisión 10): ve ficha y protección de datos de
+      **todas las etapas**. Sin clase elegida la tabla enseña el centro entero, así que la lista
+      conjunta y el informe de todas las etapas salen de esa misma pantalla. No hay rol nuevo.
+
 ---
 
 ## Lo que se enseña, y de dónde sale
@@ -538,6 +555,12 @@ profe sin `edu_teachers.etapa` ni tutoría no ve a nadie, igual que un tutor en 
       sin contestar), que antes salían con la misma rayita que los 9 que lo tienen todo en blanco
 - [ ] Probar las pantallas con sesión real (marcar comedor en una clase, «Lista del comedor»,
       bajar las tres listas como tutor y comprobar el alcance)
+
+### Fase 5 · Protección de datos para Comunicación (2-nov-2026)
+- [x] `externos`: «parcial» en verde apagado cuando solo AMPA/ONG dicen no (tabla e informe), con tests
+- [x] Filtro «No pueden salir en fotos» en la tabla, columna `pd_fotos` en los informes y botón
+      «Informe: no pueden salir», con tests
+- [ ] Probar con una cuenta de Comunicación real: filtrar todo el centro y sacar el PDF
 
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la

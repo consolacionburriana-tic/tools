@@ -96,7 +96,7 @@ describe('el resto de parámetros, con los valores de Consolación', () => {
   });
 
   it('sesión y archivos', () => {
-    expect(CONFIGURACION.sesion).toEqual({ duracionDias: 300, refrescoRolMinutos: 15 });
+    expect(CONFIGURACION.sesion).toEqual({ duracionDias: 300, duracionProfesoradoDias: 60, refrescoRolMinutos: 15 });
     expect(BLOB_MAX_BYTES).toBe(10 * 1024 * 1024);
   });
 

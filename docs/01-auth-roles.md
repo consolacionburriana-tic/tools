@@ -28,6 +28,9 @@ por casa" que hay hoy: Registro ABC sin login y Licencias con un email/password 
 
 Elegido frente a Clerk por coste cero, control total y porque solo necesitamos un provider.
 Estrategia **JWT** (sin tablas de sesión); la autorización se resuelve contra `auth_users`.
+**Tope de sesión del profesorado** (David, 2-nov-2026): `profe` y `tutor` vuelven a entrar con Google
+60 días después de su último login (`sesionCaducada`, `src/lib/sesion.ts`), aunque usen la app a diario;
+el resto de roles solo caduca la cookie de un curso.
 
 - Restricción de dominio: parámetro `hd` en el provider **y** verificación server-side del
   dominio del email en el callback `signIn` (el `hd` solo es cosmético).

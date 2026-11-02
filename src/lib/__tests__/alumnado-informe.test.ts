@@ -56,8 +56,12 @@ describe('celdas del informe', () => {
     expect(celda(alumnos[2], 'pd_correo', mats).texto).toBe('');
   });
 
-  it('general y desestimación: parcial en ámbar, desestimar en rojo', () => {
-    expect(celda(alumnos[1], 'pd', mats)).toMatchObject({ texto: 'Parcial', tono: 'aviso' });
+  it('general y desestimación: solo AMPA/ONG en verde con «parcial», imagen/redes en ámbar, desestimar en rojo', () => {
+    expect(celda(alumnos[1], 'pd', mats)).toMatchObject({ texto: 'Parcial (no ONG)', tono: 'si', clave: 'externos' });
+    const sinImagen = alumno({ id: '8', completo: 'Hugo Prueba', proteccion: { ...todoSi, imagen: false } });
+    expect(celda(sinImagen, 'pd', mats)).toMatchObject({ texto: 'Parcial', tono: 'aviso' });
+    expect(celda(sinImagen, 'pd_fotos', mats)).toMatchObject({ texto: 'No', clave: 'no' });
+    expect(celda(alumnos[1], 'pd_fotos', mats)).toMatchObject({ texto: 'Sí', clave: 'si' });
     expect(celda(alumnos[1], 'pd_correo', mats)).toMatchObject({ texto: 'Sí', tono: 'no' });
     expect(celda(alumnos[0], 'pd_correo', mats)).toMatchObject({ texto: 'No', tono: 'si' });
   });

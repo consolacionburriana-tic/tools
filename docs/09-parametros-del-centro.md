@@ -31,7 +31,7 @@ Consolación; si cambias uno a propósito, el test correspondiente te avisa.
 | `dispositivos` | Seguro de 4 cursos · 30 €/año sin seguro · 10 €/mes · iPad del cole a profes desde 5º EP | Dispositivos 1:1: cuotas, aviso del seguro y profes a los que les toca iPad |
 | `horarios.reunionesEtapa` | ESO: lunes 16:00-17:00 · EP: martes y jueves 12:30-13:30 | Importación de horarios: la «reunión de etapa» que se añade (marcada por defecto) |
 | `horarios.aulasEso` | Tecnología → aula de tecnología · PIAR, TRDR y taller de 4º → informática · EF → pabellón (`POLI`) · Música de 1º-2º → aula de música · FQ → laboratorio · Plástica → aula de plástica · cada optativa a su aula (algunas por día) · el resto, aula propia del grupo | Importación de horarios y `pnpm horarios:aulas`: la ESO no trae aula en el export de Educamos |
-| `sesion` | 300 días · rol refrescado cada 15 min | Login (`src/auth.ts`) |
+| `sesion` | 300 días · **profe y tutor: 60 días desde el último login** · rol refrescado cada 15 min | Login (`src/auth.ts`, `src/lib/sesion.ts`) |
 | `archivos.maxMB` | `10` | Subida de justificantes de Salidas, Excel de Licencias e importación de horarios (y los textos que lo dicen) |
 
 Ejemplos de cambio:

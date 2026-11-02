@@ -27,6 +27,8 @@ import {
   PROTECCION_LABELS,
   autorizadosDeCuatro,
   generalProteccion,
+  noAutorizados,
+  noPuedeSalirEnFotos,
   sinConstar,
   siguienteGeneral,
   type CampoProteccion,
@@ -36,6 +38,9 @@ import type { ClaveColumna } from '@/lib/alumnado-informe';
 import type { AlumnoLista, ProteccionLista } from '@/lib/alumnado-server';
 import { BarraTabla, BotonMasivo, Celda, CeldaAlumno, ColumnaBoton, useGuardado, type TonoTabla } from './piezas-tabla';
 import { Button } from '@/components/ui/button';
+import { Filtro, Filtros } from '@/components/ui/filtro';
+
+type FiltroPd = 'todos' | 'sin-fotos' | 'algun-no' | 'sin-contestar';
 
 type Estado = boolean | null;
 type Cambios = Partial<Record<CampoProteccion, Estado>> & { desestimaCorreo?: boolean };
@@ -53,6 +58,8 @@ const ICONO: Record<string, React.ReactNode> = {
 const GENERAL: Record<string, { tono: TonoTabla; texto: React.ReactNode; titulo: string }> = {
   si: { tono: 'si', texto: <Check className="h-4 w-4" />, titulo: 'Autoriza todo' },
   no: { tono: 'no', texto: <X className="h-4 w-4" />, titulo: 'No autoriza nada' },
+  // Imagen y redes en sí; solo AMPA/ONG dicen no. El texto («parcial») se pone en la celda.
+  externos: { tono: 'suave', texto: null, titulo: 'Imagen y redes en sí; la familia ha dicho que no a AMPA u ONG (hacia el colegio, sin problema)' },
   parcial: { tono: 'aviso', texto: 'Parcial', titulo: 'Ha dicho que no a algo: despliega para ver a qué' },
   // El texto («3/4») y el título («falta ONG») dependen del alumno: se ponen en la fila.
   incompleto: { tono: 'falta', texto: null, titulo: 'Falta por contestar' },
@@ -77,13 +84,32 @@ export function TablaProteccion({
   conClase: boolean;
   puedeEditar: boolean;
   onCambio: (filas: (ProteccionLista & { id: string })[]) => void;
-  onInforme: (columnas: ClaveColumna[]) => void;
+  onInforme: (columnas: ClaveColumna[], filtro?: string) => void;
 }) {
   const [detalle, setDetalle] = useState(false);
+  const [filtro, setFiltro] = useState<FiltroPd>('todos');
   const { guardando, pendiente, enviar, pedir, confirmacion } = useGuardado();
 
   const conPd = alumnos.filter((a) => a.proteccion);
   const sinPd = alumnos.length - conPd.length;
+  // Lo que se ve con el filtro puesto. Lo masivo y el informe trabajan sobre ESTO, no sobre la clase
+  // entera: si se filtra «no pueden salir» y se pulsa «todos sí», se habla de esas filas.
+  const coincide = (a: AlumnoLista, f: FiltroPd) => {
+    const pd = a.proteccion!;
+    const g = generalProteccion(pd);
+    if (f === 'sin-fotos') return noPuedeSalirEnFotos(pd);
+    if (f === 'algun-no') return g === 'no' || g === 'parcial' || g === 'externos';
+    if (f === 'sin-contestar') return g === 'incompleto' || g === null;
+    return true;
+  };
+  const filas = conPd.filter((a) => coincide(a, filtro));
+  const textoFiltro: Record<FiltroPd, string> = {
+    todos: '',
+    'sin-fotos': 'no pueden salir en fotos',
+    'algun-no': 'con algún no',
+    'sin-contestar': 'sin contestar',
+  };
+  const ambitoMasivo = filtro === 'todos' ? ambito : `${ambito} · ${textoFiltro[filtro]}`;
 
   async function guardar(clave: string, ids: string[], cambios: Cambios) {
     if (ids.length === 0) return;
@@ -100,10 +126,10 @@ export function TablaProteccion({
   const masivo = (clave: string, pregunta: string, boton: string, tono: 'verde' | 'rojo' | 'neutro', cambios: Cambios) =>
     pedir({
       clave,
-      pregunta: `${pregunta} · ${conPd.length} ${conPd.length === 1 ? 'alumno' : 'alumnos'} de ${ambito}`,
+      pregunta: `${pregunta} · ${filas.length} ${filas.length === 1 ? 'alumno' : 'alumnos'} de ${ambitoMasivo}`,
       boton,
       tono,
-      hacer: () => guardar(clave, conPd.map((a) => a.id), cambios),
+      hacer: () => guardar(clave, filas.map((a) => a.id), cambios),
     });
   const esperando = (clave: string) => pendiente?.clave === clave;
 
@@ -117,6 +143,8 @@ export function TablaProteccion({
 
   const generales = conPd.map((a) => generalProteccion(a.proteccion!));
   const noes = generales.filter((g) => g === 'no' || g === 'parcial').length;
+  const soloExternos = generales.filter((g) => g === 'externos').length;
+  const sinFotos = conPd.filter((a) => noPuedeSalirEnFotos(a.proteccion!)).length;
   const aMedias = generales.filter((g) => g === 'incompleto' || g === null).length;
   const desestiman = conPd.filter((a) => a.proteccion!.desestimaCorreo).length;
 
@@ -127,7 +155,9 @@ export function TablaProteccion({
         cuantos={conPd.length}
         extra={
           <>
+            {sinFotos > 0 && <span className="text-red-600 dark:text-red-400"> · {sinFotos} no pueden salir en fotos</span>}
             {noes > 0 && <span className="text-amber-600 dark:text-amber-400"> · {noes} con algún no</span>}
+            {soloExternos > 0 && <span className="text-zinc-500"> · {soloExternos} solo sin AMPA/ONG</span>}
             {aMedias > 0 && <span className="text-zinc-500"> · {aMedias} sin contestar del todo</span>}
             {desestiman > 0 && <span className="text-red-600 dark:text-red-400"> · {desestiman} sin correo</span>}
             {sinPd > 0 && <span className="text-zinc-400"> · {sinPd} fuera de tu etapa</span>}
@@ -138,9 +168,14 @@ export function TablaProteccion({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onInforme(detalle ? ['pd', 'pd_imagen', 'pd_redes', 'pd_ampa', 'pd_ong', 'pd_correo'] : ['pd', 'pd_correo'])}
+          onClick={() =>
+            filtro === 'sin-fotos'
+              ? // Lo que necesita Comunicación: la lista de quien NO puede salir, con el porqué.
+                onInforme(['pd_fotos', 'pd_imagen', 'pd_redes', 'pd_ampa', 'pd_ong'], 'pd_fotos:no')
+              : onInforme(detalle ? ['pd', 'pd_imagen', 'pd_redes', 'pd_ampa', 'pd_ong', 'pd_correo'] : ['pd', 'pd_correo'])
+          }
         >
-          <FileDown aria-hidden /> Informe
+          <FileDown aria-hidden /> {filtro === 'sin-fotos' ? 'Informe: no pueden salir' : 'Informe'}
         </Button>
         {puedeEditar && (
           <>
@@ -161,6 +196,14 @@ export function TablaProteccion({
           </>
         )}
       </BarraTabla>
+
+      {/* Filtrar: «¿quién NO puede salir en las fotos?» es la pregunta de Comunicación. */}
+      <Filtros etiqueta="Mostrar">
+        <Filtro activo={filtro === 'todos'} cuenta={conPd.length} onClick={() => setFiltro('todos')}>Todos</Filtro>
+        <Filtro activo={filtro === 'sin-fotos'} cuenta={sinFotos} onClick={() => setFiltro('sin-fotos')}>No pueden salir en fotos</Filtro>
+        <Filtro activo={filtro === 'algun-no'} cuenta={generales.filter((g) => g === 'no' || g === 'parcial' || g === 'externos').length} onClick={() => setFiltro('algun-no')}>Con algún no</Filtro>
+        <Filtro activo={filtro === 'sin-contestar'} cuenta={aMedias} onClick={() => setFiltro('sin-contestar')}>Sin contestar</Filtro>
+      </Filtros>
 
       {confirmacion}
 
@@ -282,14 +325,32 @@ export function TablaProteccion({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {conPd.map((a) => {
+            {filas.length === 0 && (
+              <tr>
+                <td colSpan={4 + (detalle ? CAMPOS_PROTECCION.length : 0)} className="p-6 text-center text-sm text-zinc-500">
+                  Nadie con este filtro en {ambito}.
+                </td>
+              </tr>
+            )}
+            {filas.map((a) => {
               const pd = a.proteccion!;
               const general: GeneralProteccion = generalProteccion(pd);
               const base = GENERAL[String(general)];
               const g =
                 general === 'incompleto'
                   ? { ...base, texto: autorizadosDeCuatro(pd), titulo: `Sí a ${autorizadosDeCuatro(pd)}; falta ${sinConstar(pd).join(', ')}` }
-                  : base;
+                  : general === 'externos'
+                    ? {
+                        ...base,
+                        titulo: `Imagen y redes en sí; no a ${noAutorizados(pd).join(' y ')} (hacia el colegio, sin problema)`,
+                        texto: (
+                          <span className="flex items-center gap-0.5 font-medium">
+                            <Check className="h-3.5 w-3.5" />
+                            parcial
+                          </span>
+                        ),
+                      }
+                    : base;
               return (
                 <tr key={a.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
                   <CeldaAlumno numero={a.numero} nombre={a.completo} clase={conClase ? a.clase : undefined} />
@@ -345,8 +406,10 @@ export function TablaProteccion({
         La columna general pone los cuatro permisos a{' '}
         <strong className="font-medium text-emerald-600 dark:text-emerald-400">sí</strong> o a{' '}
         <strong className="font-medium text-red-600 dark:text-red-400">no</strong> de un toque;
-        <strong className="font-medium text-amber-600 dark:text-amber-400"> parcial</strong> es que hay algún no suelto
-        (despliega el detalle para verlo); <strong className="font-medium text-zinc-600 dark:text-zinc-300">3/4</strong> es
+        <strong className="font-medium text-amber-600 dark:text-amber-400"> parcial</strong> en ámbar es que hay algún no
+        a imagen o redes (despliega el detalle para verlo); el <strong className="font-medium text-emerald-600 dark:text-emerald-400">sí
+        apagado con «parcial»</strong> es que imagen y redes están en sí y solo se ha dicho que no a AMPA u ONG, que hacia el colegio
+        no cambia nada; <strong className="font-medium text-zinc-600 dark:text-zinc-300">3/4</strong> es
         que no hay ningún no pero falta alguno por contestar, y la rayita, que no hay nada marcado. En el correo, verde es lo normal: la familia no lo desestima.
         {!puedeEditar && ' Aquí solo miras: esto lo cambian secretaría, dirección o TIC.'}
       </p>
