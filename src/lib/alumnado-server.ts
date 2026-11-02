@@ -9,7 +9,7 @@
 // Dos consultas y ya: `listaAlumnado()` trae el centro entero en plan ligero (639 filas, lo
 // que cabe de sobra en el navegador y hace que buscar sea instantáneo y sin red), y
 // `fichaAlumno()` trae TODO lo de una persona en un solo viaje.
-import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   abcBehaviorReports,
@@ -25,6 +25,7 @@ import {
   eduStudents,
   eduTeachers,
   eduTutorPersonal,
+  eduSustituciones,
   eduTutorias,
   horApoyos,
   horAsignacionGrupos,
@@ -69,6 +70,7 @@ import {
 } from '@/lib/permissions';
 import { estadosMateriales, listaMateriales, type MaterialLista } from '@/lib/materiales-server';
 import { clasesDeTutor } from '@/lib/puntualidad-server';
+import { titularesVigentesSub } from '@/lib/sustituciones-server';
 import { alumnosQueNoSeLoLlevan, resumenDispositivos } from '@/lib/dispositivos-server';
 
 export type { MaterialLista };
@@ -172,7 +174,14 @@ async function etapasDeFichaProfe(email: string): Promise<Etapa[]> {
     .selectDistinct({ curso: horAsignacionGrupos.curso })
     .from(horAsignacionProfes)
     .innerJoin(horAsignacionGrupos, eq(horAsignacionGrupos.asignacionId, horAsignacionProfes.asignacionId))
-    .where(eq(horAsignacionProfes.eduTeacherId, ficha.id));
+    // El suyo y el de a quien cubre ahora (sustitución vigente): quien sustituye a un profe de
+    // Secundaria ve Secundaria mientras dure, sin tocar su ficha.
+    .where(
+      or(
+        eq(horAsignacionProfes.eduTeacherId, ficha.id),
+        inArray(horAsignacionProfes.eduTeacherId, titularesVigentesSub(eq(eduSustituciones.sustitutoId, ficha.id))),
+      ),
+    );
   // Si ya se han elegido a mano, mandan ellas; si no, la etapa única de siempre.
   const aMano = ficha.etapas ?? (ficha.etapa ? [ficha.etapa] : []);
   return unirEtapas([...aMano, ...horario.map((h) => etapaDeCurso(h.curso))]);

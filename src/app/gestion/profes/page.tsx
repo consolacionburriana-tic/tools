@@ -7,16 +7,19 @@ import { EtapasPanel } from '@/components/profes/etapas-panel';
 import { etapasAutomaticasPorProfe } from '@/lib/alumnado-server';
 import { esEtapa } from '@/lib/cursos';
 import { NombresPanel } from '@/components/profes/nombres-panel';
+import { SustitucionesPanel } from '@/components/profes/sustituciones-panel';
+import { listarSustituciones } from '@/lib/sustituciones-server';
 import { nombreProfeBreve, nombresDeProfe } from '@/lib/profes';
 import { mayusculasBellas, nombreDePila } from '@/lib/personas';
 
 export const metadata = { title: 'Profesorado · Gestión' };
 
 export default async function ProfesPage() {
-  const [clases, profes, automaticas] = await Promise.all([
+  const [clases, profes, automaticas, sustituciones] = await Promise.all([
     getClasesConTutores(),
     getTeachers(),
     etapasAutomaticasPorProfe(),
+    listarSustituciones(),
   ]);
   return (
     <div className="space-y-4">
@@ -32,6 +35,11 @@ export default async function ProfesPage() {
             esTutor: p.esTutor,
             claseTutor: p.claseTutor,
           }))}
+      />
+      {/* Quién cubre a quién: el sustituto hereda las tutorías y los avisos del titular mientras dure. */}
+      <SustitucionesPanel
+        filas={sustituciones}
+        profes={profes.map((p) => ({ id: p.id, nombre: nombresDeProfe(p).usual }))}
       />
       {/* Multiselección: hay quien da clase en dos etapas. Decide qué ve en Alumnado y Banco. */}
       <EtapasPanel

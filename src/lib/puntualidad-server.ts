@@ -10,6 +10,7 @@ import {
   conConsequenceTypes,
   conConsequences,
   eduStudents,
+  eduSustituciones,
   eduTeachers,
   eduTutorias,
   punDigestRuns,
@@ -23,6 +24,9 @@ import { CONFIGURACION } from '@/lib/configuracion';
 import { nombreClase, PATRONES_CURSO_SQL } from '@/lib/cursos';
 import { vePuntualidadCompleta, type Role } from '@/lib/permissions';
 import { nombreProfe, nombreProfeBreve } from '@/lib/profes';
+import { condVigente, titularesVigentesSub } from '@/lib/sustituciones-server';
+import { sustituirTutores } from '@/lib/sustituciones';
+import { hoyISO } from '@/lib/tableros';
 import { tutorPersonalDeAlumno } from '@/lib/tutorias-server';
 import {
   HORA_LIMITE,
@@ -284,31 +288,50 @@ export interface TutorClase {
   eduTeacherId: string;
   nombre: string;
   email: string | null;
+  /** Si está aquí porque cubre a otro tutor (sustitución vigente): a quién. */
+  sustituyeA?: string[];
 }
 
-/** Tutor/es de una clase en el curso académico en vigor. */
+/**
+ * Tutor/es de una clase en el curso académico en vigor. Si un tutor está sustituido (hay una
+ * sustitución vigente, ver `sustituciones.ts`), sale quien lo cubre en su lugar: se avisa a
+ * quien está, no a quien no.
+ */
 export async function tutoresDeClase(
   curso: string | null,
   letra: string | null,
   academicYear = academicYearActual(),
 ): Promise<TutorClase[]> {
   if (!curso) return [];
-  const rows = await db
-    .select({ t: eduTeachers })
-    .from(eduTutorias)
-    .innerJoin(eduTeachers, eq(eduTutorias.eduTeacherId, eduTeachers.id))
-    .where(
-      and(
-        eq(eduTutorias.curso, curso),
-        letra ? eq(eduTutorias.letra, letra) : isNull(eduTutorias.letra),
-        eq(eduTutorias.academicYear, academicYear),
+  const deLaClase = and(
+    eq(eduTutorias.curso, curso),
+    letra ? eq(eduTutorias.letra, letra) : isNull(eduTutorias.letra),
+    eq(eduTutorias.academicYear, academicYear),
+  );
+  // Las dos consultas van a la vez: los sustitutos se piden con una subconsulta de los tutores
+  // de la clase, sin esperar a saber quiénes son.
+  const [rows, cubiertos] = await Promise.all([
+    db.select({ t: eduTeachers }).from(eduTutorias).innerJoin(eduTeachers, eq(eduTutorias.eduTeacherId, eduTeachers.id)).where(deLaClase),
+    db
+      .select({ titularId: eduSustituciones.titularId, t: eduTeachers })
+      .from(eduSustituciones)
+      .innerJoin(eduTeachers, eq(eduSustituciones.sustitutoId, eduTeachers.id))
+      .where(
+        and(
+          condVigente(hoyISO()),
+          inArray(eduSustituciones.titularId, db.select({ id: eduTutorias.eduTeacherId }).from(eduTutorias).where(deLaClase)),
+        ),
       ),
-    );
-  return rows.map(({ t }) => ({
+  ]);
+  const aTutor = (t: (typeof rows)[number]['t']): TutorClase => ({
     eduTeacherId: t.id,
     nombre: nombreProfeBreve(t),
     email: t.email,
-  }));
+  });
+  return sustituirTutores(
+    rows.map(({ t }) => aTutor(t)),
+    cubiertos.map((c) => ({ titularId: c.titularId, sustituto: aTutor(c.t) })),
+  );
 }
 
 /**
@@ -338,11 +361,20 @@ export async function clasesDeTutor(
   email: string,
   academicYear = academicYearActual(),
 ): Promise<{ curso: string; letra: string | null }[]> {
+  // Las suyas y las de quien está cubriendo ahora (sustitución vigente): una subconsulta, un viaje.
+  const yo = db.select({ id: eduTeachers.id }).from(eduTeachers).where(ilike(eduTeachers.email, email));
   const rows = await db
-    .select({ curso: eduTutorias.curso, letra: eduTutorias.letra })
+    .selectDistinct({ curso: eduTutorias.curso, letra: eduTutorias.letra })
     .from(eduTutorias)
-    .innerJoin(eduTeachers, eq(eduTutorias.eduTeacherId, eduTeachers.id))
-    .where(and(eq(eduTutorias.academicYear, academicYear), ilike(eduTeachers.email, email)));
+    .where(
+      and(
+        eq(eduTutorias.academicYear, academicYear),
+        or(
+          inArray(eduTutorias.eduTeacherId, yo),
+          inArray(eduTutorias.eduTeacherId, titularesVigentesSub(inArray(eduSustituciones.sustitutoId, yo))),
+        ),
+      ),
+    );
   return rows;
 }
 

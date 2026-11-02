@@ -34,6 +34,36 @@ módulo saca **la foto del día** (quién pagaría qué hoy), en Excel y CSV, y 
 3. ¿Se lleva aquí el **«pagado / no pagado»** o se queda en Educamos? Si va a Educamos, ¿con qué
    formato de CSV (el de Licencias es curso, ID Educamos, importe)?
 
+### Sustituciones del profesorado: lo que decidí yo al construirlo (2-nov-2026) — revisar con David
+
+David pidió que, si Ángela Guillamón sustituye a Alejandro Sánchez, el sistema asuma que mientras
+dure es Ángela. Educamos ya lo marca (`PROF. SUSTITUTO` + `PROF. TITULAR`, con la vigencia en alta y
+baja), así que se lee de ahí y además se puede apuntar a mano, apagar y acotar con fechas. Ficha:
+`02-integracion-educamos.md` → «Sustituciones». Lo que decidí sin preguntar:
+
+1. **El sustituto ocupa el sitio del titular, no se suma a él.** Los avisos al tutor van a quien
+   está, no a quien falta (y no a los dos). Si prefieres que lleguen a ambos, es un cambio en
+   `sustituirTutores()`.
+2. **El titular no pierde nada.** Sigue siendo tutor en `edu_tutorias`, y su alcance en Alumnado y
+   Puntualidad no se toca; solo cambia a quién se avisa. Así, al volver, no hay nada que deshacer.
+3. **Qué hereda hoy**: avisos de Puntualidad, alcance «lo mío» (Alumnado y Puntualidad), etapas por
+   el horario del titular (Alumnado) y los destinatarios sugeridos del ABC.
+4. **Lo que NO hereda todavía** (cada uno es otra decisión; dime cuáles quieres): **Mi horario**
+   (que el sustituto vea y lleve a Calendar el horario del titular), **cuaderno de tutor** (los
+   documentos de la clase), **AUTOASM** (la clase del ASM), **Correos y grupos** (grupos por tutoría),
+   **Dispositivos** y **Oratorios** (disponibilidad por horario). Todos leen `edu_tutorias` o el
+   horario por su cuenta; el patrón para enganchar uno es el de `tutoresDeClase()`.
+5. **El tutor personal de un alumno no se reasigna**: si era el titular, el aviso va al sustituto
+   mientras dure, y al volver el titular vuelve a ser él. No se toca `edu_tutor_personal`.
+6. **Vigencia desde Educamos**: `FECHA ALTA` → desde, `FECHA BAJA` → hasta (inclusive). Solo se
+   importan sustitutos **en curso**; el histórico (13 filas con baja, de años anteriores) no entra.
+7. **Un titular que Educamos escribe con otro nombre** (o dos fichas con el mismo) no se adivina:
+   el sync avisa y hay que apuntarlo a mano. Educamos no da el ID del titular, solo el nombre.
+8. **Si Educamos deja de marcar a alguien como sustituto** (pasa a plantilla, cambia de titular), su
+   fila se **apaga**, no se borra. Una apagada a mano no la reactiva nunca el sync.
+9. **Tocar las fechas a mano** de una de Educamos la convierte en manual. Si lo prefieres al revés
+   (que el siguiente sync las reescriba), es una línea en `actualizarSustitucion()`.
+
 ### Presentación al claustro (2-nov-2026): lo que decidí yo — revisar con David
 
 David pidió, el día de presentar la plataforma a los profes: una bienvenida animada la primera
