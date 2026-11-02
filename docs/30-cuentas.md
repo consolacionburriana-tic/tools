@@ -14,6 +14,16 @@ esa persona en la consola.
 
 ---
 
+## Sustituciones: sugerir los grupos del titular (2-nov-2026)
+
+En «Por hacer», si hay sustituciones vigentes (`docs/02-integracion-educamos.md` → «Sustituciones»),
+una tarjeta lista quién sustituye a quién con «Ver grupos»: lee de Google en cuáles está el titular
+(`gruposDeMiembro`) y se marca **a mano** en cuáles entra el sustituto. Los grupos con reglas en
+modo «añadir y quitar» salen sin casilla (el próximo «Aplicar» lo sacaría; se arregla con «Correos
+fijos»). Se anota en el registro como `grupo-anadir`. No quita al sustituto cuando acaba la
+sustitución. **Sin probar con Google real**: necesita el scope de grupos delegado (el mismo que ya
+pide el resto de esta pantalla).
+
 ## Lo que se encontró el primer día (20-oct-2026, solo lectura)
 
 1.237 cuentas en Google. 575 de 645 alumnos activos y 52 de 54 profes tienen correo. Faltan **70 alumnos**

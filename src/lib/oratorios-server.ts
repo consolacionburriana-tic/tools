@@ -69,6 +69,7 @@ import {
   type UsoSesion,
 } from '@/lib/oratorios';
 import { correoProfe } from '@/lib/oratorios-email';
+import { destinatariosDeProfes, type ProfeDestino } from '@/lib/sustituciones-server';
 import { borrarEvento, guardarEvento } from '@/lib/oratorios-google';
 import { nombreProfeBreve, pilaProfe } from '@/lib/profes';
 
@@ -647,13 +648,14 @@ export async function crearSesiones(entradas: NuevaSesion[], por: Quien, academi
   return filas.map(aSesion);
 }
 
-async function cargar(ids: string[]): Promise<{ sesiones: OraSesion[]; tipos: Map<string, TipoMomento>; correos: Map<string, string> }> {
+async function cargar(ids: string[]): Promise<{ sesiones: OraSesion[]; tipos: Map<string, TipoMomento>; correos: Map<string, string[]> }> {
   const [sesiones, tipos] = await Promise.all([db.select().from(oraSesiones).where(inArray(oraSesiones.id, ids)), getTipos()]);
   const profeIds = [...new Set(sesiones.flatMap((s) => profesDe(aSesion(s)).map((p) => p.id)))];
-  const correos = new Map<string, string>();
-  if (profeIds.length) {
-    const filas = await db.select({ id: eduTeachers.id, email: eduTeachers.email }).from(eduTeachers).where(inArray(eduTeachers.id, profeIds));
-    for (const f of filas) if (f.email) correos.set(f.id, f.email.toLowerCase());
+  // El correo de cada profe afectado, o el de quien lo sustituye ahora (sustitución vigente).
+  const correos = new Map<string, string[]>();
+  for (const [id, destinos] of await destinatariosDeProfes(profeIds)) {
+    const lista = destinos.map((d) => d.email?.toLowerCase()).filter((e): e is string => Boolean(e));
+    if (lista.length) correos.set(id, lista);
   }
   return { sesiones, tipos: new Map(tipos.map((t) => [t.id, t])), correos };
 }
@@ -664,7 +666,7 @@ async function actualizar(id: string, cambios: Partial<typeof oraSesiones.$infer
 }
 
 /** Crea o mueve el evento de una sesión confirmada y guarda el resultado (o el error). */
-async function sincronizarCalendario(s: OraSesion, tipo: TipoMomento, correos: Map<string, string>): Promise<Partial<typeof oraSesiones.$inferInsert>> {
+async function sincronizarCalendario(s: OraSesion, tipo: TipoMomento, correos: Map<string, string[]>): Promise<Partial<typeof oraSesiones.$inferInsert>> {
   const r = await guardarEvento({ tipo, sesion: aSesion(s), correos });
   return r.ok
     ? { googleEventId: r.eventId, googleCalendarId: r.calendarId, calendarioError: null }
@@ -836,36 +838,35 @@ export async function enviarAvisos(ids: string[], por: Quien | null): Promise<Re
 
   const profeIds = [...new Set(elegibles.flatMap((s) => profesDe(aSesion(s)).map((p) => p.id)))];
   const responsables = [...new Set(elegibles.map((s) => s.responsableEmail))];
-  const [profes, delResponsable] = await Promise.all([
-    profeIds.length
-      ? db
-          .select({ id: eduTeachers.id, email: eduTeachers.email, nombre: eduTeachers.nombre, apellido1: eduTeachers.apellido1, apellido2: eduTeachers.apellido2, nombreMostrado: eduTeachers.nombreMostrado })
-          .from(eduTeachers)
-          .where(inArray(eduTeachers.id, profeIds))
-      : Promise.resolve([]),
+  // A quién se escribe: al profe afectado o, si está sustituido ahora, a quien lo sustituye.
+  const [destinos, delResponsable] = await Promise.all([
+    destinatariosDeProfes(profeIds),
     db
       .select({ email: eduTeachers.email, nombre: eduTeachers.nombre, apellido1: eduTeachers.apellido1, apellido2: eduTeachers.apellido2, nombreMostrado: eduTeachers.nombreMostrado })
       .from(eduTeachers)
       .where(inArray(sql`lower(${eduTeachers.email})`, responsables)),
   ]);
-  const profePor = new Map(profes.map((p) => [p.id, p]));
   const firmaPor = new Map(delResponsable.map((p) => [p.email!.toLowerCase(), { pila: pilaProfe(p), nombre: nombreProfeBreve(p) }]));
 
-  // Grupos: responsable · tipo · clase de correo · profe.
-  const grupos = new Map<string, { s: OraSesion[]; profeId: string }>();
+  // Grupos: responsable · tipo · clase de correo · destinatario (el profe, o quien lo cubre).
+  const grupos = new Map<string, { s: OraSesion[]; destino: ProfeDestino; titularId: string }>();
   const sinCorreo = new Set<string>();
   for (const s of elegibles) {
     const lista = profesDe(aSesion(s));
     if (lista.length === 0) sinCorreo.add(s.id);
     for (const p of lista) {
-      if (!profePor.get(p.id)?.email) {
-        sinCorreo.add(s.id);
-        continue;
+      const aQuien = destinos.get(p.id) ?? [];
+      if (aQuien.length === 0) sinCorreo.add(s.id);
+      for (const d of aQuien) {
+        if (!d.email) {
+          sinCorreo.add(s.id);
+          continue;
+        }
+        const k = `${s.responsableEmail}|${s.tipoId}|${s.avisoTipo}|${d.id}`;
+        const g = grupos.get(k) ?? { s: [], destino: d, titularId: p.id };
+        g.s.push(s);
+        grupos.set(k, g);
       }
-      const k = `${s.responsableEmail}|${s.tipoId}|${s.avisoTipo}|${p.id}`;
-      const g = grupos.get(k) ?? { s: [], profeId: p.id };
-      g.s.push(s);
-      grupos.set(k, g);
     }
   }
 
@@ -874,12 +875,12 @@ export async function enviarAvisos(ids: string[], por: Quien | null): Promise<Re
   await enPool([...grupos.values()], async (g) => {
     const s0 = g.s[0];
     const tipo = tipos.get(s0.tipoId)!;
-    const profe = profePor.get(g.profeId)!;
+    const profe = g.destino;
     const firma = firmaPor.get(s0.responsableEmail) ?? { pila: s0.responsableNombre ?? s0.responsableEmail, nombre: s0.responsableNombre ?? s0.responsableEmail };
     const items = [...g.s]
       .sort((a, b) => `${a.fecha}${a.horaInicio}`.localeCompare(`${b.fecha}${b.horaInicio}`))
       .map((s) => {
-        const mio = profesDe(aSesion(s)).find((p) => p.id === g.profeId);
+        const mio = profesDe(aSesion(s)).find((p) => p.id === g.titularId);
         const avisado = [...(s.historial ?? [])].reverse().find((h) => h.que.startsWith('avis') && h.fecha);
         const antes =
           s.avisoTipo === 'cambio' && avisado && (avisado.fecha !== s.fecha || avisado.horaInicio !== s.horaInicio)
@@ -894,6 +895,7 @@ export async function enviarAvisos(ids: string[], por: Quien | null): Promise<Re
       saludo: pilaProfe(profe),
       firma: firma.pila || firma.nombre,
       items,
+      cubreA: profe.cubreA,
     });
     try {
       await enviar('oratorios', { to: profe.email!, subject, html, como: { nombre: firma.nombre, email: s0.responsableEmail } });

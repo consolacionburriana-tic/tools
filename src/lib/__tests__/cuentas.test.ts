@@ -15,6 +15,7 @@ import {
   leerAjustesCuentas,
   miembrosDeseados,
   motivoCorreoNoValido,
+  motivoGrupoBloqueado,
   nombreLista,
   planGrupo,
   propuestasCorreo,
@@ -592,5 +593,20 @@ describe('grupos', () => {
 
   it('el enlace del grupo en Google Groups', () => {
     expect(enlaceGrupo('claustro@cole.test')).toBe('https://groups.google.com/a/cole.test/g/claustro');
+  });
+});
+
+describe('sustituciones: a qué grupos se puede meter al sustituto', () => {
+  it('un grupo normal se puede marcar', () => {
+    expect(motivoGrupoBloqueado({ gestionado: false, modo: null, yaEsta: false })).toBeNull();
+  });
+  it('un grupo con reglas que solo añaden se puede marcar', () => {
+    expect(motivoGrupoBloqueado({ gestionado: true, modo: 'solo-anadir', yaEsta: false })).toBeNull();
+  });
+  it('un grupo con reglas que añaden y quitan no: el próximo «Aplicar» lo sacaría', () => {
+    expect(motivoGrupoBloqueado({ gestionado: true, modo: 'exacto', yaEsta: false })).toContain('Aplicar');
+  });
+  it('si ya está dentro, no hay nada que hacer (gana a lo demás)', () => {
+    expect(motivoGrupoBloqueado({ gestionado: true, modo: 'exacto', yaEsta: true })).toBe('Ya está en el grupo');
   });
 });

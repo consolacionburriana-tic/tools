@@ -8,6 +8,7 @@ import { eduSustituciones, eduTeachers, type EduSustitucion } from '@/db/schema'
 import { nombreProfe } from '@/lib/profes';
 import { hoyISO } from '@/lib/tableros';
 import {
+  aplicarSustituciones,
   candidatoDeExtra,
   COLUMNA_SUSTITUTO,
   COLUMNA_TITULAR,
@@ -52,6 +53,80 @@ export async function sustitucionesVigentes(hoy: string = hoyISO()): Promise<Sus
     })
     .from(eduSustituciones)
     .where(condVigente(hoy));
+}
+
+// ─── Quién cubre a quién, para quien lo necesita ────────────────────────────
+
+export interface TitularCubierto {
+  id: string;
+  nombre: string;
+  desde: string | null;
+  hasta: string | null;
+}
+
+/** A quién está cubriendo ahora esta persona (con su nombre), para «Mi horario». */
+export async function titularesCubiertosPor(sustitutoId: string, hoy: string = hoyISO()): Promise<TitularCubierto[]> {
+  const filas = await db
+    .select({
+      id: eduTeachers.id,
+      nombre: eduTeachers.nombre,
+      nombreMostrado: eduTeachers.nombreMostrado,
+      apellido1: eduTeachers.apellido1,
+      apellido2: eduTeachers.apellido2,
+      desde: eduSustituciones.desde,
+      hasta: eduSustituciones.hasta,
+    })
+    .from(eduSustituciones)
+    .innerJoin(eduTeachers, eq(eduSustituciones.titularId, eduTeachers.id))
+    .where(and(eq(eduSustituciones.sustitutoId, sustitutoId), condVigente(hoy)));
+  return filas.map((f) => ({ id: f.id, nombre: nombreProfe(f), desde: f.desde, hasta: f.hasta }));
+}
+
+/** Un profe al que hay que escribir, y si lo es porque cubre a otro. */
+export interface ProfeDestino {
+  id: string;
+  email: string | null;
+  nombre: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
+  nombreMostrado: string | null;
+  /** Si recibe esto porque cubre a alguien (sustitución vigente): el nombre de quien falta. */
+  cubreA: string | null;
+}
+
+/**
+ * A quién hay que escribir HOY por cada profe: a él, o a quien lo sustituye ahora (el
+ * sustituto ocupa su sitio; los dos nombres salen en `cubreA`). Un profe sin ficha no sale.
+ * Lo usa Oratorios para avisos e invitaciones de Calendar.
+ */
+export async function destinatariosDeProfes(ids: readonly string[], hoy: string = hoyISO()): Promise<Map<string, ProfeDestino[]>> {
+  const salida = new Map<string, ProfeDestino[]>();
+  if (ids.length === 0) return salida;
+  const vigentes = await sustitucionesVigentes(hoy);
+  const efectivos = new Map(ids.map((id) => [id, aplicarSustituciones([id], vigentes, hoy)]));
+  const todos = [...new Set([...ids, ...[...efectivos.values()].flat()])];
+  const fichas = await db
+    .select({
+      id: eduTeachers.id,
+      email: eduTeachers.email,
+      nombre: eduTeachers.nombre,
+      apellido1: eduTeachers.apellido1,
+      apellido2: eduTeachers.apellido2,
+      nombreMostrado: eduTeachers.nombreMostrado,
+    })
+    .from(eduTeachers)
+    .where(inArray(eduTeachers.id, todos));
+  const porId = new Map(fichas.map((f) => [f.id, f]));
+  for (const id of ids) {
+    const lista: ProfeDestino[] = [];
+    for (const d of efectivos.get(id) ?? []) {
+      const f = porId.get(d);
+      if (!f) continue;
+      lista.push({ ...f, cubreA: d === id ? null : nombreProfe(porId.get(id)) });
+    }
+    if (lista.length > 0) salida.set(id, lista);
+  }
+  return salida;
 }
 
 // ─── Lista para la pantalla ───────────────────────────────────────────────────

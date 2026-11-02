@@ -33,6 +33,7 @@ import {
   leerReglas,
   miembrosDeseados,
   motivoCorreoNoValido,
+  motivoGrupoBloqueado,
   planGrupo,
   uoArchivo,
   uoDentroDe,
@@ -59,12 +60,15 @@ import {
   leerCuentas,
   leerGrupos,
   leerMiembros,
+  gruposDeMiembro,
   leerUnidades,
   quitarMiembro,
   type CambiosCuenta,
 } from '@/lib/cuentas-google';
 import { esEtapa, type Etapa } from '@/lib/cursos';
 import { enParalelo, explicarError } from '@/lib/google-sa';
+import { listarSustituciones } from '@/lib/sustituciones-server';
+import { hoyISO } from '@/lib/tableros';
 
 const AJUSTES_CLAVE = 'cuentas';
 /** Llamadas a Google a la vez en las tandas: holgado frente a la cuota de Directory. */
@@ -108,6 +112,8 @@ export interface EstadoCuentas {
   /** Las unidades se han leído de Google (si no, se deducen de las cuentas y faltan las vacías). */
   unidadesDeGoogle: boolean;
   grupos: GrupoFila[];
+  /** Sustituciones vigentes hoy: para sugerir meter al sustituto en los grupos del titular. */
+  sustituciones: { id: string; sustituto: string; titular: string }[];
   leidoAt: string | null;
   dominio: string;
 }
@@ -253,7 +259,7 @@ function aGrupoFila(g: typeof cueGrupos.$inferSelect): GrupoFila {
 
 /** Todo lo que pinta la pantalla, en una tanda de consultas. */
 export async function estadoCuentas(hoy = new Date()): Promise<EstadoCuentas> {
-  const c = await cargar();
+  const [c, sustituciones] = await Promise.all([cargar(), listarSustituciones(hoyISO(hoy))]);
   const { cruce, ajustes, propuestos } = cruzarCargado(c, hoy);
   const porRuta = new Map<string, { cuentas: number; activas: number }>();
   for (const cu of c.cuentas) {
@@ -278,6 +284,9 @@ export async function estadoCuentas(hoy = new Date()): Promise<EstadoCuentas> {
     unidades,
     unidadesDeGoogle: deGoogle.size > 0,
     grupos: c.grupos.map(aGrupoFila).sort((a, b) => Number(b.gestionado) - Number(a.gestionado) || a.email.localeCompare(b.email)),
+    sustituciones: sustituciones
+      .filter((x) => x.estado === 'vigente')
+      .map((x) => ({ id: x.id, sustituto: x.sustitutoNombre, titular: x.titularNombre })),
     leidoAt: c.leidoAt,
     dominio: COLEGIO.dominio,
   };
@@ -912,6 +921,122 @@ export async function aplicarGrupo(
   if (entradas.length > 0) statements.push(db.insert(cueRegistro).values(entradas.map((e) => ({ ...e, id: crypto.randomUUID() }))));
   await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
   return { anadidos, quitados, errores, quedan };
+}
+
+// ─── Sustituciones: meter al sustituto en los grupos del titular ───────────────
+
+export interface SugerenciaGrupo {
+  email: string;
+  nombre: string | null;
+  gestionado: boolean;
+  /** `null` = no es un grupo gestionado. */
+  modo: ReglasGrupo['modo'] | null;
+  yaEsta: boolean;
+  /** Por qué no se puede marcar (ver `motivoGrupoBloqueado`), o `null` si se puede. */
+  bloqueado: string | null;
+}
+
+export interface SugerenciasSustitucion {
+  sustitucionId: string;
+  sustituto: { nombre: string; correo: string | null };
+  titular: { nombre: string; correo: string | null };
+  /** Los grupos donde está el titular, para que se elija a mano en cuáles entra el sustituto. */
+  grupos: SugerenciaGrupo[];
+  avisos: string[];
+}
+
+/** La cuenta activa (no suspendida) de un profe, por el cruce con Educamos. */
+function correoActivoDeProfe(cruce: CruceCuentas, profeId: string): string | null {
+  const f = cruce.filas.find((x) => x.clave === `p:${profeId}`);
+  return f?.cuenta && !f.cuenta.suspendida ? f.cuenta.email : null;
+}
+
+async function cargarSustitucion(id: string) {
+  const fila = (await listarSustituciones(hoyISO())).find((x) => x.id === id);
+  if (!fila) throw new Error('Esa sustitución ya no existe');
+  if (fila.estado !== 'vigente') throw new Error('Esa sustitución no está vigente: enciéndela o revisa sus fechas');
+  return fila;
+}
+
+/**
+ * Los grupos de Google donde está el titular, para sugerir que el sustituto entre en ellos.
+ * No se mete a nadie: la persona de TIC elige a mano en cuáles. Si el sustituto o el titular no
+ * tienen cuenta activa, se dice (sin cuenta no hay grupos que mirar).
+ */
+export async function sugerirGruposSustitucion(admin: string, sustitucionId: string): Promise<SugerenciasSustitucion> {
+  const [fila, c] = await Promise.all([cargarSustitucion(sustitucionId), cargar()]);
+  const { cruce } = cruzarCargado(c);
+  const sustitutoCorreo = correoActivoDeProfe(cruce, fila.sustitutoId);
+  const titularCorreo = correoActivoDeProfe(cruce, fila.titularId);
+  const salida: SugerenciasSustitucion = {
+    sustitucionId,
+    sustituto: { nombre: fila.sustitutoNombre, correo: sustitutoCorreo },
+    titular: { nombre: fila.titularNombre, correo: titularCorreo },
+    grupos: [],
+    avisos: [],
+  };
+  if (!sustitutoCorreo) salida.avisos.push(`${fila.sustitutoNombre} no tiene cuenta activa en Google: créala en «Por hacer» y vuelve aquí.`);
+  if (!titularCorreo) salida.avisos.push(`${fila.titularNombre} no tiene cuenta activa en Google, así que no hay grupos que mirar.`);
+  if (!sustitutoCorreo || !titularCorreo) return salida;
+
+  const [delTitular, delSustituto] = await Promise.all([gruposDeMiembro(admin, titularCorreo), gruposDeMiembro(admin, sustitutoCorreo)]);
+  const yaEsta = new Set(delSustituto.map((g) => g.email));
+  const conocidos = new Map(c.grupos.map((g) => [g.email, g]));
+  salida.grupos = delTitular
+    .map((g): SugerenciaGrupo => {
+      const k = conocidos.get(g.email);
+      const modo = k?.gestionado ? leerReglas(k.reglas).modo : null;
+      const base = { gestionado: Boolean(k?.gestionado), modo, yaEsta: yaEsta.has(g.email) };
+      return { email: g.email, nombre: k?.nombre ?? g.nombre, ...base, bloqueado: motivoGrupoBloqueado(base) };
+    })
+    .sort((a, b) => Number(Boolean(a.bloqueado)) - Number(Boolean(b.bloqueado)) || (a.nombre ?? a.email).localeCompare(b.nombre ?? b.email, 'es'));
+  if (salida.grupos.length === 0) salida.avisos.push(`${fila.titularNombre} no está en ningún grupo.`);
+  return salida;
+}
+
+export interface ResultadoGrupoSustituto {
+  grupo: string;
+  ok: boolean;
+  /** Ya estaba dentro. */
+  sinCambio: boolean;
+  error: string | null;
+}
+
+/**
+ * Mete al sustituto en los grupos que se hayan marcado. Se vuelve a comprobar aquí, sin fiarse de
+ * la pantalla: cada grupo tiene que ser uno donde esté el titular y que no esté bloqueado.
+ */
+export async function anadirSustitutoAGrupos(
+  admin: string,
+  sustitucionId: string,
+  grupos: string[],
+  quien: string,
+): Promise<ResultadoGrupoSustituto[]> {
+  const previa = await sugerirGruposSustitucion(admin, sustitucionId);
+  const correo = previa.sustituto.correo;
+  if (!correo) throw new Error(previa.avisos[0] ?? 'El sustituto no tiene cuenta activa en Google');
+  const permitidos = new Map(previa.grupos.map((g) => [g.email, g]));
+  const pedidos = [...new Set(grupos.map((g) => g.trim().toLowerCase()))];
+
+  const resultados = await enParalelo(pedidos, A_LA_VEZ, async (grupo): Promise<ResultadoGrupoSustituto> => {
+    const g = permitidos.get(grupo);
+    if (!g) return { grupo, ok: false, sinCambio: false, error: `${previa.titular.nombre} no está en ese grupo` };
+    if (g.yaEsta) return { grupo, ok: true, sinCambio: true, error: null };
+    if (g.bloqueado) return { grupo, ok: false, sinCambio: false, error: g.bloqueado };
+    const r = await anadirMiembro(admin, grupo, correo);
+    return r.ok ? { grupo, ok: true, sinCambio: r.sinCambio, error: null } : { grupo, ok: false, sinCambio: false, error: r.error };
+  });
+  await anotar(
+    resultados.map((r) => ({
+      por: quien,
+      accion: 'grupo-anadir',
+      objetivo: r.grupo,
+      detalle: `${correo} · sustituye a ${previa.titular.nombre}`,
+      ok: r.ok,
+      error: r.error,
+    })),
+  );
+  return resultados;
 }
 
 export async function guardarGrupo(

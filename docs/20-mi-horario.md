@@ -10,6 +10,14 @@ tiene datos propios más allá de las preferencias de cada uno y el calendario d
 
 ---
 
+## Sustituciones (2-nov-2026)
+
+Si alguien está sustituyendo a otra persona (`docs/02-integracion-educamos.md` → «Sustituciones»),
+`/mi-horario` enseña un segmentado «Mi horario / El de Alejandro (sustituyes)» y, si la persona no
+tiene horario propio, abre el del titular. Es de **solo consulta**: sin anotar, sin exportar a
+Calendar y sin las anotaciones personales del titular. Exportarlo a Calendar queda pendiente
+(reexportar borra lo del periodo, así que haría falta un calendario aparte).
+
 ## Estado: 🟡 Fase 0-3 escritas, sin probar en vivo · Fase 6 (anotaciones propias) hecha el 4-oct-2026
 
 Las tres decisiones pendientes están cerradas (2026-09-06, con David) y el código está

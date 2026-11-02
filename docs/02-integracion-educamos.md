@@ -300,6 +300,18 @@ opcionales), el sustituto hereda del titular:
 - **Alcance «lo mío»** (`clasesDeTutor`): lo que ve en Alumnado y en Puntualidad.
 - **Etapa por horario** (Alumnado): el horario del titular cuenta para las etapas que ve.
 - **Destinatarios sugeridos del ABC**: «Tutor/a de 3PRI A» es el sustituto.
+- **Mi horario** (`/mi-horario`): el sustituto ve el horario del titular con un segmentado «Mi horario /
+  El de Alejandro (sustituyes)» (`?de=`). Si no tiene horario propio, abre directamente el del titular.
+  Es **solo de consulta**: no se anota ni se exporta a Calendar desde ahí, y no salen las anotaciones
+  personales del titular (`origen = 'manual'`).
+- **Oratorios**: los correos de aviso y la invitación de Google Calendar van a quien cubre, no al
+  titular, con una línea que dice por qué le llega («ahora estás sustituyendo a…»).
+- **Correos y grupos** (`Por hacer` → «Sustituciones»): **solo sugiere**. «Ver grupos» lee de Google
+  en cuáles está el titular y se marca **a mano** en cuáles entra el sustituto; no se añade nada solo.
+  Un grupo con reglas que añaden y quitan sale sin casilla (el próximo «Aplicar» lo sacaría). Al
+  terminar la sustitución, quitarlo es a mano.
+- **No lo hereda, por decisión de David**: el cuaderno de tutor y Dispositivos. **AUTOASM**, anotado
+  para verlo más adelante.
 
 Cómo se guarda y se mantiene: tabla `edu_sustituciones` (`sustituto_id`, `titular_id`, `desde`,
 `hasta`, `activa`, `origen` = `educamos` | `manual`, `nota`; única por par). Lógica pura y testeada
@@ -327,8 +339,12 @@ en `src/lib/sustituciones.ts`; consultas en `sustituciones-server.ts`; pantalla 
       se borraron: la tabla está vacía hasta que se pulse «Releer de Educamos» o se suba el fichero.)*
 - [ ] **David**: tras desplegar, pulsar «Releer de Educamos» en `/gestion/profes` (o resubir el export
       de profes) para que entren las 4 de ahora, y revisar las decisiones de `00-desarrollos-futuros.md`
-- [ ] Que también lo hereden Mi horario, el cuaderno de tutor, AUTOASM y Correos y grupos (ver
-      «lo que no hereda todavía» en `00-desarrollos-futuros.md`)
+- [x] Mi horario: el sustituto ve el horario del titular (solo lectura, sin sus anotaciones personales)
+- [x] Oratorios: aviso por correo e invitación de Calendar al sustituto
+- [x] Correos y grupos: sugerir los grupos del titular y elegir a mano *(código y tests listos;
+      **falta probarlo con Google real**: los scopes de grupos de la delegación siguen sin darse, ver
+      `30-cuentas.md`)*
+- [ ] AUTOASM: decidir si el sustituto entra en la clase del ASM del titular (anotado, «ya vemos»)
 
 ### Dos campos que el sync deja solo en `extra` (visto el 10-sep-2026)
 

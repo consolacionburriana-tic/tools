@@ -20,8 +20,11 @@ export const ORIGEN = 'tools-oratorios';
 export interface DestinoEvento {
   tipo: Pick<TipoMomento, 'nombre' | 'calendarioId'>;
   sesion: SesionOra;
-  /** Correos de los profes afectados, por id (el que no tenga, no se invita). */
-  correos: Map<string, string>;
+  /**
+   * Correos de los profes afectados, por id (el que no tenga, no se invita). Si un profe está
+   * sustituido, aquí va el de quien lo cubre (o los de los dos, si hay varios).
+   */
+  correos: Map<string, string | string[]>;
 }
 
 function hhmmss(h: string): string {
@@ -35,8 +38,9 @@ export function cuerpoEvento(d: DestinoEvento): calendar_v3.Schema$Event {
   const profes = profesDe(s);
   const invitados = new Map<string, calendar_v3.Schema$EventAttendee>();
   for (const p of profes) {
-    const correo = d.correos.get(p.id);
-    if (correo) invitados.set(correo.toLowerCase(), { email: correo });
+    for (const correo of [d.correos.get(p.id) ?? []].flat()) {
+      if (correo) invitados.set(correo.toLowerCase(), { email: correo });
+    }
   }
   // La persona responsable también: el evento vive en el calendario compartido y así le sale
   // en el suyo.

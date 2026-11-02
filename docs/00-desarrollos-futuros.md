@@ -47,12 +47,19 @@ baja), así que se lee de ahí y además se puede apuntar a mano, apagar y acota
 2. **El titular no pierde nada.** Sigue siendo tutor en `edu_tutorias`, y su alcance en Alumnado y
    Puntualidad no se toca; solo cambia a quién se avisa. Así, al volver, no hay nada que deshacer.
 3. **Qué hereda hoy**: avisos de Puntualidad, alcance «lo mío» (Alumnado y Puntualidad), etapas por
-   el horario del titular (Alumnado) y los destinatarios sugeridos del ABC.
-4. **Lo que NO hereda todavía** (cada uno es otra decisión; dime cuáles quieres): **Mi horario**
-   (que el sustituto vea y lleve a Calendar el horario del titular), **cuaderno de tutor** (los
-   documentos de la clase), **AUTOASM** (la clase del ASM), **Correos y grupos** (grupos por tutoría),
-   **Dispositivos** y **Oratorios** (disponibilidad por horario). Todos leen `edu_tutorias` o el
-   horario por su cuenta; el patrón para enganchar uno es el de `tutoresDeClase()`.
+   el horario del titular (Alumnado), destinatarios sugeridos del ABC y —decidido por David el
+   mismo 2-nov-2026— **Mi horario** (solo consulta), **Oratorios** (avisos y Calendar al sustituto) y
+   **Correos y grupos** (solo sugiere, se elige a mano).
+4. **Lo que NO hereda**: el **cuaderno de tutor** y **Dispositivos** (David: «nada»). **AUTOASM**
+   («lo dejamos anotado y ya vemos»): ¿el sustituto entra en la clase del ASM del titular mientras
+   dure? Hoy no. También quedan fuera **Tableros** y la **disponibilidad de Oratorios**.
+   - Mi horario **no se exporta a Calendar** desde la vista del titular: reexportar borra lo que se
+     exportó de ese periodo, así que mezclar dos horarios en el mismo calendario se pisaría. Si
+     quieres llevártelo a Calendar, haría falta un calendario aparte; dime.
+   - Oratorios: la invitación de Calendar se fija al **confirmar**. Si la sustitución empieza
+     después, el evento sigue invitando al titular hasta que se mueva o se reconfirme.
+   - Correos y grupos: **no quita** al sustituto de los grupos cuando acaba la sustitución. Podría
+     sugerirlo igual que sugiere el alta; hoy es a mano.
 5. **El tutor personal de un alumno no se reasigna**: si era el titular, el aviso va al sustituto
    mientras dure, y al volver el titular vuelve a ser él. No se toca `edu_tutor_personal`.
 6. **Vigencia desde Educamos**: `FECHA ALTA` → desde, `FECHA BAJA` → hasta (inclusive). Solo se

@@ -207,6 +207,21 @@ export async function leerGrupos(admin: string): Promise<GrupoGoogle[]> {
   return salida;
 }
 
+/** Los grupos de los que es miembro una cuenta (id, correo y nombre). */
+export async function gruposDeMiembro(admin: string, email: string): Promise<{ email: string; nombre: string | null }[]> {
+  const d = directory(admin, SCOPE_GRUPOS);
+  const salida: { email: string; nombre: string | null }[] = [];
+  let pageToken: string | undefined;
+  do {
+    const { data } = await conReintentos(() =>
+      d.groups.list({ userKey: email, maxResults: 200, pageToken, fields: 'nextPageToken,groups(email,name)' }),
+    );
+    for (const g of data.groups ?? []) if (g.email) salida.push({ email: g.email.toLowerCase(), nombre: g.name ?? null });
+    pageToken = data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return salida;
+}
+
 /** Los miembros directos de un grupo (los que vienen por un grupo anidado no cuentan). */
 export async function leerMiembros(admin: string, grupo: string): Promise<MiembroActual[]> {
   const d = directory(admin, SCOPE_GRUPOS);
