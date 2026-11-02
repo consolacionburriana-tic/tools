@@ -666,13 +666,32 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
 11. **ETE = Equipo de Titularidad** de todos los colegios de la fundación: `R. ETE` y `REUNIONES E.T.E`
     son reuniones del ETE («Reunión ETE»).
 
+### Cerradas con David el 2-nov-2026 (permisos y aulas de la ESO)
+
+12. **El profe raso solo ve el horario de SU tutoría.** Profe o tutor sin `horarios-profes`: nada de otras
+    clases, ni del horario de otros profes, ni de la pestaña **Aula** (que es para ver etapas enteras).
+    Orientación, jefatura, dirección, secretaría y TIC lo ven todo, y el Aula de todas las etapas. Se
+    filtra en el servidor (`page.tsx`: `horariosSoloSuTutoria()` + `clasesDeTutor()`), no solo en la
+    pantalla, y la clave de la URL ajena abre la suya. Sin tutoría, la pantalla manda a «Mi horario».
+    Comunicación (que tiene `horarios` sin ser profe ni tutor) no cambia.
+13. **Aulas de la ESO por normas del centro** (el export de la ESO no trae ni una: comprobado en
+    `Horarios_ESO_26-27`, ni `Aulas:` ni cuadros «HORARIO DE AULA»). Viven en
+    `CONFIGURACION.horarios.aulasEso` y las aplica `aulaEsoPorNormas()`: **tecnología** → aula de
+    tecnología (incluida la hora de Tecnología de un ámbito de PDC) · **PIAR I y II, TRDR y el Taller de
+    profundización de 4º** → aula de informática · **Educación Física** → el pabellón (`POLI`) · **el
+    resto** → aula propia del grupo (`A-1ESOA`…, también las tutorías y los PDC). Una clase de varios
+    grupos sin norma (una optativa de 4º A y B) se queda sin aula. Se aplican al importar la ESO y, sobre
+    lo ya importado, con **`pnpm horarios:aulas`** (`--dry` cuenta sin escribir; no pisa lo puesto a mano
+    ni lo que traiga el fichero; idempotente).
+
 ### Sigue pendiente
 
-- 🟡 **La ESO no tiene aulas en la pestaña «Aula».** El export de Educamos de la ESO no trae aula en
-  las celdas (ni leyenda `Aulas:`), así que no hay nada que importar: en Neon, ninguna asignación de ESO
-  tiene aula. La pestaña solo tiene Música y Polideportivo, que vienen de primaria (y desde el
-  2-nov-2026: antes de importar primaria no tenía nada). Para tener aulas de ESO habría que sacarlas de
-  Educamos o ponerlas a mano en la pantalla de espacios (Fase 2, sin hacer).
+- 🟡 **Aulas de ESO que dependen de la persona:** la música de 1º y 2º «a veces» va al aula de música
+  (compartida con primaria) y hoy sale en el aula propia; el francés también iría ahí, pero no está en el
+  horario. Hace falta poder cambiar el aula de una clase a mano (pantalla de espacios, Fase 2). Y dos
+  suposiciones por confirmar: que **el pabellón es el polideportivo** (`POLI`, el mismo de primaria) y que
+  la optativa de **Digitalización de 4º** (no está en la lista de David) va a su aula propia: hoy, al
+  juntar 4º A y B, se queda sin aula.
 - 🟡 **Días especiales** (un día suelto con rejilla propia: media jornada, día del colegio,
   festivos). Sin respuesta y **no bloquea**: es una tabla chica y aditiva (`hor_dias_especiales`:
   fecha, tipo, rejilla_id?) que se añade el día que se quiera. No la creo por si acaso.
@@ -775,7 +794,8 @@ necesitar tres joins.
       verdad solapa (otro profe, otra hora, otro curso, un desdoble) sigue apilado para poder
       compararlo. Se hace al pintar porque los datos ya cargados se importaron antes de que el
       importador fundiera; reimportar con el código actual da el mismo resultado de origen
-- [ ] Pantalla de materias y espacios, para renombrar, fusionar y marcar `admite_solapes`
+- [x] **Aulas de la ESO** (2-nov-2026): normas del centro aplicadas a las 147 asignaciones de ESO (`pnpm horarios:aulas`)
+- [ ] Pantalla de materias y espacios, para renombrar, fusionar, marcar `admite_solapes` y **cambiar el aula de una clase a mano**
 - [ ] **Exportar a Google Calendar**: se ha ido a su propia ficha, [`20-mi-horario.md`](./20-mi-horario.md)
 
 #### Los colores del navegador
@@ -876,8 +896,10 @@ alias, así que una materia arreglada a mano nunca se pierde.
       el inglés de 3º/4º PDC lo da solo MTIR0, Emilia es apoyo (nunca titular) en 7 asignaciones
       de Mates/FyQ y las reuniones de David salen con su hora
 - [x] **Primaria e infantil 2026-27** (2-nov-2026): los ~140 avisos del import de Jose Miguel, reducidos a 1
-      (ver «Primaria e infantil 2026-27»). **Falta reimportarlo en Neon** desde `/gestion/horarios/importar`
-      con el código nuevo y revisar en el panel de Aula que cuadra
+      (ver «Primaria e infantil 2026-27»). **Reimportado en Neon el 2-nov-2026** (Claude, con permiso de
+      David): 360 asignaciones, 589 sesiones, las horas «Otros» sueltas pasan de 130 a 19, las 10 h de
+      Dirección en su franja del centro y las PT de infantil enlazadas; la ESO sin moverse (209 asignaciones
+      / 816 sesiones antes y después). Falta que David mire la pestaña Aula
 - [ ] Reconciliación de la hoja de profes sobre las asignaciones ya importadas
 - [ ] Importación de rejillas, si el fichero las trae
 

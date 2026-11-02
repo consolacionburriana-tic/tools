@@ -356,4 +356,18 @@ export function puedeEditarHorarios(role: Role | null): boolean {
   return role === 'direccion' || role === 'jefe' || role === 'secretaria' || role === 'tic' || role === 'supertic';
 }
 
+/**
+ * ¿Un profe «raso»: ve solo el horario de SU TUTORÍA? (David, 2-nov-2026.)
+ *
+ * Es quien tiene el módulo `horarios` pero no `horarios-profes`, y es profe o tutor: no ve el horario
+ * de otros profes, ni otras clases, ni la pestaña de Aula (que es para ver etapas enteras). Orientación,
+ * jefatura, dirección, secretaría y TIC lo ven todo. Quien tenga `horarios-profes` dado a mano también.
+ * El resto de roles con `horarios` (comunicación) no cambia.
+ */
+export function horariosSoloSuTutoria(acceso: Acceso | null | undefined): boolean {
+  if (!acceso?.role) return false;
+  if (acceso.role !== 'profe' && acceso.role !== 'tutor') return false;
+  return !canAccess(acceso, 'horarios-profes');
+}
+
 export const DOMINIO_LOGIN: string = COLEGIO.dominio;

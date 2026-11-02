@@ -6,6 +6,7 @@
 
 import { z } from 'zod';
 
+import { CONFIGURACION } from '@/lib/configuracion';
 import { compararClases, etapaDeCurso, nombreClase, type Etapa } from '@/lib/cursos';
 
 /** Etapas del centro. Las cuatro primeras están en uso; el resto, previstas y desactivadas. */
@@ -859,3 +860,79 @@ export type EntradaApoyo = z.infer<typeof apoyoSchema>;
 
 // Reexport para que las pantallas de horarios no tengan que importar de dos sitios.
 export type { Etapa };
+
+
+// ─── Aulas de la ESO, por las normas del centro ──────────────────────────────
+
+/** Un aula (de las que tienen fila en `hor_espacios`) tal y como la dan las normas. */
+export interface AulaDeNorma {
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  admiteSolapes: boolean;
+}
+
+function limpiarParaNorma(t: string | null | undefined): string {
+  return (t ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * ¿Esta entrada de una norma es esta materia? Las cortas (hasta 5 letras: `PIAR`, `TYD`, `EFI`, `TF`)
+ * son la **abreviatura** de la materia, exacta; las largas son el **principio de su nombre**, sin
+ * tildes ni mayúsculas ('Tecnología' vale para 'Tecnologia y Digitalización').
+ */
+function casaEntradaNorma(entrada: string, abreviatura: string | null, nombre: string | null): boolean {
+  const e = limpiarParaNorma(entrada);
+  if (!e) return false;
+  if (e.replace(/\s/g, '').length <= 5) return limpiarParaNorma(abreviatura) === e;
+  return limpiarParaNorma(nombre).startsWith(e);
+}
+
+/**
+ * El aula de una clase de ESO según las normas de Consolación (`CONFIGURACION.horarios.aulasEso`),
+ * porque el export de Educamos de la ESO no trae aula. `null` si no se sabe: una clase que no es
+ * de ESO, una hora que no es clase ni tutoría, o una clase de varios grupos (una optativa de 4º A
+ * y B) sin norma que le toque, que no tiene «aula propia».
+ *
+ * Primero las normas con nombre (tecnología, informática, pabellón) y, si no casa ninguna, el aula
+ * propia del grupo. Va aparte de la importación para poder aplicarse también a lo ya importado.
+ */
+export function aulaEsoPorNormas(
+  a: {
+    grupos: readonly { curso: string; letra: string | null }[];
+    actividadCodigo: string;
+    materiaNombre: string | null;
+    materiaAbreviatura: string | null;
+    detalle: string | null;
+  },
+  config: typeof CONFIGURACION.horarios.aulasEso = CONFIGURACION.horarios.aulasEso,
+): AulaDeNorma | null {
+  if (a.grupos.length === 0) return null;
+  if (a.grupos.some((g) => etapaDeCursoHorario(g.curso) !== 'ESO')) return null;
+  if (a.actividadCodigo !== 'clase' && a.actividadCodigo !== 'tutoria') return null;
+
+  for (const n of config.normas) {
+    if (n.cursos && !a.grupos.every((g) => n.cursos!.includes(g.curso.toUpperCase()))) continue;
+    const porMateria = n.materias.some((m) => casaEntradaNorma(m, a.materiaAbreviatura, a.materiaNombre));
+    const porDetalle = (n.detalles ?? []).some((d) => limpiarParaNorma(a.detalle).startsWith(limpiarParaNorma(d)));
+    if (!porMateria && !porDetalle) continue;
+    const aula = config.aulas[n.aula];
+    return aula ? { codigo: n.aula, ...aula } : null;
+  }
+
+  if (config.propia && a.grupos.length === 1) {
+    const { curso, letra } = a.grupos[0];
+    return {
+      codigo: `A-${curso}${letra ?? ''}`.toUpperCase(),
+      nombre: `Aula ${letra ? `${curso} ${letra}` : curso}`,
+      tipo: 'aula',
+      admiteSolapes: false,
+    };
+  }
+  return null;
+}

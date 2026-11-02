@@ -26,7 +26,9 @@ import {
   horTramos,
 } from '@/db/schema';
 import { compararClases, nombreClase } from '@/lib/cursos';
+import { type AulaDeNorma } from '@/lib/horarios';
 import {
+  aulaEsoPorNormas,
   etapaDeCursoHorario,
   nombreCorto,
   nombreProfe,
@@ -337,8 +339,28 @@ export async function importarBloques(
   const filasProfe: (typeof horAsignacionProfes.$inferInsert)[] = [];
   const filasSesion: (typeof horSesiones.$inferInsert)[] = [];
 
+  // El export de la ESO no trae aula: se deduce con las normas del centro (tecnología, informática,
+  // pabellón, aula propia). Solo donde el fichero NO dice aula: si la trae, manda ella.
+  const nombreDeMateria = new Map<string, string>(); // código del fichero → nombre, para las normas
+  for (const b of utiles) for (const [c, n] of b.leyendas.materias) if (!nombreDeMateria.has(c)) nombreDeMateria.set(c, n);
+  const aulaDeNorma = new Map<string, AulaDeNorma>(); // id de asignación → aula
+  for (const a of asignaciones) {
+    if (a.aulaCodigo) continue;
+    const aula = aulaEsoPorNormas({
+      grupos: a.grupos,
+      actividadCodigo: a.actividadCodigo,
+      materiaNombre: a.materiaCodigo ? (nombreDeMateria.get(a.materiaCodigo) ?? null) : null,
+      materiaAbreviatura: a.materiaCodigo ? raizMateria(a.materiaCodigo) : null,
+      detalle: a.detalle,
+    });
+    if (aula) aulaDeNorma.set(a.id, aula);
+  }
+  const espacioDeNorma = await asegurarEspaciosDeNormas([...new Map([...aulaDeNorma.values()].map((x) => [x.codigo, x])).values()]);
+  if (aulaDeNorma.size) resumen.notas.push(`${aulaDeNorma.size} asignación(es) de ESO con aula deducida por las normas del centro (tecnología, informática, pabellón, aula propia).`);
+
   for (const a of asignaciones) {
     const r = a;
+    const porNorma = aulaDeNorma.get(a.id);
     filasAsig.push({
       id: a.id,
       periodoId,
@@ -351,8 +373,8 @@ export async function importarBloques(
       //    leyenda ('Otros', 'AUX'): sin esto la celda caía en el nombre de la actividad y
       //    ponía 'Clase', perdiendo lo único que decía el fichero.
       etiqueta: r.materiaId ? r.detalle : r.crudo.slice(0, 120),
-      espacioId: r.aulaCodigo ? (espacioPorCodigo.get(r.aulaCodigo) ?? null) : null,
-      aula: r.aulaCodigo,
+      espacioId: r.aulaCodigo ? (espacioPorCodigo.get(r.aulaCodigo) ?? null) : (porNorma ? (espacioDeNorma.get(porNorma.codigo) ?? null) : null),
+      aula: r.aulaCodigo ?? porNorma?.codigo ?? null,
       origen: 'importado',
     });
     for (const g of a.grupos) filasGrupo.push({ asignacionId: a.id, curso: g.curso, letra: g.letra });
@@ -522,6 +544,115 @@ export async function importarBloques(
   await limpiarMateriasHuerfanas();
 
   return resumen;
+}
+
+/** Crea los espacios que falten (por código) y devuelve el mapa código → id. */
+async function asegurarEspaciosDeNormas(aulas: readonly AulaDeNorma[]): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  if (aulas.length === 0) return mapa;
+  const codigos = aulas.map((a) => a.codigo);
+  const existentes = await db.select({ id: horEspacios.id, codigo: horEspacios.codigo }).from(horEspacios).where(inArray(horEspacios.codigo, codigos));
+  for (const e of existentes) mapa.set(e.codigo, e.id);
+  const faltan = aulas.filter((a) => !mapa.has(a.codigo));
+  if (faltan.length) {
+    const creados = await db
+      .insert(horEspacios)
+      .values(faltan.map((a) => ({ codigo: a.codigo, nombre: a.nombre, tipo: a.tipo, admiteSolapes: a.admiteSolapes })))
+      .onConflictDoNothing()
+      .returning({ id: horEspacios.id, codigo: horEspacios.codigo });
+    for (const e of creados) mapa.set(e.codigo, e.id);
+    // Si otra importación los creó a la vez, `onConflictDoNothing` no los devuelve: se leen.
+    const sinId = faltan.filter((a) => !mapa.has(a.codigo)).map((a) => a.codigo);
+    if (sinId.length) {
+      for (const e of await db.select({ id: horEspacios.id, codigo: horEspacios.codigo }).from(horEspacios).where(inArray(horEspacios.codigo, sinId))) mapa.set(e.codigo, e.id);
+    }
+  }
+  return mapa;
+}
+
+export interface ResumenAulasEso {
+  /** Asignaciones de ESO miradas (sin aula, importadas). */
+  miradas: number;
+  /** Cuántas reciben aula, por aula. */
+  porAula: { codigo: string; nombre: string; asignaciones: number }[];
+  /** Las que se quedan sin aula (varios grupos sin norma, horas que no son clase). */
+  sinAula: number;
+  aplicadas: boolean;
+}
+
+/**
+ * Pone aula a las clases de ESO que ya están importadas, con las normas del centro, **sin
+ * reimportar**: el export de la ESO no trae aula y reimportar rehace todo el horario. Solo toca
+ * lo importado que NO tiene aula (lo que alguien haya puesto a mano, o lo que traía el fichero,
+ * no se pisa), y es idempotente: lanzarlo dos veces deja lo mismo. Con `aplicar: false` solo cuenta.
+ */
+export async function aplicarAulasEso(periodoId: string, aplicar: boolean): Promise<ResumenAulasEso> {
+  const filas = await db
+    .select({
+      id: horAsignaciones.id,
+      actividad: horActividades.codigo,
+      detalle: horAsignaciones.etiqueta,
+      materia: horMaterias.nombre,
+      abreviatura: horMaterias.abreviatura,
+    })
+    .from(horAsignaciones)
+    .innerJoin(horActividades, eq(horActividades.id, horAsignaciones.actividadId))
+    .leftJoin(horMaterias, eq(horMaterias.id, horAsignaciones.materiaId))
+    .where(
+      and(
+        eq(horAsignaciones.periodoId, periodoId),
+        eq(horAsignaciones.origen, 'importado'),
+        isNull(horAsignaciones.espacioId),
+        isNull(horAsignaciones.aula),
+        inArray(horAsignaciones.id, db.select({ id: horAsignacionGrupos.asignacionId }).from(horAsignacionGrupos)),
+      ),
+    );
+  const grupos = filas.length
+    ? await db
+        .select({ asignacionId: horAsignacionGrupos.asignacionId, curso: horAsignacionGrupos.curso, letra: horAsignacionGrupos.letra })
+        .from(horAsignacionGrupos)
+        .where(inArray(horAsignacionGrupos.asignacionId, filas.map((f) => f.id)))
+    : [];
+  const gruposDe = new Map<string, { curso: string; letra: string | null }[]>();
+  for (const g of grupos) gruposDe.set(g.asignacionId, [...(gruposDe.get(g.asignacionId) ?? []), { curso: g.curso, letra: g.letra }]);
+
+  const esDeEso = filas.filter((f) => (gruposDe.get(f.id) ?? []).some((g) => etapaDeCursoHorario(g.curso) === 'ESO'));
+  const porAula = new Map<string, { aula: AulaDeNorma; ids: string[] }>();
+  let sinAula = 0;
+  for (const f of esDeEso) {
+    const aula = aulaEsoPorNormas({
+      grupos: gruposDe.get(f.id) ?? [],
+      actividadCodigo: f.actividad,
+      materiaNombre: f.materia,
+      materiaAbreviatura: f.abreviatura,
+      // Con materia, la etiqueta es el detalle de la hora (el ámbito de PDC); sin ella es el texto crudo.
+      detalle: f.materia ? f.detalle : null,
+    });
+    if (!aula) { sinAula++; continue; }
+    const previa = porAula.get(aula.codigo);
+    if (previa) previa.ids.push(f.id);
+    else porAula.set(aula.codigo, { aula, ids: [f.id] });
+  }
+
+  if (aplicar && porAula.size) {
+    const espacios = await asegurarEspaciosDeNormas([...porAula.values()].map((x) => x.aula));
+    for (const { aula, ids } of porAula.values()) {
+      const espacioId = espacios.get(aula.codigo);
+      if (!espacioId) continue;
+      for (const t of trozos(ids)) {
+        await db
+          .update(horAsignaciones)
+          .set({ espacioId, aula: aula.codigo, updatedAt: new Date() })
+          .where(and(inArray(horAsignaciones.id, t), isNull(horAsignaciones.espacioId), isNull(horAsignaciones.aula)));
+      }
+    }
+  }
+  return {
+    miradas: esDeEso.length,
+    porAula: [...porAula.values()].map((x) => ({ codigo: x.aula.codigo, nombre: x.aula.nombre, asignaciones: x.ids.length })).sort((a, b) => b.asignaciones - a.asignaciones),
+    sinAula,
+    aplicadas: aplicar,
+  };
 }
 
 /**

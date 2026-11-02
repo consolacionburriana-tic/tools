@@ -722,3 +722,54 @@ describe('reubicarManuales', () => {
     expect(r.perdidas.map((p) => p.asignacionId)).toEqual(['c', 'd']);
   });
 });
+
+// ─── Aulas de la ESO por las normas del centro ───────────────────────────────
+import { aulaEsoPorNormas } from '@/lib/horarios';
+
+describe('aulaEsoPorNormas: el export de la ESO no trae aula', () => {
+  const g = (curso: string, letra: string | null) => ({ curso, letra });
+  const clase = (grupos: { curso: string; letra: string | null }[], nombre: string | null, abr: string | null, detalle: string | null = null, actividadCodigo = 'clase') => ({
+    grupos, actividadCodigo, materiaNombre: nombre, materiaAbreviatura: abr, detalle,
+  });
+  const cod = (a: ReturnType<typeof clase>) => aulaEsoPorNormas(a)?.codigo ?? null;
+
+  it('tecnología al aula de tecnología (también la hora de tecnología de un ámbito de PDC)', () => {
+    expect(cod(clase([g('1ESO', 'A')], 'Tecnologia y Digitalización', 'TYD'))).toBe('TEC');
+    expect(cod(clase([g('3ESO', 'PDC')], 'Ámbito Práctico', 'APR', 'Tecnología'))).toBe('TEC');
+    // La hora de Digitalización del ámbito no es tecnología: aula propia del PDC.
+    expect(cod(clase([g('4ESO', 'PDC')], 'Ámbito Práctico', 'APR', 'Digitalización'))).toBe('A-4ESOPDC');
+  });
+
+  it('PIAR, TRDR y el taller de profundización de 4º, al aula de informática', () => {
+    expect(cod(clase([g('2ESO', 'A')], 'Programación, inteligencia artificial y robótica', 'PIAR'))).toBe('INFO');
+    expect(cod(clase([g('1ESO', 'A'), g('1ESO', 'B')], 'Taller de relaciones digitales responsables', 'TRDIG'))).toBe('INFO');
+    expect(cod(clase([g('4ESO', 'A'), g('4ESO', 'B'), g('4ESO', 'PDC')], 'Taller de profundización', 'TF'))).toBe('INFO');
+    // El taller de profundización solo es de 4º: en otro curso no lleva norma.
+    expect(cod(clase([g('3ESO', 'A')], 'Taller de profundización', 'TF'))).toBe('A-3ESOA');
+  });
+
+  it('la educación física, siempre en el pabellón (aunque junte grupos)', () => {
+    expect(cod(clase([g('2ESO', 'B')], 'Educación Física', 'EFI'))).toBe('POLI');
+    expect(cod(clase([g('3ESO', 'A'), g('3ESO', 'PDC')], 'Educació Física', 'EFI'))).toBe('POLI');
+  });
+
+  it('el resto, en el aula propia del grupo, y la música de 1º y 2º también (lo de «a veces» se anota a mano)', () => {
+    const a = aulaEsoPorNormas(clase([g('1ESO', 'A')], 'Matemáticas', 'MAT'))!;
+    expect(a).toEqual({ codigo: 'A-1ESOA', nombre: 'Aula 1ESO A', tipo: 'aula', admiteSolapes: false });
+    expect(cod(clase([g('3ESO', 'PDC')], 'Ámbito Científico', 'ACT', 'Matemáticas'))).toBe('A-3ESOPDC');
+    expect(cod(clase([g('2ESO', 'B')], 'Música', 'MUS'))).toBe('A-2ESOB');
+    expect(cod(clase([g('4ESO', 'A')], 'Tutoría', 'TUT', null, 'tutoria'))).toBe('A-4ESOA');
+  });
+
+  it('una clase que junta grupos y no tiene norma se queda sin aula (no tiene «aula propia»)', () => {
+    expect(cod(clase([g('4ESO', 'A'), g('4ESO', 'B')], 'Matemáticas B', 'MAT B'))).toBeNull();
+    expect(cod(clase([g('4ESO', 'A'), g('4ESO', 'B')], 'Digitalización', 'DIG'))).toBeNull();
+  });
+
+  it('lo que no es ESO o no es clase no se toca', () => {
+    expect(cod(clase([g('3PRI', 'A')], 'Educació Física', 'EFI'))).toBeNull();
+    expect(cod(clase([g('3INF', 'A')], 'Lu', 'Lu'))).toBeNull();
+    expect(cod(clase([g('2ESO', 'A')], null, null, null, 'apoyo_pt'))).toBeNull();
+    expect(cod(clase([], 'Matemáticas', 'MAT'))).toBeNull();
+  });
+});

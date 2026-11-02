@@ -153,6 +153,46 @@ export const CONFIGURACION = {
       ESO: { dias: [1], horaInicio: '16:00', horaFin: '17:00', etiqueta: 'Reunión de etapa' },
       EP: { dias: [2, 4], horaInicio: '12:30', horaFin: '13:30', etiqueta: 'Reunión de etapa' },
     } as Record<string, { dias: readonly number[]; horaInicio: string; horaFin: string; etiqueta: string }>,
+
+    /**
+     * Las aulas de la ESO. El export de Educamos de la ESO NO trae aula, así que se deducen con
+     * las normas de Consolación (David, 2-nov-2026), que se aplican al importar y con
+     * `pnpm horarios:aulas` sobre lo que ya hay:
+     *
+     *  · Tecnología → el aula de tecnología.
+     *  · PIAR I y II, TRDR (la optativa de informática) y el Taller de profundización de 4º →
+     *    el aula de informática.
+     *  · Educación Física → el pabellón, siempre.
+     *  · El resto, en el aula propia del grupo (también las tutorías). Una clase que junta a
+     *    varios grupos (una optativa de 4º A y B) no tiene aula propia: se queda sin aula.
+     *  · Música de 1º y 2º: a veces en el aula de música, compartida con primaria. Como es «a
+     *    veces», sale en el aula propia y la excepción se anota a mano.
+     *  · El francés a veces también va ahí, pero no está puesto en el horario.
+     *
+     * `materias` casa con la **abreviatura** de la materia (la raíz del código de Educamos: `PIAR`
+     * vale para `PIAR2` y `PIAR3`) o con su **nombre** (sin tildes ni mayúsculas, por el principio).
+     * `detalles` es lo mismo para la hora de un ámbito de PDC (`Ámbito Práctico` → `Tecnología`).
+     * `cursos`, si está, limita la norma a esos cursos. Gana la primera norma que casa.
+     */
+    aulasEso: {
+      aulas: {
+        TEC: { nombre: 'Aula de tecnología', tipo: 'aula', admiteSolapes: false },
+        INFO: { nombre: 'Aula de informática', tipo: 'aula', admiteSolapes: false },
+        // El pabellón es el polideportivo de primaria (POLI): una sola sala, y caben varias clases.
+        POLI: { nombre: 'Polideportivo', tipo: 'pista', admiteSolapes: true },
+      } as Record<string, { nombre: string; tipo: string; admiteSolapes: boolean }>,
+      normas: [
+        { aula: 'TEC', materias: ['TYD', 'Tecnología y Digitalización', 'Tecnología'], detalles: ['Tecnología'] },
+        {
+          aula: 'INFO',
+          materias: ['PIAR', 'Programación, inteligencia artificial y robótica', 'TRDR', 'TRDIG', 'Taller de relaciones digitales'],
+        },
+        { aula: 'INFO', materias: ['TF', 'Taller de profundización'], cursos: ['4ESO'] },
+        { aula: 'POLI', materias: ['EFI', 'Educación Física'] },
+      ] as { aula: string; materias: string[]; detalles?: string[]; cursos?: string[] }[],
+      /** El resto de clases de un solo grupo van a su aula propia. */
+      propia: true,
+    },
   },
 
   /** Sesión del claustro (Auth.js). Ver `src/auth.ts`. */

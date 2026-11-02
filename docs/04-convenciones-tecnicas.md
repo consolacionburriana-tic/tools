@@ -33,6 +33,7 @@ pnpm db:seed:licencias   # seeds puntuales (tsx + dotenv .env.local)
 pnpm tokens:familias     # genera los magic links de las familias de la campaña de licencias
 pnpm db:migrate:abc-nia  # migración puntual: enlaza abc_students con edu_students por NIA
 pnpm horarios:importar <fichero> [--dry]  # importa horarios de Educamos (.docx/.xlsx) a Neon
+pnpm horarios:aulas [--dry]  # pone aula a las clases de ESO ya importadas, con las normas del centro
 ```
 
 ## Variables de entorno

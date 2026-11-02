@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canAccess,
   diffModulos,
+  horariosSoloSuTutoria,
   modulosDe,
   origenModulo,
   MODULES,
@@ -220,5 +221,27 @@ describe('módulos apagados (CONFIGURACION.modulosDesactivados)', () => {
   it('lo demás sigue igual', () => {
     expect(moduloDesactivado('abc')).toBe(false);
     expect(canAccess({ role: 'tutor' }, 'salidas')).toBe(true);
+  });
+});
+
+
+describe('Horarios: el profe raso solo ve su tutoría', () => {
+  it('profe y tutor, sí; quien ve horarios de profes, no', () => {
+    expect(horariosSoloSuTutoria({ role: 'profe' })).toBe(true);
+    expect(horariosSoloSuTutoria({ role: 'tutor' })).toBe(true);
+    for (const role of ['orientacion', 'jefe', 'direccion', 'secretaria', 'tic', 'supertic'] as const) {
+      expect(horariosSoloSuTutoria({ role }), role).toBe(false);
+    }
+  });
+
+  it('un profe al que se le ha dado «horarios de profesorado» lo ve todo; si se le quita, vuelve a su tutoría', () => {
+    expect(horariosSoloSuTutoria({ role: 'profe', modulosExtra: ['horarios-profes'] })).toBe(false);
+    expect(horariosSoloSuTutoria({ role: 'orientacion', modulosBloqueados: ['horarios-profes'] })).toBe(false); // no es profe ni tutor: no cambia
+  });
+
+  it('sin rol o con otro rol (comunicación), nada que restringir', () => {
+    expect(horariosSoloSuTutoria(null)).toBe(false);
+    expect(horariosSoloSuTutoria({ role: null })).toBe(false);
+    expect(horariosSoloSuTutoria({ role: 'comunicacion' })).toBe(false);
   });
 });
