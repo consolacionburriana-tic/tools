@@ -487,6 +487,16 @@ describe('evento de Google Calendar', () => {
     expect(ev.extendedProperties?.private).toEqual({ origen: 'tools-oratorios', sesionId: s.id });
     expect(ev.description).toContain('Sesión 2');
   });
+
+  it('si el profe está sustituido, invita a quien lo cubre (y no repite correos)', () => {
+    const s = sesion({ curso: '4ESO', letra: 'B' });
+    const ev = cuerpoEvento({
+      tipo: ORATORIO,
+      sesion: s,
+      correos: new Map([[ANA.id, ['eva@consolacionburriana.com', 'yo@consolacionburriana.com']]]),
+    });
+    expect(ev.attendees?.map((a) => a.email)).toEqual(['eva@consolacionburriana.com', 'yo@consolacionburriana.com']);
+  });
 });
 
 describe('correo al profe', () => {
@@ -534,6 +544,23 @@ describe('correo al profe', () => {
   it('escapa lo que venga de la BBDD', () => {
     const { html } = correoProfe({ tipoCorreo: 'aviso', nombreCorreo: 'oratorio', textoExtra: null, saludo: '<b>Ana</b>', firma: 'D', items: [item] });
     expect(html).toContain('&lt;b&gt;Ana&lt;/b&gt;');
+  });
+});
+
+describe('correo al sustituto', () => {
+  const item = { fecha: '2026-10-13', horaInicio: '09:50', horaFin: '10:45', clase: '4 ESO B', materia: 'Matemáticas' };
+  const base = { tipoCorreo: 'aviso' as const, nombreCorreo: 'oratorio', textoExtra: null, saludo: 'Eva', firma: 'David', items: [item] };
+
+  it('dice por qué le llega: está sustituyendo a quien tenía la hora', () => {
+    const { html } = correoProfe({ ...base, cubreA: 'Ana García' });
+    expect(html).toContain('estás sustituyendo a Ana García');
+  });
+  it('sin sustitución no añade nada', () => {
+    expect(correoProfe(base).html).not.toContain('sustituyendo');
+    expect(correoProfe({ ...base, cubreA: null }).html).not.toContain('sustituyendo');
+  });
+  it('escapa el nombre', () => {
+    expect(correoProfe({ ...base, cubreA: '<b>x</b>' }).html).not.toContain('<b>x</b>');
   });
 });
 

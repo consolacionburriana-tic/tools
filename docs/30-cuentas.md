@@ -1,6 +1,6 @@
 # Correos y grupos · las cuentas de Google cruzadas con Educamos
 
-**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (en `/gestion/cuentas` desde el 20-oct-2026; lectura de Google probada en real; crear, mover, suspender y grupos escritos y sin estrenar: faltan tres scopes en la delegación, ver abajo)
+**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (en `/gestion/cuentas` desde el 20-oct-2026; lectura de Google probada en real; crear, mover, suspender y grupos escritos y sin estrenar; los tres scopes ya están delegados desde el 2-nov-2026)
 
 Pedido por David el 20-oct-2026. Ruta: `/gestion/cuentas` · módulos `cuentas` (gestionar: SuperTIC y TIC) y
 `cuentas-ver` (solo ver: secretaría). `cuentas` está en `MODULOS_SENSIBLES`: crea, suspende y cambia
@@ -13,6 +13,16 @@ De ese cruce sale todo lo que hay que hacer, y se hace desde aquí; lo que no, c
 esa persona en la consola.
 
 ---
+
+## Sustituciones: sugerir los grupos del titular (2-nov-2026)
+
+En «Por hacer», si hay sustituciones vigentes (`docs/02-integracion-educamos.md` → «Sustituciones»),
+una tarjeta lista quién sustituye a quién con «Ver grupos»: lee de Google en cuáles está el titular
+(`gruposDeMiembro`) y se marca **a mano** en cuáles entra el sustituto. Los grupos con reglas en
+modo «añadir y quitar» salen sin casilla (el próximo «Aplicar» lo sacaría; se arregla con «Correos
+fijos»). Se anota en el registro como `grupo-anadir`. No quita al sustituto cuando acaba la
+sustitución. La **lectura** está probada con Google real (2-nov-2026: los grupos del titular y del sustituto
+se leen bien). **Añadir** al sustituto a un grupo (la escritura) sigue sin estrenar.
 
 ## Lo que se encontró el primer día (20-oct-2026, solo lectura)
 
@@ -183,7 +193,7 @@ deducen de dónde están las cuentas y **no salen las vacías** (por ejemplo «5
 - [x] La importación de Educamos no pisa el correo del colegio de un profe (21-oct-2026)
 
 ### Fase 2 · puesta en marcha (David)
-- [ ] Añadir los tres scopes a la delegación («Permisos» en verde)
+- [x] Añadir los tres scopes a la delegación («Permisos» en verde) *(hecho por David y comprobado el 2-nov-2026: leer, usuarios, 54 unidades y grupos, los cuatro en verde)*
 - [ ] Confirmar en Unidades a qué unidad va cada clase (crear «5ºA» y decidir dónde va el PDC)
 - [ ] Repasar las 12 «¿Es su cuenta?» antes de crear
 - [ ] Crear los correos de 3 años y del resto

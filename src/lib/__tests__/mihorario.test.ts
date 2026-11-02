@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CeldaHorario } from '@/lib/horarios';
 import {
+  claveExportacion,
   colorDeCeldaGoogle,
   colorIdsPorDefecto,
   construirEventoGoogle,
@@ -280,5 +281,17 @@ describe('color del evento en Google Calendar', () => {
     expect(colorDeCeldaGoogle(c, { 'materia:m1': '4' }, porDefecto)).toBe('4');
     expect(colorDeCeldaGoogle(c, { 'materia:m1': '99' }, porDefecto)).toBe('9');
     expect(colorDeCeldaGoogle(c, {}, porDefecto)).toBe('9');
+  });
+});
+
+describe('claveExportacion (exportar el horario de a quien sustituyes)', () => {
+  it('tu horario se marca con el periodo, como siempre', () => {
+    expect(claveExportacion('p1')).toBe('p1');
+    expect(claveExportacion('p1', null)).toBe('p1');
+  });
+  it('el de otra persona lleva su marca y NO coincide con la tuya (reexportar uno no borra el otro)', () => {
+    expect(claveExportacion('p1', 'alejandro')).toBe('p1~alejandro');
+    expect(claveExportacion('p1', 'alejandro')).not.toBe(claveExportacion('p1'));
+    expect(claveExportacion('p1', 'alejandro')).not.toBe(claveExportacion('p1', 'eva'));
   });
 });

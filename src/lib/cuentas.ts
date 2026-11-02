@@ -1174,6 +1174,19 @@ export const MODO_GRUPO_AYUDA: Record<ModoGrupo, string> = {
   'solo-anadir': 'Entra quien falta y no sale nadie (para grupos donde también se añade gente a mano)',
 };
 
+/**
+ * Por qué NO se puede meter a mano a alguien en un grupo (sustituciones, `null` = se puede).
+ * Un grupo que se mantiene con reglas en modo «añadir y quitar» deja de tener a quien no
+ * cumpla las reglas en el siguiente «Aplicar»: añadirlo a mano sería deshacerse solo.
+ */
+export function motivoGrupoBloqueado(g: { gestionado: boolean; modo: ModoGrupo | null; yaEsta: boolean }): string | null {
+  if (g.yaEsta) return 'Ya está en el grupo';
+  if (g.gestionado && g.modo === 'exacto') {
+    return 'Lo mantienen reglas que añaden y quitan: el próximo «Aplicar» lo sacaría. Si quieres que se quede, añádelo en «Correos fijos» del grupo.';
+  }
+  return null;
+}
+
 export interface ReglasGrupo {
   fuentes: FuenteGrupo[];
   /** Correos que están siempre: de fuera del colegio, otros grupos… */

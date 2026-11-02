@@ -18,6 +18,14 @@ quedan, porque hay permisos guardados por persona).
 
 ---
 
+## Sustituciones (2-nov-2026)
+
+Si el profe al que se le quita la hora está **sustituido** en ese momento
+(`docs/02-integracion-educamos.md` → «Sustituciones»), el correo de aviso y la invitación de Google
+Calendar van a quien lo cubre, y el correo lo dice («ahora estás sustituyendo a…»). La invitación se
+fija al confirmar: si la sustitución empieza después, el evento sigue invitando al titular hasta que
+se mueva o se reconfirme. Resuelto con `destinatariosDeProfes()` de `sustituciones-server.ts`.
+
 ## Estado: plan funcional ✅ · plan técnico ✅ · implementado 🟡 (30-sep-2026; las **Sesiones del abanico**, 4-oct-2026; el **Taller de Pensamiento Computacional**, 19-oct-2026)
 
 Código entero escrito y **probado contra Neon y contra Google Calendar de verdad**, con sesión de

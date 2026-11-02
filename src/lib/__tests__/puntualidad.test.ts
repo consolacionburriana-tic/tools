@@ -182,4 +182,9 @@ describe('destinatariosDelAviso', () => {
     expect(destinatariosDelAviso([ana], 't-ana')).toEqual([ana]);
     expect(destinatariosDelAviso([ana], null)).toEqual([ana]);
   });
+
+  it('si su tutor personal está sustituido, el aviso va a quien lo sustituye (no a toda la clase)', () => {
+    const eva = { eduTeacherId: 't-eva', email: 'eva@colegio.es', sustituyeA: ['t-luis'] };
+    expect(destinatariosDelAviso([ana, eva], 't-luis')).toEqual([eva]);
+  });
 });

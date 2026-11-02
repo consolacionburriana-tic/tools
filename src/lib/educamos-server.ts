@@ -7,6 +7,7 @@ import {
   eduGuardians,
   eduStudentGuardians,
   eduStudents,
+  eduSustituciones,
   eduSyncRuns,
   eduTeachers,
   licCampaigns,
@@ -30,6 +31,9 @@ import {
   type SyncOpciones,
   type SyncPlan,
 } from '@/lib/educamos';
+import { candidatoDeExtra, planSustitucionesEducamos, type CandidatoSustituto, type ProfeParaTitular } from '@/lib/sustituciones';
+import { resumenDePlan, sentenciasDePlan, type ResumenSustituciones } from '@/lib/sustituciones-server';
+import { hoyISO } from '@/lib/tableros';
 
 // Guard del módulo en UN solo helper (rol con módulo 'educamos').
 export async function isEducamosAdmin(): Promise<boolean> {
@@ -465,10 +469,20 @@ export async function aplicarSyncProfesores(input: {
   formato: string;
   parseWarnings?: string[];
   dryRun?: boolean;
-}): Promise<{ altas: number; cambios: number; sinCambios: number; bajas: number; errores: string[] }> {
+}): Promise<{
+  altas: number;
+  cambios: number;
+  sinCambios: number;
+  bajas: number;
+  errores: string[];
+  sustituciones: ResumenSustituciones;
+}> {
   const { rows, filename, formato, dryRun } = input;
   const errores = [...(input.parseWarnings ?? [])];
-  const existentes = await db.select().from(eduTeachers);
+  const [existentes, sustExistentes] = await Promise.all([
+    db.select().from(eduTeachers),
+    db.select().from(eduSustituciones),
+  ]);
   const porClave = new Map<string, EduTeacher>();
   for (const t of existentes) {
     for (const clave of [
@@ -484,6 +498,11 @@ export async function aplicarSyncProfesores(input: {
   const ahora = new Date();
   const statements: BatchItem<'pg'>[] = [];
   let altas = 0, cambios = 0, sinCambios = 0, bajas = 0;
+  // Quién sustituye a quién según este fichero (se resuelve al final, con todos los profes ya a la vista).
+  const candidatos: CandidatoSustituto[] = [];
+  const paraTitular = new Map<string, ProfeParaTitular>(
+    existentes.map((t) => [t.id, { id: t.id, nombre: t.nombre, apellido1: t.apellido1, apellido2: t.apellido2, active: t.active }]),
+  );
 
   for (const r of rows) {
     const existente =
@@ -515,12 +534,18 @@ export async function aplicarSyncProfesores(input: {
       // Etapa: en tutores se deriva de la clase; en no-tutores se deja a mano (null no pisa).
       etapa: r.esTutor ? etapaDeCurso(r.claseTutor) : null,
     };
+    // El id de un alta se fija aquí (no lo deja a la BBDD) para que una sustitución del mismo
+    // fichero pueda apuntar a ella dentro del mismo batch.
+    const idProfe = existente?.id ?? crypto.randomUUID();
+    paraTitular.set(idProfe, { id: idProfe, nombre: r.nombre, apellido1: r.apellido1, apellido2: r.apellido2, active: activo });
+    candidatos.push(candidatoDeExtra(idProfe, r.extra, { fechaAlta: r.fechaAlta, fechaBaja: r.fechaBaja }));
     if (!existente) {
       altas++;
       if (!activo) bajas++;
       statements.push(
         db.insert(eduTeachers).values({
           ...campos,
+          id: idProfe,
           active: activo,
           extra: Object.keys(r.extra).length ? r.extra : null,
           lastSyncedAt: ahora,
@@ -554,15 +579,30 @@ export async function aplicarSyncProfesores(input: {
     }
   }
 
-  const resumen = { altas, cambios, sinCambios, bajas, errores };
+  // Sustituciones: PROF. SUSTITUTO + PROF. TITULAR → `edu_sustituciones` (lo manual no se toca).
+  // Los avisos (titular que no se encuentra…) salen junto a los demás del fichero.
+  const planSust = planSustitucionesEducamos(candidatos, [...paraTitular.values()], sustExistentes, hoyISO(ahora));
+  const sustituciones = resumenDePlan(planSust);
+  errores.push(...planSust.avisos);
+
+  const resumen = { altas, cambios, sinCambios, bajas, errores, sustituciones };
   if (!dryRun) {
+    statements.push(...sentenciasDePlan(planSust, ahora));
     statements.push(
       db.insert(eduSyncRuns).values({
         tipo: 'profesorado',
         filename,
         formato,
         quienEmail: (await getSessionUser())?.email ?? null,
-        resumen: { altas, cambios, desactivados: bajas, conflictosResueltos: 0, sinCambios, errores },
+        resumen: {
+          altas,
+          cambios,
+          desactivados: bajas,
+          conflictosResueltos: 0,
+          sinCambios,
+          errores,
+          sustituciones: { nuevas: sustituciones.nuevas, actualizadas: sustituciones.actualizadas, apagadas: sustituciones.apagadas },
+        },
       }),
     );
     await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth-guards';
-import { abreviaturaDeCelda, colorDeCeldaGoogle, colorIdsPorDefecto, construirEventoGoogle, emojiDeCelda, rangoExportacion, unirSesionesSeguidas, type RangoCurso } from '@/lib/mihorario';
+import { abreviaturaDeCelda, claveExportacion, colorDeCeldaGoogle, colorIdsPorDefecto, construirEventoGoogle, emojiDeCelda, rangoExportacion, unirSesionesSeguidas, type RangoCurso } from '@/lib/mihorario';
 import { getCeldas, getFranjasDeProfe, getPeriodos } from '@/lib/horarios-server';
 import { calendarConfigurado, crearEventos, borrarEventosDeOrigen } from '@/lib/mihorario-google';
+import { titularesCubiertosPor } from '@/lib/sustituciones-server';
 import { getFestivos, getPreferencias, getProfePorEmail, getUltimaExportacion, registrarExportacion } from '@/lib/mihorario-server';
 
 export const dynamic = 'force-dynamic';
@@ -35,12 +36,23 @@ export async function POST(req: Request) {
   const periodo = periodos.find((p) => p.id === periodoId);
   if (!periodo) return NextResponse.json({ error: 'Ese periodo no existe' }, { status: 404 });
 
-  const [celdasSueltas, franjas, preferencias, festivos] = await Promise.all([
-    getCeldas(periodoId, 'profe', profe.id),
-    getFranjasDeProfe(periodoId, profe.id),
+  // ¿Su horario, o el de a quien sustituye? El segundo solo vale si la sustitución está vigente
+  // (se comprueba aquí, no se fía del navegador) y va a SU calendario con otra marca.
+  const deProfeId = body.deProfeId ? String(body.deProfeId) : null;
+  if (deProfeId && !(await titularesCubiertosPor(profe.id)).some((t) => t.id === deProfeId)) {
+    return NextResponse.json({ error: 'Ahora mismo no estás sustituyendo a esa persona' }, { status: 403 });
+  }
+  const horarioDe = deProfeId ?? profe.id;
+  const marca = claveExportacion(periodoId, deProfeId);
+
+  const [celdasTodas, franjas, preferencias, festivos] = await Promise.all([
+    getCeldas(periodoId, 'profe', horarioDe),
+    getFranjasDeProfe(periodoId, horarioDe),
     getPreferencias(profe.id),
     getFestivos(periodo.academicYear),
   ]);
+  // Del horario de otra persona se lleva lo importado: lo que ella se haya anotado a mano es suyo.
+  const celdasSueltas = deProfeId ? celdasTodas.filter((c) => c.origen !== 'manual') : celdasTodas;
 
   // "Todo lo que tenga el profesor": lectivas y no lectivas, guardias, reuniones,
   // atención a familias... El recreo y el comedor no aparecen aquí porque no son
@@ -65,7 +77,7 @@ export async function POST(req: Request) {
         colorId: colorDeCeldaGoogle(c, preferencias.colores, colorPorDefecto),
         periodo: rango,
         festivos: rangoFestivos,
-        periodoId,
+        periodoId: marca,
       }),
     )
     .filter((r) => r.primeraFecha !== null);
@@ -95,9 +107,9 @@ export async function POST(req: Request) {
 
   // Reexportar = borrar lo de este periodo y volver a crear, igual que el importador de
   // horarios: es una foto completa, no un diario de cambios.
-  await borrarEventosDeOrigen(buzon, calendarioGoogleId, periodoId);
+  await borrarEventosDeOrigen(buzon, calendarioGoogleId, marca);
   const { creados, errores } = await crearEventos(buzon, calendarioGoogleId, construidos.map((r) => r.evento));
-  await registrarExportacion({ eduTeacherId: profe.id, periodoId, calendarioGoogleId, eventosCreados: creados });
+  await registrarExportacion({ eduTeacherId: profe.id, periodoId, calendarioGoogleId, eventosCreados: creados, deProfeId });
 
   return NextResponse.json({ previa, resumen: { creados, errores, calendarioGoogleId } });
 }
@@ -112,6 +124,6 @@ export async function GET(req: Request) {
   const periodoId = new URL(req.url).searchParams.get('periodoId');
   if (!periodoId) return NextResponse.json({ error: 'Falta el periodo' }, { status: 400 });
 
-  const ultima = await getUltimaExportacion(profe.id, periodoId);
+  const ultima = await getUltimaExportacion(profe.id, periodoId, new URL(req.url).searchParams.get('deProfeId'));
   return NextResponse.json({ ultima });
 }

@@ -24,6 +24,7 @@ import { Cifra, Cifras } from '@/components/ui/cifra';
 import { Etiqueta } from '@/components/ui/etiqueta';
 import { Tarjeta, TarjetaCabecera } from '@/components/ui/tarjeta';
 import { fecha } from './comun';
+import { SustitucionesGrupos } from './sustituciones';
 import type { Filtro, Quien } from './lista';
 
 export function PorHacer({
@@ -226,6 +227,8 @@ export function PorHacer({
           }
         />
       </Tarjeta>
+
+      <SustitucionesGrupos sustituciones={estado.sustituciones} puedeGestionar={puedeGestionar} />
 
       {hechas.length > 0 && (
         <ul aria-label="Al día" className="space-y-1.5 text-sm text-zinc-500 dark:text-zinc-400">

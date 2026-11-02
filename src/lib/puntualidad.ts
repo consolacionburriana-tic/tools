@@ -25,12 +25,15 @@ export const RETRASOS_POR_CONSECUENCIA: number = CONFIGURACION.puntualidad.retra
  * Un aviso nunca se queda sin destinatario: si el tutor personal ya no tutoriza esa clase o
  * no tiene correo, se cae a la clase entera.
  */
-export function destinatariosDelAviso<T extends { eduTeacherId: string; email: string | null }>(
+export function destinatariosDelAviso<T extends { eduTeacherId: string; email: string | null; sustituyeA?: string[] }>(
   tutoresDeLaClase: T[],
   tutorPersonal: string | null,
 ): T[] {
   if (!tutorPersonal) return tutoresDeLaClase;
-  const suyo = tutoresDeLaClase.filter((t) => t.eduTeacherId === tutorPersonal && t.email);
+  // Si su tutor personal está de baja y lo cubre alguien (`sustituyeA`), el aviso va a quien lo cubre.
+  const suyo = tutoresDeLaClase.filter(
+    (t) => (t.eduTeacherId === tutorPersonal || t.sustituyeA?.includes(tutorPersonal)) && t.email,
+  );
   return suyo.length > 0 ? suyo : tutoresDeLaClase;
 }
 

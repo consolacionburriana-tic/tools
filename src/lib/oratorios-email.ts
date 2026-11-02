@@ -23,6 +23,8 @@ export interface DatosCorreo {
   saludo: string; // nombre de pila del profe
   firma: string; // nombre de quien lo lleva
   items: ItemCorreo[];
+  /** Si el correo le llega porque sustituye a alguien: el nombre de quien falta. */
+  cubreA?: string | null;
 }
 
 function esc(t: string): string {
@@ -77,6 +79,7 @@ export function correoProfe(d: DatosCorreo): { subject: string; html: string } {
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2937;max-width:560px;padding:8px 4px;">
     <p style="margin:0 0 12px;">Hola ${esc(d.saludo)},</p>
     <p style="margin:0 0 12px;">${esc(entrada(d))}</p>
+    ${d.cubreA ? `<p style="margin:0 0 12px;font-size:13px;color:#6b7280;">Te lo escribo a ti porque ahora estás sustituyendo a ${esc(d.cubreA)}.</p>` : ''}
     ${d.items.map((i) => bloque(i, tachado)).join('')}
     ${extra}
     <p style="margin:16px 0 0;">${cierre}<br>${esc(d.firma)}</p>

@@ -348,6 +348,32 @@ export const eduTutorias = pgTable('edu_tutorias', {
 export type EduTutoria = typeof eduTutorias.$inferSelect;
 export type NewEduTutoria = typeof eduTutorias.$inferInsert;
 
+// Sustituciones del profesorado: «Ángela Guillamón sustituye a Alejandro Sánchez». Mientras
+// la sustitución está VIGENTE (activa y dentro de sus fechas), el sustituto hereda lo del
+// titular: sus tutorías (avisos, alcance de Alumnado y Puntualidad, destinatarios del ABC) y
+// el horario para el alcance por etapa. Dos orígenes: `educamos` (las columnas PROF.
+// SUSTITUTO + PROF. TITULAR del export de profes, con la vigencia sacada de FECHA ALTA y
+// FECHA BAJA) y `manual` (desde /gestion/profes). El sync solo toca las de origen `educamos`
+// y NUNCA reactiva una que se haya apagado a mano. docs/02-integracion-educamos.md.
+export const eduSustituciones = pgTable('edu_sustituciones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  sustitutoId: uuid('sustituto_id').notNull().references(() => eduTeachers.id),
+  titularId: uuid('titular_id').notNull().references(() => eduTeachers.id),
+  desde: date('desde'), // null = desde siempre
+  hasta: date('hasta'), // null = sin fecha de fin (inclusive)
+  activa: boolean('activa').notNull().default(true), // el interruptor a mano
+  origen: text('origen').notNull().default('manual'), // 'educamos' | 'manual'
+  nota: text('nota'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('edu_sustituciones_par_uq').on(t.sustitutoId, t.titularId),
+  index('edu_sustituciones_titular_idx').on(t.titularId),
+]);
+
+export type EduSustitucion = typeof eduSustituciones.$inferSelect;
+export type NewEduSustitucion = typeof eduSustituciones.$inferInsert;
+
 // Tutor PERSONAL de un alumno concreto. Cuando una clase tiene dos (o tres) tutores, la
 // tutoría del grupo es de todos, pero cada alumno "es" de uno solo: es a esa persona a
 // quien se avisa de lo que le pasa a ese alumno en particular. Una fila por alumno y curso
@@ -400,6 +426,8 @@ export const eduSyncRuns = pgTable('edu_sync_runs', {
     sinCambios?: number;
     tutores?: number;
     vinculos?: number;
+    // Solo en el sync de profesorado: sustituciones que salieron de PROF. SUSTITUTO/TITULAR.
+    sustituciones?: { nuevas: number; actualizadas: number; apagadas: number };
   }>(),
   opciones: jsonb('opciones').$type<Record<string, unknown>>(), // { respetarCursoDe: 'bbdd'|'excel', ... }
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -1781,6 +1809,9 @@ export const mihExportaciones = pgTable('mih_exportaciones', {
   periodoId: uuid('periodo_id').notNull().references(() => horPeriodos.id),
   calendarioGoogleId: text('calendario_google_id').notNull(),
   eventosCreados: integer('eventos_creados').notNull().default(0),
+  // null = exportó SU horario. Con valor: exportó el horario de este profe, al que sustituye
+  // (docs/02-integracion-educamos.md → Sustituciones). Va aparte para que reexportar uno no borre el otro.
+  deProfeId: uuid('de_profe_id').references(() => eduTeachers.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('mih_exportaciones_profe_idx').on(t.eduTeacherId, t.periodoId),

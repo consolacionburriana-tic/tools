@@ -7,7 +7,7 @@ enseña los conflictos, decides, y listo. Es el **hito 1 del roadmap** (ver `pla
 
 ---
 
-## Estado: fases 0-1 + import de profesorado implementados ✅ · faltan pantallas de gestión (Fase 2)
+## Estado: fases 0-1 + import de profesorado + sustituciones implementados ✅ · faltan pantallas de gestión (Fase 2)
 
 La BBDD central ya está poblada (642 alumnos, 97 profes) y Licencias y el Registro ABC
 leen de ella. Quedan las pantallas de gestión (listado con bulk de banco de libros, ficha
@@ -274,6 +274,77 @@ salga un profe = llamar a esos helpers, nunca volver a juntar `[nombre, apellido
       en `/gestion/profes`
 - [x] Enganchado en ASM, cuaderno, Puntualidad, Evaluaciones, ABC, Salidas, Horarios y Usuarios
 - [x] `src/db/sql/profes-nombre-mostrado.sql` *(aplicado en Neon el 9-sep-2026)*
+
+### Sustituciones: «Ángela Guillamón sustituye a Alejandro Sánchez» (2-nov-2026)
+
+El export de profesorado **ya trae** quién sustituye a quién, en dos columnas que hasta ahora
+se guardaban en `edu_teachers.extra` sin que nada las usara:
+
+| Columna de Educamos | Qué dice | Qué hacemos |
+|---|---|---|
+| `PROF. SUSTITUTO` | `TRUE` / `FALSE` | `TRUE` = esta fila es una sustitución |
+| `PROF. TITULAR` | nombre completo de a quién sustituye (`ALEJANDRO SÁNCHEZ GIL`) | se busca en el profesorado por nombre + apellidos, sin acentos ni mayúsculas |
+| `FECHA ALTA` / `FECHA BAJA` | cuándo entró y cuándo se fue | la **vigencia**: `desde` y `hasta` (inclusive) |
+| `PROFESOR COMPARTIDO` | `FALSE` en las 99 filas | no se usa |
+
+Datos reales del 2-nov-2026: 21 filas con titular escrito, de las que **solo 4 son sustituciones en
+curso** (`SUSTITUTO = TRUE` y sin baja); 13 son histórico con baja de años anteriores y 4 llevan el
+titular escrito con `SUSTITUTO = FALSE` (sustitutos que pasaron a plantilla). Esas 17 no crean nada.
+
+Mientras una sustitución está **vigente** (activa y hoy dentro de `[desde, hasta]`, los dos
+opcionales), el sustituto hereda del titular:
+
+- **Tutorías**: a quién se avisa del tercer retraso y demás avisos al tutor
+  (`tutoresDeClase` / `tutoresDeAlumno`): sale el sustituto **en lugar** del titular. Si el tutor
+  personal de un alumno es el titular, el aviso va al sustituto, no a toda la clase.
+- **Alcance «lo mío»** (`clasesDeTutor`): lo que ve en Alumnado y en Puntualidad.
+- **Etapa por horario** (Alumnado): el horario del titular cuenta para las etapas que ve.
+- **Destinatarios sugeridos del ABC**: «Tutor/a de 3PRI A» es el sustituto.
+- **Mi horario** (`/mi-horario`): el sustituto ve el horario del titular con un segmentado «Mi horario /
+  El de Alejandro (sustituyes)» (`?de=`). Si no tiene horario propio, abre directamente el del titular.
+  Ve sus clases importadas y **sus propias notas** (no las personales del titular), puede anotar en
+  los huecos y **exportarlo a su Google Calendar** con una marca distinta a la de su propio horario,
+  para que reexportar o deshacer uno no toque el otro.
+- **Oratorios**: los correos de aviso y la invitación de Google Calendar van a quien cubre, no al
+  titular, con una línea que dice por qué le llega («ahora estás sustituyendo a…»).
+- **Correos y grupos** (`Por hacer` → «Sustituciones»): **solo sugiere**. «Ver grupos» lee de Google
+  en cuáles está el titular y se marca **a mano** en cuáles entra el sustituto; no se añade nada solo.
+  Un grupo con reglas que añaden y quitan sale sin casilla (el próximo «Aplicar» lo sacaría). Al
+  terminar la sustitución, quitarlo es a mano.
+- **No lo hereda, por decisión de David**: el cuaderno de tutor y Dispositivos. **AUTOASM**, anotado
+  para verlo más adelante.
+
+Cómo se guarda y se mantiene: tabla `edu_sustituciones` (`sustituto_id`, `titular_id`, `desde`,
+`hasta`, `activa`, `origen` = `educamos` | `manual`, `nota`; única por par). Lógica pura y testeada
+en `src/lib/sustituciones.ts`; consultas en `sustituciones-server.ts`; pantalla en
+`/gestion/profes` → tarjeta **Sustituciones**.
+
+- El **sync de profesorado** crea y actualiza las de origen `educamos` (y muestra cuántas en la vista
+  previa). Un titular que no se encuentra o que tiene dos fichas con ese nombre **se avisa, no se
+  adivina**. Si Educamos deja de marcarlo como sustituto o cambia de titular, la fila **se apaga**
+  (no se borra: queda de histórico).
+- **El sync nunca reactiva** una que se haya apagado a mano, y **nunca toca las manuales**.
+- Cambiar las fechas a mano de una de Educamos la convierte en manual (si no, el siguiente sync
+  desharía lo decidido). Encender y apagar no cambia el origen.
+- «Releer de Educamos» rehace todo desde lo ya guardado, sin volver a subir el fichero.
+- A mano: «sustituye / a / desde / hasta» (fechas opcionales), para lo que Educamos no sepa.
+
+- [x] Tabla `edu_sustituciones` + `src/db/sql/edu-sustituciones.sql` *(aplicado en Neon el 2-nov-2026)*
+- [x] Lógica pura (vigencia, titular por nombre, plan del sync) con 32 tests
+- [x] El sync de profesorado la crea/actualiza/apaga; vista previa con el recuento y avisos
+- [x] Tarjeta «Sustituciones» en `/gestion/profes`: lista con estado, interruptor, fechas, borrar, apuntar a mano y «Releer de Educamos»
+- [x] Efecto: avisos de Puntualidad, alcance de Alumnado y Puntualidad, destinatarios del ABC
+- [x] Verificado contra Neon con datos reales: 4 sustituciones detectadas sin avisos, idempotente,
+      Ángela Guillamón pasa a ser tutora de 3PRI A y el aviso de esa clase le llega a ella; apagada,
+      programada o caducada no hereda; la relectura no reactiva lo apagado. *(Las 4 filas de la prueba
+      se borraron: la tabla está vacía hasta que se pulse «Releer de Educamos» o se suba el fichero.)*
+- [ ] **David**: tras desplegar, pulsar «Releer de Educamos» en `/gestion/profes` (o resubir el export
+      de profes) para que entren las 4 de ahora, y revisar las decisiones de `00-desarrollos-futuros.md`
+- [x] Mi horario: el sustituto ve el horario del titular con sus propias notas, y lo exporta a su Calendar *(Calendar sin probar con Google real, como el resto de Mi horario)*
+- [x] Oratorios: aviso por correo e invitación de Calendar al sustituto
+- [x] Correos y grupos: sugerir los grupos del titular y elegir a mano *(scopes delegados y lectura probada con Google real el 2-nov-2026; falta
+      estrenar el alta en un grupo)*
+- [ ] AUTOASM: decidir si el sustituto entra en la clase del ASM del titular (anotado, «ya vemos»)
 
 ### Dos campos que el sync deja solo en `extra` (visto el 10-sep-2026)
 
