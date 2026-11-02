@@ -138,7 +138,7 @@ export function inventarioCentro(): SeccionInventario[] {
         },
         {
           nombre: 'Aulas de la ESO',
-          valor: 'Tecnología → aula de tecnología · PIAR, TRDR y taller de profundización de 4º → informática · EF → pabellón · el resto, aula propia',
+          valor: 'Tecnología, informática, pabellón, música (1º-2º), laboratorio, plástica, cada optativa a su aula y el resto en el aula propia del grupo',
           origen: 'codigo',
           donde: 'configuracion.ts → horarios.aulasEso',
           nota: 'El export de Educamos de la ESO no trae aula. Se aplican al importar y con pnpm horarios:aulas.',

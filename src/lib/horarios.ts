@@ -893,16 +893,36 @@ function casaEntradaNorma(entrada: string, abreviatura: string | null, nombre: s
   return limpiarParaNorma(nombre).startsWith(e);
 }
 
+/** Lo que dicen las normas de una clase: el aula de la asignación y, si cambia según el día, la de cada día. */
+export interface AulasDeNormas {
+  /** El aula de la asignación (la de todas sus sesiones salvo las de `porDia`), o `null` si no se sabe. */
+  aula: AulaDeNorma | null;
+  /** Día (1 = lunes) → aula, para las normas que cambian según el día. Pisa a `aula` ese día. */
+  porDia: Map<number, AulaDeNorma>;
+}
+
+type ConfigAulasEso = typeof CONFIGURACION.horarios.aulasEso;
+
+/** El aula de un código de la norma: una de `aulas` o la propia de un grupo (`A-4ESOB`, `A-5PRIB`). */
+function resolverAulaNorma(codigo: string, config: ConfigAulasEso): AulaDeNorma | null {
+  const fija = config.aulas[codigo];
+  if (fija) return { codigo, ...fija };
+  const m = /^A-(\d)(ESO|PRI)(A|B|PDC)$/.exec(codigo);
+  return m ? { codigo, nombre: `Aula ${m[1]}${m[2]} ${m[3]}`, tipo: 'aula', admiteSolapes: false } : null;
+}
+
 /**
- * El aula de una clase de ESO según las normas de Consolación (`CONFIGURACION.horarios.aulasEso`),
- * porque el export de Educamos de la ESO no trae aula. `null` si no se sabe: una clase que no es
- * de ESO, una hora que no es clase ni tutoría, o una clase de varios grupos (una optativa de 4º A
- * y B) sin norma que le toque, que no tiene «aula propia».
+ * Las aulas de una clase de ESO según las normas de Consolación (`CONFIGURACION.horarios.aulasEso`),
+ * porque el export de Educamos de la ESO no trae aula. `null` si no se sabe nada: una clase que no es
+ * de ESO, una hora que no es clase ni tutoría, o una clase de varios grupos (una optativa de 4º A y B)
+ * sin norma que le toque, que no tiene «aula propia».
  *
- * Primero las normas con nombre (tecnología, informática, pabellón) y, si no casa ninguna, el aula
- * propia del grupo. Va aparte de la importación para poder aplicarse también a lo ya importado.
+ * Primero las normas con nombre (tecnología, informática, pabellón, música, laboratorio, optativas…) y,
+ * si no casa ninguna, el aula propia del grupo. Una norma `porDia` (Mates B de 4º A) deja el aula de la
+ * asignación en la propia del grupo y pone la de cada día a sus sesiones. Va aparte de la importación
+ * para poder aplicarse también a lo ya importado.
  */
-export function aulaEsoPorNormas(
+export function aulasEsoPorNormas(
   a: {
     grupos: readonly { curso: string; letra: string | null }[];
     actividadCodigo: string;
@@ -910,29 +930,40 @@ export function aulaEsoPorNormas(
     materiaAbreviatura: string | null;
     detalle: string | null;
   },
-  config: typeof CONFIGURACION.horarios.aulasEso = CONFIGURACION.horarios.aulasEso,
-): AulaDeNorma | null {
+  config: ConfigAulasEso = CONFIGURACION.horarios.aulasEso,
+): AulasDeNormas | null {
   if (a.grupos.length === 0) return null;
   if (a.grupos.some((g) => etapaDeCursoHorario(g.curso) !== 'ESO')) return null;
   if (a.actividadCodigo !== 'clase' && a.actividadCodigo !== 'tutoria') return null;
 
+  const propia = (): AulaDeNorma | null => {
+    if (!config.propia || a.grupos.length !== 1) return null;
+    const { curso, letra } = a.grupos[0];
+    return resolverAulaNorma(`A-${curso}${letra ?? ''}`.toUpperCase(), config);
+  };
+
   for (const n of config.normas) {
     if (n.cursos && !a.grupos.every((g) => n.cursos!.includes(g.curso.toUpperCase()))) continue;
+    if (n.grupos && !a.grupos.every((g) => n.grupos!.includes(`${g.curso}${g.letra ?? ''}`.toUpperCase()))) continue;
     const porMateria = n.materias.some((m) => casaEntradaNorma(m, a.materiaAbreviatura, a.materiaNombre));
     const porDetalle = (n.detalles ?? []).some((d) => limpiarParaNorma(a.detalle).startsWith(limpiarParaNorma(d)));
     if (!porMateria && !porDetalle) continue;
-    const aula = config.aulas[n.aula];
-    return aula ? { codigo: n.aula, ...aula } : null;
-  }
 
-  if (config.propia && a.grupos.length === 1) {
-    const { curso, letra } = a.grupos[0];
-    return {
-      codigo: `A-${curso}${letra ?? ''}`.toUpperCase(),
-      nombre: `Aula ${letra ? `${curso} ${letra}` : curso}`,
-      tipo: 'aula',
-      admiteSolapes: false,
-    };
+    const porDia = new Map<number, AulaDeNorma>();
+    for (const [dia, codigo] of Object.entries(n.porDia ?? {})) {
+      const aula = resolverAulaNorma(codigo, config);
+      if (aula) porDia.set(Number(dia), aula);
+    }
+    const aula = n.aula ? resolverAulaNorma(n.aula, config) : propia();
+    return { aula, porDia };
   }
-  return null;
+  return { aula: propia(), porDia: new Map() };
+}
+
+/** El aula de la asignación según las normas (sin las de cada día): ver `aulasEsoPorNormas`. */
+export function aulaEsoPorNormas(
+  a: Parameters<typeof aulasEsoPorNormas>[0],
+  config: ConfigAulasEso = CONFIGURACION.horarios.aulasEso,
+): AulaDeNorma | null {
+  return aulasEsoPorNormas(a, config)?.aula ?? null;
 }

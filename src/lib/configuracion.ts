@@ -37,6 +37,16 @@ function etapasVisiblesDeEntorno(): readonly Etapa[] {
   return lista.length > 0 ? lista : ['EI', 'EP', 'ESO'];
 }
 
+/** Una norma de aula de la ESO. Ver `CONFIGURACION.horarios.aulasEso`. */
+export interface NormaAulaEso {
+  aula?: string;
+  porDia?: Record<number, string>;
+  materias: string[];
+  detalles?: string[];
+  cursos?: string[];
+  grupos?: string[];
+}
+
 export const CONFIGURACION = {
   /**
    * Etapas que se ofrecen en los **selectores** (ver `etapasVisiblesDeEntorno`). Consolación no tiene
@@ -155,41 +165,79 @@ export const CONFIGURACION = {
     } as Record<string, { dias: readonly number[]; horaInicio: string; horaFin: string; etiqueta: string }>,
 
     /**
-     * Las aulas de la ESO. El export de Educamos de la ESO NO trae aula, así que se deducen con
-     * las normas de Consolación (David, 2-nov-2026), que se aplican al importar y con
-     * `pnpm horarios:aulas` sobre lo que ya hay:
+     * Las aulas de la ESO. El export de Educamos de la ESO NO trae aula, así que se deducen con las
+     * normas de Consolación (David, 2-nov-2026, y su cuadro «Aulas para desdobles y refuerzos
+     * 26-27»), que se aplican al importar y con `pnpm horarios:aulas` sobre lo que ya hay:
      *
-     *  · Tecnología → el aula de tecnología.
-     *  · PIAR I y II, TRDR (la optativa de informática) y el Taller de profundización de 4º →
-     *    el aula de informática.
-     *  · Educación Física → el pabellón, siempre.
-     *  · El resto, en el aula propia del grupo (también las tutorías). Una clase que junta a
-     *    varios grupos (una optativa de 4º A y B) no tiene aula propia: se queda sin aula.
-     *  · Música de 1º y 2º: a veces en el aula de música, compartida con primaria. Como es «a
-     *    veces», sale en el aula propia y la excepción se anota a mano.
-     *  · El francés a veces también va ahí, pero no está puesto en el horario.
+     *  · Tecnología → aula de tecnología. PIAR I y II, TRDR y el Taller de profundización de 4º →
+     *    aula de informática. Educación Física → el pabellón, siempre.
+     *  · **Música de 1º y 2º → aula de música** (compartida con primaria): la base, siempre.
+     *  · Física y Química → laboratorio; Plástica (y Expresión Artística de 4º) → aula de plástica.
+     *    Salen del cuadro de desdobles: las 13 sesiones de FQ de 2º-4º y las 8 de Plástica de 2º y 3º
+     *    coinciden hora a hora con sus columnas.
+     *  · Las **optativas** van cada una a su aula (cuadro de optativas): Francés de 1º → 1º B; Taller de
+     *    matemáticas → 1º A / 2º A; Taller de valenciano → 2º B; Francés de 3º → 3º PDC; Proyecto I → 3º A;
+     *    Comunicación Oral → 3º B; y en 4º, CO, Economía → 4º B; Proyecto, Digitalización, Biología,
+     *    Latín → 4º A; Francés → 4º PDC. **Digitalización NO va a informática** (David).
+     *  · Cuatro cosas cambian **según el día**: Francés de 2º (lunes en el aula de 5º B de primaria,
+     *    viernes en 3º PDC), Mates B de 4º A (lunes 4º PDC, martes 4º B, miércoles 3º A, jueves 2º B) y
+     *    FOL (lunes y miércoles en 5º B de primaria, jueves en 4º B de primaria). Van por sesión.
+     *  · El resto, en el aula propia del grupo (también las tutorías). Una clase que junta a varios
+     *    grupos y no tiene norma se queda sin aula.
+     *  · El francés de 1º a 3º «también va» al aula de música, pero no está puesto en el horario.
      *
      * `materias` casa con la **abreviatura** de la materia (la raíz del código de Educamos: `PIAR`
-     * vale para `PIAR2` y `PIAR3`) o con su **nombre** (sin tildes ni mayúsculas, por el principio).
-     * `detalles` es lo mismo para la hora de un ámbito de PDC (`Ámbito Práctico` → `Tecnología`).
-     * `cursos`, si está, limita la norma a esos cursos. Gana la primera norma que casa.
+     * vale para `PIAR2` y `PIAR3`) si la entrada es corta (hasta 5 letras), o con el **principio del
+     * nombre** (sin tildes ni mayúsculas) si es larga. `detalles` es lo mismo para la hora de un ámbito
+     * de PDC (`Ámbito Práctico` → `Tecnología`). `cursos` o `grupos` (`4ESOA`), si están, limitan la
+     * norma. `aula` es un código de `aulas` o `A-<curso><letra>` (el aula propia de un grupo, también
+     * de primaria: `A-5PRIB`); `porDia` pone un aula distinta a cada día (1 = lunes). Gana la primera
+     * norma que casa, y por eso las específicas van antes.
      */
     aulasEso: {
       aulas: {
         TEC: { nombre: 'Aula de tecnología', tipo: 'aula', admiteSolapes: false },
         INFO: { nombre: 'Aula de informática', tipo: 'aula', admiteSolapes: false },
+        PLAST: { nombre: 'Aula de plástica', tipo: 'aula', admiteSolapes: false },
+        LAB: { nombre: 'Laboratorio', tipo: 'laboratorio', admiteSolapes: false },
+        // Música es la de primaria (MUS): una sola aula compartida.
+        MUS: { nombre: 'Música', tipo: 'aula', admiteSolapes: false },
         // El pabellón es el polideportivo de primaria (POLI): una sola sala, y caben varias clases.
         POLI: { nombre: 'Polideportivo', tipo: 'pista', admiteSolapes: true },
       } as Record<string, { nombre: string; tipo: string; admiteSolapes: boolean }>,
       normas: [
-        { aula: 'TEC', materias: ['TYD', 'Tecnología y Digitalización', 'Tecnología'], detalles: ['Tecnología'] },
+        { aula: 'TEC', materias: ['TYD', 'Tecnología y Digitalización', 'Tecnología'], detalles: ['Tecnología', 'Digitalización'] },
         {
           aula: 'INFO',
           materias: ['PIAR', 'Programación, inteligencia artificial y robótica', 'TRDR', 'TRDIG', 'Taller de relaciones digitales'],
         },
         { aula: 'INFO', materias: ['TF', 'Taller de profundización'], cursos: ['4ESO'] },
         { aula: 'POLI', materias: ['EFI', 'Educación Física'] },
-      ] as { aula: string; materias: string[]; detalles?: string[]; cursos?: string[] }[],
+        { aula: 'MUS', materias: ['MUS', 'Música'], cursos: ['1ESO', '2ESO'] },
+        { aula: 'LAB', materias: ['FIS', 'Física y química'] },
+        { aula: 'PLAST', materias: ['EPV', 'Educación Plástica', 'EX', 'Expresión Artística'] },
+        // Optativas de 1º
+        { aula: 'A-1ESOB', materias: ['SLF', 'Segunda lengua extranjera'], cursos: ['1ESO'] },
+        { aula: 'A-1ESOA', materias: ['TMATE', 'Taller de refuerzo matemáticas'], cursos: ['1ESO'] },
+        // Optativas de 2º
+        { porDia: { 1: 'A-5PRIB', 5: 'A-3ESOPDC' }, materias: ['SLF', 'Segunda lengua extranjera'], cursos: ['2ESO'] },
+        { aula: 'A-2ESOB', materias: ['TVAL', 'Taller de refuerzo Valenciano'], cursos: ['2ESO'] },
+        { aula: 'A-2ESOA', materias: ['TMATE', 'Taller de refuerzo matemáticas'], cursos: ['2ESO'] },
+        // Optativas de 3º
+        { aula: 'A-3ESOPDC', materias: ['SLF', 'Segunda lengua extranjera'], cursos: ['3ESO'] },
+        { aula: 'A-3ESOA', materias: ['PI', 'Proyecto interdisciplinar'], cursos: ['3ESO'] },
+        { aula: 'A-3ESOB', materias: ['CO', 'Comunicación Oral'], cursos: ['3ESO'] },
+        // Optativas de 4º
+        { aula: 'A-4ESOB', materias: ['CCO', 'Competencia Comunicativa Oral'], cursos: ['4ESO'] },
+        { aula: 'A-4ESOPDC', materias: ['SLF', 'Segunda lengua extranjera'], cursos: ['4ESO'] },
+        { aula: 'A-4ESOA', materias: ['PI', 'Proyecto interdisciplinar'], cursos: ['4ESO'] },
+        { porDia: { 1: 'A-4ESOPDC', 2: 'A-4ESOB', 3: 'A-3ESOA', 4: 'A-2ESOB' }, materias: ['MAT B', 'Matemáticas B'], grupos: ['4ESOA'] },
+        { aula: 'A-4ESOA', materias: ['DIG', 'Digitalización'], cursos: ['4ESO'] },
+        { aula: 'A-4ESOB', materias: ['EYE', 'Economía y emprendimiento'], cursos: ['4ESO'] },
+        { aula: 'A-4ESOA', materias: ['BIO', 'Biología y Geología'], cursos: ['4ESO'] },
+        { aula: 'A-4ESOA', materias: ['LAT', 'Latín'], cursos: ['4ESO'] },
+        { porDia: { 1: 'A-5PRIB', 3: 'A-5PRIB', 4: 'A-4PRIB' }, materias: ['FOP', 'Formación y orientación'], cursos: ['4ESO'] },
+      ] as NormaAulaEso[],
       /** El resto de clases de un solo grupo van a su aula propia. */
       propia: true,
     },

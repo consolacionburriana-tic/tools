@@ -676,22 +676,39 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
     Comunicación (que tiene `horarios` sin ser profe ni tutor) no cambia.
 13. **Aulas de la ESO por normas del centro** (el export de la ESO no trae ni una: comprobado en
     `Horarios_ESO_26-27`, ni `Aulas:` ni cuadros «HORARIO DE AULA»). Viven en
-    `CONFIGURACION.horarios.aulasEso` y las aplica `aulaEsoPorNormas()`: **tecnología** → aula de
-    tecnología (incluida la hora de Tecnología de un ámbito de PDC) · **PIAR I y II, TRDR y el Taller de
-    profundización de 4º** → aula de informática · **Educación Física** → el pabellón (`POLI`) · **el
-    resto** → aula propia del grupo (`A-1ESOA`…, también las tutorías y los PDC). Una clase de varios
-    grupos sin norma (una optativa de 4º A y B) se queda sin aula. Se aplican al importar la ESO y, sobre
-    lo ya importado, con **`pnpm horarios:aulas`** (`--dry` cuenta sin escribir; no pisa lo puesto a mano
-    ni lo que traiga el fichero; idempotente).
+    `CONFIGURACION.horarios.aulasEso` y las aplica `aulasEsoPorNormas()`. Primero las de David
+    (2-nov-2026): **tecnología** → aula de tecnología (también la hora de Tecnología o de Digitalización
+    de un ámbito de PDC) · **PIAR I y II, TRDR y el Taller de profundización de 4º** → aula de informática
+    · **Educación Física** → el pabellón (`POLI`) · **Música de 1º y 2º → aula de música, siempre** (la
+    de primaria, `MUS`) · **el resto** → aula propia del grupo (`A-1ESOA`…, también tutorías y PDC).
+14. **El cuadro «Aulas para desdobles y refuerzos 26-27»** (2-nov-2026) añade dos páginas de normas. Se
+    cruzó con las sesiones reales de Neon y casa hora a hora: las **13 sesiones de Física y Química** de
+    2º a 4º están todas en el **laboratorio** y las **8 de Plástica** de 2º y 3º (y las 3 de Expresión
+    Artística de 4º) en el **aula de plástica**; los PDC, en la suya. Y las **optativas**, cada una a su
+    aula: Francés de 1º → 1º B, de 3º → 3º PDC, de 4º → 4º PDC; Taller de matemáticas → 1º A / 2º A; Taller
+    de valenciano → 2º B; Proyecto I → 3º A; Comunicación Oral → 3º B; y en 4º: CO y Economía → 4º B;
+    Proyecto, **Digitalización (no va a informática)**, Biología y Latín → 4º A. Es lo que resuelve «lo de
+    4º A y B»: antes esas optativas, al juntar los dos grupos, se quedaban sin aula.
+    **Cuatro cosas cambian según el día** y van por sesión (`hor_sesiones.espacio_id`, que pisa al de la
+    asignación): Francés de 2º (lunes en el aula de 5º B de primaria, viernes en 3º PDC), **Mates B de 4º A**
+    (lunes 4º PDC, martes 4º B, miércoles 3º A, jueves 2º B) y FOL (lunes y miércoles 5º B de primaria,
+    jueves 4º B de primaria). Las aulas de primaria (`A-5PRIB`) se crean al aplicar.
+    Se aplican al importar la ESO y, sobre lo ya importado, con **`pnpm horarios:aulas`** (`--dry` cuenta
+    sin escribir): recalcula el aula de cada clase de ESO y la deja así, también si ya tenía otra (el aula
+    de la ESO solo sale de las normas); solo toca lo que difiere, no toca lo creado a mano y es idempotente.
+    La pantalla lee el aula de la sesión primero y la de la asignación después, y la pestaña Aula también
+    enseña lo que solo aparece por sesión.
 
 ### Sigue pendiente
 
-- 🟡 **Aulas de ESO que dependen de la persona:** la música de 1º y 2º «a veces» va al aula de música
-  (compartida con primaria) y hoy sale en el aula propia; el francés también iría ahí, pero no está en el
-  horario. Hace falta poder cambiar el aula de una clase a mano (pantalla de espacios, Fase 2). Y dos
-  suposiciones por confirmar: que **el pabellón es el polideportivo** (`POLI`, el mismo de primaria) y que
-  la optativa de **Digitalización de 4º** (no está en la lista de David) va a su aula propia: hoy, al
-  juntar 4º A y B, se queda sin aula.
+- 🟡 **Aulas de la ESO: lo que las normas no cubren.** (a) Cuatro clases de grupos juntos sin norma se quedan
+  sin aula: Religión de 3º A+PDC y de 4º B+PDC, Música de 3º A+PDC y Valores de 4º B+PDC. (b) El Taller de
+  4º usa **a la vez** el aula de tecnología y la de informática («Aula de tecno/inf»): hoy sale solo en
+  informática, que es lo que dijo David. (c) El cuadro de desdobles es hora por hora; de él solo se han
+  sacado **reglas** (laboratorio, plástica, optativas): un desdoble concreto (una hora en que medio grupo sale
+  a otro sitio) no se modela, y el Plástica de 4º PDC del viernes (aula de plástica en el cuadro) sale en su
+  aula. (d) Que **el pabellón es el polideportivo** (`POLI`) es una suposición. (e) Cambiar el aula de una
+  clase a mano sigue sin tener pantalla (Fase 2): si la norma se equivoca un día, se cambia la norma.
 - 🟡 **Días especiales** (un día suelto con rejilla propia: media jornada, día del colegio,
   festivos). Sin respuesta y **no bloquea**: es una tabla chica y aditiva (`hor_dias_especiales`:
   fecha, tipo, rejilla_id?) que se añade el día que se quiera. No la creo por si acaso.
