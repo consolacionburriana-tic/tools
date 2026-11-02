@@ -359,12 +359,12 @@ export function puedeEditarHorarios(role: Role | null): boolean {
 }
 
 /**
- * ¿Un profe «raso»: ve solo el horario de SU TUTORÍA? (David, 2-nov-2026.)
+ * ¿Un profe «raso»? (David, 2-nov-2026.) Ve el **Aula** y el horario de **SU TUTORÍA**, y nada más: ni la
+ * pestaña de Profesores, ni otras clases, ni los nombres de profesores dentro del Aula.
  *
- * Es quien tiene el módulo `horarios` pero no `horarios-profes`, y es profe o tutor: no ve el horario
- * de otros profes, ni otras clases, ni la pestaña de Aula (que es para ver etapas enteras). Orientación,
- * jefatura, dirección, secretaría y TIC lo ven todo. Quien tenga `horarios-profes` dado a mano también.
- * El resto de roles con `horarios` (comunicación) no cambia.
+ * Es quien tiene el módulo `horarios` pero no `horarios-profes`, y es profe o tutor. Orientación, jefatura,
+ * dirección, secretaría y TIC lo ven todo. Quien tenga `horarios-profes` dado a mano también. El resto de
+ * roles con `horarios` (comunicación) no cambia.
  */
 export function horariosSoloSuTutoria(acceso: Acceso | null | undefined): boolean {
   if (!acceso?.role) return false;

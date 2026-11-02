@@ -42,15 +42,12 @@ export function Selector({
   vista,
   clave,
   puedeVerProfes,
-  soloClase = false,
   etapasPropias = [],
 }: {
   opciones: OpcionesNavegador;
   vista: VistaHorario;
   clave: string;
   puedeVerProfes: boolean;
-  /** Un profe raso: solo ve clases (la suya). Sin pestañas de Profesor ni de Aula. */
-  soloClase?: boolean;
   /** Las etapas de quien mira: reparte las aulas en «de tu etapa» y «de otras etapas». */
   etapasPropias?: readonly string[];
 }) {
@@ -62,7 +59,9 @@ export function Selector({
   const [yendo, setYendo] = useState<string | null>(null);
   const [pendiente, empezar] = useTransition();
 
-  const vistas = soloClase ? VISTAS.filter((v) => v.id === 'clase') : puedeVerProfes ? VISTAS : VISTAS.filter((v) => v.id !== 'profe');
+  // Sin la pestaña de Profesor si no se puede ver, y sin la de Clase si no hay ninguna que ver (un profe raso
+  // sin tutoría solo tiene el Aula).
+  const vistas = VISTAS.filter((v) => (v.id !== 'profe' || puedeVerProfes) && (v.id !== 'clase' || opciones.clases.length > 0));
 
   // El toque ya vibra en el segmentado y en los filtros.
   const ir = (v: VistaHorario, k: string) => {
