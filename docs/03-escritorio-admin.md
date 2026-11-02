@@ -64,6 +64,24 @@ Todo respeta la matriz de permisos: si tu rol no tiene un módulo, su fila no ex
 grupo sin filas desaparece entero. Un módulo apagado en `CONFIGURACION.modulosDesactivados`
 (hoy Puntualidad) no sale para nadie.
 
+## Herramientas en gris, solicitar acceso y bienvenida (2-nov-2026)
+
+Para presentarlo al claustro. `herramientasDe()` devuelve ahora, además, el **`bloqueo`** de cada
+herramienta: `proximamente` (gris, no se toca) o `solicitar` (gris, un toque avisa a los SuperTIC).
+
+- **«Próximamente»**: Banco de libros y Salidas para profe y tutor, e **Incidencias de
+  mantenimiento y TIC** para todos (todavía no existe).
+- **«Solicitar acceso»**: Evaluaciones, para quien no lo tiene. La frase que lo explica se ve
+  siempre en la tarjeta (en el iPad no hay «pasar el ratón»). Va a `POST /api/acceso/solicitar`,
+  que manda el correo; la cookie `solicitud-…` evita el doble aviso.
+- **Oculto**: Números del cole para profe y tutor.
+- Es solo lo que se ve, no un permiso (ver `00-desarrollos-futuros.md`, «Presentación al claustro»).
+- **Bienvenida** (`lib/bienvenida.ts`): la primera vez que alguien entra, el saludo cae palabra a
+  palabra, saluda la mano, cae confeti desde las esquinas y suben burbujas con iconos de cole
+  (`components/ui/estallido.tsx`), sale una frase con guasa y lo que ya había entra con rebote
+  (`.bienvenida` en `globals.css`). Se decide en el servidor con una cookie por persona, así que
+  no hay parpadeo. `?bienvenida=1` la repite. Con «reducir movimiento» sale todo quieto.
+
 ## Decisiones cerradas
 
 - La parte pública (`/`) se queda como está: Licencias + acceso a administración.
@@ -103,3 +121,8 @@ grupo sin filas desaparece entero. Un módulo apagado en `CONFIGURACION.modulosD
 - [x] Probado en iPad horizontal y vertical, móvil, ordenador y modo oscuro
 - [x] Botón «Ver como familia» (`/?vista=familia`)
 - [x] Puntualidad fuera del escritorio (módulo apagado)
+
+### Fase 4 · Presentación al claustro (2026-11-02)
+- [x] Herramientas en gris («Próximamente» y «Solicitar acceso») y Números oculto para profe y tutor
+- [x] Solicitud de acceso por correo a los SuperTIC
+- [x] Bienvenida animada la primera vez

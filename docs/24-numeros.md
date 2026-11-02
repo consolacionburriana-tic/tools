@@ -27,6 +27,13 @@ enseña quiénes son** y cada nombre abre su ficha en Alumnado; copiar tabla, Wh
 contra Neon con sesión de TIC y de una tutora de 2º ESO B. `num_fotos` en Neon, con una
 primera foto a mano del 28-sep-2026; la primera mensual la hace el cron el 1-oct-2026.
 
+> **2-nov-2026 · oculto para profe y tutor.** David: «ocultar para profesores; replantearemos
+> mostrarlo dentro de un tiempo». El módulo ya no sale en el escritorio de los roles `profe` y
+> `tutor` (`esClaustroEstandar` en `src/lib/escritorio.ts`); jefatura, orientación, dirección,
+> secretaría y TIC lo siguen viendo. Es solo el escritorio: el rol `tutor` conserva el módulo y
+> su alcance por etapa, así que quien llegue por la URL lo ve como antes. Qué se les enseña
+> cuando se vuelva a abrir, y si solo su clase, está por decidir (`00-desarrollos-futuros.md`).
+
 Lo que queda son ideas, no pendientes: están en «Quizá, más adelante» de la checklist y en
 `00-desarrollos-futuros.md`.
 

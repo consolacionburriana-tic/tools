@@ -102,7 +102,7 @@ describe('guardar la selección como diferencia respecto al rol', () => {
     const r = diffModulos('tutor', ['salidas', 'evaluaciones'] as Module[]);
     expect(r.modulosExtra).toEqual(['evaluaciones']);
     // El rol tutor trae salidas, bancolibros, puntualidad, horarios, mi-horario, alumnado,
-    // numeros, oratorios-ver y tableros: lo que no se marca, bloqueado.
+    // numeros, oratorios-ver, tableros y tareas-reportar: lo que no se marca, bloqueado.
     expect(r.modulosBloqueados).toEqual([
       'bancolibros',
       'puntualidad',
@@ -110,6 +110,7 @@ describe('guardar la selección como diferencia respecto al rol', () => {
       'mi-horario',
       'alumnado',
       'numeros',
+      'tareas-reportar',
       'oratorios-ver',
       'tableros',
     ]);

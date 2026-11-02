@@ -24,6 +24,7 @@ import {
   Tablet,
   UserPlus,
   Users,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -56,6 +57,7 @@ export const ICONOS_MODULO: Record<NombreIcono, LucideIcon> = {
   educamos: Database,
   ajustes: SlidersHorizontal,
   tareas: ListTodo,
+  incidencias: Wrench,
   diseno: Palette,
 };
 

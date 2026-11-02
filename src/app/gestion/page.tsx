@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { Eye, LogOut } from 'lucide-react';
 import { count, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -19,6 +20,8 @@ import { cuentaSinInformar } from '@/lib/dispositivos-server';
 import { hoyISO, resumenUrgente, textoResumenUrgente } from '@/lib/tableros';
 import { esTemporadaLicencias } from '@/lib/licencias';
 import { herramientasDe, saludo } from '@/lib/escritorio';
+import { cookieBienvenida, debeBienvenida, fraseBienvenida } from '@/lib/bienvenida';
+import { cookieSolicitud, SOLICITABLES } from '@/lib/solicitud-acceso';
 import { CONFIGURACION } from '@/lib/configuracion';
 import { Escritorio, type Aviso, type Cifra } from '@/components/home/escritorio';
 import { SelectorTema } from '@/components/home/selector-tema';
@@ -33,11 +36,19 @@ const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno
 // Ficha: docs/03-escritorio-admin.md. Aquí se resuelve qué ve cada uno y se cuenta lo que haga
 // falta (todo en una tanda); el reparto en grupos está en `src/lib/escritorio.ts` y la pantalla,
 // en `components/home/escritorio.tsx`.
-export default async function EscritorioPage() {
+export default async function EscritorioPage({ searchParams }: { searchParams: Promise<{ bienvenida?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login');
   // Con sesión pero sin rol (alumnado, cuentas que no son del claustro): a la portada de fuera.
   if (!user.role) redirect('/');
+  const [galletas, { bienvenida: forzar }] = await Promise.all([cookies(), searchParams]);
+  // La bienvenida: la primera vez tras el estreno (cookie por persona), o siempre con `?bienvenida=1`.
+  const nombreCookie = cookieBienvenida(user.email);
+  const bienvenida = debeBienvenida(galletas.get(nombreCookie)?.value, forzar === '1')
+    ? { frase: fraseBienvenida(user.email), cookie: nombreCookie }
+    : null;
+  // Los accesos que ya pidió desde este navegador: su tarjeta sale como «Solicitud enviada».
+  const solicitadas = SOLICITABLES.filter((m) => galletas.has(cookieSolicitud(user.email, m)));
   const puede = (m: Module) => canAccess(user, m);
   const ahora = new Date();
   const temporadaLicencias = puede('licencias') && esTemporadaLicencias(ahora);
@@ -185,6 +196,8 @@ export default async function EscritorioPage() {
         cifras={cifras}
         avisos={avisos}
         herramientas={herramientas}
+        solicitadas={solicitadas}
+        bienvenida={bienvenida}
       />
     </div>
   );

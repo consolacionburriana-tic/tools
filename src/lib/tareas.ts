@@ -2,9 +2,10 @@
 //
 // Dos tipos de tarjeta en la misma tabla:
 //   - `fallo`  → un fallito de una línea, con el módulo donde se vio. Lo puede apuntar
-//                quien tenga `tareas-reportar` (dirección, secretaría, orientación) o `tareas`.
+//                quien tenga `tareas-reportar` (todo el claustro) o `tareas`.
 //   - `modulo` → la idea de un módulo nuevo: nombre, definición funcional y checklist de lo
-//                que tendrá. Solo `tareas` (TIC y superTIC).
+//                que tendrá. La lleva `tareas` (TIC y superTIC); quien solo reporta la apunta
+//                como **sugerencia** (nombre y qué resuelve, sin checklist) y llega aquí igual.
 //
 // Lo importante de este fichero es `promptTarea`: el texto que se copia de un toque para
 // pegárselo tal cual a un agente, con el contexto que necesita para no empezar a ciegas.

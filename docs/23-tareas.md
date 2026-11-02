@@ -25,8 +25,14 @@ completa). Pedido por David el 24-sep-2026. Evolucionará a un kanban de tareas.
 - **Permisos, dos módulos** (ajustables por persona en `/gestion/usuarios` como cualquier otro):
   - `tareas` → ve y lleva todo (tablero, estados, editar, borrar, ideas de módulo).
     **SuperTIC y TIC.** Secretaría, que tiene todos los módulos, este no (David: TIC lo ve todo).
-  - `tareas-reportar` → solo apunta fallitos y ve **los suyos** con su estado, desde el botón
-    flotante. **Dirección, secretaría y orientación.** El resto del claustro, de momento, no.
+  - `tareas-reportar` → solo **recoge**: apunta fallitos y sugerencias desde el botón flotante.
+    **Todo el claustro** desde el 2-nov-2026 (antes, solo dirección, secretaría y orientación).
+    Dirección, secretaría, orientación y comunicación, que ya lo tenían, ven además **lo suyo** con
+    su estado; el resto (profe, tutor, jefatura, evaluaciones) solo envía y recibe un «gracias»
+    animado (`gracias.tsx`), sin abrir el tablero. Su selector de módulos solo ofrece los que ven.
+  - Una **sugerencia** es una tarjeta de «Módulo nuevo» (nombre + qué resuelve, sin checklist) que
+    llega al tablero de TIC mezclada con sus ideas. Para quien gestiona, la pestaña se sigue
+    llamando «Módulo nuevo»; para el resto, «Sugerencia».
 - **El botón es sutil a propósito**: 40 px, medio transparente, esquina inferior derecha (los
   botones de guardar de los formularios van abajo a todo el ancho y viven fuera de `/gestion`).
   No sale en `/gestion/tareas`, ni en login ni en sin-acceso. A quien lleva el tablero le enseña
@@ -53,6 +59,7 @@ completa). Pedido por David el 24-sep-2026. Evolucionará a un kanban de tareas.
 - [x] Módulos nuevos: descripción editable, checklist marcable, barra de progreso
 - [x] Copiar fallito / definición funcional / todos los pendientes para pegar a un agente
 - [x] Tarjeta en el escritorio (Configuración general)
+- [x] El botón lo usa todo el claustro como buzón: «Fallito» y «Sugerencia» con un «gracias» animado (2-nov-2026)
 - [ ] Kanban: columnas por estado con arrastrar (siguiente paso, ver `00-desarrollos-futuros.md`)
 
 > **Ojo:** el kanban general de la plataforma ya existe y es otro módulo, [Tableros](./27-tableros.md)
