@@ -342,9 +342,8 @@ en `src/lib/sustituciones.ts`; consultas en `sustituciones-server.ts`; pantalla 
       de profes) para que entren las 4 de ahora, y revisar las decisiones de `00-desarrollos-futuros.md`
 - [x] Mi horario: el sustituto ve el horario del titular con sus propias notas, y lo exporta a su Calendar *(Calendar sin probar con Google real, como el resto de Mi horario)*
 - [x] Oratorios: aviso por correo e invitación de Calendar al sustituto
-- [x] Correos y grupos: sugerir los grupos del titular y elegir a mano *(código y tests listos;
-      **falta probarlo con Google real**: los scopes de grupos de la delegación siguen sin darse, ver
-      `30-cuentas.md`)*
+- [x] Correos y grupos: sugerir los grupos del titular y elegir a mano *(scopes delegados y lectura probada con Google real el 2-nov-2026; falta
+      estrenar el alta en un grupo)*
 - [ ] AUTOASM: decidir si el sustituto entra en la clase del ASM del titular (anotado, «ya vemos»)
 
 ### Dos campos que el sync deja solo en `extra` (visto el 10-sep-2026)
