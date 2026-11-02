@@ -89,7 +89,7 @@ function SelectorColor({ valor, onChange, etiqueta }: { valor: string; onChange:
   );
 }
 
-export function Exportador({ periodoId }: { periodoId: string }) {
+export function Exportador({ periodoId, deProfeId }: { periodoId: string; deProfeId?: string }) {
   const [cargando, setCargando] = useState(true);
   const [plantillaTitulo, setPlantillaTitulo] = useState(PLANTILLA_TITULO_DEFECTO);
   const [plantillaDescripcion, setPlantillaDescripcion] = useState('');
@@ -112,7 +112,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
         const [rPref, rCal, rUlt] = await Promise.all([
           fetch('/api/mi-horario/preferencias'),
           fetch('/api/mi-horario/calendarios'),
-          fetch(`/api/mi-horario/exportar?periodoId=${periodoId}`),
+          fetch(`/api/mi-horario/exportar?periodoId=${periodoId}${deProfeId ? `&deProfeId=${deProfeId}` : ''}`),
         ]);
         const pref = await rPref.json();
         if (rPref.ok) {
@@ -136,7 +136,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
         setCargando(false);
       }
     })();
-  }, [periodoId]);
+  }, [periodoId, deProfeId]);
 
   async function guardarPreferencias() {
     await fetch('/api/mi-horario/preferencias', {
@@ -153,7 +153,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
       const res = await fetch('/api/mi-horario/exportar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ periodoId, confirmar: false }),
+        body: JSON.stringify({ periodoId, deProfeId, confirmar: false }),
       });
       const datos = await res.json();
       if (!res.ok) throw new Error(datos.error ?? 'Error');
@@ -172,7 +172,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
       const res = await fetch('/api/mi-horario/exportar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ periodoId, confirmar: true, calendarioGoogleId: calendarioElegido }),
+        body: JSON.stringify({ periodoId, deProfeId, confirmar: true, calendarioGoogleId: calendarioElegido }),
       });
       const datos = await res.json();
       if (!res.ok) throw new Error(datos.error ?? 'Error');
@@ -194,7 +194,7 @@ export function Exportador({ periodoId }: { periodoId: string }) {
       const res = await fetch('/api/mi-horario/deshacer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ periodoId }),
+        body: JSON.stringify({ periodoId, deProfeId }),
       });
       const datos = await res.json();
       if (!res.ok) throw new Error(datos.error ?? 'Error');

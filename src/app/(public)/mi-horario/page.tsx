@@ -65,7 +65,9 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
   const sinHorarioPropio = celdas.length === 0 && franjas.length === 0;
   const viendo = sp.de === 'yo' ? undefined : (pedido ?? (sinHorarioPropio ? titulares[0] : undefined));
   const delViendo = viendo ? deTitulares.find((d) => d.id === viendo.id) : undefined;
-  const celdasVistas = delViendo?.celdas ?? celdas;
+  // En el horario de a quien sustituyes se ven SUS clases (importadas) y TUS notas: lo que te
+  // apuntes a mano en sus huecos es tuyo, no suyo, y va a tu horario.
+  const celdasVistas = delViendo ? [...delViendo.celdas, ...celdas.filter((c) => c.origen === 'manual')] : celdas;
   const franjasVistas = delViendo?.franjas ?? franjas;
 
   return (
@@ -101,22 +103,22 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
             />
           )}
 
-          {viendo ? (
-            <>
-              <Aviso tono="info">
-                Estás viendo el horario de <strong>{viendo.nombre}</strong>, a quien sustituyes
-                {viendo.hasta ? ` hasta el ${fechaCorta(viendo.hasta)}` : ''}. Es solo para consultarlo: no se anota
-                ni se exporta desde aquí.
-              </Aviso>
-              <Navegador celdas={celdasVistas} franjas={franjasVistas} titulo={viendo.nombre} />
-            </>
-          ) : (
-            <>
-              <Navegador celdas={celdasVistas} franjas={franjasVistas} titulo="tu horario" editable={{ periodoId: periodo.id }} />
-
-              <Exportador periodoId={periodo.id} />
-            </>
+          {viendo && (
+            <Aviso tono="info">
+              Estás viendo el horario de <strong>{viendo.nombre}</strong>, a quien sustituyes
+              {viendo.hasta ? ` hasta el ${fechaCorta(viendo.hasta)}` : ''}. Puedes llevártelo a tu Google Calendar y
+              anotar en sus huecos: lo que anotes es tuyo y no se mezcla con lo suyo.
+            </Aviso>
           )}
+
+          <Navegador
+            celdas={celdasVistas}
+            franjas={franjasVistas}
+            titulo={viendo ? viendo.nombre : 'tu horario'}
+            editable={{ periodoId: periodo.id }}
+          />
+
+          <Exportador key={viendo?.id ?? 'yo'} periodoId={periodo.id} deProfeId={viendo?.id} />
         </>
       )}
     </div>

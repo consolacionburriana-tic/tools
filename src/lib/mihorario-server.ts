@@ -1,6 +1,6 @@
 // Capa de servidor de "Mi horario": quién eres, tus preferencias, los festivos del centro y
 // la bitácora de qué se exportó. Ficha: docs/20-mi-horario.md
-import { and, desc, eq, gte, lte, or } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lte, or } from 'drizzle-orm';
 
 import { db } from '@/db';
 import {
@@ -120,16 +120,24 @@ export async function registrarExportacion(datos: {
   periodoId: string;
   calendarioGoogleId: string;
   eventosCreados: number;
+  /** Si es el horario de a quien se sustituye. */
+  deProfeId?: string | null;
 }): Promise<void> {
   await db.insert(mihExportaciones).values(datos);
 }
 
 /** La última exportación de esta persona para este periodo, si la hay. */
-export async function getUltimaExportacion(eduTeacherId: string, periodoId: string) {
+export async function getUltimaExportacion(eduTeacherId: string, periodoId: string, deProfeId: string | null = null) {
   const [fila] = await db
     .select()
     .from(mihExportaciones)
-    .where(and(eq(mihExportaciones.eduTeacherId, eduTeacherId), eq(mihExportaciones.periodoId, periodoId)))
+    .where(
+      and(
+        eq(mihExportaciones.eduTeacherId, eduTeacherId),
+        eq(mihExportaciones.periodoId, periodoId),
+        deProfeId ? eq(mihExportaciones.deProfeId, deProfeId) : isNull(mihExportaciones.deProfeId),
+      ),
+    )
     .orderBy(desc(mihExportaciones.createdAt))
     .limit(1);
   return fila ?? null;

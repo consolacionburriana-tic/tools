@@ -14,9 +14,17 @@ tiene datos propios más allá de las preferencias de cada uno y el calendario d
 
 Si alguien está sustituyendo a otra persona (`docs/02-integracion-educamos.md` → «Sustituciones»),
 `/mi-horario` enseña un segmentado «Mi horario / El de Alejandro (sustituyes)» y, si la persona no
-tiene horario propio, abre el del titular. Es de **solo consulta**: sin anotar, sin exportar a
-Calendar y sin las anotaciones personales del titular. Exportarlo a Calendar queda pendiente
-(reexportar borra lo del periodo, así que haría falta un calendario aparte).
+tiene horario propio, abre el del titular. En el horario del titular:
+
+- Se ven **sus clases importadas** y **tus propias notas**; las notas personales del titular
+  (`origen = 'manual'`) no salen. Lo que anotes en sus huecos es tuyo: se guarda en tu horario.
+- Puedes **llevártelo a tu Google Calendar**. Cada exportación lleva su marca
+  (`claveExportacion()`: el periodo, o el periodo + `~` + el profe), así que volver a exportar o
+  deshacer uno **no toca nunca los eventos del otro**. Se comprueba en el servidor que la
+  sustitución siga vigente. Columna `mih_exportaciones.de_profe_id` (`mihorario-exportar-titular.sql`,
+  aplicado el 2-nov-2026).
+- Al terminar la sustitución, sus eventos siguen en tu calendario hasta que pulses «Quitar» en esa
+  vista (el botón sigue disponible mientras la sustitución esté vigente).
 
 ## Estado: 🟡 Fase 0-3 escritas, sin probar en vivo · Fase 6 (anotaciones propias) hecha el 4-oct-2026
 

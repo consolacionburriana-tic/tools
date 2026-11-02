@@ -1809,6 +1809,9 @@ export const mihExportaciones = pgTable('mih_exportaciones', {
   periodoId: uuid('periodo_id').notNull().references(() => horPeriodos.id),
   calendarioGoogleId: text('calendario_google_id').notNull(),
   eventosCreados: integer('eventos_creados').notNull().default(0),
+  // null = exportó SU horario. Con valor: exportó el horario de este profe, al que sustituye
+  // (docs/02-integracion-educamos.md → Sustituciones). Va aparte para que reexportar uno no borre el otro.
+  deProfeId: uuid('de_profe_id').references(() => eduTeachers.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('mih_exportaciones_profe_idx').on(t.eduTeacherId, t.periodoId),

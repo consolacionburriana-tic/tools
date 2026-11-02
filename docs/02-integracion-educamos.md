@@ -302,8 +302,9 @@ opcionales), el sustituto hereda del titular:
 - **Destinatarios sugeridos del ABC**: «Tutor/a de 3PRI A» es el sustituto.
 - **Mi horario** (`/mi-horario`): el sustituto ve el horario del titular con un segmentado «Mi horario /
   El de Alejandro (sustituyes)» (`?de=`). Si no tiene horario propio, abre directamente el del titular.
-  Es **solo de consulta**: no se anota ni se exporta a Calendar desde ahí, y no salen las anotaciones
-  personales del titular (`origen = 'manual'`).
+  Ve sus clases importadas y **sus propias notas** (no las personales del titular), puede anotar en
+  los huecos y **exportarlo a su Google Calendar** con una marca distinta a la de su propio horario,
+  para que reexportar o deshacer uno no toque el otro.
 - **Oratorios**: los correos de aviso y la invitación de Google Calendar van a quien cubre, no al
   titular, con una línea que dice por qué le llega («ahora estás sustituyendo a…»).
 - **Correos y grupos** (`Por hacer` → «Sustituciones»): **solo sugiere**. «Ver grupos» lee de Google
@@ -339,7 +340,7 @@ en `src/lib/sustituciones.ts`; consultas en `sustituciones-server.ts`; pantalla 
       se borraron: la tabla está vacía hasta que se pulse «Releer de Educamos» o se suba el fichero.)*
 - [ ] **David**: tras desplegar, pulsar «Releer de Educamos» en `/gestion/profes` (o resubir el export
       de profes) para que entren las 4 de ahora, y revisar las decisiones de `00-desarrollos-futuros.md`
-- [x] Mi horario: el sustituto ve el horario del titular (solo lectura, sin sus anotaciones personales)
+- [x] Mi horario: el sustituto ve el horario del titular con sus propias notas, y lo exporta a su Calendar *(Calendar sin probar con Google real, como el resto de Mi horario)*
 - [x] Oratorios: aviso por correo e invitación de Calendar al sustituto
 - [x] Correos y grupos: sugerir los grupos del titular y elegir a mano *(código y tests listos;
       **falta probarlo con Google real**: los scopes de grupos de la delegación siguen sin darse, ver

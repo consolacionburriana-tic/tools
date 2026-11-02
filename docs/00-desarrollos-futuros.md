@@ -53,9 +53,6 @@ baja), así que se lee de ahí y además se puede apuntar a mano, apagar y acota
 4. **Lo que NO hereda**: el **cuaderno de tutor** y **Dispositivos** (David: «nada»). **AUTOASM**
    («lo dejamos anotado y ya vemos»): ¿el sustituto entra en la clase del ASM del titular mientras
    dure? Hoy no. También quedan fuera **Tableros** y la **disponibilidad de Oratorios**.
-   - Mi horario **no se exporta a Calendar** desde la vista del titular: reexportar borra lo que se
-     exportó de ese periodo, así que mezclar dos horarios en el mismo calendario se pisaría. Si
-     quieres llevártelo a Calendar, haría falta un calendario aparte; dime.
    - Oratorios: la invitación de Calendar se fija al **confirmar**. Si la sustitución empieza
      después, el evento sigue invitando al titular hasta que se mueva o se reconfirme.
    - Correos y grupos: **no quita** al sustituto de los grupos cuando acaba la sustitución. Podría

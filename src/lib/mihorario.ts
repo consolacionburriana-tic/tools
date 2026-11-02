@@ -398,6 +398,15 @@ function isoDe(d: Date): string {
 const DIA_RRULE = ['', 'MO', 'TU', 'WE', 'TH', 'FR'];
 
 /**
+ * Con qué `periodoId` se marcan los eventos de Google Calendar de una exportación. Tu horario:
+ * el periodo, como siempre. El de a quien sustituyes: el periodo + `~` + el profe, para que
+ * borrar y reexportar uno (la marca se busca igualita) no toque nunca los eventos del otro.
+ */
+export function claveExportacion(periodoId: string, deProfeId?: string | null): string {
+  return deProfeId ? `${periodoId}~${deProfeId}` : periodoId;
+}
+
+/**
  * El evento de Google Calendar (forma del recurso de la API v3) para una celda del
  * horario. Un evento por sesión SEMANAL, no uno por clase física: `RRULE` lo repite y
  * `EXDATE` se salta los festivos.
