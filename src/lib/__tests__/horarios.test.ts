@@ -722,3 +722,93 @@ describe('reubicarManuales', () => {
     expect(r.perdidas.map((p) => p.asignacionId)).toEqual(['c', 'd']);
   });
 });
+
+// ─── Aulas de la ESO por las normas del centro ───────────────────────────────
+import { aulaEsoPorNormas, aulasEsoPorNormas } from '@/lib/horarios';
+
+describe('aulaEsoPorNormas: el export de la ESO no trae aula', () => {
+  const g = (curso: string, letra: string | null) => ({ curso, letra });
+  const clase = (grupos: { curso: string; letra: string | null }[], nombre: string | null, abr: string | null, detalle: string | null = null, actividadCodigo = 'clase') => ({
+    grupos, actividadCodigo, materiaNombre: nombre, materiaAbreviatura: abr, detalle,
+  });
+  const cod = (a: ReturnType<typeof clase>) => aulaEsoPorNormas(a)?.codigo ?? null;
+  const porDia = (a: ReturnType<typeof clase>) => Object.fromEntries([...(aulasEsoPorNormas(a)?.porDia ?? [])].map(([d, x]) => [d, x.codigo]));
+
+  it('tecnología al aula de tecnología (también la hora de tecnología o de digitalización de un ámbito de PDC)', () => {
+    expect(cod(clase([g('1ESO', 'A')], 'Tecnologia y Digitalización', 'TYD'))).toBe('TEC');
+    expect(cod(clase([g('3ESO', 'PDC')], 'Ámbito Práctico', 'APR', 'Tecnología'))).toBe('TEC');
+    expect(cod(clase([g('4ESO', 'PDC')], 'Ámbito Práctico', 'APR', 'Digitalización'))).toBe('TEC'); // «TECNO 4ºPDC» el jueves
+  });
+
+  it('PIAR, TRDR y el taller de profundización de 4º, al aula de informática', () => {
+    expect(cod(clase([g('2ESO', 'A'), g('2ESO', 'B')], 'Programación, inteligencia artificial y robótica', 'PIAR'))).toBe('INFO');
+    expect(cod(clase([g('1ESO', 'A'), g('1ESO', 'B')], 'Taller de relaciones digitales responsables', 'TRDIG'))).toBe('INFO');
+    expect(cod(clase([g('4ESO', 'A'), g('4ESO', 'B'), g('4ESO', 'PDC')], 'Taller de profundización', 'TF'))).toBe('INFO');
+    expect(cod(clase([g('3ESO', 'A')], 'Taller de profundización', 'TF'))).toBe('A-3ESOA'); // solo es de 4º
+  });
+
+  it('la educación física, siempre en el pabellón (aunque junte grupos)', () => {
+    expect(cod(clase([g('2ESO', 'B')], 'Educación Física', 'EFI'))).toBe('POLI');
+    expect(cod(clase([g('3ESO', 'A'), g('3ESO', 'PDC')], 'Educació Física', 'EFI'))).toBe('POLI');
+  });
+
+  it('la música de 1º y 2º, SIEMPRE en el aula de música (la de primaria); la de 3º, no', () => {
+    expect(cod(clase([g('1ESO', 'A')], 'Música', 'MUS'))).toBe('MUS');
+    expect(cod(clase([g('2ESO', 'B')], 'Música', 'MUS'))).toBe('MUS');
+    expect(cod(clase([g('3ESO', 'B')], 'Música', 'MUS'))).toBe('A-3ESOB');
+  });
+
+  it('física y química al laboratorio, plástica al aula de plástica (los PDC, en la suya)', () => {
+    expect(cod(clase([g('2ESO', 'A')], 'Física y química', 'FIS'))).toBe('LAB');
+    expect(cod(clase([g('4ESO', 'A'), g('4ESO', 'B')], 'Física y química', 'FIS'))).toBe('LAB');
+    expect(cod(clase([g('3ESO', 'B')], 'Educación Plástica , Visual y Audiovisual', 'EPV'))).toBe('PLAST');
+    expect(cod(clase([g('4ESO', 'A'), g('4ESO', 'B')], 'Expresión Artística', 'EX'))).toBe('PLAST');
+    expect(cod(clase([g('4ESO', 'PDC')], 'Ámbito Científico', 'ACT', 'Física y Química'))).toBe('A-4ESOPDC');
+  });
+
+  it('las optativas, cada una a su aula (lo de 4º A y B)', () => {
+    const ab4 = [g('4ESO', 'A'), g('4ESO', 'B')];
+    expect(cod(clase([...ab4, g('4ESO', 'PDC')], 'Competencia Comunicativa Oral', 'CCO'))).toBe('A-4ESOB');
+    expect(cod(clase([...ab4, g('4ESO', 'PDC')], 'Segunda lengua Extranjera: Francés', 'SLF'))).toBe('A-4ESOPDC');
+    expect(cod(clase([...ab4, g('4ESO', 'PDC')], 'Proyecto interdisciplinar', 'PI'))).toBe('A-4ESOA');
+    expect(cod(clase(ab4, 'Digitalización', 'DIG'))).toBe('A-4ESOA'); // NO a informática
+    expect(cod(clase(ab4, 'Economía y emprendimiento', 'EYE'))).toBe('A-4ESOB');
+    expect(cod(clase(ab4, 'Biología y Geología', 'BIO'))).toBe('A-4ESOA');
+    expect(cod(clase(ab4, 'Latín', 'LAT'))).toBe('A-4ESOA');
+    expect(cod(clase([g('1ESO', 'A'), g('1ESO', 'B')], 'Segunda lengua Extranjera: Francés', 'SLF'))).toBe('A-1ESOB');
+    expect(cod(clase([g('1ESO', 'A'), g('1ESO', 'B')], 'Taller de refuerzo matemáticas', 'TMATE'))).toBe('A-1ESOA');
+    expect(cod(clase([g('2ESO', 'A'), g('2ESO', 'B')], 'Taller de refuerzo Valenciano', 'TVAL'))).toBe('A-2ESOB');
+    expect(cod(clase([g('3ESO', 'A')], 'Segunda lengua Extranjera: Francés', 'SLF'))).toBe('A-3ESOPDC'); // un solo grupo, y a la del PDC
+    expect(cod(clase([g('3ESO', 'A'), g('3ESO', 'PDC')], 'Proyecto interdisciplinar', 'PI'))).toBe('A-3ESOA');
+    expect(cod(clase([g('3ESO', 'A'), g('3ESO', 'B')], 'Comunicación Oral', 'CO'))).toBe('A-3ESOB');
+  });
+
+  it('lo que cambia según el día va por sesión: Francés de 2º, Mates B de 4º A y FOL', () => {
+    expect(porDia(clase([g('2ESO', 'A'), g('2ESO', 'B')], 'Segunda lengua Extranjera: Francés', 'SLF'))).toEqual({ 1: 'A-5PRIB', 5: 'A-3ESOPDC' });
+    const matesB = clase([g('4ESO', 'A')], 'Matemáticas B', 'MAT B');
+    expect(porDia(matesB)).toEqual({ 1: 'A-4ESOPDC', 2: 'A-4ESOB', 3: 'A-3ESOA', 4: 'A-2ESOB' });
+    expect(cod(matesB)).toBe('A-4ESOA'); // el resto de la asignación, en la propia
+    // Mates B del grupo B no lleva nada especial: su aula.
+    expect(porDia(clase([g('4ESO', 'B')], 'Matemáticas B', 'MAT B'))).toEqual({});
+    expect(cod(clase([g('4ESO', 'B')], 'Matemáticas B', 'MAT B'))).toBe('A-4ESOB');
+    expect(porDia(clase([g('4ESO', 'A'), g('4ESO', 'B')], 'Formación y orientación Personal y profesional', 'FOP'))).toEqual({ 1: 'A-5PRIB', 3: 'A-5PRIB', 4: 'A-4PRIB' });
+    // El aula de un día puede ser de primaria: se crea con su nombre.
+    expect(aulasEsoPorNormas(matesB)!.porDia.get(1)).toMatchObject({ codigo: 'A-4ESOPDC', nombre: 'Aula 4ESO PDC' });
+    expect(aulasEsoPorNormas(clase([g('2ESO', 'A'), g('2ESO', 'B')], 'Segunda lengua Extranjera: Francés', 'SLF'))!.porDia.get(1)).toMatchObject({ codigo: 'A-5PRIB', nombre: 'Aula 5PRI B' });
+  });
+
+  it('el resto, en el aula propia del grupo (PDC incluido), y una clase de varios grupos sin norma se queda sin aula', () => {
+    expect(aulaEsoPorNormas(clase([g('1ESO', 'A')], 'Matemáticas', 'MAT'))).toEqual({ codigo: 'A-1ESOA', nombre: 'Aula 1ESO A', tipo: 'aula', admiteSolapes: false });
+    expect(cod(clase([g('3ESO', 'PDC')], 'Ámbito Científico', 'ACT', 'Matemáticas'))).toBe('A-3ESOPDC');
+    expect(cod(clase([g('4ESO', 'A')], 'Tutoría', 'TUT', null, 'tutoria'))).toBe('A-4ESOA');
+    expect(cod(clase([g('4ESO', 'A'), g('4ESO', 'B')], 'Matemáticas A', 'MAT A'))).toBeNull();
+    expect(cod(clase([g('3ESO', 'A'), g('3ESO', 'PDC')], 'Música', 'MUS'))).toBeNull();
+  });
+
+  it('lo que no es ESO o no es clase no se toca', () => {
+    expect(cod(clase([g('3PRI', 'A')], 'Educació Física', 'EFI'))).toBeNull();
+    expect(cod(clase([g('3INF', 'A')], 'Lu', 'Lu'))).toBeNull();
+    expect(aulasEsoPorNormas(clase([g('2ESO', 'A')], null, null, null, 'apoyo_pt'))).toBeNull();
+    expect(aulasEsoPorNormas(clase([], 'Matemáticas', 'MAT'))).toBeNull();
+  });
+});

@@ -23,6 +23,17 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
+
+- **El Huerto, como tipo nuevo de «Oratorios, Godly Play y Talleres»** (David: «una nueva sección dentro del
+  módulo»). En el horario ya cuenta como hora de oratorio con la etiqueta «Huerto»; falta darlo de alta en
+  ese módulo (es un tipo más, [`26-oratorios.md`](./26-oratorios.md)).
+- **¿El «pabellón» de la ESO es el polideportivo de primaria?** Se ha supuesto que sí (`POLI`, una sola sala
+  donde caben varias clases). Si son dos sitios, se separa en `CONFIGURACION.horarios.aulasEso`.
+- **Poder cambiar el aula de una clase a mano** ([`07-horarios.md`](./07-horarios.md), Fase 2) y, si hace falta,
+  modelar los **desdobles** hora por hora del cuadro «Aulas para desdobles y refuerzos». Hoy solo se han sacado
+  de él las reglas.
+
 ### Dispositivos 1:1: cómo se cobra (20-oct-2026) — pendiente de secretaría y Jose Miguel
 
 David: «no lo sé, pendiente de secretaría y Jose Miguel» y «esto ya lo vemos». Mientras tanto el

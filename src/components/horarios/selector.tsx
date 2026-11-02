@@ -36,11 +36,14 @@ export function Selector({
   vista,
   clave,
   puedeVerProfes,
+  soloClase = false,
 }: {
   opciones: OpcionesNavegador;
   vista: VistaHorario;
   clave: string;
   puedeVerProfes: boolean;
+  /** Un profe raso: solo ve clases (la suya). Sin pestañas de Profesor ni de Aula. */
+  soloClase?: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -50,7 +53,7 @@ export function Selector({
   const [yendo, setYendo] = useState<string | null>(null);
   const [pendiente, empezar] = useTransition();
 
-  const vistas = puedeVerProfes ? VISTAS : VISTAS.filter((v) => v.id !== 'profe');
+  const vistas = soloClase ? VISTAS.filter((v) => v.id === 'clase') : puedeVerProfes ? VISTAS : VISTAS.filter((v) => v.id !== 'profe');
 
   // El toque ya vibra en el segmentado y en los filtros.
   const ir = (v: VistaHorario, k: string) => {
@@ -99,7 +102,7 @@ export function Selector({
 
   return (
     <div className="space-y-3">
-      <Segmentado
+      {vistas.length > 1 && <Segmentado
         etiqueta="Ver el horario de"
         lleno
         className="sm:w-auto sm:min-w-96"
@@ -110,7 +113,7 @@ export function Selector({
           etiqueta: v.label,
           icono: vistaYendo === v.id ? <Loader2 aria-hidden className="animate-spin" /> : <v.icono aria-hidden />,
         }))}
-      />
+      />}
 
       {/* Estas dos filas hacen cosas distintas y antes se confundían (parecían dos listas de
           clases). Van etiquetadas: arriba se ACOTA la etapa, abajo se ELIGE la clase. */}

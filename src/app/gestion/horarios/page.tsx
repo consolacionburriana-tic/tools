@@ -2,7 +2,8 @@ import { Suspense } from 'react';
 import { CalendarDays } from 'lucide-react';
 
 import { getSessionUser } from '@/lib/auth-guards';
-import { canAccess } from '@/lib/permissions';
+import { canAccess, horariosSoloSuTutoria } from '@/lib/permissions';
+import { clasesDeTutor } from '@/lib/puntualidad-server';
 import {
   getCeldas,
   getFranjasDeProfe,
@@ -46,9 +47,33 @@ export default async function HorariosPage({
     );
   }
 
-  const opciones = await getOpcionesNavegador(periodo.id);
+  // Un profe raso solo ve el horario de SU tutoría (David, 2-nov-2026): ni otras clases, ni el
+  // horario de otros profes, ni la pestaña de Aula, que es para ver etapas enteras. Se filtra AQUÍ,
+  // en el servidor, y no solo en la pantalla: lo que no se manda no se puede curiosear.
+  const soloTutoria = horariosSoloSuTutoria(user);
+  const [todas, propias] = await Promise.all([
+    getOpcionesNavegador(periodo.id),
+    soloTutoria && user ? clasesDeTutor(user.email) : Promise.resolve([]),
+  ]);
+  const suyas = new Set(propias.map((c) => `${c.curso}|${c.letra ?? ''}`));
+  const opciones = soloTutoria
+    ? { clases: todas.clases.filter((c) => suyas.has(`${c.curso}|${c.letra ?? ''}`)), profes: [], espacios: [] }
+    : todas;
   let vista = (sp.vista === 'profe' || sp.vista === 'aula' ? sp.vista : 'clase') as VistaHorario;
-  if (vista === 'profe' && !puedeVerProfes) vista = 'clase';
+  if (soloTutoria || (vista === 'profe' && !puedeVerProfes)) vista = 'clase';
+
+  if (soloTutoria && opciones.clases.length === 0) {
+    return (
+      <>
+        <h1 className="sr-only">Horarios</h1>
+        <Vacio icono={<CalendarDays />} titulo="Aquí ves el horario de tu tutoría">
+          {propias.length === 0
+            ? 'No tienes ninguna tutoría asignada este curso. Tu horario propio está en «Mi horario».'
+            : 'Tu tutoría todavía no tiene horario importado. Tu horario propio está en «Mi horario».'}
+        </Vacio>
+      </>
+    );
+  }
 
   // Sin elección, se abre por lo primero que haya: siempre se ve algo al entrar.
   const porDefecto =
@@ -57,7 +82,10 @@ export default async function HorariosPage({
       : vista === 'profe'
         ? (opciones.profes[0]?.id ?? '')
         : (opciones.espacios[0]?.id ?? '');
-  const clave = sp.clave || porDefecto;
+  // Quien solo ve su tutoría no puede pedir otra por la URL: si la clave no es suya, se abre la suya.
+  const clave = soloTutoria
+    ? (opciones.clases.some((c) => `${c.curso}|${c.letra ?? ''}` === sp.clave) ? sp.clave! : porDefecto)
+    : sp.clave || porDefecto;
 
   const titulo =
     vista === 'clase'
@@ -79,7 +107,10 @@ export default async function HorariosPage({
         {periodos.length > 1 && <SelectorPeriodo periodos={periodos} actual={periodo.id} />}
       </div>
 
-      <Selector opciones={opciones} vista={vista} clave={clave} puedeVerProfes={puedeVerProfes} />
+      {/* Con una sola tutoría no hay nada que elegir: se enseña su horario y ya. */}
+      {!(soloTutoria && opciones.clases.length <= 1) && (
+        <Selector opciones={opciones} vista={vista} clave={clave} puedeVerProfes={puedeVerProfes} soloClase={soloTutoria} />
+      )}
       {/* El horario va en su propio Suspense: el selector se pinta al momento y la
           cuadrícula, que es la consulta lenta, enseña su esqueleto mientras llega. La `key`
           es lo que hace que el esqueleto vuelva a salir al cambiar de clase (si no, React

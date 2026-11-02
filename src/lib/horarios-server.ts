@@ -7,7 +7,8 @@
 // una foto completa de un curso, no un diario de cambios, y "lo que trae el fichero" es
 // siempre la verdad.
 
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/db';
 import {
@@ -26,7 +27,9 @@ import {
   horTramos,
 } from '@/db/schema';
 import { compararClases, nombreClase } from '@/lib/cursos';
+import { type AulaDeNorma, type AulasDeNormas } from '@/lib/horarios';
 import {
+  aulasEsoPorNormas,
   etapaDeCursoHorario,
   nombreCorto,
   nombreProfe,
@@ -337,8 +340,33 @@ export async function importarBloques(
   const filasProfe: (typeof horAsignacionProfes.$inferInsert)[] = [];
   const filasSesion: (typeof horSesiones.$inferInsert)[] = [];
 
+  // El export de la ESO no trae aula: se deduce con las normas del centro (tecnología, informática,
+  // pabellón, aula propia). Solo donde el fichero NO dice aula: si la trae, manda ella.
+  const nombreDeMateria = new Map<string, string>(); // código del fichero → nombre, para las normas
+  for (const b of utiles) for (const [c, n] of b.leyendas.materias) if (!nombreDeMateria.has(c)) nombreDeMateria.set(c, n);
+  const aulaDeNorma = new Map<string, AulasDeNormas>(); // id de asignación → aulas
+  for (const a of asignaciones) {
+    if (a.aulaCodigo) continue;
+    const aulas = aulasEsoPorNormas({
+      grupos: a.grupos,
+      actividadCodigo: a.actividadCodigo,
+      materiaNombre: a.materiaCodigo ? (nombreDeMateria.get(a.materiaCodigo) ?? null) : null,
+      materiaAbreviatura: a.materiaCodigo ? raizMateria(a.materiaCodigo) : null,
+      detalle: a.detalle,
+    });
+    if (aulas && (aulas.aula || aulas.porDia.size)) aulaDeNorma.set(a.id, aulas);
+  }
+  const aulasUsadas = new Map<string, AulaDeNorma>();
+  for (const x of aulaDeNorma.values()) {
+    if (x.aula) aulasUsadas.set(x.aula.codigo, x.aula);
+    for (const au of x.porDia.values()) aulasUsadas.set(au.codigo, au);
+  }
+  const espacioDeNorma = await asegurarEspaciosDeNormas([...aulasUsadas.values()]);
+  if (aulaDeNorma.size) resumen.notas.push(`${aulaDeNorma.size} asignación(es) de ESO con aula deducida por las normas del centro (tecnología, informática, pabellón, música, laboratorio, optativas, aula propia).`);
+
   for (const a of asignaciones) {
     const r = a;
+    const porNorma = aulaDeNorma.get(a.id);
     filasAsig.push({
       id: a.id,
       periodoId,
@@ -351,8 +379,8 @@ export async function importarBloques(
       //    leyenda ('Otros', 'AUX'): sin esto la celda caía en el nombre de la actividad y
       //    ponía 'Clase', perdiendo lo único que decía el fichero.
       etiqueta: r.materiaId ? r.detalle : r.crudo.slice(0, 120),
-      espacioId: r.aulaCodigo ? (espacioPorCodigo.get(r.aulaCodigo) ?? null) : null,
-      aula: r.aulaCodigo,
+      espacioId: r.aulaCodigo ? (espacioPorCodigo.get(r.aulaCodigo) ?? null) : (porNorma?.aula ? (espacioDeNorma.get(porNorma.aula.codigo) ?? null) : null),
+      aula: r.aulaCodigo ?? porNorma?.aula?.codigo ?? null,
       origen: 'importado',
     });
     for (const g of a.grupos) filasGrupo.push({ asignacionId: a.id, curso: g.curso, letra: g.letra });
@@ -366,7 +394,14 @@ export async function importarBloques(
     });
     for (const s of a.sesiones) {
       const id = tramoId.get(`${r.curso}|${s.dia}|${s.orden}`);
-      if (id) filasSesion.push({ asignacionId: a.id, tramoId: id, diaSemana: s.dia, orden: s.orden });
+      // Las normas que cambian según el día (Mates B de 4º A) ponen el aula a la sesión, que pisa la de la asignación.
+      const delDia = porNorma?.porDia.get(s.dia);
+      if (id) {
+        filasSesion.push({
+          asignacionId: a.id, tramoId: id, diaSemana: s.dia, orden: s.orden,
+          ...(delDia ? { espacioId: espacioDeNorma.get(delDia.codigo) ?? null, aula: delDia.codigo } : {}),
+        });
+      }
     }
   }
 
@@ -522,6 +557,174 @@ export async function importarBloques(
   await limpiarMateriasHuerfanas();
 
   return resumen;
+}
+
+/** Crea los espacios que falten (por código) y devuelve el mapa código → id. */
+async function asegurarEspaciosDeNormas(aulas: readonly AulaDeNorma[]): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  if (aulas.length === 0) return mapa;
+  const codigos = aulas.map((a) => a.codigo);
+  const existentes = await db.select({ id: horEspacios.id, codigo: horEspacios.codigo }).from(horEspacios).where(inArray(horEspacios.codigo, codigos));
+  for (const e of existentes) mapa.set(e.codigo, e.id);
+  const faltan = aulas.filter((a) => !mapa.has(a.codigo));
+  if (faltan.length) {
+    const creados = await db
+      .insert(horEspacios)
+      .values(faltan.map((a) => ({ codigo: a.codigo, nombre: a.nombre, tipo: a.tipo, admiteSolapes: a.admiteSolapes })))
+      .onConflictDoNothing()
+      .returning({ id: horEspacios.id, codigo: horEspacios.codigo });
+    for (const e of creados) mapa.set(e.codigo, e.id);
+    // Si otra importación los creó a la vez, `onConflictDoNothing` no los devuelve: se leen.
+    const sinId = faltan.filter((a) => !mapa.has(a.codigo)).map((a) => a.codigo);
+    if (sinId.length) {
+      for (const e of await db.select({ id: horEspacios.id, codigo: horEspacios.codigo }).from(horEspacios).where(inArray(horEspacios.codigo, sinId))) mapa.set(e.codigo, e.id);
+    }
+  }
+  return mapa;
+}
+
+export interface ResumenAulasEso {
+  /** Asignaciones de ESO importadas que se han mirado. */
+  miradas: number;
+  /** Cuántas tienen (o tendrán) cada aula, por aula, contando las sesiones que cambian según el día. */
+  porAula: { codigo: string; nombre: string; asignaciones: number }[];
+  /** Las que se quedan sin aula (varios grupos sin norma, horas que no son clase). */
+  sinAula: number;
+  /** Cuáles son, para revisarlas: 'Música (3ESOA, 3ESOPDC)'. */
+  sinAulaLista: string[];
+  /** Cuántas filas cambian respecto a lo que hay (asignaciones + sesiones): 0 = ya estaba todo. */
+  cambios: number;
+  aplicadas: boolean;
+}
+
+/**
+ * Pone aula a las clases de ESO que ya están importadas, con las normas del centro, **sin
+ * reimportar**: el export de la ESO no trae aula y reimportar rehace todo el horario.
+ *
+ * Calcula el aula que toca a cada asignación de ESO importada y la deja así, también si ya tenía
+ * otra: **el aula de la ESO solo sale de las normas** (el fichero no la trae y aún no se puede
+ * editar a mano), así que repetirlo cuando cambian las normas las pone al día. Solo toca lo que
+ * difiere de lo que hay, es idempotente, y no toca lo creado a mano (origen `manual`). Con
+ * `aplicar: false` solo cuenta.
+ */
+export async function aplicarAulasEso(periodoId: string, aplicar: boolean): Promise<ResumenAulasEso> {
+  const espacioActual = alias(horEspacios, 'esp_actual');
+  const filas = await db
+    .select({
+      id: horAsignaciones.id,
+      actividad: horActividades.codigo,
+      detalle: horAsignaciones.etiqueta,
+      materia: horMaterias.nombre,
+      abreviatura: horMaterias.abreviatura,
+      espacioId: horAsignaciones.espacioId,
+      espacioCodigo: espacioActual.codigo,
+    })
+    .from(horAsignaciones)
+    .innerJoin(horActividades, eq(horActividades.id, horAsignaciones.actividadId))
+    .leftJoin(horMaterias, eq(horMaterias.id, horAsignaciones.materiaId))
+    .leftJoin(espacioActual, eq(espacioActual.id, horAsignaciones.espacioId))
+    .where(
+      and(
+        eq(horAsignaciones.periodoId, periodoId),
+        eq(horAsignaciones.origen, 'importado'),
+        inArray(horAsignaciones.id, db.select({ id: horAsignacionGrupos.asignacionId }).from(horAsignacionGrupos)),
+      ),
+    );
+  const ids = filas.map((f) => f.id);
+  const [grupos, sesiones] = ids.length
+    ? await Promise.all([
+        db
+          .select({ asignacionId: horAsignacionGrupos.asignacionId, curso: horAsignacionGrupos.curso, letra: horAsignacionGrupos.letra })
+          .from(horAsignacionGrupos)
+          .where(inArray(horAsignacionGrupos.asignacionId, ids)),
+        db
+          .select({ id: horSesiones.id, asignacionId: horSesiones.asignacionId, dia: horSesiones.diaSemana, espacioId: horSesiones.espacioId })
+          .from(horSesiones)
+          .where(inArray(horSesiones.asignacionId, ids)),
+      ])
+    : [[], []];
+  const gruposDe = new Map<string, { curso: string; letra: string | null }[]>();
+  for (const g of grupos) gruposDe.set(g.asignacionId, [...(gruposDe.get(g.asignacionId) ?? []), { curso: g.curso, letra: g.letra }]);
+  const sesionesDe = new Map<string, typeof sesiones>();
+  for (const x of sesiones) sesionesDe.set(x.asignacionId, [...(sesionesDe.get(x.asignacionId) ?? []), x]);
+
+  const esDeEso = filas.filter((f) => (gruposDe.get(f.id) ?? []).some((g) => etapaDeCursoHorario(g.curso) === 'ESO'));
+  const decididas = esDeEso.map((f) => ({
+    f,
+    aulas: aulasEsoPorNormas({
+      grupos: gruposDe.get(f.id) ?? [],
+      actividadCodigo: f.actividad,
+      materiaNombre: f.materia,
+      materiaAbreviatura: f.abreviatura,
+      // Con materia, la etiqueta es el detalle de la hora (el ámbito de PDC); sin ella es el texto crudo.
+      detalle: f.materia ? f.detalle : null,
+    }),
+  }));
+
+  const usadas = new Map<string, AulaDeNorma>();
+  for (const { aulas } of decididas) {
+    if (aulas?.aula) usadas.set(aulas.aula.codigo, aulas.aula);
+    for (const a of aulas?.porDia.values() ?? []) usadas.set(a.codigo, a);
+  }
+  // Para contar sin escribir hace falta saber el id de los espacios que ya existen (y los que faltan se
+  // crean solo al aplicar): sin id se compara por código.
+  const espacios = aplicar
+    ? await asegurarEspaciosDeNormas([...usadas.values()])
+    : new Map(
+        (usadas.size
+          ? await db.select({ id: horEspacios.id, codigo: horEspacios.codigo }).from(horEspacios).where(inArray(horEspacios.codigo, [...usadas.keys()]))
+          : []
+        ).map((e) => [e.codigo, e.id] as const),
+      );
+  const idDe = (codigo: string | null | undefined) => (codigo ? (espacios.get(codigo) ?? `pendiente:${codigo}`) : null);
+
+  const cuenta = new Map<string, number>();
+  const sinAulaLista: string[] = [];
+  let sinAula = 0;
+  let cambios = 0;
+  for (const { f, aulas } of decididas) {
+    const deseada = aulas?.aula ?? null;
+    if (!deseada && !(aulas?.porDia.size)) {
+      sinAula++;
+      sinAulaLista.push(`${f.materia ?? f.detalle ?? f.actividad} (${(gruposDe.get(f.id) ?? []).map((g) => `${g.curso}${g.letra ?? ''}`).join(', ')})`);
+    }
+    if (deseada) cuenta.set(deseada.codigo, (cuenta.get(deseada.codigo) ?? 0) + 1);
+
+    // Asignación: el aula de las normas, o ninguna si ya no hay norma que la dé.
+    if ((f.espacioId ?? null) !== idDe(deseada?.codigo)) {
+      cambios++;
+      if (aplicar) {
+        await db
+          .update(horAsignaciones)
+          .set({ espacioId: deseada ? (espacios.get(deseada.codigo) ?? null) : null, aula: deseada?.codigo ?? null, updatedAt: new Date() })
+          .where(eq(horAsignaciones.id, f.id));
+      }
+    }
+    // Sesiones: solo las de las normas por día llevan aula propia; las demás, la de la asignación.
+    for (const x of sesionesDe.get(f.id) ?? []) {
+      const delDia = aulas?.porDia.get(x.dia) ?? null;
+      if (delDia) cuenta.set(delDia.codigo, (cuenta.get(delDia.codigo) ?? 0) + 1);
+      if ((x.espacioId ?? null) === idDe(delDia?.codigo)) continue;
+      cambios++;
+      if (aplicar) {
+        await db
+          .update(horSesiones)
+          .set({ espacioId: delDia ? (espacios.get(delDia.codigo) ?? null) : null, aula: delDia?.codigo ?? null })
+          .where(eq(horSesiones.id, x.id));
+      }
+    }
+  }
+
+  return {
+    miradas: esDeEso.length,
+    porAula: [...cuenta.entries()]
+      .map(([codigo, n]) => ({ codigo, nombre: usadas.get(codigo)?.nombre ?? codigo, asignaciones: n }))
+      .sort((a, b) => b.asignaciones - a.asignaciones),
+    sinAula,
+    sinAulaLista,
+    cambios,
+    aplicadas: aplicar,
+  };
 }
 
 /**
@@ -921,7 +1124,7 @@ export interface OpcionesNavegador {
 export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesNavegador> {
   // Las dos consultas son independientes: encadenadas costaban dos viajes a Neon (~250 ms)
   // y el navegador no se pinta hasta tenerlas. Van juntas.
-  const [filas, conProfes, conEspacios] = await Promise.all([
+  const [filas, conProfes, conEspaciosAsig, conEspaciosSes] = await Promise.all([
     db
       .select({
         curso: horAsignacionGrupos.curso,
@@ -944,10 +1147,18 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
       .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionProfes.asignacionId))
       .innerJoin(eduTeachers, eq(eduTeachers.id, horAsignacionProfes.eduTeacherId))
       .where(eq(horAsignaciones.periodoId, periodoId)),
+    // Espacios con algo en este periodo: los de las asignaciones y los que pisan algunas sesiones
+    // (Mates B de 4º A va a un aula distinta cada día). Dos consultas en la misma tanda.
     db
       .selectDistinct({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre })
       .from(horEspacios)
       .innerJoin(horAsignaciones, eq(horAsignaciones.espacioId, horEspacios.id))
+      .where(eq(horAsignaciones.periodoId, periodoId)),
+    db
+      .selectDistinct({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre })
+      .from(horEspacios)
+      .innerJoin(horSesiones, eq(horSesiones.espacioId, horEspacios.id))
+      .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
       .where(eq(horAsignaciones.periodoId, periodoId)),
   ]);
 
@@ -968,7 +1179,8 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
     }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
-  return { clases, profes, espacios: [...conEspacios].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) };
+  const espacios = [...new Map([...conEspaciosAsig, ...conEspaciosSes].map((e) => [e.id, e])).values()];
+  return { clases, profes, espacios: espacios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) };
 }
 
 /** Las clases que tienen horario en un periodo. Es el censo que necesita `resumirGrupos()`. */
@@ -997,6 +1209,7 @@ export async function getCeldas(
 ): Promise<CeldaHorario[]> {
   // Las columnas van en una constante y cada vista arma su cadena completa: compartir un
   // builder "base" y encadenarle joins distintos rompe la inferencia de tipos de Drizzle.
+  const espacioSesion = alias(horEspacios, 'esp_sesion');
   const columnas = {
     sesionId: horSesiones.id,
     dia: horSesiones.diaSemana,
@@ -1014,8 +1227,9 @@ export async function getCeldas(
     actividadNombre: horActividades.nombre,
     lectivaActividad: horActividades.lectiva,
     lectivaAsignacion: horAsignaciones.lectiva,
-    espacio: horEspacios.nombre,
-    aulaTexto: horAsignaciones.aula,
+    // El aula de la sesión, si la tiene, pisa a la de la asignación (Mates B de 4º A: un aula cada día).
+    espacio: sql<string | null>`coalesce(${espacioSesion.nombre}, ${horEspacios.nombre})`,
+    aulaTexto: sql<string | null>`coalesce(${horSesiones.aula}, ${horAsignaciones.aula})`,
     origen: horAsignaciones.origen,
   };
 
@@ -1036,7 +1250,8 @@ export async function getCeldas(
       .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
       .innerJoin(horActividades, eq(horActividades.id, horAsignaciones.actividadId))
       .leftJoin(horMaterias, eq(horMaterias.id, horAsignaciones.materiaId))
-      .leftJoin(horEspacios, eq(horEspacios.id, horAsignaciones.espacioId));
+      .leftJoin(horEspacios, eq(horEspacios.id, horAsignaciones.espacioId))
+      .leftJoin(espacioSesion, eq(espacioSesion.id, horSesiones.espacioId));
 
   let filas: FilaAncha[];
   if (vista === 'clase') {
@@ -1055,7 +1270,13 @@ export async function getCeldas(
       .innerJoin(horAsignacionProfes, eq(horAsignacionProfes.asignacionId, horAsignaciones.id))
       .where(and(eq(horAsignaciones.periodoId, periodoId), eq(horAsignacionProfes.eduTeacherId, clave)));
   } else {
-    filas = await conJoins().where(and(eq(horAsignaciones.periodoId, periodoId), eq(horAsignaciones.espacioId, clave)));
+    // Las sesiones de ese aula: las que lo tienen puesto ellas, o las de una asignación que lo tiene y no lo pisan.
+    filas = await conJoins().where(
+      and(
+        eq(horAsignaciones.periodoId, periodoId),
+        or(eq(horSesiones.espacioId, clave), and(isNull(horSesiones.espacioId), eq(horAsignaciones.espacioId, clave))),
+      ),
+    );
   }
 
   if (filas.length === 0) return [];

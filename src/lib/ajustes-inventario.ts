@@ -136,6 +136,13 @@ export function inventarioCentro(): SeccionInventario[] {
           origen: 'codigo',
           donde: 'configuracion.ts → horarios',
         },
+        {
+          nombre: 'Aulas de la ESO',
+          valor: 'Tecnología, informática, pabellón, música (1º-2º), laboratorio, plástica, cada optativa a su aula y el resto en el aula propia del grupo',
+          origen: 'codigo',
+          donde: 'configuracion.ts → horarios.aulasEso',
+          nota: 'El export de Educamos de la ESO no trae aula. Se aplican al importar y con pnpm horarios:aulas.',
+        },
       ],
     },
     {
