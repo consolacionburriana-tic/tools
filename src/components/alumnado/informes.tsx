@@ -18,6 +18,7 @@ import type { ClaseListado, MaterialLista } from '@/lib/alumnado-server';
 import { haptic } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
 import { Filtro, Filtros } from '@/components/ui/filtro';
+import { GuardarEnDrive, pedirGuardadoEnDrive } from '@/components/ui/guardar-en-drive';
 import { Input } from '@/components/ui/input';
 import { Rotulo } from '@/components/ui/rotulo';
 import { Segmentado } from '@/components/ui/segmentado';
@@ -61,16 +62,19 @@ function ListasRapidas({ clases, claseActual }: { clases: ClaseListado[]; claseA
   const [bajando, setBajando] = useState<TipoLista | null>(null);
   const ambito = claseActual ? claseActual.clase : clases.length === 1 ? clases[0].clase : `las ${clases.length} clases que ves`;
 
-  async function bajar(tipo: TipoLista) {
+  /** `true` si se ha descargado (ya avisa él solo si falla). */
+  async function bajar(tipo: TipoLista): Promise<boolean> {
     haptic.tap();
     setBajando(tipo);
     try {
       const params = new URLSearchParams({ tipo, clases: claseActual ? claveClase(claseActual) : '' });
       await descargarFichero(`/api/alumnado/lista?${params}`, 'lista.xlsx');
       haptic.success();
+      return true;
     } catch (error) {
       haptic.warning();
       toast.error(error instanceof Error ? error.message : 'No se pudo descargar la lista');
+      return false;
     } finally {
       setBajando(null);
     }
@@ -82,27 +86,38 @@ function ListasRapidas({ clases, claseActual }: { clases: ClaseListado[]; claseA
       <div>
         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Listas rápidas · {ambito}</p>
         <p className="text-xs text-zinc-500">
-          En Excel, una pestaña por clase.{' '}
+          En Excel o directamente en tu Drive, una pestaña por clase.{' '}
           {!claseActual && clases.length > 1 && 'Elige una clase arriba para sacar solo esa.'}
         </p>
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         {(Object.keys(TIPO_LISTA_LABEL) as TipoLista[]).map((tipo) => (
-          <button
+          <div
             key={tipo}
-            type="button"
-            disabled={bajando !== null}
-            onClick={() => void bajar(tipo)}
-            className="flex min-h-11 items-start gap-2.5 rounded-xl bg-zinc-50 p-3 text-left ring-1 ring-zinc-200 transition-colors outline-none hover:bg-blue-50 hover:ring-blue-200 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 dark:bg-zinc-800/50 dark:ring-zinc-700 dark:hover:bg-blue-950/40 dark:hover:ring-blue-900"
+            className="flex flex-col gap-3 rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-200 dark:bg-zinc-800/50 dark:ring-zinc-700"
           >
-            <span className="mt-0.5 text-blue-600 dark:text-blue-400">
-              {bajando === tipo ? <Loader2 className="h-4 w-4 animate-spin" /> : ICONO_LISTA[tipo]}
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">{TIPO_LISTA_LABEL[tipo].titulo}</span>
-              <span className="block text-xs leading-snug text-zinc-500 dark:text-zinc-400">{TIPO_LISTA_LABEL[tipo].ayuda}</span>
-            </span>
-          </button>
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 text-blue-600 dark:text-blue-400">{ICONO_LISTA[tipo]}</span>
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">{TIPO_LISTA_LABEL[tipo].titulo}</span>
+                <span className="block text-xs leading-snug text-zinc-500 dark:text-zinc-400">{TIPO_LISTA_LABEL[tipo].ayuda}</span>
+              </span>
+            </div>
+            <div className="mt-auto flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="suave" disabled={bajando !== null} onClick={() => void bajar(tipo)}>
+                {bajando === tipo ? <Loader2 className="animate-spin" /> : <FileSpreadsheet aria-hidden />} Excel
+              </Button>
+              <GuardarEnDrive
+                size="sm"
+                etiqueta="Mi Drive"
+                que={`${TIPO_LISTA_LABEL[tipo].titulo} · ${ambito}`}
+                tambienDescargar={() => bajar(tipo)}
+                guardar={(formato) =>
+                  pedirGuardadoEnDrive('/api/alumnado/lista', { tipo, clases: claseActual ? claveClase(claseActual) : '', formato })
+                }
+              />
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -162,26 +177,38 @@ export function Informes({
         : clases;
   const alumnosDelInforme = clasesDelInforme.reduce((n, c) => n + c.alumnos, 0);
 
-  async function descargar(formato: Formato) {
-    if (columnas.length === 0) return toast.error('Elige al menos una columna');
-    if (clasesDelInforme.length === 0) return toast.error('Elige al menos una clase');
+  /** Lo que se le pide al servidor, sea para descargar o para guardar en Drive. */
+  const pedido = () => ({
+    clases: ambito === 'todas' ? '' : clasesDelInforme.map(claveClase).join(','),
+    // Se respeta el orden de la lista de columnas, no el de los toques.
+    columnas: disponibles.filter((c) => columnas.includes(c.clave)).map((c) => c.clave).join(','),
+    filtro: filtrables.some((c) => filtro.startsWith(`${c.clave}:`)) ? filtro : '',
+    titulo,
+    paginaPorClase: paginaPorClase ? '1' : '0',
+  });
+
+  /** Qué falta para poder sacar el informe, o `null` si ya se puede. */
+  const faltaAlgo = () =>
+    columnas.length === 0 ? 'Elige al menos una columna' : clasesDelInforme.length === 0 ? 'Elige al menos una clase' : null;
+
+  /** `true` si se ha descargado (ya avisa él solo si falla). */
+  async function descargar(formato: Formato): Promise<boolean> {
+    const falta = faltaAlgo();
+    if (falta) {
+      toast.error(falta);
+      return false;
+    }
     haptic.tap();
     setDescargando(formato);
     try {
-      const params = new URLSearchParams({
-        formato,
-        clases: ambito === 'todas' ? '' : clasesDelInforme.map(claveClase).join(','),
-        // Se respeta el orden de la lista de columnas, no el de los toques.
-        columnas: disponibles.filter((c) => columnas.includes(c.clave)).map((c) => c.clave).join(','),
-        filtro: filtrables.some((c) => filtro.startsWith(`${c.clave}:`)) ? filtro : '',
-        titulo,
-        paginaPorClase: paginaPorClase ? '1' : '0',
-      });
+      const params = new URLSearchParams({ formato, ...pedido() });
       await descargarFichero(`/api/alumnado/informe?${params}`, `informe.${formato}`);
       haptic.success();
+      return true;
     } catch (error) {
       haptic.warning();
       toast.error(error instanceof Error ? error.message : 'No se pudo sacar el informe');
+      return false;
     } finally {
       setDescargando(null);
     }
@@ -194,7 +221,7 @@ export function Informes({
         <div>
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Informe a medida</p>
           <p className="text-xs text-zinc-500">
-            Elige qué columnas quieres, de qué clases, y sácalo en PDF, Excel o CSV.
+            Elige qué columnas quieres, de qué clases, y sácalo en PDF, Excel o CSV, o déjalo directamente en tu Drive.
           </p>
         </div>
 
@@ -312,6 +339,13 @@ export function Informes({
               {descargando === b.f ? <Loader2 className="animate-spin" /> : b.icono} {b.texto}
             </Button>
           ))}
+          <GuardarEnDrive
+            que={`Informe · ${clasesDelInforme.length} ${clasesDelInforme.length === 1 ? 'clase' : 'clases'}, ${columnas.length} ${columnas.length === 1 ? 'columna' : 'columnas'}`}
+            antes={faltaAlgo}
+            tambienDescargar={() => descargar('xlsx')}
+            disabled={descargando !== null}
+            guardar={(formato) => pedirGuardadoEnDrive('/api/alumnado/informe', { ...pedido(), formato })}
+          />
         </div>
       </div>
     </>

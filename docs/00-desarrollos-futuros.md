@@ -183,6 +183,9 @@ Salieron de cuatro tareas de Jose Miguel y David. Lo que quedó decidido por mí
    nuevas (o un material, que ya tiene cinco estados).
 3. **Las listas rápidas se descargan como `.xlsx`, no se suben a Google Sheets.** Es lo rápido
    para un tutor; la versión en Drive con chips y compartida sigue en el cuaderno de tutor.
+   **Revisada el 2-nov-2026 (David):** además de descargarse, cada lista e informe de Alumnado
+   tiene «Guardar en mi Drive» (Google Sheets o Excel) en el Drive de quien pulsa. La versión
+   compartida con chips sigue siendo la del cuaderno.
 4. **Las listas rápidas incluyen a los familiares marcados como fallecidos** si tienen correo,
    igual que la «Lista en Excel» del cuaderno (`getFamiliares` no los filtra). La ficha sí
    los esconde. Arreglarlo en `getFamiliares` cambiaría también la lista del cuaderno (el
@@ -571,6 +574,11 @@ Recopilados de las fichas, para verlos de un vistazo:
   `calendar` (este último lo comparte con Mi horario), y habilitar en Google Cloud *Admin SDK
   API*, *Google Classroom API* y *Google Calendar API*. Luego, «Comprobar permisos» en
   `/gestion/calendarios` dice si falta algo. Pasos en `25-calendarios.md`.
+- **Guardar en mi Drive** (ficha `21`, 2-nov-2026): en la delegación de dominio del mismo Client
+  ID, añadir `https://www.googleapis.com/auth/drive.file` (solo ve los archivos que crea la propia
+  cuenta de servicio; **no** hace falta `drive` entero) y comprobar que la *Google Drive API* está
+  habilitada en el proyecto (ya lo está: el cuaderno la usa). Sin esto, el botón sale y dice que
+  «todavía no está activado» (503); la descarga en Excel sigue funcionando.
 - **Mi horario** (ficha `20`): en la consola de administración de Google Workspace, añadir
   el scope `https://www.googleapis.com/auth/calendar` al Client ID que ya tiene delegación
   de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin
@@ -1157,3 +1165,13 @@ borrar los planes temporales quedaron sin repasar a mano, por si alguna vez se m
   en `configuracion.ts`; harían falta). Sugerirlo, no marcarlo: un valor puesto de oficio se cuela sin mirar.
 - «Repetir el último registro de este alumno» (mismos sitio, momento y presentes) para rachas del mismo día.
 - Dictado por voz en «Describe la situación» (el micrófono del teclado del iPad ya vale; ver si merece botón propio).
+
+### Guardar en mi Drive: dónde más ponerlo (2-nov-2026)
+
+Alumnado ya lo tiene (listas rápidas e informe a medida). `GuardarEnDrive` +
+`guardarEnDriveDe` son comunes (`ui/guardar-en-drive.tsx`, `lib/drive-usuario.ts`), así que
+llevarlo a otro módulo es una ruta `POST` y un botón. Candidatos, **sin hacer**: Puntualidad
+(`/api/puntualidad/admin/export`), Salidas (seguimiento), Licencias (`/admin/export`, accesos),
+Evaluaciones y Dispositivos (cuotas, que ya sale en `.xlsx`). Los que hoy sacan **CSV** hay que
+pasarlos por `escribirXlsx` (el CSV no conserva formato y `guardarEnDriveDe` espera un `.xlsx`).
+Decisión pendiente de David: ¿en cuáles tiene sentido, y de qué roles?

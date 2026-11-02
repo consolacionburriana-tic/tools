@@ -252,6 +252,32 @@ exactamente la deuda que documenta
     `dispositivos`, `fichaVisible` le manda solo `noSeLoLleva` (no se esconde con CSS). Quien lo
     tiene (TIC, secretaría, dirección) ve además un chip con el estado completo.
 
+19. **Guardar en mi Drive** (David, 2-nov-2026: «las listas e informes de alumnado, si las quieren
+    en Drive se creen con un click, de tipo Google Sheets o Excel… y que se le recuerde que lo
+    mueva donde quiera»). Cada lista rápida (botón «Mi Drive») y el informe a medida (botón
+    «Guardar en mi Drive», junto a PDF / Excel / CSV) abren una ventana: eliges **Hoja de Google**
+    o **Excel (.xlsx)**, el servidor crea el archivo y la ventana dice dónde ha quedado.
+
+    - **Cae en el Drive de quien pulsa**, no en una carpeta del colegio: la cuenta de servicio
+      suplanta a esa persona (delegación de dominio, como Calendario) y el archivo nace en su
+      «Mi unidad». Así el archivo es suyo, no queda ninguna copia con datos de alumnado en una
+      carpeta compartida y no hay que gestionar permisos ni limpiezas. Se pide solo el scope
+      `drive.file`. (La alternativa descartada era una carpeta de la unidad compartida, como el
+      cuaderno de tutor: acumula exportaciones con datos personales.)
+    - **Recordatorio de moverlo**: la ventana de «ya está» dice que está suelto en la raíz de
+      «Mi unidad», cómo moverlo (arrastrar, o clic derecho → Organizar → Mover a) y que es una
+      foto de hoy, con datos de alumnado, que se borre cuando no haga falta. El nombre lleva la
+      fecha (`Correos familias 2º ESO B 2026-2027 · 2026-11-02`) para distinguir copias.
+    - **Mismo contenido que la descarga**: el `POST` y el `GET` de cada ruta construyen el libro con
+      la misma función, con el mismo alcance por etapa. Los crea cada vez nuevos, no pisa nada.
+    - **Si eliges Excel, además se descarga** en el dispositivo (David, 2-nov-2026: «si te hace el
+      excel que te lo descargue también»): se queda en Drive y se baja a la vez, y la ventana lo
+      dice («Descargado»). Con Hoja de Google no hay fichero que bajar. Si la descarga falla, el de
+      Drive ya está creado.
+    - Solo Excel/Sheets: el PDF es para imprimir y el CSV no conserva formato.
+    - **Pendiente de TIC** (una vez): añadir `https://www.googleapis.com/auth/drive.file` a la
+      delegación de dominio. Hasta entonces el botón avisa y la descarga sigue valiendo.
+
 ---
 
 ## Lo que se enseña, y de dónde sale
@@ -340,7 +366,9 @@ src/lib/alumnado-informe.ts                # informes: columnas, celdas, filtro,
 src/lib/alumnado-informe-formatos.ts       # PDF (pdf-lib) y Excel (xlsx-escribir) del informe
 src/app/api/alumnado/participacion/…       # banco / AMPA masivo
 src/app/api/alumnado/materiales/…          # crear, editar, quitar un material y marcar estados
-src/app/api/alumnado/informe/route.ts      # GET → PDF, Excel o CSV
+src/app/api/alumnado/informe/route.ts      # GET → PDF, Excel o CSV · POST → Drive de quien pide (Sheets o Excel)
+src/lib/drive-usuario.ts                   # `guardarEnDriveDe`: sube el .xlsx al Mi unidad de quien pulsa (con tests)
+src/components/ui/guardar-en-drive.tsx     # el botón y la ventana, comunes a cualquier módulo
 src/components/alumnado/piezas-tabla.tsx   # celdas, botones de columna y masivos compartidos
 src/components/alumnado/tabla-participacion.tsx · tabla-materiales.tsx · informes.tsx
 ```
@@ -495,6 +523,11 @@ profe sin `edu_teachers.etapa` ni tutoría no ve a nadie, igual que un tutor en 
       (con tests), ruta `POST /api/alumnado/servicios`, pestaña con filtros y «Lista del
       comedor», chips en la ficha, iconos en la lista, interruptores en la ficha para quien
       pueda y dos columnas más en los informes
+- [x] Guardar en mi Drive (decisión 19): `drive-usuario.ts` con tests, `POST` en `/api/alumnado/lista` e
+      `/informe`, `GuardarEnDrive` en `ui/` y en el escaparate, botón en las listas rápidas y en el
+      informe a medida. Comprobado a 390 y 1180 px, claro y oscuro
+- [ ] **TIC: añadir `drive.file` a la delegación de dominio** (si no, «Guardar en mi Drive» avisa y
+      no crea nada) y probarlo una vez con una cuenta real del cole
 - [x] **`alumnado-servicios.sql` aplicado en Neon** (19-oct-2026): `comedor` y
       `complementarias` en `edu_students`, a `false` en las 645 fichas activas
 - [x] Probado contra Neon a nivel de consultas (19-oct-2026): `listaAlumnado` carga las 645

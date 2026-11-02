@@ -37,6 +37,7 @@ chips (`BOTON_PRIMARIO`, `ESTILO_CAMPO`…): usa estas.
 | Cuánto lleva algo · una tarea larga del servidor | `Progreso` · `EnCurso` | `ui/progreso` |
 | Un sí/no que se aplica al momento | `Interruptor` (`etiquetaOculta` dentro de una fila) | `ui/interruptor` |
 | Copiar de un toque | `Copiable`, `Dato`, `CopiarLista`, `copiarTexto` | `ui/copiable` |
+| Dejar una lista o un informe en el Drive de quien pulsa (Sheets o Excel) | `GuardarEnDrive` + `pedirGuardadoEnDrive` | `ui/guardar-en-drive` |
 | Encabezar un grupo («AHORA», «RESUMEN») | `Rotulo` | `ui/rotulo` |
 | Una persona | `Avatar` (`neutro` si el color estorba), `Avatares` | `ui/avatar` |
 | El icono de un módulo | `IconoModulo` (identidad en `src/lib/modulos.ts`) | `ui/icono-modulo` |

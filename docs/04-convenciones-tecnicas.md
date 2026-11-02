@@ -241,6 +241,14 @@ Todavía llevan su propia copia `email-gmail.ts`, `mihorario-google.ts` y `googl
   Para dejarlo como **Google Sheet nativa**, se sube a Drive con conversión
   (`subirComoGoogleSheet`), igual que el cuaderno hace `.docx` → Google Doc: la API de Sheets no
   está habilitada en el proyecto de la cuenta de servicio.
+- **Dejar un export en el Drive de quien lo pide**: `guardarEnDriveDe(email, { nombre, xlsx, formato })`
+  de `src/lib/drive-usuario.ts` (Google Sheet o `.xlsx`) y, en la pantalla, `GuardarEnDrive` +
+  `pedirGuardadoEnDrive` de `ui/guardar-en-drive`. La ruta es un **`POST`** (crea algo) que reutiliza
+  el mismo libro que la descarga, con el mismo permiso y alcance; devuelve `{ id, nombre, url, formato }`.
+  Suplanta a quien pulsa con el scope `drive.file` (ver `00-desarrollos-futuros.md`): el archivo es
+  suyo y no queda copia en una carpeta del colegio. Nunca a una carpeta compartida con datos personales.
+  Si ya hay un botón de descarga en Excel, pásalo como `tambienDescargar`: al elegir Excel se guarda en
+  Drive **y** se baja al dispositivo.
 - Parseo de **.docx**: también con SheetJS, sin dependencias nuevas — `XLSX.CFB.read()` abre
   el ZIP y `word/document.xml` se recorre con el árbol mínimo de `src/lib/horarios-lectores.ts`.
   No añadas `mammoth` ni `jszip` para esto.
