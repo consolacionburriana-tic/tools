@@ -4,6 +4,10 @@
 // dos segundos, sin salir de la pantalla en la que se ha visto. Tiene que pasar
 // desapercibido cuando no se usa: pequeño, medio transparente y fuera del sitio donde
 // viven los botones de guardar de los formularios (abajo, a todo el ancho).
+//
+// Dos caras: TIC (`gestiona`) apunta fallitos e ideas de módulo y puede abrir el tablero en
+// grande. El resto del claustro solo **recoge**: «Fallito» o «Sugerencia», y una animación de
+// gracias al enviar; no abre el tablero ni ve lo de los demás.
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -15,16 +19,30 @@ import { estaAbierta, etiquetaModulo, promptTarea, type Tarea } from '@/lib/tare
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Segmentado } from '@/components/ui/segmentado';
 import { apiTareas, BotonCopiar, EstadoBadge } from './comun';
-import { FormFallo, FormModulo } from './formularios';
+import { FormFallo, FormModulo, FormSugerencia } from './formularios';
+import { Gracias } from './gracias';
 
 // Pantallas donde el botón sobra: el propio tablero, y las de antes de entrar.
 const SIN_LANZADOR = ['/gestion/tareas', '/gestion/login', '/gestion/sin-acceso'];
 
-export function LanzadorTareas({ gestiona }: { gestiona: boolean }) {
+export function LanzadorTareas({
+  gestiona,
+  verLoSuyo,
+  modulosFallo,
+}: {
+  gestiona: boolean;
+  /** Quien solo reporta y además ve el estado de lo que ha apuntado (dirección, secretaría…). */
+  verLoSuyo: boolean;
+  /** Los módulos que se ofrecen al apuntar un fallito (a quien no gestiona, solo los suyos). */
+  modulosFallo: readonly string[];
+}) {
   const ruta = usePathname();
   const [abierto, setAbierto] = useState(false);
   const [pestana, setPestana] = useState<'fallo' | 'modulo'>('fallo');
   const [tareas, setTareas] = useState<Tarea[] | null>(null);
+  // Tras enviar, quien solo reporta ve el «gracias» en lugar del formulario.
+  const [gracias, setGracias] = useState<'fallo' | 'modulo' | null>(null);
+  const cargaLoSuyo = gestiona || verLoSuyo;
 
   const cargar = useCallback(() => {
     apiTareas
@@ -41,21 +59,31 @@ export function LanzadorTareas({ gestiona }: { gestiona: boolean }) {
 
   useEffect(() => {
     if (!abierto) return;
-    if (!gestiona) cargar();
-    const alPulsar = (e: KeyboardEvent) => e.key === 'Escape' && setAbierto(false);
+    if (!gestiona && cargaLoSuyo) cargar();
+    const alPulsar = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setAbierto(false);
+      setGracias(null);
+    };
     window.addEventListener('keydown', alPulsar);
     return () => window.removeEventListener('keydown', alPulsar);
-  }, [abierto, gestiona, cargar]);
+  }, [abierto, gestiona, cargaLoSuyo, cargar]);
 
   if (SIN_LANZADOR.some((r) => ruta === r || ruta.startsWith(`${r}/`))) return null;
 
   const abiertas = (tareas ?? []).filter((t) => estaAbierta(t.estado));
   const fallosAbiertos = abiertas.filter((t) => t.tipo === 'fallo');
   // Quien gestiona: lo último que queda por hacer. Quien reporta: lo suyo, para ver si ya está.
-  const recientes = gestiona ? fallosAbiertos.slice(0, 5) : (tareas ?? []).slice(0, 5);
+  const recientes = gestiona ? fallosAbiertos.slice(0, 5) : verLoSuyo ? (tareas ?? []).slice(0, 5) : [];
 
   function alCrear(t: Tarea) {
     setTareas((prev) => [t, ...(prev ?? [])]);
+    if (!gestiona) setGracias(t.tipo);
+  }
+
+  function cerrar() {
+    setAbierto(false);
+    setGracias(null);
   }
 
   async function marcarHecho(t: Tarea) {
@@ -83,7 +111,7 @@ export function LanzadorTareas({ gestiona }: { gestiona: boolean }) {
               haptic.tap();
               setAbierto(true);
             }}
-            aria-label="Apuntar un fallito o una idea"
+            aria-label={gestiona ? 'Apuntar un fallito o una idea' : 'Apuntar un fallito o una sugerencia'}
             className="fixed right-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white/80 text-zinc-500 opacity-60 shadow-sm backdrop-blur transition-opacity hover:text-blue-600 hover:opacity-100 focus-visible:opacity-100 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:text-blue-400 print:hidden"
           >
             <ListTodo className="h-[18px] w-[18px]" />
@@ -110,44 +138,51 @@ export function LanzadorTareas({ gestiona }: { gestiona: boolean }) {
             className="fixed right-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 flex max-h-[min(40rem,calc(100dvh-1.5rem))] w-[min(24rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 print:hidden"
           >
             <div className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
-              {gestiona ? (
-                <Segmentado
-                  etiqueta="Qué apuntas"
-                  lleno
-                  className="flex-1"
-                  valor={pestana}
-                  onChange={setPestana}
-                  opciones={[
-                    { valor: 'fallo', etiqueta: 'Fallito', icono: <ListTodo aria-hidden /> },
-                    { valor: 'modulo', etiqueta: 'Módulo nuevo', icono: <Lightbulb aria-hidden /> },
-                  ]}
-                />
-              ) : (
-                <p className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Apuntar un fallito</p>
-              )}
+              <Segmentado
+                etiqueta="Qué apuntas"
+                lleno
+                className="flex-1"
+                valor={pestana}
+                onChange={(p) => {
+                  setPestana(p);
+                  setGracias(null);
+                }}
+                opciones={[
+                  { valor: 'fallo', etiqueta: 'Fallito', icono: <ListTodo aria-hidden /> },
+                  gestiona
+                    ? { valor: 'modulo', etiqueta: 'Módulo nuevo', icono: <Lightbulb aria-hidden /> }
+                    : { valor: 'modulo', etiqueta: 'Sugerencia', icono: <Lightbulb aria-hidden /> },
+                ]}
+              />
               {gestiona && (
                 <Link
                   href="/gestion/tareas"
-                  onClick={() => setAbierto(false)}
+                  onClick={cerrar}
                   aria-label="Pantalla completa"
                   className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
                 >
                   <Maximize2 aria-hidden />
                 </Link>
               )}
-              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setAbierto(false)} aria-label="Cerrar">
+              <Button type="button" variant="ghost" size="icon-sm" onClick={cerrar} aria-label="Cerrar">
                 <X aria-hidden />
               </Button>
             </div>
 
             <div className="overflow-y-auto p-3">
-              {pestana === 'modulo' && gestiona ? (
-                <FormModulo onCreada={alCrear} autoFocus />
+              {gracias ? (
+                <Gracias tipo={gracias} onFin={() => setGracias(null)} />
+              ) : pestana === 'modulo' ? (
+                gestiona ? (
+                  <FormModulo onCreada={alCrear} autoFocus />
+                ) : (
+                  <FormSugerencia onCreada={alCrear} autoFocus />
+                )
               ) : (
-                <FormFallo ruta={ruta} onCreada={alCrear} autoFocus />
+                <FormFallo ruta={ruta} onCreada={alCrear} autoFocus modulos={modulosFallo} conToast={gestiona} />
               )}
 
-              {pestana === 'fallo' && recientes.length > 0 && (
+              {!gracias && pestana === 'fallo' && recientes.length > 0 && (
                 <div className="mt-4">
                   <p className="mb-1.5 text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
                     {gestiona ? `Pendientes · ${fallosAbiertos.length}` : 'Lo que has apuntado'}
@@ -169,7 +204,9 @@ export function LanzadorTareas({ gestiona }: { gestiona: boolean }) {
                         ) : null}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm leading-snug text-zinc-800 dark:text-zinc-200">{t.titulo}</p>
-                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{etiquetaModulo(t.modulo)}</p>
+                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            {t.tipo === 'modulo' ? 'Sugerencia' : etiquetaModulo(t.modulo)}
+                          </p>
                         </div>
                         {gestiona ? (
                           <BotonCopiar texto={() => promptTarea(t)} compacto />
@@ -182,7 +219,7 @@ export function LanzadorTareas({ gestiona }: { gestiona: boolean }) {
                   {gestiona && fallosAbiertos.length > recientes.length && (
                     <Link
                       href="/gestion/tareas"
-                      onClick={() => setAbierto(false)}
+                      onClick={cerrar}
                       className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'mt-1 w-full' })}
                     >
                       Ver los {fallosAbiertos.length}

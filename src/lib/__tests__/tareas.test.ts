@@ -30,16 +30,14 @@ function tarea(p: Partial<Tarea>): Tarea {
 }
 
 describe('permisos de tareas', () => {
-  it('TIC y superTIC lo llevan todo; dirección, secretaría y orientación solo reportan', () => {
+  it('TIC y superTIC lo llevan todo; el resto del claustro solo reporta', () => {
     for (const role of ['tic', 'supertic'] as const) {
       expect(canAccess({ role }, 'tareas')).toBe(true);
     }
-    for (const role of ['direccion', 'secretaria', 'orientacion'] as const) {
+    // Desde el 2-nov-2026 lo apunta todo el claustro, también profe, tutor y jefatura.
+    for (const role of ['direccion', 'secretaria', 'orientacion', 'profe', 'tutor', 'jefe', 'evaluaciones', 'comunicacion'] as const) {
       expect(canAccess({ role }, 'tareas')).toBe(false);
       expect(canAccess({ role }, 'tareas-reportar')).toBe(true);
-    }
-    for (const role of ['profe', 'tutor', 'jefe'] as const) {
-      expect(canAccess({ role }, 'tareas-reportar')).toBe(false);
     }
   });
 });

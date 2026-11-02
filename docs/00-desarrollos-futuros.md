@@ -34,6 +34,46 @@ módulo saca **la foto del día** (quién pagaría qué hoy), en Excel y CSV, y 
 3. ¿Se lleva aquí el **«pagado / no pagado»** o se queda en Educamos? Si va a Educamos, ¿con qué
    formato de CSV (el de Licencias es curso, ID Educamos, importe)?
 
+### Presentación al claustro (2-nov-2026): lo que decidí yo — revisar con David
+
+David pidió, el día de presentar la plataforma a los profes: una bienvenida animada la primera
+vez, que el botón de TIC lo use todo el claustro como buzón de sugerencias y fallitos, y que el
+escritorio de profe y tutor enseñe menos y deje en gris lo que llega más adelante.
+
+- **Qué es «profe de a pie»**: los roles `profe` y `tutor`. Jefatura/Coord., orientación y el
+  resto de roles siguen viendo el escritorio de siempre. Si jefatura tiene que ser también «de a
+  pie», es una línea (`esClaustroEstandar` en `src/lib/escritorio.ts`).
+- **Gris y oculto son solo lo que SE VE, no un permiso.** Banco de libros y Salidas salen en gris
+  («Próximamente») para profe y tutor, y Números del cole desaparece de su escritorio, pero **el
+  rol sigue teniendo esos módulos**: una salida que un tutor ya lleva se abre por su enlace de
+  siempre (los correos de recordatorio apuntan ahí) y los datos que veía no cambian. Lo decidí así
+  para no romper nada el mismo día que lo presentas. Si se quieren cerrar de verdad, se quitan de
+  `ROLE_MODULES.profe/tutor` en `permissions.ts` y el gris se queda (el escritorio ya sabe pintarlo).
+- **Números del cole: «replantearemos mostrarlo dentro de un tiempo»** (David, 2-nov-2026). Oculto
+  para profe y tutor mientras tanto; la ficha [`24-numeros.md`](./24-numeros.md) lo dice arriba.
+  Pendiente: decidir cuándo y qué parte (¿solo su clase?) se les vuelve a enseñar.
+- **«Incidencias de mantenimiento y TIC» no existe todavía**: es una tarjeta gris para todos (SuperTIC
+  incluido) en «Organización del centro». Cuando se construya, se le quita el `bloqueo` y se le da
+  módulo, ficha y entrada en `modulos.ts`. Su `href` (`/gestion/incidencias`) todavía no existe.
+- **Solicitar acceso a Evaluaciones**: quien no lo tiene lo ve en gris con «Solicitar acceso» y la
+  frase de David; tocarlo manda un correo a todos los SuperTIC activos (perfil `general`, con el
+  `Reply-To` de quien lo pide y un botón a Usuarios y roles). **No hay registro de solicitudes**:
+  solo el correo, y una cookie de 14 días en ese navegador que evita el doble aviso y deja la
+  tarjeta en «Solicitud enviada». Si se quiere un historial o que pase a un tablero, habría que
+  guardarlas en BBDD. Solo Evaluaciones se pide así (`SOLICITABLES` en `solicitud-acceso.ts`).
+- **La bienvenida se ve una vez por persona y navegador** (cookie `bienvenida-<huella>`, un año).
+  Cambiar `BIENVENIDA_ID` en `src/lib/bienvenida.ts` la vuelve a enseñar a todos (para otra
+  novedad gorda); `?bienvenida=1` en `/gestion` la repite sin tocar nada, para ensayar. Las frases
+  con guasa son cinco y a cada persona le toca siempre la misma.
+- **El botón de abajo a la derecha, para todo el claustro** (`tareas-reportar` en los roles `profe`,
+  `tutor`, `jefe` y `evaluaciones`): «Fallito» y «Sugerencia», un «¡Mil gracias!» animado al enviar y
+  nada más (no abre el tablero ni ve lo de otros). Una **sugerencia llega al tablero de TIC como
+  tarjeta de «Módulo nuevo»** (mismo tipo, sin checklist), mezclada con las ideas de TIC; el nombre
+  de quien la apuntó sale en la tarjeta. Si estorba la mezcla, el siguiente paso es un tipo propio.
+  Dirección, secretaría, orientación y comunicación, que ya lo tenían, siguen viendo lo suyo con su estado.
+- **A quien no gestiona, el selector de módulo solo le ofrece los módulos que ve**, para que un
+  profe no tenga que adivinar qué es «AUTOASM».
+
 ### Escritorio reordenado y portada con sesión: lo que decidí yo (20-oct-2026) — revisar con David
 
 - **Los cinco grupos** (Alumnado · Familias y cobros · Organización del centro · Tecnología ·
@@ -1022,9 +1062,8 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   aviso anual (julio) en el escritorio para hacer la limpieza del curso que acaba.
 - **Tareas de la plataforma → kanban** ([`23-tareas.md`](./23-tareas.md)): columnas por estado
   con arrastrar, y quizá prioridad, responsable y enlazar un fallito con el commit/PR que lo
-  arregla. También por decidir: si el resto del claustro (tutores, profes) puede reportar
-  fallitos — hoy basta añadir `tareas-reportar` a su rol en `permissions.ts` — y si quien
-  reporta recibe un aviso cuando su fallito pasa a «hecho».
+  arregla. También por decidir: si quien reporta recibe un aviso cuando su fallito pasa a «hecho»
+  (el resto del claustro ya puede reportar desde el 2-nov-2026: ver «Presentación al claustro»).
 - ~~**Mejorar la PWA** (instalación en iPad)~~ → promocionada a ficha propia con plan y
   checklist: [`05-pwa.md`](./05-pwa.md).
 - **Plataforma de pago online** para Salidas (y quizá Licencias): sustituiría el justificante
