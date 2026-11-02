@@ -126,3 +126,16 @@ export function nombreListaRapida(tipo: TipoLista, clases: readonly { curso: str
     .replace(/^-|-$/g, '');
   return `${base}.xlsx`;
 }
+
+/**
+ * El nombre bonito, para Drive: `Correos familias 2º ESO B 2026-2027` (la ruta le añade la
+ * fecha). Aquí sí hay espacios y acentos: no viaja en ninguna cabecera.
+ */
+export function nombreListaRapidaDrive(
+  tipo: TipoLista,
+  clases: readonly { curso: string; letra: string | null }[],
+  academicYear: string,
+): string {
+  const resumen = clases.length <= 3 ? clases.map(nombreLargoClase).join(', ') : `${clases.length} clases`;
+  return `${TIPO_LISTA_LABEL[tipo].fichero} ${resumen} ${cursoEscolarLargo(academicYear)}`;
+}

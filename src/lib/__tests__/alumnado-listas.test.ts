@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AlumnoCuaderno, ClaseCuaderno } from '@/lib/cuaderno-server';
-import { libroDeListaRapida, nombreListaRapida, numerosSinCongelar } from '@/lib/alumnado-listas';
+import { libroDeListaRapida, nombreListaRapida, nombreListaRapidaDrive, numerosSinCongelar } from '@/lib/alumnado-listas';
 import { COLUMNAS } from '@/lib/cuaderno/lista-clase';
 import type { Celda, EntradaCelda } from '@/lib/xlsx-escribir';
 
@@ -77,5 +77,16 @@ describe('listas rápidas de Alumnado', () => {
     expect(nombreListaRapida('familias', [clase], '2026-27')).toBe('correos-familias-2-eso-b-2026-2027.xlsx');
     const muchas = Array.from({ length: 5 }, () => clase);
     expect(nombreListaRapida('lista', muchas, '2026-27')).toBe('lista-5-clases-2026-2027.xlsx');
+  });
+});
+
+describe('nombreListaRapidaDrive', () => {
+  it('es el nombre legible, con acentos y espacios: va a Drive, no a una cabecera', () => {
+    expect(nombreListaRapidaDrive('familias', [{ curso: '2ESO', letra: 'B' }], '2026-27')).toBe('Correos familias 2º ESO B 2026-2027');
+  });
+
+  it('con muchas clases las cuenta en vez de listarlas', () => {
+    const doce = Array.from({ length: 12 }, (_, i) => ({ curso: '1ESO', letra: String.fromCharCode(65 + i) }));
+    expect(nombreListaRapidaDrive('lista', doce, '2026-27')).toBe('Lista 12 clases 2026-2027');
   });
 });

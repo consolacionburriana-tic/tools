@@ -40,11 +40,23 @@ import { BarraAcciones } from '@/components/ui/barra-acciones';
 import { EnCurso, Progreso } from '@/components/ui/progreso';
 import { Interruptor } from '@/components/ui/interruptor';
 import { Copiable, CopiarLista, Dato } from '@/components/ui/copiable';
+import { GuardarEnDrive, type ArchivoEnDrive } from '@/components/ui/guardar-en-drive';
 import { Rotulo } from '@/components/ui/rotulo';
 import { Avatar, Avatares } from '@/components/ui/avatar';
 import { IconoModulo } from '@/components/ui/icono-modulo';
 import { TituloPagina } from '@/components/ui/cabecera-modulo';
 import { Skeleton, SkeletonKpis, SkeletonRows, SkeletonTabla } from '@/components/ui/skeleton';
+
+/** El «guardado» de las pruebas del escaparate: tarda un poco y devuelve un archivo inventado. */
+async function guardarDeMentira(formato: 'sheet' | 'xlsx'): Promise<ArchivoEnDrive> {
+  await new Promise((r) => setTimeout(r, 900));
+  return {
+    id: 'ejemplo',
+    nombre: formato === 'sheet' ? 'Lista 2º ESO B 2026-2027 · 2026-11-02' : 'Lista 2º ESO B 2026-2027 · 2026-11-02.xlsx',
+    url: 'https://drive.google.com',
+    formato,
+  };
+}
 
 const PERSONAS = [
   { email: 'ana.perez@ejemplo.es', nombre: 'Ana Pérez' },
@@ -68,6 +80,7 @@ const PIEZAS = [
   ['progreso', 'Progreso'],
   ['interruptor', 'Interruptor'],
   ['copiar', 'Copiar'],
+  ['drive', 'Guardar en Drive'],
   ['personas', 'Personas'],
   ['modulos', 'Módulos'],
   ['titulos', 'Títulos'],
@@ -481,6 +494,27 @@ export function Escaparate() {
         </div>
         <Fila nombre="Lista">
           <CopiarLista valores={['ana@ejemplo.es', 'luis@ejemplo.es']} etiqueta="Correos" />
+        </Fila>
+      </Pieza>
+
+      <Pieza
+        id="drive"
+        titulo="GuardarEnDrive"
+        para="El botón de cualquier lista o informe que ya se pueda descargar: deja el archivo en el Drive de quien pulsa (Google Sheets o Excel) y le recuerda moverlo a donde quiera. Aquí es de mentira: no crea nada."
+        importa="import { GuardarEnDrive, pedirGuardadoEnDrive } from '@/components/ui/guardar-en-drive';"
+      >
+        <Fila nombre="Sale bien">
+          <GuardarEnDrive que="Lista de clase · 2º ESO B" guardar={guardarDeMentira} tambienDescargar={async () => true} />
+          <GuardarEnDrive size="sm" etiqueta="Mi Drive" que="Correos de las familias · 2º ESO B" guardar={guardarDeMentira} />
+        </Fila>
+        <Fila nombre="Falla (con su mensaje)">
+          <GuardarEnDrive
+            que="Informe · 3 clases, 4 columnas"
+            guardar={async () => {
+              await new Promise((r) => setTimeout(r, 700));
+              throw new Error('Tu Drive está lleno: no hay sitio para guardar el archivo. Libera espacio o descárgalo.');
+            }}
+          />
         </Fila>
       </Pieza>
 
