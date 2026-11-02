@@ -899,6 +899,11 @@ export interface AulasDeNormas {
   aula: AulaDeNorma | null;
   /** Día (1 = lunes) → aula, para las normas que cambian según el día. Pisa a `aula` ese día. */
   porDia: Map<number, AulaDeNorma>;
+  /**
+   * Si la clase puede ser también en el aula propia de su grupo (tecnología, plástica, FQ), esa aula.
+   * Solo con un grupo: el aula propia de una clase que junta varios no existe.
+   */
+  tambienEn: AulaDeNorma | null;
 }
 
 type ConfigAulasEso = typeof CONFIGURACION.horarios.aulasEso;
@@ -955,9 +960,10 @@ export function aulasEsoPorNormas(
       if (aula) porDia.set(Number(dia), aula);
     }
     const aula = n.aula ? resolverAulaNorma(n.aula, config) : propia();
-    return { aula, porDia };
+    const suya = n.oAulaPropia ? propia() : null;
+    return { aula, porDia, tambienEn: suya && suya.codigo !== aula?.codigo ? suya : null };
   }
-  return { aula: propia(), porDia: new Map() };
+  return { aula: propia(), porDia: new Map(), tambienEn: null };
 }
 
 /** El aula de la asignación según las normas (sin las de cada día): ver `aulasEsoPorNormas`. */
@@ -966,4 +972,46 @@ export function aulaEsoPorNormas(
   config: ConfigAulasEso = CONFIGURACION.horarios.aulasEso,
 ): AulaDeNorma | null {
   return aulasEsoPorNormas(a, config)?.aula ?? null;
+}
+
+
+// ─── Aulas en la pestaña «Aula»: especiales primero, luego las de tu etapa y, aparte, las de otras ──
+
+export type GrupoAula = 'especial' | 'etapa' | 'otras';
+
+/** La etapa de un aula propia por su código (`A-1ESOA` → ESO, `A-5PRIB` → EP); `null` si es una sala especial. */
+export function etapaDeAulaPropia(codigo: string): Etapa | null {
+  const m = /^A-(\d)(ESO|PRI|INF|BACH)/.exec(codigo.toUpperCase());
+  return m ? etapaDeCurso(`${m[1]}${m[2]}`) : null;
+}
+
+/**
+ * Reparte los espacios en tres líneas (David, 2-nov-2026): las **salas especiales** (taller, laboratorio,
+ * informática, plástica, música, pabellón) delante; luego las **aulas de las clases de tu etapa**; y
+ * en otra línea las **aulas de otras etapas** (las de primaria que usa la ESO un día). «Tu etapa» son las
+ * del profesor; sin ninguna, la que más aulas de clase tenga.
+ */
+export function agruparEspacios<T extends { codigo: string; nombre: string }>(
+  espacios: readonly T[],
+  etapasPropias: readonly string[] = [],
+): { grupo: GrupoAula; espacios: T[] }[] {
+  const orden = Object.keys(CONFIGURACION.horarios.aulasEso.aulas);
+  const rango = (c: string) => (orden.indexOf(c) < 0 ? orden.length : orden.indexOf(c));
+  const deClase = espacios.filter((e) => etapaDeAulaPropia(e.codigo));
+  let propias = new Set<string>(etapasPropias.filter((e) => deClase.some((x) => etapaDeAulaPropia(x.codigo) === e)));
+  if (propias.size === 0) {
+    const cuenta = new Map<string, number>();
+    for (const e of deClase) cuenta.set(etapaDeAulaPropia(e.codigo)!, (cuenta.get(etapaDeAulaPropia(e.codigo)!) ?? 0) + 1);
+    const mejor = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0];
+    propias = new Set(mejor ? [mejor[0]] : []);
+  }
+  const porNombre = (a: T, b: T) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true });
+  const especiales = espacios.filter((e) => !etapaDeAulaPropia(e.codigo)).sort((a, b) => rango(a.codigo) - rango(b.codigo) || porNombre(a, b));
+  const detuEtapa = deClase.filter((e) => propias.has(etapaDeAulaPropia(e.codigo)!)).sort(porNombre);
+  const otras = deClase.filter((e) => !propias.has(etapaDeAulaPropia(e.codigo)!)).sort(porNombre);
+  return [
+    { grupo: 'especial' as const, espacios: especiales },
+    { grupo: 'etapa' as const, espacios: detuEtapa },
+    { grupo: 'otras' as const, espacios: otras },
+  ].filter((g) => g.espacios.length > 0);
 }

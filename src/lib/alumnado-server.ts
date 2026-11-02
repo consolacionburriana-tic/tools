@@ -163,7 +163,7 @@ function unirEtapas(lista: readonly (string | null | undefined)[]): Etapa[] {
  * etapas de los cursos en los que tiene clase en Horarios. Las de sus tutorías las añade
  * quien llama, que ya las tiene.
  */
-async function etapasDeFichaProfe(email: string): Promise<Etapa[]> {
+export async function etapasDeFichaProfe(email: string): Promise<Etapa[]> {
   const [ficha] = await db
     .select({ id: eduTeachers.id, etapa: eduTeachers.etapa, etapas: eduTeachers.etapas })
     .from(eduTeachers)

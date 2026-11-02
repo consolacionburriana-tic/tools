@@ -45,6 +45,11 @@ export interface NormaAulaEso {
   detalles?: string[];
   cursos?: string[];
   grupos?: string[];
+  /**
+   * También puede ser en el aula propia del grupo («indistintamente», David): la sala especial es la
+   * principal y la clase se ve además en el aula del grupo, marcada como «puede ser aquí».
+   */
+  oAulaPropia?: boolean;
 }
 
 export const CONFIGURACION = {
@@ -169,10 +174,11 @@ export const CONFIGURACION = {
      * normas de Consolación (David, 2-nov-2026, y su cuadro «Aulas para desdobles y refuerzos
      * 26-27»), que se aplican al importar y con `pnpm horarios:aulas` sobre lo que ya hay:
      *
-     *  · Tecnología → aula de tecnología. PIAR I y II, TRDR y el Taller de profundización de 4º →
+     *  · Tecnología → taller de tecnología. PIAR I y II, TRDR y el Taller de profundización de 4º →
      *    aula de informática. Educación Física → el pabellón, siempre.
      *  · **Música de 1º y 2º → aula de música** (compartida con primaria): la base, siempre.
-     *  · Física y Química → laboratorio; Plástica (y Expresión Artística de 4º) → aula de plástica.
+     *  · Física y Química → laboratorio; Plástica (y Expresión Artística de 4º) → aula de plástica. Estas
+     *    dos y Tecnología pueden ser **también en el aula propia** (`oAulaPropia`: «indistintamente»).
      *    Salen del cuadro de desdobles: las 13 sesiones de FQ de 2º-4º y las 8 de Plástica de 2º y 3º
      *    coinciden hora a hora con sus columnas.
      *  · Las **optativas** van cada una a su aula (cuadro de optativas): Francés de 1º → 1º B; Taller de
@@ -196,7 +202,8 @@ export const CONFIGURACION = {
      */
     aulasEso: {
       aulas: {
-        TEC: { nombre: 'Aula de tecnología', tipo: 'aula', admiteSolapes: false },
+        // Es un TALLER, no un aula (David, 2-nov-2026).
+        TEC: { nombre: 'Taller de tecnología', tipo: 'taller', admiteSolapes: false },
         INFO: { nombre: 'Aula de informática', tipo: 'aula', admiteSolapes: false },
         PLAST: { nombre: 'Aula de plástica', tipo: 'aula', admiteSolapes: false },
         LAB: { nombre: 'Laboratorio', tipo: 'laboratorio', admiteSolapes: false },
@@ -206,7 +213,7 @@ export const CONFIGURACION = {
         POLI: { nombre: 'Polideportivo', tipo: 'pista', admiteSolapes: true },
       } as Record<string, { nombre: string; tipo: string; admiteSolapes: boolean }>,
       normas: [
-        { aula: 'TEC', materias: ['TYD', 'Tecnología y Digitalización', 'Tecnología'], detalles: ['Tecnología', 'Digitalización'] },
+        { aula: 'TEC', materias: ['TYD', 'Tecnología y Digitalización', 'Tecnología'], detalles: ['Tecnología', 'Digitalización'], oAulaPropia: true },
         {
           aula: 'INFO',
           materias: ['PIAR', 'Programación, inteligencia artificial y robótica', 'TRDR', 'TRDIG', 'Taller de relaciones digitales'],
@@ -214,8 +221,8 @@ export const CONFIGURACION = {
         { aula: 'INFO', materias: ['TF', 'Taller de profundización'], cursos: ['4ESO'] },
         { aula: 'POLI', materias: ['EFI', 'Educación Física'] },
         { aula: 'MUS', materias: ['MUS', 'Música'], cursos: ['1ESO', '2ESO'] },
-        { aula: 'LAB', materias: ['FIS', 'Física y química'] },
-        { aula: 'PLAST', materias: ['EPV', 'Educación Plástica', 'EX', 'Expresión Artística'] },
+        { aula: 'LAB', materias: ['FIS', 'Física y química'], oAulaPropia: true },
+        { aula: 'PLAST', materias: ['EPV', 'Educación Plástica', 'EX', 'Expresión Artística'], oAulaPropia: true },
         // Optativas de 1º
         { aula: 'A-1ESOB', materias: ['SLF', 'Segunda lengua extranjera'], cursos: ['1ESO'] },
         { aula: 'A-1ESOA', materias: ['TMATE', 'Taller de refuerzo matemáticas'], cursos: ['1ESO'] },

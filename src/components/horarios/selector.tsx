@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, DoorOpen, Loader2, MapPin, Search, Users } from 'lucide-react';
 
 import { haptic } from '@/lib/haptics';
-import { ETAPAS_HORARIO } from '@/lib/horarios';
+import { agruparEspacios, ETAPAS_HORARIO, type GrupoAula } from '@/lib/horarios';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Filtro, Filtros } from '@/components/ui/filtro';
@@ -25,6 +25,12 @@ const ETIQUETA_LISTA: Record<VistaHorario, string> = {
   aula: 'Aula',
 };
 
+const ETIQUETA_GRUPO_AULA: Record<GrupoAula, string> = {
+  especial: 'Salas especiales',
+  etapa: 'Aulas de tu etapa',
+  otras: 'Aulas de otras etapas',
+};
+
 const VISTAS: { id: VistaHorario; label: string; icono: typeof Users }[] = [
   { id: 'clase', label: 'Clase', icono: Users },
   { id: 'profe', label: 'Profesor', icono: DoorOpen },
@@ -37,6 +43,7 @@ export function Selector({
   clave,
   puedeVerProfes,
   soloClase = false,
+  etapasPropias = [],
 }: {
   opciones: OpcionesNavegador;
   vista: VistaHorario;
@@ -44,6 +51,8 @@ export function Selector({
   puedeVerProfes: boolean;
   /** Un profe raso: solo ve clases (la suya). Sin pestañas de Profesor ni de Aula. */
   soloClase?: boolean;
+  /** Las etapas de quien mira: reparte las aulas en «de tu etapa» y «de otras etapas». */
+  etapasPropias?: readonly string[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -96,6 +105,14 @@ export function Selector({
       .map((e) => ({ clave: e.id, etiqueta: e.nombre, pista: e.codigo }));
   }, [vista, etapa, busca, opciones]);
 
+  // En la pestaña Aula, tres líneas: las salas especiales delante, luego las aulas de las clases de tu etapa
+  // y, aparte, las de otras etapas (David, 2-nov-2026).
+  const gruposAula = useMemo(() => {
+    if (vista !== 'aula') return null;
+    const q = busca.trim().toLowerCase();
+    return agruparEspacios(opciones.espacios.filter((e) => !q || e.nombre.toLowerCase().includes(q)), etapasPropias);
+  }, [vista, busca, opciones.espacios, etapasPropias]);
+
   // Cambiar de vista es la navegación MÁS lenta (se rehace el selector entero): la opción
   // tocada enseña la ruedecita para que no parezca que el toque no ha entrado.
   const vistaYendo = pendiente && yendo?.endsWith(':') ? (yendo.slice(0, -1) as VistaHorario) : null;
@@ -145,9 +162,38 @@ export function Selector({
         </div>
       )}
 
+      {/* Aula: tres líneas (especiales · tu etapa · otras etapas), cada una a la vista y sin plegar. */}
+      {gruposAula && (
+        <div className="space-y-2.5">
+          {gruposAula.map((g) => (
+            <div key={g.grupo} className="space-y-1.5">
+              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{ETIQUETA_GRUPO_AULA[g.grupo]}</span>
+              <Filtros etiqueta={ETIQUETA_GRUPO_AULA[g.grupo]} className="flex-wrap">
+                {g.espacios.map((e) => {
+                  const cargando = pendiente && yendo === `aula:${e.id}`;
+                  const activo = clave === e.id;
+                  return (
+                    <Filtro
+                      key={e.id}
+                      activo={activo || cargando}
+                      onClick={() => ir('aula', e.id)}
+                      icono={cargando ? <Loader2 aria-hidden className="animate-spin" /> : undefined}
+                    >
+                      {e.nombre}
+                    </Filtro>
+                  );
+                })}
+              </Filtros>
+            </div>
+          ))}
+          {gruposAula.length === 0 && <p className="text-sm text-zinc-500 dark:text-zinc-400">Nada que mostrar.</p>}
+        </div>
+      )}
+
       {/* Plegado, la lista es UNA fila que se desliza; desplegado, todo a la vista. Con 25
           profes la rejilla completa se comía la pantalla antes de llegar al horario, que es
           lo que se ha venido a ver. */}
+      {!gruposAula && (
       <div className="space-y-1.5">
         <div className="flex min-h-10 items-center justify-between gap-2">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{ETIQUETA_LISTA[vista]}</span>
@@ -187,6 +233,7 @@ export function Selector({
           {lista.length === 0 && <p className="text-sm text-zinc-500 dark:text-zinc-400">Nada que mostrar.</p>}
         </Filtros>
       </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { CalendarDays } from 'lucide-react';
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess, horariosSoloSuTutoria } from '@/lib/permissions';
 import { clasesDeTutor } from '@/lib/puntualidad-server';
+import { etapasDeFichaProfe } from '@/lib/alumnado-server';
 import {
   getCeldas,
   getFranjasDeProfe,
@@ -55,6 +56,8 @@ export default async function HorariosPage({
     getOpcionesNavegador(periodo.id),
     soloTutoria && user ? clasesDeTutor(user.email) : Promise.resolve([]),
   ]);
+  // «Tu etapa», para repartir las aulas en la pestaña Aula (las de otras etapas, en otra línea).
+  const etapasPropias = sp.vista === 'aula' && user && !soloTutoria ? await etapasDeFichaProfe(user.email) : [];
   const suyas = new Set(propias.map((c) => `${c.curso}|${c.letra ?? ''}`));
   const opciones = soloTutoria
     ? { clases: todas.clases.filter((c) => suyas.has(`${c.curso}|${c.letra ?? ''}`)), profes: [], espacios: [] }
@@ -109,7 +112,7 @@ export default async function HorariosPage({
 
       {/* Con una sola tutoría no hay nada que elegir: se enseña su horario y ya. */}
       {!(soloTutoria && opciones.clases.length <= 1) && (
-        <Selector opciones={opciones} vista={vista} clave={clave} puedeVerProfes={puedeVerProfes} soloClase={soloTutoria} />
+        <Selector opciones={opciones} vista={vista} clave={clave} puedeVerProfes={puedeVerProfes} soloClase={soloTutoria} etapasPropias={etapasPropias} />
       )}
       {/* El horario va en su propio Suspense: el selector se pinta al momento y la
           cuadrícula, que es la consulta lenta, enseña su esqueleto mientras llega. La `key`

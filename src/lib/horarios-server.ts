@@ -28,6 +28,7 @@ import {
 } from '@/db/schema';
 import { compararClases, nombreClase } from '@/lib/cursos';
 import { type AulaDeNorma, type AulasDeNormas } from '@/lib/horarios';
+import { CONFIGURACION } from '@/lib/configuracion';
 import {
   aulasEsoPorNormas,
   etapaDeCursoHorario,
@@ -361,6 +362,7 @@ export async function importarBloques(
     if (x.aula) aulasUsadas.set(x.aula.codigo, x.aula);
     for (const au of x.porDia.values()) aulasUsadas.set(au.codigo, au);
   }
+  await renombrarEspaciosDeNormas(true);
   const espacioDeNorma = await asegurarEspaciosDeNormas([...aulasUsadas.values()]);
   if (aulaDeNorma.size) resumen.notas.push(`${aulaDeNorma.size} asignación(es) de ESO con aula deducida por las normas del centro (tecnología, informática, pabellón, música, laboratorio, optativas, aula propia).`);
 
@@ -559,6 +561,27 @@ export async function importarBloques(
   return resumen;
 }
 
+/**
+ * Pone al día el nombre y el tipo de las salas especiales que ya existen con lo que dice la
+ * configuración (`aulasEso.aulas`): «Aula de tecnología» pasó a ser «Taller de tecnología». Devuelve
+ * cuántas cambian; con `aplicar: false` solo cuenta.
+ */
+async function renombrarEspaciosDeNormas(aplicar: boolean): Promise<number> {
+  const aulas = CONFIGURACION.horarios.aulasEso.aulas;
+  const existentes = await db
+    .select({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre, tipo: horEspacios.tipo })
+    .from(horEspacios)
+    .where(inArray(horEspacios.codigo, Object.keys(aulas)));
+  let n = 0;
+  for (const e of existentes) {
+    const quiere = aulas[e.codigo];
+    if (!quiere || (e.nombre === quiere.nombre && e.tipo === quiere.tipo)) continue;
+    n++;
+    if (aplicar) await db.update(horEspacios).set({ nombre: quiere.nombre, tipo: quiere.tipo, updatedAt: new Date() }).where(eq(horEspacios.id, e.id));
+  }
+  return n;
+}
+
 /** Crea los espacios que falten (por código) y devuelve el mapa código → id. */
 async function asegurarEspaciosDeNormas(aulas: readonly AulaDeNorma[]): Promise<Map<string, string>> {
   const mapa = new Map<string, string>();
@@ -681,7 +704,7 @@ export async function aplicarAulasEso(periodoId: string, aplicar: boolean): Prom
   const cuenta = new Map<string, number>();
   const sinAulaLista: string[] = [];
   let sinAula = 0;
-  let cambios = 0;
+  let cambios = await renombrarEspaciosDeNormas(aplicar);
   for (const { f, aulas } of decididas) {
     const deseada = aulas?.aula ?? null;
     if (!deseada && !(aulas?.porDia.size)) {
@@ -1195,6 +1218,14 @@ export async function getClasesDelPeriodo(periodoId: string): Promise<{ curso: s
 
 export type VistaHorario = 'clase' | 'profe' | 'aula';
 
+/** Si el espacio es el aula propia de un grupo (`A-1ESOA`), su curso, letra y código; si no, `null`. */
+async function aulaPropiaDe(espacioId: string): Promise<{ curso: string; letra: string | null; codigo: string } | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(espacioId)) return null;
+  const [e] = await db.select({ codigo: horEspacios.codigo }).from(horEspacios).where(eq(horEspacios.id, espacioId)).limit(1);
+  const m = e ? /^A-(\d)(ESO|PRI|INF|BACH)(A|B|PDC)?$/.exec(e.codigo) : null;
+  return m ? { curso: `${m[1]}${m[2]}`, letra: m[3] ?? null, codigo: e.codigo } : null;
+}
+
 /**
  * Todas las celdas de un horario, ya listas para `construirCuadricula()`.
  *
@@ -1279,11 +1310,31 @@ export async function getCeldas(
     );
   }
 
-  if (filas.length === 0) return [];
+  // En el aula PROPIA de un grupo (`A-1ESOA`) se ven además las clases que pueden ser «indistintamente» en
+  // ella o en una sala especial (tecnología, plástica, FQ): la sala es la principal y aquí salen marcadas.
+  // Se buscan las de ese grupo que están en otra parte y se quedan las que las normas dejan en su aula.
+  const alternativas = new Map<string, string>(); // sesionId → nombre de la sala principal
+  let filasAlt: FilaAncha[] = [];
+  const propia = vista === 'aula' ? await aulaPropiaDe(clave) : null;
+  if (propia) {
+    const candidatas = await conJoins()
+      .innerJoin(horAsignacionGrupos, eq(horAsignacionGrupos.asignacionId, horAsignaciones.id))
+      .where(
+        and(
+          eq(horAsignaciones.periodoId, periodoId),
+          eq(horAsignacionGrupos.curso, propia.curso),
+          propia.letra ? eq(horAsignacionGrupos.letra, propia.letra) : isNull(horAsignacionGrupos.letra),
+          sql`coalesce(${horSesiones.espacioId}, ${horAsignaciones.espacioId}) is distinct from ${clave}::uuid`,
+        ),
+      );
+    filasAlt = candidatas;
+  }
+
+  if (filas.length === 0 && filasAlt.length === 0) return [];
 
   // Profes y grupos de cada asignación, en dos consultas más (no en el join ancho: un
   // producto cartesiano de profes × grupos duplicaría las sesiones).
-  const asignacionIds = [...new Set(filas.map((f) => f.asignacionId))];
+  const asignacionIds = [...new Set([...filas, ...filasAlt].map((f) => f.asignacionId))];
   // Profes y grupos solo dependen de `asignacionIds`, no el uno del otro: encadenados
   // eran dos viajes a Neon (~250 ms) para pintar la misma cuadrícula.
   const [profesFilas, gruposFilas] = await Promise.all([
@@ -1323,6 +1374,27 @@ export async function getCeldas(
   const crudosPor = new Map<string, { curso: string; letra: string | null; subgrupo: string | null }[]>();
   for (const g of gruposFilas) {
     crudosPor.set(g.asignacionId, [...(crudosPor.get(g.asignacionId) ?? []), { curso: g.curso, letra: g.letra, subgrupo: g.subgrupo }]);
+  }
+
+  if (filasAlt.length) {
+    const normas = CONFIGURACION.horarios.aulasEso;
+    for (const f of filasAlt) {
+      const n = aulasEsoPorNormas(
+        {
+          grupos: crudosPor.get(f.asignacionId) ?? [],
+          actividadCodigo: f.actividad,
+          materiaNombre: f.materia,
+          materiaAbreviatura: f.materiaAbreviatura,
+          detalle: f.materia ? f.etiqueta : null,
+        },
+        normas,
+      );
+      if (n?.tambienEn?.codigo === propia?.codigo && f.espacio) {
+        alternativas.set(f.sesionId, f.espacio);
+        filas.push(f);
+      }
+    }
+    if (filas.length === 0) return [];
   }
 
   // A la misma hora, la misma materia con el mismo profe para 4ESO A y para 4ESO B es UNA
@@ -1372,7 +1444,7 @@ export async function getCeldas(
       subtitulo,
       // Con materia, la etiqueta es el detalle de la hora ('Matemáticas' dentro del Ámbito
       // Científico); sin materia ya se ha usado como título y aquí sobraría.
-      detalle: s.detalle,
+      detalle: alternativas.has(f.sesionId) ? `Puede ser aquí o en ${alternativas.get(f.sesionId)}` : s.detalle,
       materiaId: f.materiaId,
       abreviatura: f.materiaAbreviatura,
       actividad: f.actividad,

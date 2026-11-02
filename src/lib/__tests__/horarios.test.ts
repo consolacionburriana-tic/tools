@@ -724,7 +724,7 @@ describe('reubicarManuales', () => {
 });
 
 // ─── Aulas de la ESO por las normas del centro ───────────────────────────────
-import { aulaEsoPorNormas, aulasEsoPorNormas } from '@/lib/horarios';
+import { agruparEspacios, aulaEsoPorNormas, aulasEsoPorNormas, etapaDeAulaPropia } from '@/lib/horarios';
 
 describe('aulaEsoPorNormas: el export de la ESO no trae aula', () => {
   const g = (curso: string, letra: string | null) => ({ curso, letra });
@@ -810,5 +810,58 @@ describe('aulaEsoPorNormas: el export de la ESO no trae aula', () => {
     expect(cod(clase([g('3INF', 'A')], 'Lu', 'Lu'))).toBeNull();
     expect(aulasEsoPorNormas(clase([g('2ESO', 'A')], null, null, null, 'apoyo_pt'))).toBeNull();
     expect(aulasEsoPorNormas(clase([], 'Matemáticas', 'MAT'))).toBeNull();
+  });
+});
+
+
+describe('tecnología, plástica y FQ: en la sala especial o, indistintamente, en el aula propia', () => {
+  const g = (curso: string, letra: string | null) => ({ curso, letra });
+  const de = (grupos: { curso: string; letra: string | null }[], nombre: string, abr: string, detalle: string | null = null) =>
+    aulasEsoPorNormas({ grupos, actividadCodigo: 'clase', materiaNombre: nombre, materiaAbreviatura: abr, detalle })!;
+
+  it('la sala especial es la principal y el aula del grupo, la alternativa', () => {
+    const t = de([g('1ESO', 'A')], 'Tecnologia y Digitalización', 'TYD');
+    expect(t.aula).toMatchObject({ codigo: 'TEC', nombre: 'Taller de tecnología' }); // taller, no aula
+    expect(t.tambienEn?.codigo).toBe('A-1ESOA');
+    expect(de([g('2ESO', 'B')], 'Educación Plástica , Visual y Audiovisual', 'EPV').tambienEn?.codigo).toBe('A-2ESOB');
+    expect(de([g('3ESO', 'A')], 'Física y química', 'FIS').tambienEn?.codigo).toBe('A-3ESOA');
+  });
+
+  it('un grupo con PDC o varios grupos juntos: solo si hay UN grupo (el aula propia de varios no existe)', () => {
+    expect(de([g('3ESO', 'PDC')], 'Ámbito Práctico', 'APR', 'Tecnología').tambienEn?.codigo).toBe('A-3ESOPDC');
+    expect(de([g('4ESO', 'A'), g('4ESO', 'B')], 'Física y química', 'FIS').tambienEn).toBeNull();
+  });
+
+  it('lo demás no tiene alternativa (el pabellón, la informática, la música)', () => {
+    expect(de([g('2ESO', 'A')], 'Educación Física', 'EFI').tambienEn).toBeNull();
+    expect(de([g('1ESO', 'A')], 'Música', 'MUS').tambienEn).toBeNull();
+  });
+});
+
+describe('pestaña Aula: tres líneas', () => {
+  const e = (codigo: string, nombre: string) => ({ codigo, nombre });
+  const espacios = [
+    e('A-4ESOB', 'Aula 4ESO B'), e('A-1ESOA', 'Aula 1ESO A'), e('POLI', 'Polideportivo'), e('A-5PRIB', 'Aula 5PRI B'),
+    e('TEC', 'Taller de tecnología'), e('A-1ESOB', 'Aula 1ESO B'), e('LAB', 'Laboratorio'), e('INFO', 'Aula de informática'),
+    e('MUS', 'Música'), e('PLAST', 'Aula de plástica'), e('A-4PRIB', 'Aula 4PRI B'),
+  ];
+
+  it('etapa de un aula propia por su código', () => {
+    expect(etapaDeAulaPropia('A-1ESOA')).toBe('ESO');
+    expect(etapaDeAulaPropia('A-5PRIB')).toBe('EP');
+    expect(etapaDeAulaPropia('TEC')).toBeNull();
+  });
+
+  it('especiales delante (en el orden del centro), luego las de la etapa y aparte las de otras', () => {
+    const r = agruparEspacios(espacios, ['ESO']);
+    expect(r.map((x) => x.grupo)).toEqual(['especial', 'etapa', 'otras']);
+    expect(r[0].espacios.map((x) => x.codigo)).toEqual(['TEC', 'INFO', 'PLAST', 'LAB', 'MUS', 'POLI']);
+    expect(r[1].espacios.map((x) => x.codigo)).toEqual(['A-1ESOA', 'A-1ESOB', 'A-4ESOB']);
+    expect(r[2].espacios.map((x) => x.codigo)).toEqual(['A-4PRIB', 'A-5PRIB']);
+  });
+
+  it('sin etapa propia, «la tuya» es la que más aulas de clase tiene; y los grupos vacíos no salen', () => {
+    expect(agruparEspacios(espacios).find((x) => x.grupo === 'otras')!.espacios.map((x) => x.codigo)).toEqual(['A-4PRIB', 'A-5PRIB']);
+    expect(agruparEspacios([e('TEC', 'Taller de tecnología')]).map((x) => x.grupo)).toEqual(['especial']);
   });
 });
