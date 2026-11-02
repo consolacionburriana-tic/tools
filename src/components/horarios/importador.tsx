@@ -30,6 +30,8 @@ interface Previa {
   notas: string[];
   /** Lo que el importador ha corregido solo (el inglés del PDC, un segundo profe…). */
   ajustes: string[];
+  /** Horas de profesorado que caen fuera de las franjas de las clases: entran en una franja propia del centro. */
+  fueraDeFranja?: string[];
   hojasProfe: { nombre: string; codigo: string | null; horas: number }[];
   /** Las horas que no son clase, sacadas de las hojas de profe: 'Reunión · TIC', 8 h, 3 profes. */
   horasProfe: { que: string; horas: number; profes: number }[];
@@ -273,6 +275,18 @@ export function Importador() {
             <Aviso tono="info" icono={<Wand2 />} titulo="Arreglado solo">
               <ul className="mt-1 space-y-1">
                 {previa.ajustes.map((a) => <li key={a}>· {a}</li>)}
+              </ul>
+            </Aviso>
+          )}
+
+          {(previa.fueraDeFranja?.length ?? 0) > 0 && (
+            <Aviso tono="info" titulo="Horas fuera de las franjas de las clases">
+              <p className="mb-1">
+                No son de ninguna etapa (la jornada de dirección antes de las 9:00, por ejemplo). Entran
+                igualmente, en una franja propia del centro, y solo la ve quien las tiene.
+              </p>
+              <ul className="space-y-0.5">
+                {previa.fueraDeFranja!.map((a) => <li key={a}>· {a}</li>)}
               </ul>
             </Aviso>
           )}

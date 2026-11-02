@@ -126,6 +126,13 @@ export function parsearRangoHoras(texto: string): { horaInicio: string; horaFin:
   return { horaInicio: `${dos(m[1])}:${m[2]}`, horaFin: `${dos(m[3])}:${m[4]}` };
 }
 
+/** ¿Dura un cuarto de hora o menos? El almuerzo de infantil son diez minutos. */
+export function esFranjaCorta(horaInicio: string, horaFin: string): boolean {
+  const min = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+  const d = min(horaFin) - min(horaInicio);
+  return d > 0 && d <= 15;
+}
+
 /**
  * '2PRIA' → curso '2PRI', letra 'A' · '3INFB' → '3INF' + 'B' · '1ESOA' → '1ESO' + 'A'.
  * Los códigos del centro son <nivel><etapa><letra>, con la letra opcional.
@@ -177,6 +184,9 @@ export function parsearLeyendas(lineas: readonly string[]): Leyendas {
     if (cabecera === 'materias') { actual = 'materias'; continue; }
     if (cabecera === 'profesores' || cabecera === 'profesorado') { actual = 'profes'; continue; }
     if (cabecera === 'aulas' || cabecera === 'espacios') { actual = 'aulas'; continue; }
+    // 'Reuniones:' es otra leyenda (la de las hojas de profe, ver `parsearLeyendaReuniones`):
+    // sin cortar aquí, sus líneas se leían como entradas de la sección anterior.
+    if (cabecera === 'reuniones') { actual = null; continue; }
     if (!actual) continue;
     const m = /^([^:]{1,20}):\s*(.+)$/.exec(t);
     if (!m) continue;
@@ -185,6 +195,43 @@ export function parsearLeyendas(lineas: readonly string[]): Leyendas {
     leyendas[actual].set(m[1].trim().toUpperCase(), valor);
   }
   return leyendas;
+}
+
+/** Una entrada de la leyenda `Reuniones:` de una hoja de profe: qué es y quién va. */
+export interface ReunionLeyenda {
+  nombre: string;
+  miembros: string[];
+}
+
+/**
+ * La leyenda `Reuniones:` que Educamos pone al pie de la hoja de cada profe:
+ *
+ *   Reuniones:
+ *   PAST: Pastoral (PBOR0, MRUB0, CSEO0, MBAL0, MDAU0)
+ *   INNOV: Innovación (MAGU0, CPAR0, SPEN0, PDOM0)
+ *   COM: Comunicación (MGUE0, NCRO0)
+ *
+ * Es la fuente buena de lo que significan las abreviaturas que cada uno escribe a mano
+ * ('PAST', 'INNOV', 'COM', 'ORIE'), y de quién más va. Se lee antes que adivinar.
+ */
+export function parsearLeyendaReuniones(lineas: readonly string[]): Map<string, ReunionLeyenda> {
+  const reuniones = new Map<string, ReunionLeyenda>();
+  let dentro = false;
+  for (const linea of lineas) {
+    const t = (linea ?? '').trim();
+    if (!t) continue;
+    const cabecera = norm(t).replace(/:$/, '');
+    if (/:$/.test(t) && !/^[^:]+:\s*\S/.test(t)) { dentro = cabecera === 'reuniones'; continue; }
+    if (!dentro) continue;
+    const m = /^([^:]{1,20}):\s*(.+)$/.exec(t);
+    if (!m) continue;
+    const entrada = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(m[2].trim());
+    const nombre = (entrada ? entrada[1] : m[2]).trim();
+    if (!nombre) continue;
+    const miembros = entrada ? entrada[2].split(/[,;\s]+/).map((x) => x.trim().toUpperCase()).filter(Boolean) : [];
+    reuniones.set(claveTexto(m[1]), { nombre, miembros });
+  }
+  return reuniones;
 }
 
 /**
@@ -246,6 +293,8 @@ export const NOMBRES_DETALLE: Record<string, string> = {
   DIG: 'Digitalización',
   EPV: 'Plástica y Visual', PLA: 'Plástica y Visual', EX: 'Plástica y Visual',
   FOL: 'Formación y Orientación Laboral', FOP: 'Formación y Orientación Laboral',
+  // Escrito a mano en las hojas de primaria: 'C. M. 4ºB' es Coneixement del Medi.
+  CM: 'Coneixement del Medi',
 };
 
 /**
@@ -291,6 +340,25 @@ export function sugerirCodigo(codigo: string, candidatos: Iterable<string>): str
   if (c.length < 2) return null;
   const cerca = [...new Set([...candidatos].map((k) => k.toUpperCase()))].filter((k) => k !== c && distancia(c, k) === 1);
   return cerca.length === 1 ? cerca[0] : null;
+}
+
+/**
+ * Los códigos de una parte de la celda cuando TODOS son profe o aula de la leyenda; `null` si
+ * alguno no lo es. Educamos separa casi siempre con un salto de línea, pero alguna celda trae
+ * dos profes en la misma línea ('MAT4 - MGUE0 YCAR0'): leída como un solo código no estaba
+ * en ninguna leyenda y la celda se quedaba sin profes.
+ */
+function codigosConocidos(parte: string, leyendas: Leyendas): { profe: string | null; aula: string | null }[] | null {
+  const tokens = (parte ?? '').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return null;
+  const out: { profe: string | null; aula: string | null }[] = [];
+  for (const tok of tokens) {
+    const profe = esProfeConocido(tok, leyendas);
+    if (profe) { out.push({ profe, aula: null }); continue; }
+    if (leyendas.aulas.has(tok.toUpperCase())) { out.push({ profe: null, aula: tok.toUpperCase() }); continue; }
+    return null;
+  }
+  return out;
 }
 
 /** ¿Esta línea es basura de maquetación? Un número suelto, un guion, un punto. */
@@ -377,6 +445,14 @@ export function parsearCeldaClase(
       continue;
     }
 
+    // 'Otros' es la actividad genérica de Educamos: ni materia ni leyenda (no la tiene nunca).
+    // Entra tal cual, como una hora sin materia, y no es un código que falte en la leyenda.
+    // Es el almuerzo de infantil (10:35-10:45, ver `normalizarBloqueClase`).
+    if (/^(?:otros|almuerzo|esmorzar)$/i.test(linea)) {
+      sesiones.push({ materiaCodigo: null, profeCodigos: [], aulaCodigo: null, actividadCodigo: 'otros', detalle: null, crudo: linea });
+      continue;
+    }
+
     const partes = linea.split(/\s*[-–]\s*/).map((p) => p.trim()).filter(Boolean);
     if (partes.length === 0) continue;
     const primera = partes[0].toUpperCase();
@@ -385,11 +461,11 @@ export function parsearCeldaClase(
 
     // Una línea que es SOLO códigos de profe o aula continúa la entrada anterior: es el
     // segundo profe que entra a la misma hora ('MAT1 - RMOG0' + salto + 'MVER0').
-    if (ultima && partes.every((p) => esProfeConocido(p, leyendas) || leyendas.aulas.has(p.toUpperCase()))) {
-      for (const p of partes) {
-        const cod = esProfeConocido(p, leyendas);
-        if (cod) ultima.profeCodigos.push(cod);
-        else ultima.aulaCodigo = p.toUpperCase();
+    const continuacion = ultima ? partes.map((p) => codigosConocidos(p, leyendas)) : [];
+    if (ultima && continuacion.every((c) => c !== null)) {
+      for (const c of continuacion.flat()) {
+        if (c!.profe) ultima.profeCodigos.push(c!.profe);
+        else if (c!.aula) ultima.aulaCodigo = c!.aula;
       }
       ultima.crudo = `${ultima.crudo}\n${linea}`;
       continue;
@@ -435,10 +511,13 @@ export function parsearCeldaClase(
       crudo: linea,
     };
     for (const p of partes.slice(1)) {
-      const cod = esProfeConocido(p, leyendas);
-      if (cod) sesion.profeCodigos.push(cod);
-      else if (leyendas.aulas.has(p.toUpperCase())) sesion.aulaCodigo = p.toUpperCase();
-      else {
+      const conocidos = codigosConocidos(p, leyendas);
+      if (conocidos) {
+        for (const c of conocidos) {
+          if (c.profe) sesion.profeCodigos.push(c.profe);
+          else if (c.aula) sesion.aulaCodigo = c.aula;
+        }
+      } else {
         const sugerencia = sugerirCodigo(p, [...leyendas.profes.keys(), ...leyendas.aulas.keys()]);
         incidencias.push({
           tipo: 'codigo_desconocido',
@@ -566,6 +645,10 @@ export function normalizarBloqueClase(
         const { sesiones: enLaCelda, incidencias: incs } = parsearCeldaClase(celda, leyendas);
         incidencias.push(...incs);
         for (const s of enLaCelda) {
+          // Un 'Otros' de diez minutos es el almuerzo (las hojas de los profes lo llaman así).
+          if (s.actividadCodigo === 'otros' && /^otros$/i.test(s.crudo) && esFranjaCorta(rango.horaInicio, rango.horaFin)) {
+            s.crudo = 'Almuerzo';
+          }
           sesiones.push({
             dia: idx + 1,
             orden,
@@ -586,6 +669,7 @@ export function normalizarBloqueClase(
       // tenga pinta de celda suelta ('LEN1 - MVER0'), que a veces se cuela al aplanar.
       .filter((t) => !/^[^:]{1,20}:\s*.+$/.test(t) && !/^(materias|profesores|aulas|espacios):?$/i.test(norm(t)))
       .filter((t) => !/^[0-9A-ZÑ]{2,8}\s*[-–]\s*[0-9A-ZÑ]{2,8}/i.test(t))
+      .filter((t) => !/^HORARIO\b/i.test(t)) // un titular del Word ('HORARIO PARA…'), no una nota
       .filter((t) => t.length > 8);
 
     if (orden === 0) incidencias.push({ tipo: 'sin_tramos', detalle: `El bloque de ${clase.codigo} no tiene ninguna fila de horas` });
@@ -832,6 +916,8 @@ export interface HoraReconocida {
   actividadCodigo: string;
   /** Lo que se enseña además del nombre de la actividad ('TIC', 'Jefatura de estudios'). */
   etiqueta: string | null;
+  /** La línea llevaba nombres de alumnos ('AL Aitana 2º ESO A'): ya se han quitado de la etiqueta. */
+  datoPersonal?: boolean;
 }
 
 /** Texto normalizado para reconocer: sin tildes, en mayúsculas, sin puntuación ni asteriscos. */
@@ -866,7 +952,42 @@ const REUNIONES: Record<string, string> = {
   PLURILINGUISMO: 'Plurilingüismo', ETWINNING: 'eTwinning',
   EVALUACION: 'Evaluación', 'SESION EVALUACION': 'Sesión de evaluación',
   REUNION: 'Reunión', REUNIO: 'Reunió', NIVEL: 'Reunión de nivel', CICLO: 'Reunión de ciclo', ETAPA: 'Reunión de etapa',
+  // Primaria e infantil (2026-27). La de COORDINACIÓN es la de todo el profesorado los martes a las
+  // 12:30 (23 hojas la traen igual): es UNA reunión con todos, no 23 horas sueltas de «coordinación».
+  // 'Cargo' sería otra cosa, y esa lleva siempre algo detrás ('Coordinación TIC', 'C. PASTORAL').
+  COORDINACION: 'Coordinación', COORDINACIO: 'Coordinació', CICLOS: 'Reunión de ciclo',
+  PAST: 'Pastoral', INNOV: 'Innovación', 'EQ DIRECTIVO': 'Equipo directivo',
+  COMUNICACION: 'Comunicación',
 };
+
+/** Actividades con nombre propio que no son reunión ni cargo: el texto normalizado → qué son. */
+const OTRAS_ACTIVIDADES: Record<string, { actividadCodigo: string; etiqueta: string }> = {
+  // El Huerto será otra sección de Oratorios, Godly Play y Talleres (David, 2-nov-2026): cuenta como ellos.
+  HUERTO: { actividadCodigo: 'oratorio', etiqueta: 'Huerto' },
+  // Godly Play cuenta como las horas de oratorio: es de lo que sale «Desde mi horario» en Oratorios.
+  GODLY: { actividadCodigo: 'oratorio', etiqueta: 'Godly Play' },
+  'GODLY PLAY': { actividadCodigo: 'oratorio', etiqueta: 'Godly Play' },
+  EUCARISTIA: { actividadCodigo: 'otros', etiqueta: 'Eucaristía' },
+  ALMUERZO: { actividadCodigo: 'otros', etiqueta: 'Almuerzo' },
+  ESMORZAR: { actividadCodigo: 'otros', etiqueta: 'Esmorzar' },
+  OTROS: { actividadCodigo: 'otros', etiqueta: 'Otros' },
+};
+
+/**
+ * Las palabras que pueden ir detrás de 'PT' o 'AL' sin ser el nombre de un alumno: el grupo y
+ * poco más. Todo lo demás (un nombre de pila, 'Aitana', 'ROBERTO') se quita de la etiqueta.
+ */
+const PALABRAS_DE_GRUPO = new Set([
+  'PT', 'AL', 'Y', 'I', 'E', 'ESO', 'PDC', 'PPDC', 'PRI', 'PRIM', 'PRIMARIA', 'INF', 'INFANTIL', 'EP', 'EI',
+  'ANOS', 'ANO', 'ANYS', 'ANY', 'TODOS', 'GRUPO', 'GRUPOS', 'CLASE', 'CICLO', 'CICLOS', 'BACH',
+]);
+
+/** 'AL Aitana 2º ESO A' → 'AL 2º ESO A' (y se avisa). El resto de apoyos queda como estaba. */
+function limpiarEtiquetaApoyo(texto: string): { etiqueta: string; quitado: boolean } {
+  const tokens = texto.split(/\s+/).filter(Boolean);
+  const buenos = tokens.filter((t) => /\d|\/|^[A-Za-z]$/.test(t) || PALABRAS_DE_GRUPO.has(claveTexto(t).replace(/\s+/g, '')));
+  return buenos.length === tokens.length ? { etiqueta: texto, quitado: false } : { etiqueta: buenos.join(' '), quitado: true };
+}
 
 /** Cargos y coordinaciones: el texto normalizado → cómo se enseña. */
 const COORDINACIONES: Record<string, string> = {
@@ -890,7 +1011,7 @@ const RE_ALUMNOS = new RegExp(`^${RE_PREFIJO_ATENCION}(?:ALUMNOS|ALUMNADO|ALUMNE
  * que 'AT. PADRES', 'AT.PADRES', 'ATE. PADRES', 'At padres' y 'ATENCIÓN FAMILIAS' son lo
  * mismo. Los asteriscos se ignoran aquí (los trata quien mira la celda entera).
  */
-export function reconocerHoraProfe(linea: string): HoraReconocida | null {
+export function reconocerHoraProfe(linea: string, reuniones?: ReadonlyMap<string, ReunionLeyenda>): HoraReconocida | null {
   const k = claveTexto(linea);
   if (!k) return null;
   const pegado = k.replace(/\s+/g, '');
@@ -923,8 +1044,43 @@ export function reconocerHoraProfe(linea: string): HoraReconocida | null {
   if (/^(?:REFUERZO|DESDOBLE|APOYO|REFORC|REFORÇ)(?:\s|$)/.test(k)) return { actividadCodigo: 'otros', etiqueta: limpio };
   if (/^(?:TUT|TUTORIA|TUTORIAS)$/.test(k)) return { actividadCodigo: 'tutoria', etiqueta: null };
   if (/^(?:TUT|TUTORIA|TUTORIAS) (?:INDIVIDUAL|INDIVIDUALES|FAMILIAS|PADRES)$/.test(k)) return { actividadCodigo: 'tutoria', etiqueta: limpio };
-  if (/^PT(?:\s|$)/.test(k)) return { actividadCodigo: 'apoyo_pt', etiqueta: limpio };
-  if (/^AL(?:\s|$)/.test(k)) return { actividadCodigo: 'apoyo_al', etiqueta: limpio };
+  if (/^(?:PT|AL)(?:\s|$)/.test(k)) {
+    // 'AL Aitana 2º ESO A', 'AL ROBERTO 3ºPDC NATALIA 2º ESO A': hay hojas que llevan el nombre
+    // del alumno dentro. Eso no se guarda ni en la etiqueta ni en las notas.
+    const { etiqueta, quitado } = limpiarEtiquetaApoyo(limpio);
+    return { actividadCodigo: k.startsWith('PT') ? 'apoyo_pt' : 'apoyo_al', etiqueta, ...(quitado ? { datoPersonal: true } : {}) };
+  }
+
+  // ── Lo que solo salió en primaria e infantil (2026-27). Todo va detrás de lo anterior: solo
+  // actúa sobre textos que antes caían en «no se sabe qué es», así que no cambia nada de lo que
+  // ya se reconocía (la ESO incluida).
+  if (/^(?:TUT|TUTORIA|TUTORIAS) INDIV$/.test(k)) return { actividadCodigo: 'tutoria', etiqueta: 'Tutoría individual' };
+  const taller = /^T PENS COMP(?: |$)/.exec(k);
+  if (taller) {
+    // 'T. PENS. COMP. 3ºA' = el Taller de Pensamiento Computacional de José Miguel con ese grupo.
+    // Es una hora suya, no una clase de nadie (decisión 5 de docs/07-horarios.md).
+    const con = limpio.replace(/^\s*T\.?\s*PENS\.?\s*COMP\.?\s*/i, '').trim();
+    return { actividadCodigo: 'otros', etiqueta: con ? `Taller de Pensamiento Computacional · ${con}` : 'Taller de Pensamiento Computacional' };
+  }
+  if (/^PATIO(?: |$)/.test(k)) return { actividadCodigo: 'guardia', etiqueta: limpio };
+  const otra = OTRAS_ACTIVIDADES[k];
+  if (otra) return { ...otra };
+  // ETE = Equipo de Titularidad de los colegios de la fundación (David, 2-nov-2026): 'R. ETE' y
+  // 'REUNIONES E.T.E' son lo mismo.
+  if (/^(?:R|REUNION|REUNIONES) (?:E T E|ETE)$/.test(k)) return { actividadCodigo: 'reunion', etiqueta: 'Reunión ETE' };
+  // 'R. ESO', 'R. ORIENTACIÓN': la R es «reunión».
+  const reunionR = /^R (.+)$/.exec(k);
+  if (reunionR && !/^\d/.test(reunionR[1])) {
+    const de = limpio.replace(/^\s*R\.?\s*/i, '').trim();
+    return { actividadCodigo: 'reunion', etiqueta: `Reunión ${/^[A-ZÁÉÍÓÚÑ]{4,}$/.test(de) ? de[0] + de.slice(1).toLowerCase() : de}` };
+  }
+  // La leyenda 'Reuniones:' del pie de la hoja define las abreviaturas: 'PAST', 'INNOV', 'COM',
+  // 'ORIE'. Se mira por el código y por el nombre ('COMUNICACIÓN' es el nombre de 'COM').
+  if (reuniones) {
+    const porCodigo = reuniones.get(k);
+    if (porCodigo) return { actividadCodigo: 'reunion', etiqueta: porCodigo.nombre };
+    for (const r of reuniones.values()) if (claveTexto(r.nombre) === k) return { actividadCodigo: 'reunion', etiqueta: r.nombre };
+  }
   return null;
 }
 
@@ -932,40 +1088,90 @@ export function reconocerHoraProfe(linea: string): HoraReconocida | null {
 export interface ClaseEnHojaProfe {
   materiaTexto: string;
   curso: string;
+  /** Una letra, 'PDC', o `null` si no lleva o son varias a la vez ('3PRIA y B', '3º ESO A+PDC'). */
   letra: string | null;
   /** Escrita a mano (no con el formato de Educamos): es la que puede traer información nueva. */
   aMano: boolean;
+  /** 'COD. LCO5: 5PRIA': entra como segundo profe (codocencia). La materia ya va sin el 'COD.'. */
+  codocencia?: boolean;
 }
 
 const ETAPA_ESCRITA: Record<string, string> = { ESO: 'ESO', EP: 'PRI', PRI: 'PRI', PRIM: 'PRI', INF: 'INF', EI: 'INF', BACH: 'BACH', BAT: 'BACH' };
 
 /**
+ * El grupo que va al final de una línea escrita a mano, de todas las maneras en que se escribe:
+ *   'MATE 1ºB' · 'TUT: 4 ESO' · 'FIS 2º A'           (la de siempre)
+ *   'REL 2º B ESO' · '4º A ESO'                       (la letra antes que la etapa)
+ *   '3º ESO A+PDC' · '4º ESO B + PDC' · 'REL 3º A+ PDC ESO'   (dos grupos a la vez: sin letra)
+ *   'Cod. 4 años B' · 'INFANTIL 3 AÑOS'               (infantil)
+ * Devuelve lo que va delante (la materia, si hay) y el grupo, o `null` si no parece un grupo.
+ */
+function leerGrupoLibre(t: string, etapaPorDefecto: string): { materia: string; curso: string; letra: string | null } | null {
+  const infantil = /^(.*?)\s*\b(\d)\s*A[ÑN]OS?\s*([A-D])?$/i.exec(t) ?? /^(.*?)\s*\b(\d)\s*ANYS?\s*([A-D])?$/i.exec(t);
+  if (infantil) return { materia: infantil[1], curso: `${infantil[2]}INF`, letra: infantil[3]?.toUpperCase() ?? null };
+
+  // El último dígito del texto con una cola que solo sean letras: la etapa, la letra, 'PDC' y '+'.
+  const m = /^(.*?)\s*(\d)\s*([ºo°])?\s*([A-Za-z+ ]*)$/i.exec(t);
+  if (!m) return null;
+  const marcas = (m[4].toUpperCase().match(/[A-ZÑ]+|\+/g) ?? []) as string[];
+  const etapa = marcas.find((x) => x in ETAPA_ESCRITA);
+  const pdc = marcas.some((x) => x === 'PDC' || x === 'PPDC');
+  const letras = marcas.filter((x) => /^[A-D]$/.test(x));
+  const sobra = marcas.filter((x) => !(x in ETAPA_ESCRITA) && !/^[A-D]$/.test(x) && x !== 'PDC' && x !== 'PPDC' && x !== '+' && x !== 'Y');
+  if (sobra.length) return null;
+  // Sin nada que delate un grupo ('REUNIÓN 1') no es una clase.
+  if (!m[3] && !etapa && letras.length === 0 && !pdc) return null;
+  const letra = pdc ? (letras.length === 0 ? 'PDC' : null) : letras.length === 1 ? letras[0] : null;
+  return {
+    materia: m[1],
+    curso: `${m[2]}${etapa ? ETAPA_ESCRITA[etapa] : pdc ? 'ESO' : etapaPorDefecto}`,
+    letra,
+  };
+}
+
+/**
  * ¿Es esta línea una clase con su grupo? Dos formatos:
  *   'FIS: 2ESOA' · 'MAT B: 4ESOA' · 'NG: 4º PPDC'   (el de Educamos)
  *   'MATE 1ºB' · 'TUT 4ºA' · 'TUT: 4 ESO' · 'TECNO 3ºB*'   (a mano)
- * A mano solo se acepta si el grupo lleva algo que lo delate (º, la etapa o la letra): sin
- * eso 'REUNIÓN 1' sería una clase de 1º.
+ * El de Educamos admite el aula detrás ('MYD1: 1PRIB - MUS', 'EFI4: 4PRIB -') y dos grupos
+ * juntos ('LEN3: 3PRIA y B'). A mano solo se acepta si el grupo lleva algo que lo delate (º,
+ * la etapa o la letra): sin eso 'REUNIÓN 1' sería una clase de 1º.
  */
 export function parsearClaseHojaProfe(linea: string, etapaPorDefecto = 'ESO'): ClaseEnHojaProfe | null {
   const t = textoLimpio(linea);
   // Educamos escribe el grupo pegado ('4ESOB'); el único con espacio es el PDC ('4º PPDC').
-  const educamos = /^(.{1,12}?)\s*:\s*(\d(?:INF|PRI|ESO|BACH|CFGM|CFGS)[A-Z]?|\d\s*º?\s*P?PDC)$/i.exec(t);
+  const educamos = /^(.{1,14}?)\s*:\s*(\d(?:INF|PRI|ESO|BACH|CFGM|CFGS)[A-Z]?|\d\s*º?\s*P?PDC)(\s*(?:y|i|\+|\/|,)\s*[A-D])?(?:\s*[-–][^:]{0,14})?$/i.exec(t);
   if (educamos) {
     const grupo = parsearCodigoGrupo(educamos[2]);
-    if (grupo) return { materiaTexto: educamos[1].trim(), curso: grupo.curso, letra: grupo.letra, aMano: false };
+    if (grupo) {
+      const cod = /^COD\.?\s*/i.exec(educamos[1].trim());
+      return {
+        materiaTexto: educamos[1].trim().replace(/^COD\.?\s*/i, ''),
+        curso: grupo.curso,
+        letra: educamos[3] ? null : grupo.letra,
+        aMano: false,
+        ...(cod ? { codocencia: true } : {}),
+      };
+    }
   }
-  const libre = /^(.{1,20}?)\s*:?\s+(\d)\s*(º|°|o)?\s*(ESO|EP|PRIM|PRI|INF|EI|BACH|BAT|P?PDC)?\s*[-.]?\s*([A-D])?$/i.exec(t);
-  if (!libre || !(libre[3] || libre[4] || libre[5])) return null;
-  const etapaEscrita = (libre[4] ?? '').toUpperCase();
-  if (/PDC$/.test(etapaEscrita)) return { materiaTexto: libre[1].trim(), curso: `${libre[2]}ESO`, letra: 'PDC', aMano: true };
-  const etapa = ETAPA_ESCRITA[etapaEscrita] ?? etapaPorDefecto;
-  return { materiaTexto: libre[1].trim(), curso: `${libre[2]}${etapa}`, letra: libre[5]?.toUpperCase() ?? null, aMano: true };
+  const libre = leerGrupoLibre(t, etapaPorDefecto);
+  if (!libre) return null;
+  const materia = libre.materia.replace(/[:\s]+$/, '').trim();
+  const cod = /^COD\.?(?:\s|$)/i.test(materia);
+  const sinCod = cod ? materia.replace(/^COD\.?\s*/i, '') : materia;
+  // 'INFANTIL 3 AÑOS' / '5ºB' sueltos: el grupo sin materia. Ver el uso en `prepararImportacion`.
+  const materiaTexto = /^(?:INFANTIL|INF\.?|EI)$/i.test(sinCod) ? '' : sinCod;
+  return { materiaTexto, curso: libre.curso, letra: libre.letra, aMano: true, ...(cod ? { codocencia: true } : {}) };
 }
 
 /** La hoja de un profe, ya en celdas: una por día y franja con algo escrito. */
 export interface HojaProfe {
   nombre: string;
   celdas: { dia: number; horaInicio: string; horaFin: string; texto: string }[];
+  /** La leyenda 'Reuniones:' del pie de esta hoja ('PAST: Pastoral (…)'). */
+  reuniones: Map<string, ReunionLeyenda>;
+  /** Su 'Profesores:' (casi siempre solo ella misma: 'CPAR0: CRISTINA PARRA FERNÁNDEZ'). */
+  profes: Map<string, string>;
 }
 
 export function normalizarBloqueProfe(filas: readonly (readonly string[])[], titulo?: string): HojaProfe | null {
@@ -974,15 +1180,19 @@ export function normalizarBloqueProfe(filas: readonly (readonly string[])[], tit
   if (filaDias < 0) return null;
   const nombre = (titulo ?? limpias.flat().find((c) => c.trim() && !/^(horario de|colegio)/i.test(c.trim())) ?? '').trim();
   const celdas: HojaProfe['celdas'] = [];
+  let ultimaFilaHoras = filaDias;
   for (let i = filaDias + 1; i < limpias.length; i++) {
     const rango = parsearRangoHoras(limpias[i][0] ?? '');
     if (!rango) continue;
+    ultimaFilaHoras = i;
     columnaDia.forEach((col, idx) => {
       const texto = col >= 0 ? (limpias[i][col] ?? '').trim() : '';
       if (texto) celdas.push({ dia: idx + 1, ...rango, texto });
     });
   }
-  return { nombre, celdas };
+  // Lo que hay debajo de la última fila de horas son las leyendas de la hoja.
+  const pie = limpias.slice(ultimaFilaHoras + 1).flatMap((f) => f.filter((c) => c.trim()));
+  return { nombre, celdas, reuniones: parsearLeyendaReuniones(pie), profes: parsearLeyendas(pie).profes };
 }
 
 /** Un profe del claustro tal y como lo conoce la BBDD, para casar las hojas por nombre. */
@@ -1009,19 +1219,36 @@ export function casarProfePorNombre(
   leyendaProfes: ReadonlyMap<string, string>,
   conocidos: readonly ProfeConocido[] = [],
 ): string | null {
-  const buscados = tokensNombre(nombre);
-  if (buscados.length === 0) return null;
-  const casa = (completo: string) => {
-    const suyos = new Set(tokensNombre(completo));
-    return buscados.every((t) => suyos.has(t));
+  const casarUno = (texto: string): string | null => {
+    const buscados = tokensNombre(texto);
+    if (buscados.length === 0) return null;
+    const casa = (completo: string) => {
+      const suyos = new Set(tokensNombre(completo));
+      return buscados.every((t) => suyos.has(t));
+    };
+    for (const lista of [[...leyendaProfes.entries()], conocidos.map((p) => [p.alias, p.nombre] as const)]) {
+      const exactos = lista.filter(([, n]) => tokensNombre(n).join(' ') === buscados.join(' '));
+      if (exactos.length === 1) return exactos[0][0].toUpperCase();
+      const candidatos = [...new Set(lista.filter(([, n]) => casa(n)).map(([c]) => c.toUpperCase()))];
+      if (candidatos.length === 1) return candidatos[0];
+    }
+    return null;
   };
-  for (const lista of [[...leyendaProfes.entries()], conocidos.map((p) => [p.alias, p.nombre] as const)]) {
-    const exactos = lista.filter(([, n]) => tokensNombre(n).join(' ') === buscados.join(' '));
-    if (exactos.length === 1) return exactos[0][0].toUpperCase();
-    const candidatos = [...new Set(lista.filter(([, n]) => casa(n)).map(([c]) => c.toUpperCase()))];
-    if (candidatos.length === 1) return candidatos[0];
-  }
-  return null;
+  const entero = casarUno(nombre);
+  if (entero || !nombre.includes('/')) return entero;
+  // 'CRISTINA PARRA FERNÁNDEZ/SANDRA ALBALATE': una hoja de dos personas (una plaza compartida o
+  // una sustitución). Sale a nombre de la que casa con las leyendas del fichero; si casan las
+  // dos con alguien distinto no se elige, que eso ya sería adivinar de quién son las horas.
+  const delFichero = nombre.split('/').map((parte) => casarUnoEn(parte, [...leyendaProfes.entries()])).filter((c): c is string => !!c);
+  return new Set(delFichero).size === 1 ? delFichero[0] : null;
+}
+
+/** El único código de una lista de leyenda cuyo nombre contiene todas las palabras de `texto`. */
+function casarUnoEn(texto: string, lista: readonly (readonly [string, string])[]): string | null {
+  const buscados = tokensNombre(texto);
+  if (buscados.length === 0) return null;
+  const candidatos = [...new Set(lista.filter(([, n]) => { const s = new Set(tokensNombre(n)); return buscados.every((t) => s.has(t)); }).map(([c]) => c.toUpperCase()))];
+  return candidatos.length === 1 ? candidatos[0] : null;
 }
 
 /** ¿El texto escrito a mano ('MATE', 'TECNO', 'FIS') es esta materia ('MAT1', 'TYD3', 'FIS3')? */
@@ -1061,10 +1288,13 @@ function reconciliarClase(
   if (enHueco.some(({ s }) => s.profeCodigos.includes(profe))) return 'ya_estaba';
   const clases = enHueco.filter(({ s }) => s.actividadCodigo === 'clase' && s.materiaCodigo);
   if (clases.length === 0) return 'sin_clase';
+  // Un grupo suelto sin materia ('5ºB', 'INFANTIL 3 AÑOS') no dice en qué clase entra: no se cruza.
+  if (!clase.materiaTexto && !clase.codocencia) return 'sin_clase';
   // La materia TIENE que casar. Coger «la única clase que hay a esa hora» metía a Emilia en
   // una Lengua de 2º A porque su hoja dice 'FIS 2ºA' a una hora en que 2º A tiene Lengua: eso
   // es una contradicción entre las dos hojas, y se avisa en vez de elegir por ella.
-  const elegidas = clases.filter(({ b, s }) => casaMateria(clase.materiaTexto, s.materiaCodigo!, b.leyendas));
+  // Sin materia ('COD. 3º', codocencia en «3º») vale cualquier clase, pero solo si es UNA.
+  const elegidas = clases.filter(({ b, s }) => !clase.materiaTexto || casaMateria(clase.materiaTexto, s.materiaCodigo!, b.leyendas));
   if (elegidas.length !== 1) return elegidas.length === 0 ? 'sin_clase' : 'ambiguo';
   elegidas[0].s.profeCodigos.push(profe);
   return 'añadido';
@@ -1186,6 +1416,11 @@ export interface Preparacion {
   incidencias: Incidencia[];
   /** Lo que el importador ha arreglado solo y conviene que alguien sepa. */
   ajustes: string[];
+  /**
+   * Horas de profe que no caen en ninguna franja de las clases del fichero (la jornada de dirección,
+   * antes de las 9:00). Entran igualmente, en una franja propia del centro; se dice antes de importar.
+   */
+  fueraDeFranja: string[];
 }
 
 /** Lo mínimo de un bloque leído (para no depender del lector, que trae SheetJS). */
@@ -1209,6 +1444,14 @@ export interface BloqueEntrada {
  * `conocidos` es el claustro de la BBDD, para casar por nombre las hojas de quien no sale en
  * ninguna leyenda. Sin él, esas hojas se avisan y no se importan.
  */
+/** '(08:55-9:50)' → la hora REAL de lo que hay en la celda, cuando no es la de la fila. */
+function horaAnotada(linea: string): { horaInicio: string; horaFin: string } | null {
+  const m = /^\(\s*(\d{1,2})[:.](\d{2})\s*[-–a]\s*(\d{1,2})[:.](\d{2})\s*\)$/i.exec(linea.trim());
+  if (!m) return null;
+  const dos = (n: string) => n.padStart(2, '0');
+  return { horaInicio: `${dos(m[1])}:${m[2]}`, horaFin: `${dos(m[3])}:${m[4]}` };
+}
+
 export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos: readonly ProfeConocido[] = []): Preparacion {
   const deClase = bloques.filter((b) => b.tipo === 'clase');
   const comunes = unirLeyendas(deClase.map((b) => normalizarBloqueClase(b.filas).leyendas));
@@ -1216,17 +1459,61 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
 
   const etapas = clases.map((c) => /(INF|PRI|ESO|BACH)$/.exec(c.clase!.curso)?.[1]).filter(Boolean) as string[];
   const etapaPorDefecto = etapas.sort((a, b) => etapas.filter((x) => x === b).length - etapas.filter((x) => x === a).length)[0] ?? 'ESO';
+  const etapasDelFichero = new Set(etapas);
+  const etapaDe = (curso: string) => /(INF|PRI|ESO|BACH)$/.exec(curso)?.[1] ?? '';
+  const franjasDelFichero = new Set(clases.flatMap((c) => c.tramos.map((t) => `${t.horaInicio}-${t.horaFin}`)));
+  // 'PATIO ESO', 'R. ESO', 'COCOPE ESO DPTO'…: lo que dice que es de una etapa que no viene en este fichero.
+  const RE_OTRA_ETAPA = [
+    ['ESO', /\b(?:ESO|PDC|PPDC)\b/i],
+    ['BACH', /\b(?:BACH|BACHILLERATO)\b/i],
+  ] as const;
+  const deOtraEtapaTexto = (texto: string): boolean => RE_OTRA_ETAPA.some(([etapa, re]) => !etapasDelFichero.has(etapa) && re.test(texto));
+
+  const hojas = bloques
+    .filter((x) => x.tipo === 'profe')
+    .map((b) => ({ b, hoja: normalizarBloqueProfe(b.filas, b.titulo) }))
+    .filter((x): x is { b: BloqueEntrada; hoja: HojaProfe } => !!x.hoja && x.hoja.celdas.length > 0);
+
+  // Lo que dicen las leyendas de todas las hojas juntas: el profe de cada una ('Profesores:') y
+  // las abreviaturas de reuniones ('Reuniones:'). Cada hoja solo trae las suyas, pero el
+  // significado de 'PAST' es el mismo para todos.
+  const profesParaCasar = new Map(comunes.profes);
+  const reunionesFichero = new Map<string, ReunionLeyenda>();
+  for (const { hoja } of hojas) {
+    for (const [c, n] of hoja.profes) if (!profesParaCasar.has(c)) profesParaCasar.set(c, n);
+    for (const [c, r] of hoja.reuniones) if (!reunionesFichero.has(c)) reunionesFichero.set(c, r);
+  }
 
   const incidencias: Incidencia[] = [];
   const ajustes: string[] = [];
   const horas: HoraDeProfe[] = [];
   const hojasProfe: Preparacion['hojasProfe'] = [];
   const añadidos = new Map<string, number>();
+  const deOtraEtapa = new Map<string, Set<string>>(); // profe → cursos de otra etapa que lleva en su hoja
+  const comoPt = new Map<string, number>(); // 'hoja|grupos' → horas por semana en que entra como PT
 
-  for (const b of bloques.filter((x) => x.tipo === 'profe')) {
-    const hoja = normalizarBloqueProfe(b.filas, b.titulo);
-    if (!hoja || hoja.celdas.length === 0) continue;
-    const codigo = casarProfePorNombre(hoja.nombre, comunes.profes, conocidos);
+  // El departamento de Orientación (PT, AL, orientadora) tiene su propia leyenda de reunión
+  // ('ORIE: Dpto. Orientación (MAGU0, PBOR0, YCAR0)'): quien sale en ella es de apoyo. Sirve para
+  // saber de quién es el '5ºB' o el 'INFANTIL 3 AÑOS' suelto que escribe: de la PT.
+  const esDeOrientacion = (codigo: string) =>
+    [...reunionesFichero.values()].some((r) => /orientaci/i.test(r.nombre) && r.miembros.includes(codigo.toUpperCase()));
+  /** Las celdas 'PT' sin nombre de ese grupo a esa hora: la PT de la hoja es quien las da. */
+  const vincularPt = (codigo: string, hueco: { dia: number; horaInicio: string; horaFin: string }, clase: ClaseEnHojaProfe): string[] => {
+    const celdas = clases
+      .filter((b) => b.clase && b.clase.curso === clase.curso && (clase.letra === null || (b.clase.letra ?? null) === clase.letra))
+      .flatMap((b) =>
+        b.sesiones
+          .filter((x) =>
+            x.dia === hueco.dia && x.actividadCodigo === 'apoyo_pt' && x.profeCodigos.length === 0 && /^PT\.?$/i.test(x.crudo.trim()) &&
+            x.horaInicio < hueco.horaFin && hueco.horaInicio < x.horaFin)
+          .map((x) => ({ b, x })),
+      );
+    for (const { x } of celdas) x.profeCodigos.push(codigo);
+    return [...new Set(celdas.map(({ b }) => `${b.clase!.curso} ${b.clase!.letra ?? ''}`.trim()))];
+  };
+
+  for (const { hoja } of hojas) {
+    const codigo = casarProfePorNombre(hoja.nombre, profesParaCasar, conocidos);
     if (!codigo) {
       incidencias.push({
         tipo: 'profe_desconocido',
@@ -1236,25 +1523,83 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
       hojasProfe.push({ nombre: hoja.nombre, codigo: null, horas: 0 });
       continue;
     }
+    if (hoja.nombre.includes('/')) {
+      ajustes.push(`La hoja de '${hoja.nombre}' es de dos personas: se ha tomado como de ${codigo}, que es la que sale en las leyendas del fichero.`);
+    }
+    const reuniones = new Map([...reunionesFichero, ...hoja.reuniones]);
     let suyas = 0;
 
     for (const celda of hoja.celdas) {
-      const lineas = celda.texto.split(/[\n\r]+/).map((l) => l.trim()).filter((l) => l && !esRuido(l));
+      // Una barra al final de línea sigue en la siguiente ('R. ORIENTACIÓN/' + 'TUT. INDIV.').
+      const crudas = celda.texto.replace(/\/\s*[\n\r]+\s*/g, '/').split(/[\n\r]+/).map((l) => l.trim()).filter(Boolean);
+      // Un '(08:55-9:50)' en la celda es la hora real de lo que hay en ella: la hoja del profe
+      // está en la rejilla de primaria, pero lo suyo de la ESO (o de infantil) cae a otras horas
+      // y lo apuntan así. Es la hora que vale, no la de la fila.
+      let hueco = { dia: celda.dia, horaInicio: celda.horaInicio, horaFin: celda.horaFin };
+      let anotada = false;
+      const lineas: string[] = [];
+      for (const l of crudas) {
+        const real = horaAnotada(l);
+        if (real) { hueco = { ...hueco, ...real }; anotada = true; }
+        else if (!esRuido(l)) lineas.push(l);
+      }
       if (lineas.length === 0 || lineas.every((l) => RE_RECREO.test(l) || RE_COMEDOR.test(l))) continue;
-      const hueco = { dia: celda.dia, horaInicio: celda.horaInicio, horaFin: celda.horaFin };
+      // Con la hora real entre paréntesis y esa hora no es ninguna franja de este fichero, es de
+      // otra etapa (lo de ESO que lleva en su hoja un profe que también da en primaria).
+      if (anotada && !franjasDelFichero.has(`${hueco.horaInicio}-${hueco.horaFin}`)) {
+        for (const l of lineas) {
+          if (RE_RECREO.test(l) || RE_COMEDOR.test(l)) continue;
+          deOtraEtapa.set(hoja.nombre, (deOtraEtapa.get(hoja.nombre) ?? new Set()).add(textoLimpio(l)));
+        }
+        continue;
+      }
 
       type Leida =
         | { tipo: 'clase'; linea: string; estrella: boolean; clase: ClaseEnHojaProfe }
         | { tipo: 'hora'; linea: string; estrella: boolean; hora: HoraReconocida }
-        | { tipo: 'detalle' | 'rara'; linea: string; estrella: boolean };
+        | { tipo: 'detalle' | 'rara' | 'otra_etapa'; linea: string; estrella: boolean };
+
+      /** Qué es UNA línea (o un trozo de ella): clase con su grupo, hora que no es clase, o nada. */
+      const clasificar = (linea: string, estrella: boolean): Leida | null => {
+        const hora = reconocerHoraProfe(linea, reuniones);
+        if (deOtraEtapaTexto(linea)) return { tipo: 'otra_etapa', linea, estrella };
+        // 'PT 1ºB', 'AL 4 AÑOS B' y el Taller de Pensamiento Computacional llevan un grupo detrás,
+        // pero son horas del profe, no una clase de ese grupo que cruzar con su hoja.
+        const esApoyoOTaller = !!hora && (hora.actividadCodigo === 'apoyo_pt' || hora.actividadCodigo === 'apoyo_al' || !!hora.etiqueta?.startsWith('Taller de Pensamiento'));
+        if (esApoyoOTaller) return { tipo: 'hora', linea, estrella, hora: hora! };
+        const clase = parsearClaseHojaProfe(linea, etapaPorDefecto);
+        if (clase) return { tipo: 'clase', linea, estrella, clase };
+        if (hora) return { tipo: 'hora', linea, estrella, hora };
+        // 'INFANTIL' a secas: lo suyo es con infantil en general.
+        if (/^(?:INFANTIL|PRIMARIA)$/i.test(textoLimpio(linea))) {
+          return { tipo: 'hora', linea, estrella, hora: { actividadCodigo: 'otros', etiqueta: textoLimpio(linea) } };
+        }
+        return null;
+      };
+
       const leidas: Leida[] = [];
+      const apuntar = (x: Leida) => {
+        if (x.tipo !== 'otra_etapa') { leidas.push(x); return; }
+        deOtraEtapa.set(hoja.nombre, (deOtraEtapa.get(hoja.nombre) ?? new Set()).add(textoLimpio(x.linea)));
+      };
       for (const linea of lineas) {
         if (RE_RECREO.test(linea) || RE_COMEDOR.test(linea)) continue;
         const estrella = /\*/.test(linea);
-        const clase = parsearClaseHojaProfe(linea, etapaPorDefecto);
-        if (clase) { leidas.push({ tipo: 'clase', linea, estrella, clase }); continue; }
-        const hora = reconocerHoraProfe(linea);
-        if (hora) { leidas.push({ tipo: 'hora', linea, estrella, hora }); continue; }
+        // Las alternativas con barra ('AT. PADRES/R. ESO', 'Lu: 5INFB/GODLY') son dos cosas que
+        // se turnan en la misma hora, igual que las del asterisco. Solo se parten si TODAS las
+        // partes se reconocen: 'DPTO/C.' o 'AL 5ºA/5ºB-6ºB' siguen siendo lo que eran.
+        if (linea.includes('/')) {
+          const entera = clasificar(linea, estrella);
+          const partes = linea.split('/').map((x) => x.trim()).filter(Boolean);
+          const leidasPartes = partes.map((x) => clasificar(x, true));
+          // 'AL 5ºA/5ºB-6ºB' es UN apoyo con varios grupos, no dos cosas que se turnan; y un grupo
+          // suelto ('5ºB-6ºB') no es una cosa por sí mismo.
+          const sueltas = leidasPartes.some((x) => x?.tipo === 'clase' && !x.clase.materiaTexto && !x.clase.codocencia);
+          const esApoyo = entera?.tipo === 'hora' && (entera.hora.actividadCodigo === 'apoyo_pt' || entera.hora.actividadCodigo === 'apoyo_al');
+          if (partes.length > 1 && !esApoyo && !sueltas && leidasPartes.every((x) => x !== null)) { (leidasPartes as Leida[]).forEach(apuntar); continue; }
+        }
+        const una = clasificar(linea, estrella);
+        if (una) { apuntar(una); continue; }
         // 'AC: 4º PPDC' + 'MATE': la segunda línea es la hora del ámbito, no otra cosa.
         const anterior = leidas[leidas.length - 1];
         if (anterior?.tipo === 'clase' && !/\s/.test(linea.trim())) { leidas.push({ tipo: 'detalle', linea, estrella }); continue; }
@@ -1291,12 +1636,33 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
       }
 
       for (const l of leidas) {
-        if (l.tipo === 'detalle') continue;
+        if (l.tipo === 'detalle' || l.tipo === 'otra_etapa') continue;
         if (l.tipo === 'clase') {
           const r = reconciliarClase(clases, codigo, hueco.dia, hueco.horaInicio, l.clase);
+          // Una clase de otra etapa (el REL de 2º ESO en la hoja de quien también da en primaria):
+          // viene en el fichero de SU etapa, que ya está importado. Aquí no hay con qué cruzarla y
+          // tampoco se importa como hora suelta: saldría duplicada y a una hora que no es.
+          if (r === 'sin_clase' && !etapasDelFichero.has(etapaDe(l.clase.curso))) {
+            const k = hoja.nombre;
+            deOtraEtapa.set(k, (deOtraEtapa.get(k) ?? new Set()).add(`${l.clase.curso}${l.clase.letra ? ` ${l.clase.letra}` : ''}`));
+            continue;
+          }
           if (r === 'añadido') {
-            const k = `${hoja.nombre}|${l.clase.curso}${l.clase.letra ? ` ${l.clase.letra}` : ''}|${textoLimpio(l.clase.materiaTexto)}`;
+            const k = `${hoja.nombre}|${l.clase.curso}${l.clase.letra ? ` ${l.clase.letra}` : ''}|${textoLimpio(l.clase.materiaTexto) || 'codocencia'}`;
             añadidos.set(k, (añadidos.get(k) ?? 0) + 1);
+          } else if (!l.clase.materiaTexto && !l.clase.codocencia) {
+            // '5ºB' o 'INFANTIL 3 AÑOS' sueltos, sin materia. Si quien lo escribe es de Orientación
+            // (la PT de infantil), es la celda 'PT' sin nombre de ese grupo a esa hora: se la da a ella.
+            // Si no, se guarda como hora del profe con su texto, sin avisar: no hay nada dudoso.
+            if (r === 'ya_estaba') continue;
+            const grupos = esDeOrientacion(codigo) ? vincularPt(codigo, hueco, l.clase) : [];
+            if (grupos.length) {
+              const k = `${hoja.nombre}|${grupos.join(' y ')}`;
+              comoPt.set(k, (comoPt.get(k) ?? 0) + 1);
+              continue;
+            }
+            horas.push({ profeCodigo: codigo, ...hueco, actividadCodigo: 'otros', etiqueta: textoLimpio(l.linea), crudo: l.linea });
+            suyas++;
           } else if (l.clase.aMano && r !== 'ya_estaba') {
             // A mano y sin clase donde encajarla: no se inventa una clase, se guarda como
             // hora del profe con su texto y se avisa.
@@ -1314,7 +1680,23 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
           continue;
         }
         if (l.tipo === 'hora') {
-          horas.push({ profeCodigo: codigo, ...hueco, actividadCodigo: l.hora.actividadCodigo, etiqueta: l.hora.etiqueta, crudo: l.linea });
+          // Un 'Otros' de diez minutos es el almuerzo (como en las hojas de las clases).
+          const almuerzo = l.hora.actividadCodigo === 'otros' && l.hora.etiqueta === 'Otros' && esFranjaCorta(hueco.horaInicio, hueco.horaFin);
+          if (l.hora.datoPersonal) {
+            incidencias.push({
+              tipo: 'dato_personal',
+              detalle: `${hoja.nombre} lleva nombres de alumnos en '${textoLimpio(l.linea)}': se han quitado, la hora entra como '${l.hora.etiqueta}'`,
+              crudo: l.hora.etiqueta ?? undefined,
+            });
+          }
+          horas.push({
+            profeCodigo: codigo,
+            ...hueco,
+            actividadCodigo: l.hora.actividadCodigo,
+            etiqueta: almuerzo ? 'Almuerzo' : l.hora.etiqueta,
+            // Si había nombres de alumnos, tampoco van a las notas: el «crudo» es lo que se enseña ahí.
+            crudo: l.hora.datoPersonal ? (l.hora.etiqueta ?? '') : l.linea,
+          });
           suyas++;
           continue;
         }
@@ -1332,13 +1714,53 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
 
   for (const [k, n] of añadidos) {
     const [nombre, grupo, materia] = k.split('|');
-    ajustes.push(`${nombre} entra como segundo profe en ${materia} de ${grupo} (${n} h/semana): lo dice su hoja y la de la clase no la nombraba.`);
+    ajustes.push(
+      materia === 'codocencia'
+        ? `${nombre} entra como segundo profe en ${grupo} (codocencia, ${n} h/semana): lo dice su hoja y la de la clase no la nombraba.`
+        : `${nombre} entra como segundo profe en ${materia} de ${grupo} (${n} h/semana): lo dice su hoja y la de la clase no la nombraba.`,
+    );
+  }
+  for (const [k, n] of comoPt) {
+    const [nombre, grupos] = k.split('|');
+    ajustes.push(`${nombre} entra como PT en ${grupos} (${n} h/semana): lo dice su hoja y la celda 'PT' de la clase no la nombraba.`);
   }
   ajustes.push(...repartirProfesPdc(clases));
+  for (const [nombre, cosas] of deOtraEtapa) {
+    ajustes.push(`${nombre} lleva en su hoja cosas de otra etapa (${[...cosas].sort().join(', ')}): no son de este fichero, vienen con el de su etapa y no se tocan.`);
+  }
   const conTurno = horas.filter((h) => h.etiqueta?.includes(' | ')).length;
   if (conTurno) {
-    ajustes.push(`${conTurno} celda(s) con asterisco (dos cosas en la misma hora, p. ej. 'COCOPE*' y 'DPTO') entran como una sola hora con las dos: 'Departamento | COCOPE'.`);
+    ajustes.push(`${conTurno} celda(s) con dos cosas en la misma hora (con asterisco o con barra, p. ej. 'COCOPE*' y 'DPTO') entran como una sola hora con las dos: 'Departamento | COCOPE'.`);
   }
 
-  return { clases, horasProfe: agruparHorasDeProfe(horas), hojasProfe, incidencias, ajustes };
+  const horasProfe = agruparHorasDeProfe(horas);
+  return { clases, horasProfe, hojasProfe, incidencias, ajustes, fueraDeFranja: horasFueraDeFranja(horasProfe, clases) };
+}
+
+/**
+ * Las horas de profe que no caen en ninguna franja de las clases del fichero: el volcado las
+ * coloca por día + hora de inicio y de fin, y la jornada del equipo directivo (08:00-09:00,
+ * 13:30-14:30) o lo que lleva su hora de ESO entre paréntesis no coincide con ninguna. Entran
+ * igualmente, en una franja propia del centro (no son de ninguna etapa); aquí se cuenta ANTES de
+ * importar para que se vea qué va a pasar.
+ */
+export function horasFueraDeFranja(horas: readonly ActividadProfeAgrupada[], clases: readonly ResultadoBloque[]): string[] {
+  const franjas = new Set(clases.flatMap((c) => c.tramos.map((t) => `${t.horaInicio}-${t.horaFin}`)));
+  const porProfe = new Map<string, Map<string, number>>();
+  for (const a of horas) {
+    const que = a.etiqueta ?? NOMBRE_ACTIVIDAD[a.actividadCodigo] ?? a.actividadCodigo;
+    for (const s of a.sesiones) {
+      if (franjas.has(`${s.horaInicio}-${s.horaFin}`)) continue;
+      for (const p of a.profeCodigos) {
+        const m = porProfe.get(p) ?? new Map<string, number>();
+        m.set(`${que} ${s.horaInicio}-${s.horaFin}`, (m.get(`${que} ${s.horaInicio}-${s.horaFin}`) ?? 0) + 1);
+        porProfe.set(p, m);
+      }
+    }
+  }
+  return [...porProfe.entries()].map(([p, m]) => {
+    const total = [...m.values()].reduce((n, x) => n + x, 0);
+    const lista = [...m.entries()].slice(0, 4).map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)).join('; ');
+    return `${p}: ${total} hora(s) fuera de las franjas de las clases (${lista}${m.size > 4 ? '…' : ''})`;
+  });
 }

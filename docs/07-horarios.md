@@ -544,6 +544,57 @@ profe del PDC. Y dos cosas más que pidió:
   Marta, una clase doble). El recreo no corta; una hora lectiva en medio, sí. En pantalla se
   siguen viendo por franjas.
 
+### Primaria e infantil 2026-27 (2-nov-2026): ~140 avisos que eran ~5 cosas
+
+Jose Miguel importó el `.docx` de infantil y primaria desde la pantalla y salieron ~140 avisos
+(«algo escrito a mano que no se reconoce», «hoja de profesor sin dueño»…). Se reprodujo en local con
+`pnpm horarios:importar <docx> --dry` y quedó en **1 aviso**. **Todo es del import de primaria e infantil; los caminos de la ESO no cambian** (los 85
+tests de importación de antes siguen igual, y no se ha importado nada: la ESO de Neon está como estaba).
+
+Lo que enseñó el fichero, por orden de importancia — lo primero metía datos mal, lo demás era ruido:
+
+1. **La hora real va entre paréntesis.** Una profe que da en dos etapas lleva su hoja en la rejilla de
+   primaria, y lo suyo de infantil o de la ESO cae a otras horas, que apunta debajo: `PAST` +
+   `(09:45 - 10:30)`, `REL 1º A ESO` + `(08:55-9:50)`. Eso se leía como una línea «rara» más: salían
+   `(09:00 - 10:10)` como «Otros» y las horas reales quedaban mal puestas. Ahora **la hora entre
+   paréntesis es la que vale** (`horaAnotada()`): la pastoral de infantil cae sobre la de primaria y es
+   UNA reunión de cinco personas. Si esa hora no es ninguna franja del fichero, la celda es de otra
+   etapa y no se importa.
+2. **Lo de otra etapa no se importa.** Nathan, Vicente, Paula Bort y Salomé llevan en su hoja `REL 2º B
+   ESO`, `PATIO ESO`, `R. ESO`, `ETAPA ESO`… Vienen con el fichero de la ESO, que ya está en Neon. Se
+   dejaban como «Otros» sueltos (y duplicaban lo de la ESO a una hora que no es). Ahora se ignoran y
+   se cuenta en «Arreglado solo» (`deOtraEtapa`). Vale para cualquier etapa que no venga en el fichero.
+3. **Las clases de la hoja del profe con aula** (`MYD1: 1PRIB - MUS`, `EFI6: 6PRIB - POLI`,
+   `EFI4: 4PRIB -`) no se reconocían como clase y entraban como hora suelta **además** de la clase
+   de verdad (la hora duplicada en Mi horario). Igual `LEN3: 3PRIA y B`. Y `COD. LCO5: 5PRIA`
+   (**codocencia**) tampoco cruzaba: ahora entra como segundo profe si la clase no lo nombra.
+4. **Dos profes en la misma línea** (`MAT4 - MGUE0 YCAR0`, sin salto): se leía como un código que no
+   está en la leyenda y la celda se quedaba **sin profes**.
+5. **Las hojas traen su propia leyenda `Reuniones:`** (`PAST: Pastoral (PBOR0, MRUB0, …)`,
+   `INNOV`, `COM`, `ORIE`, `TIC`, `COC`) y se tiraba. Es la fuente buena de las abreviaturas
+   (`parsearLeyendaReuniones()`); donde no llega, patrones nuevos: `COORDINACIÓN` (reunión de todo el
+   profesorado del martes), `CICLOS`, `EQ. DIRECTIVO`, `R. ETE`, `TUT. INDIV.`, `GODLY`, `HUERTO`,
+   `EUCARISTÍA`, `PATIO`, `T. PENS. COMP.` (el Taller de José Miguel: hora suya sin grupo, decisión 5).
+6. **`Otros` y `Almuerzo`.** El almuerzo de infantil (10:35-10:45) venía como `Otros` en las clases y
+   como `Almuerzo` o `Otros` en las hojas (30 avisos de «código que no está en la leyenda»). `Otros`
+   nunca está en una leyenda: es la actividad genérica de Educamos. Ahora entra como hora sin materia, y
+   **si dura 15 minutos o menos se llama Almuerzo** (`esFranjaCorta()`).
+7. **Alternativas con barra** (`AT. PADRES/R. ESO`, `Lu: 5INFB/GODLY`, `R. ORIENTACIÓN/` + salto +
+   `TUT. INDIV.`): dos cosas que se turnan, como las del asterisco: UNA hora con las dos. `AL
+   5ºA/5ºB-6ºB` no se parte: es un apoyo con varios grupos.
+8. **Hojas de dos personas** (`CRISTINA PARRA FERNÁNDEZ/SANDRA ALBALATE`) se toman como de la que sale
+   en las leyendas. Y **«Materias:» y «HORARIO SUSTITUCIONES»** eran los cuadros de aula y de
+   sustituciones del final del `.docx` leídos como hojas de profe: el lector los salta.
+9. **Datos personales.** La hoja de Paula Bort lleva nombres de alumnos dentro (`AL Aitana 2º ESO A`,
+   `AL ROBERTO 3ºPDC NATALIA 2º ESO A`) y se guardaban tal cual en la etiqueta **y en las notas**. En este
+   fichero esas líneas son de ESO y ya no se importan (punto 2); si una llega por otro camino, el nombre se
+   quita (`AL 2º ESO A`), no va a las notas y se avisa como «posible nombre de alumno». Es la misma regla de
+   siempre (docs/04), aplicada a las hojas de profe.
+
+Además la vista previa ahora **dice antes de importar qué horas de profe caen fuera de las franjas** de las
+clases (`fueraDeFranja`: las 10 h de Dirección) y entran en una rejilla propia del centro (decisión 8). Y
+«apoyos» cuenta solo PT y AL (con los Almuerzos como `otros` se había inflado).
+
 ### La leyenda es la que desambigua
 
 Una celda es `MATERIA - PROFE` o `MATERIA - PROFE - AULA`, y por regex no hay forma honesta
@@ -592,8 +643,36 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
    (19-oct-2026: el taller se planifica ahora desde Oratorios, Godly Play y Talleres, como un
    tipo más — [`26-oratorios.md`](./26-oratorios.md); la nota del horario sigue siendo solo eso.)
 
+### Cerradas con David el 2-nov-2026 (importación de infantil y primaria)
+
+6. **`COORDINACIÓN` (martes 12:30) es una reunión de todo el profesorado**, igual que `CICLO` (jueves):
+   UNA reunión con todos, no un cargo. El fichero ya las trae, así que la «reunión de etapa» de EP solo
+   se añade a quien no tenga hoja.
+7. **Godly Play cuenta como hora de Oratorio** (alimenta «⚡ Desde mi horario»). **El Huerto también**: será
+   una sección más de «Oratorios, Godly Play y Talleres» (hay que darla de alta allí como un tipo
+   nuevo; en el horario ya entra como `oratorio` con la etiqueta «Huerto»). **Eucaristía** es «Otros».
+8. **Las horas de Dirección entran aunque no caigan en ninguna franja** (08:00-09:00 y 13:30-14:30): no
+   son de ninguna etapa. Van a una **rejilla propia de ámbito «todo el centro»** (`Ordinario · Centro ·
+   EI+EP`, tramos «Fuera de rejilla») y solo las ve quien tiene algo en ella (el horario de un profe
+   pinta todas las franjas de sus rejillas: en la de primaria, 25 profes verían una fila vacía a las 8:00).
+   Cada fichero rehace la suya por nombre, así que importar la ESO no se lleva la de primaria. La vista
+   previa lo dice antes de importar (`fueraDeFranja`).
+9. **Yolanda Carda es la PT de infantil, siempre.** Su `INFANTIL 3 AÑOS` / `5ºB` suelto es la celda `PT`
+   sin nombre de esa clase a esa hora: entra como PT en ella (no como hora aparte). Se reconoce a la
+   PT porque sale en la leyenda de reunión `ORIE: Dpto. Orientación`.
+10. **Salomé en 2º B** (y cualquier directora en una clase): es correcto. Las directoras dan algunas
+    horas pero no se ponen en el horario de la clase para no marear a los niños si no van; entra como
+    segunda profe desde su hoja, que es lo que dice la regla de siempre.
+11. **ETE = Equipo de Titularidad** de todos los colegios de la fundación: `R. ETE` y `REUNIONES E.T.E`
+    son reuniones del ETE («Reunión ETE»).
+
 ### Sigue pendiente
 
+- 🟡 **La ESO no tiene aulas en la pestaña «Aula».** El export de Educamos de la ESO no trae aula en
+  las celdas (ni leyenda `Aulas:`), así que no hay nada que importar: en Neon, ninguna asignación de ESO
+  tiene aula. La pestaña solo tiene Música y Polideportivo, que vienen de primaria (y desde el
+  2-nov-2026: antes de importar primaria no tenía nada). Para tener aulas de ESO habría que sacarlas de
+  Educamos o ponerlas a mano en la pantalla de espacios (Fase 2, sin hacer).
 - 🟡 **Días especiales** (un día suelto con rejilla propia: media jornada, día del colegio,
   festivos). Sin respuesta y **no bloquea**: es una tabla chica y aditiva (`hor_dias_especiales`:
   fecha, tipo, rejilla_id?) que se añade el día que se quiera. No la creo por si acaso.
@@ -796,6 +875,9 @@ alias, así que una materia arreglada a mano nunca se pierde.
       huérfanas. Antes se borraron las 6 anotaciones de prueba de David. Verificado en la BBDD:
       el inglés de 3º/4º PDC lo da solo MTIR0, Emilia es apoyo (nunca titular) en 7 asignaciones
       de Mates/FyQ y las reuniones de David salen con su hora
+- [x] **Primaria e infantil 2026-27** (2-nov-2026): los ~140 avisos del import de Jose Miguel, reducidos a 1
+      (ver «Primaria e infantil 2026-27»). **Falta reimportarlo en Neon** desde `/gestion/horarios/importar`
+      con el código nuevo y revisar en el panel de Aula que cuadra
 - [ ] Reconciliación de la hoja de profes sobre las asignaciones ya importadas
 - [ ] Importación de rejillas, si el fichero las trae
 

@@ -52,7 +52,7 @@ async function main() {
     console.log(
       `  ${cod.padEnd(7)} ${String(r.sesiones.length).padStart(3)} sesiones · ${r.tramos.length} tramos` +
         ` · ${r.sesiones.filter((s) => s.aulaCodigo).length} con aula` +
-        ` · ${r.sesiones.filter((s) => s.actividadCodigo !== 'clase').length} apoyos` +
+        ` · ${r.sesiones.filter((s) => s.actividadCodigo === 'apoyo_pt' || s.actividadCodigo === 'apoyo_al').length} apoyos` +
         (r.incidencias.length ? ` · ⚠ ${r.incidencias.length} incidencias` : ''),
     );
   }
@@ -78,6 +78,11 @@ async function main() {
   if (prep.ajustes.length) {
     console.log('\nArreglado solo (conviene saberlo):');
     prep.ajustes.forEach((a) => console.log(`  · ${a}`));
+  }
+
+  if (prep.fueraDeFranja.length) {
+    console.log('\nHoras de profesorado fuera de las franjas de las clases (entran en una franja propia del centro):');
+    prep.fueraDeFranja.forEach((a) => console.log(`  · ${a}`));
   }
 
   if (flag('dry')) {

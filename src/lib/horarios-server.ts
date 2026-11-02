@@ -193,8 +193,16 @@ export async function importarBloques(
 
   // Lo que cada persona ha anotado a mano en su horario cuelga de los tramos que se van a
   // borrar: se apunta ahora y se vuelve a colocar cuando existan los nuevos.
-  const manualesPrevias = await sesionesManualesEnEtapas(periodoId, [...cursosPorEtapa.keys()]);
+  // La rejilla «del centro» de ESTE fichero (las franjas fuera de las de cada etapa, ver más abajo)
+  // se rehace igual que las de las etapas: por nombre, y con el nombre de las etapas del fichero
+  // para que importar la ESO no se lleve las franjas del centro que trajo primaria.
+  const nombreCentro = `${opciones.periodoNombre} · Centro · ${[...cursosPorEtapa.keys()].sort().join('+')}`;
+  const manualesPrevias = [
+    ...(await sesionesManualesEnEtapas(periodoId, [...cursosPorEtapa.keys()])),
+    ...(await sesionesManualesEnRejilla(periodoId, nombreCentro)),
+  ];
   await borrarRejillasDeEtapas(periodoId, [...cursosPorEtapa.keys()]);
+  await borrarRejillaPorNombre(periodoId, nombreCentro);
   // Lo importado que se ha quedado sin ninguna sesión al caer las rejillas: las horas de
   // profe del import anterior (no tienen grupo, así que `borrarAsignaciones` no las ve).
   await borrarImportadasSinSesiones(periodoId);
@@ -270,6 +278,44 @@ export async function importarBloques(
     }
   }
 
+  // ── Franjas del centro: las horas de profe que no caen en ninguna rejilla ─────────────
+  // La jornada del equipo directivo (08:00-09:00, 13:30-14:30) no es de ninguna etapa y no
+  // coincide con ninguna franja de primaria. En vez de perderlas, van a una rejilla propia de
+  // ámbito «todo el centro» —la menos específica: nunca le gana a la de una etapa—, con una
+  // franja por cada día y hora suelta. Va aparte y no dentro de la rejilla de primaria porque
+  // el horario de un profe pinta TODAS las franjas de sus rejillas: en la de primaria, cada
+  // profe vería una fila vacía a las 8:00. Así solo la ve quien tiene algo en ella.
+  const franjasConocidas = new Set(filasTramo.map((t) => `${t.diaSemana}|${t.horaInicio}|${t.horaFin}`));
+  const sueltas = new Map<string, { dia: number; horaInicio: string; horaFin: string }>();
+  for (const act of horasProfe) {
+    for (const h of act.sesiones) {
+      const k = `${h.dia}|${h.horaInicio}|${h.horaFin}`;
+      if (!franjasConocidas.has(k) && !sueltas.has(k)) sueltas.set(k, { dia: h.dia, horaInicio: h.horaInicio, horaFin: h.horaFin });
+    }
+  }
+  const tramosDelCentro = new Set<string>();
+  if (sueltas.size > 0) {
+    const rejillaCentroId = crypto.randomUUID();
+    filasRejilla.push({
+      id: rejillaCentroId,
+      periodoId,
+      nombre: nombreCentro,
+      notas: 'Franjas que no son de ninguna etapa (la jornada de dirección…): salen de las horas de profe del fichero que no caen en ninguna rejilla.',
+    });
+    filasAmbito.push({ rejillaId: rejillaCentroId }); // todo el centro: el ámbito menos específico
+    const ordenPorDia = new Map<number, number>();
+    for (const f of [...sueltas.values()].sort((a, b) => a.dia - b.dia || a.horaInicio.localeCompare(b.horaInicio) || a.horaFin.localeCompare(b.horaFin))) {
+      const orden = (ordenPorDia.get(f.dia) ?? 0) + 1;
+      ordenPorDia.set(f.dia, orden);
+      const id = crypto.randomUUID();
+      // Tipo 'sesion': las filas que no lo son se pintan como separador (patio, comedor) y la
+      // hora no se vería. No lleva etapa: nada la recoloca ni la cuenta como de primaria.
+      filasTramo.push({ id, rejillaId: rejillaCentroId, diaSemana: f.dia, orden, etiqueta: 'Fuera de rejilla', horaInicio: f.horaInicio, horaFin: f.horaFin, tipo: 'sesion' });
+      tramosDelCentro.add(id);
+    }
+    resumen.notas.push(`${sueltas.size} franja(s) propias del centro para horas de profesorado que no caen en ninguna rejilla (la jornada de dirección, p. ej.).`);
+  }
+
   for (const t of trozos(filasRejilla)) await db.insert(horRejillas).values(t);
   for (const t of trozos(filasAmbito)) await db.insert(horRejillaAmbitos).values(t);
   for (const t of trozos(filasTramo)) await db.insert(horTramos).values(t);
@@ -335,11 +381,17 @@ export async function importarBloques(
   for (const a of asignaciones) {
     for (const p of a.profeCodigos) clasesPorProfeYCurso.set(`${p}|${a.curso}`, (clasesPorProfeYCurso.get(`${p}|${a.curso}`) ?? 0) + a.sesiones.length);
   }
-  const tramosNuevos = [...tramoId.entries()].map(([k, id]) => {
-    const [curso] = k.split('|');
-    const t = filasTramo.find((f) => f.id === id)!;
-    return { curso, id, dia: t.diaSemana, orden: t.orden, horaInicio: t.horaInicio, horaFin: t.horaFin };
-  });
+  const tramosNuevos = [
+    ...[...tramoId.entries()].map(([k, id]) => {
+      const [curso] = k.split('|');
+      const t = filasTramo.find((f) => f.id === id)!;
+      return { curso, id, dia: t.diaSemana, orden: t.orden, horaInicio: t.horaInicio, horaFin: t.horaFin };
+    }),
+    // Los del centro van los últimos: si una hora cae en una franja de una etapa, gana la etapa.
+    ...filasTramo
+      .filter((t) => tramosDelCentro.has(t.id!))
+      .map((t) => ({ curso: '', id: t.id!, dia: t.diaSemana, orden: t.orden, horaInicio: t.horaInicio, horaFin: t.horaFin })),
+  ];
   const manualOcupa = new Set(manualesPrevias.filter((m) => m.profeId).map((m) => `${m.profeId}|${m.dia}|${m.horaInicio}|${m.horaFin}`));
   let omitidasPorManual = 0;
   let sinHueco = 0;
@@ -699,6 +751,50 @@ async function sesionesManualesEnEtapas(periodoId: string, etapas: readonly stri
     sesionId: f.sesionId, asignacionId: f.asignacionId, dia: f.dia, horaInicio: f.horaInicio, horaFin: f.horaFin,
     etapa: f.etapa ?? undefined, profeId: f.profeId,
   }));
+}
+
+/** Lo mismo que `sesionesManualesEnEtapas`, para una rejilla concreta por nombre (la del centro). */
+async function sesionesManualesEnRejilla(periodoId: string, nombreRejilla: string) {
+  const filas = await db
+    .selectDistinct({
+      sesionId: horSesiones.id,
+      asignacionId: horSesiones.asignacionId,
+      dia: horTramos.diaSemana,
+      horaInicio: horTramos.horaInicio,
+      horaFin: horTramos.horaFin,
+      profeId: horAsignacionProfes.eduTeacherId,
+    })
+    .from(horSesiones)
+    .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
+    .leftJoin(horAsignacionProfes, eq(horAsignacionProfes.asignacionId, horAsignaciones.id))
+    .innerJoin(horTramos, eq(horTramos.id, horSesiones.tramoId))
+    .innerJoin(horRejillas, eq(horRejillas.id, horTramos.rejillaId))
+    .where(
+      and(
+        eq(horAsignaciones.periodoId, periodoId),
+        eq(horAsignaciones.origen, 'manual'),
+        eq(horRejillas.periodoId, periodoId),
+        eq(horRejillas.nombre, nombreRejilla),
+      ),
+    );
+  return filas.map((f) => ({ ...f, etapa: undefined as string | undefined }));
+}
+
+/** Borra una rejilla (y sus tramos, ámbitos y las sesiones que colgaban de ellos) por su nombre. */
+async function borrarRejillaPorNombre(periodoId: string, nombre: string): Promise<void> {
+  const previas = await db
+    .select({ id: horRejillas.id })
+    .from(horRejillas)
+    .where(and(eq(horRejillas.periodoId, periodoId), eq(horRejillas.nombre, nombre)));
+  if (previas.length === 0) return;
+  const ids = previas.map((r) => r.id);
+  const tramos = await db.select({ id: horTramos.id }).from(horTramos).where(inArray(horTramos.rejillaId, ids));
+  if (tramos.length) {
+    await db.delete(horSesiones).where(inArray(horSesiones.tramoId, tramos.map((t) => t.id)));
+    await db.delete(horTramos).where(inArray(horTramos.rejillaId, ids));
+  }
+  await db.delete(horRejillaAmbitos).where(inArray(horRejillaAmbitos.rejillaId, ids));
+  await db.delete(horRejillas).where(inArray(horRejillas.id, ids));
 }
 
 /**
