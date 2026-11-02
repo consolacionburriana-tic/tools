@@ -106,6 +106,14 @@ function tieneDias(g: Cuadricula): boolean {
 // `3º PPDC: 3º ESO-PDC` lleva `º` Y espacio; el resto de códigos van pegados ('1ESOA').
 const RE_TITULO_CLASE = /^\d\s*[ºO]?\s*(INF|PRI|ESO|BACH|CFGM|CFGS|PPDC|PDC)\s*[A-Z]?\s*:\s*\S/i;
 const RE_CABECERA = /^HORARIO DE (CLASE|PROFESOR)/i;
+/**
+ * Los cuadros que cierran el fichero y NO son de nadie: el horario de un AULA (el
+ * polideportivo, música…) y el de SUSTITUCIONES (quién está libre a cada hora). Son la misma
+ * información vista de otra manera, así que se saltan. Sin esto, la leyenda que los precede
+ * se leía como una «hoja de profesor» llamada `Materias:` y la de sustituciones como otra
+ * llamada `HORARIO SUSTITUCIONES`, y las dos salían como «hoja de profesor sin dueño».
+ */
+const RE_CUADRO_AJENO = /^HORARIO (?:DE )?(?:AULA|SUSTITUCIONES)/i;
 
 /**
  * Bloques de un .docx de horarios de Educamos.
@@ -130,7 +138,7 @@ export function leerDocx(datos: ArrayBuffer | Uint8Array): BloqueLeido[] {
 
   const bloques: BloqueLeido[] = [];
   let actual: (BloqueLeido & { conCuadricula: boolean }) | null = null;
-  let cabecera: 'clase' | 'profe' = 'clase';
+  let cabecera: 'clase' | 'profe' | 'ajeno' = 'clase';
 
   // Recorrido en orden de documento (el padre antes que sus hijos), igual que Word lo pinta.
   const visitar = (n: Nodo): void => {
@@ -141,6 +149,12 @@ export function leerDocx(datos: ArrayBuffer | Uint8Array): BloqueLeido[] {
         if (cab) {
           cabecera = cab[1].toUpperCase() === 'CLASE' ? 'clase' : 'profe';
           actual = null;
+        } else if (RE_CUADRO_AJENO.test(t)) {
+          // Hasta la siguiente cabecera "HORARIO DE …" nada de lo que venga es un bloque.
+          cabecera = 'ajeno';
+          actual = null;
+        } else if (cabecera === 'ajeno') {
+          // texto y cuadros de un horario de aula o de sustituciones: no se leen
         } else if (RE_TITULO_CLASE.test(t) && cabecera === 'clase') {
           actual = { tipo: 'clase', titulo: t, filas: [[t]], conCuadricula: false };
           bloques.push(actual);
@@ -185,6 +199,7 @@ export function leerXlsx(datos: ArrayBuffer | Uint8Array): BloqueLeido[] {
     const cuadricula: Cuadricula = filas.map((f) => (f ?? []).map((c) => (c == null ? '' : String(c))));
     if (!tieneDias(cuadricula)) continue;
     const plano = cuadricula.flat().map((c) => c.trim()).filter(Boolean);
+    if (plano.some((t) => RE_CUADRO_AJENO.test(t))) continue; // aula o sustituciones: no es de nadie
     const esProfe = plano.some((t) => /^HORARIO DE PROFESOR/i.test(t));
     const titulo = plano.find((t) => RE_TITULO_CLASE.test(t)) ?? plano.find((t) => !/^(colegio|horario de|horas)/i.test(t)) ?? nombre;
     bloques.push({ tipo: esProfe ? 'profe' : 'clase', titulo, filas: cuadricula });
