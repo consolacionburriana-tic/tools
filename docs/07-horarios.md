@@ -677,7 +677,7 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
 13. **Aulas de la ESO por normas del centro** (el export de la ESO no trae ni una: comprobado en
     `Horarios_ESO_26-27`, ni `Aulas:` ni cuadros «HORARIO DE AULA»). Viven en
     `CONFIGURACION.horarios.aulasEso` y las aplica `aulasEsoPorNormas()`. Primero las de David
-    (2-nov-2026): **tecnología** → aula de tecnología (también la hora de Tecnología o de Digitalización
+    (2-nov-2026): **tecnología** → taller de tecnología (también la hora de Tecnología o de Digitalización
     de un ámbito de PDC) · **PIAR I y II, TRDR y el Taller de profundización de 4º** → aula de informática
     · **Educación Física** → el pabellón (`POLI`) · **Música de 1º y 2º → aula de música, siempre** (la
     de primaria, `MUS`) · **el resto** → aula propia del grupo (`A-1ESOA`…, también tutorías y PDC).
@@ -698,6 +698,18 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
     de la ESO solo sale de las normas); solo toca lo que difiere, no toca lo creado a mano y es idempotente.
     La pantalla lee el aula de la sesión primero y la de la asignación después, y la pestaña Aula también
     enseña lo que solo aparece por sesión.
+
+### Cerradas con David el 2-nov-2026 (la pestaña Aula)
+
+15. **La pestaña Aula, en tres líneas:** primero las **salas especiales** (taller de tecnología, informática,
+    plástica, laboratorio, música, polideportivo), luego las **aulas de las clases de tu etapa** y, aparte, las
+    **aulas de otras etapas** (las de primaria que usa la ESO un día). «Tu etapa» es la de la ficha del
+    profesor; sin ella, la que más aulas de clase tenga (`agruparEspacios()`).
+16. **Tecnología es un taller, no un aula** («Taller de tecnología»). Y **tecnología, plástica y Física y
+    Química pueden ser indistintamente en la sala especial o en el aula del grupo**: la sala es la principal
+    (`espacio_id`) y la clase **sale también en el aula propia del grupo**, marcada «Puede ser aquí o en
+    Taller de tecnología» (`oAulaPropia` en la norma; se calcula al leer, sin duplicar nada en la BBDD). No
+    se repite si el aula ya coincide con la del grupo, ni si la clase junta varios grupos (no hay aula propia).
 
 ### Sigue pendiente
 
