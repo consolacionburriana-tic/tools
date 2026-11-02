@@ -318,21 +318,37 @@ export const permisosDe = (
  *  - `si`         los cuatro autorizados
  *  - `no`         los cuatro NO autorizados
  *  - `parcial`    hay algún no, pero no todos (lo que obliga a desplegar para saber cuál)
+ *  - `externos`   imagen y redes en sí y el único no (o los noes) es de AMPA u ONG: hacia el
+ *                 colegio no hay ningún problema y todos pueden publicar, así que se pinta en
+ *                 verde apagado con la coletilla «parcial» (David, 2-nov-2026: «hacia el cole
+ *                 nos da igual y podemos verlo todos»)
  *  - `incompleto` ningún no, algún sí y alguno sin contestar («sí a tres, la cuarta sin
  *                 marcar»). Hasta el 19-oct-2026 caía en `null` y se pintaba con la misma
  *                 rayita que una ficha en blanco, como si la familia no hubiera dicho nada
  *                 (Jose Miguel, 13-oct-2026)
  *  - `null`       los cuatro sin constar: ahí sí que no hay nada marcado
  */
-export type GeneralProteccion = 'si' | 'no' | 'parcial' | 'incompleto' | null;
+export type GeneralProteccion = 'si' | 'no' | 'parcial' | 'externos' | 'incompleto' | null;
 
 export function generalProteccion(pd: Pick<ProteccionDatos, CampoProteccion>): GeneralProteccion {
   const valores = CAMPOS_PROTECCION.map((c) => permisosDe(pd)[c]);
   if (valores.every((v) => v === true)) return 'si';
   if (valores.every((v) => v === false)) return 'no';
-  if (valores.some((v) => v === false)) return 'parcial';
+  if (valores.some((v) => v === false)) {
+    const permisos = permisosDe(pd);
+    return permisos.imagen === true && permisos.redes === true ? 'externos' : 'parcial';
+  }
   if (valores.some((v) => v === true)) return 'incompleto';
   return null;
+}
+
+/**
+ * ¿La familia ha dicho que NO a que salga en fotos o en la web del colegio? (imagen o redes.)
+ * Es la lista que mira Comunicación antes de publicar: AMPA y ONG no cuentan, porque no
+ * cambian lo que el colegio puede hacer. «No consta» tampoco: ahí no hay una negativa.
+ */
+export function noPuedeSalirEnFotos(pd: Pick<ProteccionDatos, CampoProteccion>): boolean {
+  return pd.imagen === false || pd.redes === false;
 }
 
 /** «3/4»: cuántos de los cuatro están autorizados, para la celda de un general incompleto. */

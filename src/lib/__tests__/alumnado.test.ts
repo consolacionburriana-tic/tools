@@ -8,6 +8,7 @@ import {
   describirDestinos,
   estadoVisible,
   generalProteccion,
+  noPuedeSalirEnFotos,
   siguienteEstadoMaterial,
   siguienteGeneral,
   casaBusqueda,
@@ -324,8 +325,12 @@ describe('protección de datos', () => {
   it('el check general se deduce de los cuatro', () => {
     expect(generalProteccion(pd({ imagen: true, redes: true, ampa: true, ong: true }))).toBe('si');
     expect(generalProteccion(pd({ imagen: false, redes: false, ampa: false, ong: false }))).toBe('no');
-    // Un no suelto: «parcial», que es lo que obliga a desplegar el detalle.
-    expect(generalProteccion(pd({ imagen: true, redes: true, ampa: true, ong: false }))).toBe('parcial');
+    // Un no a AMPA u ONG con imagen y redes en sí: «externos», verde apagado (hacia el colegio no cambia nada).
+    expect(generalProteccion(pd({ imagen: true, redes: true, ampa: true, ong: false }))).toBe('externos');
+    expect(generalProteccion(pd({ imagen: true, redes: true, ampa: false, ong: false }))).toBe('externos');
+    // Un no a imagen o redes, o imagen/redes sin contestar con algún no: «parcial», que obliga a desplegar el detalle.
+    expect(generalProteccion(pd({ imagen: false, redes: true, ampa: true, ong: true }))).toBe('parcial');
+    expect(generalProteccion(pd({ imagen: true, redes: false, ampa: true, ong: true }))).toBe('parcial');
     expect(generalProteccion(pd({ imagen: true, redes: null, ampa: false, ong: true }))).toBe('parcial');
     // Huecos sin ningún no, pero con algún sí: incompleto, no «sí» y tampoco la rayita de
     // «nada marcado» (el fallo de Jose Miguel, 13-oct-2026).
@@ -333,6 +338,13 @@ describe('protección de datos', () => {
     expect(generalProteccion(pd({ imagen: true, redes: true, ampa: true }))).toBe('incompleto');
     // Solo los cuatro en blanco es «sin constar».
     expect(generalProteccion(pd())).toBeNull();
+  });
+
+  it('solo «no puede salir» quien ha dicho que no a imagen o redes', () => {
+    expect(noPuedeSalirEnFotos(pd({ imagen: false, redes: true, ampa: true, ong: true }))).toBe(true);
+    expect(noPuedeSalirEnFotos(pd({ imagen: true, redes: false, ampa: true, ong: true }))).toBe(true);
+    expect(noPuedeSalirEnFotos(pd({ imagen: true, redes: true, ampa: false, ong: false }))).toBe(false);
+    expect(noPuedeSalirEnFotos(pd({ imagen: null, redes: null }))).toBe(false);
   });
 
   it('el incompleto dice cuántos de los cuatro están autorizados', () => {
@@ -344,6 +356,7 @@ describe('protección de datos', () => {
     expect(siguienteGeneral('si')).toBe(false);
     expect(siguienteGeneral('no')).toBe(true);
     expect(siguienteGeneral('parcial')).toBe(true);
+    expect(siguienteGeneral('externos')).toBe(true);
     expect(siguienteGeneral(null)).toBe(true);
   });
 

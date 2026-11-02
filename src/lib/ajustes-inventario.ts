@@ -150,6 +150,13 @@ export function inventarioCentro(): SeccionInventario[] {
       ajustes: [
         { nombre: 'Duración de la sesión', valor: `${C.sesion.duracionDias} días`, origen: 'codigo', donde: 'configuracion.ts → sesion' },
         {
+          nombre: 'Sesión del profesorado de etapa',
+          valor: `${C.sesion.duracionProfesoradoDias} días desde el último login`,
+          origen: 'codigo',
+          donde: 'configuracion.ts → sesion',
+          nota: 'Profe y tutor vuelven a entrar con Google cada dos meses. El resto de roles, no.',
+        },
+        {
           nombre: 'Refresco del rol',
           valor: `cada ${C.sesion.refrescoRolMinutos} min`,
           origen: 'codigo',

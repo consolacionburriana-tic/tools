@@ -85,6 +85,9 @@ export const CELDA_TONO = {
   aviso: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60',
   beca: 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60',
   gris: 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-zinc-700',
+  // «Sí» con peros que no importan hacia el colegio (solo AMPA/ONG dicen no): verde apagado, para
+  // que se vea distinto del sí de verdad sin pasar por la alarma del ámbar.
+  suave: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:ring-emerald-800 dark:hover:bg-emerald-900/40',
   // A medias: algo contestado y algo no. Más vivo que el gris de «nada», sin la alarma del ámbar.
   falta: 'bg-zinc-100 text-zinc-700 ring-1 ring-inset ring-zinc-300 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-600 dark:hover:bg-zinc-700',
 } as const;

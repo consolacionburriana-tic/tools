@@ -254,6 +254,13 @@ export const CONFIGURACION = {
   sesion: {
     /** Cuánto dura sin volver a pedir Google: un curso, para que no se cuelgue a mitad de año. */
     duracionDias: 300,
+    /**
+     * El profesorado de etapa (roles `profe` y `tutor`) vuelve a pasar por Google cada tanto, «por si
+     * acaso» (David, 2-nov-2026): son quienes más cuentas compartidas o dispositivos de sala tienen.
+     * Cuenta desde el último login, no desde la última visita. Dirección, secretaría, TIC… siguen
+     * con `duracionDias`.
+     */
+    duracionProfesoradoDias: 60,
     /** Cada cuánto se vuelve a leer el rol y los módulos de la persona (minutos). */
     refrescoRolMinutos: 15,
   },

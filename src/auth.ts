@@ -6,6 +6,7 @@ import { authUsers } from '@/db/schema';
 import { eduTeachers } from '@/db/schema';
 import { DOMINIO_LOGIN, type Module, type Role } from '@/lib/permissions';
 import { CONFIGURACION } from '@/lib/configuracion';
+import { sesionCaducada } from '@/lib/sesion';
 
 // Sesión larga a propósito (≈ un curso; los valores están en `configuracion.ts`): el claustro no debe re-loguearse
 // a mitad de curso. El rol se refresca contra la BBDD cada 15 min sin re-login.
@@ -55,6 +56,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user }) {
       const ahora = Date.now();
+      // Fecha del último login con Google: es lo que cuenta el tope del profesorado. En una sesión
+      // anterior a este cambio no existe, y se sella ahora (empiezan a contar desde hoy).
+      if (user?.email || typeof token.loginAt !== 'number') token.loginAt = ahora;
       const email = user?.email ?? token.email;
       const toca =
         !!user?.email ||
@@ -66,6 +70,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.modulosBloqueados = acceso.modulosBloqueados;
         token.roleCheckedAt = ahora;
       }
+      // Profe y tutor: a los dos meses de entrar se cierra la sesión. Devolver null borra la cookie.
+      if (sesionCaducada(token.role as string | null | undefined, token.loginAt as number, ahora)) return null;
       return token;
     },
     session({ session, token }) {

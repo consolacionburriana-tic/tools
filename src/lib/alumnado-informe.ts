@@ -16,6 +16,8 @@ import {
   aplicaMaterial,
   aplicaServicio,
   generalProteccion,
+  noAutorizados,
+  noPuedeSalirEnFotos,
   SERVICIO_LABEL,
   SERVICIOS,
   sinConstar,
@@ -65,6 +67,7 @@ export type ClaveColumna =
   | 'ampa'
   | Servicio
   | 'pd'
+  | 'pd_fotos'
   | `pd_${CampoProteccion}`
   | 'pd_correo'
   | `mat:${string}`;
@@ -108,7 +111,21 @@ export function columnasDisponibles(materiales: readonly MaterialInforme[]): Col
       valores: [
         ...SI_NO,
         { clave: 'parcial', texto: 'Parcial' },
+        { clave: 'externos', texto: 'Parcial (solo AMPA/ONG)' },
         { clave: 'incompleto', texto: 'Sin contestar del todo' },
+        { clave: 'sin', texto: 'Sin constar' },
+      ],
+      // «Sí» y «parcial solo de AMPA/ONG» autorizan lo mismo hacia el colegio.
+      cuenta: (c) => c.clave === 'si' || c.clave === 'externos',
+    },
+    {
+      // Lo que mira Comunicación antes de publicar: imagen y redes, sin AMPA ni ONG.
+      clave: 'pd_fotos',
+      titulo: 'Puede salir en fotos y web',
+      grupo: 'Protección de datos',
+      valores: [
+        { clave: 'si', texto: 'Sí' },
+        { clave: 'no', texto: 'No (imagen o redes)' },
         { clave: 'sin', texto: 'Sin constar' },
       ],
       cuenta: esSi,
@@ -184,10 +201,16 @@ export function celda(
       if (g === 'si') return { texto: 'Sí', tono: 'si', clave: 'si' };
       if (g === 'no') return { texto: 'No', tono: 'no', clave: 'no' };
       if (g === 'parcial') return { texto: 'Parcial', tono: 'aviso', clave: 'parcial' };
+      // Hacia el colegio todo en regla: verde, con la coletilla de qué falta fuera.
+      if (g === 'externos') return { texto: `Parcial (no ${noAutorizados(pd).join(' y ')})`, tono: 'si', clave: 'externos' };
       if (g === 'incompleto') {
         return { texto: `Falta ${sinConstar(pd).join(', ')}`, tono: 'gris', clave: 'incompleto' };
       }
       return { texto: '—', tono: 'gris', clave: 'sin' };
+    }
+    if (clave === 'pd_fotos') {
+      if (noPuedeSalirEnFotos(pd)) return { texto: 'No', tono: 'no', clave: 'no' };
+      return pd.imagen === true && pd.redes === true ? { texto: 'Sí', tono: 'si', clave: 'si' } : { texto: '—', tono: 'gris', clave: 'sin' };
     }
     if (clave === 'pd_correo') return siNo(pd.desestimaCorreo, 'alReves');
     return siNo(pd[clave.slice(3) as CampoProteccion]);
