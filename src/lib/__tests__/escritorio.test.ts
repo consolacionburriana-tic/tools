@@ -6,8 +6,26 @@ const claves = (role: Parameters<typeof herramientasDe>[0]['role'], ctx = CTX) =
   herramientasDe({ role }, ctx).map((h) => h.clave);
 
 describe('qué ve cada uno en el escritorio', () => {
-  it('un profe: su día, el alumnado de su etapa, banco, salidas y horarios; nada de configuración', () => {
-    expect(claves('profe')).toEqual(['mi-horario', 'tableros', 'registrar-conducta', 'alumnado', 'bancolibros', 'salidas', 'horarios']);
+  it('un profe: su día, el alumnado de su etapa y horarios, más lo gris; nada de configuración', () => {
+    expect(claves('profe')).toEqual([
+      'mi-horario',
+      'tableros',
+      'registrar-conducta',
+      'alumnado',
+      'bancolibros',
+      'salidas',
+      'horarios',
+      'evaluaciones',
+      'incidencias',
+    ]);
+  });
+
+  it('Números del cole se oculta al claustro de a pie (profe y tutor) y se queda para el resto', () => {
+    expect(claves('profe')).not.toContain('numeros');
+    expect(claves('tutor')).not.toContain('numeros');
+    for (const r of ['jefe', 'orientacion', 'direccion', 'secretaria', 'tic', 'supertic'] as const) {
+      expect(claves(r)).toContain('numeros');
+    }
   });
 
   it('secretaría ve Correos y grupos (solo ver) pero ni Classrooms ni las tareas de la plataforma', () => {
@@ -46,6 +64,54 @@ describe('qué ve cada uno en el escritorio', () => {
     expect(h('tableros').badge).toEqual({ texto: '1 vencida', tono: 'rojo' });
     expect(h('tableros').desc).toBe('2 tareas pendientes en tus equipos');
     expect(h('alumnado').badge).toBeNull();
+  });
+});
+
+describe('herramientas en gris', () => {
+  const gris = (role: Parameters<typeof herramientasDe>[0]['role'], clave: string) =>
+    herramientasDe({ role }, CTX).find((h) => h.clave === clave)?.bloqueo ?? null;
+
+  it('banco de libros y salidas salen «próximamente» para profe y tutor, y normales para el resto', () => {
+    for (const r of ['profe', 'tutor'] as const) {
+      expect(gris(r, 'bancolibros')).toBe('proximamente');
+      expect(gris(r, 'salidas')).toBe('proximamente');
+    }
+    for (const r of ['jefe', 'direccion', 'secretaria', 'tic', 'supertic'] as const) {
+      expect(gris(r, 'bancolibros')).toBeNull();
+      expect(gris(r, 'salidas')).toBeNull();
+    }
+  });
+
+  it('las incidencias de mantenimiento y TIC no existen todavía: gris para todos, SuperTIC incluido', () => {
+    for (const r of ['profe', 'tutor', 'jefe', 'direccion', 'secretaria', 'tic', 'supertic'] as const) {
+      expect(gris(r, 'incidencias')).toBe('proximamente');
+    }
+  });
+
+  it('Evaluaciones: quien no lo tiene lo ve en gris para solicitarlo, con la frase que lo explica', () => {
+    for (const r of ['profe', 'tutor', 'jefe', 'orientacion', 'comunicacion'] as const) {
+      expect(gris(r, 'evaluaciones')).toBe('solicitar');
+    }
+    for (const r of ['direccion', 'secretaria', 'evaluaciones', 'tic', 'supertic'] as const) {
+      expect(gris(r, 'evaluaciones')).toBeNull();
+    }
+    const h = herramientasDe({ role: 'profe' }, CTX).find((x) => x.clave === 'evaluaciones')!;
+    expect(h.desc).toBe(
+      'Si tú o tu equipo necesitáis hacer alguna evaluación al alumnado o profesorado, podéis solicitar el acceso a este módulo.',
+    );
+  });
+
+  it('a quien se le ha dado Evaluaciones a mano ya no lo ve gris', () => {
+    const h = herramientasDe({ role: 'profe', modulosExtra: ['evaluaciones'] }, CTX).find((x) => x.clave === 'evaluaciones')!;
+    expect(h.bloqueo).toBeNull();
+  });
+
+  it('lo gris no lleva insignias, y en el buscador va detrás de lo que se puede abrir', () => {
+    const lista = herramientasDe({ role: 'profe' }, { ...CTX, tableros: { pendientes: 1, urgente: null } });
+    expect(lista.filter((h) => h.bloqueo).every((h) => h.badge === null)).toBe(true);
+    const r = buscarHerramientas(lista, 'horario');
+    const primeraGris = r.findIndex((h) => h.bloqueo);
+    if (primeraGris >= 0) expect(r.slice(primeraGris).every((h) => h.bloqueo || r.indexOf(h) > primeraGris)).toBe(true);
   });
 });
 

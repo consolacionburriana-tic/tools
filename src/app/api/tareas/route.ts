@@ -4,8 +4,8 @@ import { canAccess } from '@/lib/permissions';
 import { crearTareaSchema } from '@/lib/tareas';
 import { crearTarea, listarTareas } from '@/lib/tareas-server';
 
-// Dos niveles: `tareas` lo ve y lo lleva todo; `tareas-reportar` solo apunta fallitos y ve
-// los suyos (para saber si ya se arreglaron).
+// Dos niveles: `tareas` lo ve y lo lleva todo; `tareas-reportar` (todo el claustro) solo apunta
+// fallitos y sugerencias —una sugerencia es una tarjeta de «módulo nuevo»— y ve las suyas.
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -23,9 +23,8 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Datos no válidos' }, { status: 400 });
   }
-  const gestiona = canAccess(user, 'tareas');
-  const reporta = gestiona || canAccess(user, 'tareas-reportar');
-  if (parsed.data.tipo === 'modulo' ? !gestiona : !reporta) {
+  const reporta = canAccess(user, 'tareas') || canAccess(user, 'tareas-reportar');
+  if (!reporta) {
     return NextResponse.json({ error: 'Sin permiso para este módulo' }, { status: 403 });
   }
   try {

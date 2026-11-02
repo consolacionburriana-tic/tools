@@ -2,7 +2,7 @@
 
 // Los dos formularios de alta, iguales en el panel flotante y en el tablero.
 import { useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { checklistDeTexto, etiquetaModulo, moduloDeRuta, MODULOS_FALLO, type Tarea } from '@/lib/tareas';
@@ -20,16 +20,23 @@ export function FormFallo({
   ruta,
   onCreada,
   autoFocus = false,
+  modulos = MODULOS_FALLO,
+  conToast = true,
 }: {
   /** Pantalla desde la que se apunta; se guarda con el fallito y elige el módulo. */
   ruta: string | null;
   onCreada: (t: Tarea) => void;
   autoFocus?: boolean;
+  /** Los módulos que se ofrecen (el claustro solo ve los suyos). */
+  modulos?: readonly string[];
+  /** Sin toast cuando quien llama enseña su propio «gracias». */
+  conToast?: boolean;
 }) {
   // null = «el de la pantalla»: si cambias de página con el panel abierto, el módulo la
   // sigue hasta que eliges uno a mano.
   const [elegido, setModulo] = useState<string | null>(null);
-  const modulo = elegido ?? moduloDeRuta(ruta) ?? '';
+  const delaPantalla = moduloDeRuta(ruta);
+  const modulo = elegido ?? (delaPantalla && modulos.includes(delaPantalla) ? delaPantalla : '');
   const [texto, setTexto] = useState('');
   const [guardando, setGuardando] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -41,7 +48,7 @@ export function FormFallo({
     try {
       const t = await apiTareas.crear({ tipo: 'fallo', titulo: texto.trim(), modulo: modulo || null, ruta });
       haptic.success();
-      toast.success('Apuntado');
+      if (conToast) toast.success('Apuntado');
       setTexto('');
       onCreada(t);
       input.current?.focus();
@@ -57,7 +64,7 @@ export function FormFallo({
     <form onSubmit={guardar} className="space-y-2">
       <Selector value={modulo} onChange={(e) => setModulo(e.target.value)} aria-label="Módulo">
         <option value="">General (toda la plataforma)</option>
-        {MODULOS_FALLO.map((m) => (
+        {modulos.map((m) => (
           <option key={m} value={m}>
             {etiquetaModulo(m)}
           </option>
@@ -149,6 +156,60 @@ export function FormModulo({ onCreada, autoFocus = false }: { onCreada: (t: Tare
       />
       <Button type="submit" className="w-full" disabled={titulo.trim().length < 2} cargando={guardando}>
         {!guardando && <Plus aria-hidden />} Guardar idea
+      </Button>
+    </form>
+  );
+}
+
+/**
+ * La sugerencia de quien no lleva el tablero: el nombre de la idea y, si quiere, qué resuelve.
+ * Es una tarjeta de «módulo nuevo» en el tablero de TIC, pero sin la checklist, que se ordena
+ * allí. Quien llama enseña el «gracias» al guardar.
+ */
+export function FormSugerencia({ onCreada, autoFocus = false }: { onCreada: (t: Tarea) => void; autoFocus?: boolean }) {
+  const [titulo, setTitulo] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  async function guardar(e: React.FormEvent) {
+    e.preventDefault();
+    if (titulo.trim().length < 3 || guardando) return;
+    setGuardando(true);
+    try {
+      const t = await apiTareas.crear({ tipo: 'modulo', titulo: titulo.trim(), descripcion: descripcion.trim() || null });
+      haptic.success();
+      setTitulo('');
+      setDescripcion('');
+      onCreada(t);
+    } catch (err) {
+      haptic.warning();
+      toast.error(err instanceof Error ? err.message : 'No se ha podido guardar');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <form onSubmit={guardar} className="space-y-2">
+      <Input
+        value={titulo}
+        onChange={(e) => setTitulo(e.target.value)}
+        autoFocus={autoFocus}
+        maxLength={200}
+        placeholder="Tu idea en una línea (p. ej. Reservar aulas)"
+        aria-label="Tu idea en una línea"
+        className="font-medium"
+      />
+      <Textarea
+        value={descripcion}
+        onChange={(e) => setDescripcion(e.target.value)}
+        rows={4}
+        maxLength={2000}
+        placeholder="Cuéntanos un poco más: ¿qué te facilitaría? (opcional)"
+        aria-label="Cuéntanos un poco más"
+      />
+      <Button type="submit" className="w-full" disabled={titulo.trim().length < 3} cargando={guardando}>
+        {!guardando && <Send aria-hidden />} Enviar sugerencia
       </Button>
     </form>
   );

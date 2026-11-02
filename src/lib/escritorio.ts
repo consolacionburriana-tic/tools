@@ -7,6 +7,7 @@
 // centro, la parte de tecnología y, al final, la configuración, que se toca de mes en mes.
 // Un módulo nuevo = una entrada en `HERRAMIENTAS`, en su grupo.
 import { canAccess, type Acceso } from '@/lib/permissions';
+import { esSolicitable, TEXTO_SOLICITAR } from '@/lib/solicitud-acceso';
 
 export const GRUPOS = ['dia', 'alumnado', 'familias', 'centro', 'tic', 'config'] as const;
 export type Grupo = (typeof GRUPOS)[number];
@@ -44,9 +45,17 @@ export type IconoHerramienta =
   | 'usuarios'
   | 'educamos'
   | 'ajustes'
-  | 'tareas';
+  | 'tareas'
+  | 'incidencias';
 
 export type TonoAviso = 'azul' | 'ambar' | 'rojo';
+
+/**
+ * Una herramienta que se enseña en gris y no se abre:
+ *   - `proximamente`: todavía no está para esta persona («ya llegará»);
+ *   - `solicitar`: existe, pero no la tiene; tocarla avisa a los SuperTIC para que se la den.
+ */
+export type Bloqueo = 'proximamente' | 'solicitar';
 
 export interface Herramienta {
   clave: string;
@@ -58,6 +67,7 @@ export interface Herramienta {
   /** Más palabras con las que se encuentra en el buscador («excursiones» → Salidas). */
   palabras: string[];
   badge: { texto: string; tono: TonoAviso } | null;
+  bloqueo: Bloqueo | null;
 }
 
 /** Lo que la página sabe y cambia lo que se enseña (contadores, el acceso común de Oratorios). */
@@ -68,13 +78,22 @@ export interface ContextoEscritorio {
   tableros: { pendientes: number; urgente: { texto: string; tono: TonoAviso } | null } | null;
 }
 
-interface Definicion extends Omit<Herramienta, 'badge' | 'desc'> {
+interface Definicion extends Omit<Herramienta, 'badge' | 'desc' | 'bloqueo'> {
   desc: string | ((ctx: ContextoEscritorio) => string);
   visible: (acceso: Acceso, ctx: ContextoEscritorio) => boolean;
   badge?: (ctx: ContextoEscritorio) => Herramienta['badge'];
+  /** Si devuelve algo, la herramienta sale en gris aunque `visible` diga que no. */
+  bloqueo?: (acceso: Acceso, ctx: ContextoEscritorio) => Bloqueo | null;
 }
 
 const tiene = (m: Parameters<typeof canAccess>[1]) => (a: Acceso) => canAccess(a, m);
+
+/**
+ * El claustro «de a pie»: profe y tutor/a. Para ellos el escritorio enseña menos y lo que
+ * todavía no llega, en gris (David, 2-nov-2026, el día de presentarlo al claustro). Es solo lo
+ * que se **ve**: los permisos no cambian, y una salida que ya llevan sigue abriéndose por su enlace.
+ */
+const esClaustroEstandar = (a: Acceso) => a.role === 'profe' || a.role === 'tutor';
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -162,7 +181,8 @@ const HERRAMIENTAS: readonly Definicion[] = [
     grupo: 'alumnado',
     icono: 'numeros',
     palabras: ['estadísticas', 'recuentos', 'cifras'],
-    visible: tiene('numeros'),
+    // Oculto para el claustro de a pie hasta que se replantee (docs/24-numeros.md, 2-nov-2026).
+    visible: (a) => canAccess(a, 'numeros') && !esClaustroEstandar(a),
   },
   {
     clave: 'cuaderno',
@@ -205,6 +225,7 @@ const HERRAMIENTAS: readonly Definicion[] = [
     icono: 'banco',
     palabras: ['libros', 'lotes', 'ampa'],
     visible: tiene('bancolibros'),
+    bloqueo: (a) => (esClaustroEstandar(a) ? 'proximamente' : null),
   },
   {
     clave: 'salidas',
@@ -215,6 +236,7 @@ const HERRAMIENTAS: readonly Definicion[] = [
     icono: 'salidas',
     palabras: ['excursiones', 'pagos', 'justificantes'],
     visible: tiene('salidas'),
+    bloqueo: (a) => (esClaustroEstandar(a) ? 'proximamente' : null),
   },
 
   // ── Organización del centro ──────────────────────────────────────────────
@@ -247,6 +269,20 @@ const HERRAMIENTAS: readonly Definicion[] = [
     icono: 'evaluaciones',
     palabras: ['encuestas', 'formularios', 'valoración'],
     visible: tiene('evaluaciones'),
+    // Quien no lo tiene lo ve en gris y puede pedirlo: el aviso llega a los SuperTIC.
+    bloqueo: (a) => (!canAccess(a, 'evaluaciones') ? 'solicitar' : null),
+  },
+  {
+    // Todavía no existe, para nadie: se enseña en gris para que se sepa que viene.
+    clave: 'incidencias',
+    titulo: 'Incidencias de mantenimiento y TIC',
+    desc: 'Avisar de una avería o de un problema técnico, y ver cómo va',
+    href: '/gestion/incidencias',
+    grupo: 'centro',
+    icono: 'incidencias',
+    palabras: ['avería', 'arreglo', 'mantenimiento', 'proyector', 'ordenador', 'wifi'],
+    visible: () => true,
+    bloqueo: () => 'proximamente',
   },
   {
     clave: 'profes',
@@ -346,18 +382,26 @@ const HERRAMIENTAS: readonly Definicion[] = [
   },
 ];
 
-/** Las herramientas que ve una persona, en el orden de los grupos. */
+/** Las herramientas que ve una persona, en el orden de los grupos (las grises, con su `bloqueo`). */
 export function herramientasDe(acceso: Acceso, ctx: ContextoEscritorio): Herramienta[] {
-  return HERRAMIENTAS.filter((h) => h.visible(acceso, ctx))
-    .map((h) => ({
+  return HERRAMIENTAS.map((h) => ({ h, bloqueo: h.bloqueo?.(acceso, ctx) ?? null }))
+    .filter(({ h, bloqueo }) => bloqueo !== null || h.visible(acceso, ctx))
+    .map(({ h, bloqueo }) => ({
       clave: h.clave,
       titulo: h.titulo,
-      desc: typeof h.desc === 'function' ? h.desc(ctx) : h.desc,
+      // Lo que explica la tarjeta de «solicitar» es la frase de siempre, no la descripción del módulo.
+      desc:
+        bloqueo === 'solicitar' && esSolicitable(h.clave)
+          ? TEXTO_SOLICITAR[h.clave]
+          : typeof h.desc === 'function'
+            ? h.desc(ctx)
+            : h.desc,
       href: h.href,
       grupo: h.grupo,
       icono: h.icono,
       palabras: h.palabras,
-      badge: h.badge ? h.badge(ctx) : null,
+      badge: bloqueo ? null : h.badge ? h.badge(ctx) : null,
+      bloqueo,
     }))
     .sort((a, b) => GRUPOS.indexOf(a.grupo) - GRUPOS.indexOf(b.grupo));
 }
@@ -382,7 +426,8 @@ export function buscarHerramientas(lista: readonly Herramienta[], consulta: stri
       return { h, puntos: palabras.filter((p) => titulo.includes(p)).length };
     })
     .filter((x): x is { h: Herramienta; puntos: number } => x !== null);
-  return puntuadas.sort((a, b) => b.puntos - a.puntos).map((x) => x.h);
+  // A igualdad de puntos, las que se pueden abrir antes que las grises.
+  return puntuadas.sort((a, b) => b.puntos - a.puntos || Number(!!a.h.bloqueo) - Number(!!b.h.bloqueo)).map((x) => x.h);
 }
 
 /** «Buenos días» hasta las dos, «buenas tardes» hasta las nueve, y luego «buenas noches». */

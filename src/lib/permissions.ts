@@ -61,7 +61,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   profes: 'Tutorías',
   autoasm: 'AUTOASM (Apple School Manager)',
   tareas: 'Tareas de la plataforma',
-  'tareas-reportar': 'Reportar fallitos',
+  'tareas-reportar': 'Apuntar fallitos y sugerencias',
   comunicacion: 'Comunicación (protección de datos de todo el centro)',
   oratorios: 'Oratorios, Godly Play y Talleres (planificar)',
   'oratorios-ver': 'Oratorios, Godly Play y Talleres (ver lo mío)',
@@ -136,7 +136,7 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'nouvinguts',
     'dispositivos',
   ],
-  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'oratorios-ver', 'tableros'],
+  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»)…
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
@@ -150,8 +150,10 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // Tutor y profe entran en Alumnado, pero solo ven SU ETAPA (entrando en su tutoría si la
   // tienen): `alcanceAlumnado` en alumnado-server.ts. Profe, desde el 28-sep-2026 (David).
   // Números del cole, con el mismo alcance, solo el tutor (docs/24-numeros.md).
-  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros', 'oratorios-ver', 'tableros'],
-  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario', 'alumnado', 'oratorios-ver', 'tableros'],
+  // Todo el claustro puede apuntar fallitos y sugerencias (`tareas-reportar`) desde el botón de
+  // abajo a la derecha (David, 2-nov-2026): solo recoge, sin abrir el tablero de TIC.
+  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
+  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario', 'alumnado', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   // Tableros: lo tiene TODO el claustro, porque el módulo solo deja crear equipos y entrar en
   // los tableros de los equipos en los que estás. Tener el módulo no enseña nada de nadie: ni
   // dirección ni TIC ven un tablero ajeno (docs/27-tableros.md). Se quita a mano si hace falta.
@@ -161,7 +163,7 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // Rol "de una sola cosa": quien lleva las evaluaciones sin tener por qué ver
   // pedidos ni la BBDD central. Para alguien que ADEMÁS es tutor, mejor dejarle
   // 'tutor' y darle 'evaluaciones' como módulo extra.
-  evaluaciones: ['evaluaciones', 'mi-horario', 'tableros'],
+  evaluaciones: ['evaluaciones', 'mi-horario', 'tareas-reportar', 'tableros'],
   // Comunicación publica fotos y vídeos de todo el centro: ve la ficha y la protección de
   // datos de TODAS las etapas (David, 28-sep-2026). A quien además es tutor/profe se le deja
   // su rol y se le da el módulo `comunicacion` como extra: el efecto es el mismo.

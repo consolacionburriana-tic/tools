@@ -4,11 +4,15 @@
 // horizontal, que es como se usa casi siempre: saludo con las cifras, lo que pide atención hoy,
 // «Tu día» en grande y el resto de herramientas en grupos, a tres columnas. En el móvil todo va
 // en una; en el iPad en vertical, a dos. El buscador encuentra cualquier herramienta («/» o ⌘K).
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Cpu, School, Search, Settings2, Users, Wallet, X, type LucideIcon } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
+import { Check, ChevronRight, Cpu, Hand, School, Search, Send, Settings2, Sparkles, Users, Wallet, X, type LucideIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { haptic } from '@/lib/haptics';
+import { BIENVENIDA_ID } from '@/lib/bienvenida';
 import {
   buscarHerramientas,
   GRUPO_TITULO,
@@ -24,6 +28,7 @@ import { Estado, type TonoEstado } from '@/components/ui/estado';
 import { Input } from '@/components/ui/input';
 import { Rotulo } from '@/components/ui/rotulo';
 import { claseTarjeta } from '@/components/ui/tarjeta';
+import { FiestaDePantalla } from '@/components/ui/estallido';
 
 export interface Cifra {
   /** Lo que va antes del número, si lo hay («Educamos al»). */
@@ -40,6 +45,19 @@ export interface Aviso {
   tono: TonoAviso;
   icono: IconoHerramienta;
 }
+
+/** La bienvenida de la primera vez: la frase con guasa y la cookie que recuerda que ya se vio. */
+export interface Bienvenida {
+  frase: string;
+  cookie: string;
+}
+
+/** Lo de «Solicitar acceso»: qué módulos ya se han pedido y cómo se pide uno. */
+const Solicitudes = createContext<{
+  pedidas: readonly string[];
+  enviando: string | null;
+  solicitar: (h: Herramienta) => void;
+}>({ pedidas: [], enviando: null, solicitar: () => {} });
 
 const ICONO_GRUPO: Record<Exclude<Grupo, 'dia'>, LucideIcon> = {
   alumnado: Users,
@@ -73,14 +91,23 @@ export function Escritorio({
   cifras,
   avisos,
   herramientas,
+  solicitadas,
+  bienvenida,
 }: {
   saludo: string;
   fecha: string;
   cifras: Cifra[];
   avisos: Aviso[];
   herramientas: Herramienta[];
+  /** Módulos cuyo acceso ya ha pedido esta persona desde este navegador. */
+  solicitadas: string[];
+  /** Solo la primera vez: la animación de bienvenida. */
+  bienvenida: Bienvenida | null;
 }) {
   const [consulta, setConsulta] = useState('');
+  const [pedidas, setPedidas] = useState<readonly string[]>(solicitadas);
+  const [enviando, setEnviando] = useState<string | null>(null);
+  const [fiesta, setFiesta] = useState(bienvenida !== null);
   const buscador = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -97,19 +124,60 @@ export function Escritorio({
     return () => window.removeEventListener('keydown', alPulsar);
   }, []);
 
+  // La bienvenida se cuenta como vista en cuanto sale: recargar no la repite.
+  useEffect(() => {
+    if (!bienvenida) return;
+    try {
+      document.cookie = `${bienvenida.cookie}=${BIENVENIDA_ID}; path=/gestion; max-age=31536000; samesite=lax`;
+    } catch {
+      /* sin cookies, se enseñará otra vez: no pasa nada */
+    }
+  }, [bienvenida]);
+
+  async function solicitar(h: Herramienta) {
+    if (enviando || pedidas.includes(h.clave)) return;
+    haptic.tap();
+    setEnviando(h.clave);
+    try {
+      const res = await fetch('/api/acceso/solicitar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modulo: h.clave }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? 'No se ha podido enviar');
+      haptic.success();
+      setPedidas((p) => [...p, h.clave]);
+      toast.success(`Solicitud enviada: ${h.titulo}`, { description: 'Les ha llegado a los SuperTIC; te dirán algo pronto.' });
+    } catch (err) {
+      haptic.warning();
+      toast.error(err instanceof Error ? err.message : 'No se ha podido enviar');
+    } finally {
+      setEnviando(null);
+    }
+  }
+
   const resultados = useMemo(() => (consulta.trim() ? buscarHerramientas(herramientas, consulta) : null), [herramientas, consulta]);
+  // Intro abre la primera que se pueda abrir: las grises no llevan a ningún sitio.
+  const primeraAbrible = resultados?.find((h) => !h.bloqueo);
   const dia = herramientas.filter((h) => h.grupo === 'dia');
   const grupos = GRUPOS.filter((g): g is Exclude<Grupo, 'dia'> => g !== 'dia')
     .map((g) => ({ grupo: g, lista: herramientas.filter((h) => h.grupo === g) }))
     .filter((x) => x.lista.length > 0);
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-8 px-4 pt-6 pb-20 sm:px-6 lg:pt-8">
+    <Solicitudes.Provider value={{ pedidas, enviando, solicitar }}>
+    <main className={cn('mx-auto w-full max-w-7xl space-y-8 px-4 pt-6 pb-20 sm:px-6 lg:pt-8', bienvenida && 'bienvenida')}>
+      {bienvenida && fiesta && <FiestaDePantalla onFin={() => setFiesta(false)} />}
       {/* ── Saludo, cifras y buscador ─────────────────────────────────── */}
       <section className="anim-up flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <p className="text-sm text-zinc-500 first-letter:uppercase dark:text-zinc-400">{fecha}</p>
-          <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl dark:text-zinc-100">{saludo}</h1>
+          {bienvenida ? (
+            <SaludoDeBienvenida saludo={saludo} frase={bienvenida.frase} />
+          ) : (
+            <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl dark:text-zinc-100">{saludo}</h1>
+          )}
           {cifras.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
               {cifras.map((c) => (
@@ -130,7 +198,7 @@ export function Escritorio({
             value={consulta}
             onChange={(e) => setConsulta(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && resultados?.[0]) router.push(resultados[0].href);
+              if (e.key === 'Enter' && primeraAbrible) router.push(primeraAbrible.href);
               if (e.key === 'Escape') setConsulta('');
             }}
             placeholder="Buscar herramienta"
@@ -196,6 +264,59 @@ export function Escritorio({
         </>
       )}
     </main>
+    </Solicitudes.Provider>
+  );
+}
+
+/**
+ * El saludo la primera vez: cada palabra cae con su muelle, la mano saluda y, debajo, una frase
+ * con guasa. Con «reducir movimiento» sale quieto. Es el `h1` de siempre, solo que animado.
+ */
+function SaludoDeBienvenida({ saludo, frase }: { saludo: string; frase: string }) {
+  const quieto = useReducedMotion();
+  const palabras = saludo.split(' ');
+  return (
+    <>
+      <h1 className="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-100">
+        <span aria-label={saludo} className="flex flex-wrap gap-x-2.5">
+          {palabras.map((p, i) => (
+            <motion.span
+              key={i}
+              aria-hidden
+              initial={quieto ? false : { opacity: 0, y: 36, rotate: -7, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+              transition={{ delay: 0.25 + i * 0.16, type: 'spring', stiffness: 280, damping: 13 }}
+              className="inline-block origin-bottom-left"
+            >
+              {p}
+            </motion.span>
+          ))}
+        </span>
+        <motion.span
+          aria-hidden
+          initial={quieto ? false : { opacity: 0, scale: 0.3 }}
+          animate={quieto ? undefined : { opacity: 1, scale: 1, rotate: [0, 16, -10, 16, -6, 12, 0] }}
+          transition={{
+            opacity: { delay: 0.25 + palabras.length * 0.16 },
+            scale: { delay: 0.25 + palabras.length * 0.16, type: 'spring', stiffness: 300, damping: 12 },
+            rotate: { delay: 0.5 + palabras.length * 0.16, duration: 1.4, repeat: 1, repeatDelay: 0.6 },
+          }}
+          style={{ transformOrigin: '70% 80%' }}
+          className="inline-flex text-blue-600 dark:text-blue-400"
+        >
+          <Hand className="size-7 sm:size-9" />
+        </motion.span>
+      </h1>
+      <motion.p
+        initial={quieto ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.9 + palabras.length * 0.16, duration: 0.5 }}
+        className="mt-2 flex max-w-xl items-start gap-2 text-base text-zinc-700 dark:text-zinc-300"
+      >
+        <Sparkles aria-hidden className="mt-1 size-4 shrink-0 text-blue-600 dark:text-blue-400" />
+        {frase}
+      </motion.p>
+    </>
   );
 }
 
@@ -250,7 +371,68 @@ function Tesela({ h }: { h: Herramienta }) {
   );
 }
 
+const ICONO_GRIS = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400';
+
+/**
+ * Una herramienta en gris: o «Próximamente» (no se toca) o «Solicitar acceso» (un toque avisa a
+ * los SuperTIC). La explicación se ve siempre, no solo en un `title`: en el iPad no hay ratón.
+ */
+function FilaGris({ h, conGrupo }: { h: Herramienta; conGrupo: boolean }) {
+  const { pedidas, enviando, solicitar: pedir } = useContext(Solicitudes);
+  const Icono = ICONOS_MODULO[h.icono];
+  const pedida = pedidas.includes(h.clave);
+  const cuerpo = (
+    <>
+      <span className={ICONO_GRIS}>
+        <Icono className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="font-medium text-zinc-500 dark:text-zinc-400">{h.titulo}</span>
+          {h.bloqueo === 'proximamente' && <Estado tono="neutro">Próximamente</Estado>}
+        </span>
+        <span className="block text-sm leading-snug text-zinc-500 dark:text-zinc-400">
+          {conGrupo ? `${GRUPO_TITULO[h.grupo]} · ${h.desc}` : h.desc}
+        </span>
+        {/* El botón va debajo del texto: la frase es larga y a su lado se quedaba en una columna de palabras sueltas. */}
+        {h.bloqueo === 'solicitar' &&
+          (pedida ? (
+            <Estado tono="ok" icono={<Check aria-hidden />} className="mt-1.5">
+              Solicitud enviada
+            </Estado>
+          ) : (
+            <span className="mt-1.5 inline-flex h-7 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 text-xs font-medium text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
+              <Send aria-hidden className="size-3" />
+              {enviando === h.clave ? 'Enviando…' : 'Solicitar acceso'}
+            </span>
+          ))}
+      </span>
+    </>
+  );
+
+  if (h.bloqueo === 'proximamente') {
+    return (
+      <div aria-disabled="true" title="Próximamente" className="flex min-h-16 cursor-default items-center gap-3 px-4 py-3">
+        {cuerpo}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => pedir(h)}
+      disabled={pedida || enviando === h.clave}
+      title={h.desc}
+      className="flex min-h-16 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-zinc-800/60"
+    >
+      {cuerpo}
+    </button>
+  );
+}
+
 function Fila({ h, conGrupo = false }: { h: Herramienta; conGrupo?: boolean }) {
+  if (h.bloqueo) return <FilaGris h={h} conGrupo={conGrupo} />;
   const Icono = ICONOS_MODULO[h.icono];
   return (
     <Link
@@ -313,7 +495,8 @@ function Resultados({ resultados, consulta }: { resultados: Herramienta[]; consu
   return (
     <section aria-label="Resultados de la búsqueda" className="space-y-3">
       <Rotulo id="resultados">
-        {resultados.length} {resultados.length === 1 ? 'herramienta' : 'herramientas'} · Intro abre la primera
+        {resultados.length} {resultados.length === 1 ? 'herramienta' : 'herramientas'}
+        {resultados[0] && !resultados[0].bloqueo ? ' · Intro abre la primera' : ''}
       </Rotulo>
       <ul className={cn(claseTarjeta, 'grid gap-x-4 overflow-hidden md:grid-cols-2')}>
         {resultados.map((h) => (
