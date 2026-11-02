@@ -23,33 +23,6 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
-### Horarios de infantil y primaria 2026-27: lo que el importador decidió solo (2-nov-2026) — para que David confirme
-
-Jose Miguel importó el `.docx` de infantil y primaria y salieron ~140 avisos. Casi todos eran
-abreviaturas que el importador no conocía; se han reconocido (ver [`07-horarios.md`](./07-horarios.md),
-«Primaria e infantil 2026-27»). **Secundaria no se ha tocado.** Lo que hay que confirmar, porque se
-eligió con la información del propio fichero pero sin preguntar:
-
-1. **`COORDINACIÓN` (martes 12:30, 23 hojas) es una *reunión* de todo el profesorado**, igual que
-   `CICLO` (jueves). No es el cargo de coordinador de nadie. Sale como UNA reunión con todos.
-   Ojo: **el fichero ya trae esas dos reuniones**, así que la «reunión de etapa» de EP (martes y
-   jueves 12:30-13:30) solo se añadirá a quien no tenga hoja en el fichero.
-2. **Godly Play cuenta como hora de «Oratorio»** (alimenta «⚡ Desde mi horario» de Oratorios).
-   **Eucaristía y Huerto** no: son «Otros» con su nombre, para no marcar disponibilidad que no es.
-3. **`INFANTIL 3 AÑOS`, `INFANTIL 4 AÑOS A`… en la hoja de Yolanda Carda** coinciden hora a hora con
-   las celdas `PT` sin nombre de las clases de infantil: es la PT de infantil. Hoy entran como
-   hora suya («Otros» con ese texto) y **no se enlazan** con la celda `PT` de la clase, que sigue sin
-   profe. Enlazarlas es posible (hay dos clases de 3 años a la vez, así que no siempre es 1:1).
-4. **Las horas de Dirección de Salomé antes de las 9:00 y de 13:30 a 14:30 (10 h) no entran**: no hay
-   ninguna franja con esa hora en las rejillas de primaria. Ahora se avisa antes de importar; para
-   que entren habría que añadir franjas (como se hizo con la reunión de las 16:00 de la ESO).
-5. **`COD. 3º` (María Victoria Vernia, viernes 10:30)** es codocencia en «3º» sin letra y a esa hora
-   hay clase en 3º A y en 3º B: no se sabe cuál, entra como hora suya y es el único aviso que queda.
-6. **`R. ETE` / `REUNIONES E.T.E`**: no sé qué significa ETE; se deja como «Reunión ETE».
-7. **Los cuadros de aula (polideportivo, música) y el de sustituciones** del final del `.docx` se
-   saltan: son la misma información vista de otra manera. Si algún día se quieren (quién cubre a
-   quién), el de sustituciones ya viene hecho.
-
 ### Dispositivos 1:1: cómo se cobra (20-oct-2026) — pendiente de secretaría y Jose Miguel
 
 David: «no lo sé, pendiente de secretaría y Jose Miguel» y «esto ya lo vemos». Mientras tanto el

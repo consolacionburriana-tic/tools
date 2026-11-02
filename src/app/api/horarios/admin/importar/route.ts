@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     incidencias: agrupar([...utiles.flatMap((r) => r.incidencias), ...prep.incidencias]),
     notas: [...new Set(utiles.flatMap((r) => r.notas))],
     ajustes: prep.ajustes,
-    sinFranja: prep.sinFranja,
+    fueraDeFranja: prep.fueraDeFranja,
     hojasProfe: prep.hojasProfe,
     horasProfe: resumirHorasProfe(prep.horasProfe),
     // La reunión de etapa no suele venir en el fichero: se propone la de la configuración del

@@ -957,12 +957,13 @@ const REUNIONES: Record<string, string> = {
   // 'Cargo' sería otra cosa, y esa lleva siempre algo detrás ('Coordinación TIC', 'C. PASTORAL').
   COORDINACION: 'Coordinación', COORDINACIO: 'Coordinació', CICLOS: 'Reunión de ciclo',
   PAST: 'Pastoral', INNOV: 'Innovación', 'EQ DIRECTIVO': 'Equipo directivo',
-  REUNIONES: 'Reuniones', COMUNICACION: 'Comunicación',
+  COMUNICACION: 'Comunicación',
 };
 
 /** Actividades con nombre propio que no son reunión ni cargo: el texto normalizado → qué son. */
 const OTRAS_ACTIVIDADES: Record<string, { actividadCodigo: string; etiqueta: string }> = {
-  HUERTO: { actividadCodigo: 'otros', etiqueta: 'Huerto' },
+  // El Huerto será otra sección de Oratorios, Godly Play y Talleres (David, 2-nov-2026): cuenta como ellos.
+  HUERTO: { actividadCodigo: 'oratorio', etiqueta: 'Huerto' },
   // Godly Play cuenta como las horas de oratorio: es de lo que sale «Desde mi horario» en Oratorios.
   GODLY: { actividadCodigo: 'oratorio', etiqueta: 'Godly Play' },
   'GODLY PLAY': { actividadCodigo: 'oratorio', etiqueta: 'Godly Play' },
@@ -1064,7 +1065,10 @@ export function reconocerHoraProfe(linea: string, reuniones?: ReadonlyMap<string
   if (/^PATIO(?: |$)/.test(k)) return { actividadCodigo: 'guardia', etiqueta: limpio };
   const otra = OTRAS_ACTIVIDADES[k];
   if (otra) return { ...otra };
-  // 'R. ETE', 'R. ESO', 'R. ORIENTACIÓN': la R es «reunión».
+  // ETE = Equipo de Titularidad de los colegios de la fundación (David, 2-nov-2026): 'R. ETE' y
+  // 'REUNIONES E.T.E' son lo mismo.
+  if (/^(?:R|REUNION|REUNIONES) (?:E T E|ETE)$/.test(k)) return { actividadCodigo: 'reunion', etiqueta: 'Reunión ETE' };
+  // 'R. ESO', 'R. ORIENTACIÓN': la R es «reunión».
   const reunionR = /^R (.+)$/.exec(k);
   if (reunionR && !/^\d/.test(reunionR[1])) {
     const de = limpio.replace(/^\s*R\.?\s*/i, '').trim();
@@ -1412,8 +1416,11 @@ export interface Preparacion {
   incidencias: Incidencia[];
   /** Lo que el importador ha arreglado solo y conviene que alguien sepa. */
   ajustes: string[];
-  /** Horas de profe que NO van a entrar: caen en una franja que ninguna clase del fichero tiene. */
-  sinFranja: string[];
+  /**
+   * Horas de profe que no caen en ninguna franja de las clases del fichero (la jornada de dirección,
+   * antes de las 9:00). Entran igualmente, en una franja propia del centro; se dice antes de importar.
+   */
+  fueraDeFranja: string[];
 }
 
 /** Lo mínimo de un bloque leído (para no depender del lector, que trae SheetJS). */
@@ -1483,6 +1490,27 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
   const hojasProfe: Preparacion['hojasProfe'] = [];
   const añadidos = new Map<string, number>();
   const deOtraEtapa = new Map<string, Set<string>>(); // profe → cursos de otra etapa que lleva en su hoja
+  const comoPt = new Map<string, number>(); // 'hoja|grupos' → horas por semana en que entra como PT
+
+  // El departamento de Orientación (PT, AL, orientadora) tiene su propia leyenda de reunión
+  // ('ORIE: Dpto. Orientación (MAGU0, PBOR0, YCAR0)'): quien sale en ella es de apoyo. Sirve para
+  // saber de quién es el '5ºB' o el 'INFANTIL 3 AÑOS' suelto que escribe: de la PT.
+  const esDeOrientacion = (codigo: string) =>
+    [...reunionesFichero.values()].some((r) => /orientaci/i.test(r.nombre) && r.miembros.includes(codigo.toUpperCase()));
+  /** Las celdas 'PT' sin nombre de ese grupo a esa hora: la PT de la hoja es quien las da. */
+  const vincularPt = (codigo: string, hueco: { dia: number; horaInicio: string; horaFin: string }, clase: ClaseEnHojaProfe): string[] => {
+    const celdas = clases
+      .filter((b) => b.clase && b.clase.curso === clase.curso && (clase.letra === null || (b.clase.letra ?? null) === clase.letra))
+      .flatMap((b) =>
+        b.sesiones
+          .filter((x) =>
+            x.dia === hueco.dia && x.actividadCodigo === 'apoyo_pt' && x.profeCodigos.length === 0 && /^PT\.?$/i.test(x.crudo.trim()) &&
+            x.horaInicio < hueco.horaFin && hueco.horaInicio < x.horaFin)
+          .map((x) => ({ b, x })),
+      );
+    for (const { x } of celdas) x.profeCodigos.push(codigo);
+    return [...new Set(celdas.map(({ b }) => `${b.clase!.curso} ${b.clase!.letra ?? ''}`.trim()))];
+  };
 
   for (const { hoja } of hojas) {
     const codigo = casarProfePorNombre(hoja.nombre, profesParaCasar, conocidos);
@@ -1623,8 +1651,16 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
             const k = `${hoja.nombre}|${l.clase.curso}${l.clase.letra ? ` ${l.clase.letra}` : ''}|${textoLimpio(l.clase.materiaTexto) || 'codocencia'}`;
             añadidos.set(k, (añadidos.get(k) ?? 0) + 1);
           } else if (!l.clase.materiaTexto && !l.clase.codocencia) {
-            // '5ºB' o 'INFANTIL 3 AÑOS' sueltos, sin materia: lo suyo con ese grupo. Se guarda como
-            // hora del profe con su texto, sin avisar: no hay nada que cruzar ni nada dudoso.
+            // '5ºB' o 'INFANTIL 3 AÑOS' sueltos, sin materia. Si quien lo escribe es de Orientación
+            // (la PT de infantil), es la celda 'PT' sin nombre de ese grupo a esa hora: se la da a ella.
+            // Si no, se guarda como hora del profe con su texto, sin avisar: no hay nada dudoso.
+            if (r === 'ya_estaba') continue;
+            const grupos = esDeOrientacion(codigo) ? vincularPt(codigo, hueco, l.clase) : [];
+            if (grupos.length) {
+              const k = `${hoja.nombre}|${grupos.join(' y ')}`;
+              comoPt.set(k, (comoPt.get(k) ?? 0) + 1);
+              continue;
+            }
             horas.push({ profeCodigo: codigo, ...hueco, actividadCodigo: 'otros', etiqueta: textoLimpio(l.linea), crudo: l.linea });
             suyas++;
           } else if (l.clase.aMano && r !== 'ya_estaba') {
@@ -1684,6 +1720,10 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
         : `${nombre} entra como segundo profe en ${materia} de ${grupo} (${n} h/semana): lo dice su hoja y la de la clase no la nombraba.`,
     );
   }
+  for (const [k, n] of comoPt) {
+    const [nombre, grupos] = k.split('|');
+    ajustes.push(`${nombre} entra como PT en ${grupos} (${n} h/semana): lo dice su hoja y la celda 'PT' de la clase no la nombraba.`);
+  }
   ajustes.push(...repartirProfesPdc(clases));
   for (const [nombre, cosas] of deOtraEtapa) {
     ajustes.push(`${nombre} lleva en su hoja cosas de otra etapa (${[...cosas].sort().join(', ')}): no son de este fichero, vienen con el de su etapa y no se tocan.`);
@@ -1694,16 +1734,17 @@ export function prepararImportacion(bloques: readonly BloqueEntrada[], conocidos
   }
 
   const horasProfe = agruparHorasDeProfe(horas);
-  return { clases, horasProfe, hojasProfe, incidencias, ajustes, sinFranja: horasSinFranja(horasProfe, clases) };
+  return { clases, horasProfe, hojasProfe, incidencias, ajustes, fueraDeFranja: horasFueraDeFranja(horasProfe, clases) };
 }
 
 /**
- * Las horas de profe que no van a entrar porque ninguna clase del fichero tiene una franja con
- * esa hora exacta (el volcado las coloca por día + hora de inicio y de fin). Pasa con la jornada
- * del equipo directivo (08:00-09:00, 13:30-14:30) y con lo que lleva su hora de ESO entre
- * paréntesis. Se cuenta aquí para decirlo ANTES de importar y no en una nota al terminar.
+ * Las horas de profe que no caen en ninguna franja de las clases del fichero: el volcado las
+ * coloca por día + hora de inicio y de fin, y la jornada del equipo directivo (08:00-09:00,
+ * 13:30-14:30) o lo que lleva su hora de ESO entre paréntesis no coincide con ninguna. Entran
+ * igualmente, en una franja propia del centro (no son de ninguna etapa); aquí se cuenta ANTES de
+ * importar para que se vea qué va a pasar.
  */
-export function horasSinFranja(horas: readonly ActividadProfeAgrupada[], clases: readonly ResultadoBloque[]): string[] {
+export function horasFueraDeFranja(horas: readonly ActividadProfeAgrupada[], clases: readonly ResultadoBloque[]): string[] {
   const franjas = new Set(clases.flatMap((c) => c.tramos.map((t) => `${t.horaInicio}-${t.horaFin}`)));
   const porProfe = new Map<string, Map<string, number>>();
   for (const a of horas) {
@@ -1720,6 +1761,6 @@ export function horasSinFranja(horas: readonly ActividadProfeAgrupada[], clases:
   return [...porProfe.entries()].map(([p, m]) => {
     const total = [...m.values()].reduce((n, x) => n + x, 0);
     const lista = [...m.entries()].slice(0, 4).map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)).join('; ');
-    return `${p}: ${total} hora(s) no entran por caer fuera de las franjas del fichero (${lista}${m.size > 4 ? '…' : ''})`;
+    return `${p}: ${total} hora(s) fuera de las franjas de las clases (${lista}${m.size > 4 ? '…' : ''})`;
   });
 }

@@ -80,9 +80,9 @@ async function main() {
     prep.ajustes.forEach((a) => console.log(`  · ${a}`));
   }
 
-  if (prep.sinFranja.length) {
-    console.log('\nHoras de profesorado que NO entrarán (caen fuera de las franjas del fichero):');
-    prep.sinFranja.forEach((a) => console.log(`  · ${a}`));
+  if (prep.fueraDeFranja.length) {
+    console.log('\nHoras de profesorado fuera de las franjas de las clases (entran en una franja propia del centro):');
+    prep.fueraDeFranja.forEach((a) => console.log(`  · ${a}`));
   }
 
   if (flag('dry')) {

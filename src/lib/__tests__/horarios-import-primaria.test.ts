@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  horasSinFranja,
+  horasFueraDeFranja,
   normalizarBloqueClase,
   parsearCeldaClase,
   parsearClaseHojaProfe,
@@ -115,10 +115,11 @@ describe('lo escrito a mano que antes salía como «no se sabe qué es»', () =>
     ['EQ. DIRECTIVO', 'reunion', 'Equipo directivo'],
     ['R. ETE', 'reunion', 'Reunión ETE'],
     ['R. ORIENTACIÓN', 'reunion', 'Reunión Orientación'],
-    ['REUNIONES E.T.E', 'reunion', 'REUNIONES E.T.E'],
+    ['REUNIONES E.T.E', 'reunion', 'Reunión ETE'],
+    ['R. E.T.E', 'reunion', 'Reunión ETE'],
     ['TUT. INDIV.', 'tutoria', 'Tutoría individual'],
     ['GODLY', 'oratorio', 'Godly Play'],
-    ['HUERTO', 'otros', 'Huerto'],
+    ['HUERTO', 'oratorio', 'Huerto'], // será otra sección de Oratorios, Godly Play y Talleres
     ['EUCARISTÍA', 'otros', 'Eucaristía'],
     ['Almuerzo', 'otros', 'Almuerzo'],
     ['PATIO ESO', 'guardia', 'PATIO ESO'],
@@ -234,16 +235,16 @@ describe('prepararImportacion con un fichero de primaria e infantil', () => {
     expect(prep.ajustes.some((a) => a.includes('DIANA DIAZ DURAN entra como segundo profe en 4INF B (codocencia'))).toBe(true);
   });
 
-  it('las horas que no caen en ninguna franja se dicen antes de importar', () => {
+  it('las horas que no caen en ninguna franja se dicen antes de importar (entran en una franja del centro)', () => {
     const p = prepararImportacion([
       ...FICHERO.slice(0, 2),
       profe('ANA ALVAREZ ALONSO', [['De 08:00 a 09:00', 'DIRECCIÓN', '', '', '', ''], ['De 09:00 a 09:45', 'COORDINACIÓN', '', '', '', '']]),
     ], []);
-    const avisos = horasSinFranja(p.horasProfe, p.clases);
+    const avisos = horasFueraDeFranja(p.horasProfe, p.clases);
     expect(avisos).toHaveLength(1);
     expect(avisos[0]).toContain('AAAA0');
     expect(avisos[0]).toContain('08:00-09:00');
-    expect(p.sinFranja).toEqual(avisos);
+    expect(p.fueraDeFranja).toEqual(avisos);
   });
 
   it('una hoja de dos personas es de la que sale en las leyendas', () => {
@@ -270,6 +271,37 @@ describe('prepararImportacion con un fichero de primaria e infantil', () => {
     expect(solo.clases[0].sesiones[0].profeCodigos).toEqual(['AAAA0']);
     expect(solo.horasProfe[0].etiqueta).toBe('4ºB');
     expect(solo.incidencias).toEqual([]);
+  });
+
+  it('la PT de infantil: su 5ºB / INFANTIL 3 AÑOS suelto es la celda PT sin nombre de esa clase', () => {
+    const leyOrientacion = ['Reuniones:', 'ORIE: Dpto. Orientación (BBBB0, GGGG0)', 'Materias:'];
+    const clasesPt = [
+      clase('3INFA: 3 años-A', [['De 09:00 a 10:10', 'Lu - DDDD0\nPT', 'Lu - DDDD0\nPT', '', '', '']], LEY_INF),
+      clase('3INFB: 3 años-B', [['De 09:00 a 10:10', 'Lu - EEEE0\nPT', '', '', '', '']], LEY_INF),
+      clase('4PRIB: 4º EP-B', [['De 09:00 a 09:45', '', '', 'MAT4 - AAAA0\nPT', '', '']], LEY_EP),
+    ];
+    const p = prepararImportacion([
+      ...clasesPt,
+      // Es de Orientación (sale en la leyenda de ORIE): el grupo suelto es de la PT.
+      profe('BEATRIZ BLANCO BAEZA', [['De 09:00 a 09:45', 'INFANTIL 3 AÑOS', 'INFANTIL 3 AÑOS', '4º EP B', '', '']], leyOrientacion),
+    ], []);
+    const pt = (codigo: string, dia: number) => p.clases.find((c) => c.clase?.codigo === codigo)!.sesiones.find((s) => s.dia === dia && s.actividadCodigo === 'apoyo_pt')!;
+    expect(pt('3INFA', 1).profeCodigos).toEqual(['BBBB0']);
+    expect(pt('3INFB', 1).profeCodigos).toEqual(['BBBB0']);
+    expect(pt('3INFA', 2).profeCodigos).toEqual(['BBBB0']); // el martes
+    expect(pt('4PRIB', 3).profeCodigos).toEqual(['BBBB0']); // '4ºB' suelto en primaria, también
+    expect(p.horasProfe).toEqual([]); // no queda además como hora suelta suya
+    expect(p.ajustes.some((a) => a.includes('BEATRIZ BLANCO BAEZA entra como PT en 3INF A y 3INF B'))).toBe(true);
+    expect(p.incidencias).toEqual([]);
+  });
+
+  it('…pero el mismo grupo suelto de alguien que NO es de Orientación sigue siendo una hora suya', () => {
+    const p = prepararImportacion([
+      clase('3INFA: 3 años-A', [['De 09:00 a 10:10', 'Lu - DDDD0\nPT', '', '', '', '']], LEY_INF),
+      profe('ELENA ESTEVE', [['De 09:00 a 09:45', 'INFANTIL 3 AÑOS', '', '', '', '']]),
+    ], []);
+    expect(p.clases[0].sesiones.find((s) => s.actividadCodigo === 'apoyo_pt')!.profeCodigos).toEqual([]);
+    expect(p.horasProfe[0].etiqueta).toBe('INFANTIL 3 AÑOS');
   });
 
   it('la codocencia sí entra como segundo profe, y solo si hay UNA clase a esa hora', () => {
