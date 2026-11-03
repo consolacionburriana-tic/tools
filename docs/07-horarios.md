@@ -668,12 +668,12 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
 
 ### Cerradas con David el 2-nov-2026 (permisos y aulas de la ESO)
 
-12. **El profe raso solo ve el horario de SU tutoría.** Profe o tutor sin `horarios-profes`: nada de otras
-    clases, ni del horario de otros profes, ni de la pestaña **Aula** (que es para ver etapas enteras).
-    Orientación, jefatura, dirección, secretaría y TIC lo ven todo, y el Aula de todas las etapas. Se
-    filtra en el servidor (`page.tsx`: `horariosSoloSuTutoria()` + `clasesDeTutor()`), no solo en la
-    pantalla, y la clave de la URL ajena abre la suya. Sin tutoría, la pantalla manda a «Mi horario».
-    Comunicación (que tiene `horarios` sin ser profe ni tutor) no cambia.
+12. **El profe raso ve el Aula y el horario de SU tutoría, y nada más** (corregido el 2-nov-2026: primero se
+    le había escondido también el Aula). Profe o tutor sin `horarios-profes`: **sí** la pestaña Aula (todas
+    las etapas, y ahí solo ve qué clase hay, **no qué profe la da**); **no** la de Profesores, ni otras
+    clases. Orientación, jefatura, dirección, secretaría y TIC lo ven todo. Se filtra en el servidor
+    (`page.tsx`: `horariosSoloSuTutoria()` + `clasesDeTutor()`), no solo en la pantalla, y una clase ajena en la
+    URL abre la suya. Sin tutoría, entra directo en Aula. Comunicación no cambia.
 13. **Aulas de la ESO por normas del centro** (el export de la ESO no trae ni una: comprobado en
     `Horarios_ESO_26-27`, ni `Aulas:` ni cuadros «HORARIO DE AULA»). Viven en
     `CONFIGURACION.horarios.aulasEso` y las aplica `aulasEsoPorNormas()`. Primero las de David

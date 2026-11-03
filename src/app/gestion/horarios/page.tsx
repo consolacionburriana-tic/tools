@@ -48,31 +48,31 @@ export default async function HorariosPage({
     );
   }
 
-  // Un profe raso solo ve el horario de SU tutoría (David, 2-nov-2026): ni otras clases, ni el
-  // horario de otros profes, ni la pestaña de Aula, que es para ver etapas enteras. Se filtra AQUÍ,
-  // en el servidor, y no solo en la pantalla: lo que no se manda no se puede curiosear.
-  const soloTutoria = horariosSoloSuTutoria(user);
+  // Un profe raso ve el **Aula** y el horario de **SU tutoría** (David, 2-nov-2026): ni la pestaña de
+  // Profesores, ni otras clases, ni los nombres de profesores dentro del Aula. Se filtra AQUÍ, en el
+  // servidor, y no solo en la pantalla: lo que no se manda no se puede curiosear.
+  const raso = horariosSoloSuTutoria(user);
   const [todas, propias] = await Promise.all([
     getOpcionesNavegador(periodo.id),
-    soloTutoria && user ? clasesDeTutor(user.email) : Promise.resolve([]),
+    raso && user ? clasesDeTutor(user.email) : Promise.resolve([]),
   ]);
   // «Tu etapa», para repartir las aulas en la pestaña Aula (las de otras etapas, en otra línea).
-  const etapasPropias = sp.vista === 'aula' && user && !soloTutoria ? await etapasDeFichaProfe(user.email) : [];
+  const etapasPropias = sp.vista === 'aula' && user && !raso ? await etapasDeFichaProfe(user.email) : [];
   const suyas = new Set(propias.map((c) => `${c.curso}|${c.letra ?? ''}`));
-  const opciones = soloTutoria
-    ? { clases: todas.clases.filter((c) => suyas.has(`${c.curso}|${c.letra ?? ''}`)), profes: [], espacios: [] }
+  const opciones = raso
+    ? { clases: todas.clases.filter((c) => suyas.has(`${c.curso}|${c.letra ?? ''}`)), profes: [], espacios: todas.espacios }
     : todas;
   let vista = (sp.vista === 'profe' || sp.vista === 'aula' ? sp.vista : 'clase') as VistaHorario;
-  if (soloTutoria || (vista === 'profe' && !puedeVerProfes)) vista = 'clase';
+  if (vista === 'profe' && (raso || !puedeVerProfes)) vista = 'clase';
+  // Sin tutoría, lo suyo es el Aula (el horario propio está en «Mi horario»).
+  if (raso && vista === 'clase' && opciones.clases.length === 0) vista = 'aula';
 
-  if (soloTutoria && opciones.clases.length === 0) {
+  if (raso && opciones.clases.length === 0 && opciones.espacios.length === 0) {
     return (
       <>
         <h1 className="sr-only">Horarios</h1>
-        <Vacio icono={<CalendarDays />} titulo="Aquí ves el horario de tu tutoría">
-          {propias.length === 0
-            ? 'No tienes ninguna tutoría asignada este curso. Tu horario propio está en «Mi horario».'
-            : 'Tu tutoría todavía no tiene horario importado. Tu horario propio está en «Mi horario».'}
+        <Vacio icono={<CalendarDays />} titulo="Aquí ves las aulas y el horario de tu tutoría">
+          Todavía no hay nada que enseñarte. Tu horario propio está en «Mi horario».
         </Vacio>
       </>
     );
@@ -85,10 +85,13 @@ export default async function HorariosPage({
       : vista === 'profe'
         ? (opciones.profes[0]?.id ?? '')
         : (opciones.espacios[0]?.id ?? '');
-  // Quien solo ve su tutoría no puede pedir otra por la URL: si la clave no es suya, se abre la suya.
-  const clave = soloTutoria
-    ? (opciones.clases.some((c) => `${c.curso}|${c.letra ?? ''}` === sp.clave) ? sp.clave! : porDefecto)
-    : sp.clave || porDefecto;
+  // Un profe raso no puede pedir otra clase por la URL: si la clave no es suya, se abre la suya.
+  const claveValida =
+    !raso ||
+    (vista === 'clase'
+      ? opciones.clases.some((c) => `${c.curso}|${c.letra ?? ''}` === sp.clave)
+      : opciones.espacios.some((e) => e.id === sp.clave));
+  const clave = (claveValida && sp.clave) || porDefecto;
 
   const titulo =
     vista === 'clase'
@@ -110,16 +113,13 @@ export default async function HorariosPage({
         {periodos.length > 1 && <SelectorPeriodo periodos={periodos} actual={periodo.id} />}
       </div>
 
-      {/* Con una sola tutoría no hay nada que elegir: se enseña su horario y ya. */}
-      {!(soloTutoria && opciones.clases.length <= 1) && (
-        <Selector opciones={opciones} vista={vista} clave={clave} puedeVerProfes={puedeVerProfes} soloClase={soloTutoria} etapasPropias={etapasPropias} />
-      )}
+      <Selector opciones={opciones} vista={vista} clave={clave} puedeVerProfes={puedeVerProfes && !raso} etapasPropias={etapasPropias} />
       {/* El horario va en su propio Suspense: el selector se pinta al momento y la
           cuadrícula, que es la consulta lenta, enseña su esqueleto mientras llega. La `key`
           es lo que hace que el esqueleto vuelva a salir al cambiar de clase (si no, React
           reutiliza el contenido anterior y parece que no ha pasado nada al tocar). */}
       <Suspense key={`${periodo.id}:${vista}:${clave}`} fallback={<EsqueletoHorario />}>
-        <Horario periodoId={periodo.id} vista={vista} clave={clave} titulo={titulo} />
+        <Horario periodoId={periodo.id} vista={vista} clave={clave} titulo={titulo} sinProfes={raso} />
       </Suspense>
     </div>
   );
@@ -130,11 +130,14 @@ async function Horario({
   vista,
   clave,
   titulo,
+  sinProfes,
 }: {
   periodoId: string;
   vista: VistaHorario;
   clave: string;
   titulo: string;
+  /** Un profe raso: en el Aula ve qué clase hay, no qué profe la da. */
+  sinProfes: boolean;
 }) {
   // En la vista de una clase se pintan también sus recreos y comedores aunque estén vacíos:
   // sin ellos la mañana parece seguida y no se entiende dónde está el patio. Las dos
@@ -150,7 +153,8 @@ async function Horario({
     vista === 'profe' && clave ? getFranjasDeProfe(periodoId, clave) : Promise.resolve([]),
   ]);
 
-  return <Navegador celdas={[...celdas, ...noLectivos]} franjas={franjas} titulo={titulo} />;
+  const visibles = sinProfes ? celdas.map((c) => ({ ...c, profes: [], subtitulo: c.grupos.join(', ') || null })) : celdas;
+  return <Navegador celdas={[...visibles, ...noLectivos]} franjas={franjas} titulo={titulo} />;
 }
 
 function EsqueletoHorario() {
