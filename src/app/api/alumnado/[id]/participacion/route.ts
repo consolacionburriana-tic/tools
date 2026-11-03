@@ -41,8 +41,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     const { bancoLibros, ampa } = cuerpo.parse(await request.json());
-    if (bancoLibros !== undefined) await setBanco(id, bancoLibros);
-    if (ampa !== undefined) await setAmpa([id], ampa);
+    const ctx = { por: guard.email, lote: crypto.randomUUID() };
+    if (bancoLibros !== undefined) await setBanco(id, bancoLibros, ctx);
+    if (ampa !== undefined) await setAmpa([id], ampa, ctx);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Error' }, { status: 400 });

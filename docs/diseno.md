@@ -36,6 +36,7 @@ chips (`BOTON_PRIMARIO`, `ESTILO_CAMPO`…): usa estas.
 | Botones fijos abajo | `BarraAcciones` | `ui/barra-acciones` |
 | Cuánto lleva algo · una tarea larga del servidor | `Progreso` · `EnCurso` | `ui/progreso` |
 | Un sí/no que se aplica al momento | `Interruptor` (`etiquetaOculta` dentro de una fila) | `ui/interruptor` |
+| Una pantalla editable donde un toque suelto sale caro (entra bloqueada, se desbloquea a propósito) | `Candado` + `useCandado` | `ui/candado` |
 | Copiar de un toque | `Copiable`, `Dato`, `CopiarLista`, `copiarTexto` | `ui/copiable` |
 | Dejar una lista o un informe en el Drive de quien pulsa (Sheets o Excel) | `GuardarEnDrive` + `pedirGuardadoEnDrive` | `ui/guardar-en-drive` |
 | Encabezar un grupo («AHORA», «RESUMEN») | `Rotulo` | `ui/rotulo` |

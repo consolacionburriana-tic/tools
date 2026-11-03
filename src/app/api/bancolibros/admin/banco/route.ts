@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const { eduStudentId, banco } = z
       .object({ eduStudentId: z.string().uuid(), banco: z.boolean() })
       .parse(await request.json());
-    await setBanco(eduStudentId, banco);
+    await setBanco(eduStudentId, banco, { por: user.email });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Error' }, { status: 400 });

@@ -16,6 +16,7 @@ import {
   puedeGestionarMateriales,
   puedeGestionarParticipantesBanco,
   puedeGestionarServicios,
+  puedeVerHistorialAlumnado,
   veBecasMateriales,
 } from '@/lib/permissions';
 
@@ -63,6 +64,7 @@ export default async function AlumnadoPage({
         materiales={materiales}
         puedeGestionarMateriales={puedeGestionarMateriales(user.role)}
         veBecas={veBecas}
+        puedeHistorial={puedeVerHistorialAlumnado(user.role)}
       />
     </div>
   );

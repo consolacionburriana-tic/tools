@@ -295,6 +295,19 @@ exactamente la deuda que documenta
       **todas las etapas**. Sin clase elegida la tabla enseña el centro entero, así que la lista
       conjunta y el informe de todas las etapas salen de esa misma pantalla. No hay rol nuevo.
 
+21. **Candado en la protección de datos y libro de cambios** (David, 3-nov-2026: «una directiva hizo
+    un cambio sin querer y no pudimos restaurarlo»).
+
+    - **Candado**: la protección de datos (tabla y tarjeta de la ficha) **entra bloqueada**; para tocar
+      algo hay que darle al candado (`ui/candado.tsx`). Se vuelve a cerrar sola a los 5 minutos sin
+      guardar nada y al salir de la pantalla. No sustituye al permiso: quien no edita ni lo ve. De
+      momento solo ahí; banco, AMPA, comedor y materiales siguen sin candado («ya vemos el resto»).
+    - **Libro de cambios** (`aud_cambios`, ficha [`31-auditoria.md`](./31-auditoria.md)): cada casilla
+      que se marca —protección de datos, banco, AMPA, comedor, complementarias— deja una línea con quién,
+      cuándo, antes y después. Pestaña **«Historial de cambios»** (secretaría, dirección y TIC): lista
+      por cambio, «Deshacer todo» o «Restaurar» línea a línea; y en cada ficha, el historial de esa
+      persona. Lo que llega de Educamos (altas, bajas, cambios de clase) **se anota y no se restaura**.
+
 ---
 
 ## Lo que se enseña, y de dónde sale
@@ -561,6 +574,14 @@ profe sin `edu_teachers.etapa` ni tutoría no ve a nadie, igual que un tutor en 
 - [x] Filtro «No pueden salir en fotos» en la tabla, columna `pd_fotos` en los informes y botón
       «Informe: no pueden salir», con tests
 - [ ] Probar con una cuenta de Comunicación real: filtrar todo el centro y sacar el PDF
+
+### Fase 6 · Candado y libro de cambios (3-nov-2026)
+- [x] `ui/candado.tsx` (`Candado`, `useCandado`) en la tabla y en la tarjeta de protección de datos; en el escaparate
+- [x] `aud_cambios` + `auditoria.sql` **aplicado en Neon** (3-nov-2026); `auditoria.ts` (puro, con tests) y `auditoria-server.ts`
+- [x] Escritores de casillas auditados (`guardarProteccion*`, `guardarServicios`, `setBanco*`, `setAmpa`) y sync de Educamos
+- [x] Pestaña «Historial de cambios», historial en la ficha y `POST /api/alumnado/historial/restaurar`
+- [ ] Probar con sesión real: marcar algo, verlo en el historial, restaurarlo (lo que se probó contra Neon fue solo la lectura)
+- [ ] Auditar también la **venta de materiales** (`mat_estados`) y poner candado al resto si se quiere
 
 ### Pendiente en otros módulos (salió de aquí)
 - [ ] **Sync de Educamos**: mapear `TEL EMERGENCIA ALUMNO` a `edu_students.tel_emergencia` y la

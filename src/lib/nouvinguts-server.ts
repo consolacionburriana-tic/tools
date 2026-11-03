@@ -389,19 +389,21 @@ async function volcarApuntado(nouId: string, eduId: string): Promise<void> {
     const de = new Map(marcas.map((m) => [m.paso, m]));
     const si = (paso: string) => (de.get(paso)?.valor === 'si' ? true : de.get(paso)?.valor === 'no' ? false : null);
     const trabajos: Promise<unknown>[] = [];
+    // Al vincular, lo apuntado se vuelca de golpe: un solo lote, con origen Nouvinguts.
+    const ctx = { por: de.get('proteccion')?.por ?? null, origen: 'nouvinguts' as const, lote: crypto.randomUUID() };
     const banco = si('banco');
-    if (banco !== null) trabajos.push(setBanco(eduId, banco));
+    if (banco !== null) trabajos.push(setBanco(eduId, banco, ctx));
     const ampa = si('ampa');
-    if (ampa !== null) trabajos.push(setAmpa([eduId], ampa));
+    if (ampa !== null) trabajos.push(setAmpa([eduId], ampa, ctx));
     const servicios: Partial<Record<Servicio, boolean>> = {};
     for (const sv of SERVICIOS) {
       const v = si(sv);
       if (v !== null) servicios[sv] = v;
     }
-    if (Object.keys(servicios).length) trabajos.push(guardarServicios([{ id: eduId, curso: edu.curso }], servicios));
+    if (Object.keys(servicios).length) trabajos.push(guardarServicios([{ id: eduId, curso: edu.curso }], servicios, ctx));
     const pdMarca = de.get('proteccion');
     const pd = leerPD(pdMarca?.valor);
-    if (pd) trabajos.push(guardarProteccion(eduId, pd, pdMarca!.por ?? 'nouvinguts'));
+    if (pd) trabajos.push(guardarProteccion(eduId, pd, pdMarca!.por ?? 'nouvinguts', ctx));
     const set: Record<string, unknown> = {};
     const matricula = de.get('matricula')?.valor;
     if (matricula && !edu.matricula?.trim()) set.matricula = matricula;
@@ -771,7 +773,7 @@ async function escribirPaso(id: string, fila: NouAlumno, accion: AccionPaso, fir
       if (!permisos.proteccion) throw new ErrorNouvinguts('La protección de datos la guardan secretaría, dirección o TIC', 403);
       const { imagen, redes, ampa, ong } = accion;
       if (!edu) return marcar(id, 'proteccion', JSON.stringify({ imagen, redes, ampa, ong }), firma);
-      await guardarProteccion(edu, { imagen, redes, ampa, ong }, firma.email);
+      await guardarProteccion(edu, { imagen, redes, ampa, ong }, firma.email, { origen: 'nouvinguts' });
       return;
     }
     case 'banco':
@@ -783,9 +785,10 @@ async function escribirPaso(id: string, fila: NouAlumno, accion: AccionPaso, fir
         throw new ErrorNouvinguts('Esto lo deciden secretaría, dirección o TIC', 403);
       }
       if (edu && accion.valor !== null) {
-        if (accion.paso === 'banco') await setBanco(edu, accion.valor);
-        else if (accion.paso === 'ampa') await setAmpa([edu], accion.valor);
-        else await guardarServicios([{ id: edu, curso: await cursoDe(edu) }], { [accion.paso]: accion.valor });
+        const ctx = { por: firma.email, origen: 'nouvinguts' as const };
+        if (accion.paso === 'banco') await setBanco(edu, accion.valor, ctx);
+        else if (accion.paso === 'ampa') await setAmpa([edu], accion.valor, ctx);
+        else await guardarServicios([{ id: edu, curso: await cursoDe(edu) }], { [accion.paso]: accion.valor }, ctx);
       }
       await marcar(id, accion.paso, accion.valor === null ? null : accion.valor ? 'si' : 'no', firma);
       return;

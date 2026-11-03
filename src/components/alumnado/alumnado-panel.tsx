@@ -32,6 +32,7 @@ import {
   CameraOff,
   FileText,
   HeartHandshake,
+  History,
   Library,
   List,
   Palette,
@@ -44,6 +45,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FichaAlumnoPanel, useEscape } from '@/components/alumnado/ficha-alumno';
+import { HistorialCambios } from '@/components/alumnado/historial-cambios';
 import { Informes } from '@/components/alumnado/informes';
 import { TablaMateriales } from '@/components/alumnado/tabla-materiales';
 import { TablaParticipacion } from '@/components/alumnado/tabla-participacion';
@@ -64,7 +66,7 @@ const ETAPA_LABEL: Record<string, string> = { ...ETAPA_LABEL_ETAPAS, otras: 'Otr
 
 const claveClase = (c: { curso: string; letra: string | null }) => `${c.curso}|${c.letra ?? ''}`;
 
-type Vista = 'fichas' | 'proteccion' | 'banco' | 'ampa' | 'servicios' | 'materiales' | 'informes';
+type Vista = 'fichas' | 'proteccion' | 'banco' | 'ampa' | 'servicios' | 'materiales' | 'informes' | 'historial';
 
 export function AlumnadoPanel({
   alumnos,
@@ -78,6 +80,7 @@ export function AlumnadoPanel({
   materiales: materialesIniciales,
   puedeGestionarMateriales,
   veBecas,
+  puedeHistorial = false,
 }: {
   alumnos: AlumnoLista[];
   clases: ClaseListado[];
@@ -99,6 +102,8 @@ export function AlumnadoPanel({
   puedeGestionarMateriales: boolean;
   /** ¿Ve «becado»? Si no, el servidor ya se lo manda como «pagado». */
   veBecas: boolean;
+  /** ¿Ve el libro de cambios y puede restaurar? (secretaría, dirección, TIC.) */
+  puedeHistorial?: boolean;
 }) {
   const params = useSearchParams();
   const abiertoId = params.get('alumno');
@@ -396,6 +401,9 @@ export function AlumnadoPanel({
           { valor: 'servicios', etiqueta: 'Comedor y complementarias', icono: <UtensilsCrossed aria-hidden /> },
           { valor: 'materiales', etiqueta: 'Venta de materiales', icono: <ShoppingBag aria-hidden /> },
           { valor: 'informes', etiqueta: 'Listas e informes', icono: <FileText aria-hidden /> },
+          ...(puedeHistorial
+            ? [{ valor: 'historial' as const, etiqueta: 'Historial de cambios', icono: <History aria-hidden /> }]
+            : []),
         ]}
       />
 
@@ -451,6 +459,8 @@ export function AlumnadoPanel({
           preset={preset.columnas}
           presetFiltro={preset.filtro}
         />
+      ) : vista === 'historial' && puedeHistorial ? (
+        <HistorialCambios />
       ) : (
       <div className="lg:grid lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)] lg:gap-5">
       {/* ── Columna izquierda: buscador + lista ─────────────────────── */}

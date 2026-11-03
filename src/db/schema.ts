@@ -2610,3 +2610,27 @@ export const cueRegistro = pgTable('cue_registro', {
   index('cue_registro_at_idx').on(t.at),
 ]);
 export type CueRegistro = typeof cueRegistro.$inferSelect;
+
+// ─── Libro de cambios · auditoría de Alumnado (prefijo aud_) ──────────────────
+// Ficha: docs/31-auditoria.md. Una fila por alumno y casilla tocada, con el valor de antes y el
+// de después, quién, cuándo y de dónde vino (a mano, Educamos, restauración). Las filas de un
+// mismo clic masivo comparten `lote`. NO tiene claves foráneas a propósito: el registro tiene
+// que sobrevivir a lo que le pase al alumno, y guarda el nombre y la clase de ese momento.
+export const audCambios = pgTable('aud_cambios', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  at: timestamp('at').defaultNow().notNull(),
+  lote: uuid('lote').notNull(),
+  por: text('por'), // correo de quien lo hizo; null en lo que hace el sistema
+  origen: text('origen').notNull().default('usuario'), // 'usuario' | 'nouvinguts' | 'educamos' | 'restauracion'
+  eduStudentId: uuid('edu_student_id').notNull(),
+  alumno: text('alumno').notNull(), // nombre en ese momento
+  clase: text('clase').notNull().default(''), // clase en ese momento
+  campo: text('campo').notNull(), // ver CAMPO_LABEL en src/lib/auditoria.ts
+  antes: text('antes'), // 'si' | 'no' | null (no consta); en 'clase', el texto
+  despues: text('despues'),
+}, (t) => [
+  index('aud_cambios_at_idx').on(t.at),
+  index('aud_cambios_lote_idx').on(t.lote),
+  index('aud_cambios_alumno_idx').on(t.eduStudentId, t.at),
+]);
+export type AudCambio = typeof audCambios.$inferSelect;

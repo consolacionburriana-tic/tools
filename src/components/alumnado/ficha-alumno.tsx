@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { Copiable, CopiarLista, Dato } from '@/components/ui/copiable';
 import { TarjetaProteccion } from '@/components/alumnado/proteccion-datos';
+import { HistorialAlumno } from '@/components/alumnado/historial-cambios';
 import {
   aplicaServicio,
   avisoCumple,
@@ -276,6 +277,8 @@ export function FichaAlumnoPanel({
         puedeServicios={Boolean(ficha.permisos?.servicios)}
         onCambio={(cambio) => onActualizar(ficha.id, cambio)}
       />
+      {/* El libro de cambios de esta persona: ver quién marcó qué y restaurarlo (secretaría, dirección y TIC). */}
+      {ficha.permisos?.historial && <HistorialAlumno id={ficha.id} />}
 
       {/* ── 4 · Identificadores ──────────────────────────────────────── */}
       <Tarjeta titulo="Identificadores">

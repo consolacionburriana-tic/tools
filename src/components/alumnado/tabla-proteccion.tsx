@@ -39,6 +39,7 @@ import type { AlumnoLista, ProteccionLista } from '@/lib/alumnado-server';
 import { BarraTabla, BotonMasivo, Celda, CeldaAlumno, ColumnaBoton, useGuardado, type TonoTabla } from './piezas-tabla';
 import { Button } from '@/components/ui/button';
 import { Filtro, Filtros } from '@/components/ui/filtro';
+import { Candado, useCandado } from '@/components/ui/candado';
 
 type FiltroPd = 'todos' | 'sin-fotos' | 'algun-no' | 'sin-contestar';
 
@@ -72,7 +73,7 @@ export function TablaProteccion({
   alumnos,
   ambito,
   conClase,
-  puedeEditar,
+  puedeEditar: puedeEditarPermiso,
   onCambio,
   onInforme,
 }: {
@@ -87,6 +88,9 @@ export function TablaProteccion({
   onInforme: (columnas: ClaveColumna[], filtro?: string) => void;
 }) {
   const [detalle, setDetalle] = useState(false);
+  // Entra bloqueada (David, 3-nov-2026): para tocar algo hay que desbloquear primero.
+  const candado = useCandado();
+  const puedeEditar = puedeEditarPermiso && candado.abierto;
   const [filtro, setFiltro] = useState<FiltroPd>('todos');
   const { guardando, pendiente, enviar, pedir, confirmacion } = useGuardado();
 
@@ -113,6 +117,7 @@ export function TablaProteccion({
 
   async function guardar(clave: string, ids: string[], cambios: Cambios) {
     if (ids.length === 0) return;
+    candado.tocar();
     const datos = await enviar<{ filas: (ProteccionLista & { id: string })[] }>(
       clave,
       '/api/alumnado/proteccion',
@@ -177,6 +182,7 @@ export function TablaProteccion({
         >
           <FileDown aria-hidden /> {filtro === 'sin-fotos' ? 'Informe: no pueden salir' : 'Informe'}
         </Button>
+        {puedeEditarPermiso && <Candado {...candado} que="editar la protección de datos" />}
         {puedeEditar && (
           <>
             <BotonMasivo
@@ -411,7 +417,8 @@ export function TablaProteccion({
         apagado con «parcial»</strong> es que imagen y redes están en sí y solo se ha dicho que no a AMPA u ONG, que hacia el colegio
         no cambia nada; <strong className="font-medium text-zinc-600 dark:text-zinc-300">3/4</strong> es
         que no hay ningún no pero falta alguno por contestar, y la rayita, que no hay nada marcado. En el correo, verde es lo normal: la familia no lo desestima.
-        {!puedeEditar && ' Aquí solo miras: esto lo cambian secretaría, dirección o TIC.'}
+        {!puedeEditarPermiso && ' Aquí solo miras: esto lo cambian secretaría, dirección o TIC.'}
+        {puedeEditarPermiso && !puedeEditar && ' Está bloqueada: desbloquea con el candado para editar.'}
       </p>
     </div>
   );

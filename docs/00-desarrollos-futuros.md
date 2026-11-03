@@ -1209,3 +1209,16 @@ llevarlo a otro módulo es una ruta `POST` y un botón. Candidatos, **sin hacer*
 Evaluaciones y Dispositivos (cuotas, que ya sale en `.xlsx`). Los que hoy sacan **CSV** hay que
 pasarlos por `escribirXlsx` (el CSV no conserva formato y `guardarEnDriveDe` espera un `.xlsx`).
 Decisión pendiente de David: ¿en cuáles tiene sentido, y de qué roles?
+
+### Libro de cambios de Alumnado: lo que dejé fuera (3-nov-2026)
+
+Decidido por mí al hacerlo, para que David lo revise ([`31-auditoria.md`](./31-auditoria.md)):
+- **Restaurar es por línea o por cambio entero, no «por clase»**: el cambio entero es lo que se hizo de un clic
+  (puede ser una clase o el centro), y la línea es una persona. David no sabía si quería clase o persona; así valen las dos.
+- **Una línea solo se restaura si el valor de ahora sigue siendo el que dejó ese cambio.** Si alguien lo volvió a tocar,
+  hay que deshacer antes el cambio más nuevo. Nunca se pisa un cambio posterior sin que se vea.
+- **No se audita la venta de materiales** (`mat_estados`, cinco estados y dinero) ni el resto de datos de la ficha:
+  David dijo «por ahora solo ahí» para el candado, y para el registro tomé las casillas de la pestaña de Alumnado salvo materiales.
+- **Sin purga**: el registro crece. Un «todo sí» sobre el centro son unas 2.500 líneas; a ese ritmo no es problema, pero
+  si molesta, purgar lo más viejo de 2 cursos.
+- **El libro solo lo ven secretaría, dirección y TIC** (como quien puede editar). Comunicación y tutores no.

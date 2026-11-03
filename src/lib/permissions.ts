@@ -289,6 +289,16 @@ export function puedeEditarProteccionDatos(role: Role | null): boolean {
 }
 
 /**
+ * El libro de cambios de Alumnado (docs/31-auditoria.md): ver quién marcó qué y restaurarlo.
+ * Lo ven y lo usan quienes pueden marcar esas casillas: secretaría, dirección y TIC. Cada
+ * restauración vuelve a comprobar el permiso del tipo de casilla (banco/AMPA exige además el
+ * módulo del banco).
+ */
+export function puedeVerHistorialAlumnado(role: Role | null): boolean {
+  return puedeEditarProteccionDatos(role);
+}
+
+/**
  * Venta de materiales (dentro de `alumnado`): crear materiales —cada uno es una columna— y
  * marcar quién ha pagado es cosa de secretaría, dirección y TIC (David, 23-sep-2026). El
  * resto de quien entra en Alumnado lo ve, dentro de su alcance, sin lápiz.

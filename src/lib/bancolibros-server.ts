@@ -14,6 +14,7 @@ import {
   licCampaigns,
   licStudents,
 } from '@/db/schema';
+import { conAuditoria, type Contexto } from '@/lib/auditoria-server';
 import { academicYearActual } from '@/lib/constants';
 import { CURSOS_FORM } from '@/lib/licencias';
 import { getBooksFromSheet } from '@/lib/google-sheets';
@@ -83,14 +84,16 @@ function ordenLista<T extends { apellido1: string | null; apellido2: string | nu
  * como del banco y a Elena no, y en Licencias seguía al revés). Así que se propaga en
  * el mismo acto a la campaña vigente.
  */
-export async function setBanco(eduStudentId: string, banco: boolean): Promise<void> {
-  await setBancoVarios([eduStudentId], banco);
+export async function setBanco(eduStudentId: string, banco: boolean, ctx?: Partial<Contexto>): Promise<void> {
+  await setBancoVarios([eduStudentId], banco, ctx);
 }
 
 /** Lo mismo para muchos a la vez («todos sí» de una clase), con la misma propagación. */
-export async function setBancoVarios(eduStudentIds: string[], banco: boolean): Promise<void> {
+export async function setBancoVarios(eduStudentIds: string[], banco: boolean, ctx?: Partial<Contexto>): Promise<void> {
   if (eduStudentIds.length === 0) return;
-  await db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds));
+  await conAuditoria(eduStudentIds, { banco }, { por: null, ...ctx }, () =>
+    db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds)),
+  );
   await propagarBancoACampania(eduStudentIds, banco);
 }
 
@@ -114,9 +117,11 @@ async function propagarBancoACampania(eduStudentIds: string[], banco: boolean): 
     .where(and(eq(licStudents.campaignId, campaign.id), inArray(licStudents.eduStudentId, eduStudentIds)));
 }
 
-export async function setAmpa(eduStudentIds: string[], ampa: boolean): Promise<void> {
+export async function setAmpa(eduStudentIds: string[], ampa: boolean, ctx?: Partial<Contexto>): Promise<void> {
   if (eduStudentIds.length === 0) return;
-  await db.update(eduStudents).set({ ampa, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds));
+  await conAuditoria(eduStudentIds, { ampa }, { por: null, ...ctx }, () =>
+    db.update(eduStudents).set({ ampa, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds)),
+  );
 }
 
 /**
