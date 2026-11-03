@@ -3,6 +3,7 @@ import {
   canAccess,
   diffModulos,
   horariosSoloSuTutoria,
+  puedeVerHistorialAlumnado,
   modulosDe,
   origenModulo,
   MODULES,
@@ -244,5 +245,14 @@ describe('Horarios: el profe raso solo ve su tutoría', () => {
     expect(horariosSoloSuTutoria(null)).toBe(false);
     expect(horariosSoloSuTutoria({ role: null })).toBe(false);
     expect(horariosSoloSuTutoria({ role: 'comunicacion' })).toBe(false);
+  });
+});
+
+describe('libro de cambios de Alumnado', () => {
+  it('lo ven y restauran secretaría, dirección y TIC; nadie más', () => {
+    for (const role of ['secretaria', 'direccion', 'tic', 'supertic'] as const) expect(puedeVerHistorialAlumnado(role), role).toBe(true);
+    for (const role of ['tutor', 'profe', 'jefe', 'orientacion', 'comunicacion', 'evaluaciones', null] as const) {
+      expect(puedeVerHistorialAlumnado(role), String(role)).toBe(false);
+    }
   });
 });

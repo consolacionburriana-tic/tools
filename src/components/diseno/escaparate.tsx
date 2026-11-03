@@ -39,6 +39,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { BarraAcciones } from '@/components/ui/barra-acciones';
 import { EnCurso, Progreso } from '@/components/ui/progreso';
 import { Interruptor } from '@/components/ui/interruptor';
+import { Candado, useCandado } from '@/components/ui/candado';
 import { Copiable, CopiarLista, Dato } from '@/components/ui/copiable';
 import { GuardarEnDrive, type ArchivoEnDrive } from '@/components/ui/guardar-en-drive';
 import { Rotulo } from '@/components/ui/rotulo';
@@ -79,6 +80,7 @@ const PIEZAS = [
   ['barra', 'Barra de abajo'],
   ['progreso', 'Progreso'],
   ['interruptor', 'Interruptor'],
+  ['candado', 'Candado'],
   ['copiar', 'Copiar'],
   ['drive', 'Guardar en Drive'],
   ['personas', 'Personas'],
@@ -126,6 +128,7 @@ export function Escaparate() {
   const [vista, setVista] = useState<'lista' | 'clase' | 'cuotas'>('lista');
   const [filtro, setFiltro] = useState<'todos' | 'aviso' | 'hechos'>('todos');
   const [encendido, setEncendido] = useState(true);
+  const candado = useCandado(1);
   const [dialogo, setDialogo] = useState<'centrado' | 'hoja' | 'palabra' | null>(null);
   const [barra, setBarra] = useState(false);
   const [avance, setAvance] = useState(7);
@@ -479,6 +482,20 @@ export function Escaparate() {
           etiqueta="Avisar al tutor"
           descripcion="Al tercer retraso del trimestre."
         />
+      </Pieza>
+
+      <Pieza
+        id="candado"
+        titulo="Candado · useCandado"
+        para="Para una pantalla que se puede editar pero donde un toque suelto sale caro (la protección de datos): entra bloqueada y hay que desbloquearla para tocar nada. No sustituye al permiso. Se cierra sola tras unos minutos sin guardar."
+        importa="import { Candado, useCandado } from '@/components/ui/candado';"
+      >
+        <Fila nombre="Bloqueado → desbloqueado">
+          <Candado {...candado} que="editar la protección de datos" />
+        </Fila>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          {candado.abierto ? 'Ahora se podría editar (aquí se cierra solo al minuto).' : 'Ahora no se podría tocar nada.'}
+        </p>
       </Pieza>
 
       <Pieza

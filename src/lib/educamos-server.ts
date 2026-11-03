@@ -3,7 +3,10 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from '@/db';
+import { valorACodigo, type FilaAuditoria } from '@/lib/auditoria';
+import { claseLarga } from '@/lib/alumnado';
 import {
+  audCambios,
   eduGuardians,
   eduStudentGuardians,
   eduStudents,
@@ -103,7 +106,7 @@ export async function getGuardians(studentId: string): Promise<StudentGuardian[]
 // ─── Sincronización desde export ──────────────────────────────────────────────
 
 /** TODOS los alumnos (activos o no) con los campos que participan en el diff. */
-async function getStudentsForSync(): Promise<StudentLike[]> {
+async function getStudentsForSync(): Promise<(StudentLike & { bancoLibros: boolean })[]> {
   const rows = await db.select().from(eduStudents);
   return rows.map((s) => ({ ...s, extra: s.extra ?? null }));
 }
@@ -168,6 +171,27 @@ export async function aplicarSync(input: {
   const ahora = new Date();
 
   const statements: BatchItem<'pg'>[] = [];
+  // Libro de cambios: el sync anota altas, bajas, cambios de clase y el banco que sigue al curso,
+  // pero NO se pueden restaurar desde ahí (David, 3-nov-2026: «se puede anotar y nada más»).
+  const lote = crypto.randomUUID();
+  const registro: FilaAuditoria[] = [];
+  const anota = (
+    alumno: { id: string; nombre: string | null; apellido1: string | null; apellido2: string | null; curso: string | null; letra: string | null },
+    campo: FilaAuditoria['campo'],
+    antes: string | null,
+    despues: string | null,
+  ) =>
+    registro.push({
+      lote,
+      por: null,
+      origen: 'educamos',
+      eduStudentId: alumno.id,
+      alumno: [alumno.nombre, alumno.apellido1, alumno.apellido2].filter(Boolean).join(' '),
+      clase: claseLarga(alumno.curso, alumno.letra),
+      campo,
+      antes,
+      despues,
+    });
 
   // ── Alumnos: altas ──
   const filaToStudentId = new Map<number, string>();
@@ -210,6 +234,7 @@ export async function aplicarSync(input: {
       lastSyncedAt: ahora,
     };
     statements.push(db.insert(eduStudents).values(nuevo));
+    anota({ id, nombre: r.nombre, apellido1: r.apellido1, apellido2: r.apellido2, curso: r.curso, letra: r.letra }, 'alta', null, claseLarga(r.curso, r.letra));
   }
 
   // ── Alumnos: cambios ──
@@ -235,6 +260,21 @@ export async function aplicarSync(input: {
     if (typeof set.curso === 'string') {
       const banco = bancoTrasCambioDeCurso(porId.get(cambio.studentId)?.curso ?? null, set.curso);
       if (banco !== null) set.bancoLibros = banco;
+    }
+    // Para el libro de cambios (con la clase de ANTES en el nombre, que es lo que se quiere ver).
+    const previo = porId.get(cambio.studentId);
+    if (previo) {
+      if (set.active === true && !previo.active) anota(previo, 'reactivado', 'inactivo', 'activo');
+      if ('curso' in set || 'letra' in set) {
+        const nuevoCurso = 'curso' in set ? (set.curso as string | null) : previo.curso;
+        const nuevaLetra = 'letra' in set ? (set.letra as string | null) : previo.letra;
+        const antesClase = claseLarga(previo.curso, previo.letra);
+        const despuesClase = claseLarga(nuevoCurso, nuevaLetra);
+        if (antesClase !== despuesClase) anota(previo, 'clase', antesClase, despuesClase);
+      }
+      if (typeof set.bancoLibros === 'boolean' && set.bancoLibros !== previo.bancoLibros) {
+        anota(previo, 'banco', valorACodigo(previo.bancoLibros), valorACodigo(set.bancoLibros));
+      }
     }
     statements.push(db.update(eduStudents).set(set).where(eq(eduStudents.id, cambio.studentId)));
   }
@@ -262,6 +302,10 @@ export async function aplicarSync(input: {
     statements.push(
       db.update(eduStudents).set({ active: false, updatedAt: ahora }).where(inArray(eduStudents.id, idsDesactivar)),
     );
+    for (const id of idsDesactivar) {
+      const previo = porId.get(id);
+      if (previo) anota(previo, 'baja', 'activo', 'inactivo');
+    }
   }
 
   // ── Tutores: dedupe en memoria + match contra edu_guardians ──
@@ -386,6 +430,8 @@ export async function aplicarSync(input: {
     }),
   );
 
+  // Las anotaciones van en el mismo batch (misma transacción) que los cambios que anotan.
+  for (let i = 0; i < registro.length; i += 500) statements.push(db.insert(audCambios).values(registro.slice(i, i + 500)));
   await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
 
   // ── Nouvinguts: toda alta nueva entra en su ciclo (y se vincula con lo apuntado a mano) ──

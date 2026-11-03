@@ -44,9 +44,11 @@ export async function POST(request: Request) {
     const ids = filas.filter((f) => puedeConAlumno(alcance.clases, f)).map((f) => f.id);
     if (ids.length === 0) return NextResponse.json({ error: 'Ninguno de esos alumnos te toca' }, { status: 404 });
 
+    // Un solo lote para este clic: «deshacer» lo deshace entero.
+    const ctx = { por: guard.email, lote: crypto.randomUUID() };
     await Promise.all([
-      bancoLibros !== undefined ? setBancoVarios(ids, bancoLibros) : null,
-      ampa !== undefined ? setAmpa(ids, ampa) : null,
+      bancoLibros !== undefined ? setBancoVarios(ids, bancoLibros, ctx) : null,
+      ampa !== undefined ? setAmpa(ids, ampa, ctx) : null,
     ]);
     return NextResponse.json({ ids });
   } catch (error) {

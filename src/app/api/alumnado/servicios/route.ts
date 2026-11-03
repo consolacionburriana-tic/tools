@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const suyos = filas.filter((f) => puedeConAlumno(alcance.clases, f));
     if (suyos.length === 0) return NextResponse.json({ error: 'Ninguno de esos alumnos te toca' }, { status: 404 });
 
-    const tocados = await guardarServicios(suyos, { comedor, complementarias });
+    const tocados = await guardarServicios(suyos, { comedor, complementarias }, { por: guard.email });
     return NextResponse.json({ tocados });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Error' }, { status: 400 });

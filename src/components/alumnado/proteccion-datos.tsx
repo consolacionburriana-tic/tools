@@ -19,6 +19,7 @@ import { Tarjeta } from '@/components/alumnado/ficha-alumno';
 import { CAMPOS_PROTECCION, PROTECCION_LABELS, type CampoProteccion, type ProteccionDatos } from '@/lib/alumnado';
 import { haptic } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
+import { Candado, useCandado } from '@/components/ui/candado';
 
 type Estado = boolean | null;
 type Cambio = {
@@ -36,7 +37,7 @@ export function TarjetaProteccion({
   ampa,
   comedor,
   complementarias,
-  puedeEditar,
+  puedeEditar: puedeEditarPermiso,
   puedeParticipacion,
   puedeServicios,
   onCambio,
@@ -56,6 +57,9 @@ export function TarjetaProteccion({
   onCambio: (cambio: Cambio) => void;
 }) {
   const [guardando, setGuardando] = useState<string | null>(null);
+  // La protección de datos entra bloqueada (David, 3-nov-2026): el candado va por delante del permiso.
+  const candado = useCandado();
+  const puedeEditar = puedeEditarPermiso && candado.abierto;
 
   if (!proteccion && !puedeParticipacion && !puedeServicios) {
     return (
@@ -68,6 +72,8 @@ export function TarjetaProteccion({
 
   async function guardar(campo: string, cuerpo: Record<string, unknown>, ruta: 'proteccion' | 'participacion' | 'servicios') {
     haptic.tap();
+    // Solo la protección de datos tiene candado; banco, AMPA y servicios, de momento no.
+    if (ruta === 'proteccion') candado.tocar();
     setGuardando(campo);
     try {
       // Comedor y complementarias van por la ruta de la tabla, con un solo alumno.
@@ -98,18 +104,23 @@ export function TarjetaProteccion({
     <Tarjeta
       titulo="Protección de datos"
       accion={
-        proteccion && puedeEditar ? (
-          // El atajo del caso normal: la familia autoriza las cuatro cosas, y lo raro es el
-          // «no». Para una clase entera está la tabla de la pestaña de al lado.
-          <Button
-            type="button"
-            size="sm"
-            disabled={guardando === 'todo'}
-            onClick={() => guardar('todo', { imagen: true, redes: true, ampa: true, ong: true }, 'proteccion')}
-          >
-            {guardando === 'todo' ? <Loader2 className="animate-spin" /> : <Check aria-hidden />}
-            Todo sí
-          </Button>
+        proteccion && puedeEditarPermiso ? (
+          <span className="flex items-center gap-1.5">
+            <Candado {...candado} que="editar la protección de datos de este alumno" />
+            {puedeEditar && (
+              // El atajo del caso normal: la familia autoriza las cuatro cosas, y lo raro es el
+              // «no». Para una clase entera está la tabla de la pestaña de al lado.
+              <Button
+                type="button"
+                size="sm"
+                disabled={guardando === 'todo'}
+                onClick={() => guardar('todo', { imagen: true, redes: true, ampa: true, ong: true }, 'proteccion')}
+              >
+                {guardando === 'todo' ? <Loader2 className="animate-spin" /> : <Check aria-hidden />}
+                Todo sí
+              </Button>
+            )}
+          </span>
         ) : undefined
       }
     >
@@ -148,7 +159,7 @@ export function TarjetaProteccion({
               {proteccion.actualizadoPor && ` · ${proteccion.actualizadoPor.split('@')[0]}`}
             </p>
           )}
-          {!puedeEditar && (
+          {!puedeEditarPermiso && (
             <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
               Para cambiar algo de aquí, secretaría (o dirección/TIC): son los papeles que guardan ellos.
             </p>

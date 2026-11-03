@@ -40,6 +40,8 @@ import {
   salTrips,
 } from '@/db/schema';
 import { academicYearActual } from '@/lib/constants';
+import { conAuditoria, type Contexto } from '@/lib/auditoria-server';
+import type { ChecksAlumno } from '@/lib/auditoria';
 import { ampliarEtapasConjuntas, compararClases, ETAPAS, etapaDeCurso, type Etapa } from '@/lib/cursos';
 import { correoBonito, mayusculasBellas, nombresDe } from '@/lib/personas';
 import {
@@ -64,6 +66,7 @@ import {
   puedeEditarProteccionDatos,
   puedeGestionarParticipantesBanco,
   puedeGestionarServicios,
+  puedeVerHistorialAlumnado,
   veProteccionDatosCompleta,
   type Acceso,
   type Role,
@@ -272,6 +275,8 @@ export interface PermisosFicha {
   participacion: boolean;
   /** Comedor y complementarias: secretaría, dirección y TIC (`puedeGestionarServicios`). */
   servicios: boolean;
+  /** El libro de cambios de esta persona (docs/31-auditoria.md): ver y restaurar. */
+  historial: boolean;
 }
 
 export function permisosFicha(
@@ -286,6 +291,7 @@ export function permisosFicha(
     // módulo del banco**: desde aquí se edita lo mismo, no se amplía a nadie.
     participacion: canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role),
     servicios: puedeGestionarServicios(user.role),
+    historial: puedeVerHistorialAlumnado(user.role),
   };
 }
 
@@ -1121,6 +1127,17 @@ const COLUMNA_PD: Record<CampoProteccion, 'pdImagen' | 'pdRedes' | 'pdAmpa' | 'p
   ong: 'pdOng',
 };
 
+/** Lo que un `CambioProteccion` deja en cada casilla, con los nombres del libro de cambios. */
+function casillasDeProteccion(cambios: CambioProteccion): Partial<ChecksAlumno> {
+  const out: Partial<ChecksAlumno> = {};
+  if (cambios.imagen !== undefined) out.pd_imagen = cambios.imagen;
+  if (cambios.redes !== undefined) out.pd_redes = cambios.redes;
+  if (cambios.ampa !== undefined) out.pd_ampa = cambios.ampa;
+  if (cambios.ong !== undefined) out.pd_ong = cambios.ong;
+  if (cambios.desestimaCorreo !== undefined) out.pd_correo = cambios.desestimaCorreo;
+  return out;
+}
+
 /**
  * Guarda los campos que vengan y devuelve cómo queda la cosa, para que la pantalla pinte lo
  * que hay en la BBDD y no lo que ella creía. Queda firmado con el correo de quien lo toca:
@@ -1130,6 +1147,7 @@ export async function guardarProteccion(
   id: string,
   cambios: CambioProteccion,
   porEmail: string,
+  ctx?: Partial<Contexto>,
 ): Promise<ProteccionDatos | null> {
   const set: Record<string, unknown> = { pdActualizadoAt: new Date(), pdActualizadoPor: porEmail, updatedAt: new Date() };
   for (const campo of CAMPOS_PROTECCION) {
@@ -1138,7 +1156,7 @@ export async function guardarProteccion(
   if (cambios.desestimaCorreo !== undefined) set.pdDesestimaCorreo = cambios.desestimaCorreo;
   if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
 
-  const [fila] = await db
+  const [fila] = await conAuditoria([id], casillasDeProteccion(cambios), { por: porEmail, ...ctx }, () => db
     .update(eduStudents)
     .set(set)
     .where(eq(eduStudents.id, id))
@@ -1151,7 +1169,7 @@ export async function guardarProteccion(
       notas: eduStudents.pdNotas,
       actualizadoAt: eduStudents.pdActualizadoAt,
       actualizadoPor: eduStudents.pdActualizadoPor,
-    });
+    }));
   if (!fila) return null;
   return { ...fila, actualizadoAt: fila.actualizadoAt ? fila.actualizadoAt.toISOString() : null };
 }
@@ -1165,23 +1183,34 @@ export async function guardarProteccion(
 export async function guardarServicios(
   alumnos: readonly { id: string; curso: string | null }[],
   cambios: Partial<Record<Servicio, boolean>>,
+  ctx?: Partial<Contexto>,
 ): Promise<Record<Servicio, string[]>> {
   const tocados: Record<Servicio, string[]> = { comedor: [], complementarias: [] };
   const ahora = new Date();
+  // Un solo lote para los dos servicios de este clic.
+  const lote = ctx?.lote ?? crypto.randomUUID();
   await Promise.all(
     SERVICIOS.map(async (servicio) => {
       const valor = cambios[servicio];
       if (valor === undefined) return;
       const ids = alumnos.filter((a) => aplicaServicio(servicio, a.curso)).map((a) => a.id);
       if (ids.length === 0) return;
-      await db
-        .update(eduStudents)
-        .set({ [servicio]: valor, updatedAt: ahora })
-        .where(inArray(eduStudents.id, ids));
+      await conAuditoria(ids, { [servicio]: valor }, { por: ctx?.por ?? null, ...ctx, lote }, () =>
+        db
+          .update(eduStudents)
+          .set({ [servicio]: valor, updatedAt: ahora })
+          .where(inArray(eduStudents.id, ids)),
+      );
       tocados[servicio] = ids;
     }),
   );
   return tocados;
+}
+
+/** El curso de cada alumno, que es lo que necesita `guardarServicios` para saber a quién aplican las complementarias. */
+export async function leerCursosDe(ids: readonly string[]): Promise<{ id: string; curso: string | null }[]> {
+  if (ids.length === 0) return [];
+  return db.select({ id: eduStudents.id, curso: eduStudents.curso }).from(eduStudents).where(inArray(eduStudents.id, [...ids]));
 }
 
 /** La clase de un alumno, que es lo que hace falta para comprobar el alcance al escribir. */
@@ -1208,6 +1237,7 @@ export async function guardarProteccionMasiva(
   cambios: CambioProteccion,
   porEmail: string,
   alcance: { general: { curso: string; letra: string | null }[] | null; proteccion: AlcanceProteccion },
+  ctx?: Partial<Contexto>,
 ): Promise<{ filas: (ProteccionLista & { id: string })[] }> {
   const filas = await db
     .select({ id: eduStudents.id, curso: eduStudents.curso, letra: eduStudents.letra })
@@ -1226,7 +1256,7 @@ export async function guardarProteccionMasiva(
   if (cambios.desestimaCorreo !== undefined) set.pdDesestimaCorreo = cambios.desestimaCorreo;
   if (cambios.notas !== undefined) set.pdNotas = cambios.notas?.trim() || null;
 
-  const tocadas = await db
+  const tocadas = await conAuditoria(permitidos, casillasDeProteccion(cambios), { por: porEmail, ...ctx }, () => db
     .update(eduStudents)
     .set(set)
     .where(inArray(eduStudents.id, permitidos))
@@ -1237,7 +1267,7 @@ export async function guardarProteccionMasiva(
       ampa: eduStudents.pdAmpa,
       ong: eduStudents.pdOng,
       desestimaCorreo: eduStudents.pdDesestimaCorreo,
-    });
+    }));
 
   // Se devuelven TODAS, no una de muestra: el cambio es el mismo para todas, pero las demás
   // columnas no lo son, y la tabla tiene que repintar la fila entera con lo que hay en la
