@@ -276,6 +276,7 @@ export function FichaAlumnoPanel({
         complementarias={aplicaServicio('complementarias', ficha.curso) ? ficha.complementarias : null}
         puedeEditar={ficha.permisos?.proteccion === 'editar'}
         puedeParticipacion={Boolean(ficha.permisos?.participacion)}
+        veBanco={Boolean(ficha.permisos?.verBanco)}
         puedeServicios={Boolean(ficha.permisos?.servicios)}
         onCambio={(cambio) => onActualizar(ficha.id, cambio)}
       />

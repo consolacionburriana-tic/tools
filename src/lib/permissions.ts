@@ -249,6 +249,15 @@ export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
 }
 
 /**
+ * ¿Ve algo del banco de libros dentro de Alumnado (check de la ficha, pestaña, icono de la
+ * lista, columna de los informes)? Solo SuperTIC: para el resto el banco es «próximamente»
+ * (David, 5-nov-2026), igual que en el escritorio.
+ */
+export function veBancoLibros(role: Role | null): boolean {
+  return role === 'supertic';
+}
+
+/**
  * Dentro del módulo `puntualidad`, quién ve TODO el centro y quién solo lo suyo.
  * Dirección, jefatura, orientación y TIC ven todos los retrasos; un tutor con el módulo
  * ve únicamente el alumnado de las clases que tutoriza (se filtra contra `edu_tutorias`

@@ -43,6 +43,10 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   (`ROLE_MODULES.direccion`). Sin el módulo tampoco ve el check «Banco de libros» ni el lote
   en la ficha de Alumnado (`permisos.verBanco` en `fichaVisible`, se quita en el servidor).
   Se le puede dar a mano como módulo extra.
+- **Banco de libros «próximamente» para todos menos SuperTIC** (David, 5-nov-2026): en el
+  escritorio sale en gris; en Alumnado (check de la ficha, lote, pestaña, icono de la lista,
+  columna de informes e interruptor) solo lo ve `veBancoLibros()` = SuperTIC. Es solo lo que
+  se ve: las rutas siguen con sus permisos de siempre.
 - **Documentación firmada** (inicio/fin de curso) y **entrega del lote**: checkboxes por
   alumno con bulk por clase. Sigue siendo papel; la app solo marca recibido.
 - **Curso académico en vigor**: calculado (sep-ago) en `src/lib/constants.ts`

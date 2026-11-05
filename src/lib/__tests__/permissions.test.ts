@@ -4,6 +4,7 @@ import {
   diffModulos,
   horariosSoloSuTutoria,
   puedeVerHistorialAlumnado,
+  veBancoLibros,
   modulosDe,
   origenModulo,
   MODULES,
@@ -214,6 +215,13 @@ describe('banco de libros', () => {
   it('dirección ya no lo tiene (David, 5-nov-2026); SuperTIC y TIC sí', () => {
     expect(canAccess({ role: 'direccion' }, 'bancolibros')).toBe(false);
     for (const r of ['supertic', 'tic'] as const) expect(canAccess({ role: r }, 'bancolibros')).toBe(true);
+  });
+
+  it('en Alumnado (check, pestaña, informes) solo lo ve SuperTIC', () => {
+    expect(veBancoLibros('supertic')).toBe(true);
+    for (const r of ['tic', 'direccion', 'secretaria', 'jefe', 'tutor', 'profe', 'orientacion', null] as const) {
+      expect(veBancoLibros(r), String(r)).toBe(false);
+    }
   });
 });
 

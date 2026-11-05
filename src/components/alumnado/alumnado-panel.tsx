@@ -76,6 +76,7 @@ export function AlumnadoPanel({
   fichaInicial,
   puedeEditarProteccion,
   puedeParticipacion,
+  veBanco,
   puedeServicios,
   materiales: materialesIniciales,
   puedeGestionarMateriales,
@@ -94,6 +95,8 @@ export function AlumnadoPanel({
   puedeEditarProteccion: boolean;
   /** ¿Puede marcar banco de libros y AMPA? (dirección/TIC con el módulo del banco.) */
   puedeParticipacion: boolean;
+  /** ¿Ve el banco de libros (pestaña, icono, informes)? Solo SuperTIC: para el resto, «próximamente». */
+  veBanco: boolean;
   /** ¿Puede marcar comedor y complementarias? (secretaría, dirección, TIC.) */
   puedeServicios: boolean;
   /** Los materiales a la venta este curso que van a alguna de sus clases. */
@@ -396,7 +399,7 @@ export function AlumnadoPanel({
           ...(hayProteccion
             ? [{ valor: 'proteccion' as const, etiqueta: 'Protección de datos', icono: <Camera aria-hidden /> }]
             : []),
-          { valor: 'banco', etiqueta: 'Banco de libros', icono: <Library aria-hidden /> },
+          ...(veBanco ? [{ valor: 'banco' as const, etiqueta: 'Banco de libros', icono: <Library aria-hidden /> }] : []),
           { valor: 'ampa', etiqueta: 'AMPA', icono: <HeartHandshake aria-hidden /> },
           { valor: 'servicios', etiqueta: 'Comedor y complementarias', icono: <UtensilsCrossed aria-hidden /> },
           { valor: 'materiales', etiqueta: 'Venta de materiales', icono: <ShoppingBag aria-hidden /> },
@@ -416,7 +419,7 @@ export function AlumnadoPanel({
           onCambio={actualizarProteccion}
           onInforme={pedirInforme}
         />
-      ) : vista === 'banco' || vista === 'ampa' ? (
+      ) : (vista === 'banco' && veBanco) || vista === 'ampa' ? (
         <TablaParticipacion
           key={vista}
           campo={vista === 'banco' ? 'bancoLibros' : 'ampa'}
@@ -456,6 +459,7 @@ export function AlumnadoPanel({
           claseActual={claseActual ?? null}
           materiales={materiales}
           veProteccion={hayProteccion}
+          veBanco={veBanco}
           preset={preset.columnas}
           presetFiltro={preset.filtro}
         />
@@ -537,7 +541,7 @@ export function AlumnadoPanel({
                       )}
                     </span>
                     <span className="flex shrink-0 items-center gap-1">
-                      {a.bancoLibros && (
+                      {veBanco && a.bancoLibros && (
                         <span title="Banco de libros" aria-label="Banco de libros">
                           <Library className="h-3.5 w-3.5 text-emerald-500" />
                         </span>

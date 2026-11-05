@@ -39,6 +39,7 @@ export function TarjetaProteccion({
   complementarias,
   puedeEditar: puedeEditarPermiso,
   puedeParticipacion,
+  veBanco,
   puedeServicios,
   onCambio,
 }: {
@@ -52,6 +53,8 @@ export function TarjetaProteccion({
   complementarias: boolean | null;
   puedeEditar: boolean;
   puedeParticipacion: boolean;
+  /** El interruptor del banco de libros solo sale a quien lo ve (SuperTIC). */
+  veBanco: boolean;
   /** Comedor y complementarias: secretaría, dirección y TIC. */
   puedeServicios: boolean;
   onCambio: (cambio: Cambio) => void;
@@ -174,14 +177,16 @@ export function TarjetaProteccion({
       {puedeParticipacion && (
         <div className="mt-2.5 space-y-1 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Participación</p>
-          <Interruptor
-            etiqueta="Banco de libros"
-            ayuda="Se gestiona también en el panel del banco"
-            puesto={bancoLibros}
-            editable
-            guardando={guardando === 'bancoLibros'}
-            onCambiar={(v) => guardar('bancoLibros', { bancoLibros: v }, 'participacion')}
-          />
+          {veBanco && (
+            <Interruptor
+              etiqueta="Banco de libros"
+              ayuda="Se gestiona también en el panel del banco"
+              puesto={bancoLibros}
+              editable
+              guardando={guardando === 'bancoLibros'}
+              onCambiar={(v) => guardar('bancoLibros', { bancoLibros: v }, 'participacion')}
+            />
+          )}
           <Interruptor
             etiqueta="Familia socia del AMPA"
             ayuda="No es lo mismo que el permiso de fotos del AMPA"

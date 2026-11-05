@@ -129,6 +129,7 @@ export function Informes({
   claseActual,
   materiales,
   veProteccion,
+  veBanco,
   preset,
   presetFiltro = '',
 }: {
@@ -138,16 +139,23 @@ export function Informes({
   materiales: MaterialLista[];
   /** Si no ve la protección de datos de nadie, esas columnas ni se ofrecen. */
   veProteccion: boolean;
+  /** Sin el banco de libros (solo SuperTIC), su columna ni se ofrece. */
+  veBanco: boolean;
   /** Columnas con las que se llega desde el botón «Informe» de otra pestaña. */
   preset: ClaveColumna[];
   /** Y el filtro, si llega con uno («comedor:si» desde «Lista del comedor»). */
   presetFiltro?: string;
 }) {
   const disponibles = useMemo(
-    () => columnasDisponibles(materiales).filter((c) => veProteccion || c.grupo !== 'Protección de datos'),
-    [materiales, veProteccion],
+    () =>
+      columnasDisponibles(materiales).filter(
+        (c) => (veProteccion || c.grupo !== 'Protección de datos') && (veBanco || c.clave !== 'banco'),
+      ),
+    [materiales, veProteccion, veBanco],
   );
-  const [columnas, setColumnas] = useState<ClaveColumna[]>(() => (preset.length > 0 ? preset : ['banco']));
+  const [columnas, setColumnas] = useState<ClaveColumna[]>(() =>
+    preset.length > 0 ? preset : [veBanco ? 'banco' : 'ampa'],
+  );
   const [ambito, setAmbito] = useState<Ambito>(claseActual ? 'actual' : 'todas');
   const [elegidas, setElegidas] = useState<Set<string>>(() => new Set(claseActual ? [claveClase(claseActual)] : []));
   const [filtro, setFiltro] = useState(presetFiltro);

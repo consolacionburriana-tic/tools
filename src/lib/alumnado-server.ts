@@ -65,6 +65,7 @@ import {
   canAccess,
   puedeEditarProteccionDatos,
   puedeGestionarParticipantesBanco,
+  veBancoLibros,
   puedeGestionarServicios,
   puedeVerHistorialAlumnado,
   veProteccionDatosCompleta,
@@ -273,7 +274,7 @@ export interface PermisosFicha {
   proteccion: 'editar' | 'ver' | 'no';
   /** Banco de libros y AMPA: el mismo criterio que en su propio panel, ni más ni menos. */
   participacion: boolean;
-  /** Si participa en el banco y el detalle de su lote: solo quien tiene el módulo del banco. */
+  /** Si participa en el banco y el detalle de su lote: solo SuperTIC (`veBancoLibros`). */
   verBanco: boolean;
   /** Comedor y complementarias: secretaría, dirección y TIC (`puedeGestionarServicios`). */
   servicios: boolean;
@@ -292,7 +293,7 @@ export function permisosFicha(
     // Marcar quién participa en el banco/AMPA sigue siendo cosa de dirección/TIC **con el
     // módulo del banco**: desde aquí se edita lo mismo, no se amplía a nadie.
     participacion: canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role),
-    verBanco: canAccess(user, 'bancolibros'),
+    verBanco: canAccess(user, 'bancolibros') && veBancoLibros(user.role),
     servicios: puedeGestionarServicios(user.role),
     historial: puedeVerHistorialAlumnado(user.role),
   };
