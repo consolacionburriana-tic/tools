@@ -503,8 +503,8 @@ describe('evento de Google Calendar', () => {
     expect(ev.attendees).toEqual([{ email: 'ana@consolacionburriana.com' }, { email: 'yo@consolacionburriana.com', responseStatus: 'accepted' }]);
   });
 
-  it('Google no manda correo salvo que se pida: ni al crear, ni al mover, ni al borrar', () => {
-    expect(sendUpdatesDe()).toBe('none');
+  it('Google manda su invitación por defecto (con ella confirma el profe) y se puede apagar', () => {
+    expect(sendUpdatesDe()).toBe('all');
     expect(sendUpdatesDe({ invitarme: true, avisoGoogle: false })).toBe('none');
     expect(sendUpdatesDe({ invitarme: false, avisoGoogle: true })).toBe('all');
   });

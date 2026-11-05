@@ -50,8 +50,8 @@ export const api = {
   accion: (id: string, a: AccionSesion) =>
     pedir<{ sesion: SesionOra }>(`/api/oratorios/sesiones/${id}`, { method: 'PATCH', body: JSON.stringify(a) }).then((r) => r.sesion),
   borrar: (id: string) => pedir<{ ok: true }>(`/api/oratorios/sesiones/${id}`, { method: 'DELETE' }),
-  lote: (accion: AccionLote, ids: string[], dias?: number) =>
-    pedir<ResultadoLote>('/api/oratorios/sesiones/lote', { method: 'POST', body: JSON.stringify({ accion, ids, dias }) }),
+  lote: (accion: AccionLote, ids: string[], dias?: number, invitar?: boolean) =>
+    pedir<ResultadoLote>('/api/oratorios/sesiones/lote', { method: 'POST', body: JSON.stringify({ accion, ids, dias, invitar }) }),
   disponibilidad: (responsableEmail: string, huecos: Disponibilidad[]) =>
     pedir<{ huecos: Disponibilidad[] }>('/api/oratorios/disponibilidad', { method: 'PUT', body: JSON.stringify({ responsableEmail, huecos }) }).then(
       (r) => r.huecos,

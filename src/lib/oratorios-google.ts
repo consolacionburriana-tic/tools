@@ -4,7 +4,7 @@
 // Mismo cliente que Mi horario (cuenta de servicio con delegación de dominio): se escribe
 // SUPLANTANDO a la persona responsable, en el calendario compartido del tipo. Así Google
 // ve el evento ella misma y necesita poder editar ese calendario. Qué correos manda Google lo
-// deciden sus preferencias (`ora_preferencias`): por defecto, ninguno.
+// deciden sus preferencias (`ora_preferencias`) y, al confirmar, el botón elegido.
 //
 // ⚠️ Sin probar en vivo: el 30-sep-2026 la API de Calendar no estaba habilitada en el proyecto
 // de Google Cloud de la cuenta de servicio (ver la ficha). Los errores se devuelven como texto
@@ -41,9 +41,10 @@ export interface DestinoEvento {
 }
 
 /**
- * Qué manda Google por correo al crear, mover o borrar el evento. Por defecto NADA: el evento
- * aparece en el calendario del profe en silencio y el único correo es el de la app, con el
- * texto de quien lo lleva (programado N días antes, o el de cambio / anulación).
+ * Qué manda Google por correo al crear, mover o borrar el evento. Por defecto SÍ: la invitación
+ * de Google es con la que el profe confirma. Quien lo apaga (o elige «Solo confirmar» al
+ * confirmar) deja el evento aparecer en el calendario del profe en silencio, y el único correo
+ * es el de la app, con el texto de quien lo lleva.
  */
 export function sendUpdatesDe(prefs?: PrefsCalendario): 'all' | 'none' {
   return (prefs ?? PREFS_CALENDARIO_DEFECTO).avisoGoogle ? 'all' : 'none';

@@ -341,18 +341,26 @@ export function Planificar({ e }: { e: Estado }) {
         </Button>
         <Button
           disabled={borradores.length === 0 || e.ocupado}
-          title="Crea los eventos en Google Calendar e invita a los profes"
+          title="Crea los eventos en Google Calendar y Google manda la invitación a cada profe: con ella te confirma"
           onClick={async () => {
             const si = await confirmar({
-              titulo: `¿Confirmar ${borradores.length} ${borradores.length === 1 ? 'sesión' : 'sesiones'}?`,
-              descripcion: 'Se crean los eventos en Google Calendar y se invita a los profes.',
-              boton: `Confirmar ${borradores.length}`,
+              titulo: `¿Confirmar ${borradores.length} ${borradores.length === 1 ? 'sesión' : 'sesiones'} y enviar la invitación?`,
+              descripcion: 'Se crean los eventos en Google Calendar y a cada profe le llega la invitación de Google: con ella te confirma.',
+              boton: `Confirmar y enviar ${borradores.length}`,
               peligro: false,
             });
-            if (si) void e.lote('confirmar', borradores.map((b) => b.id));
+            if (si) void e.lote('confirmar', borradores.map((b) => b.id), undefined, true);
           }}
         >
-          <CheckCheck /> Confirmar {borradores.length > 0 && <span className="tabular-nums">({borradores.length})</span>}
+          <CheckCheck /> Confirmar y enviar invitación {borradores.length > 0 && <span className="tabular-nums">({borradores.length})</span>}
+        </Button>
+        <Button
+          variant="outline"
+          disabled={borradores.length === 0 || e.ocupado}
+          title="Crea los eventos en su calendario sin que Google mande correo"
+          onClick={() => void e.lote('confirmar', borradores.map((b) => b.id), undefined, false)}
+        >
+          Solo confirmar
         </Button>
         {borradores.length > 0 && (
           <Button

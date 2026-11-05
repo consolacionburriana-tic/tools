@@ -3,7 +3,7 @@ import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { accionLoteSchema } from '@/lib/oratorios';
 import { accionLote } from '@/lib/oratorios-server';
 
-// Confirmar (y crear el evento), descartar borradores, reintentar el calendario, y los
+// Confirmar (y crear el evento, con o sin la invitación de Google), descartar borradores, reintentar el calendario, y los
 // avisos: enviar ya, programar N días antes, «ya se lo he dicho» o no avisar.
 export const maxDuration = 60;
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Datos no válidos' }, { status: 400 });
   }
   try {
-    const r = await accionLote(parsed.data.accion, parsed.data.ids, { email: guard.email, nombre: guard.nombre }, parsed.data.dias);
+    const r = await accionLote(parsed.data.accion, parsed.data.ids, { email: guard.email, nombre: guard.nombre }, parsed.data.dias, parsed.data.invitar);
     return NextResponse.json(r);
   } catch (error) {
     console.error('Oratorios · lote:', error instanceof Error ? error.message : error);

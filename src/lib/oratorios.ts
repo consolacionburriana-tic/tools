@@ -1339,6 +1339,9 @@ export const accionLoteSchema = z.object({
   accion: z.enum(ACCIONES_LOTE),
   ids: z.array(z.string().uuid()).min(1).max(300),
   dias: z.number().int().min(0).max(60).optional(),
+  // Confirmar / reintentar el evento: true = Google manda su invitación al profe (con ella te
+  // confirma); false = el evento aparece en su calendario sin correo. Sin decir, manda la preferencia.
+  invitar: z.boolean().optional(),
 });
 
 export const disponibilidadSchema = z.object({
@@ -1377,10 +1380,10 @@ export type EntradaTipo = z.infer<typeof tipoSchema>;
 export interface PrefsCalendario {
   /** Invitarse a sí misma al evento (duplica el evento en su calendario personal). */
   invitarme: boolean;
-  /** Que Google mande su correo de invitación/cambio/cancelación al profe. */
+  /** Que Google mande su correo de invitación/cambio/cancelación al profe (con la invitación el profe confirma). */
   avisoGoogle: boolean;
 }
-export const PREFS_CALENDARIO_DEFECTO: PrefsCalendario = { invitarme: false, avisoGoogle: false };
+export const PREFS_CALENDARIO_DEFECTO: PrefsCalendario = { invitarme: false, avisoGoogle: true };
 
 export const prefsCalendarioSchema = z.object({
   invitarme: z.boolean().optional(),

@@ -842,7 +842,7 @@ export interface ResultadoLote {
   mensaje: string;
 }
 
-export async function accionLote(accion: AccionLote, ids: string[], por: Quien, dias?: number): Promise<ResultadoLote> {
+export async function accionLote(accion: AccionLote, ids: string[], por: Quien, dias?: number, invitar?: boolean): Promise<ResultadoLote> {
   if (accion === 'descartar') {
     const filas = await db
       .delete(oraSesiones)
@@ -852,10 +852,12 @@ export async function accionLote(accion: AccionLote, ids: string[], por: Quien, 
   }
   if (accion === 'enviar') return enviarAvisos(ids, por);
 
-  const { sesiones, tipos, correos, prefs } = await cargar(ids);
+  const { sesiones, tipos, correos, prefs: prefsPersonales } = await cargar(ids);
   const hoy = hoyEnEspana();
 
   if (accion === 'confirmar' || accion === 'calendario') {
+    // «Confirmar y enviar invitación» / «Solo confirmar»: la elección del botón manda sobre la preferencia.
+    const prefs = invitar === undefined ? prefsPersonales : new Map([...new Set(sesiones.map((s) => s.responsableEmail.toLowerCase()))].map((e) => [e, { ...(prefsPersonales.get(e) ?? PREFS_CALENDARIO_DEFECTO), avisoGoogle: invitar }]));
     const aTocar = sesiones.filter((s) =>
       accion === 'confirmar' ? s.estado === 'borrador' || (s.estado === 'confirmado' && !s.googleEventId) : s.estado === 'confirmado',
     );

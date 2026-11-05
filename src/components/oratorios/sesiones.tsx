@@ -140,21 +140,25 @@ export function ListaSesiones({ e }: { e: Estado }) {
             </Button>
           )}
           {borradores.length > 0 && (
-            <Button
-              variant="outline"
-              disabled={e.ocupado}
-              onClick={async () => {
-                const si = await confirmar({
-                  titulo: `¿Confirmar ${borradores.length} ${borradores.length === 1 ? 'sesión' : 'sesiones'}?`,
-                  descripcion: 'Los eventos aparecen en el calendario de los profes (sin correo de Google). El ✅ verde sale cuando el profe lo acepta allí.',
-                  boton: `Confirmar ${borradores.length}`,
-                  peligro: false,
-                });
-                if (si) void e.lote('confirmar', borradores.map((s) => s.id));
-              }}
-            >
-              <CheckCheck /> Confirmar ({borradores.length})
-            </Button>
+            <>
+              <Button
+                disabled={e.ocupado}
+                onClick={async () => {
+                  const si = await confirmar({
+                    titulo: `¿Confirmar ${borradores.length} ${borradores.length === 1 ? 'sesión' : 'sesiones'} y enviar la invitación?`,
+                    descripcion: 'Se crean los eventos en Google Calendar y a cada profe le llega la invitación de Google: con ella te confirma. El ✅ verde sale cuando la acepta.',
+                    boton: `Confirmar y enviar ${borradores.length}`,
+                    peligro: false,
+                  });
+                  if (si) void e.lote('confirmar', borradores.map((s) => s.id), undefined, true);
+                }}
+              >
+                <CheckCheck /> Confirmar y enviar invitación ({borradores.length})
+              </Button>
+              <Button variant="outline" disabled={e.ocupado} title="Crea los eventos en su calendario sin que Google mande correo" onClick={() => void e.lote('confirmar', borradores.map((s) => s.id), undefined, false)}>
+                Solo confirmar
+              </Button>
+            </>
           )}
         </div>
       )}
