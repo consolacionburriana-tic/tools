@@ -15,7 +15,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { campaignAbierta, cierreAutomaticoResumen, diasHastaCierre, fechaLimiteLabel } from '@/lib/licencias';
+import { campaignAbierta, cierreAutomaticoResumen, diasHastaCierre, fechaLimiteLabel, siguienteCampania } from '@/lib/licencias';
 import type { DashboardStats } from '@/lib/licencias-server';
 import { Aviso } from '@/components/ui/aviso';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Vacio } from '@/components/ui/vacio';
 import { Progreso } from '@/components/ui/progreso';
 import { CampanaEstado } from './campana-estado';
+import { NuevaCampana } from './nueva-campana';
 
 // La portada de Licencias: la campaña (abrir, cerrar, fecha de cierre), las cifras y el
 // índice de todas las pantallas del módulo, agrupadas por el momento de la campaña en que
@@ -36,6 +37,7 @@ import { CampanaEstado } from './campana-estado';
 
 export interface CampanaPanel {
   name: string;
+  academicYear: string;
   status: string;
   orderDeadline: string | null;
   noteText: string | null;
@@ -143,6 +145,7 @@ function Campana({ campaign }: { campaign: CampanaPanel }) {
             </Button>
           </form>
         </details>
+        {campaign.status === 'closed' && <NuevaCampana propuesta={siguienteCampania(campaign.academicYear)} />}
       </TarjetaCuerpo>
     </Tarjeta>
   );
@@ -157,7 +160,8 @@ export function PanelLicencias({ campaign, stats }: { campaign: CampanaPanel | n
         <Campana campaign={campaign} />
       ) : (
         <Vacio icono={<CalendarClock />} titulo="No hay campaña activa">
-          Cuando se cree la campaña del curso, aquí verás su estado y sus cifras.
+          Crea la campaña del curso y aquí verás su estado y sus cifras.
+          <div className="mt-3"><NuevaCampana propuesta={null} /></div>
         </Vacio>
       )}
 

@@ -116,7 +116,7 @@ Pendiente **solo por credenciales/accesos externos** (no por código):
 
 - [x] Esquema `lic_*` en `src/db/schema.ts` (campaigns, students, books, packs, orders, order_items)
 - [x] Generar datos de import desde el `.xlsx` (`src/db/data/licencias-2026.json`) con promoción +1
-- [x] Script de import `src/db/seed-licencias.ts` + npm script `db:seed:licencias`
+- [x] ~~Script de import `src/db/seed-licencias.ts` + `db:seed:licencias`~~ → retirado el 5-nov-2026: el alumnado entra de la central y la campaña se crea desde el panel
 - [x] `pnpm db:push` — 6 tablas `lic_*` creadas en Neon (additivo)
 - [x] Ejecutar import y verificar: **57 libros (45 BdL) · 323 alumnos (303 BdL)** ✓
 - [ ] Login simple para el panel — *se hará al construir el panel (Fase 2); el formulario de Fase 1 es público*
@@ -694,6 +694,22 @@ profesor, asigno a este. Esto se usa MUY MUY poco, mucho menos que alumnos».
   pendiente, faltan cosas del dominio.
 
 
+## Crear la campaña del curso siguiente (5-nov-2026)
+
+Botón **«Crear la campaña siguiente»** en el panel (`/gestion/licencias`), que **solo sale con la
+campaña actual cerrada** (`crearCampania()` también lo comprueba en el servidor). Pide nombre, curso
+escolar (propone el siguiente: `2027/2028`), cierre automático (opcional) y un interruptor:
+
+- **«El alumnado aún está en el curso de este año»** (`lic_campaigns.promociona`, marcado por
+  defecto): para abrir la campaña en junio/julio, antes de pasar el curso en Educamos. Cada alumno se
+  lee un curso por delante (5º EP→6º EP, 6º EP→1º ESO … 3º ESO→4º ESO; 4º ESO sale). Si la central ya
+  está pasada de curso, se desmarca.
+- La campaña **nace en borrador** (las familias no pueden pedir hasta que se abra a mano), con el
+  alumnado de la central ya dentro y **sin libros**: el catálogo se trae de la hoja «BBDD Libros» con
+  Sincronizar → catálogo, porque precios, ISBN y editoriales cambian cada curso.
+- Desde ese momento el panel y los enlaces pasan a la nueva (`getCurrentCampaign()` es la más reciente).
+- El idioma de cada clase (`Idioma por clase`) hay que ponerlo de nuevo: cambia cada curso.
+
 ## Modelo de datos: el alumno se lee de la central, en vivo (5-nov-2026)
 
 `lic_students` es **la lista de quién participa en la campaña**, no una copia del alumno. Todo
@@ -702,8 +718,8 @@ lo que Licencias muestra o exporta del alumno —nombre, curso (con los PDC trad
 join, a través de `src/lib/licencias-alumno-server.ts` (`alumnoCols`, `alumnoVivo`, `LicAlumno`).
 Lo que sí es de la campaña y se guarda en `lic_students`: **el idioma de la clase**
 (`lengua_base`: la central no lo tiene), el «no pedirá» a mano (`manual_completed_*`) y el
-`student_code` (etiqueta de exportaciones). Las columnas duplicadas siguen en la tabla pero
-nadie las lee; se borrarán en la fase 2 de `06-fuente-unica-alumnado.md`.
+`student_code` (etiqueta de exportaciones). Las columnas duplicadas se borran en la fase 2 de
+`06-fuente-unica-alumnado.md` (`fuente-unica-fase2.sql`).
 
 - Un cambio en la central (banco de libros, curso, correo, apellidos) se ve en Licencias **al
   instante**, sin sincronizar nada.

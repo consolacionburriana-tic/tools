@@ -14,6 +14,31 @@ export const CURSOS_FORM = [
 
 export type CursoForm = (typeof CURSOS_FORM)[number]['value'];
 
+/**
+ * Curso al que PASA cada alumno de Licencias cuando la campaña se abre antes de que la central
+ * cambie el curso (`lic_campaigns.promociona`): el que hoy está en 2º ESO pide libros de 3º.
+ * Es la promoción del ALUMNO (5º EP→6º EP, 6º EP→1º ESO … 3º ESO→4º ESO), no la de los tutores
+ * (`cursoSiguiente()` de `cursos.ts`, que rota Primaria por parejas). 4º ESO egresa → `null`.
+ * Tiene su gemelo en SQL, `CURSO_LIC_SQL` (`licencias-alumno-server.ts`); los tests los cruzan.
+ */
+export const PROMOCION_ALUMNO: Record<string, string> = {
+  '5PRI': '6PRI',
+  '6PRI': '1ESO',
+  '1ESO': '2ESO',
+  '2ESO': '3ESO',
+  '3ESO': '4ESO',
+};
+
+/**
+ * El curso de Licencias de un alumno en una campaña. `cursoBase` ya viene con los PDC traducidos
+ * (`3ESO`). Sin `promociona` es el mismo; con él, el siguiente, o `null` si ya no entra en la
+ * campaña (4º ESO sale, y los cursos fuera del rango no tienen siguiente que importe).
+ */
+export function cursoParaCampania(cursoBase: string | null | undefined, promociona: boolean): string | null {
+  if (!cursoBase) return null;
+  return promociona ? (PROMOCION_ALUMNO[cursoBase] ?? null) : cursoBase;
+}
+
 
 export function cursoLabel(curso: string): string {
   return CURSOS_FORM.find((c) => c.value === curso)?.label ?? curso;
@@ -221,4 +246,16 @@ export interface CatalogBook {
 export function esTemporadaLicencias(fecha = new Date()): boolean {
   const mes = fecha.getMonth() + 1;
   return mes === 6 || mes === 9;
+}
+
+/**
+ * El curso escolar que sigue a `2026/2027` y el nombre que lleva su campaña, para precargar el
+ * botón «Crear la campaña siguiente». Si el curso no tiene la forma `AAAA/AAAA`, no se inventa nada.
+ */
+export function siguienteCampania(academicYear: string | null | undefined): { academicYear: string; name: string } | null {
+  const m = /^(\d{4})\/(\d{4})$/.exec((academicYear ?? '').trim());
+  if (!m) return null;
+  const desde = Number(m[1]) + 1;
+  const hasta = Number(m[2]) + 1;
+  return { academicYear: `${desde}/${hasta}`, name: `Licencias ${desde}/${String(hasta).slice(2)}` };
 }

@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from '@/db';
-import { getBooksFromSheet, type SheetBookRow, type SheetStudentRow } from '@/lib/google-sheets';
+import { getBooksFromSheet, type SheetBookRow } from '@/lib/google-sheets';
 import { claveLibro, getBancoLibrosCenso, indexarLibros } from '@/lib/licencias-exports';
 import { getStudents as getEduStudents } from '@/lib/educamos-server';
 import {
@@ -13,7 +13,6 @@ import {
   licPacks,
   licStudents,
   licAjustesPedido,
-  type LicStudent,
   type LicBook,
   type LicOrder,
   type LicOrderItem,
@@ -24,6 +23,7 @@ import {
   type CatalogBook,
   CURSOS_FORM,
   cursoEfectivo,
+  cursoParaCampania,
   isPdcLetra,
   resolveBilingual,
   toPdcCurso,
@@ -1328,17 +1328,22 @@ export async function syncBooksFromSheet(campaignId: string): Promise<{ upserted
   return { upserted: rows.length, deactivated: toDeactivate.length };
 }
 
-// ── Alumnos: vista previa y sincronización desde la pestaña "BBDD Alumnos" ─────────────
-// La hoja "BBDD Alumnos" contiene TODO el colegio (Infantil a ESO); esta campaña de
-// licencias solo cubre los cursos de CURSOS_FORM (6PRI-4ESO/PDC), así que filtramos por
-// curso base antes de tocar nada — el resto de filas del Sheet se ignoran (ni se cuentan
-// como "a desactivar", porque nunca formaron parte de esta campaña).
+// ── Alumnos: quién participa en la campaña ───────────────────────────────────────────
+// `lic_students` es solo la lista de quién juega (fuente única de alumnado, ver
+// docs/06-fuente-unica-alumnado.md): nombre, curso, correo, banco… se leen EN VIVO de
+// `edu_students`. Por eso este «sync» no mueve datos ni tiene cambios que enseñar: responde a UNA
+// pregunta, ¿quién entra y quién sale de la campaña? Las altas también se hacen solas al importar
+// de Educamos (`darDeAltaEnCampania`); aquí se repasan y se deciden las bajas, con vista previa.
+//
+// La campaña solo cubre los cursos de CURSOS_FORM (6PRI-4ESO/PDC): el resto del colegio no se
+// cuenta ni como «a desactivar», porque nunca formó parte de ella.
 const IN_SCOPE_CURSOS = new Set<string>(CURSOS_FORM.map((c) => c.base));
 
 export interface StudentPlanItem {
   key: string;
   studentCode: string;
   label: string;
+  /** Siempre vacío: ya no hay datos que actualizar. Se deja por la forma común de las vistas previas. */
   changes: FieldChange[];
   warning?: string;
 }
@@ -1350,46 +1355,27 @@ export interface StudentSyncPlan {
   unchanged: number;
 }
 
-function studentLabel(r: { apellidos: string; nombre: string; curso: string; letra?: string | null }) {
-  return `${r.apellidos}, ${r.nombre} (${r.curso}${r.letra ? ' · ' + r.letra : ''})`;
+function studentLabel(r: { apellidos: string; nombre: string; curso: string | null; letra?: string | null }) {
+  return `${r.apellidos}, ${r.nombre} (${r.curso ?? '—'}${r.letra ? ' · ' + r.letra : ''})`;
 }
-
-function diffStudent(r: SheetStudentRow, dbRow: LicStudent): FieldChange[] {
-  const changes = diffFields([
-    ['Curso', dbRow.curso, r.curso],
-    ['Letra', dbRow.letra ?? '', r.letra ?? ''],
-    ['Apellidos', dbRow.apellidos, r.apellidos],
-    ['Apellido 1', dbRow.apellido1 ?? '', r.apellido1 ?? ''],
-    ['Apellido 2', dbRow.apellido2 ?? '', r.apellido2 ?? ''],
-    ['Nombre', dbRow.nombre, r.nombre],
-    ['Año nacimiento', dbRow.birthYear != null ? String(dbRow.birthYear) : '', r.birthYear != null ? String(r.birthYear) : ''],
-    ['Email', dbRow.email ?? '', r.email ?? ''],
-    ['Banco Libros', dbRow.bancoLibros ? 'Sí' : 'No', r.bancoLibros ? 'Sí' : 'No'],
-    // Solo si la central trae dato: sin él no se pisa, así que tampoco es un cambio que enseñar.
-    ['Lengua base', dbRow.lenguaBase ?? '', r.lenguaBase ?? dbRow.lenguaBase ?? ''],
-    // Ya no es clave, pero se enseña: es la pista de por qué antes salía como baja + alta.
-    ['Código', dbRow.studentCode, r.studentCode],
-  ]);
-  // "ID Educamos" no está poblado en el Sheet (comprobado: 0/599 filas lo traen). Si viene
-  // vacío no lo tocamos ni lo mostramos como cambio — evita borrar un dato que solo existe en Neon.
-  if (r.educamosId && r.educamosId !== (dbRow.educamosId ?? '')) {
-    changes.push({ field: 'ID Educamos', before: dbRow.educamosId || '—', after: r.educamosId });
-  }
-  return changes;
-}
-
-// Vista previa: qué cambiaría en lic_students si se sincroniza ahora. No escribe nada.
-// Avisa cuando un alumno con pedido ya confirmado cambiaría de curso o Banco de Libros,
-// porque eso puede dejar de encajar con las licencias que la familia ya eligió.
 
 // ─── Alumnado desde la BBDD central (edu_students) ───────────────────────────
-// Licencias vive de la BBDD central: el "sync de alumnos" puebla el snapshot de campaña
-// (lic_students) desde edu_students, ya no desde el Google Sheet.
-type CentralStudentRow = SheetStudentRow & { eduStudentId: string };
+interface CentralStudentRow {
+  eduStudentId: string;
+  /** Etiqueta, no identidad: si no hay código se usa el NIA, que es la clave humana real. */
+  studentCode: string;
+  /** El curso EN LA CAMPAÑA: PDC traducido y, si la campaña promociona, un curso por delante. */
+  curso: string | null;
+  letra: string | null;
+  apellidos: string;
+  nombre: string;
+  lenguaBase: string | null;
+}
 
 const MODELO_TO_LENGUA: Record<string, string> = { PIP: 'CAS', PEV: 'VAL' };
 
-export async function getStudentsFromCentral(): Promise<CentralStudentRow[]> {
+/** Los alumnos activos de la central que tienen curso, vistos desde la campaña (`promociona`). */
+export async function getStudentsFromCentral(promociona: boolean): Promise<CentralStudentRow[]> {
   const rows = await getEduStudents();
   return rows
     // Solo hace falta el curso. Antes se exigía también `codigo`, porque el código ERA la clave;
@@ -1399,171 +1385,117 @@ export async function getStudentsFromCentral(): Promise<CentralStudentRow[]> {
     .filter((r) => r.curso)
     .map((r) => ({
       eduStudentId: r.id,
-      // Etiqueta, no identidad: si no hay código se usa el NIA, que es la clave humana real.
       studentCode: r.codigo ?? r.nia ?? r.id,
-      educamosId: r.educamosPersonaId,
       // Educamos llama al PDC por su programa ('3ºPPDC'); para Licencias un alumno de 3º PDC es
       // de 3ESO con letra PDC (ver CURSOS_FORM). Sin traducir se caían de IN_SCOPE_CURSOS y el
       // sync los daba de baja en bloque sin volver a darlos de alta (23 alumnos, 2 con pedido).
-      curso: cursoBaseEso(r.curso)!,
+      curso: cursoParaCampania(cursoBaseEso(r.curso), promociona),
       letra: r.letra,
-      birthYear: r.fechaNacimiento ? Number(r.fechaNacimiento.slice(0, 4)) : null,
       apellidos: [r.apellido1, r.apellido2].filter(Boolean).join(' '),
-      apellido1: r.apellido1,
-      apellido2: r.apellido2,
       nombre: r.nombre ?? '',
-      email: r.email ?? r.emailGoogle,
-      bancoLibros: r.bancoLibros,
       lenguaBase: r.modeloLinguistico ? (MODELO_TO_LENGUA[r.modeloLinguistico.toUpperCase()] ?? null) : null,
     }));
 }
 
-/**
- * Empareja una fila de la central con la fila que ya existe en la campaña.
- *
- * **La identidad es `edu_student_id`**, la FK a la BBDD central (cuya clave humana es el NIA),
- * no el `student_code`. El código viene del Excel que David importó a mano y se recalcula a
- * partir del nombre, así que cambia solo: al empezar a quitar acentos, 22 alumnos pasaron de
- * `13COMVÍC` a `13COMVIC` (y "DE LA TORRE" de `13DE MAR` a `13DELMAR`). Emparejando por código,
- * el sync veía a esos 22 como bajas + altas de gente distinta y desactivaba la fila vieja —
- * la misma que referencian sus pedidos (13 tenían pedido confirmado). Reportado por David el
- * 2026-09-03 al ver la vista previa: "Marta de la Torre y Víctor Compañ se dan de baja y de
- * alta si son el mismo".
- *
- * El código solo se usa como respaldo para adoptar filas heredadas que aún no tienen enlace.
- */
-function emparejador<T extends { id: string; studentCode: string; eduStudentId: string | null }>(existing: T[]) {
-  const porEdu = new Map(existing.filter((e) => e.eduStudentId).map((e) => [e.eduStudentId!, e]));
-  const porCode = new Map(existing.filter((e) => !e.eduStudentId).map((e) => [e.studentCode, e]));
-  return (r: { eduStudentId: string; studentCode: string }): T | undefined =>
-    porEdu.get(r.eduStudentId) ?? porCode.get(r.studentCode);
+const enAlcance = (r: CentralStudentRow) => !!r.curso && IN_SCOPE_CURSOS.has(r.curso);
+
+async function campaniaPorId(campaignId: string) {
+  const [campaign] = await db.select().from(licCampaigns).where(eq(licCampaigns.id, campaignId)).limit(1);
+  if (!campaign) throw new Error('Campaña no encontrada');
+  return campaign;
 }
 
+// Vista previa: quién entraría y quién saldría de la campaña si se sincroniza ahora. No escribe nada.
 export async function getStudentsSyncPlan(campaignId: string): Promise<StudentSyncPlan> {
+  const campaign = await campaniaPorId(campaignId);
   const [allRows, existing, orders] = await Promise.all([
-    getStudentsFromCentral(),
-    db.select().from(licStudents).where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
+    getStudentsFromCentral(campaign.promociona),
+    db
+      .select({
+        id: licStudents.id,
+        eduStudentId: licStudents.eduStudentId,
+        studentCode: licStudents.studentCode,
+        apellidos: alumnoVivo.apellidos,
+        nombre: alumnoVivo.nombre,
+        curso: alumnoVivo.curso,
+        letra: alumnoVivo.letra,
+      })
+      .from(licStudents)
+      .innerJoin(eduStudents, ON_EDU)
+      .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
       .select({ studentId: licOrders.studentId })
       .from(licOrders)
       .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
   ]);
-  const rows = allRows.filter((r) => IN_SCOPE_CURSOS.has(r.curso));
-  const outOfScope = allRows.length - rows.length;
-
+  const rows = allRows.filter(enAlcance);
+  const dentro = new Set(existing.map((e) => e.eduStudentId));
+  const enCentral = new Set(rows.map((r) => r.eduStudentId));
   const studentsWithOrder = new Set(orders.map((o) => o.studentId));
-  const emparejar = emparejador(existing);
-  const emparejados = new Set<string>();
 
-  const toInsert: StudentPlanItem[] = [];
-  const toUpdate: StudentPlanItem[] = [];
-  let unchanged = 0;
-  for (const r of rows) {
-    const dbRow = emparejar(r);
-    const label = studentLabel(r);
-    if (!dbRow) {
-      toInsert.push({ key: r.studentCode, studentCode: r.studentCode, label, changes: [] });
-      continue;
-    }
-    emparejados.add(dbRow.id);
-    const changes = diffStudent(r, dbRow);
-    if (changes.length === 0) {
-      unchanged++;
-      continue;
-    }
-    let warning: string | undefined;
-    if (studentsWithOrder.has(dbRow.id) && changes.some((c) => c.field === 'Curso' || c.field === 'Banco Libros')) {
-      warning = 'Ya tiene un pedido confirmado en esta campaña: al cambiar curso/Banco de Libros, las licencias ya elegidas podrían dejar de encajar con su catálogo.';
-    }
-    toUpdate.push({ key: r.studentCode, studentCode: r.studentCode, label, changes, warning });
-  }
+  const toInsert: StudentPlanItem[] = rows
+    .filter((r) => !dentro.has(r.eduStudentId))
+    .map((r) => ({ key: r.studentCode, studentCode: r.studentCode, label: studentLabel(r), changes: [] }));
   const toDeactivate = existing
-    .filter((s) => !emparejados.has(s.id))
-    .map((s) => ({ key: s.studentCode, label: studentLabel(s), hasOrder: studentsWithOrder.has(s.id) }));
+    .filter((e) => !enCentral.has(e.eduStudentId))
+    .map((e) => ({ key: e.studentCode, label: studentLabel(e), hasOrder: studentsWithOrder.has(e.id) }));
 
-  return { toInsert, toUpdate, toDeactivate, outOfScope, unchanged };
+  return {
+    toInsert,
+    toUpdate: [],
+    toDeactivate,
+    outOfScope: allRows.length - rows.length,
+    unchanged: existing.length - toDeactivate.length,
+  };
 }
 
-// Aplica la sincronización: upsert por (campaña, código) preservando el id del alumno
-// (los pedidos referencian ese id) y desactivando — nunca borrando — a quien ya no esté
-// en el Sheet, para no romper la referencia de pedidos ya hechos (lic_orders.student_id).
+/**
+ * Aplica la sincronización: da de alta (o reactiva) a quien está en la central y en el alcance de
+ * la campaña, y desactiva — nunca borra — a quien ya no lo está, para no romper los pedidos que
+ * referencian su fila (`lic_orders.student_id`). El id de la fila no cambia jamás.
+ */
 export async function syncStudentsFromSheet(campaignId: string): Promise<{ upserted: number; deactivated: number; outOfScope: number }> {
-  const allRows = await getStudentsFromCentral();
-  const rows = allRows.filter((r) => IN_SCOPE_CURSOS.has(r.curso));
+  const campaign = await campaniaPorId(campaignId);
+  const allRows = await getStudentsFromCentral(campaign.promociona);
+  const rows = allRows.filter(enAlcance);
   if (rows.length === 0) return { upserted: 0, deactivated: 0, outOfScope: allRows.length };
 
-  // Igual que en syncBooksFromSheet: se calcula antes del batch porque el resultado no
-  // cambia si se hace antes o después de los upserts (mismo razonamiento que arriba).
   const existing = await db
-    .select({ id: licStudents.id, studentCode: licStudents.studentCode, eduStudentId: licStudents.eduStudentId })
+    .select({ id: licStudents.id, eduStudentId: licStudents.eduStudentId })
     .from(licStudents)
     .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
-  const emparejar = emparejador(existing);
-  const emparejados = new Set(rows.map((r) => emparejar(r)?.id).filter((id): id is string => !!id));
-  const toDeactivate = existing.filter((s) => !emparejados.has(s.id)).map((s) => s.id);
+  const enCentral = new Set(rows.map((r) => r.eduStudentId));
+  const toDeactivate = existing.filter((s) => !enCentral.has(s.eduStudentId)).map((s) => s.id);
 
-  // Filas heredadas del Excel que aún no tienen enlace y casan por código: se les pone el
-  // `edu_student_id` ANTES de los upserts, para que el upsert por identidad las encuentre y las
-  // actualice en vez de crear una segunda fila del mismo alumno. Va primero en el batch porque
-  // `db.batch` respeta el orden.
-  const adopciones: BatchItem<'pg'>[] = rows
-    .map((r) => ({ r, previa: emparejar(r) }))
-    .filter((x) => x.previa && !x.previa.eduStudentId)
-    .map((x) => db.update(licStudents).set({ eduStudentId: x.r.eduStudentId }).where(eq(licStudents.id, x.previa!.id)));
-
-  const statements: BatchItem<'pg'>[] = rows.map((r) =>
+  const statements: BatchItem<'pg'>[] = [
     db
       .insert(licStudents)
-      .values({
-        campaignId,
-        studentCode: r.studentCode,
-        eduStudentId: r.eduStudentId,
-        educamosId: r.educamosId,
-        apellidos: r.apellidos,
-        apellido1: r.apellido1,
-        apellido2: r.apellido2,
-        nombre: r.nombre,
-        birthYear: r.birthYear,
-        curso: r.curso,
-        letra: r.letra,
-        email: r.email,
-        bancoLibros: r.bancoLibros,
-        lenguaBase: r.lenguaBase,
-        active: true,
-      })
+      .values(
+        rows.map((r) => ({
+          campaignId,
+          studentCode: r.studentCode,
+          eduStudentId: r.eduStudentId,
+          lenguaBase: r.lenguaBase,
+          active: true,
+        })),
+      )
       .onConflictDoUpdate({
-        // Por identidad, no por código: así un alumno cuyo `student_code` haya cambiado
-        // ACTUALIZA su fila (y su código) en vez de entrar como alta nueva dejando huérfano el
-        // pedido que apuntaba a la vieja.
+        // Por identidad, no por código: un alumno cuyo `student_code` haya cambiado ACTUALIZA su
+        // fila (y su código) en vez de entrar como alta nueva dejando huérfano el pedido.
         target: [licStudents.campaignId, licStudents.eduStudentId],
         set: {
-          // "ID Educamos" no viene poblado en el Sheet: si llega vacío, no lo incluimos en el
-          // update para no borrar un valor que solo existe en Neon (ver diffStudent).
-          ...(r.educamosId ? { educamosId: r.educamosId } : {}),
-          studentCode: r.studentCode,
-          apellidos: r.apellidos,
-          apellido1: r.apellido1,
-          apellido2: r.apellido2,
-          nombre: r.nombre,
-          birthYear: r.birthYear,
-          curso: r.curso,
-          letra: r.letra,
-          email: r.email,
-          bancoLibros: r.bancoLibros,
-          // Igual que `educamosId`: si la central no trae modelo lingüístico (hoy lo tiene a
-          // NULL en todo el alumnado), no se incluye en el update. Si no, cada sync borraba la
-          // lengua puesta a mano en «Idioma por clase» y los libros CAS/VAL volvían a salir
-          // todos en castellano.
-          ...(r.lenguaBase ? { lenguaBase: r.lenguaBase } : {}),
+          studentCode: sql`excluded.student_code`,
           active: true,
+          // Si la central no trae modelo lingüístico (hoy lo tiene a NULL en todo el alumnado) no
+          // se pisa: si no, cada sync borraba la lengua puesta a mano en «Idioma por clase».
+          lenguaBase: sql`coalesce(excluded.lengua_base, ${licStudents.lenguaBase})`,
         },
       }),
-  );
+  ];
   if (toDeactivate.length > 0) {
     statements.push(db.update(licStudents).set({ active: false }).where(inArray(licStudents.id, toDeactivate)));
   }
-  const todo = [...adopciones, ...statements];
-  await db.batch(todo as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
+  await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
 
   return { upserted: rows.length, deactivated: toDeactivate.length, outOfScope: allRows.length - rows.length };
 }
@@ -1589,7 +1521,7 @@ export async function darDeAltaEnCampania(
   if (!campaign || campaign.status === 'closed') return null;
 
   const ids = new Set(eduStudentIds);
-  const filas = (await getStudentsFromCentral()).filter((r) => ids.has(r.eduStudentId) && IN_SCOPE_CURSOS.has(r.curso));
+  const filas = (await getStudentsFromCentral(campaign.promociona)).filter((r) => ids.has(r.eduStudentId) && enAlcance(r));
   if (filas.length === 0) return { campaignId: campaign.id, campaignName: campaign.name, altas: 0 };
 
   const insertadas = await db
@@ -1599,16 +1531,6 @@ export async function darDeAltaEnCampania(
         campaignId: campaign.id,
         studentCode: r.studentCode,
         eduStudentId: r.eduStudentId,
-        educamosId: r.educamosId,
-        apellidos: r.apellidos,
-        apellido1: r.apellido1,
-        apellido2: r.apellido2,
-        nombre: r.nombre,
-        birthYear: r.birthYear,
-        curso: r.curso,
-        letra: r.letra,
-        email: r.email,
-        bancoLibros: r.bancoLibros,
         lenguaBase: r.lenguaBase,
         active: true,
       })),
@@ -1616,4 +1538,46 @@ export async function darDeAltaEnCampania(
     .onConflictDoNothing({ target: [licStudents.campaignId, licStudents.eduStudentId] })
     .returning({ id: licStudents.id });
   return { campaignId: campaign.id, campaignName: campaign.name, altas: insertadas.length };
+}
+
+/**
+ * Crea la campaña del curso siguiente. Solo se puede **cuando la anterior está cerrada** (o no hay
+ * ninguna): el panel y los enlaces pasan a la nueva en cuanto existe, y con la vieja abierta eso
+ * dejaría a las familias sin poder terminar su pedido.
+ *
+ * Nace en `draft` (las familias no pueden pedir hasta que se abra a mano) con el alumnado de la
+ * central ya dentro, y **sin libros**: el catálogo del año sale de la pestaña «BBDD Libros» con
+ * Sincronizar → catálogo, porque precios, ISBN y editoriales cambian cada curso y copiar los del
+ * anterior sería arrastrar datos viejos. `promociona = true` si se crea antes de que la central
+ * haya pasado el alumnado de curso (lo normal: junio/julio).
+ */
+export async function crearCampania(input: {
+  name: string;
+  academicYear: string;
+  promociona: boolean;
+  orderDeadline?: string | null;
+}): Promise<{ campaignId: string; alumnos: number }> {
+  const actual = await getCurrentCampaign();
+  if (actual && actual.status !== 'closed') {
+    throw new Error(`La campaña «${actual.name}» sigue ${actual.status === 'open' ? 'abierta' : 'en borrador'}: ciérrala antes de crear la siguiente.`);
+  }
+  const [repetida] = await db
+    .select({ id: licCampaigns.id })
+    .from(licCampaigns)
+    .where(eq(licCampaigns.academicYear, input.academicYear))
+    .limit(1);
+  if (repetida) throw new Error(`Ya existe una campaña del curso ${input.academicYear}.`);
+
+  const [campaign] = await db
+    .insert(licCampaigns)
+    .values({
+      name: input.name,
+      academicYear: input.academicYear,
+      status: 'draft',
+      promociona: input.promociona,
+      orderDeadline: input.orderDeadline || null,
+    })
+    .returning({ id: licCampaigns.id });
+  const { upserted } = await syncStudentsFromSheet(campaign.id);
+  return { campaignId: campaign.id, alumnos: upserted };
 }

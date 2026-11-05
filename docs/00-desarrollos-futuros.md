@@ -207,23 +207,24 @@ secretaría lee»; el resto lo decidí yo y se cambia fácil:
 
 ### Fuente única de alumnado: lo que decidí yo (5-nov-2026) — revisar con David
 
-Ejecutado el plan de `06-fuente-unica-alumnado.md` (fases 1 y 3). Decisiones de alcance que tomé:
+Ejecutado el plan de `06-fuente-unica-alumnado.md`. Decisiones de alcance que tomé:
 
 1. **`lengua_base` se queda en `lic_students`.** El plan lo listaba para borrar, pero se escribió
    antes de la pantalla «Idioma por clase»: la central no lo tiene y lo decide cada campaña.
-2. **La fase 2 (borrar columnas) NO se ha aplicado**: exige desplegar antes la fase 1 y, según el
-   propio plan, que la campaña no reciba pedidos (sigue `open` tras el plazo del 15-sep). Detalle y
-   orden exacto en la ficha 06.
-3. **El alta automática no entra con la campaña cerrada** (`status = 'closed'`): sin pedidos que
-   recoger, dar de alta no tiene sentido y evita meter gente en una campaña ya liquidada.
-4. **Nikita Averochkin (2ESO B)** está activa en la central y no en la campaña (el mismo caso que
-   los 13 de septiembre). La fase 3 solo da de alta a los alumnos *nuevos* de cada import, así que
-   no la repesca: se añade desde Licencias → Sincronizar, **y entonces el censo del banco sube en
-   uno** (cuenta para el pedido a editoriales), por eso no la he tocado.
-5. **15 filas heredadas sin enlace** a la central, inactivas y sin pedidos: impiden poner
-   `edu_student_id NOT NULL`. Borrarlas o dejar la columna opcional (fase 2).
-6. **Falta crear la campaña 2027/28 desde la app**: no hay botón (solo el seed `db:seed:licencias`,
-   que dejará de servir) ni pantalla para traer el catálogo de libros y promocionar el alumnado.
+2. **El alta automática no entra con la campaña cerrada**: sin pedidos que recoger, dar de alta no
+   tiene sentido y evita meter gente en una campaña ya liquidada.
+3. **Nikita Averochkin (2ESO B)** se añadió a la campaña (a petición de David) antes de cerrarla. Su
+   idioma de clase (2ºESO B está en valencià) queda por poner en `/gestion/licencias/lenguas`.
+4. **Las 15 filas heredadas sin enlace se borran** en `fuente-unica-fase2.sql` (solo si no tienen
+   pedidos, licencias ni envíos).
+5. **Campaña del curso siguiente = `promociona`**: cuando se abre antes de pasar el curso en la
+   central, cada alumno se lee un curso por delante. La regla es la del ALUMNO (6º EP→1º ESO), no la
+   de los tutores (`cursoSiguiente`, que rota Primaria por parejas). Ver ficha 11.
+6. **La campaña nueva nace sin libros** (no se copian los del año anterior): el catálogo se trae de
+   «BBDD Libros». Y **sin packs** ni idioma por clase: cambian cada año.
+7. **Pendiente de aplicar:** `fuente-unica-fase2.sql` junto con la fusión de la rama de la fase 2.
+8. **`src/db/data/licencias-2026.json`** (el JSON del seed retirado) trae nombres de alumnos: conviene
+   sacarlo del repo en un commit aparte.
 
 ### Arreglos de octubre (comedor, listas, licencias de profes): lo que decidí yo (19-oct-2026) — revisar con David
 

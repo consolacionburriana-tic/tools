@@ -93,9 +93,15 @@ export const licCampaigns = pgTable('lic_campaigns', {
   // Último informe de licencias gratis del banco de libros descargado (censo completo, sin
   // ciclo por pedido): solo para avisar y no pedirlas dos veces. Ver licencias-banco-report.sql
   bancoReportAt: timestamp('banco_report_at'),
+  // La campaña se abre antes de que la central pase el alumnado de curso: cada alumno se lee un
+  // curso por delante (2ºESO→3ºESO, 4ºESO fuera). Ver licencias-campana-promociona.sql.
+  promociona: boolean('promociona').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Quién participa en la campaña. NO es una copia del alumno: nombre, curso, letra, correo, banco de
+// libros… se leen EN VIVO de `edu_students` (`src/lib/licencias-alumno-server.ts`). Aquí solo
+// queda lo que es de la campaña y no del alumno. Ver docs/06-fuente-unica-alumnado.md.
 export const licStudents = pgTable('lic_students', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   campaignId: uuid('campaign_id').notNull().references(() => licCampaigns.id),
@@ -104,20 +110,12 @@ export const licStudents = pgTable('lic_students', {
   // espacios) y eso daba bajas+altas fantasma de la misma persona. Se conserva porque sale en
   // exportaciones y en el Excel del colegio.
   studentCode: text('student_code').notNull(),
-  educamosId: text('educamos_id'),
   /** La identidad del alumno: FK a la BBDD central. Es la clave con la que se empareja. */
-  eduStudentId: uuid('edu_student_id').references(() => eduStudents.id),
-  apellidos: text('apellidos').notNull(),
-  apellido1: text('apellido1'),
-  apellido2: text('apellido2'),
-  nombre: text('nombre').notNull(),
-  birthYear: integer('birth_year'),
-  curso: text('curso').notNull(), // curso actual del alumno; se gestiona a mano en el origen (Sheet/BD), la app nunca lo avanza sola
-  letra: text('letra'),
-  email: text('email'),
-  bancoLibros: boolean('banco_libros').notNull().default(false),
+  eduStudentId: uuid('edu_student_id').notNull().references(() => eduStudents.id),
+  // El idioma de la clase (CAS/VAL) es de la campaña, no del alumno: cambia cada curso y la
+  // central no lo tiene (`modelo_linguistico` está a NULL). Se pone en «Idioma por clase».
   lenguaBase: text('lengua_base'),
-  active: boolean('active').notNull().default(true), // en rango del formulario
+  active: boolean('active').notNull().default(true), // participa en la campaña
   // Marcado a mano desde "Quién falta" para alumnos que en realidad no tienen que hacer pedido
   // (p.ej. PDC). Deja de contar como pendiente aunque no haya lic_orders para él.
   manualCompletedAt: timestamp('manual_completed_at'),
@@ -129,7 +127,6 @@ export const licStudents = pgTable('lic_students', {
   // el viejo se desactivaba — llevándose por delante el pedido que lo referenciaba.
   uniqueIndex('lic_students_campaign_edu_uq').on(t.campaignId, t.eduStudentId),
   index('lic_students_campaign_code_idx').on(t.campaignId, t.studentCode),
-  index('lic_students_search_idx').on(t.curso, t.birthYear, t.apellidos),
 ]);
 
 export const licBooks = pgTable('lic_books', {

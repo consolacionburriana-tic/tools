@@ -150,21 +150,6 @@ export async function getBooksFromSheet(): Promise<SheetBookRow[]> {
 //   J = Nombre (real)      K = Mail (real)      L = Banco Libros (real, TRUE/FALSE)
 //   M = Lengua Base (real) N = ID Educamos (vacío en todas las filas actuales)
 // Usamos los índices verificados contra datos reales, no los literales de la cabecera.
-export interface SheetStudentRow {
-  studentCode: string;
-  curso: string;
-  letra: string | null;
-  birthYear: number | null;
-  apellidos: string;
-  apellido1: string | null;
-  apellido2: string | null;
-  nombre: string;
-  email: string | null;
-  bancoLibros: boolean;
-  lenguaBase: string | null;
-  educamosId: string | null;
-}
-
 // (getStudentsFromSheet se retiró: el alumnado de Licencias se puebla desde la BBDD
 // central edu_students, ver licencias-server.getStudentsFromCentral)
 export interface SyncResult {

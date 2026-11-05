@@ -4,9 +4,8 @@
 > Es lo PRIMERO que hay que hacer en cuanto se retome el desarrollo, antes que cualquier otra
 > casilla de cualquier otro hito.
 >
-> **Estado (5-nov-2026): fases 1 y 3 hechas y verificadas contra Neon; falta solo la fase 2
-> (borrar las columnas duplicadas), que no se puede hacer hasta que la fase 1 esté desplegada.**
-> Mira «Fase 2» abajo: es lo único que queda, y está escrito con el orden exacto.
+> **Estado (5-nov-2026): fases 1 y 3 hechas y desplegadas; fase 2 escrita y probada, falta aplicar su
+> SQL a la vez que se fusiona la rama.** Mira «Fase 2» abajo: es lo único que queda, con el orden exacto.
 
 Deuda técnica transversal: el mismo dato de un alumno vive en dos tablas, y las dos se leen como
 si fueran la verdad. Este documento deja el plan cerrado para poder ejecutarlo del tirón.
@@ -130,47 +129,44 @@ siempre, así que quien los consume no cambió. Los campos duplicados siguen en 
 > lo tiene a NULL en todo el alumnado (`modelo_linguistico`) y es una decisión de la clase **de
 > cada campaña**, que cambia cada curso. Se queda en `lic_students`, igual que `manual_completed_*`.
 
-### Fase 2 · Adelgazar la tabla — ⏳ pendiente (necesita la fase 1 desplegada)
+### Fase 2 · Adelgazar la tabla — 🟡 código escrito y probado; falta aplicar el SQL
 
-**Por qué no se hizo el mismo día que la fase 1:** borrar columnas en Neon rompe al código que
-todavía las lea, y el que está en producción hasta que se despliegue la fase 1 las lee. El
-orden obligatorio es **(1) desplegar la fase 1 → (2) comprobar en producción → (3) este paso**.
-Además el plan dice «no hacer la fase 2 con una campaña recibiendo pedidos»: la campaña 2026/27
-sigue en estado `open` (el plazo acabó el 15-sep). Ciérrala (o decide que ya no entran pedidos)
-antes de empezar.
+**Estado (5-nov-2026):** la campaña 2026/27 está **cerrada**, la fase 1 está fusionada en `main`
+y el código de la fase 2 está escrito en la rama `claude/fuente-unica-fase2`. **Falta una cosa, y
+con orden:** aplicar `src/db/sql/fuente-unica-fase2.sql` (borra columnas) y fusionar esa rama **en
+el mismo momento**. Si el SQL se aplica con el código viejo en producción, Licencias se rompe; si
+se fusiona el código sin el SQL, el alta de alumnos falla (las columnas viejas son `NOT NULL`).
+Antes de nada, comprobar en Vercel que el despliegue de la fase 1 está *Ready*.
 
-Cosas que se descubrieron al prepararla (5-nov-2026) y que **cambian el plan original**:
+Cosas que se descubrieron al prepararla y que **cambian el plan original**:
 
 - **`lengua_base` NO se borra.** Ver el aviso de la fase 1: no es un duplicado, es del curso.
-- **`edu_student_id NOT NULL` no se puede poner tal cual:** hay **15 filas heredadas sin enlace**
-  (todas inactivas, sin pedidos). Antes hay que borrarlas —son datos de bajas del Excel original,
-  sin pedido ni licencia— o dejar la columna con `NULL` permitido. Comprobar antes que no las
-  referencia nada: `lic_orders`, `lic_licencias`, `lic_envios`.
-- **Hay 1 fila activa cuyo alumno está de baja en la central** (`13MORJOS`, 1ºESO, sin pedidos):
-  el sync de Licencias la daría de baja; es lo que debe pasar.
-- **`seed-licencias.ts` deja de servir** al quitar columnas (inserta alumnos con nombre y curso):
-  el alumnado ya no se siembra desde un JSON, entra desde la central.
-- **El sync de alumnos se queda en «¿quién entra y quién sale?»**: ya no hay `toUpdate` (no hay
-  nada que actualizar), solo altas y bajas.
+- **15 filas heredadas sin enlace** (inactivas, sin pedidos ni licencias ni envíos) impedían poner
+  `edu_student_id NOT NULL`. El SQL las borra —solo si no tienen NADA colgando— y, si quedara alguna
+  más, el `SET NOT NULL` falla a propósito antes de tocar ninguna columna.
+- **`seed-licencias.ts` se ha borrado** (y su script `db:seed:licencias`): insertaba alumnos con
+  nombre y curso, y el alumnado entra ya desde la central. El JSON `src/db/data/licencias-2026.json`
+  se queda de momento (trae datos personales del curso pasado: mejor sacarlo del repo aparte).
+- **El sync de alumnos se queda en «¿quién entra y quién sale?»**: sin `toUpdate` ni `diffStudent`,
+  un solo `INSERT … ON CONFLICT` y una sola baja en un `db.batch`.
+- **Una campaña abierta antes de pasar el curso** (junio/julio) necesita leer a cada alumno un
+  curso por delante. Con el snapshot eso salía solo (el seed ya traía el +1); leyendo en vivo hay
+  que decirlo: `lic_campaigns.promociona` (SQL aditivo `licencias-campana-promociona.sql`, **ya
+  aplicado**) y `cursoParaCampania()` / `CURSO_LIC_SQL` (con tests que cruzan JS y SQL).
 
-Pasos, en este orden:
-
-- [ ] Cerrar la campaña 2026/27 (o confirmar que no entran más pedidos).
-- [ ] Desplegar la fase 1 (merge a `main`) y repasar en producción: Quién falta, Exportar,
-      Editoriales, un pedido de familia.
-- [ ] Decidir qué hacer con las 15 filas sin enlace (borrar o dejar `NULL` permitido).
-- [ ] SQL en `src/db/sql/`: quitar de `lic_students` `apellidos`, `apellido1`, `apellido2`,
-      `nombre`, `birth_year`, `curso`, `letra`, `email`, `banco_libros`, `educamos_id` (y el
-      índice `lic_students_search_idx`). Se queda: `id`, `campaign_id`, `edu_student_id`,
-      `student_code`, `lengua_base`, `active`, `manual_completed_*`, `created_at`. **Aplicarlo
-      justo antes de desplegar el código de la fase 2**, no se puede dejar a medias.
-- [ ] Código: quitar las columnas de `schema.ts`; `darDeAltaEnCampania()` y `syncStudentsFromSheet()`
-      solo insertan `campaign_id` + `edu_student_id` + `student_code` + `lengua_base`;
-      `getStudentsSyncPlan()` sin `diffStudent`/`toUpdate`; borrar `seed-licencias.ts`.
-- [ ] Quitar el parche `propagarBancoACampania()` de `bancolibros-server.ts`: deja de hacer falta
-      (ya no hay copia a la que propagar).
-- [ ] `getAlumnosFueraDeCampania()` **se queda**: la fase 3 solo da de alta a los alumnos nuevos
-      de cada import, no repesca a quien ya estaba fuera (hoy hay uno: Nikita Averochkin, 2ESO B).
+- [x] Cerrar la campaña 2026/27.
+- [x] Desplegar la fase 1 (PR #127 fusionada) — *pendiente de confirmar «Ready» en Vercel*.
+- [x] Las 15 filas sin enlace: se borran en el SQL (con la guarda de «sin nada colgando»).
+- [x] SQL escrito y probado en seco: `fuente-unica-fase2.sql` (13 sentencias).
+- [x] Código: columnas fuera de `schema.ts`; altas y sync solo con `campaign_id` + `edu_student_id` +
+      `student_code` + `lengua_base`; `seed-licencias.ts` borrado.
+- [x] Quitado el parche `propagarBancoACampania()` de `bancolibros-server.ts`.
+- [x] `getAlumnosFueraDeCampania()` **se queda** (y mira el curso como lo ve la campaña): la fase 3
+      solo da de alta a los alumnos nuevos de cada import, no repesca a quien ya estaba fuera.
+- [x] Verificado contra Neon: con la rama, 25 pantallas y exportaciones dan **idéntico** resultado
+      que `main` (con `promociona = false`); la promoción +1 comprobada sobre el alumnado real
+      (1ESO→2ESO, 6PRI→1ESO, 4ESO→fuera, PDC incluido).
+- [ ] **Aplicar `fuente-unica-fase2.sql` y fusionar la rama a la vez** (ver arriba).
 
 ### Fase 3 · Que no haya que acordarse de sincronizar
 
@@ -189,8 +185,7 @@ Eso ya se puede automatizar sin miedo, porque no pisa nada.
 
 - [x] `docs/11-licencias-v2.md`: el modelo de datos dice ya que se lee en vivo (falta quitar las
       columnas, fase 2).
-- [ ] `docs/12-bancolibros.md`: la "Fase 5" pasa a ser histórico; el parche ya no existe (cuando
-      se quite en la fase 2).
+- [x] `docs/12-bancolibros.md`: la "Fase 5" pasa a ser histórico; el parche ya no existe.
 - [x] `docs/pequeños-arreglos.md`: no había nada de esto apuntado.
 
 ## Riesgos y cómo cubrirlos
