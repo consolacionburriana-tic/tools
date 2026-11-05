@@ -8,8 +8,7 @@ import { Segmentado } from '@/components/ui/segmentado';
 import { claseTarjeta } from '@/components/ui/tarjeta';
 import { Vacio } from '@/components/ui/vacio';
 import { cn } from '@/lib/utils';
-import { nombreClase } from '@/lib/cursos';
-import { chipEstado, fechaLarga, horaBonita, profesDe, type SesionOra } from '@/lib/oratorios';
+import { chipEstado, fechaLarga, horaBonita, nombreClases, profesDe, type SesionOra } from '@/lib/oratorios';
 import type { DatosMios } from '@/lib/oratorios-server';
 import { capital, EstadoChip } from './comun';
 
@@ -47,7 +46,7 @@ function Fila({ s, datos, email }: { s: SesionOra; datos: DatosMios; email: stri
     <li className={cn(claseTarjeta, 'p-4', s.estado === 'anulado' && 'opacity-60')}>
       <div className="flex flex-wrap items-center gap-2">
         <span aria-hidden className="text-xl">{tipo?.emoji}</span>
-        <b>{nombreClase(s.curso, s.letra)}</b>
+        <b>{nombreClases(s)}</b>
         <span className="text-zinc-500">{tipo?.nombre}</span>
         <EstadoChip chip={chipEstado(s, datos.hoy)} className="ml-auto" />
       </div>

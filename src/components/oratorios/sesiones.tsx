@@ -13,8 +13,7 @@ import { Rotulo } from '@/components/ui/rotulo';
 import { claseTarjeta } from '@/components/ui/tarjeta';
 import { Vacio } from '@/components/ui/vacio';
 import { cn } from '@/lib/utils';
-import { chipAviso, chipEstado, diaCorto, diaSemana, estaActiva, fechaCorta, horaBonita, nombreMesCorto, profesDe, trimestreDe, type SesionOra } from '@/lib/oratorios';
-import { nombreClase } from '@/lib/cursos';
+import { chipAviso, chipEstado, diaCorto, diaSemana, estaActiva, fechaCorta, horaBonita, nombreClases, nombreMesCorto, profesDe, trimestreDe, type SesionOra } from '@/lib/oratorios';
 import { EstadoChip } from './comun';
 import type { Estado } from './panel';
 
@@ -135,6 +134,11 @@ export function ListaSesiones({ e }: { e: Estado }) {
               <AlarmClock /> Programar 7 días antes ({sinProgramar.length})
             </Button>
           )}
+          {sinProgramar.length > 0 && (
+            <Button variant="outline" disabled={e.ocupado} onClick={() => void e.lote('programar', sinProgramar.map((s) => s.id), 3)}>
+              <AlarmClock /> Programar 3 días antes ({sinProgramar.length})
+            </Button>
+          )}
           {borradores.length > 0 && (
             <Button
               variant="outline"
@@ -178,7 +182,7 @@ export function ListaSesiones({ e }: { e: Estado }) {
                     <span aria-hidden>{t?.emoji}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">
-                        {nombreClase(s.curso, s.letra)} <span className="text-zinc-500">· S{s.numero}</span>
+                        {nombreClases(s)} <span className="text-zinc-500">· S{s.numero}</span>
                       </span>
                       <span className="block truncate text-xs text-zinc-500">
                         {profesDe(s).map((p) => p.nombre).join(', ') || '—'}

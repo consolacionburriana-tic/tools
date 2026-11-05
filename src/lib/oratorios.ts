@@ -109,6 +109,8 @@ export interface SesionOra {
   academicYear: string;
   curso: string;
   letra: string | null;
+  /** Otras clases juntas en este mismo momento (3º PDC + 4º PDC). Vacío = una sola. */
+  juntas: Clase[];
   numero: number;
   /** La sesión del abanico que se hace en este momento (null = sin elegir). */
   catalogoId: string | null;
@@ -275,6 +277,16 @@ export function claseDeClave(clave: string): Clase {
   return { curso, letra: letra || null };
 }
 
+/** Todas las clases de una sesión: la principal y las que se juntan con ella. */
+export function clasesDeSesion(s: { curso: string; letra: string | null; juntas?: readonly Clase[] | null }): Clase[] {
+  return [{ curso: s.curso, letra: s.letra }, ...(s.juntas ?? [])];
+}
+
+/** ¿Esta sesión cuenta para esa clase? (la suya o una de las juntas) */
+export function sesionEsDeClase(s: { curso: string; letra: string | null; juntas?: readonly Clase[] | null }, clave: string): boolean {
+  return clasesDeSesion(s).some((c) => claveClase(c) === clave);
+}
+
 /**
  * La clave con la que esa clase aparece en el horario. Coincide con la del alumnado salvo en
  * el PDC: Educamos lo llama '3ºPPDC' y el horario '3ESO' + 'PDC' (ver `cursoBaseEso`).
@@ -288,6 +300,16 @@ export function claveHorario(c: Clase): string {
 export function etiquetaClase(c: Clase): string {
   if (c.letra === 'PDC') return `${(cursoBaseEso(c.curso) ?? c.curso).replace(/\D.*$/, '')}º PDC`;
   return nombreClase(c.curso, c.letra).replace(/^(\d+)(º?)\s*([A-Za-zÀ-ÿ])/, '$1$2 $3');
+}
+
+/** '3º PDC + 4º PDC' con el nombre corto de la rejilla ('3ºPPDC + 4ºPPDC'). */
+export function nombreClases(s: { curso: string; letra: string | null; juntas?: readonly Clase[] | null }): string {
+  return clasesDeSesion(s).map((c) => nombreClase(c.curso, c.letra)).join(' + ');
+}
+
+/** '3º PDC + 4º PDC': la etiqueta de una sesión con sus clases juntas. */
+export function etiquetaClases(s: { curso: string; letra: string | null; juntas?: readonly Clase[] | null }): string {
+  return clasesDeSesion(s).map(etiquetaClase).join(' + ');
 }
 
 /**
@@ -414,10 +436,10 @@ export function esHecha(s: Pick<SesionOra, 'estado' | 'fecha'>, hoy: string): bo
 }
 
 /** Primer número libre de esa clase y tipo en el curso (anular la 2 deja libre el 2). */
-export function siguienteNumero(sesiones: readonly Pick<SesionOra, 'tipoId' | 'curso' | 'letra' | 'numero' | 'estado'>[], tipoId: string, clase: Clase): number {
+export function siguienteNumero(sesiones: readonly (Pick<SesionOra, 'tipoId' | 'curso' | 'letra' | 'numero' | 'estado'> & { juntas?: readonly Clase[] })[], tipoId: string, clase: Clase): number {
   const clave = claveClase(clase);
   const usados = new Set(
-    sesiones.filter((s) => s.tipoId === tipoId && s.estado !== 'anulado' && claveClase(s) === clave).map((s) => s.numero),
+    sesiones.filter((s) => s.tipoId === tipoId && s.estado !== 'anulado' && sesionEsDeClase(s, clave)).map((s) => s.numero),
   );
   let n = 1;
   while (usados.has(n)) n++;
@@ -464,7 +486,7 @@ export function progresoTipo(
 ): FilaProgreso[] {
   return clases.map((clase) => {
     const clave = claveClase(clase);
-    const suyas = sesiones.filter((s) => s.tipoId === tipo.id && claveClase(s) === clave);
+    const suyas = sesiones.filter((s) => s.tipoId === tipo.id && sesionEsDeClase(s, clave));
     const celdas = unidades.map((u) => progresoCelda(suyas, tipo.cantidad, u, hoy));
     const total = celdas.reduce<CeldaProgreso>(
       (acc, c) => ({
@@ -734,7 +756,7 @@ export function avisosCandidato(ctx: ContextoPlan, e: EntradaAvisos, necesita = 
   const clave = claveClase(e.clase);
   const yo = ordenSesion(e);
   const deLaClase = ctx.sesiones
-    .filter((s) => s.id !== e.excluirId && estaActiva(s) && claveClase(s) === clave)
+    .filter((s) => s.id !== e.excluirId && estaActiva(s) && sesionEsDeClase(s, clave))
     .sort((a, b) => ordenSesion(a).localeCompare(ordenSesion(b)));
   const anterior = [...deLaClase].reverse().find((s) => ordenSesion(s) < yo) ?? null;
   const siguiente = deLaClase.find((s) => ordenSesion(s) > yo) ?? null;
@@ -812,7 +834,7 @@ export function necesidadEnFecha(ctx: ContextoPlan, tipo: TipoMomento, clase: Cl
   if (!unidad) return 0;
   const clave = claveClase(clase);
   const hay = ctx.sesiones.filter(
-    (s) => s.id !== excluirId && s.tipoId === tipo.id && estaActiva(s) && claveClase(s) === clave && s.fecha >= unidad.inicio && s.fecha <= unidad.fin,
+    (s) => s.id !== excluirId && s.tipoId === tipo.id && estaActiva(s) && sesionEsDeClase(s, clave) && s.fecha >= unidad.inicio && s.fecha <= unidad.fin,
   ).length;
   return Math.max(0, tipo.cantidad - hay);
 }
@@ -935,6 +957,7 @@ export function sesionDePropuesta(p: Propuesta, responsableEmail: string, id: st
     academicYear,
     curso: p.curso,
     letra: p.letra,
+    juntas: [],
     numero: 0,
     catalogoId: p.catalogoId ?? null,
     fecha: p.fecha,
@@ -1082,13 +1105,15 @@ export function describirUsos(usos: readonly UsoSesion[]): string {
 
 /** Lo planificado en la app (borradores y confirmadas) como usos de sesiones del abanico. */
 export function usosDeSesiones(
-  sesiones: readonly Pick<SesionOra, 'catalogoId' | 'estado' | 'academicYear' | 'curso' | 'letra'>[],
+  sesiones: readonly (Pick<SesionOra, 'catalogoId' | 'estado' | 'academicYear' | 'curso' | 'letra'> & { juntas?: readonly Clase[] })[],
   academicYear: string,
 ): UsoSesion[] {
   const usos: UsoSesion[] = [];
   for (const s of sesiones) {
     if (!s.catalogoId || !estaActiva(s)) continue;
-    usos.push({ catalogoId: s.catalogoId, academicYear: s.academicYear || academicYear, curso: nivelDe(s.curso), letra: s.letra });
+    for (const c of clasesDeSesion(s)) {
+      usos.push({ catalogoId: s.catalogoId, academicYear: s.academicYear || academicYear, curso: nivelDe(c.curso), letra: c.letra });
+    }
   }
   return usos;
 }
@@ -1211,9 +1236,9 @@ export function clasesSinHorario(clases: readonly Clase[], horario: readonly Pic
 // ─── Evento y aviso ──────────────────────────────────────────────────────────
 
 /** `[4 ESO B] Oratorio - Ana García` (con varios profes, separados por « / »). */
-export function tituloEvento(tipo: Pick<TipoMomento, 'nombre'>, s: Pick<SesionOra, 'curso' | 'letra' | 'profes' | 'profeId' | 'profeNombre' | 'materia'>): string {
+export function tituloEvento(tipo: Pick<TipoMomento, 'nombre'>, s: Pick<SesionOra, 'curso' | 'letra' | 'profes' | 'profeId' | 'profeNombre' | 'materia'> & { juntas?: readonly Clase[] }): string {
   const nombres = profesDe(s).map((p) => p.nombre).filter(Boolean);
-  const base = `[${etiquetaClase(s)}] ${tipo.nombre}`;
+  const base = `[${etiquetaClases(s)}] ${tipo.nombre}`;
   return nombres.length ? `${base} - ${nombres.join(' / ')}` : base;
 }
 
@@ -1285,6 +1310,8 @@ export const nuevaSesionSchema = z.object({
   tipoId: z.string().uuid(),
   curso: z.string().min(1).max(20),
   letra: z.string().max(10).nullable(),
+  // Otras clases que se juntan en este momento (3º PDC + 4º PDC).
+  juntas: z.array(z.object({ curso: z.string().min(1).max(20), letra: z.string().max(10).nullable() })).max(5).optional(),
   fecha: fechaIso,
   horaInicio: hora,
   horaFin: hora,

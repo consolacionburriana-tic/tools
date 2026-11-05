@@ -12,7 +12,7 @@ import { Estado as EstadoPastilla } from '@/components/ui/estado';
 import { Selector } from '@/components/ui/selector';
 import { Textarea } from '@/components/ui/textarea';
 import { haptic } from '@/lib/haptics';
-import { chipAviso, chipEstado, describirUsos, esEnlaceSeguro, etiquetaClase, fechaLarga, horaBonita, opcionesSesion, ordenarOpciones, profesDe, type AccionSesion } from '@/lib/oratorios';
+import { chipAviso, chipEstado, describirUsos, esEnlaceSeguro, etiquetaClases, fechaLarga, horaBonita, opcionesSesion, ordenarOpciones, profesDe, type AccionSesion } from '@/lib/oratorios';
 import { api, capital, EstadoChip } from './comun';
 import type { Estado } from './panel';
 
@@ -66,7 +66,7 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
       <DialogContent variante="hoja" className="sm:max-w-md">
         <DialogTitle className="flex flex-wrap items-center gap-2 pr-10">
           <span aria-hidden>{tipo?.emoji}</span>
-          <span>[{etiquetaClase(s)}]</span>
+          <span>[{etiquetaClases(s)}]</span>
           <span>{tipo?.nombre}</span>
           <span className="text-zinc-500">· S{s.numero}</span>
         </DialogTitle>
@@ -189,6 +189,9 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
               </Button>
               {s.estado === 'confirmado' && (
                 <>
+                  <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('programar', 3)}>
+                    <AlarmClock /> 3 días antes
+                  </Button>
                   <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('programar', 7)}>
                     <AlarmClock /> 7 días antes
                   </Button>

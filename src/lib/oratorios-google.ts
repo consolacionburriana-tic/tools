@@ -13,7 +13,7 @@ import type { calendar_v3 } from 'googleapis';
 
 import { calendarConfigurado, conReintentos, getCalendar } from '@/lib/mihorario-google';
 import {
-  etiquetaClase,
+  etiquetaClases,
   PREFS_CALENDARIO_DEFECTO,
   profesDe,
   respuestaDeInvitados,
@@ -73,7 +73,7 @@ export function cuerpoEvento(d: DestinoEvento): calendar_v3.Schema$Event {
   const materias = [...new Set(profes.map((p) => p.materia).filter(Boolean))].join(' / ');
   const lineas = [
     `${d.tipo.nombre} · Sesión ${s.numero}`,
-    `Clase: ${etiquetaClase(s)}${materias ? ` · ${materias}` : ''}`,
+    `${s.juntas.length ? 'Clases' : 'Clase'}: ${etiquetaClases(s)}${materias ? ` · ${materias}` : ''}`,
     profes.length ? `Profe: ${profes.map((p) => p.nombre).join(', ')}` : null,
     `Lo lleva: ${s.responsableNombre ?? s.responsableEmail}`,
     s.notas ? `\n${s.notas}` : null,

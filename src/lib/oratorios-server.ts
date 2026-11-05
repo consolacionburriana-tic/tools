@@ -41,7 +41,7 @@ import {
   avisoAlConfirmar,
   avisoTrasCambio,
   claveClase,
-  etiquetaClase,
+  etiquetaClases,
   hoyEnEspana,
   nivelDe,
   PREFS_CALENDARIO_DEFECTO,
@@ -93,6 +93,7 @@ export function aSesion(f: OraSesion): SesionOra {
     academicYear: f.academicYear,
     curso: f.curso,
     letra: f.letra,
+    juntas: f.juntas ?? [],
     numero: f.numero,
     catalogoId: f.catalogoId,
     fecha: f.fecha,
@@ -678,10 +679,13 @@ export async function crearSesiones(entradas: NuevaSesion[], por: Quien, academi
     nombres.set(e, nombre);
     ids.set(e, id);
   }
-  const trabajo: Pick<SesionOra, 'tipoId' | 'curso' | 'letra' | 'numero' | 'estado'>[] = [...existentes];
+  const trabajo: Pick<SesionOra, 'tipoId' | 'curso' | 'letra' | 'juntas' | 'numero' | 'estado'>[] = [...existentes];
   const valores = entradas.map((e) => {
     const numero = siguienteNumero(trabajo, e.tipoId, e);
-    trabajo.push({ tipoId: e.tipoId, curso: e.curso, letra: e.letra, numero, estado: 'borrador' });
+    // Las clases que se juntan con la principal (sin repetirla ni repetirse entre ellas).
+    const vistas = new Set([claveClase(e)]);
+    const juntas = (e.juntas ?? []).filter((c) => !vistas.has(claveClase(c)) && vistas.add(claveClase(c)));
+    trabajo.push({ tipoId: e.tipoId, curso: e.curso, letra: e.letra, juntas, numero, estado: 'borrador' });
     const email = e.responsableEmail.toLowerCase();
     // Si quien lo lleva da clase a ese grupo a esa hora, se lo lleva de su propia hora: no hay
     // que invitarle ni avisarle a él.
@@ -691,6 +695,7 @@ export async function crearSesiones(entradas: NuevaSesion[], por: Quien, academi
       academicYear,
       curso: e.curso,
       letra: e.letra,
+      juntas,
       numero,
       catalogoId: e.catalogoId ?? null,
       fecha: e.fecha,
@@ -956,7 +961,7 @@ export async function enviarAvisos(ids: string[], por: Quien | null): Promise<Re
           s.avisoTipo === 'cambio' && avisado && (avisado.fecha !== s.fecha || avisado.horaInicio !== s.horaInicio)
             ? { fecha: avisado.fecha!, horaInicio: avisado.horaInicio!, horaFin: avisado.horaFin! }
             : null;
-        return { fecha: s.fecha, horaInicio: s.horaInicio, horaFin: s.horaFin, clase: etiquetaClase(s), materia: mio?.materia ?? s.materia, antes };
+        return { fecha: s.fecha, horaInicio: s.horaInicio, horaFin: s.horaFin, clase: etiquetaClases(aSesion(s)), materia: mio?.materia ?? s.materia, antes };
       });
     const { subject, html } = correoProfe({
       tipoCorreo: s0.avisoTipo as TipoCorreo,

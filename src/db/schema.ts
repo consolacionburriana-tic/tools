@@ -2109,6 +2109,10 @@ export const oraSesiones = pgTable('ora_sesiones', {
   academicYear: text('academic_year').notNull(),
   curso: text('curso').notNull(),
   letra: text('letra'),
+  // Otras clases que se juntan en este mismo momento (3º PDC + 4º PDC, dos grupos en una sola
+  // hora). `curso`/`letra` es la principal; cuentan para el objetivo de TODAS, pero hay un solo
+  // evento, un solo aviso y los profes afectados de todas. Vacío = una clase.
+  juntas: jsonb('juntas').$type<{ curso: string; letra: string | null }[]>().notNull().default([]),
   numero: integer('numero').notNull(), // «Sesión 2» de esa clase y tipo en el curso
   // Qué sesión del abanico (`ora_catalogo`) se hace en este momento; null = sin elegir.
   catalogoId: uuid('catalogo_id').references(() => oraCatalogo.id),
