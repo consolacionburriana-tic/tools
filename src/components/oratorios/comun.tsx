@@ -15,6 +15,7 @@ import type {
   EntradaTipo,
   Nivel,
   NuevaSesion,
+  PrefsCalendario,
   SesionCatalogo,
   SesionOra,
   TipoMomento,
@@ -60,6 +61,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ academicYear, ...cambios }),
     }).then((r) => r.ajustes),
+  /** Lee de Calendar qué han contestado los profes; devuelve solo las sesiones que han cambiado. */
+  respuestas: () => pedir<{ sesiones: SesionOra[]; errores: string[] }>('/api/oratorios/respuestas', { method: 'POST' }),
+  /** Las del usuario que tiene abierto el panel: invitarse y el correo de Google. */
+  preferencias: (cambios: Partial<PrefsCalendario>) =>
+    pedir<{ preferencias: PrefsCalendario }>('/api/oratorios/preferencias', { method: 'PATCH', body: JSON.stringify(cambios) }).then((r) => r.preferencias),
   tipo: (id: string | null, tipo: EntradaTipo) =>
     pedir<{ tipo: TipoMomento }>('/api/oratorios/tipos', { method: 'POST', body: JSON.stringify({ id, tipo }) }).then((r) => r.tipo),
   /** Crear o editar una sesión del abanico (lo que se hace en el momento). */

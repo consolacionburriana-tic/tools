@@ -43,6 +43,22 @@ export function Ajustes({ e }: { e: Estado }) {
     }
   }
 
+  async function guardarPrefs(cambios: { invitarme?: boolean; avisoGoogle?: boolean }) {
+    setGuardando(true);
+    try {
+      e.setPreferencias(await api.preferencias(cambios));
+      haptic.success();
+      toast.success('Guardado');
+    } catch (err) {
+      haptic.warning();
+      toast.error(err instanceof Error ? err.message : 'No se ha podido');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  const diasAviso = [...new Set(e.tipos.filter((t) => t.activo).map((t) => t.avisoDias))].sort((a, b) => a - b).join(' / ') || '7';
+
   return (
     <div className="space-y-6">
       {/* Tipos */}
@@ -102,6 +118,39 @@ export function Ajustes({ e }: { e: Estado }) {
           Fuera de trimestre no se planifica. Festivos: los del centro ({e.datos.festivos.length}), de Mi horario.
           {e.datos.festivos.length > 0 && ` ${e.datos.festivos.map((f) => fechaCorta(f.inicio)).join(' · ')}`}
         </p>
+      </section>
+
+      {/* Google Calendar y correo */}
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold">Qué le llega al profe y cuándo</h2>
+        <div className={cn(claseTarjeta, 'space-y-1 p-3 text-sm')}>
+          <p>
+            <b>Al confirmar</b> · el evento aparece en el calendario del profe, en silencio (sin correo de Google).
+          </p>
+          <p>
+            <b>{diasAviso} días antes</b> (según el tipo) · sale tu correo con tu texto. También puedes mandarlo ya con 📨 en Sesiones.
+          </p>
+          <p>
+            <b>Si lo mueves o lo anulas</b> · el calendario se actualiza solo y el profe recibe tu correo de cambio o de anulación.
+          </p>
+        </div>
+        <div className={cn(claseTarjeta, 'space-y-3 p-3')}>
+          <Interruptor
+            activo={e.preferencias.invitarme}
+            disabled={guardando}
+            onChange={(v) => void guardarPrefs({ invitarme: v })}
+            etiqueta="Invitarme a los eventos que creo"
+            descripcion="Apagado: el evento sale solo en el calendario compartido y solo se invita al profe afectado. Encendido: te llega también a tu calendario personal (lo verás duplicado)."
+          />
+          <Interruptor
+            activo={e.preferencias.avisoGoogle}
+            disabled={guardando}
+            onChange={(v) => void guardarPrefs({ avisoGoogle: v })}
+            etiqueta="Que Google mande su propio correo al profe"
+            descripcion="Apagado: solo le llega tu correo. Encendido: además le llega el de Google al confirmar, mover o anular (dos correos por sesión)."
+          />
+          <p className="text-xs text-zinc-500">Son tus preferencias, no las de los demás. Los eventos ya creados cambian la próxima vez que se muevan.</p>
+        </div>
       </section>
 
       {/* Acceso común */}

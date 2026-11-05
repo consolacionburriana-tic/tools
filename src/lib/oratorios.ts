@@ -21,6 +21,30 @@ export const FRECUENCIA_LABELS: Record<Frecuencia, string> = { mes: 'al mes', tr
 export const ESTADOS_SESION = ['borrador', 'confirmado', 'reprogramar', 'anulado'] as const;
 export type EstadoSesion = (typeof ESTADOS_SESION)[number];
 
+/** La respuesta del profe al evento de Google Calendar, tal cual la devuelve Google. */
+export const RESPUESTAS_PROFE = ['accepted', 'declined', 'tentative', 'needsAction'] as const;
+export type RespuestaProfe = (typeof RESPUESTAS_PROFE)[number];
+
+/**
+ * Qué ha contestado el profe, a partir de los invitados del evento. Quien lo lleva no cuenta
+ * (se acepta a sí mismo). Con varios profes afectados (optativa, desdoble) manda el peor:
+ * uno que rechaza, rechaza; todos tienen que aceptar para que sea «aceptada».
+ * `null` = no hay a quién preguntar.
+ */
+export function respuestaDeInvitados(
+  invitados: { email?: string | null; responseStatus?: string | null }[] | null | undefined,
+  responsableEmail: string,
+): RespuestaProfe | null {
+  const resp = responsableEmail.toLowerCase();
+  const suyos = (invitados ?? []).filter((a) => a.email && a.email.toLowerCase() !== resp);
+  if (suyos.length === 0) return null;
+  const estados = suyos.map((a) => (a.responseStatus === 'accepted' || a.responseStatus === 'declined' || a.responseStatus === 'tentative' ? a.responseStatus : 'needsAction'));
+  if (estados.includes('declined')) return 'declined';
+  if (estados.every((x) => x === 'accepted')) return 'accepted';
+  if (estados.includes('tentative')) return 'tentative';
+  return 'needsAction';
+}
+
 export const ESTADOS_AVISO = ['no', 'pendiente', 'programado', 'enviado'] as const;
 export type EstadoAviso = (typeof ESTADOS_AVISO)[number];
 
@@ -106,6 +130,8 @@ export interface SesionOra {
   avisoError: string | null;
   googleEventId: string | null;
   calendarioError: string | null;
+  /** Lo que ha contestado el profe al evento de Calendar (null = no se sabe). */
+  respuestaProfe: RespuestaProfe | null;
   notas: string | null;
   historial: { at: string; por: string; que: string; fecha?: string; horaInicio?: string; horaFin?: string }[];
   createdAt: string;
@@ -929,6 +955,7 @@ export function sesionDePropuesta(p: Propuesta, responsableEmail: string, id: st
     avisoError: null,
     googleEventId: null,
     calendarioError: null,
+    respuestaProfe: null,
     notas: null,
     historial: [],
     createdAt: '',
@@ -1206,11 +1233,28 @@ export interface Chip {
   tono: 'zinc' | 'blue' | 'emerald' | 'amber' | 'violet' | 'sky' | 'rose';
 }
 
-export function chipEstado(s: Pick<SesionOra, 'estado' | 'fecha'>, hoy: string): Chip {
+/**
+ * El estado de una sesión. Una confirmada futura se pinta según lo que haya contestado el
+ * profe en Calendar: ✅ verde solo si ha dicho que sí (eso sí es confirmado de verdad); si no,
+ * está pendiente de que lo haga. Sin respuesta que leer (sin evento o sin invitado), «Confirmada».
+ */
+export function chipEstado(s: Pick<SesionOra, 'estado' | 'fecha'> & { respuestaProfe?: RespuestaProfe | null }, hoy: string): Chip {
   if (s.estado === 'borrador') return { emoji: '📝', texto: 'Borrador', tono: 'zinc' };
   if (s.estado === 'reprogramar') return { emoji: '🔁', texto: 'Reprogramar', tono: 'violet' };
   if (s.estado === 'anulado') return { emoji: '✖️', texto: 'Anulada', tono: 'rose' };
-  return s.fecha < hoy ? { emoji: '✔️', texto: 'Hecha', tono: 'emerald' } : { emoji: '✅', texto: 'Confirmada', tono: 'blue' };
+  if (s.fecha < hoy) return { emoji: '✔️', texto: 'Hecha', tono: 'emerald' };
+  switch (s.respuestaProfe) {
+    case 'accepted':
+      return { emoji: '✅', texto: 'Aceptada', tono: 'emerald' };
+    case 'declined':
+      return { emoji: '❌', texto: 'Rechazada', tono: 'rose' };
+    case 'tentative':
+      return { emoji: '❔', texto: 'Quizá', tono: 'amber' };
+    case 'needsAction':
+      return { emoji: '⏳', texto: 'Sin respuesta', tono: 'amber' };
+    default:
+      return { emoji: '✅', texto: 'Confirmada', tono: 'blue' };
+  }
 }
 
 export function chipAviso(s: Pick<SesionOra, 'avisoEstado' | 'avisoTipo' | 'avisoProgramadoPara' | 'avisoManual'>): Chip | null {
@@ -1301,6 +1345,20 @@ export const tipoSchema = z.object({
   activo: z.boolean(),
 });
 export type EntradaTipo = z.infer<typeof tipoSchema>;
+
+/** Cómo sale el evento de Google Calendar de lo que lleva una persona (ver `ora_preferencias`). */
+export interface PrefsCalendario {
+  /** Invitarse a sí misma al evento (duplica el evento en su calendario personal). */
+  invitarme: boolean;
+  /** Que Google mande su correo de invitación/cambio/cancelación al profe. */
+  avisoGoogle: boolean;
+}
+export const PREFS_CALENDARIO_DEFECTO: PrefsCalendario = { invitarme: false, avisoGoogle: false };
+
+export const prefsCalendarioSchema = z.object({
+  invitarme: z.boolean().optional(),
+  avisoGoogle: z.boolean().optional(),
+});
 
 export const ajustesSchema = z.object({
   academicYear: z.string().regex(/^\d{4}-\d{2}$/),

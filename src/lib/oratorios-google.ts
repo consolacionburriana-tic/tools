@@ -3,7 +3,8 @@
 //
 // Mismo cliente que Mi horario (cuenta de servicio con delegación de dominio): se escribe
 // SUPLANTANDO a la persona responsable, en el calendario compartido del tipo. Así Google
-// manda la invitación en su nombre y ella necesita poder editar ese calendario.
+// ve el evento ella misma y necesita poder editar ese calendario. Qué correos manda Google lo
+// deciden sus preferencias (`ora_preferencias`): por defecto, ninguno.
 //
 // ⚠️ Sin probar en vivo: el 30-sep-2026 la API de Calendar no estaba habilitada en el proyecto
 // de Google Cloud de la cuenta de servicio (ver la ficha). Los errores se devuelven como texto
@@ -11,7 +12,17 @@
 import type { calendar_v3 } from 'googleapis';
 
 import { calendarConfigurado, conReintentos, getCalendar } from '@/lib/mihorario-google';
-import { etiquetaClase, profesDe, tituloEvento, type SesionOra, type TipoMomento } from '@/lib/oratorios';
+import {
+  etiquetaClase,
+  PREFS_CALENDARIO_DEFECTO,
+  profesDe,
+  respuestaDeInvitados,
+  tituloEvento,
+  type PrefsCalendario,
+  type RespuestaProfe,
+  type SesionOra,
+  type TipoMomento,
+} from '@/lib/oratorios';
 import { CONFIGURACION } from '@/lib/configuracion';
 
 const ZONA = CONFIGURACION.calendario.zonaHoraria;
@@ -25,6 +36,17 @@ export interface DestinoEvento {
    * sustituido, aquí va el de quien lo cubre (o los de los dos, si hay varios).
    */
   correos: Map<string, string | string[]>;
+  /** Preferencias de quien lleva la sesión (sin ellas, todo apagado). */
+  prefs?: PrefsCalendario;
+}
+
+/**
+ * Qué manda Google por correo al crear, mover o borrar el evento. Por defecto NADA: el evento
+ * aparece en el calendario del profe en silencio y el único correo es el de la app, con el
+ * texto de quien lo lleva (programado N días antes, o el de cambio / anulación).
+ */
+export function sendUpdatesDe(prefs?: PrefsCalendario): 'all' | 'none' {
+  return (prefs ?? PREFS_CALENDARIO_DEFECTO).avisoGoogle ? 'all' : 'none';
 }
 
 function hhmmss(h: string): string {
@@ -42,9 +64,12 @@ export function cuerpoEvento(d: DestinoEvento): calendar_v3.Schema$Event {
       if (correo) invitados.set(correo.toLowerCase(), { email: correo });
     }
   }
-  // La persona responsable también: el evento vive en el calendario compartido y así le sale
-  // en el suyo.
-  invitados.set(s.responsableEmail.toLowerCase(), { email: s.responsableEmail, responseStatus: 'accepted' });
+  // La persona responsable solo si ella lo ha pedido: el evento ya vive en el calendario
+  // compartido que ve, e invitarla lo duplica en su calendario personal. Si además es la
+  // profe afectada, ya está en la lista y no se toca.
+  if ((d.prefs ?? PREFS_CALENDARIO_DEFECTO).invitarme) {
+    invitados.set(s.responsableEmail.toLowerCase(), { email: s.responsableEmail, responseStatus: 'accepted' });
+  }
   const materias = [...new Set(profes.map((p) => p.materia).filter(Boolean))].join(' / ');
   const lineas = [
     `${d.tipo.nombre} · Sesión ${s.numero}`,
@@ -86,10 +111,11 @@ export async function guardarEvento(d: DestinoEvento): Promise<ResultadoCalendar
   try {
     const cal = getCalendar(d.sesion.responsableEmail);
     const requestBody = cuerpoEvento(d);
+    const sendUpdates = sendUpdatesDe(d.prefs);
     if (d.sesion.googleEventId) {
       try {
         const { data } = await conReintentos(() =>
-          cal.events.patch({ calendarId, eventId: d.sesion.googleEventId!, requestBody, sendUpdates: 'all' }),
+          cal.events.patch({ calendarId, eventId: d.sesion.googleEventId!, requestBody, sendUpdates }),
         );
         return { ok: true, eventId: data.id ?? d.sesion.googleEventId, calendarId };
       } catch (e) {
@@ -98,7 +124,7 @@ export async function guardarEvento(d: DestinoEvento): Promise<ResultadoCalendar
         if (status !== 404 && status !== 410) throw e;
       }
     }
-    const { data } = await conReintentos(() => cal.events.insert({ calendarId, requestBody, sendUpdates: 'all' }));
+    const { data } = await conReintentos(() => cal.events.insert({ calendarId, requestBody, sendUpdates }));
     if (!data.id) return { ok: false, error: 'Google no ha devuelto el id del evento' };
     return { ok: true, eventId: data.id, calendarId };
   } catch (e) {
@@ -107,13 +133,17 @@ export async function guardarEvento(d: DestinoEvento): Promise<ResultadoCalendar
   }
 }
 
-/** Quita el evento (anular o reprogramar sin fecha). Google avisa de la cancelación. */
-export async function borrarEvento(sesion: Pick<SesionOra, 'googleEventId' | 'responsableEmail'>, calendarId: string | null): Promise<{ ok: boolean; error?: string }> {
+/** Quita el evento (anular o reprogramar sin fecha). Google solo avisa si la persona lo ha pedido. */
+export async function borrarEvento(
+  sesion: Pick<SesionOra, 'googleEventId' | 'responsableEmail'>,
+  calendarId: string | null,
+  prefs?: PrefsCalendario,
+): Promise<{ ok: boolean; error?: string }> {
   if (!sesion.googleEventId || !calendarId) return { ok: true };
   if (!calendarConfigurado()) return { ok: false, error: 'Faltan las credenciales de la cuenta de servicio' };
   try {
     const cal = getCalendar(sesion.responsableEmail);
-    await conReintentos(() => cal.events.delete({ calendarId, eventId: sesion.googleEventId!, sendUpdates: 'all' }));
+    await conReintentos(() => cal.events.delete({ calendarId, eventId: sesion.googleEventId!, sendUpdates: sendUpdatesDe(prefs) }));
     return { ok: true };
   } catch (e) {
     const status = (e as { status?: number; code?: number })?.status ?? (e as { code?: number })?.code;
@@ -121,4 +151,62 @@ export async function borrarEvento(sesion: Pick<SesionOra, 'googleEventId' | 're
     console.error('Oratorios · Google Calendar (borrar):', e instanceof Error ? e.message : e);
     return { ok: false, error: mensajeError(e) };
   }
+}
+
+export interface SesionConEvento {
+  id: string;
+  fecha: string;
+  responsableEmail: string;
+  googleEventId: string;
+  googleCalendarId: string;
+}
+
+/**
+ * Lo que ha contestado el profe a cada evento: UNA consulta por calendario y responsable (no
+ * una por sesión) con la marca de origen, y se cruza por el id del evento. Una sesión sin
+ * entrada en el resultado es que el evento ya no está (borrado a mano) o no se pudo leer.
+ */
+export async function leerRespuestas(sesiones: SesionConEvento[]): Promise<{ respuestas: Map<string, RespuestaProfe | null>; errores: string[] }> {
+  const respuestas = new Map<string, RespuestaProfe | null>();
+  const errores: string[] = [];
+  if (sesiones.length === 0) return { respuestas, errores };
+  if (!calendarConfigurado()) return { respuestas, errores: ['Faltan las credenciales de la cuenta de servicio'] };
+
+  const grupos = new Map<string, SesionConEvento[]>();
+  for (const s of sesiones) {
+    const k = `${s.googleCalendarId}|${s.responsableEmail.toLowerCase()}`;
+    grupos.set(k, [...(grupos.get(k) ?? []), s]);
+  }
+  for (const lista of grupos.values()) {
+    const { googleCalendarId: calendarId, responsableEmail } = lista[0];
+    const desde = lista.reduce((m, s) => (s.fecha < m ? s.fecha : m), lista[0].fecha);
+    try {
+      const cal = getCalendar(responsableEmail);
+      const porId = new Map<string, calendar_v3.Schema$EventAttendee[]>();
+      let pageToken: string | undefined;
+      do {
+        const { data } = await conReintentos(() =>
+          cal.events.list({
+            calendarId,
+            privateExtendedProperty: [`origen=${ORIGEN}`],
+            timeMin: new Date(`${desde}T00:00:00Z`).toISOString(),
+            singleEvents: true,
+            showDeleted: false,
+            maxResults: 2500,
+            pageToken,
+          }),
+        );
+        for (const ev of data.items ?? []) if (ev.id) porId.set(ev.id, ev.attendees ?? []);
+        pageToken = data.nextPageToken ?? undefined;
+      } while (pageToken);
+      for (const s of lista) {
+        const invitados = porId.get(s.googleEventId);
+        if (invitados) respuestas.set(s.id, respuestaDeInvitados(invitados, s.responsableEmail));
+      }
+    } catch (e) {
+      console.error('Oratorios · Google Calendar (respuestas):', e instanceof Error ? e.message : e);
+      errores.push(mensajeError(e));
+    }
+  }
+  return { respuestas, errores };
 }

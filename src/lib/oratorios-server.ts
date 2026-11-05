@@ -3,7 +3,7 @@
 // La pantalla recibe TODO de una vez (tipos, horario, sesiones del curso, disponibilidad…)
 // y calcula los candidatos en el cliente con `oratorios.ts`: así pasar de semana no cuesta
 // un viaje a Neon. Aquí solo se lee en una tanda y se escribe.
-import { and, asc, eq, inArray, isNotNull, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, lte, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@/db';
 import {
@@ -24,6 +24,7 @@ import {
   oraAjustes,
   oraCatalogo,
   oraDisponibilidad,
+  oraPreferencias,
   oraSesiones,
   oraTipos,
   salTrips,
@@ -43,6 +44,7 @@ import {
   etiquetaClase,
   hoyEnEspana,
   nivelDe,
+  PREFS_CALENDARIO_DEFECTO,
   profesDe,
   siguienteNumero,
   trimestresPorDefecto,
@@ -57,6 +59,7 @@ import {
   type Nivel,
   type NuevaSesion,
   type Periodo,
+  type PrefsCalendario,
   type ProfeAfectado,
   type RangoFechas,
   type SalidaDia,
@@ -70,7 +73,7 @@ import {
 } from '@/lib/oratorios';
 import { correoProfe } from '@/lib/oratorios-email';
 import { destinatariosDeProfes, type ProfeDestino } from '@/lib/sustituciones-server';
-import { borrarEvento, guardarEvento } from '@/lib/oratorios-google';
+import { borrarEvento, guardarEvento, leerRespuestas } from '@/lib/oratorios-google';
 import { nombreProfeBreve, pilaProfe } from '@/lib/profes';
 
 /** Un error por algo que ha enviado la persona (va a la pantalla tal cual, con un 400). */
@@ -110,6 +113,7 @@ export function aSesion(f: OraSesion): SesionOra {
     avisoError: f.avisoError,
     googleEventId: f.googleEventId,
     calendarioError: f.calendarioError,
+    respuestaProfe: (f.respuestaProfe as SesionOra['respuestaProfe']) ?? null,
     notas: f.notas,
     historial: f.historial ?? [],
     createdAt: iso(f.createdAt) ?? '',
@@ -384,11 +388,13 @@ export interface DatosPanel {
   disponibilidad: Record<string, Disponibilidad[]>; // por correo de responsable
   catalogo: SesionCatalogo[];
   usosPrevios: UsoSesion[];
+  /** Las de quien tiene abierto el panel (Ajustes → Google Calendar). */
+  preferencias: PrefsCalendario;
 }
 
 /** Todo lo que necesita el panel de quien lo lleva, en una tanda. */
 export async function getDatosPanel(user: { email: string; nombre: string | null }, academicYear = academicYearActual()): Promise<DatosPanel> {
-  const [tipos, ajustes, sesiones, horario, clases, profes, festivos, salidas, disp, catalogo, usosPrevios] = await Promise.all([
+  const [tipos, ajustes, sesiones, horario, clases, profes, festivos, salidas, disp, catalogo, usosPrevios, preferencias] = await Promise.all([
     getTipos(),
     getAjustes(academicYear),
     getSesiones(academicYear),
@@ -400,6 +406,7 @@ export async function getDatosPanel(user: { email: string; nombre: string | null
     db.select().from(oraDisponibilidad),
     getCatalogo(),
     getUsosPrevios(academicYear),
+    getPrefsCalendario(user.email),
   ]);
   const disponibilidad: Record<string, Disponibilidad[]> = {};
   for (const f of disp) {
@@ -422,6 +429,7 @@ export async function getDatosPanel(user: { email: string; nombre: string | null
     disponibilidad,
     catalogo,
     usosPrevios,
+    preferencias,
   };
 }
 
@@ -457,6 +465,59 @@ export async function getMisSesiones(email: string, academicYear = academicYearA
 export async function accesoComunActivo(academicYear = academicYearActual()): Promise<boolean> {
   const [fila] = await db.select({ a: oraAjustes.accesoComun }).from(oraAjustes).where(eq(oraAjustes.academicYear, academicYear)).limit(1);
   return fila?.a ?? false;
+}
+
+/**
+ * Lee de Google Calendar qué ha contestado cada profe a los eventos futuros y lo guarda (solo
+ * si ha cambiado). Es lo que pinta el ✅ verde: «el profe ha dicho que sí». Devuelve las
+ * sesiones que han cambiado; un fallo de Google no rompe nada, queda en `errores`.
+ */
+export async function sincronizarRespuestas(academicYear = academicYearActual()): Promise<{ sesiones: SesionOra[]; errores: string[] }> {
+  const hoy = hoyEnEspana();
+  const filas = await db
+    .select()
+    .from(oraSesiones)
+    .where(and(eq(oraSesiones.academicYear, academicYear), eq(oraSesiones.estado, 'confirmado'), isNotNull(oraSesiones.googleEventId), gte(oraSesiones.fecha, hoy)));
+  const conEvento = filas.filter((f) => f.googleEventId && f.googleCalendarId);
+  const { respuestas, errores } = await leerRespuestas(
+    conEvento.map((f) => ({ id: f.id, fecha: f.fecha, responsableEmail: f.responsableEmail, googleEventId: f.googleEventId!, googleCalendarId: f.googleCalendarId! })),
+  );
+  const cambiadas: SesionOra[] = [];
+  for (const f of conEvento) {
+    if (!respuestas.has(f.id)) continue;
+    const nueva = respuestas.get(f.id) ?? null;
+    if (nueva === (f.respuestaProfe ?? null)) continue;
+    const [fila] = await db.update(oraSesiones).set({ respuestaProfe: nueva, respuestaAt: new Date() }).where(eq(oraSesiones.id, f.id)).returning();
+    cambiadas.push(aSesion(fila));
+  }
+  return { sesiones: cambiadas, errores };
+}
+
+/** Preferencias de Google Calendar de estas personas (la que no tiene fila, con los valores por defecto). */
+async function getPrefsDe(emails: string[]): Promise<Map<string, PrefsCalendario>> {
+  const correos = [...new Set(emails.map((e) => e.toLowerCase()))];
+  if (correos.length === 0) return new Map();
+  const filas = await db.select().from(oraPreferencias).where(inArray(oraPreferencias.email, correos));
+  return new Map(filas.map((f) => [f.email, { invitarme: f.invitarme, avisoGoogle: f.avisoGoogle }]));
+}
+
+export async function getPrefsCalendario(email: string): Promise<PrefsCalendario> {
+  return (await getPrefsDe([email])).get(email.toLowerCase()) ?? PREFS_CALENDARIO_DEFECTO;
+}
+
+export async function guardarPrefsCalendario(email: string, cambios: Partial<PrefsCalendario>): Promise<PrefsCalendario> {
+  const correo = email.toLowerCase();
+  const actual = await getPrefsCalendario(correo);
+  const valores = {
+    invitarme: cambios.invitarme ?? actual.invitarme,
+    avisoGoogle: cambios.avisoGoogle ?? actual.avisoGoogle,
+    updatedAt: new Date(),
+  };
+  await db
+    .insert(oraPreferencias)
+    .values({ email: correo, ...valores })
+    .onConflictDoUpdate({ target: oraPreferencias.email, set: valores });
+  return { invitarme: valores.invitarme, avisoGoogle: valores.avisoGoogle };
 }
 
 // ─── Escrituras: ajustes, tipos, disponibilidad ────────────────────────────────
@@ -648,8 +709,17 @@ export async function crearSesiones(entradas: NuevaSesion[], por: Quien, academi
   return filas.map(aSesion);
 }
 
-async function cargar(ids: string[]): Promise<{ sesiones: OraSesion[]; tipos: Map<string, TipoMomento>; correos: Map<string, string[]> }> {
+interface Cargado {
+  sesiones: OraSesion[];
+  tipos: Map<string, TipoMomento>;
+  correos: Map<string, string[]>;
+  /** Preferencias de Google Calendar por correo de quien lleva la sesión. */
+  prefs: Map<string, PrefsCalendario>;
+}
+
+async function cargar(ids: string[]): Promise<Cargado> {
   const [sesiones, tipos] = await Promise.all([db.select().from(oraSesiones).where(inArray(oraSesiones.id, ids)), getTipos()]);
+  const prefs = await getPrefsDe([...new Set(sesiones.map((s) => s.responsableEmail))]);
   const profeIds = [...new Set(sesiones.flatMap((s) => profesDe(aSesion(s)).map((p) => p.id)))];
   // El correo de cada profe afectado, o el de quien lo sustituye ahora (sustitución vigente).
   const correos = new Map<string, string[]>();
@@ -657,7 +727,7 @@ async function cargar(ids: string[]): Promise<{ sesiones: OraSesion[]; tipos: Ma
     const lista = destinos.map((d) => d.email?.toLowerCase()).filter((e): e is string => Boolean(e));
     if (lista.length) correos.set(id, lista);
   }
-  return { sesiones, tipos: new Map(tipos.map((t) => [t.id, t])), correos };
+  return { sesiones, tipos: new Map(tipos.map((t) => [t.id, t])), correos, prefs };
 }
 
 async function actualizar(id: string, cambios: Partial<typeof oraSesiones.$inferInsert>): Promise<SesionOra> {
@@ -666,10 +736,10 @@ async function actualizar(id: string, cambios: Partial<typeof oraSesiones.$infer
 }
 
 /** Crea o mueve el evento de una sesión confirmada y guarda el resultado (o el error). */
-async function sincronizarCalendario(s: OraSesion, tipo: TipoMomento, correos: Map<string, string[]>): Promise<Partial<typeof oraSesiones.$inferInsert>> {
-  const r = await guardarEvento({ tipo, sesion: aSesion(s), correos });
+async function sincronizarCalendario(s: OraSesion, tipo: TipoMomento, correos: Map<string, string[]>, prefs: Map<string, PrefsCalendario>): Promise<Partial<typeof oraSesiones.$inferInsert>> {
+  const r = await guardarEvento({ tipo, sesion: aSesion(s), correos, prefs: prefs.get(s.responsableEmail.toLowerCase()) });
   return r.ok
-    ? { googleEventId: r.eventId, googleCalendarId: r.calendarId, calendarioError: null }
+    ? { googleEventId: r.eventId, googleCalendarId: r.calendarId, calendarioError: null, respuestaProfe: null, respuestaAt: null } // evento nuevo o movido: hay que volver a leer su respuesta
     : { calendarioError: r.error };
 }
 
@@ -689,7 +759,7 @@ async function enPool<T, R>(items: readonly T[], fn: (t: T) => Promise<R>, n = 3
 }
 
 export async function accionSesion(id: string, a: AccionSesion, por: Quien): Promise<SesionOra | null> {
-  const { sesiones, tipos, correos } = await cargar([id]);
+  const { sesiones, tipos, correos, prefs } = await cargar([id]);
   const s = sesiones[0];
   if (!s) return null;
   const tipo = tipos.get(s.tipoId);
@@ -727,7 +797,7 @@ export async function accionSesion(id: string, a: AccionSesion, por: Quien): Pro
       else if (s.avisoEstado === 'programado' && a.accion === 'mover') {
         Object.assign(cambios, avisoAlConfirmar(a.fecha, tipo.avisoDias, hoy));
       }
-      Object.assign(cambios, await sincronizarCalendario({ ...s, ...cambios } as OraSesion, tipo, correos));
+      Object.assign(cambios, await sincronizarCalendario({ ...s, ...cambios } as OraSesion, tipo, correos, prefs));
     }
     return actualizar(id, cambios);
   }
@@ -735,10 +805,10 @@ export async function accionSesion(id: string, a: AccionSesion, por: Quien): Pro
   if (a.accion === 'reprogramar' && s.estado !== 'confirmado') return aSesion(s);
   if (a.accion === 'anular' && s.estado === 'anulado') return aSesion(s);
 
-  // reprogramar / anular: fuera del calendario (Google avisa de la cancelación).
-  const quitado = await borrarEvento(s, s.googleCalendarId ?? tipo.calendarioId);
+  // reprogramar / anular: fuera del calendario (Google solo avisa si esa persona lo ha pedido).
+  const quitado = await borrarEvento(s, s.googleCalendarId ?? tipo.calendarioId, prefs.get(s.responsableEmail.toLowerCase()));
   const base: Partial<typeof oraSesiones.$inferInsert> = quitado.ok
-    ? { googleEventId: null, calendarioError: null }
+    ? { googleEventId: null, calendarioError: null, respuestaProfe: null, respuestaAt: null }
     : { calendarioError: `No se pudo quitar del calendario: ${quitado.error}` };
   if (a.accion === 'reprogramar') {
     const avisado = s.avisoEstado === 'enviado';
@@ -777,7 +847,7 @@ export async function accionLote(accion: AccionLote, ids: string[], por: Quien, 
   }
   if (accion === 'enviar') return enviarAvisos(ids, por);
 
-  const { sesiones, tipos, correos } = await cargar(ids);
+  const { sesiones, tipos, correos, prefs } = await cargar(ids);
   const hoy = hoyEnEspana();
 
   if (accion === 'confirmar' || accion === 'calendario') {
@@ -792,7 +862,7 @@ export async function accionLote(accion: AccionLote, ids: string[], por: Quien, 
         cambios.historial = [...(s.historial ?? []), entrada(por, 'confirmada')];
         if (s.avisoEstado === 'no') Object.assign(cambios, avisoAlConfirmar(s.fecha, tipo.avisoDias, hoy));
       }
-      Object.assign(cambios, await sincronizarCalendario({ ...s, ...cambios } as OraSesion, tipo, correos));
+      Object.assign(cambios, await sincronizarCalendario({ ...s, ...cambios } as OraSesion, tipo, correos, prefs));
       return actualizar(s.id, cambios);
     });
     const errores = hechas.filter((s) => s.calendarioError).length;

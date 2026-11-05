@@ -366,6 +366,30 @@ bloques). Ya sale como «Sin horario importado» para apuntarlo a mano; para que
 autocompletar lo propongan solos hay que **reimportar el `.docx` de la ESO** (`pnpm horarios:importar`),
 que el importador ya sabe leer. Lo mismo pasa con infantil y primaria (Godly Play).
 
+### Oratorios: Calendar sin ruido y respuesta del profe (5-nov-2026) — revisar con David
+
+Lo que decidí yo al responder a «¿cuándo se manda la invitación?», «no me invites a mí» y «que salga
+el check si el profe contesta». Detalle en [`26-oratorios.md`](./26-oratorios.md) → «Qué le llega al profe y cuándo».
+
+1. 🤖 **Calendar sincroniza en silencio y tu correo es lo único que avisa.** Antes llegaban dos
+   cosas (invitación de Google al confirmar y tu correo a los 7 días). Si prefieres lo contrario,
+   se enciende «Que Google mande su propio correo al profe» en Ajustes.
+2. 🤖 **«Invitarme» y «correo de Google» van por persona y apagadas por defecto**, no solo la tuya.
+   Quien no tenga el calendario compartido añadido en el suyo no verá los eventos que cree hasta
+   que lo añada o encienda «Invitarme».
+3. 🤖 **Con varios profes afectados, «Aceptada» exige que acepten todos.** Con una sustitución
+   (titular y sustituto invitados) bastaría uno: si molesta, se cambia a «alguno».
+4. 🤖 **La rejilla del asistente no oculta los otros tipos, los atenúa** (gris, una línea): sirven
+   para ver que ese profe o esa clase ya tienen algo a esa hora.
+
+### 💡 Idea: juntar clases en una misma sesión (David, 5-nov-2026) — sin decidir
+Hoy una sesión es **una clase en un hueco**. David necesita **juntar dos clases en la misma hora**:
+le pasa con los PDC (**3º PDC + 4º PDC** juntos). Habría que decidir: una sesión con varias clases
+(cuenta para el objetivo de cada una, un solo evento, un solo aviso a los profes de las dos), cómo
+se elige en el asistente (¿un hueco donde coinciden dos clases del mismo tipo y se ofrece
+«juntar»?) y qué pasa con el profe afectado cuando cada clase tiene uno distinto. Para los PDC
+ayudaría además tener su horario en Neon (ver «El PDC en los huecos»).
+
 ### Oratorios y Godly Play: lo que decidí yo al construirlo (30-sep-2026) — revisar con David
 
 Están todas en «Decisiones cerradas» de [`26-oratorios.md`](./26-oratorios.md), marcadas 🤖. Las

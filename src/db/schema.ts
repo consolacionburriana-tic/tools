@@ -2065,6 +2065,20 @@ export const oraAjustes = pgTable('ora_ajustes', {
   updatedBy: text('updated_by'),
 });
 
+// Cómo sale el evento de Google Calendar de las sesiones que lleva cada persona (se escribe
+// suplantándola). Una fila por persona; sin fila, los valores por defecto (todo a `false`).
+// Ver docs/26-oratorios.md → «Qué le llega al profe y cuándo».
+export const oraPreferencias = pgTable('ora_preferencias', {
+  email: text('email').primaryKey(), // en minúsculas
+  // Invitarse a sí mismo al evento. Casi nunca hace falta: el evento ya vive en el calendario
+  // compartido que esa persona ve, y invitarse lo duplica en su calendario personal.
+  invitarme: boolean('invitarme').notNull().default(false),
+  // Que Google mande SU correo de invitación/cambio/cancelación al profe. Por defecto no: el
+  // único correo es el de la persona (con su texto), y el evento aparece en silencio.
+  avisoGoogle: boolean('aviso_google').notNull().default(false),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Huecos de cada responsable en la semana tipo. Por día + horas (no por id de tramo):
 // reimportar horarios regenera los tramos y esto no se tiene que perder.
 export const oraDisponibilidad = pgTable('ora_disponibilidad', {
@@ -2121,6 +2135,11 @@ export const oraSesiones = pgTable('ora_sesiones', {
   googleEventId: text('google_event_id'),
   googleCalendarId: text('google_calendar_id'),
   calendarioError: text('calendario_error'),
+  // Lo que ha contestado el profe al evento de Google ('accepted' | 'declined' | 'tentative' |
+  // 'needsAction'); null = no se sabe (sin evento, sin invitado o aún sin leer). Se lee de
+  // Calendar, no se escribe a mano: un check verde aquí es que el profe ha pulsado «Sí».
+  respuestaProfe: text('respuesta_profe'),
+  respuestaAt: timestamp('respuesta_at'),
   notas: text('notas'),
   // Cada cambio de fecha y cada aviso enviado (con la fecha que se avisó: es el «antes» del
   // correo de cambio).

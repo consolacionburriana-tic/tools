@@ -4,12 +4,13 @@
 // viaja de una vez y los candidatos se calculan aquí (`oratorios.ts`), así que pasar de
 // semana o de pestaña no cuesta un viaje al servidor. Ficha: docs/26-oratorios.md
 import { BookOpenText, CalendarRange, ChartColumnBig, Clock, List, Settings2, type LucideIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { Segmentado } from '@/components/ui/segmentado';
 import { crearContexto, nivelesDeTipo, PESTANAS_ORA, type Disponibilidad, type SesionCatalogo, type SesionOra, type TipoMomento } from '@/lib/oratorios';
+import type { PrefsCalendario } from '@/lib/oratorios';
 import type { AjustesOra, DatosPanel } from '@/lib/oratorios-server';
 import { api } from './comun';
 import { Planificar } from './planificar';
@@ -51,11 +52,16 @@ export interface Estado {
   setDisponibilidad: (email: string, huecos: Disponibilidad[]) => void;
   setTipos: (t: TipoMomento[]) => void;
   setAjustes: (a: AjustesOra) => void;
+  preferencias: PrefsCalendario;
+  setPreferencias: (p: PrefsCalendario) => void;
   abrir: (id: string) => void;
   moviendo: string | null;
   mover: (id: string | null) => void;
   lote: (accion: Parameters<typeof api.lote>[0], ids: string[], dias?: number) => Promise<void>;
   ocupado: boolean;
+  /** Lee de Calendar lo que han contestado los profes. `avisar`: con mensaje (botón); sin él, en silencio. */
+  actualizarRespuestas: (avisar?: boolean) => Promise<void>;
+  leyendoRespuestas: boolean;
 }
 
 export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabInicial: Pestana }) {
@@ -64,6 +70,7 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
   const [sesiones, setSesiones] = useState(datos.sesiones);
   const [catalogo, setCatalogo] = useState(datos.catalogo);
   const [ajustes, setAjustes] = useState(datos.ajustes);
+  const [preferencias, setPreferencias] = useState(datos.preferencias);
   const [disponibilidad, setDisp] = useState(datos.disponibilidad);
   const activos = tipos.filter((t) => t.activo);
   const [tipoId, setTipoId] = useState(activos[0]?.id ?? tipos[0]?.id ?? '');
@@ -71,6 +78,7 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
   const [abierta, setAbierta] = useState<string | null>(null);
   const [moviendo, setMoviendo] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [leyendoRespuestas, setLeyendoRespuestas] = useState(false);
 
   const nivelesPorTipo = useMemo(() => Object.fromEntries(tipos.map((t) => [t.id, nivelesDeTipo(t, datos.clases)])), [tipos, datos.clases]);
   const ctx = useMemo(
@@ -119,6 +127,35 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
     }
   }
 
+  async function actualizarRespuestas(avisar = false) {
+    setLeyendoRespuestas(true);
+    try {
+      const r = await api.respuestas();
+      if (r.sesiones.length) guardarSesiones(r.sesiones);
+      if (avisar) {
+        if (r.errores.length) toast.warning('No se han podido leer todas las respuestas', { description: r.errores[0] });
+        else toast.success(r.sesiones.length ? `${r.sesiones.length} ${r.sesiones.length === 1 ? 'respuesta nueva' : 'respuestas nuevas'}` : 'Sin cambios: nadie ha contestado nada nuevo');
+      }
+    } catch (e) {
+      if (avisar) toast.error(e instanceof Error ? e.message : 'No se ha podido');
+    } finally {
+      setLeyendoRespuestas(false);
+    }
+  }
+
+  // Al abrir el panel, se mira en silencio si algún profe ha contestado desde la última vez.
+  const respuestasLeidas = useRef(false);
+  useEffect(() => {
+    if (respuestasLeidas.current) return;
+    respuestasLeidas.current = true;
+    if (!datos.sesiones.some((s) => s.estado === 'confirmado' && s.googleEventId && s.fecha >= datos.hoy)) return;
+    api
+      .respuestas()
+      .then((r) => r.sesiones.length && guardarSesiones(r.sesiones))
+      .catch(() => null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function cambiarPestana(p: Pestana) {
     setPestana(p);
     const url = new URL(window.location.href);
@@ -143,6 +180,8 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
     setDisponibilidad: (email, huecos) => setDisp((prev) => ({ ...prev, [email]: huecos })),
     setTipos,
     setAjustes,
+    preferencias,
+    setPreferencias,
     abrir: setAbierta,
     moviendo,
     mover: (id) => {
@@ -152,6 +191,8 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
     },
     lote,
     ocupado,
+    actualizarRespuestas,
+    leyendoRespuestas,
   };
 
   return (

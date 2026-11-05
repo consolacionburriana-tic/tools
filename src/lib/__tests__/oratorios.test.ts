@@ -7,6 +7,7 @@ import {
   avisoTrasCambio,
   candidatosHueco,
   chipEstado,
+  respuestaDeInvitados,
   claveHorario,
   clasesDeTipo,
   clasesSinHorario,
@@ -51,7 +52,7 @@ import {
   type UsoSesion,
 } from '@/lib/oratorios';
 import { correoProfe } from '@/lib/oratorios-email';
-import { cuerpoEvento } from '@/lib/oratorios-google';
+import { cuerpoEvento, sendUpdatesDe } from '@/lib/oratorios-google';
 import { conComo, type Remitente } from '@/lib/email';
 
 // ─── Datos inventados ─────────────────────────────────────────────────────────
@@ -479,13 +480,30 @@ describe('evento de Google Calendar', () => {
     expect(tituloEvento(ORATORIO, { ...s, profes: [], profeId: null })).toBe('[4 ESO B] Oratorio');
   });
 
-  it('invita al profe y a quien lo lleva, en hora de Madrid y con la marca de origen', () => {
+  it('por defecto solo invita al profe afectado (no a quien lo lleva), en hora de Madrid y con la marca de origen', () => {
     const s = sesion({ curso: '4ESO', letra: 'B', numero: 2 });
     const ev = cuerpoEvento({ tipo: ORATORIO, sesion: s, correos: new Map([[ANA.id, 'ana@consolacionburriana.com']]) });
     expect(ev.start).toEqual({ dateTime: '2026-10-05T09:50:00', timeZone: 'Europe/Madrid' });
-    expect(ev.attendees?.map((a) => a.email)).toEqual(['ana@consolacionburriana.com', 'yo@consolacionburriana.com']);
+    expect(ev.attendees?.map((a) => a.email)).toEqual(['ana@consolacionburriana.com']);
     expect(ev.extendedProperties?.private).toEqual({ origen: 'tools-oratorios', sesionId: s.id });
     expect(ev.description).toContain('Sesión 2');
+  });
+
+  it('quien lo lleva solo se invita si lo ha pedido (y aceptado de entrada)', () => {
+    const s = sesion({ curso: '4ESO', letra: 'B' });
+    const ev = cuerpoEvento({
+      tipo: ORATORIO,
+      sesion: s,
+      correos: new Map([[ANA.id, 'ana@consolacionburriana.com']]),
+      prefs: { invitarme: true, avisoGoogle: false },
+    });
+    expect(ev.attendees).toEqual([{ email: 'ana@consolacionburriana.com' }, { email: 'yo@consolacionburriana.com', responseStatus: 'accepted' }]);
+  });
+
+  it('Google no manda correo salvo que se pida: ni al crear, ni al mover, ni al borrar', () => {
+    expect(sendUpdatesDe()).toBe('none');
+    expect(sendUpdatesDe({ invitarme: true, avisoGoogle: false })).toBe('none');
+    expect(sendUpdatesDe({ invitarme: false, avisoGoogle: true })).toBe('all');
   });
 
   it('si el profe está sustituido, invita a quien lo cubre (y no repite correos)', () => {
@@ -496,6 +514,34 @@ describe('evento de Google Calendar', () => {
       correos: new Map([[ANA.id, ['eva@consolacionburriana.com', 'yo@consolacionburriana.com']]]),
     });
     expect(ev.attendees?.map((a) => a.email)).toEqual(['eva@consolacionburriana.com', 'yo@consolacionburriana.com']);
+  });
+});
+
+describe('respuesta del profe al evento (el ✅ verde)', () => {
+  const YO = 'yo@consolacionburriana.com';
+  it('sin invitados, o solo quien lo lleva, no hay a quién preguntar', () => {
+    expect(respuestaDeInvitados([], YO)).toBeNull();
+    expect(respuestaDeInvitados(undefined, YO)).toBeNull();
+    expect(respuestaDeInvitados([{ email: 'YO@consolacionburriana.com', responseStatus: 'accepted' }], YO)).toBeNull();
+  });
+  it('aceptada solo si TODOS los profes afectados han dicho que sí; quien lo lleva no cuenta', () => {
+    const ana = { email: 'ana@consolacionburriana.com' };
+    expect(respuestaDeInvitados([{ ...ana, responseStatus: 'accepted' }, { email: YO, responseStatus: 'needsAction' }], YO)).toBe('accepted');
+    expect(respuestaDeInvitados([{ ...ana, responseStatus: 'accepted' }, { email: 'eva@consolacionburriana.com', responseStatus: 'needsAction' }], YO)).toBe('needsAction');
+  });
+  it('uno que rechaza manda, y lo desconocido es «sin respuesta»', () => {
+    expect(respuestaDeInvitados([{ email: 'a@x.com', responseStatus: 'accepted' }, { email: 'b@x.com', responseStatus: 'declined' }], YO)).toBe('declined');
+    expect(respuestaDeInvitados([{ email: 'a@x.com', responseStatus: 'tentative' }], YO)).toBe('tentative');
+    expect(respuestaDeInvitados([{ email: 'a@x.com' }], YO)).toBe('needsAction');
+  });
+  it('el chip: verde solo si ha aceptado; si no, pendiente; sin respuesta que leer, «Confirmada»', () => {
+    const futura = { estado: 'confirmado' as const, fecha: '2026-11-20' };
+    const hoy = '2026-11-05';
+    expect(chipEstado({ ...futura, respuestaProfe: 'accepted' }, hoy)).toMatchObject({ emoji: '✅', texto: 'Aceptada', tono: 'emerald' });
+    expect(chipEstado({ ...futura, respuestaProfe: 'needsAction' }, hoy).texto).toBe('Sin respuesta');
+    expect(chipEstado({ ...futura, respuestaProfe: 'declined' }, hoy).texto).toBe('Rechazada');
+    expect(chipEstado({ ...futura, respuestaProfe: null }, hoy).texto).toBe('Confirmada');
+    expect(chipEstado({ ...futura, fecha: '2026-11-01', respuestaProfe: 'needsAction' }, hoy).texto).toBe('Hecha');
   });
 });
 
