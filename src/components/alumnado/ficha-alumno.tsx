@@ -166,14 +166,12 @@ export function FichaAlumnoPanel({
 
       {/* ── 2 · Lo que hay que saber ya ──────────────────────────────── */}
       <div className="flex flex-wrap gap-1.5">
-        {ficha.permisos?.verBanco && (
-          <Chip
-            tono={ficha.bancoLibros ? 'ok' : 'neutro'}
-            icono={<Library className="h-3.5 w-3.5" />}
-            texto={ficha.bancoLibros ? 'Banco de libros' : 'Sin banco de libros'}
-            detalle={ficha.banco ? `lote ${ficha.banco.lote}${ficha.banco.entregado ? ' · entregado' : ' · sin entregar'}` : undefined}
-          />
-        )}
+        <Chip
+          tono={ficha.bancoLibros ? 'ok' : 'neutro'}
+          icono={<Library className="h-3.5 w-3.5" />}
+          texto={ficha.bancoLibros ? 'Banco de libros' : 'Sin banco de libros'}
+          detalle={ficha.banco ? `lote ${ficha.banco.lote}${ficha.banco.entregado ? ' · entregado' : ' · sin entregar'}` : undefined}
+        />
         {ficha.licencias?.participa && (
           <Chip
             tono={ficha.licencias.pedidoHecho ? 'info' : 'aviso'}
@@ -276,7 +274,6 @@ export function FichaAlumnoPanel({
         complementarias={aplicaServicio('complementarias', ficha.curso) ? ficha.complementarias : null}
         puedeEditar={ficha.permisos?.proteccion === 'editar'}
         puedeParticipacion={Boolean(ficha.permisos?.participacion)}
-        veBanco={Boolean(ficha.permisos?.verBanco)}
         puedeServicios={Boolean(ficha.permisos?.servicios)}
         onCambio={(cambio) => onActualizar(ficha.id, cambio)}
       />

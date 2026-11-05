@@ -4,7 +4,8 @@ import {
   diffModulos,
   horariosSoloSuTutoria,
   puedeVerHistorialAlumnado,
-  veBancoLibros,
+  puedeGestionarParticipantesBanco,
+  ROLES,
   modulosDe,
   origenModulo,
   MODULES,
@@ -33,7 +34,7 @@ describe('módulos efectivos de una persona', () => {
     expect(canAccess(tutorPastoral, 'evaluaciones')).toBe(true);
     // …y sigue conservando lo suyo, que era justo el problema del rol dedicado.
     expect(canAccess(tutorPastoral, 'salidas')).toBe(true);
-    expect(canAccess(tutorPastoral, 'bancolibros')).toBe(true);
+    expect(canAccess(tutorPastoral, 'horarios')).toBe(true);
   });
 
   it('se le puede quitar a alguien un módulo que le venía del rol', () => {
@@ -81,7 +82,7 @@ describe('de dónde le viene cada módulo (para pintarlo en la interfaz)', () =>
       modulosExtra: ['evaluaciones'],
       modulosBloqueados: ['salidas'],
     };
-    expect(origenModulo(acceso, 'bancolibros')).toBe('rol');
+    expect(origenModulo(acceso, 'horarios')).toBe('rol');
     expect(origenModulo(acceso, 'evaluaciones')).toBe('extra');
     expect(origenModulo(acceso, 'salidas')).toBe('bloqueado');
     expect(origenModulo(acceso, 'licencias')).toBe('no');
@@ -103,10 +104,9 @@ describe('guardar la selección como diferencia respecto al rol', () => {
   it('marcar uno de más lo guarda como extra; desmarcar uno del rol, como bloqueado', () => {
     const r = diffModulos('tutor', ['salidas', 'evaluaciones'] as Module[]);
     expect(r.modulosExtra).toEqual(['evaluaciones']);
-    // El rol tutor trae salidas, bancolibros, puntualidad, horarios, mi-horario, alumnado,
+    // El rol tutor trae salidas, puntualidad, horarios, mi-horario, alumnado,
     // numeros, oratorios-ver, tableros y tareas-reportar: lo que no se marca, bloqueado.
     expect(r.modulosBloqueados).toEqual([
-      'bancolibros',
       'puntualidad',
       'horarios',
       'mi-horario',
@@ -212,16 +212,19 @@ describe('dispositivos', () => {
 });
 
 describe('banco de libros', () => {
-  it('dirección ya no lo tiene (David, 5-nov-2026); SuperTIC y TIC sí', () => {
-    expect(canAccess({ role: 'direccion' }, 'bancolibros')).toBe(false);
-    for (const r of ['supertic', 'tic'] as const) expect(canAccess({ role: r }, 'bancolibros')).toBe(true);
+  it('el módulo es solo de SuperTIC (David, 5-nov-2026): ningún otro rol, ni dado a mano', () => {
+    expect(canAccess({ role: 'supertic' }, 'bancolibros')).toBe(true);
+    expect(modulosDe({ role: 'supertic' })).toContain('bancolibros');
+    for (const r of ROLES.filter((x) => x !== 'supertic')) {
+      expect(canAccess({ role: r }, 'bancolibros'), r).toBe(false);
+      expect(canAccess({ role: r, modulosExtra: ['bancolibros'] }, 'bancolibros'), `${r} + extra`).toBe(false);
+      expect(modulosDe({ role: r, modulosExtra: ['bancolibros'] }), `${r} + extra`).not.toContain('bancolibros');
+    }
   });
 
-  it('en Alumnado (check, pestaña, informes) solo lo ve SuperTIC', () => {
-    expect(veBancoLibros('supertic')).toBe(true);
-    for (const r of ['tic', 'direccion', 'secretaria', 'jefe', 'tutor', 'profe', 'orientacion', null] as const) {
-      expect(veBancoLibros(r), String(r)).toBe(false);
-    }
+  it('marcar quién participa desde Alumnado no depende del módulo: secretaría, dirección y TIC sí', () => {
+    for (const r of ['secretaria', 'direccion', 'tic', 'supertic'] as const) expect(puedeGestionarParticipantesBanco(r)).toBe(true);
+    for (const r of ['tutor', 'profe', 'jefe', 'orientacion'] as const) expect(puedeGestionarParticipantesBanco(r)).toBe(false);
   });
 });
 

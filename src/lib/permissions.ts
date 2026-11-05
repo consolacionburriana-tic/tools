@@ -111,10 +111,19 @@ export const ROLE_LABELS: Record<Role, string> = {
   supertic: 'SuperTIC',
 };
 
+/**
+ * Módulos que solo puede abrir SuperTIC, y que no se dan a nadie más: ni por el rol ni a mano
+ * (`modulosExtra`). El banco de libros (David, 5-nov-2026). Es el módulo —su pantalla y sus
+ * rutas—; marcar el banco/AMPA de un alumno desde Alumnado es aparte y no depende de él.
+ */
+export const MODULOS_SOLO_SUPERTIC: readonly Module[] = ['bancolibros'];
+
+const reservadoA = (role: Role | null | undefined, m: Module) =>
+  MODULOS_SOLO_SUPERTIC.includes(m) && role !== 'supertic';
+
 export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   supertic: [...MODULES],
-  tic: [...MODULES],
-  // Sin `bancolibros`: el banco de libros lo llevan solo SuperTIC y TIC (David, 5-nov-2026).
+  tic: MODULES.filter((m) => !MODULOS_SOLO_SUPERTIC.includes(m)),
   direccion: [
     'abc',
     'licencias',
@@ -136,7 +145,7 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'nouvinguts',
     'dispositivos',
   ],
-  jefe: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
+  jefe: ['salidas', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»)…
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta
@@ -145,15 +154,20 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   // Y Nouvinguts lo trabaja, pero el orden de sus pasos lo ajustan SuperTIC y TIC (David, 19-oct-2026).
   // Correos y grupos: lo gestiona TIC; secretaría lo ve, sin tocar nada (David, 20-oct-2026).
   secretaria: MODULES.filter(
-    (m) => m !== 'tareas' && m !== 'calendarios' && m !== 'nouvinguts-proceso' && m !== 'cuentas',
+    (m) =>
+      m !== 'tareas' &&
+      m !== 'calendarios' &&
+      m !== 'nouvinguts-proceso' &&
+      m !== 'cuentas' &&
+      !MODULOS_SOLO_SUPERTIC.includes(m),
   ),
   // Tutor y profe entran en Alumnado, pero solo ven SU ETAPA (entrando en su tutoría si la
   // tienen): `alcanceAlumnado` en alumnado-server.ts. Profe, desde el 28-sep-2026 (David).
   // Números del cole, con el mismo alcance, solo el tutor (docs/24-numeros.md).
   // Todo el claustro puede apuntar fallitos y sugerencias (`tareas-reportar`) desde el botón de
   // abajo a la derecha (David, 2-nov-2026): solo recoge, sin abrir el tablero de TIC.
-  tutor: ['salidas', 'bancolibros', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
-  profe: ['salidas', 'bancolibros', 'horarios', 'mi-horario', 'alumnado', 'tareas-reportar', 'oratorios-ver', 'tableros'],
+  tutor: ['salidas', 'puntualidad', 'horarios', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
+  profe: ['salidas', 'horarios', 'mi-horario', 'alumnado', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   // Tableros: lo tiene TODO el claustro, porque el módulo solo deja crear equipos y entrar en
   // los tableros de los equipos en los que estás. Tener el módulo no enseña nada de nadie: ni
   // dirección ni TIC ven un tablero ajeno (docs/27-tableros.md). Se quita a mano si hace falta.
@@ -198,13 +212,14 @@ export function modulosDe(acceso: Acceso | null | undefined): Module[] {
   const base = new Set<Module>(ROLE_MODULES[acceso.role] ?? []);
   for (const m of acceso.modulosExtra ?? []) if (esModulo(m)) base.add(m);
   for (const m of acceso.modulosBloqueados ?? []) if (esModulo(m)) base.delete(m);
+  for (const m of MODULOS_SOLO_SUPERTIC) if (reservadoA(acceso.role, m)) base.delete(m);
   // Se devuelve en el orden de MODULES, no en el de inserción: la interfaz los
   // pinta siempre igual sin tener que ordenar en cada sitio.
   return MODULES.filter((m) => base.has(m) && !moduloDesactivado(m));
 }
 
 export function canAccess(acceso: Acceso | null | undefined, modulo: Module): boolean {
-  if (!acceso?.role || moduloDesactivado(modulo)) return false;
+  if (!acceso?.role || moduloDesactivado(modulo) || reservadoA(acceso.role, modulo)) return false;
   const bloqueados = acceso.modulosBloqueados ?? [];
   if (bloqueados.includes(modulo)) return false;
   if ((acceso.modulosExtra ?? []).includes(modulo)) return true;
@@ -215,7 +230,7 @@ export function canAccess(acceso: Acceso | null | undefined, modulo: Module): bo
 export type OrigenModulo = 'rol' | 'extra' | 'bloqueado' | 'no';
 
 export function origenModulo(acceso: Acceso | null | undefined, modulo: Module): OrigenModulo {
-  if (!acceso?.role) return 'no';
+  if (!acceso?.role || reservadoA(acceso.role, modulo)) return 'no';
   const delRol = ROLE_MODULES[acceso.role]?.includes(modulo) ?? false;
   if ((acceso.modulosBloqueados ?? []).includes(modulo)) return delRol ? 'bloqueado' : 'no';
   if ((acceso.modulosExtra ?? []).includes(modulo)) return delRol ? 'rol' : 'extra';
@@ -246,15 +261,6 @@ export function diffModulos(
  */
 export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
   return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
-}
-
-/**
- * ¿Ve algo del banco de libros dentro de Alumnado (check de la ficha, pestaña, icono de la
- * lista, columna de los informes)? Solo SuperTIC: para el resto el banco es «próximamente»
- * (David, 5-nov-2026), igual que en el escritorio.
- */
-export function veBancoLibros(role: Role | null): boolean {
-  return role === 'supertic';
 }
 
 /**

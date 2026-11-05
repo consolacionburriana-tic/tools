@@ -6,7 +6,7 @@ import { eduStudents } from '@/db/schema';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { alcanceAlumnado, puedeConAlumno } from '@/lib/alumnado-server';
 import { setAmpa, setBancoVarios } from '@/lib/bancolibros-server';
-import { canAccess, puedeGestionarParticipantesBanco } from '@/lib/permissions';
+import { puedeGestionarParticipantesBanco } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +28,7 @@ const cuerpo = z
 export async function POST(request: Request) {
   const guard = await requireModule('alumnado');
   if (isGuardResponse(guard)) return guard;
-  if (!(canAccess(guard, 'bancolibros') && puedeGestionarParticipantesBanco(guard.role))) {
+  if (!puedeGestionarParticipantesBanco(guard.role)) {
     return NextResponse.json({ error: 'Solo dirección/TIC pueden cambiar el banco de libros y el AMPA' }, { status: 403 });
   }
 

@@ -65,7 +65,6 @@ import {
   canAccess,
   puedeEditarProteccionDatos,
   puedeGestionarParticipantesBanco,
-  veBancoLibros,
   puedeGestionarServicios,
   puedeVerHistorialAlumnado,
   veProteccionDatosCompleta,
@@ -274,8 +273,6 @@ export interface PermisosFicha {
   proteccion: 'editar' | 'ver' | 'no';
   /** Banco de libros y AMPA: el mismo criterio que en su propio panel, ni más ni menos. */
   participacion: boolean;
-  /** Si participa en el banco y el detalle de su lote: solo SuperTIC (`veBancoLibros`). */
-  verBanco: boolean;
   /** Comedor y complementarias: secretaría, dirección y TIC (`puedeGestionarServicios`). */
   servicios: boolean;
   /** El libro de cambios de esta persona (docs/31-auditoria.md): ver y restaurar. */
@@ -290,10 +287,10 @@ export function permisosFicha(
   const ve = veProteccionDe(alcance, alumno);
   return {
     proteccion: ve ? (alcance.edita ? 'editar' : 'ver') : 'no',
-    // Marcar quién participa en el banco/AMPA sigue siendo cosa de dirección/TIC **con el
-    // módulo del banco**: desde aquí se edita lo mismo, no se amplía a nadie.
-    participacion: canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role),
-    verBanco: canAccess(user, 'bancolibros') && veBancoLibros(user.role),
+    // Marcar quién participa en el banco/AMPA es cosa de secretaría, dirección y TIC. El módulo
+    // del banco es solo de SuperTIC (David, 5-nov-2026), pero el check de la ficha y de las
+    // pestañas de Alumnado no depende de él.
+    participacion: puedeGestionarParticipantesBanco(user.role),
     servicios: puedeGestionarServicios(user.role),
     historial: puedeVerHistorialAlumnado(user.role),
   };
@@ -312,14 +309,7 @@ export function fichaVisible(
   // Del iPad, quien no lleva Dispositivos 1:1 solo sabe si NO se lo lleva a casa (David, 20-oct-2026).
   const d = ficha.dispositivo;
   const dispositivo = canAccess(user, 'dispositivos') ? d : d?.noSeLoLleva ? { modalidad: null, texto: null, noSeLoLleva: true } : null;
-  // Sin el módulo del banco, ni el check ni el detalle del lote salen del servidor.
-  return {
-    ...ficha,
-    proteccion: permisos.proteccion === 'no' ? null : ficha.proteccion,
-    dispositivo,
-    banco: permisos.verBanco ? ficha.banco : null,
-    permisos,
-  };
+  return { ...ficha, proteccion: permisos.proteccion === 'no' ? null : ficha.proteccion, dispositivo, permisos };
 }
 
 // ─── El listado ───────────────────────────────────────────────────────────────
