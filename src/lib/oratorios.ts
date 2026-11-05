@@ -694,7 +694,16 @@ export function etiquetaCursosHueco(cursos: readonly string[] | null | undefined
 // ─── Avisos de un candidato ──────────────────────────────────────────────────
 
 export type NivelAviso = 'rojo' | 'naranja' | 'amarillo' | 'info';
-export type CodigoAviso = 'mismo_hueco' | 'mismo_profe' | 'profe_trimestre' | 'mismo_dia' | 'reciente' | 'salida' | 'cubierta' | 'sin_profe';
+export type CodigoAviso = 'mismo_hueco' | 'mismo_profe' | 'profe_trimestre' | 'mismo_dia' | 'reciente' | 'salida' | 'cubierta' | 'sin_profe' | 'educacion_fisica';
+
+/**
+ * ¿Es Educación Física? En el horario viene como «Educació Física», «Educación Física» o «EF»;
+ * se compara sin tildes ni mayúsculas. David (5-nov-2026): no queremos quitar horas de EF.
+ */
+export function esEducacionFisica(materia: string | null | undefined): boolean {
+  const m = (materia ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  return /^(ef|efi)$/.test(m) || /educaci(o|on)\s*fisica/.test(m);
+}
 
 export interface AvisoCandidato {
   codigo: CodigoAviso;
@@ -744,6 +753,8 @@ export interface EntradaAvisos {
   fecha: string;
   horaInicio: string;
   profes: readonly ProfeAfectado[];
+  /** Las asignaturas de esa hora (cuando el horario no dice qué profe), para reconocer Educación Física. */
+  materias?: readonly string[];
   excluirId?: string; // la sesión que se está moviendo no se compara consigo misma
 }
 
@@ -822,6 +833,10 @@ export function avisosCandidato(ctx: ContextoPlan, e: EntradaAvisos, necesita = 
   const salida = ctx.salidas.find((s) => s.fecha === e.fecha && s.clases.includes(clave));
   if (salida) avisos.push({ codigo: 'salida', nivel: 'naranja', simbolo: '🚌', texto: `Salida ese día: ${salida.nombre}` });
 
+  if ([...e.profes.map((p) => p.materia), ...(e.materias ?? [])].some(esEducacionFisica)) {
+    avisos.push({ codigo: 'educacion_fisica', nivel: 'naranja', simbolo: 'EF', texto: 'Es Educación Física: mejor no quitarle esa hora' });
+  }
+
   if (misProfes.size === 0) avisos.push({ codigo: 'sin_profe', nivel: 'naranja', simbolo: '👤?', texto: 'No se sabe qué profe tiene a esa hora' });
 
   if (!necesita) avisos.push({ codigo: 'cubierta', nivel: 'info', simbolo: '✓', texto: 'Esta clase ya tiene cubierto el objetivo' });
@@ -849,11 +864,14 @@ export interface Candidato {
 }
 
 const PESO: Record<NivelAviso, number> = { rojo: 100, naranja: 10, amarillo: 3, info: 0 };
+const PESO_EF = 400;
 
 export function puntuar(necesita: number, avisos: readonly AvisoCandidato[]): number {
   let p = necesita > 0 ? 0 : 1000;
   for (const a of avisos) {
     p += PESO[a.nivel];
+    // Educación Física, detrás de todo lo que sí interesa (pero antes de lo ya cubierto).
+    if (a.codigo === 'educacion_fisica') p += PESO_EF;
     // Entre dos con el mismo color, el profe menos molestado primero.
     if (a.codigo === 'profe_trimestre') p += Number(a.simbolo.slice(1)) || 0;
   }
@@ -875,7 +893,7 @@ export function candidatosHueco(
     if (!bruta) continue;
     const hora = ctx.responsableProfeId ? { ...bruta, profes: bruta.profes.filter((p) => p.id !== ctx.responsableProfeId) } : bruta;
     const necesita = necesidadEnFecha(ctx, tipo, clase, fecha, excluirId);
-    const avisos = avisosCandidato(ctx, { tipo, clase, fecha, horaInicio: hora.horaInicio, profes: hora.profes, excluirId }, necesita > 0);
+    const avisos = avisosCandidato(ctx, { tipo, clase, fecha, horaInicio: hora.horaInicio, profes: hora.profes, materias: hora.materias, excluirId }, necesita > 0);
     lista.push({ clase, clave: claveClase(clase), hora, necesita, avisos, puntos: puntuar(necesita, avisos) });
   }
   return lista.sort((a, b) => a.puntos - b.puntos || a.clave.localeCompare(b.clave, 'es'));
@@ -927,7 +945,8 @@ export function autocompletar(
         const ocupado = sesiones.some((s) => estaActiva(s) && s.responsableEmail === responsable.email && s.fecha === fecha && solapa(s, hueco));
         if (ocupado) continue;
         const elegido = candidatosHueco(local, tipo, clasesDeHueco(clases, hueco), fecha, hueco).find(
-          (c) => c.necesita > 0 && !c.avisos.some((a) => a.codigo === 'mismo_hueco' || a.codigo === 'mismo_dia'),
+          // Nunca se autocompleta con Educación Física: se puede apuntar a mano, pero no se propone.
+          (c) => c.necesita > 0 && !c.avisos.some((a) => a.codigo === 'mismo_hueco' || a.codigo === 'mismo_dia' || a.codigo === 'educacion_fisica'),
         );
         if (!elegido) continue;
         const sesionElegida = forzada ?? sesionPorDefecto(opcionesSesion(local, tipo, elegido.clase, fecha));

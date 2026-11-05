@@ -9,6 +9,7 @@ import {
   chipEstado,
   respuestaDeInvitados,
   clasesDeSesion,
+  esEducacionFisica,
   etiquetaClases,
   claveHorario,
   clasesDeTipo,
@@ -517,6 +518,37 @@ describe('evento de Google Calendar', () => {
       correos: new Map([[ANA.id, ['eva@consolacionburriana.com', 'yo@consolacionburriana.com']]]),
     });
     expect(ev.attendees?.map((a) => a.email)).toEqual(['eva@consolacionburriana.com', 'yo@consolacionburriana.com']);
+  });
+});
+
+describe('Educación Física: no queremos quitar su hora', () => {
+  // Lunes 9:50: 1ESO A tiene EF con Luis (sale primero por orden alfabético), 1ESO B tiene Mates con Ana.
+  const HORARIO_EF = [h('1ESO', 'A', 1, '09:50', '10:45', 'Educació Física', [LUIS]), h('1ESO', 'B', 1, '09:50', '10:45', 'Matemáticas', [ANA])];
+  const ctxEf = (sesiones: SesionOra[] = []) => ctx(sesiones, { horario: HORARIO_EF });
+  const HUECO = { horaInicio: '09:50', horaFin: '10:45' };
+
+  it('reconoce EF escrita de varias formas', () => {
+    for (const m of ['Educació Física', 'Educación Física', 'EDUCACION FISICA', 'EF', 'efi', 'Educació Física i Salut']) expect(esEducacionFisica(m)).toBe(true);
+    for (const m of ['Matemáticas', 'Física y Química', 'Música', '', null, undefined]) expect(esEducacionFisica(m)).toBe(false);
+  });
+
+  it('en el hueco sale la última, con su aviso, aunque por orden saldría la primera', () => {
+    const c = candidatosHueco(ctxEf(), ORATORIO, CLASES_ESO, '2026-10-05', HUECO);
+    expect(c.map((x) => x.clave)).toEqual(['1ESO|B', '1ESO|A']);
+    expect(c[1].avisos.map((a) => a.codigo)).toContain('educacion_fisica');
+    expect(c[0].avisos.map((a) => a.codigo)).not.toContain('educacion_fisica');
+  });
+
+  it('pero sigue por delante de lo que ya está cubierto', () => {
+    const cubierta = sesion({ curso: '1ESO', letra: 'B', fecha: '2026-10-19', numero: 1 }); // 1ESO B ya tiene la de octubre
+    const c = candidatosHueco(ctxEf([cubierta]), ORATORIO, CLASES_ESO, '2026-10-05', HUECO);
+    expect(c.map((x) => x.clave)).toEqual(['1ESO|A', '1ESO|B']);
+  });
+
+  it('Autocompletar no la propone nunca, aunque sea lo único que quede', () => {
+    const DISP1 = [{ dia: 1, horaInicio: '09:50', horaFin: '10:45', nivel: 'optima' as const }];
+    const p = autocompletar(ctxEf(), ORATORIO, CLASES_ESO, { inicio: '2026-10-01', fin: '2026-10-31' }, DISP1, { email: 'yo@consolacionburriana.com', profeId: null });
+    expect(p.map((x) => `${x.curso}${x.letra}`)).toEqual(['1ESOB']); // 1ESO A (EF) se queda sin proponer
   });
 });
 

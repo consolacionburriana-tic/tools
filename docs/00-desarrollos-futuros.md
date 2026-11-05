@@ -382,7 +382,7 @@ el check si el profe contesta». Detalle en [`26-oratorios.md`](./26-oratorios.m
 4. 🤖 **La rejilla del asistente no oculta los otros tipos, los atenúa** (gris, una línea): sirven
    para ver que ese profe o esa clase ya tienen algo a esa hora.
 
-### 💡 Oratorios: planificar por **rondas** y no quitar horas de Educación Física (David, 5-nov-2026) — anotado, sin hacer
+### 💡 Oratorios: planificar por **rondas** (anotado, sin hacer) y no quitar horas de Educación Física (✅ hecho) — David, 5-nov-2026
 
 **1. Modo «por rondas».** David no trabaja «una sesión al mes por clase»: da primero la 1ª sesión a
 todas las clases, luego la 2ª a todas, y cada una cae en el mes que toque (unas a finales de
@@ -401,14 +401,14 @@ curso); la unidad de tiempo es el curso entero (como `curso`). Hace falta pasar 
 clase que se queda atrás (alumnado nuevo, clase anulada) frena a las demás? Propuesta: no, solo
 cuentan las clases del tipo con alumnado activo.
 
-**2. Educación Física, al final y «no interesa».** David no quiere quitar horas de EF. Si la
-asignatura que pierde la hora es Educación Física (en el horario puede venir como «Educació Física»,
-«Educación Física» o «EF»: normalizar sin tildes), el candidato del hueco sale **al final de la lista**
-y con un aviso propio («EF: mejor no»), y **Autocompletar no la propone** salvo que no quede otra
-clase posible. Pendiente de decidir: si es siempre (todas las franjas) o solo cuando hay otro
-candidato; si el aviso es un 🔴 (como «Misma hora») o uno suave (como «Mismo día»); y si afecta
-también a Música u otras materias (hoy, solo EF). Encaja en `puntuar()` / `avisosCandidato()`, junto
-a los demás avisos del hueco.
+**2. ~~Educación Física, al final y «no interesa».~~ ✅ hecho (5-nov-2026).** David no quiere quitar
+horas de EF. Si la asignatura que pierde la hora es Educación Física (se reconoce «Educació Física»,
+«Educación Física», «EF»…, sin tildes ni mayúsculas), esa clase sale **la última del hueco** (detrás de
+todo lo que sí interesa, pero antes de lo ya cubierto), con el aviso «EF · mejor no»; **Autocompletar
+no la propone nunca** (ni siquiera si es lo único que queda) y la rejilla no la sugiere con el «+». Se
+puede apuntar a mano tocándola en el hueco. Lo que decidí yo 🤖: siempre, no solo cuando hay otro
+candidato; aviso naranja (no 🔴); solo EF, no Música ni otras. Si hay que ampliarlo, es
+`esEducacionFisica()` y `PESO_EF` en `oratorios.ts`.
 
 ### ~~Idea: juntar clases en una misma sesión~~ ✅ hecho (5-nov-2026)
 David lo pidió para los PDC (3º + 4º en la misma hora). Una sesión lleva varias clases; ver

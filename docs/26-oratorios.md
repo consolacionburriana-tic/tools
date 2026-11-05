@@ -514,6 +514,9 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
 - [x] Juntar clases en un mismo momento (`juntas`, `oratorios-juntas.sql` aplicado el 5-nov-2026), botón «Esta semana» más grande y aviso de **3 días** (sesión y en bloque)
 - [ ] **David**: comprobar en el calendario de verdad que el evento le aparece al profe sin correo de Google y que su «Sí» llega a la app
 
+### Educación Física: no quitarle la hora (5-nov-2026) — ✅
+- [x] Un candidato cuya asignatura es Educación Física sale **el último del hueco** con el aviso «EF · mejor no»; Autocompletar **nunca** la propone y la rejilla no la sugiere (se puede apuntar a mano tocándola). Tests en `oratorios.test.ts`.
+
 ### El PDC en los huecos (4-oct-2026)
 - [x] El PDC **sí cuenta** en el objetivo, los números y «A mano» (10 clases en la ESO), pero **no
       salía en los huecos**: su horario no está en Neon (ver «Estado»), y el asistente solo
@@ -559,4 +562,4 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
 - Avisar si el horario de la clase ha cambiado desde que se planificó (otro profe a esa hora).
 - Mirar el ocupado/libre del Google Calendar del responsable al proponer huecos.
 - Copiar la semana planificada para WhatsApp.
-- **Planificar por rondas** (todas las clases la 1ª sesión, luego la 2ª…, sin atarse al mes) y **Educación Física al final** de la lista del hueco (no quitarle horas): anotados con su diseño en `00-desarrollos-futuros.md` → «Oratorios: planificar por rondas…» (5-nov-2026).
+- **Planificar por rondas** (todas las clases la 1ª sesión, luego la 2ª…, sin atarse al mes): anotado con su diseño en `00-desarrollos-futuros.md` → «Oratorios: planificar por rondas…» (5-nov-2026). Mientras, «al curso» con N sesiones por clase.

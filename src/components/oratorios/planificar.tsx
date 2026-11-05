@@ -585,12 +585,13 @@ function FilaFranja({
         if (moviendo && lectivo) {
           const hora = horaDeClase(e.ctx.idx, e.datos.periodos, { curso: moviendo.curso, letra: moviendo.letra }, fecha, franja);
           const tipoMov = e.tipos.find((t) => t.id === moviendo.tipoId) ?? tipo;
-          if (hora) destino = { avisos: avisosCandidato(ctx, { tipo: tipoMov, clase: moviendo, fecha, horaInicio: hora.horaInicio, profes: hora.profes, excluirId: moviendo.id }) };
+          if (hora) destino = { avisos: avisosCandidato(ctx, { tipo: tipoMov, clase: moviendo, fecha, horaInicio: hora.horaInicio, profes: hora.profes, materias: hora.materias, excluirId: moviendo.id }) };
         }
 
         let sugerencia: Candidato | null = null;
         if (!moviendo && lectivo && nivel && mias.length === 0 && fecha >= e.datos.hoy) {
-          sugerencia = candidatosHueco(ctx, tipo, clasesDeHueco(clases, huecoEn(disp, dia, franja)), fecha, franja).find((c) => c.necesita > 0) ?? null;
+          // Educación Física no se sugiere en la rejilla (se puede apuntar a mano desde el hueco).
+          sugerencia = candidatosHueco(ctx, tipo, clasesDeHueco(clases, huecoEn(disp, dia, franja)), fecha, franja).find((c) => c.necesita > 0 && !c.avisos.some((a) => a.codigo === 'educacion_fisica')) ?? null;
         }
 
         return (
