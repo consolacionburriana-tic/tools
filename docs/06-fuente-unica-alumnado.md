@@ -96,20 +96,36 @@ que se arregle duplicando la tabla de alumnos.
 Está muy contenido: **casi todas las lecturas viven en `src/lib/licencias-server.ts`**, más una en
 `licencias-exports.ts`. Son ~8 sitios de query, no cientos.
 
-### Fase 1 · Leer en vivo (sin tocar el schema todavía)
+### Fase 1 · Leer en vivo (sin tocar el schema todavía) — ✅ hecha (5-nov-2026)
 
-Cambio de bajo riesgo y reversible: los sitios que hoy leen los campos duplicados de
-`lic_students` pasan a hacer `innerJoin(eduStudents)` y leer de ahí. Los campos duplicados siguen
-existiendo en la tabla, simplemente dejan de leerse.
+Todos los sitios que leían los campos duplicados de `lic_students` hacen ahora `innerJoin(eduStudents)`
+y leen de ahí, a través de **un solo módulo**: `src/lib/licencias-alumno-server.ts` (`alumnoVivo`,
+`alumnoCols`, `ON_EDU`, `CURSO_LIC_SQL`, tipo `LicAlumno`). Los nombres de los campos son los de
+siempre, así que quien los consume no cambió. Los campos duplicados siguen en la tabla pero
+**nadie los lee** (salvo el propio sync, que es quien los escribe hasta la fase 2).
 
-- [ ] `identifyStudentsByFamily()` (`licencias-server.ts:61`) — `curso` desde `edu_students`.
-- [ ] `getStudentById()` (`:106`) — devolver el alumno con sus datos vivos.
-- [ ] `getCatalog()` (`:111`) — **`student.bancoLibros` desde `edu_students`**. Este es el que
-      causó el bug de las Porcar.
-- [ ] Los listados y exportaciones: `:167`, `:275`, `:315`, `:369`, `:410`, `:604`, `:1076` y
-      `licencias-exports.ts:58`.
-- [ ] Recordar `cursoBaseEso()` en el join: los PDC vienen como `3ºPPDC` de la central.
-- [ ] Tests de que un cambio en `edu_students` se ve en Licencias **sin sincronizar nada**.
+- [x] `identifyStudentsByFamily()` — `curso` desde `edu_students`.
+- [x] `getStudentById()` — el alumno con sus datos vivos (`LicAlumno`); `getCatalog()` lee de ahí el
+      **banco de libros** (el que causó el bug de las Porcar). `conBancoDeLaCentral()` desaparece.
+- [x] Los listados y exportaciones de `licencias-server.ts` (dashboard, quién falta, destinatarios,
+      clases, familias, pedidos, idioma por clase), `licencias-exports.ts` (`loadBase`),
+      `licencias-envios-server.ts` (sincronizar, contexto, envíos, descartes) y
+      `licencias-profes-server.ts` (dónde está un código).
+- [x] `cursoBaseEso()` en el join: los PDC (`3ºPPDC`) se traducen a `3ESO` en SQL (`CURSO_LIC_SQL`).
+- [x] Guardas de que no se vuelve a leer la copia (`licencias-alumno.test.ts`): el SQL generado cuelga
+      de `edu_students` y ningún fichero de lectura de Licencias lee `licStudents.<columna duplicada>`.
+- [x] **Verificado contra Neon (5-nov-2026):** 24 pantallas y exportaciones comparadas, código viejo
+      contra código nuevo, sobre la campaña real. Idénticos: dashboard, clases, idioma por clase,
+      informe a editoriales, informe del banco, ID Educamos, envíos, detalle de pedidos. Las únicas
+      diferencias son **la copia vieja delatándose**: unos apellidos corregidos en la central
+      (Restrepo/Gallego), dos correos que la copia tenía vacío o antiguo (Samuel Arboleda, Johan
+      Gómez: salían sin correo en la exportación del banco) y filas inactivas con el curso de
+      junio sin mover. Es justo el problema que este plan resuelve.
+
+> **El idioma de la clase (`lengua_base`) NO es un duplicado**, y el plan original lo borraba por
+> error (se escribió el 3-sep, antes de la pantalla «Idioma por clase» del 16-sep). La central
+> lo tiene a NULL en todo el alumnado (`modelo_linguistico`) y es una decisión de la clase **de
+> cada campaña**, que cambia cada curso. Se queda en `lic_students`, igual que `manual_completed_*`.
 
 ### Fase 2 · Adelgazar la tabla
 
@@ -128,11 +144,13 @@ existiendo en la tabla, simplemente dejan de leerse.
 El sync deja de mover datos y pasa a responder solo una pregunta: *¿quién entra en la campaña?*
 Eso ya se puede automatizar sin miedo, porque no pisa nada.
 
-- [ ] Tras aplicar un import de Educamos (`aplicarSync`), dar de alta en la campaña vigente a los
-      alumnos nuevos que estén en cursos con Licencias. **Altas sí, bajas no** automáticas: una
-      baja debe seguir siendo una decisión con vista previa.
-- [ ] Enseñar en el resultado del import cuántos entraron en la campaña.
-- [ ] La pantalla de sincronizar se queda para el repaso manual y las bajas.
+- [x] Tras aplicar un import de Educamos (`aplicarSync`), dar de alta en la campaña vigente a los
+      alumnos nuevos que estén en cursos con Licencias (`darDeAltaEnCampania()` en
+      `licencias-server.ts`). **Altas sí, bajas no** automáticas: una baja debe seguir siendo una
+      decisión con vista previa. Solo inserta (`ON CONFLICT DO NOTHING`) y con la campaña
+      cerrada no entra nadie. Probado contra Neon: con alumnos que ya están, 0 altas.
+- [x] Enseñar en el resultado del import cuántos entraron en la campaña (`sync-wizard.tsx`).
+- [x] La pantalla de sincronizar se queda para el repaso manual y las bajas.
 
 ### Fase 4 · Rematar
 

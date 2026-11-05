@@ -6,7 +6,8 @@
 // se vuelve a guardar, y se dice dónde está.
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { eduTeachers, licLicencias, licLicenciasProfes, licStudents } from '@/db/schema';
+import { eduStudents, eduTeachers, licLicencias, licLicenciasProfes, licStudents } from '@/db/schema';
+import { ON_EDU, alumnoVivo } from '@/lib/licencias-alumno-server';
 import { enviarCorreoLicencia, htmlLicencia } from '@/lib/licencias-email';
 import { cursoLabel } from '@/lib/licencias';
 import { nombreProfe, pilaProfe } from '@/lib/profes';
@@ -76,12 +77,13 @@ async function dondeEstan(campaignId: string, codigos: string[]): Promise<Map<st
     db
       .select({
         codigo: licLicencias.codigo,
-        nombre: licStudents.nombre,
-        apellidos: licStudents.apellidos,
-        curso: licStudents.curso,
+        nombre: alumnoVivo.nombre,
+        apellidos: alumnoVivo.apellidos,
+        curso: alumnoVivo.curso,
       })
       .from(licLicencias)
       .leftJoin(licStudents, eq(licStudents.id, licLicencias.studentId))
+      .leftJoin(eduStudents, ON_EDU)
       .where(and(eq(licLicencias.campaignId, campaignId), inArray(licLicencias.codigo, codigos))),
     db
       .select({ codigo: licLicenciasProfes.codigo, ...COLUMNAS_PROFE })

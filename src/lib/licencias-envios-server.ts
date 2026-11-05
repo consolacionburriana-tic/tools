@@ -22,6 +22,7 @@ import {
   licStudents,
   type LicLicencia,
 } from '@/db/schema';
+import { ON_EDU, alumnoVivo } from '@/lib/licencias-alumno-server';
 import { cursoEfectivo } from '@/lib/licencias';
 import { getBancoLibrosCenso, indexarLibros } from '@/lib/licencias-exports';
 import {
@@ -63,11 +64,12 @@ export async function sincronizarLicencias(campaignId: string): Promise<Resultad
         bookCod: licOrderItems.bookCod,
         orderCurso: licOrders.curso,
         studentId: licOrders.studentId,
-        studentCurso: licStudents.curso,
+        studentCurso: alumnoVivo.curso,
       })
       .from(licOrderItems)
       .innerJoin(licOrders, eq(licOrderItems.orderId, licOrders.id))
       .innerJoin(licStudents, eq(licOrders.studentId, licStudents.id))
+      .innerJoin(eduStudents, ON_EDU)
       .where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
     getBancoLibrosCenso(campaignId),
     db
@@ -180,15 +182,15 @@ async function cargarContexto(campaignId: string) {
     db
       .select({
         id: licStudents.id,
-        nombre: licStudents.nombre,
-        apellidos: licStudents.apellidos,
-        curso: licStudents.curso,
-        letra: licStudents.letra,
-        email: licStudents.email,
+        nombre: alumnoVivo.nombre,
+        apellidos: alumnoVivo.apellidos,
+        curso: alumnoVivo.curso,
+        letra: alumnoVivo.letra,
+        email: alumnoVivo.email,
         emailGoogle: eduStudents.emailGoogle,
       })
       .from(licStudents)
-      .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
+      .innerJoin(eduStudents, ON_EDU)
       .where(eq(licStudents.campaignId, campaignId)),
     db
       .select({
@@ -299,8 +301,9 @@ export async function asignarCodigos(e: AsignacionEntrada): Promise<ResultadoAsi
   const usados = new Map(yaEnUso.map((u) => [u.codigo ?? '', u.studentId]));
   const alumnos = usados.size
     ? await db
-        .select({ id: licStudents.id, nombre: licStudents.nombre, apellidos: licStudents.apellidos })
+        .select({ id: licStudents.id, nombre: alumnoVivo.nombre, apellidos: alumnoVivo.apellidos })
         .from(licStudents)
+        .innerJoin(eduStudents, ON_EDU)
         .where(inArray(licStudents.id, [...usados.values()].filter((v): v is string => Boolean(v))))
     : [];
   const nombrePorId = new Map(alumnos.map((a) => [a.id, `${a.apellidos}, ${a.nombre}`]));
@@ -445,8 +448,9 @@ export async function ponerCodigo(
   if (enUso) {
     const alumno = enUso.studentId
       ? await db
-          .select({ nombre: licStudents.nombre, apellidos: licStudents.apellidos })
+          .select({ nombre: alumnoVivo.nombre, apellidos: alumnoVivo.apellidos })
           .from(licStudents)
+          .innerJoin(eduStudents, ON_EDU)
           .where(eq(licStudents.id, enUso.studentId))
           .then((r) => (r[0] ? `${r[0].apellidos}, ${r[0].nombre}` : 'otro alumno'))
       : 'un sobrante del almacén';
@@ -687,11 +691,12 @@ export async function listarEnvios(campaignId: string, limite = 500): Promise<En
       error: licEnvios.error,
       enviadoAt: licEnvios.enviadoAt,
       enviadoPorEmail: licEnvios.enviadoPorEmail,
-      nombre: licStudents.nombre,
-      apellidos: licStudents.apellidos,
+      nombre: alumnoVivo.nombre,
+      apellidos: alumnoVivo.apellidos,
     })
     .from(licEnvios)
     .leftJoin(licStudents, eq(licEnvios.studentId, licStudents.id))
+    .leftJoin(eduStudents, ON_EDU)
     .where(eq(licEnvios.campaignId, campaignId))
     .orderBy(desc(licEnvios.enviadoAt))
     .limit(limite);
@@ -827,15 +832,15 @@ export async function contextoParaEnvio(
     db
       .select({
         id: licStudents.id,
-        nombre: licStudents.nombre,
-        apellidos: licStudents.apellidos,
-        curso: licStudents.curso,
-        letra: licStudents.letra,
-        email: licStudents.email,
+        nombre: alumnoVivo.nombre,
+        apellidos: alumnoVivo.apellidos,
+        curso: alumnoVivo.curso,
+        letra: alumnoVivo.letra,
+        email: alumnoVivo.email,
         emailGoogle: eduStudents.emailGoogle,
       })
       .from(licStudents)
-      .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
+      .innerJoin(eduStudents, ON_EDU)
       .where(inArray(licStudents.id, studentIds)),
     db
       .select({

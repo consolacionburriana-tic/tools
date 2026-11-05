@@ -147,6 +147,8 @@ export interface AplicarResultado {
     errores: string[];
     /** Qué ha pasado con las altas en Nouvinguts (null si no había altas o falló). */
     nouvinguts?: { nuevos: number; vinculados: number; dudosos: number; inicioCurso: number } | null;
+    /** Cuántas altas han entrado solas en la campaña de Licencias (null si no había campaña o falló). */
+    licencias?: { campana: string; altas: number } | null;
   };
 }
 
@@ -434,6 +436,23 @@ export async function aplicarSync(input: {
   for (let i = 0; i < registro.length; i += 500) statements.push(db.insert(audCambios).values(registro.slice(i, i + 500)));
   await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
 
+  // ── Licencias: las altas en un curso con Licencias entran solas en la campaña vigente ──
+  // Antes había que acordarse de ejecutar el sync de Licencias, y quien no estaba en la campaña
+  // no podía hacer el pedido (docs/06-fuente-unica-alumnado.md, fase 3). Solo altas; las bajas
+  // siguen siendo una decisión con vista previa. Va ANTES que Nouvinguts, que mira si el alumno
+  // ya está en la campaña. Después del batch: si falla, el sync ya está hecho y solo se avisa.
+  let licencias: AplicarResultado['resumen']['licencias'] = null;
+  if (plan.altas.length) {
+    try {
+      const { darDeAltaEnCampania } = await import('@/lib/licencias-server');
+      const r = await darDeAltaEnCampania(plan.altas.flatMap((a) => filaToStudentId.get(a.fila) ?? []));
+      licencias = r ? { campana: r.campaignName, altas: r.altas } : null;
+    } catch (error) {
+      console.error('Licencias tras el sync:', error instanceof Error ? error.message : error);
+      errores.push('Las altas no han entrado en la campaña de Licencias: añádelas desde Licencias → Sincronizar');
+    }
+  }
+
   // ── Nouvinguts: toda alta nueva entra en su ciclo (y se vincula con lo apuntado a mano) ──
   // Después del batch y fuera de él: si fallara, el sync ya está hecho y solo se avisa. Import
   // dinámico porque nouvinguts-server tira de licencias-server, que importa este fichero.
@@ -457,7 +476,7 @@ export async function aplicarSync(input: {
       errores.push('Las altas no han entrado en Nouvinguts: tráelas desde Nouvinguts → Proceso');
     }
   }
-  return { syncRunId, resumen: { ...resumen, nouvinguts } };
+  return { syncRunId, resumen: { ...resumen, nouvinguts, licencias } };
 }
 
 // ─── Profesorado ──────────────────────────────────────────────────────────────
