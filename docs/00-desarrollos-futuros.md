@@ -222,7 +222,7 @@ Ejecutado el plan de `06-fuente-unica-alumnado.md`. Decisiones de alcance que to
    de los tutores (`cursoSiguiente`, que rota Primaria por parejas). Ver ficha 11.
 6. **La campaña nueva nace sin libros** (no se copian los del año anterior): el catálogo se trae de
    «BBDD Libros». Y **sin packs** ni idioma por clase: cambian cada año.
-7. **Pendiente de aplicar:** `fuente-unica-fase2.sql` junto con la fusión de la rama de la fase 2.
+7. **Aplicado:** `fuente-unica-fase2.sql` y la fusión de la fase 2, el 5-nov-2026.
 8. **`src/db/data/licencias-2026.json`** (el JSON del seed retirado) trae nombres de alumnos: conviene
    sacarlo del repo en un commit aparte.
 
