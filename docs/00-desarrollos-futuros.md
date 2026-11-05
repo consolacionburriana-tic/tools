@@ -382,6 +382,34 @@ el check si el profe contesta». Detalle en [`26-oratorios.md`](./26-oratorios.m
 4. 🤖 **La rejilla del asistente no oculta los otros tipos, los atenúa** (gris, una línea): sirven
    para ver que ese profe o esa clase ya tienen algo a esa hora.
 
+### 💡 Oratorios: planificar por **rondas** y no quitar horas de Educación Física (David, 5-nov-2026) — anotado, sin hacer
+
+**1. Modo «por rondas».** David no trabaja «una sesión al mes por clase»: da primero la 1ª sesión a
+todas las clases, luego la 2ª a todas, y cada una cae en el mes que toque (unas a finales de
+noviembre, otras en diciembre). Con el objetivo «al mes» (hoy en Oratorio) noviembre sale
+«Cubierta» en cuanto cada clase tiene una y desaparecen las propuestas. **Mientras tanto vale**:
+Ajustes → el tipo → «Objetivo: N por clase al **curso**» (N = el total de sesiones), que no ata a
+ningún mes; lo único que no hace es obligar al orden (podría ofrecer la 3ª a una clase cuando otra aún
+no tiene la 2ª).
+Diseño pensado, por si se hace: nueva frecuencia `ronda` en `FRECUENCIAS` (`oratorios.ts`); una clase
+**necesita** sesión en cualquier fecha si tiene menos sesiones activas (borrador o confirmada, no
+anulada) que la clase que menos tenga del tipo **+ 1**, y nunca más de `cantidad` (= total del
+curso); la unidad de tiempo es el curso entero (como `curso`). Hace falta pasar al contexto
+(`crearContexto`) las clases de cada tipo, para saber quién va por detrás; `necesidadEnFecha`,
+`unidadesCurso` y la barra de objetivo (`progresoTipo`) se adaptan, y la pestaña de números muestra
+«Ronda 1, 2, 3…» en vez de meses. Se prueba con tests puros (no toca BBDD). Decidir antes: ¿una
+clase que se queda atrás (alumnado nuevo, clase anulada) frena a las demás? Propuesta: no, solo
+cuentan las clases del tipo con alumnado activo.
+
+**2. Educación Física, al final y «no interesa».** David no quiere quitar horas de EF. Si la
+asignatura que pierde la hora es Educación Física (en el horario puede venir como «Educació Física»,
+«Educación Física» o «EF»: normalizar sin tildes), el candidato del hueco sale **al final de la lista**
+y con un aviso propio («EF: mejor no»), y **Autocompletar no la propone** salvo que no quede otra
+clase posible. Pendiente de decidir: si es siempre (todas las franjas) o solo cuando hay otro
+candidato; si el aviso es un 🔴 (como «Misma hora») o uno suave (como «Mismo día»); y si afecta
+también a Música u otras materias (hoy, solo EF). Encaja en `puntuar()` / `avisosCandidato()`, junto
+a los demás avisos del hueco.
+
 ### ~~Idea: juntar clases en una misma sesión~~ ✅ hecho (5-nov-2026)
 David lo pidió para los PDC (3º + 4º en la misma hora). Una sesión lleva varias clases; ver
 [`26-oratorios.md`](./26-oratorios.md) → «Juntar clases». Lo que decidí yo: 🤖 el hueco permite juntar
