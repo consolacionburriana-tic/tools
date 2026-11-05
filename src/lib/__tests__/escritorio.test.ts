@@ -71,15 +71,18 @@ describe('herramientas en gris', () => {
   const gris = (role: Parameters<typeof herramientasDe>[0]['role'], clave: string) =>
     herramientasDe({ role }, CTX).find((h) => h.clave === clave)?.bloqueo ?? null;
 
-  it('banco de libros y salidas salen «próximamente» para profe y tutor, y normales para el resto', () => {
-    for (const r of ['profe', 'tutor'] as const) {
-      expect(gris(r, 'bancolibros')).toBe('proximamente');
-      expect(gris(r, 'salidas')).toBe('proximamente');
-    }
+  it('salidas sale «próximamente» para profe y tutor, y normal para el resto', () => {
+    for (const r of ['profe', 'tutor'] as const) expect(gris(r, 'salidas')).toBe('proximamente');
     for (const r of ['jefe', 'direccion', 'secretaria', 'tic', 'supertic'] as const) {
-      expect(gris(r, 'bancolibros')).toBeNull();
       expect(gris(r, 'salidas')).toBeNull();
     }
+  });
+
+  it('banco de libros sale «próximamente» para todo el mundo menos SuperTIC', () => {
+    for (const r of ['profe', 'tutor', 'jefe', 'direccion', 'secretaria', 'orientacion', 'tic'] as const) {
+      expect(gris(r, 'bancolibros')).toBe('proximamente');
+    }
+    expect(gris('supertic', 'bancolibros')).toBeNull();
   });
 
   it('las incidencias de mantenimiento y TIC no existen todavía: gris para todos, SuperTIC incluido', () => {

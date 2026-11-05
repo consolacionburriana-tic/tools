@@ -4,7 +4,7 @@ import { isGuardResponse, requireModule } from '@/lib/auth-guards';
 import { entradasDeLote, restaurarEntradas } from '@/lib/auditoria-server';
 import { guardarProteccionMasiva, guardarServicios, leerCursosDe } from '@/lib/alumnado-server';
 import { setAmpa, setBancoVarios } from '@/lib/bancolibros-server';
-import { canAccess, puedeEditarProteccionDatos, puedeGestionarParticipantesBanco, puedeGestionarServicios, puedeVerHistorialAlumnado } from '@/lib/permissions';
+import { puedeEditarProteccionDatos, puedeGestionarParticipantesBanco, puedeGestionarServicios, puedeVerHistorialAlumnado } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       grupo === 'proteccion'
         ? puedeEditarProteccionDatos(guard.role)
         : grupo === 'participacion'
-          ? canAccess(guard, 'bancolibros') && puedeGestionarParticipantesBanco(guard.role)
+          ? puedeGestionarParticipantesBanco(guard.role)
           : grupo === 'servicios'
             ? puedeGestionarServicios(guard.role)
             : false;

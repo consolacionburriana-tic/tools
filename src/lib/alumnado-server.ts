@@ -287,9 +287,10 @@ export function permisosFicha(
   const ve = veProteccionDe(alcance, alumno);
   return {
     proteccion: ve ? (alcance.edita ? 'editar' : 'ver') : 'no',
-    // Marcar quién participa en el banco/AMPA sigue siendo cosa de dirección/TIC **con el
-    // módulo del banco**: desde aquí se edita lo mismo, no se amplía a nadie.
-    participacion: canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role),
+    // Marcar quién participa en el banco/AMPA es cosa de secretaría, dirección y TIC. El módulo
+    // del banco es solo de SuperTIC (David, 5-nov-2026), pero el check de la ficha y de las
+    // pestañas de Alumnado no depende de él.
+    participacion: puedeGestionarParticipantesBanco(user.role),
     servicios: puedeGestionarServicios(user.role),
     historial: puedeVerHistorialAlumnado(user.role),
   };

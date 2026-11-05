@@ -12,7 +12,6 @@ import {
   puedeConAlumno,
 } from '@/lib/alumnado-server';
 import {
-  canAccess,
   puedeGestionarMateriales,
   puedeGestionarParticipantesBanco,
   puedeGestionarServicios,
@@ -59,7 +58,7 @@ export default async function AlumnadoPage({
         propias={alcance.propias}
         fichaInicial={fichaInicial}
         puedeEditarProteccion={pd.edita}
-        puedeParticipacion={canAccess(user, 'bancolibros') && puedeGestionarParticipantesBanco(user.role)}
+        puedeParticipacion={puedeGestionarParticipantesBanco(user.role)}
         puedeServicios={puedeGestionarServicios(user.role)}
         materiales={materiales}
         puedeGestionarMateriales={puedeGestionarMateriales(user.role)}

@@ -225,7 +225,9 @@ const HERRAMIENTAS: readonly Definicion[] = [
     icono: 'banco',
     palabras: ['libros', 'lotes', 'ampa'],
     visible: tiene('bancolibros'),
-    bloqueo: (a) => (esClaustroEstandar(a) ? 'proximamente' : null),
+    // «Próximamente» para todo el mundo menos SuperTIC (David, 5-nov-2026). Solo lo que se ve:
+    // los permisos no cambian.
+    bloqueo: (a) => (a.role === 'supertic' ? null : 'proximamente'),
   },
   {
     clave: 'salidas',

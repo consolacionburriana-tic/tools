@@ -39,6 +39,12 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   Se comprueba en el servidor (`src/lib/bancolibros-alcance.ts`) en todas las rutas del
   módulo. Sin restricción por asignatura. Marcar quién participa sigue siendo solo de
   dirección/secretaría/TIC.
+- **El módulo es solo de SuperTIC** (David, 5-nov-2026): `MODULOS_SOLO_SUPERTIC` en
+  `src/lib/permissions.ts`. Ningún otro rol lo tiene ni se le puede dar a mano (`canAccess` y
+  `modulosDe` lo cierran). En el escritorio sale en gris «Próximamente» para todos menos SuperTIC.
+  **Alumnado no cambia:** el check de banco/AMPA de la ficha y las pestañas se ven y se editan
+  como siempre (secretaría, dirección, TIC y SuperTIC marcan; `puedeGestionarParticipantesBanco`),
+  sin depender del módulo.
 - **Documentación firmada** (inicio/fin de curso) y **entrega del lote**: checkboxes por
   alumno con bulk por clase. Sigue siendo papel; la app solo marca recibido.
 - **Curso académico en vigor**: calculado (sep-ago) en `src/lib/constants.ts`
