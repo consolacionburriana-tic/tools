@@ -39,6 +39,10 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   Se comprueba en el servidor (`src/lib/bancolibros-alcance.ts`) en todas las rutas del
   módulo. Sin restricción por asignatura. Marcar quién participa sigue siendo solo de
   dirección/secretaría/TIC.
+- **Dirección ya no tiene el módulo** (David, 5-nov-2026): se quita `bancolibros` de su rol
+  (`ROLE_MODULES.direccion`). Sin el módulo tampoco ve el check «Banco de libros» ni el lote
+  en la ficha de Alumnado (`permisos.verBanco` en `fichaVisible`, se quita en el servidor).
+  Se le puede dar a mano como módulo extra.
 - **Documentación firmada** (inicio/fin de curso) y **entrega del lote**: checkboxes por
   alumno con bulk por clase. Sigue siendo papel; la app solo marca recibido.
 - **Curso académico en vigor**: calculado (sep-ago) en `src/lib/constants.ts`

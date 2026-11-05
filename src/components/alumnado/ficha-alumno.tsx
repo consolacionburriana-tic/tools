@@ -166,12 +166,14 @@ export function FichaAlumnoPanel({
 
       {/* ── 2 · Lo que hay que saber ya ──────────────────────────────── */}
       <div className="flex flex-wrap gap-1.5">
-        <Chip
-          tono={ficha.bancoLibros ? 'ok' : 'neutro'}
-          icono={<Library className="h-3.5 w-3.5" />}
-          texto={ficha.bancoLibros ? 'Banco de libros' : 'Sin banco de libros'}
-          detalle={ficha.banco ? `lote ${ficha.banco.lote}${ficha.banco.entregado ? ' · entregado' : ' · sin entregar'}` : undefined}
-        />
+        {ficha.permisos?.verBanco && (
+          <Chip
+            tono={ficha.bancoLibros ? 'ok' : 'neutro'}
+            icono={<Library className="h-3.5 w-3.5" />}
+            texto={ficha.bancoLibros ? 'Banco de libros' : 'Sin banco de libros'}
+            detalle={ficha.banco ? `lote ${ficha.banco.lote}${ficha.banco.entregado ? ' · entregado' : ' · sin entregar'}` : undefined}
+          />
+        )}
         {ficha.licencias?.participa && (
           <Chip
             tono={ficha.licencias.pedidoHecho ? 'info' : 'aviso'}

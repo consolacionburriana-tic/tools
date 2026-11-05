@@ -114,11 +114,11 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const ROLE_MODULES: Record<Role, readonly Module[]> = {
   supertic: [...MODULES],
   tic: [...MODULES],
+  // Sin `bancolibros`: el banco de libros lo llevan solo SuperTIC y TIC (David, 5-nov-2026).
   direccion: [
     'abc',
     'licencias',
     'salidas',
-    'bancolibros',
     'evaluaciones',
     'puntualidad',
     'horarios',

@@ -210,6 +210,13 @@ describe('dispositivos', () => {
   });
 });
 
+describe('banco de libros', () => {
+  it('dirección ya no lo tiene (David, 5-nov-2026); SuperTIC y TIC sí', () => {
+    expect(canAccess({ role: 'direccion' }, 'bancolibros')).toBe(false);
+    for (const r of ['supertic', 'tic'] as const) expect(canAccess({ role: r }, 'bancolibros')).toBe(true);
+  });
+});
+
 describe('módulos apagados (CONFIGURACION.modulosDesactivados)', () => {
   it('Puntualidad está apagado: no lo tiene nadie, ni por rol ni dado a mano', () => {
     expect(moduloDesactivado('puntualidad')).toBe(true);
