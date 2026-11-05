@@ -667,8 +667,9 @@ profesor, asigno a este. Esto se usa MUY MUY poco, mucho menos que alumnos».
 
 ## Fase 4 · Enganche a la BBDD central Educamos (= hito 3 del roadmap)
 
-- [ ] Poblar `lic_students` de cada campaña desde `edu_students` (ver
-      `docs/02-integracion-educamos.md`; el import Excel queda como fallback documentado)
+- [~] Poblar `lic_students` de cada campaña desde `edu_students`: el alumno ya se **lee** de la central
+      y las altas entran solas en la campaña vigente (nov-2026). Falta crear la campaña del año
+      siguiente desde la app (ver `06-fuente-unica-alumnado.md` y `00-desarrollos-futuros.md`)
 - [ ] Login del panel con el auth central, retirar `licencias-auth.ts` (ver `docs/01-auth-roles.md`)
 - [ ] (Futuro) cobro/envío nativo desde la plataforma
 
@@ -692,6 +693,24 @@ profesor, asigno a este. Esto se usa MUY MUY poco, mucho menos que alumnos».
 - Confirmar dominio/remitente verificado en Resend para `licencias@consolacionburriana.com` —
   pendiente, faltan cosas del dominio.
 
+
+## Modelo de datos: el alumno se lee de la central, en vivo (5-nov-2026)
+
+`lic_students` es **la lista de quién participa en la campaña**, no una copia del alumno. Todo
+lo que Licencias muestra o exporta del alumno —nombre, curso (con los PDC traducidos a
+`3ESO`/`4ESO`), letra, correo, banco de libros, ID Educamos— se lee de `edu_students` con un
+join, a través de `src/lib/licencias-alumno-server.ts` (`alumnoCols`, `alumnoVivo`, `LicAlumno`).
+Lo que sí es de la campaña y se guarda en `lic_students`: **el idioma de la clase**
+(`lengua_base`: la central no lo tiene), el «no pedirá» a mano (`manual_completed_*`) y el
+`student_code` (etiqueta de exportaciones). Las columnas duplicadas siguen en la tabla pero
+nadie las lee; se borrarán en la fase 2 de `06-fuente-unica-alumnado.md`.
+
+- Un cambio en la central (banco de libros, curso, correo, apellidos) se ve en Licencias **al
+  instante**, sin sincronizar nada.
+- Las **altas** de un import de Educamos en un curso con Licencias entran solas en la campaña
+  vigente (`darDeAltaEnCampania()`); las **bajas** siguen pasando por `/gestion/licencias/sincronizar`.
+- Regla para quien programe: **no se lee `licStudents.nombre/curso/email/…`**. `licencias-alumno.test.ts`
+  lo vigila.
 
 ## Identidad del alumnado: `edu_student_id`, no `student_code` (2026-09-03)
 

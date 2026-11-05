@@ -121,7 +121,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Dispositivos 1:1 (el iPad de cada alumno —comprado, de casa, prestado o de un hermano—, las cuotas y los iPads del cole: sustitución —los del alumnado— y profesorado) | ✅ | ✅ | 🟡 (en `/gestion/dispositivos`, TIC, secretaría y dirección: alumnado del alcance de AUTOASM por clase, cuotas en Excel y CSV, inventario con alta en serie, modelos e historial; enganchado al paso «iPad» de Nouvinguts y al aviso «No se lleva el iPad a casa» de la ficha de Alumnado. Tablas `dis_*` en Neon, **cargadores de cada iPad del cole** y el inventario de sustitución (S1–S21) ya volcado el 26-oct-2026. Falta el volcado del estado del alumnado y cerrar cómo se cobra) | [`29-dispositivos.md`](./29-dispositivos.md) |
 | Correos y grupos (cuentas de Google cruzadas con Educamos: crear correos, cada alumno en la unidad de su clase, suspender y archivar bajas, grupos con reglas) | ✅ | ✅ | 🟡 (en `/gestion/cuentas` desde el 20-oct-2026: TIC gestiona, secretaría ve. Leer Google en real (1.237 cuentas, 70 alumnos y 2 profes sin correo); crear, mover, suspender, unidades y grupos escritos: faltan tres scopes en la delegación y confirmar las unidades de cada clase) | [`30-cuentas.md`](./30-cuentas.md) |
 | Libro de cambios (auditoría de las casillas de Alumnado: quién, cuándo, antes y después; restaurar un cambio entero o una línea; el sync de Educamos se anota sin poder restaurarse) | ✅ | ✅ | 🟡 (3-nov-2026: protección de datos, banco, AMPA, comedor y complementarias; pestaña «Historial de cambios» e historial en la ficha para secretaría/dirección/TIC. Falta probarlo con sesión real; la venta de materiales aún no se audita) | [`31-auditoria.md`](./31-auditoria.md) |
-| 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | ⬜ **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Plan cerrado y listo para ejecutar; causó 4 incidentes en producción | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
+| 🔴 **Fuente única de alumnado** (transversal) | ✅ | ✅ | 🟡 **PRIORIDAD MÁXIMA desde el 1-nov-2026.** Fases 1 y 3 hechas y verificadas contra Neon (5-nov-2026: Licencias lee de `edu_students` en vivo; las altas de Educamos entran solas en la campaña). Falta la fase 2 (borrar columnas duplicadas), que exige desplegar antes la fase 1 | [`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md) |
 
 Leyenda: ✅ hecho y verificado · 🟡 empezado y en uso, pero le falta algo (lo que falta va entre
 paréntesis) · ⬜ sin empezar.
@@ -130,7 +130,7 @@ paréntesis) · ⬜ sin empezar.
 > contra el código el 16-sep-2026; sin acceso a Neon en esa sesión). Los estados se van quedando viejos
 > solos; cuando toques un módulo, comprueba su fila y actualiza esta fecha.
 
-> 🔴 **Lo primero a partir del 1 de noviembre de 2026** es la **fuente única de alumnado**
+> 🔴 **Lo primero a partir del 1 de noviembre de 2026** es la **fuente única de alumnado** (fases 1 y 3 hechas el 5-nov; queda la 2)
 > ([`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md)), por delante de cualquier
 > casilla de cualquier otro hito. Va también como parada obligatoria al principio de `AGENTS.md`.
 

@@ -23,7 +23,13 @@ y dos alumnas con las fichas cruzadas— todos por la misma causa: `edu_students
 duplican los mismos campos y hay que sincronizarlos a mano.
 
 Díselo **una vez al principio de la sesión**, no en cada mensaje. Si te dice que sigas con otra
-cosa, sigue sin insistir. Cuando esté hecho, borra este bloque.
+cosa, sigue sin insistir.
+
+**Estado (5-nov-2026):** las fases 1 y 3 están hechas y verificadas (Licencias lee de `edu_students`
+en vivo y las altas de Educamos entran solas en la campaña). **Solo queda la fase 2** (borrar las
+columnas duplicadas de `lic_students`), que exige desplegar antes la fase 1 y una campaña sin
+pedidos entrando: el orden exacto está en `docs/06-fuente-unica-alumnado.md`. Cuando esté hecha,
+borra este bloque.
 
 ---
 
