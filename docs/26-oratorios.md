@@ -559,3 +559,4 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
 - Avisar si el horario de la clase ha cambiado desde que se planificó (otro profe a esa hora).
 - Mirar el ocupado/libre del Google Calendar del responsable al proponer huecos.
 - Copiar la semana planificada para WhatsApp.
+- **Planificar por rondas** (todas las clases la 1ª sesión, luego la 2ª…, sin atarse al mes) y **Educación Física al final** de la lista del hueco (no quitarle horas): anotados con su diseño en `00-desarrollos-futuros.md` → «Oratorios: planificar por rondas…» (5-nov-2026).
