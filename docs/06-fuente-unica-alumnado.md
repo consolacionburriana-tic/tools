@@ -2,8 +2,11 @@
 
 > 🔴 **PRIORIDAD MÁXIMA a partir del 1 de noviembre de 2026.** Decisión de David (2026-09-03).
 > Es lo PRIMERO que hay que hacer en cuanto se retome el desarrollo, antes que cualquier otra
-> casilla de cualquier otro hito. Si eres un agente y estás leyendo esto en una sesión de
-> desarrollo después de esa fecha: **párate y avísale a David antes de ponerte con otra cosa.**
+> casilla de cualquier otro hito.
+>
+> **Estado (5-nov-2026): fases 1 y 3 hechas y verificadas contra Neon; falta solo la fase 2
+> (borrar las columnas duplicadas), que no se puede hacer hasta que la fase 1 esté desplegada.**
+> Mira «Fase 2» abajo: es lo único que queda, y está escrito con el orden exacto.
 
 Deuda técnica transversal: el mismo dato de un alumno vive en dos tablas, y las dos se leen como
 si fueran la verdad. Este documento deja el plan cerrado para poder ejecutarlo del tirón.
@@ -96,49 +99,99 @@ que se arregle duplicando la tabla de alumnos.
 Está muy contenido: **casi todas las lecturas viven en `src/lib/licencias-server.ts`**, más una en
 `licencias-exports.ts`. Son ~8 sitios de query, no cientos.
 
-### Fase 1 · Leer en vivo (sin tocar el schema todavía)
+### Fase 1 · Leer en vivo (sin tocar el schema todavía) — ✅ hecha (5-nov-2026)
 
-Cambio de bajo riesgo y reversible: los sitios que hoy leen los campos duplicados de
-`lic_students` pasan a hacer `innerJoin(eduStudents)` y leer de ahí. Los campos duplicados siguen
-existiendo en la tabla, simplemente dejan de leerse.
+Todos los sitios que leían los campos duplicados de `lic_students` hacen ahora `innerJoin(eduStudents)`
+y leen de ahí, a través de **un solo módulo**: `src/lib/licencias-alumno-server.ts` (`alumnoVivo`,
+`alumnoCols`, `ON_EDU`, `CURSO_LIC_SQL`, tipo `LicAlumno`). Los nombres de los campos son los de
+siempre, así que quien los consume no cambió. Los campos duplicados siguen en la tabla pero
+**nadie los lee** (salvo el propio sync, que es quien los escribe hasta la fase 2).
 
-- [ ] `identifyStudentsByFamily()` (`licencias-server.ts:61`) — `curso` desde `edu_students`.
-- [ ] `getStudentById()` (`:106`) — devolver el alumno con sus datos vivos.
-- [ ] `getCatalog()` (`:111`) — **`student.bancoLibros` desde `edu_students`**. Este es el que
-      causó el bug de las Porcar.
-- [ ] Los listados y exportaciones: `:167`, `:275`, `:315`, `:369`, `:410`, `:604`, `:1076` y
-      `licencias-exports.ts:58`.
-- [ ] Recordar `cursoBaseEso()` en el join: los PDC vienen como `3ºPPDC` de la central.
-- [ ] Tests de que un cambio en `edu_students` se ve en Licencias **sin sincronizar nada**.
+- [x] `identifyStudentsByFamily()` — `curso` desde `edu_students`.
+- [x] `getStudentById()` — el alumno con sus datos vivos (`LicAlumno`); `getCatalog()` lee de ahí el
+      **banco de libros** (el que causó el bug de las Porcar). `conBancoDeLaCentral()` desaparece.
+- [x] Los listados y exportaciones de `licencias-server.ts` (dashboard, quién falta, destinatarios,
+      clases, familias, pedidos, idioma por clase), `licencias-exports.ts` (`loadBase`),
+      `licencias-envios-server.ts` (sincronizar, contexto, envíos, descartes) y
+      `licencias-profes-server.ts` (dónde está un código).
+- [x] `cursoBaseEso()` en el join: los PDC (`3ºPPDC`) se traducen a `3ESO` en SQL (`CURSO_LIC_SQL`).
+- [x] Guardas de que no se vuelve a leer la copia (`licencias-alumno.test.ts`): el SQL generado cuelga
+      de `edu_students` y ningún fichero de lectura de Licencias lee `licStudents.<columna duplicada>`.
+- [x] **Verificado contra Neon (5-nov-2026):** 24 pantallas y exportaciones comparadas, código viejo
+      contra código nuevo, sobre la campaña real. Idénticos: dashboard, clases, idioma por clase,
+      informe a editoriales, informe del banco, ID Educamos, envíos, detalle de pedidos. Las únicas
+      diferencias son **la copia vieja delatándose**: unos apellidos corregidos en la central
+      (Restrepo/Gallego), dos correos que la copia tenía vacío o antiguo (Samuel Arboleda, Johan
+      Gómez: salían sin correo en la exportación del banco) y filas inactivas con el curso de
+      junio sin mover. Es justo el problema que este plan resuelve.
 
-### Fase 2 · Adelgazar la tabla
+> **El idioma de la clase (`lengua_base`) NO es un duplicado**, y el plan original lo borraba por
+> error (se escribió el 3-sep, antes de la pantalla «Idioma por clase» del 16-sep). La central
+> lo tiene a NULL en todo el alumnado (`modelo_linguistico`) y es una decisión de la clase **de
+> cada campaña**, que cambia cada curso. Se queda en `lic_students`, igual que `manual_completed_*`.
 
-- [ ] Borrar de `lic_students` las columnas duplicadas: `apellidos`, `apellido1`, `apellido2`,
-      `nombre`, `birth_year`, `curso`, `letra`, `email`, `banco_libros`, `lengua_base`,
-      `educamos_id`. Se queda: `id`, `campaign_id`, `edu_student_id`, `student_code` (etiqueta
-      para exportaciones), `active`, `created_at`.
-- [ ] `edu_student_id` pasa a `NOT NULL` (las filas heredadas sin enlace ya están desactivadas).
-- [ ] Quitar el parche `propagarBancoACampania()` de `bancolibros-server.ts`: deja de hacer falta.
-- [ ] Quitar el aviso `getAlumnosFueraDeCampania()` del panel del banco si el alta pasa a ser
-      automática (fase 3); si no, se queda.
-- [ ] `pnpm db:push`.
+### Fase 2 · Adelgazar la tabla — ⏳ pendiente (necesita la fase 1 desplegada)
+
+**Por qué no se hizo el mismo día que la fase 1:** borrar columnas en Neon rompe al código que
+todavía las lea, y el que está en producción hasta que se despliegue la fase 1 las lee. El
+orden obligatorio es **(1) desplegar la fase 1 → (2) comprobar en producción → (3) este paso**.
+Además el plan dice «no hacer la fase 2 con una campaña recibiendo pedidos»: la campaña 2026/27
+sigue en estado `open` (el plazo acabó el 15-sep). Ciérrala (o decide que ya no entran pedidos)
+antes de empezar.
+
+Cosas que se descubrieron al prepararla (5-nov-2026) y que **cambian el plan original**:
+
+- **`lengua_base` NO se borra.** Ver el aviso de la fase 1: no es un duplicado, es del curso.
+- **`edu_student_id NOT NULL` no se puede poner tal cual:** hay **15 filas heredadas sin enlace**
+  (todas inactivas, sin pedidos). Antes hay que borrarlas —son datos de bajas del Excel original,
+  sin pedido ni licencia— o dejar la columna con `NULL` permitido. Comprobar antes que no las
+  referencia nada: `lic_orders`, `lic_licencias`, `lic_envios`.
+- **Hay 1 fila activa cuyo alumno está de baja en la central** (`13MORJOS`, 1ºESO, sin pedidos):
+  el sync de Licencias la daría de baja; es lo que debe pasar.
+- **`seed-licencias.ts` deja de servir** al quitar columnas (inserta alumnos con nombre y curso):
+  el alumnado ya no se siembra desde un JSON, entra desde la central.
+- **El sync de alumnos se queda en «¿quién entra y quién sale?»**: ya no hay `toUpdate` (no hay
+  nada que actualizar), solo altas y bajas.
+
+Pasos, en este orden:
+
+- [ ] Cerrar la campaña 2026/27 (o confirmar que no entran más pedidos).
+- [ ] Desplegar la fase 1 (merge a `main`) y repasar en producción: Quién falta, Exportar,
+      Editoriales, un pedido de familia.
+- [ ] Decidir qué hacer con las 15 filas sin enlace (borrar o dejar `NULL` permitido).
+- [ ] SQL en `src/db/sql/`: quitar de `lic_students` `apellidos`, `apellido1`, `apellido2`,
+      `nombre`, `birth_year`, `curso`, `letra`, `email`, `banco_libros`, `educamos_id` (y el
+      índice `lic_students_search_idx`). Se queda: `id`, `campaign_id`, `edu_student_id`,
+      `student_code`, `lengua_base`, `active`, `manual_completed_*`, `created_at`. **Aplicarlo
+      justo antes de desplegar el código de la fase 2**, no se puede dejar a medias.
+- [ ] Código: quitar las columnas de `schema.ts`; `darDeAltaEnCampania()` y `syncStudentsFromSheet()`
+      solo insertan `campaign_id` + `edu_student_id` + `student_code` + `lengua_base`;
+      `getStudentsSyncPlan()` sin `diffStudent`/`toUpdate`; borrar `seed-licencias.ts`.
+- [ ] Quitar el parche `propagarBancoACampania()` de `bancolibros-server.ts`: deja de hacer falta
+      (ya no hay copia a la que propagar).
+- [ ] `getAlumnosFueraDeCampania()` **se queda**: la fase 3 solo da de alta a los alumnos nuevos
+      de cada import, no repesca a quien ya estaba fuera (hoy hay uno: Nikita Averochkin, 2ESO B).
 
 ### Fase 3 · Que no haya que acordarse de sincronizar
 
 El sync deja de mover datos y pasa a responder solo una pregunta: *¿quién entra en la campaña?*
 Eso ya se puede automatizar sin miedo, porque no pisa nada.
 
-- [ ] Tras aplicar un import de Educamos (`aplicarSync`), dar de alta en la campaña vigente a los
-      alumnos nuevos que estén en cursos con Licencias. **Altas sí, bajas no** automáticas: una
-      baja debe seguir siendo una decisión con vista previa.
-- [ ] Enseñar en el resultado del import cuántos entraron en la campaña.
-- [ ] La pantalla de sincronizar se queda para el repaso manual y las bajas.
+- [x] Tras aplicar un import de Educamos (`aplicarSync`), dar de alta en la campaña vigente a los
+      alumnos nuevos que estén en cursos con Licencias (`darDeAltaEnCampania()` en
+      `licencias-server.ts`). **Altas sí, bajas no** automáticas: una baja debe seguir siendo una
+      decisión con vista previa. Solo inserta (`ON CONFLICT DO NOTHING`) y con la campaña
+      cerrada no entra nadie. Probado contra Neon: con alumnos que ya están, 0 altas.
+- [x] Enseñar en el resultado del import cuántos entraron en la campaña (`sync-wizard.tsx`).
+- [x] La pantalla de sincronizar se queda para el repaso manual y las bajas.
 
 ### Fase 4 · Rematar
 
-- [ ] `docs/11-licencias-v2.md`: actualizar el modelo de datos.
-- [ ] `docs/12-bancolibros.md`: la "Fase 5" pasa a ser histórico; el parche ya no existe.
-- [ ] Borrar de `docs/pequeños-arreglos.md` lo que este trabajo deje resuelto.
+- [x] `docs/11-licencias-v2.md`: el modelo de datos dice ya que se lee en vivo (falta quitar las
+      columnas, fase 2).
+- [ ] `docs/12-bancolibros.md`: la "Fase 5" pasa a ser histórico; el parche ya no existe (cuando
+      se quite en la fase 2).
+- [x] `docs/pequeños-arreglos.md`: no había nada de esto apuntado.
 
 ## Riesgos y cómo cubrirlos
 

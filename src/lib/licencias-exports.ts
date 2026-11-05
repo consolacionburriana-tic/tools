@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { eduStudents, licBooks, licOrderItems, licOrders, licStudents } from '@/db/schema';
+import { ON_EDU, alumnoCols } from '@/lib/licencias-alumno-server';
 import { cursoEfectivo, resolveBilingual } from '@/lib/licencias';
 
 export interface EnviarRow {
@@ -55,17 +56,12 @@ export interface LibroRow {
 
 async function loadBase(campaignId: string) {
   const [students, books, orders, items] = await Promise.all([
-    // El banco de libros sale de la central, en vivo, no de la copia de la campaña: ver
-    // `conBancoDeLaCentral` en licencias-server.ts. Si el alumno no tiene enlace a la central
-    // (no debería, pero pasa con filas heredadas), manda lo que diga la campaña.
+    // El alumno sale de la central en vivo (curso, banco, correo…): `licencias-alumno-server.ts`.
     db
-      .select({ student: licStudents, bancoCentral: eduStudents.bancoLibros })
+      .select(alumnoCols)
       .from(licStudents)
-      .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
-      .where(eq(licStudents.campaignId, campaignId))
-      .then((filas) =>
-        filas.map((f) => (f.bancoCentral == null ? f.student : { ...f.student, bancoLibros: f.bancoCentral })),
-      ),
+      .innerJoin(eduStudents, ON_EDU)
+      .where(eq(licStudents.campaignId, campaignId)),
     db.select().from(licBooks).where(eq(licBooks.campaignId, campaignId)),
     db.select().from(licOrders).where(and(eq(licOrders.campaignId, campaignId), eq(licOrders.archived, false))),
     db

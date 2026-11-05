@@ -159,6 +159,7 @@ export function SyncWizard() {
     conflictosResueltos: number;
     errores: string[];
     nouvinguts?: { nuevos: number; vinculados: number; dudosos: number; inicioCurso: number } | null;
+    licencias?: { campana: string; altas: number } | null;
   } | null>(null);
 
   const toggle = (k: string) =>
@@ -461,6 +462,13 @@ export function SyncWizard() {
             {resultado.altas} altas · {resultado.cambios} cambios · {resultado.desactivados} desactivados ·{' '}
             {resultado.conflictosResueltos} conflictos resueltos
           </p>
+          {resultado.licencias && (
+            <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+              {resultado.licencias.altas > 0
+                ? `Licencias: ${resultado.licencias.altas} ${resultado.licencias.altas === 1 ? 'alumno entra' : 'alumnos entran'} solos en «${resultado.licencias.campana}»`
+                : `Licencias: ninguna de las altas está en un curso con licencias (6º EP – 4º ESO)`}
+            </p>
+          )}
           {resultado.nouvinguts && (
             <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
               Nouvinguts: {resultado.nouvinguts.nuevos} entran nuevos · {resultado.nouvinguts.vinculados} vinculados con lo apuntado a mano

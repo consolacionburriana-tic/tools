@@ -13,12 +13,13 @@ import {
   licPacks,
   licStudents,
   licAjustesPedido,
+  type LicStudent,
   type LicBook,
   type LicOrder,
   type LicOrderItem,
   type LicPack,
-  type LicStudent,
 } from '@/db/schema';
+import { ON_EDU, CURSO_LIC_SQL, alumnoCols, alumnoVivo, type LicAlumno } from '@/lib/licencias-alumno-server';
 import {
   type CatalogBook,
   CURSOS_FORM,
@@ -68,8 +69,9 @@ export async function identifyStudentsByFamily(campaignId: string, identificador
   const ids = identity.hijos.map((h) => h.eduStudentId);
   if (ids.length === 0) return { candidatos: [], correoFamilia };
   const rows = await db
-    .select()
+    .select({ id: licStudents.id, eduStudentId: licStudents.eduStudentId, curso: alumnoVivo.curso })
     .from(licStudents)
+    .innerJoin(eduStudents, ON_EDU)
     .where(
       and(
         eq(licStudents.campaignId, campaignId),
@@ -105,37 +107,24 @@ export async function identifyStudentsByFamily(campaignId: string, identificador
 }
 
 /**
- * El banco de libros se lee **de la BBDD central, en vivo**, no del snapshot de la campaña.
- *
- * `lic_students.banco_libros` es una copia que hay que mantener a mano, y basta con que alguien
- * marque a un alumno en el módulo de Banco de libros antes de que exista en la campaña para que
- * las dos se separen sin que nadie se entere: le pasó a Mateo Terradez, que figuraba en el banco
- * y no en Licencias, y por eso el pedido de 1ºESO pedía 48 licencias en vez de 49.
- *
- * Leyendo el flag de `edu_students` da igual quién lo escriba ni cuándo: Licencias siempre dice
- * lo mismo que el Banco de libros. La copia se sigue escribiendo (no se rompe nada que la lea)
- * pero ya no manda. Provisional hasta la fuente única de alumnado: `docs/06-fuente-unica-alumnado.md`.
- *
- * `active` NO se toca aquí: en la campaña significa «participa», que no es lo mismo que estar
- * activo en el colegio, y eso lo sigue resolviendo el sync de alumnado.
+ * El alumno con sus datos **vivos de la BBDD central** (curso, banco de libros, correo…): ver
+ * `licencias-alumno-server.ts`. Antes el banco de libros se leía del snapshot de la campaña y
+ * bastaba con marcar a alguien en el Banco de libros antes de que entrara en ella para que
+ * Licencias pidiera de menos (le pasó a Mateo Terradez). Ahora no hay copia que se pueda quedar
+ * vieja. `active` NO se toca aquí: en la campaña significa «participa», que no es lo mismo que
+ * estar activo en el colegio.
  */
-function conBancoDeLaCentral<T extends { bancoLibros: boolean }>(fila: T, bancoCentral: boolean | null): T {
-  return bancoCentral == null ? fila : { ...fila, bancoLibros: bancoCentral };
-}
-
-export async function getStudentById(id: string): Promise<LicStudent | null> {
+export async function getStudentById(id: string): Promise<LicAlumno | null> {
   const [row] = await db
-    .select({ student: licStudents, bancoCentral: eduStudents.bancoLibros })
+    .select(alumnoCols)
     .from(licStudents)
-    .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
+    .innerJoin(eduStudents, ON_EDU)
     .where(eq(licStudents.id, id))
     .limit(1);
-  return row ? conBancoDeLaCentral(row.student, row.bancoCentral) : null;
+  return row ?? null;
 }
 
-// Catálogo que ve la familia: BdL -> solo libros fuera del banco; no-BdL -> todos.
-// Pares CAS/VAL resueltos por la lengua base del alumno.
-export async function getCatalog(student: LicStudent, curso: string): Promise<CatalogBook[]> {
+export async function getCatalog(student: LicAlumno, curso: string): Promise<CatalogBook[]> {
   const rows = await db
     .select()
     .from(licBooks)
@@ -210,11 +199,12 @@ export async function getDashboardStats(campaignId: string): Promise<DashboardSt
     db
       .select({
         id: licStudents.id,
-        curso: licStudents.curso,
-        letra: licStudents.letra,
+        curso: alumnoVivo.curso,
+        letra: alumnoVivo.letra,
         manualCompletedAt: licStudents.manualCompletedAt,
       })
       .from(licStudents)
+      .innerJoin(eduStudents, ON_EDU)
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
       .select({
@@ -347,17 +337,17 @@ export async function getMissingStudents(campaignId: string): Promise<MissingStu
     db
       .select({
         id: licStudents.id,
-        apellidos: licStudents.apellidos,
-        nombre: licStudents.nombre,
-        curso: licStudents.curso,
-        letra: licStudents.letra,
-        email: licStudents.email,
+        apellidos: alumnoVivo.apellidos,
+        nombre: alumnoVivo.nombre,
+        curso: alumnoVivo.curso,
+        letra: alumnoVivo.letra,
+        email: alumnoVivo.email,
         nia: eduStudents.nia,
         manualCompletedAt: licStudents.manualCompletedAt,
         manualCompletedReason: licStudents.manualCompletedReason,
       })
       .from(licStudents)
-      .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
+      .innerJoin(eduStudents, ON_EDU)
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
       .select({ studentId: licOrders.studentId })
@@ -420,14 +410,15 @@ export async function getRecipients(campaignId: string, grupo: 'faltan' | 'tiene
     db
       .select({
         id: licStudents.id,
-        apellidos: licStudents.apellidos,
-        nombre: licStudents.nombre,
-        curso: licStudents.curso,
-        letra: licStudents.letra,
-        email: licStudents.email,
+        apellidos: alumnoVivo.apellidos,
+        nombre: alumnoVivo.nombre,
+        curso: alumnoVivo.curso,
+        letra: alumnoVivo.letra,
+        email: alumnoVivo.email,
         manualCompletedAt: licStudents.manualCompletedAt,
       })
       .from(licStudents)
+      .innerJoin(eduStudents, ON_EDU)
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
       .select({ studentId: licOrders.studentId, email: licOrders.email })
@@ -476,8 +467,9 @@ export function claseLicLabel(c: ClaseLic): string {
 /** Clases reales de la campaña (curso+letra de los alumnos activos), para los filtros. */
 export async function getClasesCampaign(campaignId: string): Promise<ClaseLic[]> {
   const rows = await db
-    .selectDistinct({ curso: licStudents.curso, letra: licStudents.letra })
+    .selectDistinct({ curso: alumnoVivo.curso, letra: alumnoVivo.letra })
     .from(licStudents)
+    .innerJoin(eduStudents, ON_EDU)
     .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)));
   return rows.sort(compararClases);
 }
@@ -530,14 +522,15 @@ export async function getFamiliaRecipients(
       .select({
         id: licStudents.id,
         eduStudentId: licStudents.eduStudentId,
-        nombre: licStudents.nombre,
-        apellidos: licStudents.apellidos,
-        apellido1: licStudents.apellido1,
-        curso: licStudents.curso,
-        letra: licStudents.letra,
+        nombre: alumnoVivo.nombre,
+        apellidos: alumnoVivo.apellidos,
+        apellido1: alumnoVivo.apellido1,
+        curso: alumnoVivo.curso,
+        letra: alumnoVivo.letra,
         manualCompletedAt: licStudents.manualCompletedAt,
       })
       .from(licStudents)
+      .innerJoin(eduStudents, ON_EDU)
       .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true))),
     db
       .select({ studentId: licOrders.studentId })
@@ -632,7 +625,7 @@ export interface UpsertResult {
 }
 
 export async function upsertOrder(
-  student: LicStudent,
+  student: LicAlumno,
   curso: string,
   email: string,
   cods: string[],
@@ -733,9 +726,9 @@ export async function listOrders(campaignId: string, opts: { includeArchived?: b
   const [orders, students, itemCounts] = await Promise.all([
     db.select().from(licOrders).where(and(...conditions)),
     db
-      .select({ student: licStudents, nia: eduStudents.nia })
+      .select({ student: alumnoCols, nia: eduStudents.nia })
       .from(licStudents)
-      .leftJoin(eduStudents, eq(licStudents.eduStudentId, eduStudents.id))
+      .innerJoin(eduStudents, ON_EDU)
       .where(eq(licStudents.campaignId, campaignId)),
     db
       .select({ orderId: licOrderItems.orderId, n: sql<number>`count(*)::int` })
@@ -776,7 +769,7 @@ export async function listOrders(campaignId: string, opts: { includeArchived?: b
 
 export interface OrderDetail {
   order: LicOrder;
-  student: LicStudent;
+  student: LicAlumno;
   items: (LicOrderItem & { editorial: string; nombreLibro: string })[];
 }
 
@@ -1090,14 +1083,15 @@ export interface ClaseLengua {
 export async function getLenguasPorClase(campaignId: string): Promise<ClaseLengua[]> {
   const rows = await db
     .select({
-      curso: licStudents.curso,
-      letra: licStudents.letra,
+      curso: alumnoVivo.curso,
+      letra: alumnoVivo.letra,
       lengua: licStudents.lenguaBase,
       n: sql<number>`count(*)::int`,
     })
     .from(licStudents)
+    .innerJoin(eduStudents, ON_EDU)
     .where(and(eq(licStudents.campaignId, campaignId), eq(licStudents.active, true)))
-    .groupBy(licStudents.curso, licStudents.letra, licStudents.lenguaBase);
+    .groupBy(CURSO_LIC_SQL, eduStudents.letra, licStudents.lenguaBase);
 
   const porClase = new Map<string, { curso: string; letra: string; lenguas: Map<string | null, number> }>();
   for (const r of rows) {
@@ -1135,8 +1129,20 @@ export async function setLenguaClase(
       and(
         eq(licStudents.campaignId, campaignId),
         eq(licStudents.active, true),
-        eq(licStudents.curso, curso),
-        letra === '' ? isNull(licStudents.letra) : eq(licStudents.letra, letra),
+        // La clase vive en la central: se busca con una subconsulta (un solo viaje).
+        inArray(
+          licStudents.id,
+          db
+            .select({ id: licStudents.id })
+            .from(licStudents)
+            .innerJoin(eduStudents, ON_EDU)
+            .where(
+              and(
+                sql`${CURSO_LIC_SQL} = ${curso}`,
+                letra === '' ? isNull(eduStudents.letra) : eq(eduStudents.letra, letra),
+              ),
+            ),
+        ),
       ),
     )
     .returning({ id: licStudents.id });
@@ -1560,4 +1566,54 @@ export async function syncStudentsFromSheet(campaignId: string): Promise<{ upser
   await db.batch(todo as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);
 
   return { upserted: rows.length, deactivated: toDeactivate.length, outOfScope: allRows.length - rows.length };
+}
+
+/**
+ * Da de alta en la campaña vigente a los alumnos NUEVOS de la central que estén en un curso con
+ * Licencias (6º EP – 4º ESO, PDC incluido). Es lo que cierra el hueco que dejaba el sync manual:
+ * un alumno importado de Educamos que nadie añadía a la campaña «no existía» para su familia, que
+ * tecleaba el NIA y recibía «no encontrado» (13 casos, ver `docs/06-fuente-unica-alumnado.md`).
+ *
+ * **Altas sí, bajas no.** Esto solo inserta: no desactiva ni toca a nadie que ya esté en la
+ * campaña (`ON CONFLICT DO NOTHING`), porque una baja tiene que seguir siendo una decisión con
+ * vista previa (la pantalla de sincronizar de Licencias). Con la campaña cerrada tampoco entra
+ * nadie: ya no hay pedidos que recoger.
+ *
+ * Devuelve `null` si no hay campaña a la que dar de alta.
+ */
+export async function darDeAltaEnCampania(
+  eduStudentIds: string[],
+): Promise<{ campaignId: string; campaignName: string; altas: number } | null> {
+  if (eduStudentIds.length === 0) return null;
+  const campaign = await getCurrentCampaign();
+  if (!campaign || campaign.status === 'closed') return null;
+
+  const ids = new Set(eduStudentIds);
+  const filas = (await getStudentsFromCentral()).filter((r) => ids.has(r.eduStudentId) && IN_SCOPE_CURSOS.has(r.curso));
+  if (filas.length === 0) return { campaignId: campaign.id, campaignName: campaign.name, altas: 0 };
+
+  const insertadas = await db
+    .insert(licStudents)
+    .values(
+      filas.map((r) => ({
+        campaignId: campaign.id,
+        studentCode: r.studentCode,
+        eduStudentId: r.eduStudentId,
+        educamosId: r.educamosId,
+        apellidos: r.apellidos,
+        apellido1: r.apellido1,
+        apellido2: r.apellido2,
+        nombre: r.nombre,
+        birthYear: r.birthYear,
+        curso: r.curso,
+        letra: r.letra,
+        email: r.email,
+        bancoLibros: r.bancoLibros,
+        lenguaBase: r.lenguaBase,
+        active: true,
+      })),
+    )
+    .onConflictDoNothing({ target: [licStudents.campaignId, licStudents.eduStudentId] })
+    .returning({ id: licStudents.id });
+  return { campaignId: campaign.id, campaignName: campaign.name, altas: insertadas.length };
 }

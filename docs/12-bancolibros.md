@@ -239,6 +239,10 @@ se reaprovecha el mismo patrón vista previa → confirmar y aplicar.
 
 ### Fase 5 · Descuadre con Licencias (2026-09-03) — el bug de "no se actualiza el front"
 
+> **Histórico (5-nov-2026):** Licencias ya lee `banco_libros` de `edu_students` en vivo
+> (`06-fuente-unica-alumnado.md`, fase 1), así que el descuadre no puede repetirse. La propagación
+> a `lic_students` de abajo sigue escribiéndose hasta la fase 2, pero ya no manda.
+
 David reportó dos síntomas que resultaron ser **el mismo problema**: el flag del banco vive en
 dos tablas y solo se escribía en una.
 
