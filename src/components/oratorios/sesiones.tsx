@@ -3,7 +3,7 @@
 // Agenda: la lista de momentos del curso con sus estados, y los avisos en bloque (enviar todos los
 // pendientes, programarlos a 7 días). Las acciones en bloque van sobre lo que se ve con el
 // filtro puesto: sin casillas que marcar una a una.
-import { AlarmClock, CalendarSearch, CheckCheck, Send, TriangleAlert, User } from 'lucide-react';
+import { AlarmClock, CalendarSearch, CheckCheck, RefreshCw, Send, TriangleAlert, User } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useConfirmar } from '@/components/ui/confirmar';
@@ -67,6 +67,7 @@ export function ListaSesiones({ e }: { e: Estado }) {
   const porAvisar = visibles.filter((s) => (s.estado === 'confirmado' && (s.avisoEstado === 'pendiente' || s.avisoEstado === 'programado')) || (s.estado === 'anulado' && s.avisoEstado === 'pendiente'));
   const sinProgramar = visibles.filter((s) => s.estado === 'confirmado' && s.avisoEstado === 'pendiente' && s.fecha > hoy);
   const borradores = visibles.filter((s) => s.estado === 'borrador');
+  const hayEventos = e.sesiones.some((s) => s.estado === 'confirmado' && s.googleEventId && s.fecha >= hoy);
   const cuenta = (f: FiltroLista) => e.sesiones.filter((s) => (tipo === '*' || s.tipoId === tipo) && pasa(s, f, hoy)).length;
 
   // Agrupadas por mes, que es como se piensa en esto.
@@ -106,8 +107,13 @@ export function ListaSesiones({ e }: { e: Estado }) {
         </Filtros>
       </div>
 
-      {(porAvisar.length > 0 || borradores.length > 0) && (
+      {(porAvisar.length > 0 || borradores.length > 0 || hayEventos) && (
         <div className="flex flex-wrap gap-2">
+          {hayEventos && (
+            <Button variant="outline" cargando={e.leyendoRespuestas} onClick={() => void e.actualizarRespuestas(true)}>
+              {!e.leyendoRespuestas && <RefreshCw />} Respuestas de los profes
+            </Button>
+          )}
           {porAvisar.length > 0 && (
             <Button
               disabled={e.ocupado}
@@ -136,7 +142,7 @@ export function ListaSesiones({ e }: { e: Estado }) {
               onClick={async () => {
                 const si = await confirmar({
                   titulo: `¿Confirmar ${borradores.length} ${borradores.length === 1 ? 'sesión' : 'sesiones'}?`,
-                  descripcion: 'Se crean los eventos en Google Calendar y se invita a los profes.',
+                  descripcion: 'Los eventos aparecen en el calendario de los profes (sin correo de Google). El ✅ verde sale cuando el profe lo acepta allí.',
                   boton: `Confirmar ${borradores.length}`,
                   peligro: false,
                 });

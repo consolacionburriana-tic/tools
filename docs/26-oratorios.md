@@ -26,6 +26,48 @@ Calendar van a quien lo cubre, y el correo lo dice («ahora estás sustituyendo 
 fija al confirmar: si la sustitución empieza después, el evento sigue invitando al titular hasta que
 se mueva o se reconfirme. Resuelto con `destinatariosDeProfes()` de `sustituciones-server.ts`.
 
+## Qué le llega al profe y cuándo (5-nov-2026)
+
+Antes, confirmar mandaba **la invitación de Google al profe y a quien lo lleva**, y siete días antes
+salía además el correo con tu texto: dos avisos distintos, y el evento duplicado en tu calendario.
+Ahora hay **un solo canal que avisa (tu correo)** y Calendar solo sincroniza, en silencio:
+
+| Momento | Calendar | Correo |
+|---|---|---|
+| **Confirmar** | El evento se crea en el calendario compartido y **aparece en el del profe sin que Google mande correo** (`sendUpdates: 'none'`) | — |
+| **N días antes** (`avisoDias`, 7 por defecto) o al pulsar 📨 | — | Tu correo con tu texto |
+| **Mover** | El evento se actualiza solo, en silencio | Correo de **cambio** si ya había salido el aviso |
+| **Anular / reprogramar** | El evento desaparece, en silencio | Correo de **anulación** si ya había salido el aviso |
+| **El profe contesta en Calendar** | Se lee la respuesta (al abrir el panel, con el botón «Respuestas de los profes» y en el cron diario) | — |
+
+Por persona (Ajustes → «Qué le llega al profe y cuándo», tabla `ora_preferencias`), **ambas apagadas
+por defecto**:
+
+- **Invitarme a los eventos que creo**: apagada, el evento sale solo en el calendario compartido y
+  **solo se invita al profe afectado** (a quien lo lleva no); encendida, se añade a quien lo lleva
+  como aceptado y le aparece también en su calendario personal.
+- **Que Google mande su propio correo al profe**: encendida, vuelve el comportamiento antiguo
+  (`sendUpdates: 'all'`: invitación, cambio y cancelación de Google además de tu correo).
+
+Los eventos ya creados con quien lo lleva invitado se corrigen la próxima vez que se muevan.
+
+### El ✅ verde es que el profe ha dicho que sí
+
+El estado «Confirmada» de antes solo decía que **tú** lo habías confirmado. Ahora una sesión
+confirmada futura se pinta según lo que haya contestado el profe en Calendar
+(`ora_sesiones.respuesta_profe`, leída con `events.list` y la marca `origen=tools-oratorios`: una
+consulta por calendario y responsable, no una por sesión):
+
+| Chip | Qué es |
+|---|---|
+| ✅ **Aceptada** (verde) | Todos los profes afectados han pulsado «Sí». **Esto es confirmado de verdad** |
+| ⏳ **Sin respuesta** | Evento en su calendario, pero aún no ha contestado |
+| ❔ **Quizá** / ❌ **Rechazada** | Ha contestado «quizá» / «no» |
+| ✅ **Confirmada** (azul) | Confirmada por ti pero sin respuesta que leer: sin evento (error de calendario o tipo sin calendario) o sin invitado con correo |
+
+Con varios profes afectados (optativa, desdoble) hace falta que **todos** acepten; uno que rechaza
+marca «Rechazada». Mover el evento borra la respuesta (Google la reinicia) y se vuelve a leer.
+
 ## Estado: plan funcional ✅ · plan técnico ✅ · implementado 🟡 (30-sep-2026; las **Sesiones del abanico**, 4-oct-2026; el **Taller de Pensamiento Computacional**, 19-oct-2026)
 
 Código entero escrito y **probado contra Neon y contra Google Calendar de verdad**, con sesión de
@@ -192,7 +234,7 @@ fuera**:
 | Estado | Qué significa |
 |---|---|
 | 📝 **Borrador** | Apuntado en el asistente; nadie se ha enterado. Se borra sin rastro |
-| ✅ **Confirmado** | En Neon y en Google Calendar, con el profe invitado |
+| ✅ **Confirmado** | En Neon y en Google Calendar, con el profe invitado. El chip pasa a ✅ **Aceptada** cuando el profe contesta que sí (ver «Qué le llega al profe y cuándo») |
 | 🔁 **Reprogramar** | Hay que buscarle otro hueco. Se quita del calendario (Google avisa al profe) y espera en la bandeja «🔁 por recolocar» del asistente; al recolocarla vuelve a borrador |
 | ✖️ **Anulado** | No se hará. Se quita del calendario; la fila se queda (con su historial) y no cuenta para el objetivo |
 
@@ -221,9 +263,9 @@ cambio de fecha queda en el historial de la sesión (de → a, quién, cuándo).
   `c_91636c40a49fa1fbcda6f3913828739f6c4d0fa2ffdb0c8447e6e8f65b113baa@group.calendar.google.com`.
   Editables en Ajustes.
 - **Título**: `[4 ESO B] Oratorio - Ana García`.
-- **Invitados**: el profe de esa hora y la persona responsable (así le sale en su calendario
-  aunque el evento viva en el calendario compartido). `sendUpdates: 'all'`: Google manda la
-  invitación.
+- **Invitados**: solo el profe de esa hora (o quien lo cubre). Quien lo lleva solo se invita si lo
+  activa en sus preferencias. `sendUpdates: 'none'` por defecto: Google no manda correo (ver «Qué
+  le llega al profe y cuándo»).
 - Se escribe **suplantando a la persona responsable** (misma cuenta de servicio con
   delegación de dominio que Mi horario y el correo por Gmail), así que tiene que poder editar
   ese calendario compartido. Si no puede, la sesión queda confirmada con el error a la vista.
@@ -376,7 +418,7 @@ a quien llegará el correo). En cuanto se reimporte el `.docx` de primaria con
 
 ## Plan técnico
 
-### Datos (prefijo `ora_`, SQL aditivo en `src/db/sql/oratorios.sql` y `oratorios-catalogo.sql`)
+### Datos (prefijo `ora_`, SQL aditivo en `src/db/sql/oratorios.sql`, `oratorios-catalogo.sql` y `oratorios-calendario.sql`)
 
 | Tabla | Para qué |
 |---|---|
@@ -384,7 +426,8 @@ a quien llegará el correo). En cuanto se reimporte el `.docx` de primaria con
 | `ora_catalogo` | **El abanico**: las Sesiones de cada tipo (nombre, enlace, curso en que se creó, niveles, activa) |
 | `ora_ajustes` | Una fila por curso: trimestres y acceso común |
 | `ora_disponibilidad` | Responsable (correo) × día × hora inicio/fin × nivel |
-| `ora_sesiones` | El **momento** planificado: tipo, clase, número, fecha y horas, responsable, profe (+ materia de foto), estado, aviso, evento de Google, historial, `catalogo_id` (la Sesión del abanico) |
+| `ora_preferencias` | Por persona (correo): invitarse a los eventos y correo de Google al profe, ambas apagadas por defecto |
+| `ora_sesiones` | El **momento** planificado: tipo, clase, número, fecha y horas, responsable, profe (+ materia de foto), estado, aviso, evento de Google, `respuesta_profe` (lo que ha contestado en Calendar), historial, `catalogo_id` (la Sesión del abanico) |
 
 ### Código
 
@@ -446,6 +489,13 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
 - [x] Casilla «no se repite en la vida escolar» por tipo (Ajustes)
 - [x] Probado contra Neon (crear, cambiar, rechazar la de otro tipo, no borrar una en uso, limpiar)
 - [ ] **David**: meter las sesiones de su abanico (nombre, enlace y curso en que se crearon)
+
+### Calendar sin ruido y respuesta del profe (5-nov-2026) — ✅ escrito y probado, falta la primera prueba real
+- [x] Google no manda correo por defecto y solo se invita al profe afectado; preferencias por persona
+- [x] Tabla `ora_preferencias` y columnas `respuesta_profe` / `respuesta_at` (`oratorios-calendario.sql`, aplicado en Neon el 5-nov-2026)
+- [x] Lectura de las respuestas de Calendar (al abrir el panel, botón «Respuestas de los profes» y cron diario) y chips ✅ Aceptada / ⏳ Sin respuesta
+- [x] La rejilla del asistente enseña entero lo del tipo elegido y en gris, en una línea, lo de otros tipos
+- [ ] **David**: comprobar en el calendario de verdad que el evento le aparece al profe sin correo de Google y que su «Sí» llega a la app
 
 ### El PDC en los huecos (4-oct-2026)
 - [x] El PDC **sí cuenta** en el objetivo, los números y «A mano» (10 clases en la ESO), pero **no

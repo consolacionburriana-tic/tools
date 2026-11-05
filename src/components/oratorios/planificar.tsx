@@ -599,10 +599,30 @@ function FilaFranja({
                 <span className="sr-only">Hueco {NIVEL_INFO[nivel].label.toLowerCase()}</span>
               </span>
             )}
-            {aqui.map((s) => {
+            {[...aqui].sort((a, b) => Number(b.tipoId === tipoId) - Number(a.tipoId === tipoId)).map((s) => {
               const t = e.tipos.find((x) => x.id === s.tipoId);
               const chip = chipEstado(s, e.datos.hoy);
               const ajena = s.responsableEmail !== e.responsable;
+              // De otro tipo (otro calendario, otra planificación): solo ocupa el hueco, así
+              // que va en gris y en una línea, sin estado. El tipo elegido se ve entero.
+              if (s.tipoId !== tipoId) {
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      e.abrir(s.id);
+                    }}
+                    title={`Otro tipo: ${t?.nombre ?? ''} · ${s.profes.map((p) => p.nombre).join(', ')}${ajena ? ` · lo lleva ${s.responsableNombre ?? s.responsableEmail}` : ''}`}
+                    className="flex w-full items-center gap-x-1 rounded-md bg-zinc-100 px-1 py-0.5 text-left text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                  >
+                    <span aria-hidden className="grayscale">{t?.emoji}</span>
+                    <span className="truncate">{nombreClase(s.curso, s.letra)}</span>
+                    <span className="ml-auto truncate text-xs uppercase tracking-wide">{t?.nombre}</span>
+                  </button>
+                );
+              }
               return (
                 <button
                   key={s.id}
