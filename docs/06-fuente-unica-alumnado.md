@@ -1,11 +1,9 @@
 # Una sola fuente de verdad del alumnado · plan
 
-> 🔴 **PRIORIDAD MÁXIMA a partir del 1 de noviembre de 2026.** Decisión de David (2026-09-03).
-> Es lo PRIMERO que hay que hacer en cuanto se retome el desarrollo, antes que cualquier otra
-> casilla de cualquier otro hito.
->
-> **Estado (5-nov-2026): fases 1 y 3 hechas y desplegadas; fase 2 escrita y probada, falta aplicar su
-> SQL a la vez que se fusiona la rama.** Mira «Fase 2» abajo: es lo único que queda, con el orden exacto.
+> ✅ **HECHA (5-nov-2026).** Las cuatro fases están aplicadas y desplegadas: Licencias lee al alumno
+> en vivo de `edu_students`, las altas de Educamos entran solas en la campaña y `lic_students` ya
+> no tiene las columnas duplicadas. Este documento queda como histórico y como razón de por qué
+> **no se vuelve a copiar un dato del alumno a otra tabla**.
 
 Deuda técnica transversal: el mismo dato de un alumno vive en dos tablas, y las dos se leen como
 si fueran la verdad. Este documento deja el plan cerrado para poder ejecutarlo del tirón.
@@ -129,14 +127,12 @@ siempre, así que quien los consume no cambió. Los campos duplicados siguen en 
 > lo tiene a NULL en todo el alumnado (`modelo_linguistico`) y es una decisión de la clase **de
 > cada campaña**, que cambia cada curso. Se queda en `lic_students`, igual que `manual_completed_*`.
 
-### Fase 2 · Adelgazar la tabla — 🟡 código escrito y probado; falta aplicar el SQL
+### Fase 2 · Adelgazar la tabla — ✅ hecha (5-nov-2026)
 
-**Estado (5-nov-2026):** la campaña 2026/27 está **cerrada**, la fase 1 está fusionada en `main`
-y el código de la fase 2 está escrito en la rama `claude/fuente-unica-fase2`. **Falta una cosa, y
-con orden:** aplicar `src/db/sql/fuente-unica-fase2.sql` (borra columnas) y fusionar esa rama **en
-el mismo momento**. Si el SQL se aplica con el código viejo en producción, Licencias se rompe; si
-se fusiona el código sin el SQL, el alta de alumnos falla (las columnas viejas son `NOT NULL`).
-Antes de nada, comprobar en Vercel que el despliegue de la fase 1 está *Ready*.
+**Aplicada el 5-nov-2026:** `fuente-unica-fase2.sql` en Neon (se borraron las 15 filas sin enlace,
+inactivas y sin nada colgando, y las 10 columnas copia) y la rama fusionada a continuación (PR #128).
+Comprobado contra Neon después: 25 pantallas y exportaciones dan el mismo resultado que antes de
+tocar nada. La campaña 2026/27 estaba cerrada.
 
 Cosas que se descubrieron al prepararla y que **cambian el plan original**:
 
@@ -155,7 +151,7 @@ Cosas que se descubrieron al prepararla y que **cambian el plan original**:
   aplicado**) y `cursoParaCampania()` / `CURSO_LIC_SQL` (con tests que cruzan JS y SQL).
 
 - [x] Cerrar la campaña 2026/27.
-- [x] Desplegar la fase 1 (PR #127 fusionada) — *pendiente de confirmar «Ready» en Vercel*.
+- [x] Desplegar la fase 1 (PR #127 fusionada).
 - [x] Las 15 filas sin enlace: se borran en el SQL (con la guarda de «sin nada colgando»).
 - [x] SQL escrito y probado en seco: `fuente-unica-fase2.sql` (13 sentencias).
 - [x] Código: columnas fuera de `schema.ts`; altas y sync solo con `campaign_id` + `edu_student_id` +
@@ -166,7 +162,7 @@ Cosas que se descubrieron al prepararla y que **cambian el plan original**:
 - [x] Verificado contra Neon: con la rama, 25 pantallas y exportaciones dan **idéntico** resultado
       que `main` (con `promociona = false`); la promoción +1 comprobada sobre el alumnado real
       (1ESO→2ESO, 6PRI→1ESO, 4ESO→fuera, PDC incluido).
-- [ ] **Aplicar `fuente-unica-fase2.sql` y fusionar la rama a la vez** (ver arriba).
+- [x] **Aplicar `fuente-unica-fase2.sql` y fusionar la rama a la vez** — hecho el 5-nov-2026.
 
 ### Fase 3 · Que no haya que acordarse de sincronizar
 
