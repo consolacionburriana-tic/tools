@@ -3,7 +3,7 @@
 // Planificar: el asistente. Semana a semana, los huecos de quien lo lleva y quién cabe en
 // cada uno (con la materia y el profe que pierde la hora y sus avisos). Dos
 // toques por sesión: el hueco y la clase. Ficha: docs/26-oratorios.md
-import { ArrowRightLeft, BookOpen, BookOpenText, CalendarClock, CalendarOff, ChevronLeft, ChevronRight, Check, CheckCheck, Plus, Sparkles, Target, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, BookOpen, BookOpenText, CalendarClock, CalendarOff, ChevronLeft, ChevronRight, Check, CheckCheck, Link2, Plus, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
@@ -33,6 +33,9 @@ import {
   esFestivo,
   estaActiva,
   etiquetaClase,
+  clasesDeSesion,
+  etiquetaClases,
+  nombreClases,
   fechaCorta,
   fechaLarga,
   franjasDeEtapas,
@@ -183,7 +186,11 @@ export function Planificar({ e }: { e: Estado }) {
     setSemana(lunesDe(e.datos.hoy >= r.inicio && e.datos.hoy <= r.fin ? e.datos.hoy : r.inicio));
   }
 
-  async function crear(candidato: { clase: Clase; hora: { horaInicio: string; horaFin: string; profes: ProfeAfectado[] } }, fecha: string) {
+  /** Un borrador; con varios candidatos, una sola sesión que junta sus clases (la primera es la principal). */
+  async function crear(candidatos: { clase: Clase; hora: { horaInicio: string; horaFin: string; profes: ProfeAfectado[] } }[], fecha: string) {
+    const [candidato, ...otros] = candidatos;
+    // Los profes de TODAS las clases juntas pierden esa hora, sin repetir a ninguno.
+    const profes = [...new Map(candidatos.flatMap((c) => c.hora.profes).map((p) => [p.id, p])).values()];
     setTrabajando(true);
     try {
       const [nueva] = await api.crear([
@@ -191,17 +198,18 @@ export function Planificar({ e }: { e: Estado }) {
           tipoId: tipo.id,
           curso: candidato.clase.curso,
           letra: candidato.clase.letra,
+          juntas: otros.map((o) => ({ curso: o.clase.curso, letra: o.clase.letra })),
           fecha,
           horaInicio: candidato.hora.horaInicio,
           horaFin: candidato.hora.horaFin,
-          profes: candidato.hora.profes,
+          profes,
           responsableEmail: e.responsable,
           catalogoId: sesionPara(candidato.clase, fecha)?.id ?? null,
         },
       ]);
       e.guardarSesiones([nueva]);
       haptic.success();
-      toast.success(`Borrador: ${etiquetaClase(nueva)} · S${nueva.numero}`, { description: `${fechaCorta(fecha)} ${horaBonita(nueva.horaInicio)}` });
+      toast.success(`Borrador: ${etiquetaClases(nueva)} · S${nueva.numero}`, { description: `${fechaCorta(fecha)} ${horaBonita(nueva.horaInicio)}` });
       setHueco(null);
     } catch (err) {
       haptic.warning();
@@ -212,20 +220,23 @@ export function Planificar({ e }: { e: Estado }) {
   }
 
   async function moverA(s: SesionOra, fecha: string, franja: Franja) {
-    const clase = { curso: s.curso, letra: s.letra };
-    const hora = horaDeClase(e.ctx.idx, e.datos.periodos, clase, fecha, franja);
-    if (!hora) {
+    // Una sesión con clases juntas solo cabe donde TODAS tienen clase a esa hora.
+    const horas = clasesDeSesion(s).map((clase) => ({ clase, hora: horaDeClase(e.ctx.idx, e.datos.periodos, clase, fecha, franja) }));
+    const sin = horas.find((h) => !h.hora);
+    const hora = horas[0].hora;
+    if (sin || !hora) {
       haptic.warning();
-      toast.error(`${etiquetaClase(clase)} no tiene clase a esa hora`);
+      toast.error(`${etiquetaClase(sin?.clase ?? horas[0].clase)} no tiene clase a esa hora`);
       return;
     }
+    const profes = [...new Map(horas.flatMap((h) => h.hora?.profes ?? []).map((p) => [p.id, p])).values()];
     setTrabajando(true);
     try {
-      const nueva = await api.accion(s.id, { accion: 'mover', fecha, horaInicio: hora.horaInicio, horaFin: hora.horaFin, profes: hora.profes });
+      const nueva = await api.accion(s.id, { accion: 'mover', fecha, horaInicio: hora.horaInicio, horaFin: hora.horaFin, profes });
       e.guardarSesiones([nueva]);
       e.mover(null);
       haptic.success();
-      toast.success(`${etiquetaClase(nueva)} → ${fechaCorta(fecha)} ${horaBonita(nueva.horaInicio)}`, {
+      toast.success(`${etiquetaClases(nueva)} → ${fechaCorta(fecha)} ${horaBonita(nueva.horaInicio)}`, {
         description: nueva.calendarioError ? nueva.calendarioError : nueva.avisoEstado === 'pendiente' ? 'Toca avisar del cambio' : undefined,
       });
     } catch (err) {
@@ -330,18 +341,26 @@ export function Planificar({ e }: { e: Estado }) {
         </Button>
         <Button
           disabled={borradores.length === 0 || e.ocupado}
-          title="Crea los eventos en Google Calendar e invita a los profes"
+          title="Crea los eventos en Google Calendar y Google manda la invitación a cada profe: con ella te confirma"
           onClick={async () => {
             const si = await confirmar({
-              titulo: `¿Confirmar ${borradores.length} ${borradores.length === 1 ? 'sesión' : 'sesiones'}?`,
-              descripcion: 'Se crean los eventos en Google Calendar y se invita a los profes.',
-              boton: `Confirmar ${borradores.length}`,
+              titulo: `¿Confirmar ${borradores.length} ${borradores.length === 1 ? 'sesión' : 'sesiones'} y enviar la invitación?`,
+              descripcion: 'Se crean los eventos en Google Calendar y a cada profe le llega la invitación de Google: con ella te confirma.',
+              boton: `Confirmar y enviar ${borradores.length}`,
               peligro: false,
             });
-            if (si) void e.lote('confirmar', borradores.map((b) => b.id));
+            if (si) void e.lote('confirmar', borradores.map((b) => b.id), undefined, true);
           }}
         >
-          <CheckCheck /> Confirmar {borradores.length > 0 && <span className="tabular-nums">({borradores.length})</span>}
+          <CheckCheck /> Confirmar y enviar invitación {borradores.length > 0 && <span className="tabular-nums">({borradores.length})</span>}
+        </Button>
+        <Button
+          variant="outline"
+          disabled={borradores.length === 0 || e.ocupado}
+          title="Crea los eventos en su calendario sin que Google mande correo"
+          onClick={() => void e.lote('confirmar', borradores.map((b) => b.id), undefined, false)}
+        >
+          Solo confirmar
         </Button>
         {borradores.length > 0 && (
           <Button
@@ -377,7 +396,7 @@ export function Planificar({ e }: { e: Estado }) {
             </Button>
           }
         >
-          <b>{etiquetaClase(moviendo)}</b> · S{moviendo.numero}: toca su hueco nuevo
+          <b>{etiquetaClases(moviendo)}</b> · S{moviendo.numero}: toca su hueco nuevo
         </Aviso>
       ) : (
         porRecolocar.length > 0 && (
@@ -387,7 +406,7 @@ export function Planificar({ e }: { e: Estado }) {
             </span>
             {porRecolocar.map((s) => (
               <Button key={s.id} variant="outline" size="sm" onClick={() => e.mover(s.id)}>
-                {etiquetaClase(s)} · S{s.numero}
+                {etiquetaClases(s)} · S{s.numero}
               </Button>
             ))}
           </div>
@@ -406,8 +425,8 @@ export function Planificar({ e }: { e: Estado }) {
           <ChevronRight />
         </Button>
         {semana !== lunesDe(e.datos.hoy) && (
-          <Button variant="ghost" size="sm" onClick={() => setSemana(lunesDe(e.datos.hoy))}>
-            Hoy
+          <Button onClick={() => setSemana(lunesDe(e.datos.hoy))}>
+            <CalendarClock /> Esta semana
           </Button>
         )}
         <span className="ml-auto hidden flex-wrap gap-3 text-xs text-zinc-600 sm:flex dark:text-zinc-400">
@@ -454,7 +473,7 @@ export function Planificar({ e }: { e: Estado }) {
           sinHorario={clasesDeHueco(sinHorario, huecoEn(disp, diaSemana(hueco.fecha), hueco.franja)).filter((c) => necesidadEnFecha(ctx, tipo, c, hueco.fecha) > 0)}
           sesionDe={(c) => (abanico.length > 0 ? { sesion: sesionPara(c.clase, hueco.fecha) } : null)}
           trabajando={trabajando}
-          onElegir={(c) => void crear(c, hueco.fecha)}
+          onElegir={(cs) => void crear(cs, hueco.fecha)}
           onManual={(clave) => {
             setManual({ fecha: hueco.fecha, franja: hueco.franja, clave });
             setHueco(null);
@@ -618,7 +637,7 @@ function FilaFranja({
                     className="flex w-full items-center gap-x-1 rounded-md bg-zinc-100 px-1 py-0.5 text-left text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
                   >
                     <span aria-hidden className="grayscale">{t?.emoji}</span>
-                    <span className="truncate">{nombreClase(s.curso, s.letra)}</span>
+                    <span className="truncate">{nombreClases(s)}</span>
                     <span className="ml-auto truncate text-xs uppercase tracking-wide">{t?.nombre}</span>
                   </button>
                 );
@@ -642,7 +661,7 @@ function FilaFranja({
                   )}
                 >
                   <span aria-hidden>{t?.emoji}</span>
-                  <span className="truncate">{nombreClase(s.curso, s.letra)}</span>
+                  <span className="truncate">{nombreClases(s)}</span>
                   <span className="ml-auto opacity-80">S{s.numero}</span>
                   <span className="w-full font-normal opacity-80">{chip.texto}</span>
                 </button>
@@ -694,7 +713,8 @@ function DialogoHueco({
   /** La sesión del abanico que llevaría cada clase (null = el tipo no tiene abanico). */
   sesionDe: (c: Candidato) => { sesion: SesionCatalogo | null } | null;
   trabajando: boolean;
-  onElegir: (c: Candidato) => void;
+  /** Una clase, o varias que se juntan en la misma hora (la primera es la principal). */
+  onElegir: (c: Candidato[]) => void;
   onManual: (clave?: string) => void;
   onClose: () => void;
 }) {
@@ -702,6 +722,9 @@ function DialogoHueco({
   const profeResp = e.datos.profes.find((p) => p.email === e.responsable)?.id ?? null;
   const propias = ocupacionPropia(e.datos.horario, profeResp, e.datos.periodos, fecha, franja);
   const [verTodas, setVerTodas] = useState(false);
+  // Modo «juntar»: se marcan dos o más clases y se apuntan como UNA sesión (3º PDC + 4º PDC).
+  const [juntando, setJuntando] = useState(false);
+  const [marcadas, setMarcadas] = useState<string[]>([]);
   const utiles = candidatos.filter((c) => c.necesita > 0);
   const visibles = verTodas || utiles.length === 0 ? candidatos : utiles;
   return (
@@ -737,7 +760,7 @@ function DialogoHueco({
                 className="flex min-h-10 w-full items-center gap-2 rounded-lg bg-zinc-100 px-2 py-1.5 text-left text-sm dark:bg-zinc-800"
               >
                 <span aria-hidden>{e.tipos.find((t) => t.id === s.tipoId)?.emoji}</span>
-                <b>{etiquetaClase(s)}</b> S{s.numero}
+                <b>{etiquetaClases(s)}</b> S{s.numero}
                 <EstadoChip chip={chipEstado(s, e.datos.hoy)} className="ml-auto" />
               </button>
             ))}
@@ -750,16 +773,19 @@ function DialogoHueco({
               <button
                 type="button"
                 disabled={trabajando}
-                onClick={() => onElegir(c)}
+                onClick={() => (juntando ? setMarcadas((m) => (m.includes(c.clave) ? m.filter((x) => x !== c.clave) : [...m, c.clave])) : onElegir([c]))}
+                aria-pressed={juntando ? marcadas.includes(c.clave) : undefined}
                 className={cn(
                   'flex w-full flex-col gap-1 rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-50',
                   i === 0 && c.necesita > 0 && !c.avisos.some((a) => a.nivel === 'rojo')
                     ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 dark:border-blue-500/40 dark:bg-blue-500/10'
                     : 'border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800',
                   c.necesita === 0 && 'opacity-60',
+                  juntando && marcadas.includes(c.clave) && 'border-blue-500 bg-blue-50 ring-2 ring-blue-400 dark:bg-blue-500/10',
                 )}
               >
                 <span className="flex items-center gap-2">
+                  {juntando && <span aria-hidden>{marcadas.includes(c.clave) ? '☑️' : '⬜'}</span>}
                   <b className="text-base">{etiquetaClase(c.clase)}</b>
                   <span className="text-xs text-zinc-500 tabular-nums">
                     {horaBonita(c.hora.horaInicio)}–{horaBonita(c.hora.horaFin)}
@@ -813,6 +839,28 @@ function DialogoHueco({
               {verTodas ? 'Solo las que faltan' : `+ ${candidatos.length - utiles.length} ya cubiertas`}
             </Button>
           )}
+          {candidatos.length > 1 && (
+            <Button
+              variant={juntando ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setJuntando(!juntando);
+                setMarcadas([]);
+                setVerTodas(true);
+              }}
+            >
+              <Link2 /> {juntando ? 'Dejar de juntar' : 'Juntar clases'}
+            </Button>
+          )}
+          {juntando && (
+            <Button
+              size="sm"
+              disabled={marcadas.length < 2 || trabajando}
+              onClick={() => onElegir(marcadas.map((k) => candidatos.find((c) => c.clave === k)).filter((c): c is Candidato => Boolean(c)))}
+            >
+              Juntar y apuntar ({marcadas.length})
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => onManual()}>
             <Plus /> A mano
           </Button>
@@ -852,7 +900,13 @@ function DialogoManual({
   // Si el horario sabe quién tiene esa clase a esa hora, se propone solo.
   const clase = clave ? claseDeClave(clave) : null;
   const delHorario = clase ? horaDeClase(e.ctx.idx, e.datos.periodos, clase, fecha, { horaInicio: inicio, horaFin: fin }) : null;
-  const profeIds = elegidos ?? delHorario?.profes.map((p) => p.id) ?? [];
+  // Otras clases que se juntan con esta en el mismo momento (3º PDC + 4º PDC).
+  const [juntasClaves, setJuntasClaves] = useState<string[]>([]);
+  const juntas = juntasClaves.filter((k) => k !== clave).map(claseDeClave);
+  const horariosJuntas = juntas.map((c) => horaDeClase(e.ctx.idx, e.datos.periodos, c, fecha, { horaInicio: inicio, horaFin: fin }));
+  // Los profes de TODAS las clases juntas, del horario, hasta que se toque la lista.
+  const delHorarioProfes = [...new Map([...(delHorario?.profes ?? []), ...horariosJuntas.flatMap((h) => h?.profes ?? [])].map((p) => [p.id, p])).values()];
+  const profeIds = elegidos ?? delHorarioProfes.map((p) => p.id);
 
   // La sesión del abanico: la forzada o la que toca por defecto, hasta que se toque el selector.
   const tipo = e.tipos.find((t) => t.id === tipoId);
@@ -869,13 +923,13 @@ function DialogoManual({
     setGuardando(true);
     try {
       const profes: ProfeAfectado[] = profeIds.map((id) => {
-        const h = delHorario?.profes.find((p) => p.id === id);
+        const h = delHorarioProfes.find((p) => p.id === id);
         return { id, nombre: h?.nombre ?? e.datos.profes.find((p) => p.id === id)?.nombre ?? '', materia: h?.materia ?? null };
       });
-      const [nueva] = await api.crear([{ tipoId, curso: clase.curso, letra: clase.letra, fecha, horaInicio: inicio, horaFin: fin, profes, responsableEmail: e.responsable, catalogoId: catalogoId || null }]);
+      const [nueva] = await api.crear([{ tipoId, curso: clase.curso, letra: clase.letra, juntas, fecha, horaInicio: inicio, horaFin: fin, profes, responsableEmail: e.responsable, catalogoId: catalogoId || null }]);
       e.guardarSesiones([nueva]);
       haptic.success();
-      toast.success(`Borrador: ${etiquetaClase(nueva)} · S${nueva.numero}`);
+      toast.success(`Borrador: ${etiquetaClases(nueva)} · S${nueva.numero}`);
       onClose();
     } catch (err) {
       haptic.warning();
@@ -899,6 +953,22 @@ function DialogoManual({
               ))}
             </Selector>
           </Campo>
+          <div className="col-span-2 space-y-1">
+            <p className="text-sm font-medium">Juntar con otras clases <span className="font-normal text-zinc-500">· en la misma hora (opcional)</span></p>
+            <Filtros etiqueta="Juntar con otras clases">
+              {e.datos.clases
+                .filter((c) => claveClase(c) !== clave)
+                .map((c) => (
+                  <Filtro
+                    key={claveClase(c)}
+                    activo={juntasClaves.includes(claveClase(c))}
+                    onClick={() => setJuntasClaves((m) => (m.includes(claveClase(c)) ? m.filter((x) => x !== claveClase(c)) : [...m, claveClase(c)]))}
+                  >
+                    {nombreClase(c.curso, c.letra)}
+                  </Filtro>
+                ))}
+            </Filtros>
+          </div>
           <Campo etiqueta="Día" id="ora-manual-dia" className="col-span-2">
             <Input id="ora-manual-dia" type="date" value={fecha} onChange={(ev) => setFecha(ev.target.value)} />
           </Campo>
@@ -923,7 +993,7 @@ function DialogoManual({
           <Campo
             etiqueta={
               <>
-                Profe que pierde la hora {delHorario && <span className="font-normal text-emerald-700 dark:text-emerald-400">· del horario</span>}
+                Profe que pierde la hora {delHorarioProfes.length > 0 && elegidos === null && <span className="font-normal text-emerald-700 dark:text-emerald-400">· del horario</span>}
               </>
             }
             id="ora-manual-profes"

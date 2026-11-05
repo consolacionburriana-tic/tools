@@ -12,7 +12,7 @@ import { Estado as EstadoPastilla } from '@/components/ui/estado';
 import { Selector } from '@/components/ui/selector';
 import { Textarea } from '@/components/ui/textarea';
 import { haptic } from '@/lib/haptics';
-import { chipAviso, chipEstado, describirUsos, esEnlaceSeguro, etiquetaClase, fechaLarga, horaBonita, opcionesSesion, ordenarOpciones, profesDe, type AccionSesion } from '@/lib/oratorios';
+import { chipAviso, chipEstado, describirUsos, esEnlaceSeguro, etiquetaClases, fechaLarga, horaBonita, opcionesSesion, ordenarOpciones, profesDe, type AccionSesion } from '@/lib/oratorios';
 import { api, capital, EstadoChip } from './comun';
 import type { Estado } from './panel';
 
@@ -59,14 +59,14 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
   }
 
   const ocupado = trabajando || e.ocupado;
-  const lote = (a: Parameters<typeof e.lote>[0], dias?: number) => void e.lote(a, [s.id], dias);
+  const lote = (a: Parameters<typeof e.lote>[0], dias?: number, invitar?: boolean) => void e.lote(a, [s.id], dias, invitar);
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent variante="hoja" className="sm:max-w-md">
         <DialogTitle className="flex flex-wrap items-center gap-2 pr-10">
           <span aria-hidden>{tipo?.emoji}</span>
-          <span>[{etiquetaClase(s)}]</span>
+          <span>[{etiquetaClases(s)}]</span>
           <span>{tipo?.nombre}</span>
           <span className="text-zinc-500">· S{s.numero}</span>
         </DialogTitle>
@@ -130,9 +130,14 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
         {/* Estado */}
         <div className="flex flex-wrap gap-2">
           {s.estado === 'borrador' && (
-            <Button size="sm" disabled={ocupado} onClick={() => lote('confirmar')} title="Crea el evento e invita">
-              <CheckCheck /> Confirmar
-            </Button>
+            <>
+              <Button size="sm" disabled={ocupado} onClick={() => lote('confirmar', undefined, true)} title="Crea el evento y Google manda la invitación al profe: con ella te confirma">
+                <CheckCheck /> Confirmar y enviar invitación
+              </Button>
+              <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('confirmar', undefined, false)} title="Crea el evento en su calendario sin que Google mande correo">
+                Solo confirmar
+              </Button>
+            </>
           )}
           {s.estado === 'confirmado' && (s.calendarioError || !s.googleEventId) && (
             <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('calendario')} title="Reintentar el evento de Google Calendar">
@@ -189,6 +194,9 @@ export function DetalleSesion({ e, id, onClose }: { e: Estado; id: string | null
               </Button>
               {s.estado === 'confirmado' && (
                 <>
+                  <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('programar', 3)}>
+                    <AlarmClock /> 3 días antes
+                  </Button>
                   <Button variant="outline" size="sm" disabled={ocupado} onClick={() => lote('programar', 7)}>
                     <AlarmClock /> 7 días antes
                   </Button>

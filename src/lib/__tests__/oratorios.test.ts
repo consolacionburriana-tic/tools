@@ -8,6 +8,8 @@ import {
   candidatosHueco,
   chipEstado,
   respuestaDeInvitados,
+  clasesDeSesion,
+  etiquetaClases,
   claveHorario,
   clasesDeTipo,
   clasesSinHorario,
@@ -32,6 +34,7 @@ import {
   ordinalNivel,
   pascua,
   progresoTipo,
+  necesidadEnFecha,
   sesionCatalogoSchema,
   sesionDePropuesta,
   sesionPorDefecto,
@@ -500,8 +503,8 @@ describe('evento de Google Calendar', () => {
     expect(ev.attendees).toEqual([{ email: 'ana@consolacionburriana.com' }, { email: 'yo@consolacionburriana.com', responseStatus: 'accepted' }]);
   });
 
-  it('Google no manda correo salvo que se pida: ni al crear, ni al mover, ni al borrar', () => {
-    expect(sendUpdatesDe()).toBe('none');
+  it('Google manda su invitación por defecto (con ella confirma el profe) y se puede apagar', () => {
+    expect(sendUpdatesDe()).toBe('all');
     expect(sendUpdatesDe({ invitarme: true, avisoGoogle: false })).toBe('none');
     expect(sendUpdatesDe({ invitarme: false, avisoGoogle: true })).toBe('all');
   });
@@ -514,6 +517,37 @@ describe('evento de Google Calendar', () => {
       correos: new Map([[ANA.id, ['eva@consolacionburriana.com', 'yo@consolacionburriana.com']]]),
     });
     expect(ev.attendees?.map((a) => a.email)).toEqual(['eva@consolacionburriana.com', 'yo@consolacionburriana.com']);
+  });
+});
+
+describe('juntar clases en un mismo momento (3º PDC + 4º PDC)', () => {
+  const junta = sesion({ curso: '3ºPPDC', letra: 'PDC', juntas: [{ curso: '4ºPPDC', letra: 'PDC' }], fecha: '2026-10-05' });
+
+  it('la sesión tiene las dos clases y la etiqueta las junta', () => {
+    expect(clasesDeSesion(junta).map((c) => c.curso)).toEqual(['3ºPPDC', '4ºPPDC']);
+    expect(etiquetaClases(junta)).toBe('3º PDC + 4º PDC');
+    expect(etiquetaClases(sesion({ curso: '1ESO', letra: 'A' }))).toBe('1 ESO A');
+  });
+
+  it('el título del evento lleva las dos clases', () => {
+    expect(tituloEvento(ORATORIO, junta)).toContain('[3º PDC + 4º PDC] Oratorio');
+  });
+
+  it('cuenta para el objetivo y el número de sesión de LAS DOS clases', () => {
+    expect(siguienteNumero([junta], ORATORIO.id, { curso: '4ºPPDC', letra: 'PDC' })).toBe(junta.numero + 1);
+    expect(necesidadEnFecha(ctx([junta]), ORATORIO, { curso: '4ºPPDC', letra: 'PDC' }, '2026-10-20')).toBe(0);
+    expect(necesidadEnFecha(ctx([junta]), ORATORIO, { curso: '3ºPPDC', letra: 'PDC' }, '2026-10-20')).toBe(0);
+    expect(necesidadEnFecha(ctx([]), ORATORIO, { curso: '4ºPPDC', letra: 'PDC' }, '2026-10-20')).toBe(1);
+  });
+
+  it('la sesión del abanico cuenta como vista para las dos clases', () => {
+    const conAbanico = { ...junta, catalogoId: 'cat-1' };
+    expect(usosDeSesiones([conAbanico], '2026-27').map((u) => `${u.curso}|${u.letra}`)).toEqual(['3ESO|PDC', '4ESO|PDC']);
+  });
+
+  it('el evento y el correo listan las dos clases', () => {
+    const ev = cuerpoEvento({ tipo: ORATORIO, sesion: junta, correos: new Map() });
+    expect(ev.description).toContain('Clases: 3º PDC + 4º PDC');
   });
 });
 

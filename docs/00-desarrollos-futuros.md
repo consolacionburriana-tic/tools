@@ -382,13 +382,11 @@ el check si el profe contesta». Detalle en [`26-oratorios.md`](./26-oratorios.m
 4. 🤖 **La rejilla del asistente no oculta los otros tipos, los atenúa** (gris, una línea): sirven
    para ver que ese profe o esa clase ya tienen algo a esa hora.
 
-### 💡 Idea: juntar clases en una misma sesión (David, 5-nov-2026) — sin decidir
-Hoy una sesión es **una clase en un hueco**. David necesita **juntar dos clases en la misma hora**:
-le pasa con los PDC (**3º PDC + 4º PDC** juntos). Habría que decidir: una sesión con varias clases
-(cuenta para el objetivo de cada una, un solo evento, un solo aviso a los profes de las dos), cómo
-se elige en el asistente (¿un hueco donde coinciden dos clases del mismo tipo y se ofrece
-«juntar»?) y qué pasa con el profe afectado cuando cada clase tiene uno distinto. Para los PDC
-ayudaría además tener su horario en Neon (ver «El PDC en los huecos»).
+### ~~Idea: juntar clases en una misma sesión~~ ✅ hecho (5-nov-2026)
+David lo pidió para los PDC (3º + 4º en la misma hora). Una sesión lleva varias clases; ver
+[`26-oratorios.md`](./26-oratorios.md) → «Juntar clases». Lo que decidí yo: 🤖 el hueco permite juntar
+las candidatas del mismo hueco y «A mano» cualquier clase; 🤖 cuenta para el objetivo de todas;
+🤖 mover exige que todas tengan clase a esa hora. Queda sin hacer juntar o separar sesiones ya apuntadas.
 
 ### Oratorios y Godly Play: lo que decidí yo al construirlo (30-sep-2026) — revisar con David
 

@@ -19,7 +19,6 @@ import { Input } from '@/components/ui/input';
 import { Selector } from '@/components/ui/selector';
 import { claseTarjeta } from '@/components/ui/tarjeta';
 import { Vacio } from '@/components/ui/vacio';
-import { nombreClase } from '@/lib/cursos';
 import {
   cursosAcademicosElegibles,
   describirUsos,
@@ -31,6 +30,7 @@ import {
   type SesionCatalogo,
   type SesionOra,
   type TipoMomento,
+  nombreClases,
 } from '@/lib/oratorios';
 import { api } from './comun';
 import { SelectorTipo } from './planificar';
@@ -208,7 +208,7 @@ function MomentosDeLaSesion({ planificadas }: { planificadas: SesionOra[] }) {
       <ul className="flex flex-wrap gap-1.5 text-xs">
         {planificadas.map((s) => (
           <li key={s.id} className={cn('rounded-md border px-2 py-0.5 tabular-nums', s.estado === 'borrador' ? 'border-dashed border-zinc-400 text-zinc-600 dark:text-zinc-300' : 'border-zinc-200 dark:border-zinc-700')}>
-            {nombreClase(s.curso, s.letra)} · {fechaCorta(s.fecha)}
+            {nombreClases(s)} · {fechaCorta(s.fecha)}
             {s.estado === 'borrador' && ' · borrador'}
           </li>
         ))}

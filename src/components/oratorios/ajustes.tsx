@@ -125,13 +125,13 @@ export function Ajustes({ e }: { e: Estado }) {
         <h2 className="text-base font-semibold">Qué le llega al profe y cuándo</h2>
         <div className={cn(claseTarjeta, 'space-y-1 p-3 text-sm')}>
           <p>
-            <b>Al confirmar</b> · el evento aparece en el calendario del profe, en silencio (sin correo de Google).
+            <b>Al confirmar</b> · con «Confirmar y enviar invitación», Google manda la invitación al profe y con ella te confirma (✅ verde en la app). Con «Solo confirmar», el evento aparece en su calendario sin correo.
           </p>
           <p>
-            <b>{diasAviso} días antes</b> (según el tipo) · sale tu correo con tu texto. También puedes mandarlo ya con 📨 en Sesiones.
+            <b>3, 7 o 10 días antes</b> (por defecto {diasAviso}, según el tipo) · sale tu correo con tu texto. También puedes mandarlo ya con 📨 en Sesiones.
           </p>
           <p>
-            <b>Si lo mueves o lo anulas</b> · el calendario se actualiza solo y el profe recibe tu correo de cambio o de anulación.
+            <b>Si lo mueves o lo anulas</b> · el calendario se actualiza solo (y Google avisa si tienes encendido el correo de Google) y el profe recibe tu correo de cambio o de anulación.
           </p>
         </div>
         <div className={cn(claseTarjeta, 'space-y-3 p-3')}>
@@ -146,8 +146,8 @@ export function Ajustes({ e }: { e: Estado }) {
             activo={e.preferencias.avisoGoogle}
             disabled={guardando}
             onChange={(v) => void guardarPrefs({ avisoGoogle: v })}
-            etiqueta="Que Google mande su propio correo al profe"
-            descripcion="Apagado: solo le llega tu correo. Encendido: además le llega el de Google al confirmar, mover o anular (dos correos por sesión)."
+            etiqueta="Que Google mande su correo al profe al mover o anular"
+            descripcion="Encendido (recomendado): el profe recibe el aviso de Google cuando mueves o anulas, igual que la invitación al confirmar. Apagado: solo le llega tu correo. Al confirmar eliges con el botón."
           />
           <p className="text-xs text-zinc-500">Son tus preferencias, no las de los demás. Los eventos ya creados cambian la próxima vez que se muevan.</p>
         </div>

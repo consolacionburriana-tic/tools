@@ -57,7 +57,7 @@ export interface Estado {
   abrir: (id: string) => void;
   moviendo: string | null;
   mover: (id: string | null) => void;
-  lote: (accion: Parameters<typeof api.lote>[0], ids: string[], dias?: number) => Promise<void>;
+  lote: (accion: Parameters<typeof api.lote>[0], ids: string[], dias?: number, invitar?: boolean) => Promise<void>;
   ocupado: boolean;
   /** Lee de Calendar lo que han contestado los profes. `avisar`: con mensaje (botón); sin él, en silencio. */
   actualizarRespuestas: (avisar?: boolean) => Promise<void>;
@@ -109,11 +109,11 @@ export function PanelOratorios({ datos, tabInicial }: { datos: DatosPanel; tabIn
     });
   }
 
-  async function lote(accion: Parameters<typeof api.lote>[0], ids: string[], dias?: number) {
+  async function lote(accion: Parameters<typeof api.lote>[0], ids: string[], dias?: number, invitar?: boolean) {
     if (ids.length === 0) return;
     setOcupado(true);
     try {
-      const r = await api.lote(accion, ids, dias);
+      const r = await api.lote(accion, ids, dias, invitar);
       guardarSesiones(r.sesiones, r.borradas);
       haptic.success();
       const conError = r.sesiones.find((s) => s.calendarioError || s.avisoError);

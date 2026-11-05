@@ -51,6 +51,22 @@ por defecto**:
 
 Los eventos ya creados con quien lo lleva invitado se corrigen la próxima vez que se muevan.
 
+## Juntar clases en un mismo momento (5-nov-2026)
+
+David lo necesita con los PDC: **3º PDC + 4º PDC en la misma hora**. Una sesión puede llevar varias
+clases (`ora_sesiones.juntas`; `curso`/`letra` es la principal):
+
+- **Cuenta para el objetivo, el número de sesión y las «sesiones vistas» del abanico de TODAS las
+  clases juntas** (cada una ve esa sesión una vez).
+- **Un solo evento de Calendar** (`[3º PDC + 4º PDC] Oratorio - Ana / Pepe`), **un solo aviso** y las
+  acciones (confirmar, mover, anular) van a la vez. Pierden la hora los profes de todas las clases.
+- En el hueco: botón **«Juntar clases»** → se marcan dos o más candidatas y «Juntar y apuntar».
+  En **«A mano»** (el caso de los PDC mientras no estén sus horarios en Neon): «Juntar con otras
+  clases», y los profes salen de los horarios de todas.
+- **Mover** una sesión juntada solo vale donde **todas** las clases tienen clase a esa hora.
+- Fuera de alcance por ahora: juntar clases ya apuntadas por separado, o separar después una juntada
+  (se anula y se vuelve a apuntar).
+
 ### El ✅ verde es que el profe ha dicho que sí
 
 El estado «Confirmada» de antes solo decía que **tú** lo habías confirmado. Ahora una sesión
@@ -418,7 +434,7 @@ a quien llegará el correo). En cuanto se reimporte el `.docx` de primaria con
 
 ## Plan técnico
 
-### Datos (prefijo `ora_`, SQL aditivo en `src/db/sql/oratorios.sql`, `oratorios-catalogo.sql` y `oratorios-calendario.sql`)
+### Datos (prefijo `ora_`, SQL aditivo en `src/db/sql/oratorios.sql`, `oratorios-catalogo.sql`, `oratorios-calendario.sql` y `oratorios-juntas.sql`)
 
 | Tabla | Para qué |
 |---|---|
@@ -427,7 +443,7 @@ a quien llegará el correo). En cuanto se reimporte el `.docx` de primaria con
 | `ora_ajustes` | Una fila por curso: trimestres y acceso común |
 | `ora_disponibilidad` | Responsable (correo) × día × hora inicio/fin × nivel |
 | `ora_preferencias` | Por persona (correo): invitarse a los eventos y correo de Google al profe, ambas apagadas por defecto |
-| `ora_sesiones` | El **momento** planificado: tipo, clase, número, fecha y horas, responsable, profe (+ materia de foto), estado, aviso, evento de Google, `respuesta_profe` (lo que ha contestado en Calendar), historial, `catalogo_id` (la Sesión del abanico) |
+| `ora_sesiones` | El **momento** planificado: tipo, clase (+ `juntas`: otras clases en la misma hora), número, fecha y horas, responsable, profe (+ materia de foto), estado, aviso, evento de Google, `respuesta_profe` (lo que ha contestado en Calendar), historial, `catalogo_id` (la Sesión del abanico) |
 
 ### Código
 
@@ -495,6 +511,7 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
 - [x] Tabla `ora_preferencias` y columnas `respuesta_profe` / `respuesta_at` (`oratorios-calendario.sql`, aplicado en Neon el 5-nov-2026)
 - [x] Lectura de las respuestas de Calendar (al abrir el panel, botón «Respuestas de los profes» y cron diario) y chips ✅ Aceptada / ⏳ Sin respuesta
 - [x] La rejilla del asistente enseña entero lo del tipo elegido y en gris, en una línea, lo de otros tipos
+- [x] Juntar clases en un mismo momento (`juntas`, `oratorios-juntas.sql` aplicado el 5-nov-2026), botón «Esta semana» más grande y aviso de **3 días** (sesión y en bloque)
 - [ ] **David**: comprobar en el calendario de verdad que el evento le aparece al profe sin correo de Google y que su «Sí» llega a la app
 
 ### El PDC en los huecos (4-oct-2026)
