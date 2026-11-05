@@ -4,7 +4,8 @@ import { sql as sqlTag } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 import { alumnoVivo, CURSO_LIC_SQL } from '@/lib/licencias-alumno-server';
-import { cursoBaseEso } from '@/lib/cursos';
+import { cursoBaseEso, cursoSiguiente } from '@/lib/cursos';
+import { cursoParaCampania, PROMOCION_ALUMNO, siguienteCampania } from '@/lib/licencias';
 
 // La regla de la fuente única (docs/06-fuente-unica-alumnado.md): Licencias lee al alumno de
 // `edu_students` en vivo y NO de las copias que `lic_students` arrastra. Estos tests no pueden
@@ -20,21 +21,57 @@ describe('alumnoVivo', () => {
     for (const [campo, col] of Object.entries(alumnoVivo)) {
       const sql = render(col);
       expect(sql, campo).toContain('"edu_students"');
-      expect(sql, campo).not.toContain('"lic_students"');
+      // Lo único que puede mirar de `lic_students` es `campaign_id`, para saber si la campaña promociona.
+      expect(sql, campo).not.toMatch(/"lic_students"\."(?!campaign_id")/);
     }
   });
 
-  it('el curso PDC se traduce igual que cursoBaseEso()', () => {
-    // El SQL y la función de JS tienen que decir lo mismo: si una cambia, esto avisa.
+  it('el curso de Licencias en SQL dice lo mismo que cursoBaseEso() y cursoParaCampania()', () => {
+    // El SQL y las funciones de JS tienen que decir lo mismo: si una cambia, esto avisa.
     const sql = render(CURSO_LIC_SQL);
+    // La traducción de los PDC: misma expresión regular que `cursoBaseEso`.
     expect(sql).toContain("'^[0-9]+[^0-9]*PDC$'");
-    // Misma expresión regular, evaluada en JS, sobre los cursos reales de la central.
     const re = /^[0-9]+[^0-9]*PDC$/i;
     for (const curso of ['3ºPPDC', '4ºPPDC', '3PDC', '1ESO', '2ESO', '6PRI', '3INF', '1BACH']) {
-      const esPdc = re.test(curso);
-      const esperado = esPdc ? `${curso.match(/^[0-9]+/)![0]}ESO` : curso;
+      const esperado = re.test(curso) ? `${curso.match(/^[0-9]+/)![0]}ESO` : curso;
       expect(cursoBaseEso(curso)).toBe(esperado);
     }
+    // La promoción: cada pareja `when 'X' then 'Y'` del SQL es exactamente PROMOCION_ALUMNO.
+    const enSql = [...sql.matchAll(/when '([0-9A-Z]+)' then '([0-9A-Z]+)'/g)].map((m) => [m[1], m[2]]);
+    expect(Object.fromEntries(enSql)).toEqual(PROMOCION_ALUMNO);
+    // Y la campaña se consulta con una subconsulta, no hay que unirse a `lic_campaigns`.
+    expect(sql).toContain('select c.promociona from lic_campaigns c');
+  });
+});
+
+describe('cursoParaCampania', () => {
+  it('sin promocionar deja el curso como está', () => {
+    expect(cursoParaCampania('2ESO', false)).toBe('2ESO');
+    expect(cursoParaCampania('4ESO', false)).toBe('4ESO');
+  });
+  it('promocionando sube un curso: 5º EP→6º EP, 6º EP→1º ESO, 3º ESO→4º ESO', () => {
+    expect(cursoParaCampania('5PRI', true)).toBe('6PRI');
+    expect(cursoParaCampania('6PRI', true)).toBe('1ESO');
+    expect(cursoParaCampania('2ESO', true)).toBe('3ESO');
+    expect(cursoParaCampania('3ESO', true)).toBe('4ESO');
+  });
+  it('4º ESO egresa y lo que no es de Licencias no entra', () => {
+    expect(cursoParaCampania('4ESO', true)).toBeNull();
+    expect(cursoParaCampania('3INF', true)).toBeNull();
+    expect(cursoParaCampania(null, true)).toBeNull();
+  });
+  it('no es la promoción de los tutores (Primaria no rota por parejas)', () => {
+    expect(cursoParaCampania('6PRI', true)).not.toBe(cursoSiguiente('6PRI'));
+  });
+});
+
+describe('siguienteCampania', () => {
+  it('propone el curso y el nombre del año que viene', () => {
+    expect(siguienteCampania('2026/2027')).toEqual({ academicYear: '2027/2028', name: 'Licencias 2027/28' });
+  });
+  it('no inventa nada si el curso no tiene la forma esperada', () => {
+    expect(siguienteCampania('curso 26')).toBeNull();
+    expect(siguienteCampania(null)).toBeNull();
   });
 });
 

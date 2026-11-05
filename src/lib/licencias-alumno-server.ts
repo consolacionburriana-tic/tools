@@ -21,11 +21,20 @@ import { eduStudents, licStudents } from '@/db/schema';
 export const ON_EDU = eq(licStudents.eduStudentId, eduStudents.id);
 
 /**
- * Curso tal como lo entiende Licencias: los PDC vienen de la central como `3ºPPDC` y aquí son
- * `3ESO` (con letra PDC). Es `cursoBaseEso()` de `src/lib/cursos.ts`, escrita en SQL para poder
- * agrupar y filtrar en la base de datos; `licencias-alumno.test.ts` comprueba que dicen lo mismo.
+ * Curso tal como lo entiende Licencias, escrito en SQL para poder agrupar y filtrar en la base de
+ * datos. Dos cosas, las dos con su gemela en JS (`cursoBaseEso()` y `cursoParaCampania()`;
+ * `licencias-alumno.test.ts` las cruza):
+ *
+ * 1. Los PDC vienen de la central como `3ºPPDC` y aquí son `3ESO` (con letra PDC).
+ * 2. Si la campaña es de las que se abren antes de pasar el curso (`lic_campaigns.promociona`),
+ *    el alumno se lee un curso por delante: `2ESO` → `3ESO`, `6PRI` → `1ESO`. La campaña se
+ *    consulta con una subconsulta, así que ninguna consulta tiene que unirse a `lic_campaigns`.
  */
-export const CURSO_LIC_SQL = sql<string>`case when upper(${eduStudents.curso}) ~ '^[0-9]+[^0-9]*PDC$' then substring(${eduStudents.curso} from '^[0-9]+') || 'ESO' else ${eduStudents.curso} end`;
+export const CURSO_BASE_SQL = sql<string>`(case when upper(${eduStudents.curso}) ~ '^[0-9]+[^0-9]*PDC$' then substring(${eduStudents.curso} from '^[0-9]+') || 'ESO' else ${eduStudents.curso} end)`;
+
+const SI_PROMOCIONA = sql`coalesce((select c.promociona from lic_campaigns c where c.id = ${licStudents.campaignId}), false)`;
+
+export const CURSO_LIC_SQL = sql<string>`(case when ${SI_PROMOCIONA} then (case ${CURSO_BASE_SQL} when '5PRI' then '6PRI' when '6PRI' then '1ESO' when '1ESO' then '2ESO' when '2ESO' then '3ESO' when '3ESO' then '4ESO' end) else ${CURSO_BASE_SQL} end)`;
 
 export const alumnoVivo = {
   educamosId: eduStudents.educamosPersonaId,

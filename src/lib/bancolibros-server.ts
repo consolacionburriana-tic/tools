@@ -16,7 +16,8 @@ import {
 } from '@/db/schema';
 import { conAuditoria, type Contexto } from '@/lib/auditoria-server';
 import { academicYearActual } from '@/lib/constants';
-import { CURSOS_FORM } from '@/lib/licencias';
+import { CURSOS_FORM, cursoParaCampania } from '@/lib/licencias';
+import { cursoBaseEso } from '@/lib/cursos';
 import { getBooksFromSheet } from '@/lib/google-sheets';
 
 export interface AlumnoBanco {
@@ -75,46 +76,20 @@ function ordenLista<T extends { apellido1: string | null; apellido2: string | nu
 /**
  * Marca o desmarca a un alumno como participante del banco de libros.
  *
- * OJO, el dato vive en DOS sitios: la verdad es `edu_students.banco_libros` (BBDD
- * central), pero el formulario público de Licencias y su panel leen el **snapshot de
- * campaña** `lic_students.banco_libros` (ver `getCatalog` en `licencias-server.ts`, que
- * decide con ese flag qué libros ve la familia). Escribir solo en la central deja el
- * cambio invisible en Licencias hasta que alguien ejecute a mano el sync de alumnado —
- * que es exactamente el fallo que reportó David el 2026-09-02 (marcó a Isabel Porcar
- * como del banco y a Elena no, y en Licencias seguía al revés). Así que se propaga en
- * el mismo acto a la campaña vigente.
+ * El dato vive SOLO en `edu_students.banco_libros` (BBDD central): Licencias lo lee de ahí en vivo
+ * (`licencias-alumno-server.ts`), así que no hay copia que propagar. Antes había una en
+ * `lic_students` y el descuadre dio cuatro incidentes (docs/06-fuente-unica-alumnado.md).
  */
 export async function setBanco(eduStudentId: string, banco: boolean, ctx?: Partial<Contexto>): Promise<void> {
   await setBancoVarios([eduStudentId], banco, ctx);
 }
 
-/** Lo mismo para muchos a la vez («todos sí» de una clase), con la misma propagación. */
+/** Lo mismo para muchos a la vez («todos sí» de una clase). */
 export async function setBancoVarios(eduStudentIds: string[], banco: boolean, ctx?: Partial<Contexto>): Promise<void> {
   if (eduStudentIds.length === 0) return;
   await conAuditoria(eduStudentIds, { banco }, { por: null, ...ctx }, () =>
     db.update(eduStudents).set({ bancoLibros: banco, updatedAt: new Date() }).where(inArray(eduStudents.id, eduStudentIds)),
   );
-  await propagarBancoACampania(eduStudentIds, banco);
-}
-
-/**
- * Refleja el flag del banco en el snapshot de la campaña de Licencias vigente (la más
- * reciente, mismo criterio que `getLibrosBanco` y `getCurrentCampaign`). No hace nada si
- * no hay campaña o si el alumno no está en su alumnado: en ese caso el que falta es el
- * alumno en Licencias, y eso se arregla con el sync de alumnado, no desde aquí.
- */
-async function propagarBancoACampania(eduStudentIds: string[], banco: boolean): Promise<void> {
-  if (eduStudentIds.length === 0) return;
-  const [campaign] = await db
-    .select({ id: licCampaigns.id })
-    .from(licCampaigns)
-    .orderBy(desc(licCampaigns.createdAt))
-    .limit(1);
-  if (!campaign) return;
-  await db
-    .update(licStudents)
-    .set({ bancoLibros: banco })
-    .where(and(eq(licStudents.campaignId, campaign.id), inArray(licStudents.eduStudentId, eduStudentIds)));
 }
 
 export async function setAmpa(eduStudentIds: string[], ampa: boolean, ctx?: Partial<Contexto>): Promise<void> {
@@ -126,16 +101,14 @@ export async function setAmpa(eduStudentIds: string[], ampa: boolean, ctx?: Part
 
 /**
  * Alumnos activos de un curso con Licencias que **no están en el alumnado de la campaña
- * vigente**. Pasa cada vez que se importa gente nueva desde Educamos: el alta entra en
- * `edu_students` pero el snapshot `lic_students` no se puebla hasta que alguien ejecuta el
- * sync de alumnado de Licencias, y hasta entonces la familia teclea su NIA en el
- * formulario público y le sale "no encontrado" (reportado el 2026-09-02: 13 alumnos así,
- * entre ellos el NIA 13620087). Solo es un aviso: el arreglo es darle al sync.
+ * vigente**. Desde que las altas de un import de Educamos entran solas en la campaña
+ * (`darDeAltaEnCampania`), solo quedan aquí los que ya estaban en la central antes de existir esa
+ * regla, o los que se importaron con la campaña cerrada. Solo es un aviso: el arreglo es darle a
+ * Sincronizar en Licencias. Mira el curso como lo ve la campaña (con `promociona`, un curso por delante).
  */
 export async function getAlumnosFueraDeCampania(): Promise<{ nombre: string; curso: string; letra: string | null }[]> {
-  const cursosLicencias = CURSOS_FORM.map((c) => c.base);
   const [campaign] = await db
-    .select({ id: licCampaigns.id })
+    .select({ id: licCampaigns.id, promociona: licCampaigns.promociona })
     .from(licCampaigns)
     .orderBy(desc(licCampaigns.createdAt))
     .limit(1);
@@ -146,15 +119,17 @@ export async function getAlumnosFueraDeCampania(): Promise<{ nombre: string; cur
     .where(
       and(
         eq(eduStudents.active, true),
-        inArray(eduStudents.curso, cursosLicencias),
+        isNotNull(eduStudents.curso),
         sql`not exists (select 1 from ${licStudents} where ${licStudents.eduStudentId} = ${eduStudents.id} and ${licStudents.campaignId} = ${campaign.id})`,
       ),
     );
-  return ordenLista(rows).map((r) => ({
-    nombre: [r.apellido1, r.apellido2].filter(Boolean).join(' ') + (r.nombre ? `, ${r.nombre}` : ''),
-    curso: r.curso!,
-    letra: r.letra,
-  }));
+  const cursosLicencias = new Set<string>(CURSOS_FORM.map((c) => c.base));
+  return ordenLista(rows.filter((r) => cursosLicencias.has(cursoParaCampania(cursoBaseEso(r.curso), campaign.promociona) ?? '')))
+    .map((r) => ({
+      nombre: [r.apellido1, r.apellido2].filter(Boolean).join(' ') + (r.nombre ? `, ${r.nombre}` : ''),
+      curso: r.curso!,
+      letra: r.letra,
+    }));
 }
 
 export interface ResumenClase {

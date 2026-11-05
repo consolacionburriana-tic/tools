@@ -29,7 +29,6 @@ pnpm db:push      # aplicar schema a Neon (drizzle-kit push) — ⚠️ borra lo
 pnpm db:sql --pendientes # aplicar en Neon el SQL aditivo que falte (src/db/sql/pendientes.txt)
 pnpm db:sql --lista      # qué ficheros SQL hay y cuáles están pendientes
 pnpm db:studio    # inspeccionar la BBDD
-pnpm db:seed:licencias   # seeds puntuales (tsx + dotenv .env.local)
 pnpm tokens:familias     # genera los magic links de las familias de la campaña de licencias
 pnpm db:migrate:abc-nia  # migración puntual: enlaza abc_students con edu_students por NIA
 pnpm horarios:importar <fichero> [--dry]  # importa horarios de Educamos (.docx/.xlsx) a Neon
