@@ -318,7 +318,8 @@ INSERT INTO "hor_espacios" ("id", "codigo", "nombre", "tipo") VALUES
   -- El polideportivo admite varias clases a la vez: dos grupos en las dos pistas no es
   -- un choque. POLI y POLI2 son EL MISMO sitio, así que va una sola fila.
   (gen_random_uuid(), 'POLI', 'Polideportivo', 'pista'),
-  (gen_random_uuid(), 'MUS',  'Música',        'aula')
+  (gen_random_uuid(), 'MUS',  'Música',        'aula'),
+  (gen_random_uuid(), 'CREA', 'Aula de Creatividad', 'aula')
 ON CONFLICT ("codigo") DO NOTHING;
 
 COMMIT;

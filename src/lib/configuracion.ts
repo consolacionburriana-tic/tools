@@ -207,6 +207,7 @@ export const CONFIGURACION = {
         INFO: { nombre: 'Aula de informática', tipo: 'aula', admiteSolapes: false },
         PLAST: { nombre: 'Aula de plástica', tipo: 'aula', admiteSolapes: false },
         LAB: { nombre: 'Laboratorio', tipo: 'laboratorio', admiteSolapes: false },
+        CREA: { nombre: 'Aula de Creatividad', tipo: 'aula', admiteSolapes: false },
         // Música es la de primaria (MUS): una sola aula compartida.
         MUS: { nombre: 'Música', tipo: 'aula', admiteSolapes: false },
         // El pabellón es el polideportivo de primaria (POLI): una sola sala, y caben varias clases.

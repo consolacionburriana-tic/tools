@@ -79,6 +79,10 @@ tocarla: ahora enseñan su spinner mientras llega la página, igual que los chip
   curso, recreo y comedor como separadores, y detalle al tocar una celda. **En móvil se ve
   un solo día** con flechas, no la semana. Verificado en el navegador de verdad con los
   datos importados, en escritorio (1280) y en móvil (390).
+- **Salas especiales para el profesorado**: acceso desde «Mi horario» a la pestaña Aula, que
+  muestra los horarios de las salas sin nombres del profesorado. Las salas especiales se
+  pueden seleccionar aunque aún no tengan sesiones. «Aula de Creatividad» (`CREA`) está
+  creada y activa en Neon.
 - **Importación por pantalla** en `/gestion/horarios/importar`: arrastrar el `.docx` →
   vista previa (qué clases, cuántas sesiones, qué códigos no reconoce, qué notas) →
   confirmar. Solo para quien puede editar (`puedeEditarHorarios`).
@@ -671,7 +675,8 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
 12. **El profe raso ve el Aula y el horario de SU tutoría, y nada más** (corregido el 2-nov-2026: primero se
     le había escondido también el Aula). Profe o tutor sin `horarios-profes`: **sí** la pestaña Aula (todas
     las etapas, y ahí solo ve qué clase hay, **no qué profe la da**); **no** la de Profesores, ni otras
-    clases. Orientación, jefatura, dirección, secretaría y TIC lo ven todo. Se filtra en el servidor
+    clases. Desde «Mi horario» tiene un enlace directo a las salas especiales. Orientación,
+    jefatura, dirección, secretaría y TIC lo ven todo. Se filtra en el servidor
     (`page.tsx`: `horariosSoloSuTutoria()` + `clasesDeTutor()`), no solo en la pantalla, y una clase ajena en la
     URL abre la suya. Sin tutoría, entra directo en Aula. Comunicación no cambia.
 13. **Aulas de la ESO por normas del centro** (el export de la ESO no trae ni una: comprobado en
@@ -824,6 +829,9 @@ necesitar tres joins.
       compararlo. Se hace al pintar porque los datos ya cargados se importaron antes de que el
       importador fundiera; reimportar con el código actual da el mismo resultado de origen
 - [x] **Aulas de la ESO** (2-nov-2026): normas del centro aplicadas a las 147 asignaciones de ESO (`pnpm horarios:aulas`)
+- [x] **Aula de Creatividad** (`CREA`): alta en Neon y en el catálogo de salas especiales; se mantiene visible aunque todavía no tenga sesiones.
+- [~] Acceso directo desde «Mi horario» a la pestaña Aula para que el profesorado consulte
+      las salas especiales; pendiente de aprobación y despliegue de esta PR.
 - [ ] Pantalla de materias y espacios, para renombrar, fusionar, marcar `admite_solapes` y **cambiar el aula de una clase a mano**
 - [ ] **Exportar a Google Calendar**: se ha ido a su propia ficha, [`20-mi-horario.md`](./20-mi-horario.md)
 
