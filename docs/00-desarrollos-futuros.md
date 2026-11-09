@@ -1265,3 +1265,19 @@ Decidido por mí al hacerlo, para que David lo revise ([`31-auditoria.md`](./31-
 - **Sin purga**: el registro crece. Un «todo sí» sobre el centro son unas 2.500 líneas; a ese ritmo no es problema, pero
   si molesta, purgar lo más viejo de 2 cursos.
 - **El libro solo lo ven secretaría, dirección y TIC** (como quien puede editar). Comunicación y tutores no.
+
+### Emulación de usuarios: decisiones mías para que David las revise (9-nov-2026)
+
+Ficha: [`01-auth-roles.md`](./01-auth-roles.md) §Emulación. Lo que decidí al hacerla:
+- **Solo SuperTIC** puede emular (no TIC ni secretaría), aunque estos tengan «todos los módulos».
+- **Emulando se puede escribir** (si no, no se podrían probar funciones), firmado como `real (emulando a objetivo)`
+  donde hay libro de cambios. **Sin hacer**: firmar así en el resto de módulos (Salidas, ABC, Tableros… guardan el
+  correo de quien actúa y emulando guardarán el de la persona emulada). Decidir si la emulación pasa a **solo lectura**.
+- **Google**: se bloquea Drive y el Calendar de «Mi horario» y no se manda el correo de las notas de Nouvinguts.
+  **Sin revisar**: las pantallas de Cuentas y Calendarios (admin), que suplantan a `buzonAdmin(user.email)` y apuntan
+  `user.email` como autor; emulando a un TIC actuarían con su identidad. Y los envíos «como» una persona de Oratorios
+  usan al responsable de la sesión, no a quien pulsa, así que no cambian.
+- Caduca a las **8 h**; no hay registro persistente de quién emuló a quién (solo una línea en el log del servidor,
+  `[emulacion]`). Si hace falta auditarlo, tabla `aud_`.
+- El botón está solo en `/gestion/usuarios`; `/gestion/profes` (fichas de profes) no lo lleva todavía.
+

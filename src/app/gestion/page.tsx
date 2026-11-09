@@ -11,6 +11,7 @@ import { abcBehaviorReports, eduStudents, eduSyncRuns, eduTeachers, licOrders } 
 import { signOut } from '@/auth';
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess, ROLE_LABELS, type Module } from '@/lib/permissions';
+import { COOKIE_EMULACION, COOKIE_EMULACION_AVISO } from '@/lib/emulacion';
 import { getCurrentCampaign } from '@/lib/licencias-server';
 import { getEstadoAutoasm } from '@/lib/autoasm-entregas';
 import { accesoComunActivo } from '@/lib/oratorios-server';
@@ -179,6 +180,10 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
             <form
               action={async () => {
                 'use server';
+                // Cerrar sesión también cierra una emulación que se hubiera quedado puesta.
+                const galletas = await cookies();
+                galletas.delete(COOKIE_EMULACION);
+                galletas.delete(COOKIE_EMULACION_AVISO);
                 await signOut({ redirectTo: '/gestion/login' });
               }}
             >

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isGuardResponse, requireModule } from '@/lib/auth-guards';
+import { isGuardResponse, requireModule, autorDe } from '@/lib/auth-guards';
 import { alcanceAlumnado, claseDeAlumno, permisosFicha, alcanceProteccion, puedeConAlumno } from '@/lib/alumnado-server';
 import { setAmpa, setBanco } from '@/lib/bancolibros-server';
 
@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     const { bancoLibros, ampa } = cuerpo.parse(await request.json());
-    const ctx = { por: guard.email, lote: crypto.randomUUID() };
+    const ctx = { por: autorDe(guard), lote: crypto.randomUUID() };
     if (bancoLibros !== undefined) await setBanco(id, bancoLibros, ctx);
     if (ampa !== undefined) await setAmpa([id], ampa, ctx);
     return NextResponse.json({ ok: true });

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getSessionUser } from '@/lib/auth-guards';
+import { bloquearSiEmulando, getSessionUser } from '@/lib/auth-guards';
 import { calendarConfigurado, listarCalendarios } from '@/lib/mihorario-google';
 import { getProfePorEmail } from '@/lib/mihorario-server';
 
@@ -8,6 +8,8 @@ import { getProfePorEmail } from '@/lib/mihorario-server';
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const emulado = bloquearSiEmulando(user, 'leer sus calendarios de Google');
+  if (emulado) return emulado;
   const profe = await getProfePorEmail(user.email);
   if (!profe) return NextResponse.json({ error: 'Tu correo no está enlazado a ningún profesor' }, { status: 404 });
 

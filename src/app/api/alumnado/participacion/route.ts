@@ -3,7 +3,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import { eduStudents } from '@/db/schema';
-import { isGuardResponse, requireModule } from '@/lib/auth-guards';
+import { isGuardResponse, requireModule, autorDe } from '@/lib/auth-guards';
 import { alcanceAlumnado, puedeConAlumno } from '@/lib/alumnado-server';
 import { setAmpa, setBancoVarios } from '@/lib/bancolibros-server';
 import { puedeGestionarParticipantesBanco } from '@/lib/permissions';
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (ids.length === 0) return NextResponse.json({ error: 'Ninguno de esos alumnos te toca' }, { status: 404 });
 
     // Un solo lote para este clic: «deshacer» lo deshace entero.
-    const ctx = { por: guard.email, lote: crypto.randomUUID() };
+    const ctx = { por: autorDe(guard), lote: crypto.randomUUID() };
     await Promise.all([
       bancoLibros !== undefined ? setBancoVarios(ids, bancoLibros, ctx) : null,
       ampa !== undefined ? setAmpa(ids, ampa, ctx) : null,

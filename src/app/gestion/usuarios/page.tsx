@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { db } from '@/db';
 import { authUsers } from '@/db/schema';
 import { getSessionUser } from '@/lib/auth-guards';
+import { puedeEmularUsuarios } from '@/lib/emulacion';
 import { getTeachers } from '@/lib/educamos-server';
 import type { Module, Role } from '@/lib/permissions';
 import { nombreProfe } from '@/lib/profes';
@@ -52,7 +53,12 @@ export default async function UsuariosPage() {
       <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
         {filas.length} personas · el rol da el punto de partida y luego se afina por módulos
       </p>
-      <RolesGrid filas={filas} miEmail={user.email} />
+      {/* Emulando, «tú» sigue siendo el SuperTIC de verdad, y desde aquí se puede saltar directo a otra persona. */}
+      <RolesGrid
+        filas={filas}
+        miEmail={user.emulando?.email ?? user.email}
+        puedeEmular={!!user.emulando || puedeEmularUsuarios(user.role)}
+      />
     </>
   );
 }

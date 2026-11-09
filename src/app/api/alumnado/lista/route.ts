@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import { cuadNumeracion } from '@/db/schema';
-import { isGuardResponse, requireModule } from '@/lib/auth-guards';
+import { isGuardResponse, requireModule, bloquearSiEmulando } from '@/lib/auth-guards';
 import { alcanceAlumnado } from '@/lib/alumnado-server';
 import {
   libroDeListaRapida,
@@ -106,6 +106,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const guard = await requireModule('alumnado');
   if (isGuardResponse(guard)) return guard;
+  const emulado = bloquearSiEmulando(guard, 'guardar en Drive');
+  if (emulado) return emulado;
 
   const cuerpo = await request.json().catch(() => null);
   const leido = parametros.extend({ formato: z.enum(FORMATOS_DRIVE) }).safeParse(cuerpo);

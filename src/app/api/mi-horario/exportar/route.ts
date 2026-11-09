@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getSessionUser } from '@/lib/auth-guards';
+import { bloquearSiEmulando, getSessionUser } from '@/lib/auth-guards';
 import { abreviaturaDeCelda, claveExportacion, colorDeCeldaGoogle, colorIdsPorDefecto, construirEventoGoogle, emojiDeCelda, rangoExportacion, unirSesionesSeguidas, type RangoCurso } from '@/lib/mihorario';
 import { getCeldas, getFranjasDeProfe, getPeriodos } from '@/lib/horarios-server';
 import { calendarConfigurado, crearEventos, borrarEventosDeOrigen } from '@/lib/mihorario-google';
@@ -20,6 +20,8 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const emulado = bloquearSiEmulando(user, 'exportar a su Google Calendar');
+  if (emulado) return emulado;
   const profe = await getProfePorEmail(user.email);
   if (!profe) {
     return NextResponse.json(

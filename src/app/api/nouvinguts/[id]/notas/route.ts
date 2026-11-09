@@ -16,7 +16,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await anadirNota(id, nota.paso, nota.texto, firma(guard), nota.correo);
     // «Mandar también por correo»: sale del buzón de quien la escribe, después de responder.
     const correo = nota.correo;
-    if (correo) after(() => mandarNota(id, nota.paso, nota.texto, correo, firma(guard)));
+    // Emulando, el correo saldría del buzón de la persona emulada: la nota se guarda, el correo no se manda.
+    if (correo && !guard.emulando) after(() => mandarNota(id, nota.paso, nota.texto, correo, firma(guard)));
     return await conFicha(id, guard);
   } catch (error) {
     return fallo(error, 'nota');
