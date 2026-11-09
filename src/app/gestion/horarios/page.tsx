@@ -153,6 +153,14 @@ async function Horario({
     vista === 'profe' && clave ? getFranjasDeProfe(periodoId, clave) : Promise.resolve([]),
   ]);
 
+  if (vista === 'aula' && celdas.length === 0) {
+    return (
+      <Vacio icono={<CalendarDays />} titulo="No hay clases asignadas a esta sala">
+        Cuando se use en el horario, sus sesiones aparecerán aquí.
+      </Vacio>
+    );
+  }
+
   const visibles = sinProfes ? celdas.map((c) => ({ ...c, profes: [], subtitulo: c.grupos.join(', ') || null })) : celdas;
   return <Navegador celdas={[...visibles, ...noLectivos]} franjas={franjas} titulo={titulo} />;
 }

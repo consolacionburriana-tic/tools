@@ -1145,9 +1145,9 @@ export interface OpcionesNavegador {
 
 /** Lo que se puede elegir en el navegador, sacado de lo que REALMENTE tiene horario. */
 export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesNavegador> {
-  // Las dos consultas son independientes: encadenadas costaban dos viajes a Neon (~250 ms)
-  // y el navegador no se pinta hasta tenerlas. Van juntas.
-  const [filas, conProfes, conEspaciosAsig, conEspaciosSes] = await Promise.all([
+  // Las consultas son independientes y se lanzan juntas para que el navegador no espere
+  // viajes encadenados a Neon. También se incluyen salas especiales sin sesiones.
+  const [filas, conProfes, conEspaciosAsig, conEspaciosSes, salasEspeciales] = await Promise.all([
     db
       .select({
         curso: horAsignacionGrupos.curso,
@@ -1183,6 +1183,11 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
       .innerJoin(horSesiones, eq(horSesiones.espacioId, horEspacios.id))
       .innerJoin(horAsignaciones, eq(horAsignaciones.id, horSesiones.asignacionId))
       .where(eq(horAsignaciones.periodoId, periodoId)),
+    // Las salas especiales también se pueden consultar antes de que tengan sesiones asignadas.
+    db
+      .select({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre })
+      .from(horEspacios)
+      .where(and(eq(horEspacios.active, true), inArray(horEspacios.codigo, Object.keys(CONFIGURACION.horarios.aulasEso.aulas)))),
   ]);
 
   const vistas = new Map<string, { curso: string; letra: string | null }>();
@@ -1202,7 +1207,7 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
     }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
-  const espacios = [...new Map([...conEspaciosAsig, ...conEspaciosSes].map((e) => [e.id, e])).values()];
+  const espacios = [...new Map([...salasEspeciales, ...conEspaciosAsig, ...conEspaciosSes].map((e) => [e.id, e])).values()];
   return { clases, profes, espacios: espacios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) };
 }
 

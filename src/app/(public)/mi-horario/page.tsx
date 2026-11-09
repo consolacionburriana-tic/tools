@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
-import { CalendarDays, UserX } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarDays, MapPin, UserX } from 'lucide-react';
 
 import { getSessionUser } from '@/lib/auth-guards';
 import { canAccess } from '@/lib/permissions';
@@ -12,6 +13,7 @@ import { SelectorDe } from '@/components/mihorario/selector-de';
 import { Aviso } from '@/components/ui/aviso';
 import { Vacio } from '@/components/ui/vacio';
 import { titularesCubiertosPor } from '@/lib/sustituciones-server';
+import { buttonVariants } from '@/components/ui/button';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,7 +92,15 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
                 {periodo.nombre} · curso {periodo.academicYear}
               </p>
             </div>
-            {periodos.length > 1 && <SelectorPeriodo periodos={periodos} actual={periodo.id} basePath="/mi-horario" />}
+            <div className="flex flex-wrap items-center gap-2">
+              {canAccess(user, 'horarios') && (
+                <Link href="/gestion/horarios?vista=aula" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                  <MapPin aria-hidden />
+                  Salas especiales
+                </Link>
+              )}
+              {periodos.length > 1 && <SelectorPeriodo periodos={periodos} actual={periodo.id} basePath="/mi-horario" />}
+            </div>
           </div>
 
           {titulares.length > 0 && (
