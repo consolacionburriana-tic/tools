@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Ban, ChevronDown, Loader2, Plus, RotateCcw, Search, ShieldAlert, SlidersHorizontal, Trash2, VenetianMask } from 'lucide-react';
+import { Ban, ChevronDown, Loader2, Plus, RotateCcw, Search, ShieldAlert, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import {
@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConfirmarEnLinea } from '@/components/ui/confirmar';
 import { Estado } from '@/components/ui/estado';
+import { BotonEmular } from '@/components/ui/boton-emular';
 
 export interface FilaUsuario {
   email: string;
@@ -45,7 +46,6 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
   const [guardando, setGuardando] = useState<string | null>(null);
   const [nuevoEmail, setNuevoEmail] = useState('');
   const [abierto, setAbierto] = useState<string | null>(null);
-  const [emulando, setEmulando] = useState<string | null>(null);
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -103,28 +103,6 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
       { action: 'modulos', modulos: quiere, nombre: fila.nombre ?? undefined },
       (f) => ({ ...f, rolExplicito: f.rolExplicito ?? rol, modulosExtra, modulosBloqueados }),
     );
-  }
-
-  /** Entra como esa persona (solo SuperTIC): el servidor deja la cookie y se recarga el escritorio como lo vería ella. */
-  async function emular(fila: FilaUsuario) {
-    setEmulando(fila.email);
-    try {
-      const res = await fetch('/api/emulacion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: fila.email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'No se pudo emular');
-      haptic.success();
-      // Recarga completa a propósito: el servidor tiene que pintarlo todo como la persona emulada.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.assign('/gestion');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error inesperado');
-      haptic.warning();
-      setEmulando(null);
-    }
   }
 
   function bloquear(fila: FilaUsuario) {
@@ -256,21 +234,9 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
                         <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform ${abierto === f.email ? 'rotate-180' : ''}`} />
                       </button>
                       {puedeEmular && f.email !== miEmail && efectivo && (
-                        <button
-                          type="button"
-                          disabled={emulando !== null}
-                          onClick={() => void emular(f)}
-                          title={`Ver la plataforma tal como la ve ${f.nombre ?? f.email}`}
-                          aria-label={`Emular a ${f.nombre ?? f.email}`}
-                          className="ml-0.5 inline-flex h-10 items-center gap-1.5 rounded-full bg-amber-50 px-3.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200 transition-colors outline-none hover:bg-amber-100 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30 dark:hover:bg-amber-500/20"
-                        >
-                          {emulando === f.email ? (
-                            <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <VenetianMask aria-hidden className="h-4 w-4" />
-                          )}
-                          Emular
-                        </button>
+                        <span className="ml-0.5">
+                          <BotonEmular email={f.email} nombre={f.nombre} />
+                        </span>
                       )}
                       {f.email !== miEmail && (
                         <button

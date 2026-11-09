@@ -1279,5 +1279,5 @@ Ficha: [`01-auth-roles.md`](./01-auth-roles.md) §Emulación. Lo que decidí al 
   usan al responsable de la sesión, no a quien pulsa, así que no cambian.
 - Caduca a las **8 h**; no hay registro persistente de quién emuló a quién (solo una línea en el log del servidor,
   `[emulacion]`). Si hace falta auditarlo, tabla `aud_`.
-- El botón está solo en `/gestion/usuarios`; `/gestion/profes` (fichas de profes) no lo lleva todavía.
+- El botón está en `/gestion/usuarios` y en `/gestion/profes` (tarjeta «Entrar como…», al final de la página).
 

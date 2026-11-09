@@ -117,8 +117,9 @@ Un **SuperTIC** puede «entrar como» otra persona para ver la plataforma tal co
 módulos, sus ajustes) y comprobar permisos. **Estado: implementado 🟡 — falta probarlo con sesión real y Neon
 (David).**
 
-- **Entrar**: botón **Emular** (ámbar, junto a los chips de rol) en cada fila de `/gestion/usuarios`; solo lo ve
-  el SuperTIC, no sale en tu propia fila ni en quien no tiene acceso. Lleva al escritorio como esa persona.
+- **Entrar**: botón **Emular** (ámbar, `ui/boton-emular.tsx`) en cada fila de `/gestion/usuarios`, junto a los
+  chips de rol, y en `/gestion/profes`, en la tarjeta plegable **«Entrar como…»** (`profes/emular-panel.tsx`, con
+  buscador). Solo lo ve el SuperTIC; no sale en tu propia fila ni en quien no tiene acceso. Lleva al escritorio como esa persona.
 - **Saber que estás emulando**: pestañita pequeña colgada del borde de arriba, con un punto que late, «Emulando a
   *Nombre*» y **Salir** (`ui/indicador-emulacion.tsx`, en el layout raíz: sale en todas las pantallas, también
   `/mi-horario`). Más una línea fina ámbar en el borde. Salir devuelve a `/gestion/usuarios`.
