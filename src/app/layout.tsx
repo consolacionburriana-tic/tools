@@ -5,6 +5,7 @@ import { MotionConfig } from 'motion/react';
 import { Toaster } from '@/components/ui/sonner';
 import { Analytics } from '@vercel/analytics/next';
 import { RegistroSW } from '@/components/pwa/registro-sw';
+import { IndicadorEmulacion } from '@/components/ui/indicador-emulacion';
 import './globals.css';
 
 const geistSans = Geist({
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <MotionConfig reducedMotion="user">
             <RegistroSW />
             {children}
+            <IndicadorEmulacion />
             <Toaster richColors position="top-center" />
             <Analytics />
           </MotionConfig>

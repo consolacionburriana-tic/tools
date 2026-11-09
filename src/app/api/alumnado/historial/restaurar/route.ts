@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isGuardResponse, requireModule } from '@/lib/auth-guards';
+import { isGuardResponse, requireModule, autorDe } from '@/lib/auth-guards';
 import { entradasDeLote, restaurarEntradas } from '@/lib/auditoria-server';
 import { guardarProteccionMasiva, guardarServicios, leerCursosDe } from '@/lib/alumnado-server';
 import { setAmpa, setBancoVarios } from '@/lib/bancolibros-server';
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
             ? puedeGestionarServicios(guard.role)
             : false;
 
-    const ctx = { por: guard.email, origen: 'restauracion' as const, lote: crypto.randomUUID() };
+    const ctx = { por: autorDe(guard), origen: 'restauracion' as const, lote: crypto.randomUUID() };
     const resultado = await restaurarEntradas(idsLineas, puede, {
       // Sin alcance por clase: quien restaura ya es de los que ven y editan todo el centro.
       proteccion: async (alumnos, campo, valor) => {

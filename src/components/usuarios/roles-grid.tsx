@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConfirmarEnLinea } from '@/components/ui/confirmar';
 import { Estado } from '@/components/ui/estado';
+import { BotonEmular } from '@/components/ui/boton-emular';
 
 export interface FilaUsuario {
   email: string;
@@ -39,7 +40,7 @@ export interface FilaUsuario {
 
 // Asignación de roles en UN click: cada fila tiene los chips de rol; tocar un chip asigna.
 // Tocar el chip ya activo lo quita (vuelve al automático: profe si es del claustro).
-export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: string }) {
+export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: FilaUsuario[]; miEmail: string; puedeEmular?: boolean }) {
   const [datos, setDatos] = useState(filas);
   const [busqueda, setBusqueda] = useState('');
   const [guardando, setGuardando] = useState<string | null>(null);
@@ -232,6 +233,11 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
                         {nModulos(f)}
                         <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform ${abierto === f.email ? 'rotate-180' : ''}`} />
                       </button>
+                      {puedeEmular && f.email !== miEmail && efectivo && (
+                        <span className="ml-0.5">
+                          <BotonEmular email={f.email} nombre={f.nombre} />
+                        </span>
+                      )}
                       {f.email !== miEmail && (
                         <button
                           type="button"
@@ -361,6 +367,13 @@ export function RolesGrid({ filas, miEmail }: { filas: FilaUsuario[]; miEmail: s
         Profe, en azul claro). El botón de módulos abre el ajuste fino persona a persona: por ejemplo dejar a alguien
         como Tutor/a y darle además Evaluaciones. <strong>Cambiar de rol borra esos ajustes</strong>, porque estaban
         pensados sobre el rol anterior. Añade un correo solo si no sale ya en la lista.
+        {puedeEmular && (
+          <>
+            {' '}
+            <strong>Emular</strong> te mete en la plataforma como esa persona, con su rol y sus módulos, para ver lo que ve
+            ella; arriba queda un aviso con el botón de salir.
+          </>
+        )}
       </p>
     </div>
   );

@@ -7,6 +7,7 @@ import { eduTeachers } from '@/db/schema';
 import { DOMINIO_LOGIN, type Module, type Role } from '@/lib/permissions';
 import { CONFIGURACION } from '@/lib/configuracion';
 import { sesionCaducada } from '@/lib/sesion';
+import { nombreProfe } from '@/lib/profes';
 
 // Sesión larga a propósito (≈ un curso; los valores están en `configuracion.ts`): el claustro no debe re-loguearse
 // a mitad de curso. El rol se refresca contra la BBDD cada 15 min sin re-login.
@@ -14,6 +15,8 @@ const DURACION_SESION_S = CONFIGURACION.sesion.duracionDias * 24 * 60 * 60;
 const REFRESCO_ROL_MS = CONFIGURACION.sesion.refrescoRolMinutos * 60 * 1000;
 
 export interface AccesoResuelto {
+  /** Nombre para mostrar (solo lo usa la emulación, para el indicador). */
+  nombre?: string | null;
   role: Role | null;
   modulosExtra: Module[];
   modulosBloqueados: Module[];
@@ -26,19 +29,30 @@ const SIN_ACCESO: AccesoResuelto = { role: null, modulosExtra: [], modulosBloque
  * persona); si no la hay pero es un profe activo de la BBDD central, es 'profe'
  * automáticamente y sin ajustes (sin alta manual).
  */
-async function resolverAcceso(email: string): Promise<AccesoResuelto> {
+export async function resolverAcceso(email: string): Promise<AccesoResuelto> {
   const e = email.toLowerCase();
   const [usuario] = await db.select().from(authUsers).where(eq(authUsers.email, e)).limit(1);
   if (usuario) {
     if (!usuario.active) return SIN_ACCESO;
     return {
+      nombre: usuario.nombre,
       role: usuario.role as Role,
       modulosExtra: (usuario.modulosExtra ?? []) as Module[],
       modulosBloqueados: (usuario.modulosBloqueados ?? []) as Module[],
     };
   }
-  const [profe] = await db.select({ active: eduTeachers.active }).from(eduTeachers).where(eq(eduTeachers.email, e)).limit(1);
-  return profe?.active ? { role: 'profe', modulosExtra: [], modulosBloqueados: [] } : SIN_ACCESO;
+  const [profe] = await db
+    .select({
+      active: eduTeachers.active,
+      nombre: eduTeachers.nombre,
+      apellido1: eduTeachers.apellido1,
+      apellido2: eduTeachers.apellido2,
+      nombreMostrado: eduTeachers.nombreMostrado,
+    })
+    .from(eduTeachers)
+    .where(eq(eduTeachers.email, e))
+    .limit(1);
+  return profe?.active ? { nombre: nombreProfe(profe) || null, role: 'profe', modulosExtra: [], modulosBloqueados: [] } : SIN_ACCESO;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getSessionUser } from '@/lib/auth-guards';
+import { bloquearSiEmulando, getSessionUser } from '@/lib/auth-guards';
 import { claveExportacion } from '@/lib/mihorario';
 import { borrarEventosDeOrigen } from '@/lib/mihorario-google';
 import { getProfePorEmail, getUltimaExportacion } from '@/lib/mihorario-server';
@@ -12,6 +12,8 @@ import { and, eq, isNull } from 'drizzle-orm';
 export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const emulado = bloquearSiEmulando(user, 'borrar de su Google Calendar');
+  if (emulado) return emulado;
   const profe = await getProfePorEmail(user.email);
   if (!profe) return NextResponse.json({ error: 'No enlazado' }, { status: 404 });
 

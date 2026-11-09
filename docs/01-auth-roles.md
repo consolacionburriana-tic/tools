@@ -111,6 +111,33 @@ El rol y los ajustes se refrescan contra la BBDD **cada 15 minutos sin re-login*
 ver `REFRESCO_ROL_MS` en `src/auth.ts`), así que un cambio de permisos tarda como mucho ese rato
 en surtir efecto.
 
+### Emulación de usuarios (9-nov-2026)
+
+Un **SuperTIC** puede «entrar como» otra persona para ver la plataforma tal como la ve ella (su rol, sus
+módulos, sus ajustes) y comprobar permisos. **Estado: implementado 🟡 — falta probarlo con sesión real y Neon
+(David).**
+
+- **Entrar**: botón **Emular** (ámbar, `ui/boton-emular.tsx`) en cada fila de `/gestion/usuarios`, junto a los
+  chips de rol, y en `/gestion/profes`, en la tarjeta plegable **«Entrar como…»** (`profes/emular-panel.tsx`, con
+  buscador). Solo lo ve el SuperTIC; no sale en tu propia fila ni en quien no tiene acceso. Lleva al escritorio como esa persona.
+- **Saber que estás emulando**: pestañita pequeña colgada del borde de arriba, con un punto que late, «Emulando a
+  *Nombre*» y **Salir** (`ui/indicador-emulacion.tsx`, en el layout raíz: sale en todas las pantallas, también
+  `/mi-horario`). Más una línea fina ámbar en el borde. Salir devuelve a `/gestion/usuarios`.
+- **Cómo funciona**: cookie httpOnly `tools_emulando` = `real|objetivo`. `getSessionUser()` (`auth-guards.ts`) la
+  lee y, **solo si la sesión real es SuperTIC y el `real` de la cookie es esa misma persona**, devuelve al usuario
+  emulado (rol y módulos resueltos contra la BBDD por petición) con `emulando: { email, nombre }` = quién eres de
+  verdad. Así **todos los guards y layouts existentes funcionan sin tocarlos**. Copiar o forjar la cookie no sirve
+  de nada. `getSessionReal()` da la sesión sin emular (la usa `POST /api/emulacion`). Caduca a las 8 h.
+- **API**: `POST /api/emulacion {email}` (empezar; 403 si no eres SuperTIC, si eres tú o si la otra persona no tiene
+  acceso) · `DELETE` (salir; vale siempre) · `GET` (¿se está emulando?, para que el indicador no se fíe de una
+  cookie vieja). Puro y con tests: `src/lib/emulacion.ts`.
+- **Lo que se escribe emulando se escribe de verdad** (para poder probar funciones), pero con firma honesta: el
+  libro de cambios de Alumnado y el banco de libros anotan `real (emulando a objetivo)` (`autorDe()`).
+- **Lo que se bloquea emulando**, porque actuaría en la cuenta de Google de la persona emulada
+  (`bloquearSiEmulando()`, 403 con explicación): guardar listas/informes de Alumnado en Drive, y exportar/deshacer/
+  listar calendarios de «Mi horario». La nota de Nouvinguts «mandar también por correo» se guarda pero **no se envía**.
+- Cerrar sesión desde el escritorio también borra la emulación.
+
 ### Migración de lo existente (hito 3 del roadmap)
 
 1. Registro ABC: mover `/admin` detrás del login (roles con módulo `abc`).
@@ -151,6 +178,12 @@ en surtir efecto.
 - [x] `src/proxy.ts` (Next 16; middleware está deprecado) protege `/gestion/*`, `/admin/*` y `/registro-abc`
 - [x] `requireModule()`/`hasModule()` para rutas API + `canAccess()` en layouts por módulo (`src/lib/auth-guards.ts`)
 - [x] `/gestion/usuarios`: asignación de rol en 1 click por fila + alta por email (solo tic/supertic)
+
+### Emulación
+- [x] Cookie + `getSessionUser` emulado + `POST/DELETE/GET /api/emulacion` + tests puros (`emulacion.test.ts`)
+- [x] Botón «Emular» en `/gestion/usuarios` e indicador «Emulando a…» con «Salir» (claro/oscuro, 390 y 1180 px)
+- [x] Verificado: 401 sin sesión, 403 sin ser SuperTIC o a uno mismo, cookie forjada/ajena ignorada
+- [ ] **Probar con sesión real y Neon**: emular a un profe, a un tutor y a dirección, ver sus módulos, salir
 
 ### Fase 3 · Migración de los módulos existentes (= hito 3 del roadmap)
 - [x] Registro ABC detrás del nuevo login (panel movido a `/gestion/abc`; `/admin` redirige)

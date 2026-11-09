@@ -1,6 +1,9 @@
 export const dynamic = 'force-dynamic';
 
 import { getTeachers } from '@/lib/educamos-server';
+import { getSessionUser } from '@/lib/auth-guards';
+import { puedeEmularUsuarios } from '@/lib/emulacion';
+import { EmularPanel } from '@/components/profes/emular-panel';
 import { getClasesConTutores } from '@/lib/tutorias-server';
 import { TutoriasPanel } from '@/components/profes/tutorias-panel';
 import { EtapasPanel } from '@/components/profes/etapas-panel';
@@ -15,7 +18,8 @@ import { mayusculasBellas, nombreDePila } from '@/lib/personas';
 export const metadata = { title: 'Profesorado · Gestión' };
 
 export default async function ProfesPage() {
-  const [clases, profes, automaticas, sustituciones] = await Promise.all([
+  const [user, clases, profes, automaticas, sustituciones] = await Promise.all([
+    getSessionUser(),
     getClasesConTutores(),
     getTeachers(),
     etapasAutomaticasPorProfe(),
@@ -69,6 +73,22 @@ export default async function ProfesPage() {
           apellidos: [mayusculasBellas(p.apellido1), mayusculasBellas(p.apellido2)].filter(Boolean).join(' '),
         }))}
       />
+      {/* Solo el SuperTIC (también si ya está emulando a alguien: puede saltar directo a otra persona). */}
+      {user && (user.emulando || puedeEmularUsuarios(user.role)) && (
+        <EmularPanel
+          miEmail={user.emulando?.email ?? user.email}
+          profes={profes
+            .filter((p) => p.email)
+            .map((p) => ({
+              id: p.id,
+              email: p.email!.toLowerCase(),
+              nombre: nombreProfeBreve(p),
+              etapa: p.etapa,
+              esTutor: p.esTutor,
+              claseTutor: p.claseTutor,
+            }))}
+        />
+      )}
     </div>
   );
 }
