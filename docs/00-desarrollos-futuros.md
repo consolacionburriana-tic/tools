@@ -44,6 +44,13 @@ todo el centro**; los «subaccesos» quedan para más adelante. Lo demás lo dec
   está en la API pero no en la pantalla todavía.
 - Color de «viene de un grupo»: índigo (no es de estado ni de identidad de módulo).
 
+### Sustituciones puntuales de Infantil y Primaria (`32-sustituciones.md`)
+
+Antes de implementar el buscador y los avisos, concretar:
+
+1. Cómo se corresponden las actividades reales del horario con «Codocencia, Tut. indiv., J.E.,
+   A.L., P.T., Godly, TIC, Pastoral, Gabinete y Dirección».
+
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
 
 - **El Huerto, como tipo nuevo de «Oratorios, Godly Play y Talleres»** (David: «una nueva sección dentro del
@@ -1255,8 +1262,8 @@ borrar los planes temporales quedaron sin repasar a mano, por si alguna vez se m
 
 ## Backlog de módulos futuros (mencionados, sin desarrollar todavía)
 
-- Nada más identificado por ahora aparte de los módulos ya fichados. Añadir aquí cualquier
-  módulo nuevo que se os ocurra antes de tener claro su alcance.
+- Sustituciones puntuales del profesorado: ficha funcional creada; falta configurar el buzón de
+  Dirección titular y validar el mapeo de actividades en [`32-sustituciones.md`](./32-sustituciones.md).
 
 ## Registro ABC · ideas para rellenar aún más rápido (26-oct-2026)
 - Sugerir «¿Cuándo ocurre?» según la hora y el horario del colegio (hoy no hay horas de patio/almuerzo
