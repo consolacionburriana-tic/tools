@@ -266,12 +266,11 @@ alumnos igual.
   del grupo → tramo que contiene la hora → sesión del grupo → materia y profe principal.
   Se apaga la elección de asignatura a mano y se enciende `htmlAvisoProfeAsignatura`, que
   está escrito y esperando.
-- **Sustituciones** (módulo futuro): con estas capas la pregunta "¿quién puede cubrir 3ª del
-  martes?" es una consulta, no un algoritmo: profes **sin** sesión en ese tramo, o con una
-  sesión cuya actividad tenga `cubre_sustitucion` (la guardia). Y qué hay que cubrir sale de
-  `hor_actividades.lectiva`. Las tablas que faltarían son solo dos (`hor_ausencias` y
-  `hor_sustituciones`, ausencia de un profe en unos tramos de un día + quién la cubre) y no
-  tocan nada de lo de arriba. **No se construyen ahora.**
+- **Sustituciones puntuales** ([`32-sustituciones.md`](./32-sustituciones.md)): consumen estas capas
+  para proponer coberturas por prioridad. El plan debe resolver candidatos libres y sesiones
+  reasignables, y guardar el histórico aparte de la importación para no perderlo al actualizar
+  horarios. Se eligen sesiones concretas de una fecha; falta validar el mapeo de actividades
+  importadas contra la prioridad funcional.
 - **Documentación por clase**: "los papeles de 2ESO B" cuelgan de `curso`/`letra` como en el
   resto del repo, y el horario da el contexto (quién entra, cuándo).
 - **Duplicar de un año al anterior**: todo cuelga de `hor_periodos`, así que duplicar es
