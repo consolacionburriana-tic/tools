@@ -1,12 +1,17 @@
-// Quién entra a qué. Dos capas, a propósito:
+// Quién entra a qué. Tres capas, a propósito:
 //
-//   1. El ROL es el punto de partida de un clic: "eres tutor" → salidas y banco de
-//      libros. Vive en código porque cambiarlo es cambiar una línea y afecta a todos.
-//   2. Los AJUSTES POR PERSONA son la excepción: "este tutor además lleva las
-//      evaluaciones". Viven en `auth_users` y se guardan como DIFERENCIA respecto al
-//      rol (extra / bloqueados), no como lista cerrada. Así, si mañana se le añade un
-//      módulo al rol tutor, les llega a todos los tutores menos a quien lo tuviera
-//      bloqueado explícitamente — que es lo que uno espera.
+//   1. El ROL es el cargo, uno por persona: "eres tutor" → salidas, alumnado de tu etapa…
+//      Vive en código porque cambiarlo es cambiar una línea y afecta a todos. También
+//      decide el alcance DENTRO de un módulo (todo el centro o tu etapa).
+//   2. Los GRUPOS son equipos, y se puede estar en varios: "Pastoral" → Números y
+//      Evaluaciones. Viven en la BBDD (`auth_grupos`), se editan desde Usuarios y roles y
+//      solo SUMAN módulos. Un módulo que llega por un grupo se da entero: todo el centro
+//      (David, 12-nov-2026; los «subaccesos» quedan para más adelante).
+//   3. Los AJUSTES POR PERSONA son la excepción: "este tutor además lleva las
+//      evaluaciones". Viven en `auth_users` y se guardan como DIFERENCIA respecto a lo que
+//      le dan rol y grupos (extra / bloqueados), no como lista cerrada. Así, si mañana se le
+//      añade un módulo al rol tutor, les llega a todos los tutores menos a quien lo tuviera
+//      bloqueado explícitamente — que es lo que uno espera. Lo quitado a mano gana a todo.
 
 import { COLEGIO } from '@/lib/colegio';
 import { CONFIGURACION } from '@/lib/configuracion';
@@ -191,6 +196,8 @@ export interface Acceso {
   role: Role | null;
   modulosExtra?: readonly string[] | null;
   modulosBloqueados?: readonly string[] | null;
+  /** Unión de los módulos de los grupos en los que está (`auth_grupos`). */
+  modulosGrupos?: readonly string[] | null;
 }
 
 /**
@@ -206,10 +213,11 @@ function esModulo(m: string): m is Module {
   return (MODULES as readonly string[]).includes(m);
 }
 
-/** Módulos efectivos de alguien: los de su rol, más los extra, menos los bloqueados. */
+/** Módulos efectivos de alguien: los de su rol y sus grupos, más los extra, menos los bloqueados. */
 export function modulosDe(acceso: Acceso | null | undefined): Module[] {
   if (!acceso?.role) return [];
   const base = new Set<Module>(ROLE_MODULES[acceso.role] ?? []);
+  for (const m of acceso.modulosGrupos ?? []) if (esModulo(m)) base.add(m);
   for (const m of acceso.modulosExtra ?? []) if (esModulo(m)) base.add(m);
   for (const m of acceso.modulosBloqueados ?? []) if (esModulo(m)) base.delete(m);
   for (const m of MODULOS_SOLO_SUPERTIC) if (reservadoA(acceso.role, m)) base.delete(m);
@@ -223,29 +231,47 @@ export function canAccess(acceso: Acceso | null | undefined, modulo: Module): bo
   const bloqueados = acceso.modulosBloqueados ?? [];
   if (bloqueados.includes(modulo)) return false;
   if ((acceso.modulosExtra ?? []).includes(modulo)) return true;
+  if ((acceso.modulosGrupos ?? []).includes(modulo)) return true;
   return ROLE_MODULES[acceso.role]?.includes(modulo) ?? false;
 }
 
-/** ¿Este módulo le viene del rol, se lo han dado a mano, o se lo han quitado a mano? */
-export type OrigenModulo = 'rol' | 'extra' | 'bloqueado' | 'no';
+/**
+ * ¿Tiene este módulo GRACIAS a un grupo? Un módulo que llega por un grupo se da entero, con
+ * el alcance de todo el centro (David, 12-nov-2026): quien lo mira dentro del módulo es esto.
+ * Si se lo han quitado a mano, no.
+ */
+export function moduloPorGrupo(acceso: Acceso | null | undefined, modulo: Module): boolean {
+  return canAccess(acceso, modulo) && (acceso?.modulosGrupos ?? []).includes(modulo);
+}
+
+/** ¿Este módulo le viene del rol, de un grupo, se lo han dado a mano, o se lo han quitado a mano? */
+export type OrigenModulo = 'rol' | 'grupo' | 'extra' | 'bloqueado' | 'no';
 
 export function origenModulo(acceso: Acceso | null | undefined, modulo: Module): OrigenModulo {
   if (!acceso?.role || reservadoA(acceso.role, modulo)) return 'no';
   const delRol = ROLE_MODULES[acceso.role]?.includes(modulo) ?? false;
-  if ((acceso.modulosBloqueados ?? []).includes(modulo)) return delRol ? 'bloqueado' : 'no';
-  if ((acceso.modulosExtra ?? []).includes(modulo)) return delRol ? 'rol' : 'extra';
-  return delRol ? 'rol' : 'no';
+  const delGrupo = (acceso.modulosGrupos ?? []).includes(modulo);
+  if ((acceso.modulosBloqueados ?? []).includes(modulo)) return delRol || delGrupo ? 'bloqueado' : 'no';
+  if (delRol) return 'rol';
+  if (delGrupo) return 'grupo';
+  return (acceso.modulosExtra ?? []).includes(modulo) ? 'extra' : 'no';
 }
+
+/** Módulos que puede dar un grupo: todos menos los reservados a SuperTIC. */
+export const MODULOS_DE_GRUPO: readonly Module[] = MODULES.filter((m) => !MODULOS_SOLO_SUPERTIC.includes(m));
 
 /**
  * Traduce "quiero que esta persona tenga exactamente estos módulos" a la diferencia
- * que se guarda. La interfaz marca casillas y no tiene que saber nada de esto.
+ * que se guarda, respecto a lo que ya le dan su rol y sus grupos. La interfaz marca
+ * casillas y no tiene que saber nada de esto.
  */
 export function diffModulos(
   role: Role | null,
   seleccionados: readonly Module[],
+  modulosGrupos: readonly string[] = [],
 ): { modulosExtra: Module[]; modulosBloqueados: Module[] } {
   const base = new Set<Module>(role ? (ROLE_MODULES[role] ?? []) : []);
+  if (role) for (const m of modulosGrupos) if (esModulo(m)) base.add(m);
   const quiere = new Set(seleccionados);
   return {
     modulosExtra: MODULES.filter((m) => quiere.has(m) && !base.has(m)),
@@ -281,7 +307,7 @@ export function vePuntualidadCompleta(role: Role | null): boolean {
  * ficha (David, 28-sep-2026; antes era solo la de su tutoría).
  */
 export function veProteccionDatosCompleta(acceso: Acceso | null | undefined): boolean {
-  if (canAccess(acceso, 'comunicacion')) return true;
+  if (canAccess(acceso, 'comunicacion') || moduloPorGrupo(acceso, 'alumnado')) return true;
   const role = acceso?.role ?? null;
   return (
     role === 'direccion' ||

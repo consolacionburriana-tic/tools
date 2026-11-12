@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { authUsers, eduTeachers } from '@/db/schema';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
+import { modulosDeGruposDe } from '@/auth';
 import { diffModulos, MODULES, ROLES, type Module, type Role } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,10 @@ export async function POST(request: Request) {
 
     if (action === 'modulos') {
       if (!modulos) return NextResponse.json({ error: 'Falta la lista de módulos' }, { status: 400 });
-      const [existente] = await db.select().from(authUsers).where(eq(authUsers.email, email)).limit(1);
+      const [[existente], modulosGrupos] = await Promise.all([
+        db.select().from(authUsers).where(eq(authUsers.email, email)).limit(1),
+        modulosDeGruposDe(email),
+      ]);
       // Un profe del claustro sin fila es 'profe' automático: para poder ajustarle
       // módulos hay que materializar la fila, conservando ese mismo rol.
       const rolActual = (existente?.role as Role | undefined) ?? 'profe';
@@ -51,7 +55,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'No puedes quitarte a ti mismo Usuarios y roles' }, { status: 400 });
       }
 
-      const { modulosExtra, modulosBloqueados } = diffModulos(rolActual, modulos as Module[]);
+      // La diferencia es respecto a lo que ya le dan su rol Y sus grupos.
+      const { modulosExtra, modulosBloqueados } = diffModulos(rolActual, modulos as Module[], modulosGrupos);
       await db
         .insert(authUsers)
         .values({ email, role: rolActual, nombre, modulosExtra, modulosBloqueados })

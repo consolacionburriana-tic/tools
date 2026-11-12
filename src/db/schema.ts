@@ -483,6 +483,40 @@ export const authUsers = pgTable('auth_users', {
 export type AuthUser = typeof authUsers.$inferSelect;
 export type NewAuthUser = typeof authUsers.$inferInsert;
 
+// Grupos de usuarios: equipos (Pastoral, Comunicación…) que dan módulos a sus miembros ENCIMA
+// del rol, y se puede estar en varios. Solo suman; quitar algo a alguien se hace con sus
+// `modulos_bloqueados`, que ganan a todo. SQL: src/db/sql/auth-grupos.sql.
+export const authGrupos = pgTable(
+  'auth_grupos',
+  {
+    id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    nombre: text('nombre').notNull(),
+    descripcion: text('descripcion'),
+    modulos: jsonb('modulos').$type<string[]>().notNull().default([]),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('auth_grupos_nombre_idx').on(sql`lower(${t.nombre})`)],
+);
+
+export const authGrupoMiembros = pgTable(
+  'auth_grupo_miembros',
+  {
+    id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    grupoId: uuid('grupo_id')
+      .notNull()
+      .references(() => authGrupos.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(), // en minúsculas, como auth_users
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('auth_grupo_miembros_grupo_email_idx').on(t.grupoId, t.email),
+    index('auth_grupo_miembros_email_idx').on(t.email),
+  ],
+);
+
+export type AuthGrupo = typeof authGrupos.$inferSelect;
+
 // ─── Types Educamos ───────────────────────────────────────────────────────────
 export type EduTeacher = typeof eduTeachers.$inferSelect;
 export type NewEduTeacher = typeof eduTeachers.$inferInsert;

@@ -18,6 +18,9 @@ por casa" que hay hoy: Registro ABC sin login y Licencias con un email/password 
   `profe` · `tutor` · `jefe` (jefe de departamento / coordinador de ciclo, es el mismo) ·
   `direccion` · `tic` · `orientacion` · `secretaria` · `supertic`.
 - **`supertic`** es el super-admin: gestiona la pantalla de usuarios/roles y accede a todo.
+- **Grupos de usuarios encima del rol** (David, 12-nov-2026): equipos como Pastoral o Comunicación,
+  se puede estar en varios, y cada uno da sus módulos a sus miembros. **Lo que da un grupo se da
+  entero (todo el centro)**; los «subaccesos» dentro de un módulo, más adelante. Ver «Grupos» abajo.
 - **Profe activo = rol `profe` automático** (decisión 2026-07-10): cualquier cuenta del dominio
   que sea profe activo en `edu_teachers` entra como `profe` sin alta manual en `auth_users`;
   la fila explícita en `auth_users` solo hace falta para roles superiores (o para vetar).
@@ -111,6 +114,29 @@ El rol y los ajustes se refrescan contra la BBDD **cada 15 minutos sin re-login*
 ver `REFRESCO_ROL_MS` en `src/auth.ts`), así que un cambio de permisos tarda como mucho ese rato
 en surtir efecto.
 
+### Grupos de usuarios (12-nov-2026)
+
+Tercera capa, entre el rol y el ajuste por persona: **rol ∪ grupos ∪ dados a mano − quitados a mano**.
+
+- **Tablas** `auth_grupos` (nombre único sin mirar mayúsculas, descripción, `modulos` jsonb) y
+  `auth_grupo_miembros` (grupo + email en minúsculas). SQL: `src/db/sql/auth-grupos.sql`, que siembra
+  **Pastoral** con Números y Evaluaciones (sin miembros).
+- **Viven en la BBDD, no en código**, a diferencia de los roles: se crean y se editan desde
+  `/gestion/usuarios` → vista **Grupos** (módulos que da, meter/sacar personas, borrar). API
+  `POST /api/usuarios/grupos` (`crear` · `editar` · `miembro` · `borrar`), con `requireModule('usuarios')`.
+- **Solo suman**. Un grupo no puede dar lo reservado a SuperTIC (`MODULOS_DE_GRUPO`). Lo quitado a mano a
+  una persona gana al grupo. Sin rol, un grupo no da nada. A un profe del claustro sin fila en
+  `auth_users` también le valen sus grupos.
+- **Lo que da un grupo se da entero**: `moduloPorGrupo(acceso, m)` en `permissions.ts`. Hoy lo miran
+  `veTodoElCentro` (Alumnado y Números: todo el centro en vez de la etapa), `veProteccionDatosCompleta`
+  y las pestañas Perfil y Becas de Números. Un módulo nuevo con alcance propio tiene que mirarlo también.
+- **Sesión**: `resolverAcceso` lee los grupos en la misma tanda que la fila (`modulosDeGruposDe`) y van
+  en el JWT como `modulosGrupos`, así que un cambio de grupo tarda como mucho los mismos 15 min. Si las
+  tablas faltaran en Neon, se entra sin grupos en vez de romper el login.
+- **En la vista Personas**: debajo del correo, sus grupos; en el desplegable de módulos, en índigo lo que
+  le viene de un grupo (al pasar por encima dice de cuál). El ajuste a mano se guarda como diferencia
+  respecto a rol **y** grupos (`diffModulos(rol, seleccionados, modulosGrupos)`).
+
 ### Emulación de usuarios (9-nov-2026)
 
 Un **SuperTIC** puede «entrar como» otra persona para ver la plataforma tal como la ve ella (su rol, sus
@@ -184,6 +210,14 @@ módulos, sus ajustes) y comprobar permisos. **Estado: implementado 🟡 — fal
 - [x] Botón «Emular» en `/gestion/usuarios` e indicador «Emulando a…» con «Salir» (claro/oscuro, 390 y 1180 px)
 - [x] Verificado: 401 sin sesión, 403 sin ser SuperTIC o a uno mismo, cookie forjada/ajena ignorada
 - [ ] **Probar con sesión real y Neon**: emular a un profe, a un tutor y a dirección, ver sus módulos, salir
+
+### Grupos de usuarios
+- [x] Tablas `auth_grupos` + `auth_grupo_miembros` aplicadas en Neon, con Pastoral sembrado (Números y Evaluaciones)
+- [x] `permissions.ts`: capa de grupos en `modulosDe`/`canAccess`/`origenModulo`/`diffModulos` + `moduloPorGrupo`, con tests
+- [x] Sesión: `modulosGrupos` en el JWT, en la emulación y en `getSessionUser`
+- [x] Alcance entero por grupo en Alumnado y Números (todo el centro, Perfil y Becas)
+- [x] `/gestion/usuarios` → vista Grupos (módulos, personas, crear, borrar) y grupos visibles en Personas
+- [ ] **Meter a las personas de Pastoral** y comprobarlo emulando a una (David)
 
 ### Fase 3 · Migración de los módulos existentes (= hito 3 del roadmap)
 - [x] Registro ABC detrás del nuevo login (panel movido a `/gestion/abc`; `/admin` redirige)

@@ -2,7 +2,7 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { authUsers } from '@/db/schema';
+import { authGrupoMiembros, authGrupos, authUsers } from '@/db/schema';
 import { eduTeachers } from '@/db/schema';
 import { DOMINIO_LOGIN, type Module, type Role } from '@/lib/permissions';
 import { CONFIGURACION } from '@/lib/configuracion';
@@ -20,18 +20,41 @@ export interface AccesoResuelto {
   role: Role | null;
   modulosExtra: Module[];
   modulosBloqueados: Module[];
+  /** Unión de los módulos de sus grupos (`auth_grupos`). */
+  modulosGrupos: Module[];
 }
 
-const SIN_ACCESO: AccesoResuelto = { role: null, modulosExtra: [], modulosBloqueados: [] };
+const SIN_ACCESO: AccesoResuelto = { role: null, modulosExtra: [], modulosBloqueados: [], modulosGrupos: [] };
+
+/** Módulos que le dan a alguien sus grupos (unión, sin repetidos). */
+export async function modulosDeGruposDe(email: string): Promise<Module[]> {
+  try {
+    const filas = await db
+      .select({ modulos: authGrupos.modulos })
+      .from(authGrupoMiembros)
+      .innerJoin(authGrupos, eq(authGrupos.id, authGrupoMiembros.grupoId))
+      .where(eq(authGrupoMiembros.email, email.toLowerCase()));
+    return [...new Set(filas.flatMap((f) => f.modulos ?? []))] as Module[];
+  } catch (e) {
+    // Si las tablas de grupos aún no están en Neon (auth-grupos.sql pendiente), el login no
+    // puede caerse por ello: sin grupos, cada uno entra con su rol como siempre.
+    console.error('[auth] no se pudieron leer los grupos', e);
+    return [];
+  }
+}
 
 /**
  * Resuelve el acceso de un email: fila en auth_users manda (rol + ajustes por
  * persona); si no la hay pero es un profe activo de la BBDD central, es 'profe'
- * automáticamente y sin ajustes (sin alta manual).
+ * automáticamente y sin ajustes (sin alta manual). En los dos casos, sus grupos suman.
  */
 export async function resolverAcceso(email: string): Promise<AccesoResuelto> {
   const e = email.toLowerCase();
-  const [usuario] = await db.select().from(authUsers).where(eq(authUsers.email, e)).limit(1);
+  // Fila y grupos no dependen el uno del otro: van en la misma tanda.
+  const [[usuario], modulosGrupos] = await Promise.all([
+    db.select().from(authUsers).where(eq(authUsers.email, e)).limit(1),
+    modulosDeGruposDe(e),
+  ]);
   if (usuario) {
     if (!usuario.active) return SIN_ACCESO;
     return {
@@ -39,6 +62,7 @@ export async function resolverAcceso(email: string): Promise<AccesoResuelto> {
       role: usuario.role as Role,
       modulosExtra: (usuario.modulosExtra ?? []) as Module[],
       modulosBloqueados: (usuario.modulosBloqueados ?? []) as Module[],
+      modulosGrupos,
     };
   }
   const [profe] = await db
@@ -52,7 +76,9 @@ export async function resolverAcceso(email: string): Promise<AccesoResuelto> {
     .from(eduTeachers)
     .where(eq(eduTeachers.email, e))
     .limit(1);
-  return profe?.active ? { nombre: nombreProfe(profe) || null, role: 'profe', modulosExtra: [], modulosBloqueados: [] } : SIN_ACCESO;
+  return profe?.active
+    ? { nombre: nombreProfe(profe) || null, role: 'profe', modulosExtra: [], modulosBloqueados: [], modulosGrupos }
+    : SIN_ACCESO;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -82,6 +108,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = acceso.role;
         token.modulosExtra = acceso.modulosExtra;
         token.modulosBloqueados = acceso.modulosBloqueados;
+        token.modulosGrupos = acceso.modulosGrupos;
         token.roleCheckedAt = ahora;
       }
       // Profe y tutor: a los dos meses de entrar se cierra la sesión. Devolver null borra la cookie.
@@ -92,6 +119,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.role = (token.role as Role | null) ?? null;
       session.user.modulosExtra = (token.modulosExtra as Module[] | undefined) ?? [];
       session.user.modulosBloqueados = (token.modulosBloqueados as Module[] | undefined) ?? [];
+      session.user.modulosGrupos = (token.modulosGrupos as Module[] | undefined) ?? [];
       return session;
     },
   },
@@ -106,6 +134,7 @@ declare module 'next-auth' {
       role: Role | null;
       modulosExtra: Module[];
       modulosBloqueados: Module[];
+      modulosGrupos: Module[];
     };
   }
 }

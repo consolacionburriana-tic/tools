@@ -23,6 +23,27 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Grupos de usuarios: lo que decidí yo al construirlo (12-nov-2026) — revisar con David
+
+David pidió grupos (Pastoral con Números y Evaluaciones) y que **lo que da un grupo se dé entero,
+todo el centro**; los «subaccesos» quedan para más adelante. Lo demás lo decidí yo:
+
+- **El rol se queda** (uno por persona, el cargo); los grupos van **encima** y solo suman. Lo quitado a
+  mano a una persona gana también al grupo. Sin rol (bloqueado o sin alta), un grupo no da nada.
+- **«Entero» se aplica donde hoy hay alcance por etapa o por rol dentro del módulo**: Alumnado (fichas y
+  protección de datos de todo el centro) y Números (todo el centro, **y también las pestañas Perfil y
+  Becas**). Las **fotos** de Números (escribir el histórico) siguen siendo de dirección/secretaría/TIC:
+  es una acción de gestión, no ver. Puntualidad no se ha tocado (hoy está apagada en el colegio): si un
+  grupo la da, se ve con el alcance del rol. Al dar otro módulo a un grupo, revisar si tiene alcance propio.
+- **Los roles «de una sola cosa» (`comunicacion`, `evaluaciones`) siguen existiendo.** Lo natural sería
+  pasarlos a grupos (así esas personas recuperan su rol de profe/tutor), pero es mover a gente real: lo
+  dejo para cuando David lo diga.
+- El grupo Pastoral se sembró **sin miembros** (no hay correos en el repo): se meten desde
+  `/gestion/usuarios` → Grupos.
+- Borrar un grupo es borrado de verdad (con confirmación): es configuración, no histórico. Renombrar
+  está en la API pero no en la pantalla todavía.
+- Color de «viene de un grupo»: índigo (no es de estado ni de identidad de módulo).
+
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
 
 - **El Huerto, como tipo nuevo de «Oratorios, Godly Play y Talleres»** (David: «una nueva sección dentro del
