@@ -15,6 +15,7 @@ import { listaMateriales } from '@/lib/materiales-server';
 import { alcanceAlumnado } from '@/lib/alumnado-server';
 import {
   canAccess,
+  moduloPorGrupo,
   veBecasMateriales,
   vePerfilAlumnado,
   type Acceso,
@@ -409,7 +410,7 @@ export async function vistaNumeros(
   user: Acceso & { email: string; role: Role | null },
   campana: DatosNumeros['campana'],
 ): Promise<VistaNumeros> {
-  const alcance = await alcanceAlumnado(user, { conPropias: false });
+  const alcance = await alcanceAlumnado(user, { conPropias: false, modulo: 'numeros' });
   return {
     clases: alcance.clases,
     etapas: alcance.etapas,
@@ -418,8 +419,9 @@ export async function vistaNumeros(
       // etapa), como en Alumnado: las clases ya vienen recortadas, así que aquí basta el sí.
       proteccion: true,
       licencias: canAccess(user, 'licencias') && campana !== null && campana.estado !== 'closed',
-      perfil: vePerfilAlumnado(user.role),
-      becas: veBecasMateriales(user.role),
+      // Quien tiene Números por un grupo (Pastoral…) lo tiene entero, también estas dos pestañas.
+      perfil: vePerfilAlumnado(user.role) || moduloPorGrupo(user, 'numeros'),
+      becas: veBecasMateriales(user.role) || moduloPorGrupo(user, 'numeros'),
     },
   };
 }

@@ -68,6 +68,8 @@ import {
   puedeGestionarServicios,
   puedeVerHistorialAlumnado,
   veProteccionDatosCompleta,
+  moduloPorGrupo,
+  type Module,
   type Acceso,
   type Role,
 } from '@/lib/permissions';
@@ -111,10 +113,10 @@ export interface AlcanceAlumnado {
  */
 export async function alcanceAlumnado(
   user: Acceso & { email: string },
-  opciones: { conPropias?: boolean } = {},
+  opciones: { conPropias?: boolean; modulo?: Module } = {},
 ): Promise<AlcanceAlumnado> {
   const conPropias = opciones.conPropias !== false;
-  const veTodo = veTodoElCentro(user);
+  const veTodo = veTodoElCentro(user, opciones.modulo);
 
   // Quien lo ve todo y no necesita saber sus tutorías (la ruta API, que solo comprueba
   // permiso) se ahorra las dos consultas enteras.
@@ -147,9 +149,15 @@ export async function alcanceAlumnado(
   };
 }
 
-/** ¿Ve el centro entero? Los roles de `VE_TODO` y quien tenga el módulo `comunicacion`. */
-export function veTodoElCentro(user: Acceso): boolean {
-  return Boolean(user.role && VE_TODO.includes(user.role)) || canAccess(user, 'comunicacion');
+/**
+ * ¿Ve el centro entero? Los roles de `VE_TODO`, quien tenga el módulo `comunicacion` y quien
+ * tenga el módulo que se mira (Alumnado, o Números desde su pantalla) por un GRUPO: lo que da
+ * un grupo se da entero (David, 12-nov-2026).
+ */
+export function veTodoElCentro(user: Acceso, modulo: Module = 'alumnado'): boolean {
+  return (
+    Boolean(user.role && VE_TODO.includes(user.role)) || canAccess(user, 'comunicacion') || moduloPorGrupo(user, modulo)
+  );
 }
 
 

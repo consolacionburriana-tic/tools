@@ -12,6 +12,9 @@ import {
   ROLE_MODULES,
   vePuntualidadCompleta,
   moduloDesactivado,
+  moduloPorGrupo,
+  MODULOS_DE_GRUPO,
+  veProteccionDatosCompleta,
   type Module,
 } from '@/lib/permissions';
 
@@ -271,6 +274,86 @@ describe('libro de cambios de Alumnado', () => {
     for (const role of ['secretaria', 'direccion', 'tic', 'supertic'] as const) expect(puedeVerHistorialAlumnado(role), role).toBe(true);
     for (const role of ['tutor', 'profe', 'jefe', 'orientacion', 'comunicacion', 'evaluaciones', null] as const) {
       expect(puedeVerHistorialAlumnado(role), String(role)).toBe(false);
+    }
+  });
+});
+
+describe('grupos de usuarios (Pastoral, Comunicación…)', () => {
+  const pastoral = ['numeros', 'evaluaciones'];
+
+  it('un profe en Pastoral suma Números y Evaluaciones sin perder lo suyo', () => {
+    const profePastoral = { role: 'profe' as const, modulosGrupos: pastoral };
+    expect(canAccess(profePastoral, 'numeros')).toBe(true);
+    expect(canAccess(profePastoral, 'evaluaciones')).toBe(true);
+    expect(canAccess(profePastoral, 'salidas')).toBe(true);
+    expect(canAccess({ role: 'profe' }, 'numeros')).toBe(false);
+  });
+
+  it('se puede estar en varios grupos: se suman', () => {
+    const dos = { role: 'tutor' as const, modulosGrupos: [...pastoral, 'comunicacion'] };
+    expect(canAccess(dos, 'evaluaciones')).toBe(true);
+    expect(canAccess(dos, 'comunicacion')).toBe(true);
+  });
+
+  it('sin rol, un grupo no da nada', () => {
+    expect(canAccess({ role: null, modulosGrupos: pastoral }, 'numeros')).toBe(false);
+    expect(modulosDe({ role: null, modulosGrupos: pastoral })).toEqual([]);
+  });
+
+  it('lo quitado a mano gana al grupo', () => {
+    const quitado = { role: 'profe' as const, modulosGrupos: pastoral, modulosBloqueados: ['numeros'] };
+    expect(canAccess(quitado, 'numeros')).toBe(false);
+    expect(modulosDe(quitado)).not.toContain('numeros');
+    expect(origenModulo(quitado, 'numeros')).toBe('bloqueado');
+    expect(moduloPorGrupo(quitado, 'numeros')).toBe(false);
+  });
+
+  it('un grupo no puede dar lo reservado a SuperTIC', () => {
+    expect(MODULOS_DE_GRUPO).not.toContain('bancolibros');
+    expect(canAccess({ role: 'profe', modulosGrupos: ['bancolibros'] }, 'bancolibros')).toBe(false);
+  });
+
+  it('origenModulo distingue rol, grupo y a mano', () => {
+    const a = { role: 'tutor' as const, modulosGrupos: pastoral, modulosExtra: ['abc'] };
+    expect(origenModulo(a, 'salidas')).toBe('rol');
+    expect(origenModulo(a, 'evaluaciones')).toBe('grupo');
+    expect(origenModulo(a, 'abc')).toBe('extra');
+    // Números ya le viene del rol tutor: manda el rol.
+    expect(origenModulo(a, 'numeros')).toBe('rol');
+    expect(origenModulo(a, 'educamos')).toBe('no');
+  });
+
+  it('moduloPorGrupo: el módulo llega por un grupo (y entonces se da entero)', () => {
+    const p = { role: 'profe' as const, modulosGrupos: pastoral };
+    expect(moduloPorGrupo(p, 'numeros')).toBe(true);
+    expect(moduloPorGrupo(p, 'salidas')).toBe(false);
+    expect(moduloPorGrupo({ role: 'profe' }, 'numeros')).toBe(false);
+  });
+
+  it('Alumnado por un grupo ve la protección de datos de todo el centro', () => {
+    expect(veProteccionDatosCompleta({ role: 'tutor', modulosGrupos: ['alumnado'] })).toBe(true);
+    expect(veProteccionDatosCompleta({ role: 'tutor' })).toBe(false);
+  });
+
+  it('diffModulos guarda la diferencia respecto a rol + grupos', () => {
+    // Profe en Pastoral que además quiere ABC y no quiere Números (del grupo).
+    const quiere = [...modulosDe({ role: 'profe', modulosGrupos: pastoral }).filter((m) => m !== 'numeros'), 'abc'] as Module[];
+    const diff = diffModulos('profe', quiere, pastoral);
+    expect(diff.modulosExtra).toEqual(['abc']);
+    expect(diff.modulosBloqueados).toEqual(['numeros']);
+    // Y aplicándolo, sale justo lo que se marcó.
+    expect(modulosDe({ role: 'profe', modulosGrupos: pastoral, ...diff })).toEqual(MODULES.filter((m) => quiere.includes(m) && !moduloDesactivado(m)));
+  });
+
+  it('modulosDe y canAccess nunca se contradicen, también con grupos', () => {
+    const casos = [
+      { role: 'profe' as const, modulosGrupos: pastoral },
+      { role: 'tutor' as const, modulosGrupos: pastoral, modulosBloqueados: ['evaluaciones'] },
+      { role: 'secretaria' as const, modulosGrupos: ['bancolibros', 'tareas'] },
+    ];
+    for (const caso of casos) {
+      const lista = modulosDe(caso);
+      for (const m of MODULES) expect(canAccess(caso, m)).toBe(lista.includes(m));
     }
   });
 });

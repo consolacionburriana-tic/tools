@@ -13,6 +13,7 @@ export interface SessionUser extends Acceso {
   role: Role | null;
   modulosExtra: Module[];
   modulosBloqueados: Module[];
+  modulosGrupos: Module[];
   /**
    * Solo si un SuperTIC está emulando: quién es DE VERDAD (los demás campos son los de la persona
    * emulada, así que toda pantalla y todo permiso se ven como los vería ella). Null = sesión normal.
@@ -30,6 +31,7 @@ export const getSessionReal = cache(async (): Promise<SessionUser | null> => {
     role: session.user.role ?? null,
     modulosExtra: session.user.modulosExtra ?? [],
     modulosBloqueados: session.user.modulosBloqueados ?? [],
+    modulosGrupos: session.user.modulosGrupos ?? [],
     emulando: null,
   };
 });
@@ -57,6 +59,7 @@ const resolverEmulado = cache(async (objetivo: string, realEmail: string, realNo
     role: acceso.role,
     modulosExtra: acceso.modulosExtra,
     modulosBloqueados: acceso.modulosBloqueados,
+    modulosGrupos: acceso.modulosGrupos,
     emulando: { email: realEmail, nombre: realNombre },
   };
 });

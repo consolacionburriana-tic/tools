@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { ConfirmarEnLinea } from '@/components/ui/confirmar';
 import { Estado } from '@/components/ui/estado';
 import { BotonEmular } from '@/components/ui/boton-emular';
+import type { GrupoVista } from '@/components/usuarios/grupos-panel';
 
 export interface FilaUsuario {
   email: string;
@@ -40,8 +41,19 @@ export interface FilaUsuario {
 
 // Asignación de roles en UN click: cada fila tiene los chips de rol; tocar un chip asigna.
 // Tocar el chip ya activo lo quita (vuelve al automático: profe si es del claustro).
-export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: FilaUsuario[]; miEmail: string; puedeEmular?: boolean }) {
-  const [datos, setDatos] = useState(filas);
+export function RolesGrid({
+  datos,
+  setDatos,
+  grupos,
+  miEmail,
+  puedeEmular = false,
+}: {
+  datos: FilaUsuario[];
+  setDatos: React.Dispatch<React.SetStateAction<FilaUsuario[]>>;
+  grupos: GrupoVista[];
+  miEmail: string;
+  puedeEmular?: boolean;
+}) {
   const [busqueda, setBusqueda] = useState('');
   const [guardando, setGuardando] = useState<string | null>(null);
   const [nuevoEmail, setNuevoEmail] = useState('');
@@ -88,13 +100,43 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
     }));
   }
 
+  /** Los grupos de cada persona, y la unión de los módulos que le dan. */
+  const gruposPorEmail = useMemo(() => {
+    const mapa = new Map<string, { nombres: string[]; modulos: Module[] }>();
+    for (const g of grupos) {
+      for (const email of g.miembros) {
+        const actual = mapa.get(email) ?? { nombres: [], modulos: [] };
+        actual.nombres.push(g.nombre);
+        for (const m of g.modulos) if (!actual.modulos.includes(m)) actual.modulos.push(m);
+        mapa.set(email, actual);
+      }
+    }
+    return mapa;
+  }, [grupos]);
+
+  function accesoDe(f: FilaUsuario) {
+    return {
+      role: rolEfectivo(f),
+      modulosExtra: f.modulosExtra,
+      modulosBloqueados: f.modulosBloqueados,
+      modulosGrupos: gruposPorEmail.get(f.email.toLowerCase())?.modulos ?? [],
+    };
+  }
+
+  /** Qué grupos de esta persona dan este módulo (para explicarlo al pasar por encima). */
+  function gruposQueDan(f: FilaUsuario, m: Module): string[] {
+    return grupos.filter((g) => g.miembros.includes(f.email.toLowerCase()) && g.modulos.includes(m)).map((g) => g.nombre);
+  }
+
   /** Marca/desmarca un módulo para una persona y guarda la lista completa resultante. */
   function alternarModulo(fila: FilaUsuario, modulo: Module) {
     const rol = rolEfectivo(fila);
-    const actuales = modulosDe({ role: rol, modulosExtra: fila.modulosExtra, modulosBloqueados: fila.modulosBloqueados });
+    const acceso = accesoDe(fila);
+    const actuales = modulosDe(acceso);
     const quiere = actuales.includes(modulo) ? actuales.filter((m) => m !== modulo) : [...actuales, modulo];
 
-    const base = rol ? ROLE_MODULES[rol] : [];
+    // Lo que ya le dan su rol y sus grupos; lo demás es el ajuste a mano (igual que el servidor).
+    const base: Module[] = rol ? [...ROLE_MODULES[rol], ...acceso.modulosGrupos] : [];
     const modulosExtra = MODULES.filter((m) => quiere.includes(m) && !base.includes(m));
     const modulosBloqueados = MODULES.filter((m) => !quiere.includes(m) && base.includes(m));
 
@@ -129,7 +171,7 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
   }
 
   function nModulos(f: FilaUsuario): number {
-    return modulosDe({ role: rolEfectivo(f), modulosExtra: f.modulosExtra, modulosBloqueados: f.modulosBloqueados }).length;
+    return modulosDe(accesoDe(f)).length;
   }
 
   return (
@@ -148,6 +190,7 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
       <ul className="space-y-1.5">
         {visibles.map((f) => {
           const efectivo = rolEfectivo(f);
+          const susGrupos = gruposPorEmail.get(f.email.toLowerCase())?.nombres ?? [];
           return (
             <li
               key={f.email}
@@ -159,7 +202,12 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
                     {f.nombre ?? f.email}
                     {f.email === miEmail && <span className="ml-1 text-xs text-zinc-500">(tú)</span>}
                   </p>
-                  <p className="truncate text-xs text-zinc-500">{f.email}</p>
+                  <p className="truncate text-xs text-zinc-500">
+                    {f.email}
+                    {susGrupos.length > 0 && (
+                      <span className="text-indigo-700 dark:text-indigo-300"> · {susGrupos.join(', ')}</span>
+                    )}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   {guardando === f.email && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />}
@@ -267,7 +315,15 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
                               .filter((m) => !moduloDesactivado(m))
                               .map((m) => MODULE_LABELS[m])
                               .join(', ')}
-                        . Aquí puedes añadir o quitar módulos solo a esta persona.
+                        .
+                        {susGrupos.length > 0 && (
+                          <>
+                            {' '}
+                            Además está en {susGrupos.length === 1 ? 'el grupo' : 'los grupos'}{' '}
+                            <strong>{susGrupos.join(', ')}</strong>.
+                          </>
+                        )}{' '}
+                        Aquí puedes añadir o quitar módulos solo a esta persona.
                       </>
                     ) : (
                       'Sin rol no hay acceso a nada: asígnale uno antes de afinar módulos.'
@@ -275,11 +331,8 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {MODULES.filter((m) => !moduloDesactivado(m)).map((m) => {
-                      const origen = origenModulo(
-                        { role: efectivo, modulosExtra: f.modulosExtra, modulosBloqueados: f.modulosBloqueados },
-                        m,
-                      );
-                      const activo = origen === 'rol' || origen === 'extra';
+                      const origen = origenModulo(accesoDe(f), m);
+                      const activo = origen === 'rol' || origen === 'grupo' || origen === 'extra';
                       const sensible = MODULOS_SENSIBLES.includes(m);
                       return (
                         <button
@@ -294,14 +347,18 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
                                 ? 'Quitado a mano a esta persona'
                                 : origen === 'rol'
                                   ? `Le viene del rol ${ROLE_LABELS[efectivo!]}`
-                                  : 'No lo tiene'
+                                  : origen === 'grupo'
+                                    ? `Le viene del grupo ${gruposQueDan(f, m).join(', ')}`
+                                    : 'No lo tiene'
                           }
                           aria-pressed={activo}
                           className={`inline-flex h-10 items-center gap-1 rounded-lg px-3 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40 ${
                             activo
                               ? origen === 'extra'
                                 ? 'bg-emerald-600 text-white'
-                                : 'bg-blue-600 text-white'
+                                : origen === 'grupo'
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-blue-600 text-white'
                               : origen === 'bloqueado'
                                 ? 'bg-rose-50 text-rose-600 line-through dark:bg-rose-500/10 dark:text-rose-300'
                                 : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
@@ -316,6 +373,9 @@ export function RolesGrid({ filas, miEmail, puedeEmular = false }: { filas: Fila
                   <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                     <span className="inline-flex items-center gap-1">
                       <span className="inline-block h-2 w-2 rounded-sm bg-blue-600" /> del rol
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-indigo-600" /> de un grupo
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <span className="inline-block h-2 w-2 rounded-sm bg-emerald-600" /> dado a mano
