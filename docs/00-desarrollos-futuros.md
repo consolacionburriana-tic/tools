@@ -44,12 +44,20 @@ todo el centro**; los «subaccesos» quedan para más adelante. Lo demás lo dec
   está en la API pero no en la pantalla todavía.
 - Color de «viene de un grupo»: índigo (no es de estado ni de identidad de módulo).
 
-### Sustituciones puntuales de Infantil y Primaria (`32-sustituciones.md`)
+### Sustituciones puntuales de Infantil y Primaria (13-nov-2026) — preguntas para David
 
-Antes de implementar el buscador y los avisos, concretar:
+Ficha revisada contra Neon: [`32-sustituciones.md`](./32-sustituciones.md), §3. **No bloquean**:
+cada una tiene un valor por defecto y se cambia en `CONFIGURACION.sustituciones`.
 
-1. Cómo se corresponden las actividades reales del horario con «Codocencia, Tut. indiv., J.E.,
-   A.L., P.T., Godly, TIC, Pastoral, Gabinete y Dirección».
+1. ¿Un profe con **hora libre** se propone? ¿En qué puesto? (por defecto: no sola, sí en el desplegable).
+2. Si en la clase ya hay **un segundo profe**, ¿se queda él con el grupo antes que nadie? (sí).
+3. **«Gabinete»** no sale en ningún horario: ¿es Orientación? (sí, lo que diga «Orientación»).
+4. ¿Alguna hora más es liberable (atención a familias, ciclo, Innovación, COCOPE, Taller…)? (ninguna).
+5. Una **baja** de varios días: ¿día a día o «de tal a tal fecha»? (día a día + «Repetir el día siguiente»).
+6. ¿Secretaría y TIC ven el **motivo** concreto (salud)? (sí).
+7. **Infantil en septiembre y junio** no tiene horario propio en Neon: ¿usa el ordinario? (sí, con aviso).
+8. El cuadro **«HORARIO SUSTITUCIONES»** del `.docx` de primaria: ¿qué es? (se ignora).
+9. Buzón de **Dirección titular** para el informe mensual (`SUSTITUCIONES_INFORME_COPIA`).
 
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
 
@@ -1262,8 +1270,8 @@ borrar los planes temporales quedaron sin repasar a mano, por si alguna vez se m
 
 ## Backlog de módulos futuros (mencionados, sin desarrollar todavía)
 
-- Sustituciones puntuales del profesorado: ficha funcional creada; falta configurar el buzón de
-  Dirección titular y validar el mapeo de actividades en [`32-sustituciones.md`](./32-sustituciones.md).
+- Sustituciones puntuales del profesorado: ficha con plan técnico completo y listo para
+  implementar ([`32-sustituciones.md`](./32-sustituciones.md)); quedan las preguntas de arriba, con valor por defecto.
 
 ## Registro ABC · ideas para rellenar aún más rápido (26-oct-2026)
 - Sugerir «¿Cuándo ocurre?» según la hora y el horario del colegio (hoy no hay horas de patio/almuerzo
