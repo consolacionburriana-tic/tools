@@ -6,8 +6,10 @@ defecto y **no bloquean** empezar) · plan técnico ✅ · implementado ⬜
 Idea y primer plan de Jose Miguel Batalla (12-nov-2026, con David). Revisado contra el código y
 contra los horarios reales de Neon el 13-nov-2026 (ver §1: lo que cambió y por qué).
 
-Ruta: `/gestion/sustituciones` (secciones **Hoy · Historial · Números**). Grupo del escritorio:
-**Organización del centro** (teal).
+Ruta: `/gestion/sustituciones` (secciones **Hoy · Disponibilidad · Historial · Números**, y un
+enlace a **Ajustes** de los correos). Grupo del escritorio: **Organización del centro** (teal).
+Para todo el claustro, sin el módulo: **`/gestion/mis-sustituciones`** y un aviso en «Ahora» del
+escritorio cuando te toca cubrir algo.
 
 Cuando un profe de infantil o primaria falta unas horas, Jefatura tiene que decidir quién entra
 en cada una de sus clases, avisar a cada sustituto y al ausente, y llevar la cuenta de cuántas
@@ -30,7 +32,8 @@ propone a quién mandar, por la prioridad del centro → reviso, confirmo y sale
 | **Hay que cubrirla** | Sesión ausente en la que el ausente es quien da la clase a un grupo. Si no (era codocencia, una reunión…), cuenta pero no necesita sustituto. |
 | **Cobertura** | Sesión ausente con sustituto asignado. |
 | **Ocupación** | Lo que un posible sustituto está haciendo a esa hora según su horario (una clase, una codocencia, una reunión de Pastoral, nada…). |
-| **Nivel** | El escalón de la lista de prioridad en que cae una ocupación (`Codocencia` es el 1). Solo las ocupaciones con nivel son «liberables». |
+| **Nivel** | El escalón de la lista de prioridad en que cae una ocupación (`Codocencia` es el 1). Lo da el horario, igual para todos. |
+| **Disponibilidad** | Lo dispuesto que está **cada profe en cada franja** de su semana: **Sí** · **Si hace falta** · **Solo urgencia** · **No**. Sale sola del horario y Jefatura la retoca a mano (decisión 15). Es lo primero que ordena. |
 
 ---
 
@@ -88,7 +91,7 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
 2. **Acceso.** Módulo `sustituciones`, que ven Jefatura (`jefe`), Dirección (`direccion`; titular
    y pedagógica comparten rol, David 12-nov-2026), Secretaría y TIC (estos dos y `supertic` lo
    reciben solos al entrar en `MODULES`, ver `permissions.ts`). No va a orientación ni al
-   claustro. Quien tiene el módulo lo ve y lo edita todo (no hay rol de solo lectura).
+   claustro: el resto del profesorado solo ve **sus** sustituciones (decisión 16). Quien tiene el módulo lo ve y lo edita todo (no hay rol de solo lectura).
 3. **Una ausencia es un profe, un día y un motivo.** Se eligen las sesiones concretas de ese día
    (David, 12-nov-2026). Puede haber dos ausencias del mismo profe el mismo día (a 1ª por
    médico y a 5ª por una salida); no pueden **solaparse** en horas.
@@ -127,11 +130,10 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
      misma propuesta, para que la propuesta no reparta a la misma persona dos veces);
    - no es responsable de un **Oratorio** ese día a esa hora (`ora_sesiones` con estado distinto
      de `anulado`; el oratorio lo lleva fuera de su horario);
-   - **todas** sus ocupaciones que solapan tienen nivel (decisión 7). Si tiene varias, su nivel
-     es el **peor** (el número más alto). Con una sola ocupación sin nivel, no es candidato.
-   - Sin ninguna ocupación (hora libre): ver pregunta P1. Por defecto **no se propone sola**, pero
-     sale en el desplegable en el grupo «Con hora libre» si ese día tiene clase antes **y**
-     después (está en el colegio).
+   - su **disponibilidad** en esa franja (decisión 15) no es **No**. Si varias ocupaciones
+     solapan, manda la **peor** disponibilidad y el **peor** nivel.
+   - Una **hora libre** (nada en el horario) solo cuenta si ese día tiene algo antes **y** después
+     (está en el colegio); por defecto es «Solo urgencia» (P1).
 7. **La lista de prioridad de David, traducida al horario real** (comprobado en Neon el
    13-nov-2026). Vive en `CONFIGURACION.sustituciones.niveles`, en este orden; gana el **primer**
    nivel que case. Las etiquetas se comparan normalizadas (mayúsculas, sin acentos):
@@ -150,18 +152,22 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
    | 9 | Gabinete | etiqueta contiene `ORIENTACION` (**supuesto**, P3) | 2 sesiones |
    | 10 | Dirección | `coordinacion`, etiqueta empieza por `DIRECCION` | 27 sesiones, 1 profe |
 
-   **No son liberables** (no tienen nivel): clase o tutoría propia como `principal`, atención a
-   familias y a alumnado, departamento, Coordinación/Reunión de ciclo, COCOPE, Innovación,
-   Comunicación, ETE, Equipo directivo, Almuerzo, Taller de Pensamiento Computacional, Huerto,
-   Eucaristía y cualquier «Otros» (pregunta P4 por si alguna debería serlo).
+   **Sin nivel**: clase o tutoría propia como `principal` (nunca liberable: dejaría otra clase
+   sola), atención a familias y a alumnado, departamento, Coordinación/Reunión de ciclo, COCOPE,
+   Innovación, Comunicación, ETE, Equipo directivo, Almuerzo, Taller de Pensamiento
+   Computacional, Huerto, Eucaristía y cualquier «Otros». Las que no son clase propia pueden
+   ponerse a mano en «Solo urgencia» o más desde la rejilla de disponibilidad (decisión 15); por
+   defecto, atención a familias y a alumnado ya salen en «Solo urgencia» (P4).
    Sondeo con estos niveles (primaria, mañanas): entre 2 y 12 candidatos por hora; **el martes a
    6ª salen 0** (todo el claustro está en la reunión de Coordinación). Por eso «Sin cubrir» es un
    estado normal, no un error.
-8. **Orden dentro de un nivel (el reparto).** 1) quien **continúa**: ya va a cubrir la sesión
-   anterior o siguiente de esta misma ausencia (el mismo adulto toda la mañana en infantil);
-   2) **menos coberturas en los últimos 30 días**; 3) nombre. La propuesta elige el primero de
-   cada sesión, en orden de hora, y lo descuenta antes de la siguiente (decisión 6). Junto a cada
-   nombre, en el desplegable, sus coberturas del mes («· 3 este mes»).
+8. **Orden de los candidatos (y el reparto).** 1) **disponibilidad**: Sí, luego Si hace falta;
+   2) **nivel** de la lista de David (sin nivel, al final); 3) quien **continúa** (ya va a cubrir la sesión anterior o
+   siguiente de esta misma ausencia: el mismo adulto toda la mañana en infantil); 4) **menos
+   coberturas en los últimos 30 días**; 5) nombre. La propuesta elige el primero de cada sesión, en
+   orden de hora, y lo descuenta antes de la siguiente (decisión 6). **«Solo urgencia» nunca se
+   elige sola**: sale en el desplegable, en su grupo, para que Jefatura lo decida. Junto a cada
+   nombre, sus coberturas del mes («· 3 este mes»).
 9. **Ciclo de vida.** La propuesta **no se guarda** (vive en la pantalla hasta confirmar).
    Confirmar crea la ausencia y sus sesiones **en una sola escritura** (`db.batch`) y **vuelve a
    comprobar en el servidor** que ningún sustituto se ha ocupado mientras tanto (dos personas de
@@ -170,11 +176,17 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
    cubrir»), **añadir o quitar** una hora, editar indicaciones, **anular** la ausencia (el profe al
    final viene: `estado = 'anulada'`, no se borra, deja de contar) y **reenviar** avisos. Las
    ausencias no se borran nunca (04-convenciones: histórico).
-10. **Correos** (perfil nuevo `sustituciones` en `email.ts`; plantillas en `coberturas-email.ts`).
-    Salen **como quien confirma** (`mensaje.como`, igual que Oratorios: de compañero a compañero,
-    y las respuestas le llegan a él):
-    - **A cada sustituto, uno** con todas sus horas de esa ausencia: «Gracias por cubrir…», y por
-      hora: fecha, hora, **grupo**, materia, aula; y las **indicaciones** si las hay. **Sin motivo.**
+10. **Correos** (perfil nuevo `sustituciones` en `email.ts`; plantillas en `coberturas-email.ts`,
+    con el mismo estilo que `oratorios-email.ts`: de compañero a compañero, sin firmas ni logos, y
+    un **bloque por hora** con raya azul que es lo que se busca al abrirlo). Salen **como quien
+    confirma** (`mensaje.como`, y las respuestas le llegan a él). Los textos se editan en Ajustes
+    (decisión 17); **cuándo y dónde** no se pueden quitar:
+    - **El asunto dice la hora y el sitio**: `Sustitución · mar 17 nov · 10:30 · 2º B (aula 2B)`;
+      con varias horas, `Sustituciones · mar 17 nov · 10:30 y 12:30 · 2º B`.
+    - **A cada sustituto, uno** con todas sus horas de esa ausencia. Cada bloque, en grande la
+      **hora** («10:30 – 11:15 · martes 17 de noviembre») y el **lugar** («Aula 2B · 2º B ·
+      Matemáticas»), las **indicaciones** si las hay y el botón **«Añadir a mi Google Calendar»**
+      (decisión 18). **Sin motivo.**
     - **Al ausente, uno**: qué horas se cubren y quién entra en cada una (y cuáles se quedan sin
       cubrir). Tampoco repite el motivo: lo sabe.
     - **Cambios**: al sustituto nuevo, el aviso normal; al que deja de serlo, «ya no hace falta que
@@ -201,6 +213,50 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     nombres: una reimportación de horarios **borra y rehace** `hor_sesiones`, así que
     `hor_sesion_id` se guarda **sin FK**, solo como pista.
 
+15. **Rejilla de disponibilidad** (la de Lucía en la ESO, con el patrón de la de Oratorios). Por
+    profe y franja de su semana, uno de cuatro estados, con icono de lucide y su texto (nada de
+    emojis en pantalla, `diseno.md`):
+
+    | Estado | Icono | Quiere decir | Sale solo del horario cuando a esa hora tiene… |
+    |---|---|---|---|
+    | **Sí** | `Smile` (verde) | Intentamos que sí | Ya está en el aula, Codocencia, Tut. indiv. |
+    | **Si hace falta** | `Meh` (neutro) | Disponible, sin más | J.E., A.L., P.T., Godly, TIC, Pastoral, Gabinete, Dirección |
+    | **Solo urgencia** | `Frown` (ámbar) | Disponible si no hay otra, pero intentamos que no | Atención a familias o a alumnado, hora libre en el colegio |
+    | **No** | `Ban` (gris) | No se le propone | Clase propia, y todo lo demás |
+
+    El cálculo automático es la columna derecha (P10); **solo se guarda lo que Jefatura cambia a
+    mano** (`sust_disponibilidad`), por **día + hora de inicio y fin** y curso, no por id de tramo
+    (como `ora_disponibilidad`: reimportar horarios no lo borra). Una clase propia como principal
+    **no** se puede subir de «No». Un botón «Volver a lo del horario» borra los retoques de un
+    profe. La retocan quienes tienen el módulo (P11).
+16. **«Mis sustituciones», para todo el claustro.** Quien tiene coberturas **no necesita el
+    módulo**: basta con la sesión (`requireSession`) y solo ve **lo suyo**, casado por su correo
+    (`getProfePorEmail`).
+    - En el **escritorio**, franja «Ahora»: aviso «Tus sustituciones» cuando tiene alguna hoy o en
+      los próximos 7 días («Hoy a 3ª en 2º B, aula 2B» / «3 en los próximos días»). Sin ninguna, no
+      sale nada.
+    - **`/gestion/mis-sustituciones`**: próximas y de los últimos 30 días, cada una con fecha, hora,
+      grupo, materia, aula, a quién cubre (sin motivo), indicaciones y «Añadir a mi Google
+      Calendar». Si es él quien falta, «Te cubren»: quién entra en cada hora.
+    - Nada más: ni cifras de otros, ni rejilla, ni historial ajeno.
+17. **Plantillas de correo editables**, en `/gestion/sustituciones/ajustes` (un enlace en la página,
+    no una sección). Cuatro: **aviso al sustituto**, **al ausente**, **cambio** y **anulación**
+    (el informe mensual no: es una tabla). De cada una se edita el **asunto** y el **texto de antes
+    y de después** de los bloques, con variables `{nombre}` `{ausente}` `{fecha}` `{horas}`
+    `{grupo}` `{aula}` `{quien}` (botones que las insertan). Los bloques de hora y lugar los pone
+    siempre el código. **Vista previa en vivo** con datos de ejemplo, «Enviarme una prueba» y
+    «Volver al texto de fábrica». Se guardan en `cfg_ajustes` (clave `sustituciones.correos`); sin
+    nada guardado, el de fábrica. El texto se escapa (como en Evaluaciones).
+18. **«Añadir a mi Google Calendar» es un enlace, no una integración.** Un enlace a
+    `https://calendar.google.com/calendar/render?action=TEMPLATE` con título («Sustitución · 2º B ·
+    Matemáticas»), fechas en hora de Madrid (`ctz=Europe/Madrid`), lugar (el aula) y detalles
+    (indicaciones). Cada uno se lo crea si quiere, en su calendario, al tocarlo: **la app no crea
+    eventos ni pide permisos de Calendar** (David, 13-nov-2026). Uno por hora, en el correo y en
+    «Mis sustituciones». Función pura `enlaceGoogleCalendar()` en `coberturas.ts`, con test.
+19. **Quién ha cubierto más** (como «A quién se ha molestado más» de Oratorios). En Números, profe ×
+    mes / trimestre / curso, ordenado de más a menos con barra, y cuántas fueron de «Solo
+    urgencia». Es información para repartir mejor, no un marcador: aquí, si te toca, te toca.
+
 ---
 
 ## 3. Preguntas para David (cada una con su valor por defecto: no bloquean)
@@ -210,15 +266,17 @@ Al responder, la respuesta sube a §2 y se borra de aquí y de `00-desarrollos-f
 
 | # | Pregunta | Por defecto |
 |---|---|---|
-| P1 | Un profe **sin nada** a esa hora (hora libre): ¿se le propone? ¿En qué puesto de la lista? En primaria hay ~60 horas así por semana, repartidas entre 24 profes. | No se propone sola; aparece en el desplegable como «Con hora libre» (`proponerLibres: false`). |
+| P1 | Un profe **sin nada** a esa hora (hora libre): ¿se le propone? En primaria hay ~60 horas así por semana, repartidas entre 24 profes. | «Solo urgencia»: sale en el desplegable, nunca elegido solo. |
 | P2 | Si en la clase del ausente **ya hay un segundo profe** (codocencia en esa misma clase), ¿se queda él con el grupo antes que nadie? | Sí: nivel 0, «Ya está en el aula». |
 | P3 | **«Gabinete»** no sale en ningún horario. ¿Es Orientación (`DPTO. ORIENTACIÓN`, «Reunión Orientación»)? ¿Quién es? | Lo que tenga «Orientación» en la etiqueta. |
-| P4 | ¿Alguna otra hora es liberable? Atención a familias, reunión de ciclo, Innovación, COCOPE, Comunicación, Taller de Pensamiento Computacional, Huerto… | Ninguna. |
+| P4 | Atención a familias y a alumnado salen como «Solo urgencia» (el ejemplo de Lucía). ¿Alguna más? Reunión de ciclo, Innovación, COCOPE, Comunicación, Taller… | Ninguna más; se suben a mano en la rejilla si hace falta. |
 | P5 | Una **baja** de varios días: ¿se registra día a día, o quieres un «de tal a tal fecha» que repita la propuesta cada día? | Día a día, con un botón «Repetir el día siguiente lectivo» en la ficha (fase 2). |
 | P6 | ¿Secretaría y TIC deben ver el **motivo** concreto (salud)? | Sí: tienen el módulo entero, como el resto. |
 | P7 | **Infantil en septiembre y junio**: en Neon solo hay horario de septiembre/junio de primaria. ¿Infantil mantiene el ordinario? | Sí, el ordinario, con un aviso en pantalla. |
 | P8 | El `.docx` de primaria trae un cuadro **«HORARIO SUSTITUCIONES»** que el importador salta. ¿Es el cuadro oficial de quién cubre cada hora? Si lo es, podría ser la fuente de la prioridad. | Se ignora; manda la lista de niveles. |
 | P9 | El buzón de **Dirección titular** para el informe (`SUSTITUCIONES_INFORME_COPIA`). | Sin él, el informe va solo a Jefatura y la pantalla lo dice. |
+| P10 | ¿Te vale cómo sale sola la disponibilidad (tabla de la decisión 15)? Sobre todo: ¿Codocencia y Tut. indiv. en «Sí» y el resto de tu lista en «Si hace falta»? | La tabla tal cual. |
+| P11 | ¿Quién marca la rejilla: solo Jefatura, o cada profe la suya (como Lucía en la ESO, que la llevaba ella)? | Jefatura (quien tiene el módulo). Que cada uno proponga la suya, idea para más adelante. |
 
 ---
 
@@ -277,6 +335,18 @@ sust_sesiones
   created_at, updated_at
   index (ausencia_id) · index (sustituto_id, fecha) · index (fecha)
 
+// Los retoques a mano de la disponibilidad (decisión 15). Lo que no está aquí sale del horario.
+sust_disponibilidad
+  id uuid pk
+  profe_id uuid not null → edu_teachers
+  academic_year text not null
+  dia_semana integer not null              // 1-5
+  hora_inicio text not null, hora_fin text not null   // por horas, no por tramo
+  estado text not null                     // 'si'|'si_hace_falta'|'urgencia'|'no'
+  nota text                                // «los martes acompaña a 5º a piscina»
+  updated_by_email text, updated_at timestamp
+  unique (profe_id, academic_year, dia_semana, hora_inicio)
+
 // Un informe mensual mandado (idempotencia del cron).
 sust_informes
   id uuid pk · mes text not null unique ('2026-10') · destinatarios jsonb · resumen jsonb · enviado_at timestamp · created_at
@@ -300,8 +370,16 @@ sustituciones: {
     { clave: 'otros', nombre: 'Otros', pideNota: true },
   ],
   enAulaPrimero: true,      // P2
-  proponerLibres: false,    // P1
   diasReparto: 30,          // ventana del desempate «quien menos ha cubierto»
+  avisoProximosDias: 7,     // «Tus sustituciones» en el escritorio
+  // Disponibilidad automática (decisión 15, P10): qué estado sale de cada nivel. Lo que no está
+  // aquí es 'no'. 'libre' = hora libre en el colegio.
+  disponibilidadPorDefecto: {
+    en_aula: 'si', codocencia: 'si', tut_indiv: 'si',
+    je: 'si_hace_falta', al: 'si_hace_falta', pt: 'si_hace_falta', godly: 'si_hace_falta',
+    tic: 'si_hace_falta', pastoral: 'si_hace_falta', gabinete: 'si_hace_falta', direccion: 'si_hace_falta',
+    atencion_padres: 'urgencia', atencion_alumnos: 'urgencia', libre: 'urgencia',   // P1, P4
+  },
   niveles: [                // decisión 7; texto normalizado (MAYÚSCULAS, sin acentos)
     { clave: 'codocencia', nombre: 'Codocencia', actividades: ['clase', 'tutoria'], noPrincipal: true, conGrupo: true },
     { clave: 'tut_indiv',  nombre: 'Tut. indiv.', etiquetaContiene: ['TUTORIA INDIVIDUAL'] },
@@ -326,6 +404,12 @@ Más su test en `configuracion.test.ts` (fija los valores de Consolación, como 
   `Ocupacion`, `Candidato`, `Propuesta`.
 - `solapa(a, b)` (sacar la de `oratorios.ts` a un sitio común o copiarla con su test: es una línea).
 - `nivelDe(ocupacion, profeId, niveles)` → clave del primer nivel que case o `null`.
+- `disponibilidadDe(ocupaciones, retoques, config)` → `'si' | 'si_hace_falta' | 'urgencia' | 'no'`
+  (lo automático de la decisión 15, pisado por el retoque si lo hay; nunca sube una clase propia).
+- `rejillaDisponibilidad(dia, profeId, retoques, config)` → la semana de un profe para pintarla;
+  `mapaSemana(...)` → por franja, cuántos hay en cada estado (la vista «La semana»).
+- `enlaceGoogleCalendar({ titulo, fecha, horaInicio, horaFin, lugar, detalles })` (decisión 18).
+- `pintarPlantilla(plantilla, variables)` con escapado, y `PLANTILLAS_DE_FABRICA`.
 - `sesionesDelAusente(dia, profeId)` → sus sesiones, cada una con `hayQueCubrir` y, si hay otro
   profe en ella, `enAula` (decisión 5).
 - `proponerCoberturas({ dia, ausenteId, sesionesElegidas, ausentesDelDia, ocupadosDelDia,
@@ -338,7 +422,10 @@ Más su test en `configuracion.test.ts` (fija los valores de Consolación, como 
   que solapan a medias; candidato con dos ocupaciones (una sin nivel → fuera); el mismo
   candidato no sale dos veces a la misma hora; otro ausente del día excluido; oratorio fechado
   excluido; baja larga vigente (el sustituto hereda el horario, el titular no es candidato);
-  continuidad gana al reparto; 0 candidatos → `elegido = null`; codocente en el aula → nivel 0;
+  continuidad gana al reparto; «Si hace falta» de nivel 3 va antes que «Solo urgencia» de nivel 1;
+  «Solo urgencia» nunca elegido solo; un retoque a «No» saca a alguien; un retoque no sube una
+  clase propia; 0 candidatos → `elegido = null`; codocente en el aula → nivel 0;
+  `enlaceGoogleCalendar` con hora de Madrid y caracteres raros en el título;
   `Reunión Orientación | Tutoría individual` cae en Tut. indiv. (primer nivel que casa).
 
 ### 4.5 Servidor (`src/lib/coberturas-server.ts`)
@@ -347,8 +434,13 @@ Más su test en `configuracion.test.ts` (fija los valores de Consolación, como 
   ámbitos; sesiones del día de la semana con tramo, asignación, actividad, grupos, profes,
   materia, aula; `edu_sustituciones`; `edu_teachers` activos (solo id, nombre mostrado, correo);
   `sust_sesiones` y `sust_ausencias` confirmadas de esa fecha; `ora_sesiones` de esa fecha no
-  anuladas; cargas (coberturas por sustituto en `diasReparto`). Pide solo columnas (nada de
-  `select *` en `edu_teachers`).
+  anuladas; `sust_disponibilidad` del curso; cargas (coberturas por sustituto en
+  `diasReparto`). Pide solo columnas (nada de `select *` en `edu_teachers`).
+- `semanaTipo(academicYear)`: lo mismo sin fecha (el horario ordinario de la semana) para pintar
+  la rejilla de disponibilidad; `guardarRetoque`, `borrarRetoques(profeId)`.
+- `misSustituciones(email)` (lo de la decisión 16, solo lo suyo) y `avisoEscritorio(email)` (una
+  consulta ligera para «Ahora»: hoy + próximos días).
+- `getPlantillas()` / `guardarPlantillas()` sobre `cfg_ajustes` (`ajustes-server.ts`).
 - `confirmarAusencia(entrada, quien)`: valida (fecha lectiva, no solape con otra ausencia del
   mismo profe, sustitutos libres **releyendo** la BBDD), inserta con `db.batch`, y luego manda los
   correos y actualiza `aviso_estado`. Devuelve la ausencia y los fallos de correo, si los hay.
@@ -365,12 +457,15 @@ Más su test en `configuracion.test.ts` (fija los valores de Consolación, como 
 | `PATCH /api/sustituciones/admin/ausencias/[id]` | `{ accion: 'cambiar' \| 'anadir' \| 'quitar' \| 'indicaciones' \| 'anular', … }` |
 | `POST /api/sustituciones/admin/ausencias/[id]/reenviar` | Reenvía los avisos en `error` (o todos con `todos: true`). |
 | `GET /api/sustituciones/admin/informe?mes=2026-10` · `POST` | Vista previa · enviar ahora. |
+| `GET /api/sustituciones/admin/disponibilidad?profeId=` · `PUT` · `DELETE` | Rejilla de un profe · guardar un retoque · «Volver a lo del horario». |
+| `GET /api/sustituciones/admin/plantillas` · `PUT` · `POST …/plantillas/prueba` | Leer · guardar · enviarme una prueba. |
+| `GET /api/sustituciones/mias` | Lo mío (`requireSession`, filtrado por el correo de la sesión, **sin** `requireModule`). |
 | `GET /api/sustituciones/cron/informe` | Cron del día 1 (`CRON_SECRET`), mes anterior, idempotente. |
 
 ### 4.7 Pantallas (todo con piezas de `src/components/ui/`, ver [`diseno.md`](./diseno.md))
 
 `layout.tsx`: `PaginaModulo modulo="sustituciones" ancho="normal"`, `secciones` **Hoy ·
-Historial · Números**, acción principal **«Nueva ausencia»** (`buttonVariants({ size: 'sm' })`
+Disponibilidad · Historial · Números**, acción principal **«Nueva ausencia»** (`buttonVariants({ size: 'sm' })`
 con `Plus`, enlace a `/gestion/sustituciones/nueva`). Modelo de cómo queda: Nouvinguts.
 
 - **Hoy** (`page.tsx`, `h1` oculto). Arriba, la fecha (`Input type="date"`, hoy por defecto, con
@@ -401,23 +496,67 @@ con `Plus`, enlace a `/gestion/sustituciones/nueva`). Modelo de cómo queda: Nou
   mientras no haya salido el correo), estado del aviso y «Reenviar». Añadir hora (las que le
   quedan ese día). Abajo, `ConfirmarEnLinea` «Anular ausencia» (`destructive`): «Se avisará a 3
   personas de que ya no hace falta».
+- **Disponibilidad** (`disponibilidad/page.tsx`). Dos vistas con `Filtros` (no un segundo
+  segmentado: ya hay secciones): **Por profe** y **La semana**.
+  - *Por profe*: `Selector` del profe y su semana (días × franjas de su rejilla); en cada casilla,
+    **lo que tiene en el horario** («Codocencia 3º A», «At. familias») en pequeño y **el estado**
+    (icono + texto) en grande. Tocar cicla Sí → Si hace falta → Solo urgencia → No → Automático, y
+    se guarda solo (`toast`); la casilla retocada lleva una marca «a mano». Las de clase propia,
+    en gris y sin toque. «Volver a lo del horario» con `ConfirmarEnLinea`. Misma apariencia que la
+    rejilla de Oratorios: reutilizar `franjasDeEtapas`/`huecoEn` de `lib/oratorios.ts` y, si el
+    componente se puede compartir **sin cambiar cómo funciona Oratorios**, subirlo a `ui/` y
+    apuntarlo en `diseno.md` (es el segundo módulo que lo usa); si no, uno propio igual de aspecto.
+  - *La semana*: días × franjas de EP (y EI debajo) con, en cada casilla, cuántos hay de cada
+    estado («3 · 2 · 1»), en **ámbar** si no hay ningún Sí ni Si hace falta: dónde va a faltar
+    gente antes de que pase. Tocar abre la lista de esa franja por estado.
+- **Ajustes** (`ajustes/page.tsx`, `EnlaceVolver` + `TituloPagina` «Correos»): las cuatro
+  plantillas (`Filtros` para elegir cuál), `Input` del asunto, dos `Textarea` (antes y después de
+  los bloques), botones de variables, la **vista previa** al lado (debajo en el móvil) tal como
+  llega, y en `BarraAcciones`: «Volver al de fábrica» (`ghost`), «Enviarme una prueba» (`outline`)
+  y **«Guardar»**.
 - **Historial** (`historial/page.tsx`): `Filtros` de mes, profe y motivo (escolar / personal);
   lista de ausencias (fecha, profe, horas, cubiertas / sin cubrir, `Estado` «Anulada» en gris).
-- **Números** (`numeros/page.tsx`): `Segmentado` «Este mes / Curso»; `Cifras` totales; dos tablas
-  (dentro de `Tarjeta`, desplazables): **por profe ausente** (escolar · personal · total) y **por
-  sustituto** (coberturas). «Ver el informe de octubre» y «Enviarlo ahora». Exportar con
+- **Números** (`numeros/page.tsx`): `Filtros` «Este mes / Trimestre / Curso»; `Cifras` totales; dos
+  tablas (dentro de `Tarjeta`, desplazables): **por profe ausente** (escolar · personal · total) y
+  **quién ha cubierto más** (decisión 19: ordenado, con barra, y cuántas de urgencia). «Ver el informe de octubre» y «Enviarlo ahora». Exportar con
   `GuardarEnDrive` queda para fase 2.
 - **Cada ruta con su `loading.tsx`** (`SkeletonPage` + `SkeletonRows`/`SkeletonTabla`), claro y
   oscuro, 390 y 1180 px, 44 px, nada solo al pasar el ratón, `pnpm diseno:guardia` en verde.
 - **Escritorio**: tarjeta en «Organización del centro» con el recuento del día («2 horas sin
-  cubrir hoy», en ámbar si > 0) para quien tiene el módulo.
+  cubrir hoy», en ámbar si > 0) para quien tiene el módulo; y, para **cualquiera** con coberturas
+  próximas, el aviso «Tus sustituciones» en «Ahora» (decisión 16, en `gestion/page.tsx` junto a
+  los demás avisos), que lleva a «Mis sustituciones».
+- **Mis sustituciones** (`src/app/gestion/mis-sustituciones/`, fuera del layout del módulo para
+  no exigirlo; su `layout.tsx` exige solo sesión y pinta `PaginaModulo modulo="sustituciones"`
+  sin secciones ni acción, que solo dibuja la cabecera y no mira permisos): «Próximas» y «Últimos 30 días»,
+  una `Tarjeta` por hora con hora y lugar en grande, a quién cubre, indicaciones y «Añadir a mi
+  Google Calendar» (`buttonVariants({ variant: 'outline' })`, enlace externo). Vacío: «No tienes
+  sustituciones a la vista».
 
-### 4.8 Lo que el agente **no** debe hacer
+### 4.8 Lo que se reutiliza (no se vuelve a escribir)
+
+| Necesito… | Ya existe en… |
+|---|---|
+| El horario de todos, con rejillas, periodos y festivos | `hor_*` (07-horarios); `diaSemana`, `solapa`, `periodoDeFecha` de `lib/oratorios.ts` como modelo |
+| Quién sustituye a quién de forma larga | `esVigente`, `aplicarSustituciones` de `lib/sustituciones.ts` |
+| Quién lleva un Oratorio ese día | `ora_sesiones` |
+| El estilo de correo de compañero a compañero | `lib/oratorios-email.ts` (bloque con raya azul, `mensaje.como`) |
+| Plantillas con variables y escapado | Evaluaciones (`plantillas-correo`) |
+| Una rejilla de disponibilidad por franjas | `components/oratorios/disponibilidad.tsx`, `ora_disponibilidad` |
+| «A quién se ha molestado más» | `components/oratorios/numeros.tsx` |
+| Ajustes guardados sin tabla propia | `cfg_ajustes` + `ajustes-server.ts` |
+| El profe de quien ha iniciado sesión | `getProfePorEmail` de `mihorario-server.ts` |
+| Avisos de «Ahora» en el escritorio | `src/app/gestion/page.tsx` (`avisos.push`) |
+| Envío, perfiles, transporte | `lib/email.ts` |
+
+### 4.9 Lo que el agente **no** debe hacer
 
 - Usar `getPeriodoVigente()` para la fecha, o comparar por `tramo_id`/`orden` (§1, puntos 1-2).
 - Usar `hor_actividades.cubre_sustitucion`.
 - Crear `src/lib/sustituciones*.ts` o tocar los existentes.
-- Poner el motivo en un correo a terceros o en un `console.log`.
+- Poner el motivo en un correo a terceros, en «Mis sustituciones» o en un `console.log`.
+- Crear eventos de Google Calendar desde el servidor o pedir scopes de Calendar (decisión 18).
+- Dejar que «Mis sustituciones» enseñe algo de otra persona.
 - `pnpm db:push`.
 - Inventar la respuesta de una pregunta de §3: se usa el valor por defecto y se dice.
 
@@ -431,7 +570,8 @@ con `Plus`, enlace a `/gestion/sustituciones/nueva`). Modelo de cómo queda: Nou
 - [x] Informe a cuentas de `jefe` más un buzón de Dirección titular (12-nov-2026).
 - [x] Prioridad de David traducida al horario real y comprobada en Neon (13-nov-2026, decisión 7).
 - [x] Revisión del plan: solape por horas, periodo por rejilla, exclusiones, ciclo de vida, salud (13-nov-2026).
-- [ ] Respuestas de David a P1-P9 (no bloquean: hay valor por defecto).
+- [x] Ideas de David del 13-nov-2026 encajadas: plantillas, botón de Calendar, «Mis sustituciones», rejilla de disponibilidad, quién ha cubierto más.
+- [ ] Respuestas de David a P1-P11 (no bloquean: hay valor por defecto).
 
 ### Fase 1 · proponer, confirmar y avisar (lo mínimo que se usa de verdad)
 
@@ -441,7 +581,8 @@ con `Plus`, enlace a `/gestion/sustituciones/nueva`). Modelo de cómo queda: Nou
 - [ ] `coberturas.ts` puro con los tests de §4.4 en verde.
 - [ ] `horarioDelDia` en una tanda; probado contra Neon con un profe de EI y otro de EP, un lunes de octubre y un día de septiembre (aviso de infantil).
 - [ ] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409`.
-- [ ] Perfil `sustituciones` en `email.ts` y `coberturas-email.ts` (sustituto, ausente); probado con un envío real a una cuenta propia; sin motivo.
+- [ ] Perfil `sustituciones` en `email.ts` y `coberturas-email.ts` (sustituto, ausente) con plantillas de fábrica, asunto con hora y lugar y botón «Añadir a mi Google Calendar»; probado con un envío real a una cuenta propia (que el enlace abra el evento bien en el iPad); sin motivo.
+- [ ] Disponibilidad automática (sin rejilla todavía) usada en la propuesta, con «Solo urgencia» fuera de la elección automática.
 - [ ] Pantallas **Nueva ausencia** y **Ficha** (solo ver + reenviar) con `loading.tsx`; claro/oscuro, 390/1180 px; `diseno:guardia` en verde.
 - [ ] Pantalla **Hoy** con cifras y estado vacío.
 - [ ] Tabla maestra de `plataforma.md` y esta ficha al día.
@@ -452,15 +593,25 @@ con `Plus`, enlace a `/gestion/sustituciones/nueva`). Modelo de cómo queda: Nou
 - [ ] Anular ausencia con `ConfirmarEnLinea` y correo a todos.
 - [ ] «Repetir el día siguiente lectivo» (P5).
 - [ ] Tarjeta del escritorio con las horas sin cubrir de hoy.
+- [ ] **Mis sustituciones** y aviso «Tus sustituciones» en «Ahora», para cualquiera del claustro; comprobado con un profe sin el módulo (ve lo suyo y nada más).
+- [ ] **Rejilla de disponibilidad** (Por profe y La semana) con `sust_disponibilidad` (SQL en `pendientes.txt`).
+- [ ] **Ajustes de correos**: plantillas editables en `cfg_ajustes`, vista previa, prueba y volver al de fábrica.
 
 ### Fase 3 · cuentas e informe
 
 - [ ] Historial con filtros.
-- [ ] Números (mes / curso; por ausente y por sustituto).
+- [ ] Números (mes / trimestre / curso; por ausente y quién ha cubierto más, con urgencias).
 - [ ] Informe mensual: vista previa, «Enviarlo ahora», cron del día 1 en `vercel.json`, idempotente con `sust_informes`; `SUSTITUCIONES_INFORME_COPIA` en `.env.local.example`, en la tabla de variables de `04-convenciones-tecnicas.md` y en `08-despliegue-y-fork.md`.
 - [ ] Configurar `SUSTITUCIONES_INFORME_COPIA` en Vercel con el buzón de Dirección titular (P9, David).
 
 ### Más adelante (ideas, no se hacen sin que David las pida)
+
+- **Calendario de sustituciones** (David, 13-nov-2026): ver todas las que hay en marcha en una
+  **semana** entera, días × franjas, con cada cobertura en su hueco (quién falta, quién entra,
+  grupo), y pasar de semana con ◀ ▶. Mismo dato que «Hoy», otra vista (sería una sección más o
+  un `Filtro` Día / Semana en Hoy).
+- **Que cada profe marque su propia rejilla** de disponibilidad (como Lucía en la ESO) y Jefatura
+  la valide (P11).
 
 - **«Hoy cubres…» en el escritorio del sustituto** («Tu día»: «A 3ª entras en 2º B, Matemáticas,
   aula 2B») y en Mi horario, con las indicaciones. Es lo que de verdad se mira a las 8:55; el

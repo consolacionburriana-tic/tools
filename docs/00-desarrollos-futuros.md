@@ -49,15 +49,17 @@ todo el centro**; los «subaccesos» quedan para más adelante. Lo demás lo dec
 Ficha revisada contra Neon: [`32-sustituciones.md`](./32-sustituciones.md), §3. **No bloquean**:
 cada una tiene un valor por defecto y se cambia en `CONFIGURACION.sustituciones`.
 
-1. ¿Un profe con **hora libre** se propone? ¿En qué puesto? (por defecto: no sola, sí en el desplegable).
+1. ¿Un profe con **hora libre** se propone? (por defecto: «Solo urgencia», en el desplegable, nunca elegido solo).
 2. Si en la clase ya hay **un segundo profe**, ¿se queda él con el grupo antes que nadie? (sí).
 3. **«Gabinete»** no sale en ningún horario: ¿es Orientación? (sí, lo que diga «Orientación»).
-4. ¿Alguna hora más es liberable (atención a familias, ciclo, Innovación, COCOPE, Taller…)? (ninguna).
+4. Atención a familias y a alumnado salen como «Solo urgencia». ¿Alguna más (ciclo, Innovación, COCOPE, Taller…)? (ninguna).
 5. Una **baja** de varios días: ¿día a día o «de tal a tal fecha»? (día a día + «Repetir el día siguiente»).
 6. ¿Secretaría y TIC ven el **motivo** concreto (salud)? (sí).
 7. **Infantil en septiembre y junio** no tiene horario propio en Neon: ¿usa el ordinario? (sí, con aviso).
 8. El cuadro **«HORARIO SUSTITUCIONES»** del `.docx` de primaria: ¿qué es? (se ignora).
 9. Buzón de **Dirección titular** para el informe mensual (`SUSTITUCIONES_INFORME_COPIA`).
+10. ¿Vale cómo sale sola la **disponibilidad** (Sí · Si hace falta · Solo urgencia · No, tabla de la decisión 15)?
+11. ¿La rejilla de disponibilidad la marca solo Jefatura o cada profe la suya? (Jefatura).
 
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
 
