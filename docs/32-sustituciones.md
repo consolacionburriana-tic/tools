@@ -1,7 +1,6 @@
 # Sustituciones · cubrir las ausencias del profesorado (Infantil, Primaria y ESO)
 
-**Estado:** plan funcional ✅ (respuestas de David del 13-nov-2026; queda P12, con valor por
-defecto) · plan técnico ✅ · implementado ⬜ (hecho el paso previo: las sustituciones largas de
+**Estado:** plan funcional ✅ (todo respondido por David el 13-nov-2026) · plan técnico ✅ · implementado ⬜ (hecho el paso previo: las sustituciones largas de
 Educamos ya se llaman **Coberturas por baja**, ver más abajo)
 
 Idea y primer plan de Jose Miguel Batalla (12-nov-2026, con David). Revisado contra el código y
@@ -109,12 +108,13 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
 4. **Qué horario tiene alguien en una fecha** (la función clave, `horarioDelDia(fecha)`):
    - Día de la semana de la fecha (1-5). Sábado, domingo o `hor_festivos`: ese día se salta y la
      pantalla lo dice.
-   - Para **cada rejilla**: de los periodos que contienen la fecha y **tienen rejilla con ámbito**
-     de esa etapa, gana el de más `prioridad`. **Sin respaldo al ordinario** (David, 13-nov-2026:
-     el horario de infantil de septiembre y junio se subirá, «ahora no está»): si en el periodo
-     especial que manda esa fecha una etapa no tiene rejilla, la pantalla avisa «Falta el horario
-     de septiembre de infantil: súbelo en Horarios» y los profes de esa etapa salen sin horas ese
-     día (se puede apuntar la ausencia, pero sin propuesta). Para la ESO, ver P12.
+   - Para **cada etapa**: de los periodos que contienen la fecha y **tienen rejilla con ámbito**
+     de esa etapa, gana el de más `prioridad`. **Si no hay nada subido, se mantiene el horario
+     ordinario** (David, 13-nov-2026): en septiembre y junio hoy solo primaria tiene horario
+     propio, así que infantil y la ESO siguen con el ordinario hasta que se suba el suyo, y en
+     cuanto se suba manda solo, sin tocar nada. Vale para cualquier etapa y cualquier periodo
+     especial. En pantalla, una línea discreta lo dice («Infantil: horario ordinario, no hay de
+     septiembre»), para que nadie se extrañe.
    - Sesiones de esas rejillas en ese día, con su tramo (horas), asignación, actividad, grupos,
      profes (rol, `principal`), materia y aula (`hor_sesiones.aula`/`espacio_id` pisa a la de la
      asignación). Solo `tipo = 'sesion'` (recreos, comedor… no se cubren desde aquí).
@@ -308,11 +308,8 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
 
 ## 3. Preguntas para David
 
-Respondidas el 13-nov-2026: P1-P11 (están ya en §2). Queda una, con valor por defecto:
-
-| # | Pregunta | Por defecto |
-|---|---|---|
-| P12 | La **ESO en septiembre y junio**: en Neon esos periodos solo tienen rejilla de primaria. ¿La ESO tiene otro horario esos meses (y se subirá), o sigue con el ordinario? | Lo mismo que infantil: la pantalla avisa de que falta y no propone. Si sigue con el ordinario, se apunta en `CONFIGURACION.sustituciones.etapasSinHorarioEspecial = ['ESO']` y usa el ordinario. |
+Ninguna: todas respondidas el 13-nov-2026 (están en §2). La última, qué horario manda en
+septiembre y junio cuando una etapa no tiene el suyo subido: **el ordinario** (decisión 4).
 
 ---
 
@@ -411,7 +408,6 @@ mismo fichero o en uno de horarios), apuntado en `pendientes.txt` y aplicado con
 ```ts
 sustituciones: {
   etapas: ['EI', 'EP', 'ESO'],
-  etapasSinHorarioEspecial: [],      // P12: etapas que en septiembre/junio siguen con el ordinario
   motivos: [
     { clave: 'actividad_escolar', nombre: 'Actividad escolar', escolar: true },
     { clave: 'medico', nombre: 'Médico' },
@@ -488,8 +484,8 @@ Más su test en `configuracion.test.ts` (fija los valores de Consolación, como 
   propia; el Almuerzo y el Taller de Pensamiento no son liberables; atención a familias cae en
   «Otras»; `Reunión Orientación | Tutoría individual` cae en Tut. indiv.; 0 candidatos →
   `elegido = null`; codocente en el aula → nivel 0; rango con un festivo en medio (se salta);
-  rango de 16 días lectivos → error; periodo especial sin rejilla de la etapa → aviso, sin
-  respaldo; `enlaceGoogleCalendar` con hora de Madrid y caracteres raros.
+  rango de 16 días lectivos → error; periodo especial sin rejilla de la etapa → horario
+  ordinario (y con rejilla propia, la suya); `enlaceGoogleCalendar` con hora de Madrid y caracteres raros.
 
 ### 4.5 Servidor (`src/lib/sustituciones-server.ts`)
 
@@ -551,8 +547,8 @@ cómo queda: Nouvinguts.
      mostrado), **desde** (hoy) y **hasta** (igual que desde; dos `Input type="date"` en una
      fila), motivo (`Selector`; con «Otros», `Campo` + `Input` para la nota). Si algún día no es
      lectivo, se dice y se salta; si el rango pasa de 15 días lectivos o el profe tiene una baja
-     cubierta, `Aviso` con enlace a Profesorado y no se sigue. Si falta el horario de un periodo
-     especial, `Aviso` (decisión 4).
+     cubierta, `Aviso` con enlace a Profesorado y no se sigue. Si una etapa usa el ordinario
+     porque no tiene horario de septiembre o junio, una línea lo dice (decisión 4).
   2. **Sus horas**: un bloque por día (con varios días, el primero abierto y el resto plegados,
      «martes 17 · 4 horas a cubrir»), una fila por sesión (hora, grupo, materia, aula, y
      «Codocencia» / «Reunión»… en gris si no hay que cubrirla) con un `Interruptor`
@@ -630,8 +626,9 @@ cómo queda: Nouvinguts.
 
 ### 4.9 Lo que el agente **no** debe hacer
 
-- Usar `getPeriodoVigente()` para la fecha, comparar por `tramo_id`/`orden`, o caer al ordinario
-  cuando falta el horario de un periodo especial (§1 y decisión 4).
+- Usar `getPeriodoVigente()` para la fecha (elige un periodo para todo el centro) o comparar por
+  `tramo_id`/`orden` (§1 y decisión 4). El periodo se elige **por etapa**, con el ordinario de
+  respaldo.
 - Usar `hor_actividades.cubre_sustitucion`.
 - Tocar las Coberturas por baja más allá de importar sus funciones.
 - Poner el motivo en un correo, en «Mis sustituciones» o en un `console.log`.
@@ -640,7 +637,6 @@ cómo queda: Nouvinguts.
   `misSustitucionesParaTodos`.
 - Poner el color índigo en algo que no sea el icono del módulo.
 - `pnpm db:push`.
-- Inventar la respuesta de P12: se usa el valor por defecto y se dice.
 
 ---
 
@@ -655,7 +651,7 @@ cómo queda: Nouvinguts.
 - [x] Ideas de David del 13-nov-2026: plantillas, botón de Calendar, «Mis sustituciones», rejilla de disponibilidad, quién ha cubierto más.
 - [x] Respuestas de David a P1-P11 (13-nov-2026): ESO, rangos de fechas, cuadro del centro, color propio.
 - [x] **Las sustituciones largas de Educamos pasan a llamarse Coberturas por baja** en pantalla y código, para dejar libre «sustituciones» (13-nov-2026; typecheck, 1.436 tests, lint, guardia y build en verde; la tabla `edu_sustituciones` no cambia).
-- [ ] P12 (no bloquea).
+- [x] Septiembre y junio sin horario propio de una etapa: se mantiene el ordinario (David, 13-nov-2026).
 
 ### Fase 1 · proponer, confirmar y avisar (lo mínimo que se usa de verdad)
 
@@ -663,7 +659,7 @@ cómo queda: Nouvinguts.
 - [ ] `CONFIGURACION.sustituciones` (§4.3) y su test.
 - [ ] Schema `sust_*` en `schema.ts` + `src/db/sql/sustituciones.sql` idempotente + línea en `pendientes.txt`; aplicado con `pnpm db:sql --pendientes` (si no hay `DATABASE_URL`, `[~]` y decirlo).
 - [ ] `sustituciones.ts` puro con los tests de §4.4 en verde.
-- [ ] `horarioDeDias` en una tanda; probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (aviso de infantil).
+- [ ] `horarioDeDias` en una tanda; probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (primaria con su horario de septiembre; infantil y ESO con el ordinario).
 - [ ] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409`.
 - [ ] Perfil `sustituciones` en `email.ts` y `sustituciones-email.ts` (sustituto, codocente en el aula, ausente) con plantillas de fábrica, asunto con hora y lugar y botón «Añadir a mi Google Calendar»; probado con un envío real a una cuenta propia (que el enlace abra el evento bien en el iPad); sin motivo.
 - [ ] Disponibilidad automática (sin rejilla todavía) usada en la propuesta, con «Solo urgencia» fuera de la elección automática.

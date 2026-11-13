@@ -44,14 +44,11 @@ todo el centro**; los «subaccesos» quedan para más adelante. Lo demás lo dec
   está en la API pero no en la pantalla todavía.
 - Color de «viene de un grupo»: índigo (no es de estado ni de identidad de módulo).
 
-### Sustituciones (13-nov-2026) — una pregunta y lo que decidí yo
+### Sustituciones (13-nov-2026) — lo que decidí yo
 
-David respondió el 13-nov-2026 a las once preguntas de [`32-sustituciones.md`](./32-sustituciones.md)
-(ya están en sus decisiones). Queda una, que **no bloquea**:
-
-- **P12. ¿La ESO tiene otro horario en septiembre y junio?** Hoy esos periodos solo tienen rejilla de
-  primaria. Por defecto, igual que infantil: se avisa de que falta y no se propone. Si sigue con el
-  ordinario, es poner `'ESO'` en `CONFIGURACION.sustituciones.etapasSinHorarioEspecial`.
+David respondió el 13-nov-2026 a todas las preguntas de [`32-sustituciones.md`](./32-sustituciones.md)
+(están en sus decisiones; en septiembre y junio, si una etapa no tiene su horario subido, manda el
+ordinario).
 
 Lo que decidí yo al encajar las respuestas (revisar con David):
 
@@ -1280,7 +1277,7 @@ borrar los planes temporales quedaron sin repasar a mano, por si alguna vez se m
 ## Backlog de módulos futuros (mencionados, sin desarrollar todavía)
 
 - Sustituciones puntuales del profesorado: ficha con plan técnico completo y listo para
-  implementar ([`32-sustituciones.md`](./32-sustituciones.md)); queda P12 (arriba), con valor por defecto.
+  implementar ([`32-sustituciones.md`](./32-sustituciones.md)); sin preguntas pendientes.
 
 ## Registro ABC · ideas para rellenar aún más rápido (26-oct-2026)
 - Sugerir «¿Cuándo ocurre?» según la hora y el horario del colegio (hoy no hay horas de patio/almuerzo
