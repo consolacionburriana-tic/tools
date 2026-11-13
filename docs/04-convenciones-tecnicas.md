@@ -62,6 +62,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
 | `PUNTUALIDAD_AVISOS_COPIA` | Correos (separados por comas) que reciben copia del aviso del tercer retraso, además del tutor/a. Vacío = solo el tutor |
+| `SUSTITUCIONES_EMAIL_DIRECCION_TITULAR` | Buzón de Dirección titular que recibe el resumen mensual de sustituciones (junto a todas las cuentas `jefe`) |
 | `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, worker del envío de Evaluaciones, foto mensual de Números del cole, avisos programados de Oratorios y aviso diario de vencimientos de Tableros. El worker también lo usa para re-despertarse a sí mismo |
 
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
@@ -177,7 +178,7 @@ Todavía llevan su propia copia `email-gmail.ts`, `mihorario-google.ts` y `googl
   son `src/lib/email-gmail.ts` (API de Gmail, cuenta de servicio con delegación de dominio) y
   el bloque Resend de `email.ts`. Se elige por env (`EMAIL_TRANSPORTE[_<PERFIL>]`), sin deploy.
 - **Perfiles de remitente** (`PerfilCorreo`: `licencias`, `salidas`, `abc`, `evaluaciones`,
-  `puntualidad`, `cuaderno`, `oratorios`, `tableros`, `nouvinguts`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
+  `puntualidad`, `cuaderno`, `oratorios`, `tableros`, `nouvinguts`, `sustituciones`, `general`): cada módulo manda desde su identidad. Licencias sale y contesta a
   `licencias@consolacionburriana.com` (centralizado, buzón real); el resto sale del buzón
   genérico y **el `Reply-To` lo pone quien envía** (`guard.email` del tutor/gestor en los
   routes de recordatorio y de evaluaciones), para que las familias no contesten al vacío.

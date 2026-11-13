@@ -59,16 +59,26 @@ Primaria a partir de los horarios de `hor_*`. No es la relación de sustitucione
 - [ ] Configurar el valor de `SUSTITUCIONES_EMAIL_DIRECCION_TITULAR` al desplegar.
 - [x] Criterio de candidatos: actividad prioritaria en el mismo tramo, sin conflicto; se muestran
       todas las alternativas del mejor nivel, ordenadas por prioridad.
-- [ ] Revisar el catálogo real de actividades de Infantil y Primaria contra la prioridad.
+- [x] Revisar el catálogo activo de horarios de Infantil y Primaria contra la prioridad
+      (13-nov-2026): codocencia = `clase`/`apoyo`; tutoría individual por etiqueta; J.E. =
+      «Jefatura de estudios»; A.L./P.T. por `apoyo_al`/`apoyo_pt`; Godly por «Godly Play»;
+      TIC/Pastoral/Dirección por etiqueta. No hay actividad «Gabinete» en el horario activo.
 
 ### Fase 1 · propuesta y registro
 
-- [ ] Añadir módulo y permisos de servidor/escritorio solo para los roles autorizados.
-- [ ] Crear schema `sust_*` y SQL aditivo idempotente; incorporarlo a pendientes hasta aplicarlo.
-- [ ] Consultar sesiones del ausente y proponer cobertura priorizada sin choques.
-- [ ] Construir propuesta editable y confirmación transaccional con snapshot de sesiones.
-- [ ] Enviar correos de confirmación al profesorado implicado con todos los datos requeridos.
-- [ ] Añadir historial y cifras por motivo, mes y curso académico.
-- [ ] Añadir informe mensual idempotente, endpoint protegido y cron del día 1.
-- [ ] Añadir `loading.tsx`, vacíos y guardia de diseño; comprobar pantalla en móvil y escritorio.
-- [ ] Verificar con datos de desarrollo y marcar solo lo realmente comprobado.
+- [x] Añadir módulo y permisos de servidor/escritorio solo para los roles autorizados.
+- [x] Crear schema `sust_*` y SQL aditivo idempotente; incorporarlo a pendientes hasta aplicarlo.
+- [x] Consultar sesiones del ausente y proponer cobertura priorizada sin choques.
+- [x] Construir propuesta editable y confirmación en lote con snapshot de sesiones.
+- [x] Enviar correos de confirmación al profesorado implicado con todos los datos requeridos.
+- [x] Añadir historial y cifras por motivo, mes y curso académico.
+- [x] Añadir informe mensual idempotente, endpoint protegido y cron del día 1.
+- [~] Añadir `loading.tsx` y estados vacíos; `pnpm diseno:guardia` queda en verde. Pendiente
+      la revisión visual autenticada en móvil y escritorio.
+- [~] Código y build verificados; pendiente completar el flujo con una ausencia de prueba y
+      comprobar la entrega real de correos.
+
+**Pendiente de despliegue/verificación:** configurar `SUSTITUCIONES_EMAIL_DIRECCION_TITULAR` y
+completar una comprobación funcional de propuesta, correo e informe con una ausencia de prueba.
+El schema `sust_*` se aplicó en Neon el 13-nov-2026. «Gabinete» está contemplado por etiqueta,
+pero no producirá candidatos mientras no aparezca en un horario activo.

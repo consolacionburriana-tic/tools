@@ -8,6 +8,7 @@
 // Un módulo nuevo = una entrada en `HERRAMIENTAS`, en su grupo.
 import { canAccess, type Acceso } from '@/lib/permissions';
 import { esSolicitable, TEXTO_SOLICITAR } from '@/lib/solicitud-acceso';
+import { puedeGestionarSustituciones } from '@/lib/sustituciones-diarias';
 
 export const GRUPOS = ['dia', 'alumnado', 'familias', 'centro', 'tic', 'config'] as const;
 export type Grupo = (typeof GRUPOS)[number];
@@ -36,6 +37,7 @@ export type IconoHerramienta =
   | 'banco'
   | 'salidas'
   | 'horarios'
+  | 'sustituciones'
   | 'evaluaciones'
   | 'profes'
   | 'dispositivos'
@@ -251,6 +253,16 @@ const HERRAMIENTAS: readonly Definicion[] = [
     icono: 'horarios',
     palabras: ['aulas', 'sesiones'],
     visible: tiene('horarios'),
+  },
+  {
+    clave: 'sustituciones',
+    titulo: 'Sustituciones',
+    desc: 'Organizar la cobertura de las sesiones del profesorado',
+    href: '/gestion/sustituciones',
+    grupo: 'centro',
+    icono: 'sustituciones',
+    palabras: ['ausencias', 'guardias', 'coberturas'],
+    visible: (a) => puedeGestionarSustituciones(a.role) && canAccess(a, 'sustituciones'),
   },
   {
     clave: 'oratorios',

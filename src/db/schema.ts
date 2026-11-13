@@ -1778,6 +1778,47 @@ export type NewHorApoyo = typeof horApoyos.$inferInsert;
 // deje uno. Lo usa "Mi horario" para no crear eventos en días sin clase, y algún día también
 // el navegador para pintarlos. El primero que los mete los deja puestos para el resto del
 // claustro — no hay "mis festivos", son los del centro.
+// ─── Sustituciones diarias del profesorado (prefijo sust_) ───────────────────
+// Son snapshots históricos: no dependen de que se mantengan las filas importadas hor_*.
+export const sustAusencias = pgTable('sust_ausencias', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  fecha: date('fecha').notNull(),
+  academicYear: text('academic_year').notNull(),
+  motivo: text('motivo').notNull(),
+  ausenteId: uuid('ausente_id').notNull().references(() => eduTeachers.id),
+  ausenteNombre: text('ausente_nombre').notNull(),
+  creadaPor: text('creada_por').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [index('sust_ausencias_fecha_idx').on(t.fecha), index('sust_ausencias_ausente_idx').on(t.ausenteId)]);
+
+export const sustSesiones = pgTable('sust_sesiones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  ausenciaId: uuid('ausencia_id').notNull().references(() => sustAusencias.id),
+  horSesionId: uuid('hor_sesion_id'), // referencia informativa; no FK: el horario se reimporta.
+  tramoOrden: integer('tramo_orden').notNull(),
+  horaInicio: text('hora_inicio').notNull(),
+  horaFin: text('hora_fin').notNull(),
+  materia: text('materia').notNull(),
+  aula: text('aula'),
+  grupo: text('grupo'),
+  ausenteId: uuid('ausente_id').notNull().references(() => eduTeachers.id),
+  ausenteNombre: text('ausente_nombre').notNull(),
+  sustitutoId: uuid('sustituto_id').references(() => eduTeachers.id),
+  sustitutoNombre: text('sustituto_nombre'),
+  sustitutoEmail: text('sustituto_email'),
+  prioridad: text('prioridad'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [index('sust_sesiones_ausencia_idx').on(t.ausenciaId), index('sust_sesiones_ausente_idx').on(t.ausenteId)]);
+
+export const sustReportesMensuales = pgTable('sust_reportes_mensuales', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  mes: text('mes').notNull(), // YYYY-MM del periodo que resume.
+  estado: text('estado').notNull().default('pendiente'), // pendiente | enviado
+  enviadosA: jsonb('enviados_a').$type<string[]>().notNull().default([]),
+  enviadoAt: timestamp('enviado_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [uniqueIndex('sust_reportes_mensuales_mes_uq').on(t.mes)]);
+
 export const horFestivos = pgTable('hor_festivos', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   academicYear: text('academic_year').notNull(),

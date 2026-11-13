@@ -18,7 +18,7 @@ import { Vacio } from '@/components/ui/vacio';
 import { BEHAVIORS, REASONS, TIME_SLOTS, CONTEXTS, PRESENT_PEOPLE, STAGE_LABELS, type StageValue } from '@/lib/constants';
 import type { Teacher } from '@/db/schema';
 import type { AbcStudentPanel } from '@/lib/abc-server';
-import { getDateRange, label, TIME_PRESETS, type ReportRow } from '@/app/gestion/abc/registros/page';
+import { getDateRange, label, TIME_PRESETS, type ReportRow } from '@/lib/abc-registros';
 
 // Paleta de datos común (globals.css, docs/diseno.md): categórica en orden fijo y ordinal de
 // un solo tono (los pasos intermedios salen por color-mix). Una sola serie → el primer color.

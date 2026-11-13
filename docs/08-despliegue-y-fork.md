@@ -91,7 +91,7 @@ correos). El resto se activa añadiendo piezas cuando las necesites:
 | **Cuaderno de tutor** (documentos en Drive) | Pasos 7-8 | scopes `drive`, `spreadsheets` |
 | **Mi horario** / **Oratorios** (Google Calendar) | Pasos 7-8 | scope `calendar` |
 | **Calendarios y Classrooms** (limpieza del dominio) | Pasos 7-8 con un buzón administrador | scopes Directory + Classroom + Calendar, `GOOGLE_ADMIN_BUZON` |
-| **Crons** (resumen semanal, worker del cuaderno, foto mensual, avisos de Oratorios, vencimientos de Tableros) | Nada: ya están en `vercel.json` | `CRON_SECRET` (el plan *Hobby* de Vercel limita los crons a una ejecución al día; los cinco actuales lo cumplen — comprueba los límites de tu plan) |
+| **Crons** (resumen semanal, worker del cuaderno, foto mensual, resumen mensual de sustituciones, avisos de Oratorios, vencimientos de Tableros) | Nada: ya están en `vercel.json` | `CRON_SECRET`; además, `SUSTITUCIONES_EMAIL_DIRECCION_TITULAR` (buzón concreto de Dirección titular). El plan *Hobby* de Vercel limita los crons a una ejecución al día; estos lo cumplen — comprueba los límites de tu plan |
 | **AUTOASM** (Apple School Manager) | Cuenta ASM del colegio | `AUTOASM_CRYPTO_KEY` (opcional) |
 
 **Scopes de la delegación (paso 8)** — añade solo los de los módulos que uses, separados por comas:

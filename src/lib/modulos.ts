@@ -30,6 +30,7 @@ export const MODULOS = {
   bancolibros: { titulo: 'Banco de libros', icono: 'banco', grupo: 'familias', href: '/gestion/bancolibros' },
   salidas: { titulo: 'Salidas y pagos', icono: 'salidas', grupo: 'familias', href: '/gestion/salidas' },
   horarios: { titulo: 'Horarios', icono: 'horarios', grupo: 'centro', href: '/gestion/horarios' },
+  sustituciones: { titulo: 'Sustituciones', icono: 'sustituciones', grupo: 'centro', href: '/gestion/sustituciones' },
   oratorios: { titulo: 'Oratorios y talleres', icono: 'oratorios', grupo: 'centro', href: '/gestion/oratorios' },
   evaluaciones: { titulo: 'Evaluaciones', icono: 'evaluaciones', grupo: 'centro', href: '/gestion/evaluaciones' },
   profes: { titulo: 'Profesorado y tutorías', icono: 'profes', grupo: 'centro', href: '/gestion/profes' },
