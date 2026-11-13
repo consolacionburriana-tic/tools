@@ -18,13 +18,13 @@ quedan, porque hay permisos guardados por persona).
 
 ---
 
-## Sustituciones (2-nov-2026)
+## Coberturas por baja (2-nov-2026; antes «Sustituciones»)
 
 Si el profe al que se le quita la hora está **sustituido** en ese momento
-(`docs/02-integracion-educamos.md` → «Sustituciones»), el correo de aviso y la invitación de Google
+(`docs/02-integracion-educamos.md` → «Coberturas por baja»), el correo de aviso y la invitación de Google
 Calendar van a quien lo cubre, y el correo lo dice («ahora estás sustituyendo a…»). La invitación se
 fija al confirmar: si la sustitución empieza después, el evento sigue invitando al titular hasta que
-se mueva o se reconfirme. Resuelto con `destinatariosDeProfes()` de `sustituciones-server.ts`.
+se mueva o se reconfirme. Resuelto con `destinatariosDeProfes()` de `coberturas-baja-server.ts`.
 
 ## Qué le llega al profe y cuándo (5-nov-2026)
 

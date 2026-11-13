@@ -10,9 +10,9 @@ tiene datos propios más allá de las preferencias de cada uno y el calendario d
 
 ---
 
-## Sustituciones (2-nov-2026)
+## Coberturas por baja (2-nov-2026; antes «Sustituciones»)
 
-Si alguien está sustituyendo a otra persona (`docs/02-integracion-educamos.md` → «Sustituciones»),
+Si alguien está sustituyendo a otra persona (`docs/02-integracion-educamos.md` → «Coberturas por baja»),
 `/mi-horario` enseña un segmentado «Mi horario / El de Alejandro (sustituyes)» y, si la persona no
 tiene horario propio, abre el del titular. En el horario del titular:
 

@@ -44,22 +44,29 @@ todo el centro**; los «subaccesos» quedan para más adelante. Lo demás lo dec
   está en la API pero no en la pantalla todavía.
 - Color de «viene de un grupo»: índigo (no es de estado ni de identidad de módulo).
 
-### Sustituciones puntuales de Infantil y Primaria (13-nov-2026) — preguntas para David
+### Sustituciones (13-nov-2026) — una pregunta y lo que decidí yo
 
-Ficha revisada contra Neon: [`32-sustituciones.md`](./32-sustituciones.md), §3. **No bloquean**:
-cada una tiene un valor por defecto y se cambia en `CONFIGURACION.sustituciones`.
+David respondió el 13-nov-2026 a las once preguntas de [`32-sustituciones.md`](./32-sustituciones.md)
+(ya están en sus decisiones). Queda una, que **no bloquea**:
 
-1. ¿Un profe con **hora libre** se propone? (por defecto: «Solo urgencia», en el desplegable, nunca elegido solo).
-2. Si en la clase ya hay **un segundo profe**, ¿se queda él con el grupo antes que nadie? (sí).
-3. **«Gabinete»** no sale en ningún horario: ¿es Orientación? (sí, lo que diga «Orientación»).
-4. Atención a familias y a alumnado salen como «Solo urgencia». ¿Alguna más (ciclo, Innovación, COCOPE, Taller…)? (ninguna).
-5. Una **baja** de varios días: ¿día a día o «de tal a tal fecha»? (día a día + «Repetir el día siguiente»).
-6. ¿Secretaría y TIC ven el **motivo** concreto (salud)? (sí).
-7. **Infantil en septiembre y junio** no tiene horario propio en Neon: ¿usa el ordinario? (sí, con aviso).
-8. El cuadro **«HORARIO SUSTITUCIONES»** del `.docx` de primaria: ¿qué es? (se ignora).
-9. Buzón de **Dirección titular** para el informe mensual (`SUSTITUCIONES_INFORME_COPIA`).
-10. ¿Vale cómo sale sola la **disponibilidad** (Sí · Si hace falta · Solo urgencia · No, tabla de la decisión 15)?
-11. ¿La rejilla de disponibilidad la marca solo Jefatura o cada profe la suya? (Jefatura).
+- **P12. ¿La ESO tiene otro horario en septiembre y junio?** Hoy esos periodos solo tienen rejilla de
+  primaria. Por defecto, igual que infantil: se avisa de que falta y no se propone. Si sigue con el
+  ordinario, es poner `'ESO'` en `CONFIGURACION.sustituciones.etapasSinHorarioEspecial`.
+
+Lo que decidí yo al encajar las respuestas (revisar con David):
+
+1. **Nombre en código de las sustituciones largas: `coberturas-baja`**, no `bajas`: en este repo «baja»
+   ya es el alumno o profe que se va (Educamos, Correos y grupos). La tabla sigue siendo
+   `edu_sustituciones` y el resumen guardado de cada sync conserva su clave `sustituciones`.
+2. **Nivel «Guardia» el primero** (tras «Ya está en el aula»), para la ESO, aunque hoy no hay ninguna
+   guardia importada.
+3. **«Otras horas sin alumnado»** (nivel 12, «al final») son las horas **sin grupo** de atención a
+   familias y a alumnado, departamento, reuniones, coordinaciones, libre disposición y «Otros»; quedan
+   fuera el Taller de Pensamiento Computacional y el Huerto (son con alumnos aunque el horario no ponga grupo).
+4. **Tope de 15 días lectivos** por ausencia: más largo es una cobertura por baja.
+5. **Índigo** para el icono (otro color que Oratorios), como excepción apuntada en `diseno.md`.
+6. **El cuadro «HORARIO SUSTITUCIONES»** se guarda como parte del horario (`hor_cuadro_sustituciones`) y
+   ordena justo después del nivel. Falta ver su formato en un `.docx` real.
 
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
 
@@ -83,12 +90,12 @@ módulo saca **la foto del día** (quién pagaría qué hoy), en Excel y CSV, y 
 3. ¿Se lleva aquí el **«pagado / no pagado»** o se queda en Educamos? Si va a Educamos, ¿con qué
    formato de CSV (el de Licencias es curso, ID Educamos, importe)?
 
-### Sustituciones del profesorado: lo que decidí yo al construirlo (2-nov-2026) — revisar con David
+### Coberturas por baja (antes «Sustituciones del profesorado»): lo que decidí yo al construirlo (2-nov-2026) — revisar con David
 
 David pidió que, si Ángela Guillamón sustituye a Alejandro Sánchez, el sistema asuma que mientras
 dure es Ángela. Educamos ya lo marca (`PROF. SUSTITUTO` + `PROF. TITULAR`, con la vigencia en alta y
 baja), así que se lee de ahí y además se puede apuntar a mano, apagar y acotar con fechas. Ficha:
-`02-integracion-educamos.md` → «Sustituciones». Lo que decidí sin preguntar:
+`02-integracion-educamos.md` → «Coberturas por baja». Lo que decidí sin preguntar:
 
 1. **El sustituto ocupa el sitio del titular, no se suma a él.** Los avisos al tutor van a quien
    está, no a quien falta (y no a los dos). Si prefieres que lleguen a ambos, es un cambio en
@@ -115,7 +122,7 @@ baja), así que se lee de ahí y además se puede apuntar a mano, apagar y acota
 8. **Si Educamos deja de marcar a alguien como sustituto** (pasa a plantilla, cambia de titular), su
    fila se **apaga**, no se borra. Una apagada a mano no la reactiva nunca el sync.
 9. **Tocar las fechas a mano** de una de Educamos la convierte en manual. Si lo prefieres al revés
-   (que el siguiente sync las reescriba), es una línea en `actualizarSustitucion()`.
+   (que el siguiente sync las reescriba), es una línea en `actualizarCoberturaBaja()`.
 
 ### Presentación al claustro (2-nov-2026): lo que decidí yo — revisar con David
 
@@ -1273,7 +1280,7 @@ borrar los planes temporales quedaron sin repasar a mano, por si alguna vez se m
 ## Backlog de módulos futuros (mencionados, sin desarrollar todavía)
 
 - Sustituciones puntuales del profesorado: ficha con plan técnico completo y listo para
-  implementar ([`32-sustituciones.md`](./32-sustituciones.md)); quedan las preguntas de arriba, con valor por defecto.
+  implementar ([`32-sustituciones.md`](./32-sustituciones.md)); queda P12 (arriba), con valor por defecto.
 
 ## Registro ABC · ideas para rellenar aún más rápido (26-oct-2026)
 - Sugerir «¿Cuándo ocurre?» según la hora y el horario del colegio (hoy no hay horas de patio/almuerzo

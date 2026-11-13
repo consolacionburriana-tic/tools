@@ -754,7 +754,7 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
 | `hor_alias` | Traducción de códigos del fichero externo a nuestros IDs (materias y espacios; el profesorado casa por `edu_teachers.alias`) |
 | `hor_import_runs` | Bitácora de importaciones (como `edu_sync_runs`) |
 
-Futuras, **no en este alcance**: `hor_ausencias` y `hor_sustituciones`.
+Las ausencias del día no van aquí: son del módulo Sustituciones, con sus tablas `sust_*` ([`32-sustituciones.md`](./32-sustituciones.md)).
 
 ### Código
 

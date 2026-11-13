@@ -16,11 +16,11 @@ interface Resumen {
   sustituciones?: { nuevas: number; actualizadas: number; apagadas: number };
 }
 
-// «3 sustituciones nuevas · 1 con fechas cambiadas»: solo lo que haya, o nada si no hay.
-function textoSustituciones(s: Resumen['sustituciones']): string | null {
+// «3 coberturas por baja nuevas · 1 con fechas cambiadas»: solo lo que haya, o nada si no hay.
+function textoCoberturasBaja(s: Resumen['sustituciones']): string | null {
   if (!s) return null;
   const partes = [
-    s.nuevas > 0 ? `${s.nuevas} sustitución(es) nueva(s)` : null,
+    s.nuevas > 0 ? `${s.nuevas} cobertura(s) por baja nueva(s)` : null,
     s.actualizadas > 0 ? `${s.actualizadas} con fechas cambiadas` : null,
     s.apagadas > 0 ? `${s.apagadas} apagada(s) (Educamos ya no las marca)` : null,
   ].filter(Boolean);
@@ -87,8 +87,8 @@ export function ProfesImport() {
           <p className="text-zinc-700 dark:text-zinc-200">
             {previa.altas} altas · {previa.cambios} cambios · {previa.sinCambios} sin cambios · {previa.bajas} con baja
           </p>
-          {textoSustituciones(previa.sustituciones) && (
-            <p className="text-zinc-700 dark:text-zinc-200">Sustituciones: {textoSustituciones(previa.sustituciones)}</p>
+          {textoCoberturasBaja(previa.sustituciones) && (
+            <p className="text-zinc-700 dark:text-zinc-200">Coberturas por baja: {textoCoberturasBaja(previa.sustituciones)}</p>
           )}
           {previa.errores.length > 0 && (
             <ul className="list-inside list-disc text-xs text-amber-700 dark:text-amber-300">
@@ -106,7 +106,7 @@ export function ProfesImport() {
       {aplicado && (
         <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
           <Check className="h-4 w-4" /> {aplicado.altas} altas · {aplicado.cambios} cambios · {aplicado.bajas} con baja
-          {textoSustituciones(aplicado.sustituciones) ? ` · ${textoSustituciones(aplicado.sustituciones)}` : ''}
+          {textoCoberturasBaja(aplicado.sustituciones) ? ` · ${textoCoberturasBaja(aplicado.sustituciones)}` : ''}
         </p>
       )}
     </div>

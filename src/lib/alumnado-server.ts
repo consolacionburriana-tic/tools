@@ -25,7 +25,7 @@ import {
   eduStudents,
   eduTeachers,
   eduTutorPersonal,
-  eduSustituciones,
+  eduCoberturasBaja,
   eduTutorias,
   horApoyos,
   horAsignacionGrupos,
@@ -75,7 +75,7 @@ import {
 } from '@/lib/permissions';
 import { estadosMateriales, listaMateriales, type MaterialLista } from '@/lib/materiales-server';
 import { clasesDeTutor } from '@/lib/puntualidad-server';
-import { titularesVigentesSub } from '@/lib/sustituciones-server';
+import { titularesVigentesSub } from '@/lib/coberturas-baja-server';
 import { alumnosQueNoSeLoLlevan, resumenDispositivos } from '@/lib/dispositivos-server';
 
 export type { MaterialLista };
@@ -190,7 +190,7 @@ export async function etapasDeFichaProfe(email: string): Promise<Etapa[]> {
     .where(
       or(
         eq(horAsignacionProfes.eduTeacherId, ficha.id),
-        inArray(horAsignacionProfes.eduTeacherId, titularesVigentesSub(eq(eduSustituciones.sustitutoId, ficha.id))),
+        inArray(horAsignacionProfes.eduTeacherId, titularesVigentesSub(eq(eduCoberturasBaja.sustitutoId, ficha.id))),
       ),
     );
   // Si ya se han elegido a mano, mandan ellas; si no, la etapa única de siempre.
