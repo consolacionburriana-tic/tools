@@ -10,7 +10,7 @@ import {
   eduGuardians,
   eduStudentGuardians,
   eduStudents,
-  eduSustituciones,
+  eduCoberturasBaja,
   eduSyncRuns,
   eduTeachers,
   licCampaigns,
@@ -34,8 +34,8 @@ import {
   type SyncOpciones,
   type SyncPlan,
 } from '@/lib/educamos';
-import { candidatoDeExtra, planSustitucionesEducamos, type CandidatoSustituto, type ProfeParaTitular } from '@/lib/sustituciones';
-import { resumenDePlan, sentenciasDePlan, type ResumenSustituciones } from '@/lib/sustituciones-server';
+import { candidatoDeExtra, planCoberturasBajaEducamos, type CandidatoSustituto, type ProfeParaTitular } from '@/lib/coberturas-baja';
+import { resumenDePlan, sentenciasDePlan, type ResumenCoberturasBaja } from '@/lib/coberturas-baja-server';
 import { hoyISO } from '@/lib/tableros';
 
 // Guard del módulo en UN solo helper (rol con módulo 'educamos').
@@ -540,13 +540,13 @@ export async function aplicarSyncProfesores(input: {
   sinCambios: number;
   bajas: number;
   errores: string[];
-  sustituciones: ResumenSustituciones;
+  sustituciones: ResumenCoberturasBaja;
 }> {
   const { rows, filename, formato, dryRun } = input;
   const errores = [...(input.parseWarnings ?? [])];
   const [existentes, sustExistentes] = await Promise.all([
     db.select().from(eduTeachers),
-    db.select().from(eduSustituciones),
+    db.select().from(eduCoberturasBaja),
   ]);
   const porClave = new Map<string, EduTeacher>();
   for (const t of existentes) {
@@ -646,7 +646,7 @@ export async function aplicarSyncProfesores(input: {
 
   // Sustituciones: PROF. SUSTITUTO + PROF. TITULAR → `edu_sustituciones` (lo manual no se toca).
   // Los avisos (titular que no se encuentra…) salen junto a los demás del fichero.
-  const planSust = planSustitucionesEducamos(candidatos, [...paraTitular.values()], sustExistentes, hoyISO(ahora));
+  const planSust = planCoberturasBajaEducamos(candidatos, [...paraTitular.values()], sustExistentes, hoyISO(ahora));
   const sustituciones = resumenDePlan(planSust);
   errores.push(...planSust.avisos);
 

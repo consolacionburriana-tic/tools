@@ -1,6 +1,6 @@
 'use client';
 
-// «Mi horario» / «El de Alejandro (sustituyes)»: cambia de quién es el horario que se ve.
+// «Mi horario» / «El de Alejandro (cubres su baja)»: cambia de quién es el horario que se ve.
 // Solo sale cuando hay una sustitución vigente. El cambio va en la URL (`?de=<id>`, sin él =
 // el mío) y conserva el periodo que se estuviera mirando.
 import { useRouter, useSearchParams } from 'next/navigation';

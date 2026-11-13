@@ -1,31 +1,31 @@
-// Capa de servidor de Sustituciones del profesorado. La lógica pura (vigencia, plan de
-// sincronización) está en `sustituciones.ts`; aquí solo las consultas y las escrituras.
-// Ficha: docs/02-integracion-educamos.md (sección «Sustituciones»).
+// Capa de servidor de las Coberturas por baja (sustituciones largas de Educamos). La lógica pura (vigencia, plan de
+// sincronización) está en `coberturas-baja.ts`; aquí solo las consultas y las escrituras.
+// Ficha: docs/02-integracion-educamos.md (sección «Coberturas por baja»).
 import { aliasedTable, and, asc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from '@/db';
-import { eduSustituciones, eduTeachers, type EduSustitucion } from '@/db/schema';
+import { eduCoberturasBaja, eduTeachers, type EduCoberturaBaja } from '@/db/schema';
 import { nombreProfe } from '@/lib/profes';
 import { hoyISO } from '@/lib/tableros';
 import {
-  aplicarSustituciones,
+  aplicarCoberturasBaja,
   candidatoDeExtra,
   COLUMNA_SUSTITUTO,
   COLUMNA_TITULAR,
-  estadoSustitucion,
-  planSustitucionesEducamos,
-  type EstadoSustitucion,
-  type PlanSustituciones,
+  estadoCoberturaBaja,
+  planCoberturasBajaEducamos,
+  type EstadoCoberturaBaja,
+  type PlanCoberturasBaja,
   type ProfeParaTitular,
-  type SustitucionBase,
-} from '@/lib/sustituciones';
+  type CoberturaBajaBase,
+} from '@/lib/coberturas-baja';
 
 /** El SQL de «vigente hoy»: activa y `hoy` dentro de [desde, hasta] (los dos opcionales, inclusive). */
 export function condVigente(hoy: string = hoyISO()): SQL {
   return and(
-    eq(eduSustituciones.activa, true),
-    or(isNull(eduSustituciones.desde), lte(eduSustituciones.desde, hoy)),
-    or(isNull(eduSustituciones.hasta), gte(eduSustituciones.hasta, hoy)),
+    eq(eduCoberturasBaja.activa, true),
+    or(isNull(eduCoberturasBaja.desde), lte(eduCoberturasBaja.desde, hoy)),
+    or(isNull(eduCoberturasBaja.hasta), gte(eduCoberturasBaja.hasta, hoy)),
   ) as SQL;
 }
 
@@ -36,22 +36,22 @@ export function condVigente(hoy: string = hoyISO()): SQL {
  */
 export function titularesVigentesSub(cond: SQL, hoy: string = hoyISO()) {
   return db
-    .select({ id: eduSustituciones.titularId })
-    .from(eduSustituciones)
+    .select({ id: eduCoberturasBaja.titularId })
+    .from(eduCoberturasBaja)
     .where(and(cond, condVigente(hoy)));
 }
 
 /** Todas las sustituciones vigentes hoy (la tabla es diminuta: una consulta y a filtrar en memoria). */
-export async function sustitucionesVigentes(hoy: string = hoyISO()): Promise<SustitucionBase[]> {
+export async function coberturasBajaVigentes(hoy: string = hoyISO()): Promise<CoberturaBajaBase[]> {
   return db
     .select({
-      sustitutoId: eduSustituciones.sustitutoId,
-      titularId: eduSustituciones.titularId,
-      desde: eduSustituciones.desde,
-      hasta: eduSustituciones.hasta,
-      activa: eduSustituciones.activa,
+      sustitutoId: eduCoberturasBaja.sustitutoId,
+      titularId: eduCoberturasBaja.titularId,
+      desde: eduCoberturasBaja.desde,
+      hasta: eduCoberturasBaja.hasta,
+      activa: eduCoberturasBaja.activa,
     })
-    .from(eduSustituciones)
+    .from(eduCoberturasBaja)
     .where(condVigente(hoy));
 }
 
@@ -73,12 +73,12 @@ export async function titularesCubiertosPor(sustitutoId: string, hoy: string = h
       nombreMostrado: eduTeachers.nombreMostrado,
       apellido1: eduTeachers.apellido1,
       apellido2: eduTeachers.apellido2,
-      desde: eduSustituciones.desde,
-      hasta: eduSustituciones.hasta,
+      desde: eduCoberturasBaja.desde,
+      hasta: eduCoberturasBaja.hasta,
     })
-    .from(eduSustituciones)
-    .innerJoin(eduTeachers, eq(eduSustituciones.titularId, eduTeachers.id))
-    .where(and(eq(eduSustituciones.sustitutoId, sustitutoId), condVigente(hoy)));
+    .from(eduCoberturasBaja)
+    .innerJoin(eduTeachers, eq(eduCoberturasBaja.titularId, eduTeachers.id))
+    .where(and(eq(eduCoberturasBaja.sustitutoId, sustitutoId), condVigente(hoy)));
   return filas.map((f) => ({ id: f.id, nombre: nombreProfe(f), desde: f.desde, hasta: f.hasta }));
 }
 
@@ -102,8 +102,8 @@ export interface ProfeDestino {
 export async function destinatariosDeProfes(ids: readonly string[], hoy: string = hoyISO()): Promise<Map<string, ProfeDestino[]>> {
   const salida = new Map<string, ProfeDestino[]>();
   if (ids.length === 0) return salida;
-  const vigentes = await sustitucionesVigentes(hoy);
-  const efectivos = new Map(ids.map((id) => [id, aplicarSustituciones([id], vigentes, hoy)]));
+  const vigentes = await coberturasBajaVigentes(hoy);
+  const efectivos = new Map(ids.map((id) => [id, aplicarCoberturasBaja([id], vigentes, hoy)]));
   const todos = [...new Set([...ids, ...[...efectivos.values()].flat()])];
   const fichas = await db
     .select({
@@ -131,7 +131,7 @@ export async function destinatariosDeProfes(ids: readonly string[], hoy: string 
 
 // ─── Lista para la pantalla ───────────────────────────────────────────────────
 
-export interface SustitucionFila {
+export interface CoberturaBajaFila {
   id: string;
   sustitutoId: string;
   sustitutoNombre: string;
@@ -142,7 +142,7 @@ export interface SustitucionFila {
   activa: boolean;
   origen: 'educamos' | 'manual';
   nota: string | null;
-  estado: EstadoSustitucion;
+  estado: EstadoCoberturaBaja;
 }
 
 const columnasNombre = (t: typeof eduTeachers) => ({
@@ -153,22 +153,22 @@ const columnasNombre = (t: typeof eduTeachers) => ({
 });
 
 /** Todas las sustituciones con el nombre de cada persona (un solo viaje), las vigentes primero. */
-export async function listarSustituciones(hoy: string = hoyISO()): Promise<SustitucionFila[]> {
+export async function listarCoberturasBaja(hoy: string = hoyISO()): Promise<CoberturaBajaFila[]> {
   const sustituto = aliasedTable(eduTeachers, 'sustituto');
   const titular = aliasedTable(eduTeachers, 'titular');
   const filas = await db
     .select({
-      s: eduSustituciones,
+      s: eduCoberturasBaja,
       sustituto: columnasNombre(sustituto),
       titular: columnasNombre(titular),
     })
-    .from(eduSustituciones)
-    .innerJoin(sustituto, eq(eduSustituciones.sustitutoId, sustituto.id))
-    .innerJoin(titular, eq(eduSustituciones.titularId, titular.id))
-    .orderBy(asc(eduSustituciones.createdAt));
-  const peso: Record<EstadoSustitucion, number> = { vigente: 0, programada: 1, desactivada: 2, caducada: 3 };
+    .from(eduCoberturasBaja)
+    .innerJoin(sustituto, eq(eduCoberturasBaja.sustitutoId, sustituto.id))
+    .innerJoin(titular, eq(eduCoberturasBaja.titularId, titular.id))
+    .orderBy(asc(eduCoberturasBaja.createdAt));
+  const peso: Record<EstadoCoberturaBaja, number> = { vigente: 0, programada: 1, desactivada: 2, caducada: 3 };
   return filas
-    .map(({ s, sustituto: su, titular: ti }): SustitucionFila => ({
+    .map(({ s, sustituto: su, titular: ti }): CoberturaBajaFila => ({
       id: s.id,
       sustitutoId: s.sustitutoId,
       sustitutoNombre: nombreProfe(su),
@@ -179,14 +179,14 @@ export async function listarSustituciones(hoy: string = hoyISO()): Promise<Susti
       activa: s.activa,
       origen: s.origen === 'educamos' ? 'educamos' : 'manual',
       nota: s.nota,
-      estado: estadoSustitucion(s, hoy),
+      estado: estadoCoberturaBaja(s, hoy),
     }))
     .sort((a, b) => peso[a.estado] - peso[b.estado]);
 }
 
 // ─── Escritura a mano ─────────────────────────────────────────────────────────
 
-export interface DatosSustitucion {
+export interface DatosCoberturaBaja {
   sustitutoId: string;
   titularId: string;
   desde: string | null;
@@ -194,32 +194,32 @@ export interface DatosSustitucion {
   nota?: string | null;
 }
 
-export class ErrorSustitucion extends Error {}
+export class ErrorCoberturaBaja extends Error {}
 
-function validar(d: Pick<DatosSustitucion, 'desde' | 'hasta'>) {
+function validar(d: Pick<DatosCoberturaBaja, 'desde' | 'hasta'>) {
   if (d.desde && d.hasta && d.hasta < d.desde) {
-    throw new ErrorSustitucion('La fecha de fin no puede ser anterior a la de inicio.');
+    throw new ErrorCoberturaBaja('La fecha de fin no puede ser anterior a la de inicio.');
   }
 }
 
-export async function crearSustitucion(d: DatosSustitucion): Promise<EduSustitucion> {
-  if (d.sustitutoId === d.titularId) throw new ErrorSustitucion('Una persona no puede sustituirse a sí misma.');
+export async function crearCoberturaBaja(d: DatosCoberturaBaja): Promise<EduCoberturaBaja> {
+  if (d.sustitutoId === d.titularId) throw new ErrorCoberturaBaja('Una persona no puede sustituirse a sí misma.');
   validar(d);
   const existentes = await db
     .select({ id: eduTeachers.id })
     .from(eduTeachers)
     .where(inArray(eduTeachers.id, [d.sustitutoId, d.titularId]));
-  if (existentes.length !== 2) throw new ErrorSustitucion('No encuentro a alguno de los dos en el profesorado.');
+  if (existentes.length !== 2) throw new ErrorCoberturaBaja('No encuentro a alguno de los dos en el profesorado.');
   const [fila] = await db
-    .insert(eduSustituciones)
+    .insert(eduCoberturasBaja)
     .values({ ...d, nota: d.nota?.trim() || null, origen: 'manual' })
-    .onConflictDoNothing({ target: [eduSustituciones.sustitutoId, eduSustituciones.titularId] })
+    .onConflictDoNothing({ target: [eduCoberturasBaja.sustitutoId, eduCoberturasBaja.titularId] })
     .returning();
-  if (!fila) throw new ErrorSustitucion('Ya existe esa sustitución: búscala en la lista y cámbiale las fechas o enciéndela.');
+  if (!fila) throw new ErrorCoberturaBaja('Ya existe esa cobertura por baja: búscala en la lista y cámbiale las fechas o enciéndela.');
   return fila;
 }
 
-export interface CambiosSustitucion {
+export interface CambiosCoberturaBaja {
   activa?: boolean;
   desde?: string | null;
   hasta?: string | null;
@@ -231,15 +231,15 @@ export interface CambiosSustitucion {
  * Educamos ya no las reescribe (si no, deshacería lo que se acaba de decidir). Encender o
  * apagar no cambia el origen: el sync nunca toca el interruptor.
  */
-export async function actualizarSustitucion(id: string, c: CambiosSustitucion): Promise<EduSustitucion | null> {
-  const [actual] = await db.select().from(eduSustituciones).where(eq(eduSustituciones.id, id)).limit(1);
+export async function actualizarCoberturaBaja(id: string, c: CambiosCoberturaBaja): Promise<EduCoberturaBaja | null> {
+  const [actual] = await db.select().from(eduCoberturasBaja).where(eq(eduCoberturasBaja.id, id)).limit(1);
   if (!actual) return null;
   const desde = c.desde === undefined ? actual.desde : c.desde;
   const hasta = c.hasta === undefined ? actual.hasta : c.hasta;
   validar({ desde, hasta });
   const cambiaFechas = desde !== actual.desde || hasta !== actual.hasta;
   const [fila] = await db
-    .update(eduSustituciones)
+    .update(eduCoberturasBaja)
     .set({
       activa: c.activa ?? actual.activa,
       desde,
@@ -248,56 +248,56 @@ export async function actualizarSustitucion(id: string, c: CambiosSustitucion): 
       origen: cambiaFechas ? 'manual' : actual.origen,
       updatedAt: new Date(),
     })
-    .where(eq(eduSustituciones.id, id))
+    .where(eq(eduCoberturasBaja.id, id))
     .returning();
   return fila ?? null;
 }
 
-export async function borrarSustitucion(id: string): Promise<boolean> {
-  const borradas = await db.delete(eduSustituciones).where(eq(eduSustituciones.id, id)).returning({ id: eduSustituciones.id });
+export async function borrarCoberturaBaja(id: string): Promise<boolean> {
+  const borradas = await db.delete(eduCoberturasBaja).where(eq(eduCoberturasBaja.id, id)).returning({ id: eduCoberturasBaja.id });
   return borradas.length > 0;
 }
 
 // ─── Lo que dice Educamos ─────────────────────────────────────────────────────
 
 /** Las sentencias que dejan `edu_sustituciones` como dice el plan (para meterlas en un `db.batch`). */
-export function sentenciasDePlan(plan: PlanSustituciones, ahora: Date = new Date()): BatchItem<'pg'>[] {
+export function sentenciasDePlan(plan: PlanCoberturasBaja, ahora: Date = new Date()): BatchItem<'pg'>[] {
   const out: BatchItem<'pg'>[] = [];
   for (const c of plan.crear) {
     out.push(
       db
-        .insert(eduSustituciones)
+        .insert(eduCoberturasBaja)
         .values({ ...c, origen: 'educamos', updatedAt: ahora })
-        .onConflictDoNothing({ target: [eduSustituciones.sustitutoId, eduSustituciones.titularId] }),
+        .onConflictDoNothing({ target: [eduCoberturasBaja.sustitutoId, eduCoberturasBaja.titularId] }),
     );
   }
   for (const a of plan.actualizar) {
     out.push(
       db
-        .update(eduSustituciones)
+        .update(eduCoberturasBaja)
         .set({ desde: a.desde, hasta: a.hasta, updatedAt: ahora })
-        .where(and(eq(eduSustituciones.id, a.id), eq(eduSustituciones.origen, 'educamos'))),
+        .where(and(eq(eduCoberturasBaja.id, a.id), eq(eduCoberturasBaja.origen, 'educamos'))),
     );
   }
   if (plan.apagar.length > 0) {
     out.push(
       db
-        .update(eduSustituciones)
+        .update(eduCoberturasBaja)
         .set({ activa: false, updatedAt: ahora })
-        .where(and(inArray(eduSustituciones.id, plan.apagar), eq(eduSustituciones.origen, 'educamos'))),
+        .where(and(inArray(eduCoberturasBaja.id, plan.apagar), eq(eduCoberturasBaja.origen, 'educamos'))),
     );
   }
   return out;
 }
 
-export interface ResumenSustituciones {
+export interface ResumenCoberturasBaja {
   nuevas: number;
   actualizadas: number;
   apagadas: number;
   avisos: string[];
 }
 
-export const resumenDePlan = (p: PlanSustituciones): ResumenSustituciones => ({
+export const resumenDePlan = (p: PlanCoberturasBaja): ResumenCoberturasBaja => ({
   nuevas: p.crear.length,
   actualizadas: p.actualizar.length,
   apagadas: p.apagar.length,
@@ -309,7 +309,7 @@ export const resumenDePlan = (p: PlanSustituciones): ResumenSustituciones => ({
  * alta y baja), quién sustituye a quién. Sirve para estrenar la pieza sin volver a subir el
  * fichero y para rehacerlo si se corrige un nombre. Con `dryRun` solo cuenta.
  */
-export async function releerSustitucionesDeEducamos(dryRun = false): Promise<ResumenSustituciones> {
+export async function releerCoberturasBajaDeEducamos(dryRun = false): Promise<ResumenCoberturasBaja> {
   const [profes, existentes] = await Promise.all([
     db
       .select({
@@ -325,7 +325,7 @@ export async function releerSustitucionesDeEducamos(dryRun = false): Promise<Res
         titular: sql<string | null>`${eduTeachers.extra}->>${COLUMNA_TITULAR}`,
       })
       .from(eduTeachers),
-    db.select().from(eduSustituciones),
+    db.select().from(eduCoberturasBaja),
   ]);
   const candidatos = profes.map((p) =>
     candidatoDeExtra(
@@ -335,7 +335,7 @@ export async function releerSustitucionesDeEducamos(dryRun = false): Promise<Res
     ),
   );
   const paraTitular: ProfeParaTitular[] = profes.map(({ id, nombre, apellido1, apellido2, active }) => ({ id, nombre, apellido1, apellido2, active }));
-  const plan = planSustitucionesEducamos(candidatos, paraTitular, existentes, hoyISO());
+  const plan = planCoberturasBajaEducamos(candidatos, paraTitular, existentes, hoyISO());
   if (!dryRun) {
     const sentencias = sentenciasDePlan(plan);
     if (sentencias.length > 0) await db.batch(sentencias as [BatchItem<'pg'>, ...BatchItem<'pg'>[]]);

@@ -14,9 +14,9 @@ esa persona en la consola.
 
 ---
 
-## Sustituciones: sugerir los grupos del titular (2-nov-2026)
+## Coberturas por baja: sugerir los grupos del titular (2-nov-2026; antes «Sustituciones»)
 
-En «Por hacer», si hay sustituciones vigentes (`docs/02-integracion-educamos.md` → «Sustituciones»),
+En «Por hacer», si hay coberturas por baja vigentes (`docs/02-integracion-educamos.md` → «Coberturas por baja»),
 una tarjeta lista quién sustituye a quién con «Ver grupos»: lee de Google en cuáles está el titular
 (`gruposDeMiembro`) y se marca **a mano** en cuáles entra el sustituto. Los grupos con reglas en
 modo «añadir y quitar» salen sin casilla (el próximo «Aplicar» lo sacaría; se arregla con «Correos

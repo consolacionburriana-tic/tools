@@ -4,7 +4,7 @@ import { bloquearSiEmulando, getSessionUser } from '@/lib/auth-guards';
 import { abreviaturaDeCelda, claveExportacion, colorDeCeldaGoogle, colorIdsPorDefecto, construirEventoGoogle, emojiDeCelda, rangoExportacion, unirSesionesSeguidas, type RangoCurso } from '@/lib/mihorario';
 import { getCeldas, getFranjasDeProfe, getPeriodos } from '@/lib/horarios-server';
 import { calendarConfigurado, crearEventos, borrarEventosDeOrigen } from '@/lib/mihorario-google';
-import { titularesCubiertosPor } from '@/lib/sustituciones-server';
+import { titularesCubiertosPor } from '@/lib/coberturas-baja-server';
 import { getFestivos, getPreferencias, getProfePorEmail, getUltimaExportacion, registrarExportacion } from '@/lib/mihorario-server';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   // (se comprueba aquí, no se fía del navegador) y va a SU calendario con otra marca.
   const deProfeId = body.deProfeId ? String(body.deProfeId) : null;
   if (deProfeId && !(await titularesCubiertosPor(profe.id)).some((t) => t.id === deProfeId)) {
-    return NextResponse.json({ error: 'Ahora mismo no estás sustituyendo a esa persona' }, { status: 403 });
+    return NextResponse.json({ error: 'Ahora mismo no estás cubriendo la baja de esa persona' }, { status: 403 });
   }
   const horarioDe = deProfeId ?? profe.id;
   const marca = claveExportacion(periodoId, deProfeId);

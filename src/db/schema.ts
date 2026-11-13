@@ -345,14 +345,18 @@ export const eduTutorias = pgTable('edu_tutorias', {
 export type EduTutoria = typeof eduTutorias.$inferSelect;
 export type NewEduTutoria = typeof eduTutorias.$inferInsert;
 
-// Sustituciones del profesorado: «Ángela Guillamón sustituye a Alejandro Sánchez». Mientras
-// la sustitución está VIGENTE (activa y dentro de sus fechas), el sustituto hereda lo del
+// Coberturas por baja: «Ángela Guillamón cubre la baja de Alejandro Sánchez». Son las
+// «sustituciones» largas que marca Educamos; en la app y en el código se llaman así desde el
+// 13-nov-2026 para dejar «Sustituciones» al módulo de las ausencias del día (docs/32). La TABLA
+// sigue siendo `edu_sustituciones`: renombrarla es una migración sobre datos reales y no aporta
+// nada (David no lo ha pedido). Mientras
+// la cobertura está VIGENTE (activa y dentro de sus fechas), el sustituto hereda lo del
 // titular: sus tutorías (avisos, alcance de Alumnado y Puntualidad, destinatarios del ABC) y
 // el horario para el alcance por etapa. Dos orígenes: `educamos` (las columnas PROF.
 // SUSTITUTO + PROF. TITULAR del export de profes, con la vigencia sacada de FECHA ALTA y
 // FECHA BAJA) y `manual` (desde /gestion/profes). El sync solo toca las de origen `educamos`
 // y NUNCA reactiva una que se haya apagado a mano. docs/02-integracion-educamos.md.
-export const eduSustituciones = pgTable('edu_sustituciones', {
+export const eduCoberturasBaja = pgTable('edu_sustituciones', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   sustitutoId: uuid('sustituto_id').notNull().references(() => eduTeachers.id),
   titularId: uuid('titular_id').notNull().references(() => eduTeachers.id),
@@ -368,8 +372,8 @@ export const eduSustituciones = pgTable('edu_sustituciones', {
   index('edu_sustituciones_titular_idx').on(t.titularId),
 ]);
 
-export type EduSustitucion = typeof eduSustituciones.$inferSelect;
-export type NewEduSustitucion = typeof eduSustituciones.$inferInsert;
+export type EduCoberturaBaja = typeof eduCoberturasBaja.$inferSelect;
+export type NewEduCoberturaBaja = typeof eduCoberturasBaja.$inferInsert;
 
 // Tutor PERSONAL de un alumno concreto. Cuando una clase tiene dos (o tres) tutores, la
 // tutoría del grupo es de todos, pero cada alumno "es" de uno solo: es a esa persona a
@@ -1583,7 +1587,7 @@ export const horActividades = pgTable('hor_actividades', {
   // que caen en hora lectiva y otras que no).
   lectiva: boolean('lectiva').notNull().default(true),
   // ¿Si el profe falta, hay que cubrir esta hora? Y al revés: la guardia es la hora desde
-  // la que se cubre. Las dos preguntas del futuro módulo de sustituciones.
+  // la que se cubre. No la usa el módulo de Sustituciones (docs/32): tiene su propia configuración.
   cubreSustitucion: boolean('cubre_sustitucion').notNull().default(false),
   requiereGrupo: boolean('requiere_grupo').notNull().default(false),
   color: text('color'),
@@ -1841,7 +1845,7 @@ export const mihExportaciones = pgTable('mih_exportaciones', {
   calendarioGoogleId: text('calendario_google_id').notNull(),
   eventosCreados: integer('eventos_creados').notNull().default(0),
   // null = exportó SU horario. Con valor: exportó el horario de este profe, al que sustituye
-  // (docs/02-integracion-educamos.md → Sustituciones). Va aparte para que reexportar uno no borre el otro.
+  // (docs/02-integracion-educamos.md → Coberturas por baja). Va aparte para que reexportar uno no borre el otro.
   deProfeId: uuid('de_profe_id').references(() => eduTeachers.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [

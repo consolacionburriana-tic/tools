@@ -13,8 +13,8 @@ import { academicYearActual } from '@/lib/constants';
 import { getTeacherByEmail } from '@/lib/educamos-server';
 import { nombreProfe } from '@/lib/profes';
 import { ETAPA_LABEL } from '@/lib/cursos';
-import { aplicarSustituciones } from '@/lib/sustituciones';
-import { sustitucionesVigentes } from '@/lib/sustituciones-server';
+import { aplicarCoberturasBaja } from '@/lib/coberturas-baja';
+import { coberturasBajaVigentes } from '@/lib/coberturas-baja-server';
 import { hoyISO } from '@/lib/tableros';
 
 /** Alumno tal y como sale en el formulario: dos iniciales y su clase, nada más. */
@@ -238,12 +238,12 @@ export async function getDirectorioDestinatarios(abcStudentId: string): Promise<
           ),
         )
       : Promise.resolve([]),
-    sustitucionesVigentes(),
+    coberturasBajaVigentes(),
   ]);
 
   const rolPorEmail = new Map(usuarios.map((u) => [u.email.toLowerCase(), u.role]));
   // Tutor/a de la clase = quien lo es y está, o quien lo cubre ahora (sustitución vigente).
-  const tutoresDelAlumno = new Set(aplicarSustituciones(tutorias.map((t) => t.eduTeacherId), sustituciones, hoyISO()));
+  const tutoresDelAlumno = new Set(aplicarCoberturasBaja(tutorias.map((t) => t.eduTeacherId), sustituciones, hoyISO()));
 
   const claustro: PersonaDestinataria[] = [];
   const vistos = new Set<string>();

@@ -72,7 +72,7 @@ import {
   type UsoSesion,
 } from '@/lib/oratorios';
 import { correoProfe } from '@/lib/oratorios-email';
-import { destinatariosDeProfes, type ProfeDestino } from '@/lib/sustituciones-server';
+import { destinatariosDeProfes, type ProfeDestino } from '@/lib/coberturas-baja-server';
 import { borrarEvento, guardarEvento, leerRespuestas } from '@/lib/oratorios-google';
 import { nombreProfeBreve, pilaProfe } from '@/lib/profes';
 
