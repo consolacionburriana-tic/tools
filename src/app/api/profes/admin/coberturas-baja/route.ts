@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { actualizarSustitucion, borrarSustitucion, crearSustitucion, ErrorSustitucion } from '@/lib/sustituciones-server';
+import { actualizarCoberturaBaja, borrarCoberturaBaja, crearCoberturaBaja, ErrorCoberturaBaja } from '@/lib/coberturas-baja-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,13 +30,13 @@ const borrarSchema = z.object({ id: z.string().uuid() });
 
 function fallo(error: unknown) {
   const message =
-    error instanceof ErrorSustitucion
+    error instanceof ErrorCoberturaBaja
       ? error.message
       : error instanceof z.ZodError
         ? (error.issues[0]?.message ?? 'Datos no válidos')
         : 'No se ha podido guardar';
-  if (!(error instanceof ErrorSustitucion) && !(error instanceof z.ZodError)) {
-    console.error('Sustituciones:', error instanceof Error ? error.message : error);
+  if (!(error instanceof ErrorCoberturaBaja) && !(error instanceof z.ZodError)) {
+    console.error('Coberturas por baja:', error instanceof Error ? error.message : error);
   }
   return NextResponse.json({ error: message }, { status: 400 });
 }
@@ -47,21 +47,21 @@ export async function POST(request: Request) {
   if (isGuardResponse(guard)) return guard;
   try {
     const datos = crearSchema.parse(await request.json());
-    const fila = await crearSustitucion(datos);
+    const fila = await crearCoberturaBaja(datos);
     return NextResponse.json({ ok: true, id: fila.id });
   } catch (error) {
     return fallo(error);
   }
 }
 
-/** Encender o apagar, o cambiar las fechas de una sustitución. */
+/** Encender o apagar, o cambiar las fechas de una cobertura por baja. */
 export async function PATCH(request: Request) {
   const guard = await requireModule('profes');
   if (isGuardResponse(guard)) return guard;
   try {
     const { id, ...cambios } = cambiarSchema.parse(await request.json());
-    const fila = await actualizarSustitucion(id, cambios);
-    if (!fila) return NextResponse.json({ error: 'Esa sustitución ya no existe' }, { status: 404 });
+    const fila = await actualizarCoberturaBaja(id, cambios);
+    if (!fila) return NextResponse.json({ error: 'Esa cobertura por baja ya no existe' }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return fallo(error);
@@ -73,7 +73,7 @@ export async function DELETE(request: Request) {
   if (isGuardResponse(guard)) return guard;
   try {
     const { id } = borrarSchema.parse(await request.json());
-    await borrarSustitucion(id);
+    await borrarCoberturaBaja(id);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return fallo(error);

@@ -1,5 +1,5 @@
-// Sustituciones del profesorado — lógica PURA (sin IO), con tests en
-// `__tests__/sustituciones.test.ts`. Las consultas viven en `sustituciones-server.ts`.
+// Coberturas por baja (las sustituciones largas de Educamos) — lógica PURA (sin IO), con tests en
+// `__tests__/coberturas-baja.test.ts`. Las consultas viven en `coberturas-baja-server.ts`.
 //
 // «Ángela Guillamón sustituye a Alejandro Sánchez»: mientras la sustitución esté vigente,
 // el sistema asume que lo de Alejandro (sus tutorías, sus avisos) es de Ángela. Vigente =
@@ -15,9 +15,9 @@ const normalizar = (texto: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
-export type OrigenSustitucion = 'educamos' | 'manual';
+export type OrigenCoberturaBaja = 'educamos' | 'manual';
 
-export interface SustitucionBase {
+export interface CoberturaBajaBase {
   sustitutoId: string;
   titularId: string;
   desde: string | null;
@@ -25,21 +25,21 @@ export interface SustitucionBase {
   activa: boolean;
 }
 
-export type EstadoSustitucion = 'vigente' | 'programada' | 'caducada' | 'desactivada';
+export type EstadoCoberturaBaja = 'vigente' | 'programada' | 'caducada' | 'desactivada';
 
 /** En qué punto está una sustitución un día dado (`hoy` = `yyyy-MM-dd`). */
-export function estadoSustitucion(s: Pick<SustitucionBase, 'desde' | 'hasta' | 'activa'>, hoy: string): EstadoSustitucion {
+export function estadoCoberturaBaja(s: Pick<CoberturaBajaBase, 'desde' | 'hasta' | 'activa'>, hoy: string): EstadoCoberturaBaja {
   if (!s.activa) return 'desactivada';
   if (s.hasta && s.hasta < hoy) return 'caducada';
   if (s.desde && s.desde > hoy) return 'programada';
   return 'vigente';
 }
 
-export const esVigente = (s: Pick<SustitucionBase, 'desde' | 'hasta' | 'activa'>, hoy: string): boolean =>
-  estadoSustitucion(s, hoy) === 'vigente';
+export const esVigente = (s: Pick<CoberturaBajaBase, 'desde' | 'hasta' | 'activa'>, hoy: string): boolean =>
+  estadoCoberturaBaja(s, hoy) === 'vigente';
 
 /** Los titulares a los que cubre este profe ahora mismo. */
-export function titularesQueCubre(sustitutoId: string, sustituciones: readonly SustitucionBase[], hoy: string): string[] {
+export function titularesQueCubre(sustitutoId: string, sustituciones: readonly CoberturaBajaBase[], hoy: string): string[] {
   return [...new Set(sustituciones.filter((s) => s.sustitutoId === sustitutoId && esVigente(s, hoy)).map((s) => s.titularId))];
 }
 
@@ -48,9 +48,9 @@ export function titularesQueCubre(sustitutoId: string, sustituciones: readonly S
  * queda; quien tiene varios sustitutos vigentes los deja a todos. Sin repetidos y en orden.
  * Es lo que se aplica a «los tutores de una clase» para saber a quién se avisa.
  */
-export function aplicarSustituciones(
+export function aplicarCoberturasBaja(
   ids: readonly string[],
-  sustituciones: readonly SustitucionBase[],
+  sustituciones: readonly CoberturaBajaBase[],
   hoy: string,
 ): string[] {
   const vigentes = sustituciones.filter((s) => esVigente(s, hoy));
@@ -63,7 +63,7 @@ export function aplicarSustituciones(
 }
 
 /** Un tutor que está ahí porque cubre a otro: guarda a quién, para poder seguir el rastro. */
-export type ConSustitucion<T> = T & { sustituyeA?: string[] };
+export type ConCoberturaBaja<T> = T & { sustituyeA?: string[] };
 
 /**
  * La lista de tutores de una clase con los titulares ausentes cambiados por quien los cubre.
@@ -74,8 +74,8 @@ export type ConSustitucion<T> = T & { sustituyeA?: string[] };
 export function sustituirTutores<T extends { eduTeacherId: string }>(
   tutores: readonly T[],
   sustitutos: readonly { titularId: string; sustituto: T }[],
-): ConSustitucion<T>[] {
-  const salida: ConSustitucion<T>[] = [];
+): ConCoberturaBaja<T>[] {
+  const salida: ConCoberturaBaja<T>[] = [];
   const poner = (t: T, cubre: string | null) => {
     const ya = salida.find((x) => x.eduTeacherId === t.eduTeacherId);
     if (ya) {
@@ -162,12 +162,12 @@ export function resolverTitular(texto: string, profes: readonly ProfeParaTitular
   return { tipo: 'ok', id: elegidos[0].id };
 }
 
-export interface SustitucionExistente extends SustitucionBase {
+export interface CoberturaBajaExistente extends CoberturaBajaBase {
   id: string;
   origen: string;
 }
 
-export interface PlanSustituciones {
+export interface PlanCoberturasBaja {
   crear: { sustitutoId: string; titularId: string; desde: string | null; hasta: string | null }[];
   /** Las de origen `educamos` cuyas fechas han cambiado. */
   actualizar: { id: string; desde: string | null; hasta: string | null }[];
@@ -186,13 +186,13 @@ export interface PlanSustituciones {
  *  - Lo **apagado a mano** no se reactiva: el sync actualiza fechas, no el interruptor.
  *  - Un titular que no se encuentra (o hay dos con ese nombre) se avisa y no se inventa.
  */
-export function planSustitucionesEducamos(
+export function planCoberturasBajaEducamos(
   candidatos: readonly CandidatoSustituto[],
   profes: readonly ProfeParaTitular[],
-  existentes: readonly SustitucionExistente[],
+  existentes: readonly CoberturaBajaExistente[],
   hoy: string,
-): PlanSustituciones {
-  const plan: PlanSustituciones = { crear: [], actualizar: [], apagar: [], avisos: [] };
+): PlanCoberturasBaja {
+  const plan: PlanCoberturasBaja = { crear: [], actualizar: [], apagar: [], avisos: [] };
   const nombrePorId = new Map(profes.map((p) => [p.id, [p.nombre, p.apellido1, p.apellido2].filter(Boolean).join(' ')]));
   const nombreDe = (id: string) => nombrePorId.get(id) ?? 'alguien';
 

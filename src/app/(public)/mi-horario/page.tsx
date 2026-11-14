@@ -12,7 +12,7 @@ import { Exportador } from '@/components/mihorario/exportador';
 import { SelectorDe } from '@/components/mihorario/selector-de';
 import { Aviso } from '@/components/ui/aviso';
 import { Vacio } from '@/components/ui/vacio';
-import { titularesCubiertosPor } from '@/lib/sustituciones-server';
+import { titularesCubiertosPor } from '@/lib/coberturas-baja-server';
 import { buttonVariants } from '@/components/ui/button';
 
 export const dynamic = 'force-dynamic';
@@ -108,14 +108,14 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
               actual={viendo?.id ?? 'yo'}
               opciones={[
                 { id: 'yo', etiqueta: 'Mi horario' },
-                ...titulares.map((t) => ({ id: t.id, etiqueta: `El de ${t.nombre.split(' ')[0]} (sustituyes)` })),
+                ...titulares.map((t) => ({ id: t.id, etiqueta: `El de ${t.nombre.split(' ')[0]} (cubres su baja)` })),
               ]}
             />
           )}
 
           {viendo && (
             <Aviso tono="info">
-              Estás viendo el horario de <strong>{viendo.nombre}</strong>, a quien sustituyes
+              Estás viendo el horario de <strong>{viendo.nombre}</strong>, a quien cubres por baja
               {viendo.hasta ? ` hasta el ${fechaCorta(viendo.hasta)}` : ''}. Puedes llevártelo a tu Google Calendar y
               anotar en sus huecos: lo que anotes es tuyo y no se mezcla con lo suyo.
             </Aviso>

@@ -44,12 +44,26 @@ todo el centro**; los «subaccesos» quedan para más adelante. Lo demás lo dec
   está en la API pero no en la pantalla todavía.
 - Color de «viene de un grupo»: índigo (no es de estado ni de identidad de módulo).
 
-### Sustituciones puntuales de Infantil y Primaria (`32-sustituciones.md`)
+### Sustituciones (13-nov-2026) — lo que decidí yo
 
-Antes de implementar el buscador y los avisos, concretar:
+David respondió el 13-nov-2026 a todas las preguntas de [`32-sustituciones.md`](./32-sustituciones.md)
+(están en sus decisiones; en septiembre y junio, si una etapa no tiene su horario subido, manda el
+ordinario).
 
-1. Cómo se corresponden las actividades reales del horario con «Codocencia, Tut. indiv., J.E.,
-   A.L., P.T., Godly, TIC, Pastoral, Gabinete y Dirección».
+Lo que decidí yo al encajar las respuestas (revisar con David):
+
+1. **Nombre en código de las sustituciones largas: `coberturas-baja`**, no `bajas`: en este repo «baja»
+   ya es el alumno o profe que se va (Educamos, Correos y grupos). La tabla sigue siendo
+   `edu_sustituciones` y el resumen guardado de cada sync conserva su clave `sustituciones`.
+2. **Nivel «Guardia» el primero** (tras «Ya está en el aula»), para la ESO, aunque hoy no hay ninguna
+   guardia importada.
+3. **«Otras horas sin alumnado»** (nivel 12, «al final») son las horas **sin grupo** de atención a
+   familias y a alumnado, departamento, reuniones, coordinaciones, libre disposición y «Otros»; quedan
+   fuera el Taller de Pensamiento Computacional y el Huerto (son con alumnos aunque el horario no ponga grupo).
+4. **Tope de 15 días lectivos** por ausencia: más largo es una cobertura por baja.
+5. **Índigo** para el icono (otro color que Oratorios), como excepción apuntada en `diseno.md`.
+6. **El cuadro «HORARIO SUSTITUCIONES»** se guarda como parte del horario (`hor_cuadro_sustituciones`) y
+   ordena justo después del nivel. Falta ver su formato en un `.docx` real.
 
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
 
@@ -73,12 +87,12 @@ módulo saca **la foto del día** (quién pagaría qué hoy), en Excel y CSV, y 
 3. ¿Se lleva aquí el **«pagado / no pagado»** o se queda en Educamos? Si va a Educamos, ¿con qué
    formato de CSV (el de Licencias es curso, ID Educamos, importe)?
 
-### Sustituciones del profesorado: lo que decidí yo al construirlo (2-nov-2026) — revisar con David
+### Coberturas por baja (antes «Sustituciones del profesorado»): lo que decidí yo al construirlo (2-nov-2026) — revisar con David
 
 David pidió que, si Ángela Guillamón sustituye a Alejandro Sánchez, el sistema asuma que mientras
 dure es Ángela. Educamos ya lo marca (`PROF. SUSTITUTO` + `PROF. TITULAR`, con la vigencia en alta y
 baja), así que se lee de ahí y además se puede apuntar a mano, apagar y acotar con fechas. Ficha:
-`02-integracion-educamos.md` → «Sustituciones». Lo que decidí sin preguntar:
+`02-integracion-educamos.md` → «Coberturas por baja». Lo que decidí sin preguntar:
 
 1. **El sustituto ocupa el sitio del titular, no se suma a él.** Los avisos al tutor van a quien
    está, no a quien falta (y no a los dos). Si prefieres que lleguen a ambos, es un cambio en
@@ -105,7 +119,7 @@ baja), así que se lee de ahí y además se puede apuntar a mano, apagar y acota
 8. **Si Educamos deja de marcar a alguien como sustituto** (pasa a plantilla, cambia de titular), su
    fila se **apaga**, no se borra. Una apagada a mano no la reactiva nunca el sync.
 9. **Tocar las fechas a mano** de una de Educamos la convierte en manual. Si lo prefieres al revés
-   (que el siguiente sync las reescriba), es una línea en `actualizarSustitucion()`.
+   (que el siguiente sync las reescriba), es una línea en `actualizarCoberturaBaja()`.
 
 ### Presentación al claustro (2-nov-2026): lo que decidí yo — revisar con David
 
@@ -1262,8 +1276,8 @@ borrar los planes temporales quedaron sin repasar a mano, por si alguna vez se m
 
 ## Backlog de módulos futuros (mencionados, sin desarrollar todavía)
 
-- Sustituciones puntuales del profesorado: ficha funcional creada; falta configurar el buzón de
-  Dirección titular y validar el mapeo de actividades en [`32-sustituciones.md`](./32-sustituciones.md).
+- Sustituciones puntuales del profesorado: ficha con plan técnico completo y listo para
+  implementar ([`32-sustituciones.md`](./32-sustituciones.md)); sin preguntas pendientes.
 
 ## Registro ABC · ideas para rellenar aún más rápido (26-oct-2026)
 - Sugerir «¿Cuándo ocurre?» según la hora y el horario del colegio (hoy no hay horas de patio/almuerzo

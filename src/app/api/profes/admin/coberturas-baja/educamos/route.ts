@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isGuardResponse, requireModule } from '@/lib/auth-guards';
-import { releerSustitucionesDeEducamos } from '@/lib/sustituciones-server';
+import { releerCoberturasBajaDeEducamos } from '@/lib/coberturas-baja-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +13,10 @@ export async function POST(request: Request) {
   if (isGuardResponse(guard)) return guard;
   try {
     const dryRun = new URL(request.url).searchParams.get('dryRun') === '1';
-    const resumen = await releerSustitucionesDeEducamos(dryRun);
+    const resumen = await releerCoberturasBajaDeEducamos(dryRun);
     return NextResponse.json({ ok: true, dryRun, resumen });
   } catch (error) {
-    console.error('Sustituciones desde Educamos:', error instanceof Error ? error.message : error);
-    return NextResponse.json({ error: 'No se han podido releer las sustituciones de Educamos' }, { status: 500 });
+    console.error('Coberturas por baja desde Educamos:', error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: 'No se han podido releer las coberturas por baja de Educamos' }, { status: 500 });
   }
 }

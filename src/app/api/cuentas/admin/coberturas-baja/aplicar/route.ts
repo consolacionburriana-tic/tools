@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const cuerpo = z.object({
-  sustitucionId: z.string().uuid(),
+  coberturaId: z.string().uuid(),
   grupos: z.array(z.string().trim().toLowerCase().email()).min(1).max(100),
 });
 
@@ -24,10 +24,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Datos incorrectos' }, { status: 400 });
   }
   try {
-    const resultados = await anadirSustitutoAGrupos(buzonAdmin(user.email), datos.sustitucionId, datos.grupos, user.email);
+    const resultados = await anadirSustitutoAGrupos(buzonAdmin(user.email), datos.coberturaId, datos.grupos, user.email);
     return NextResponse.json({ resultados });
   } catch (error) {
-    const mensaje = error instanceof Error && /sustitución|cuenta activa/.test(error.message) ? error.message : explicarError(error);
+    const mensaje = error instanceof Error && /cobertura por baja|cuenta activa/.test(error.message) ? error.message : explicarError(error);
     return NextResponse.json({ error: mensaje }, { status: 409 });
   }
 }

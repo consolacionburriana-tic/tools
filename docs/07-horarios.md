@@ -267,10 +267,13 @@ alumnos igual.
   Se apaga la elección de asignatura a mano y se enciende `htmlAvisoProfeAsignatura`, que
   está escrito y esperando.
 - **Sustituciones puntuales** ([`32-sustituciones.md`](./32-sustituciones.md)): consumen estas capas
-  para proponer coberturas por prioridad. El plan debe resolver candidatos libres y sesiones
-  reasignables, y guardar el histórico aparte de la importación para no perderlo al actualizar
-  horarios. Se eligen sesiones concretas de una fecha; falta validar el mapeo de actividades
-  importadas contra la prioridad funcional.
+  para proponer quién cubre cada hora, por la prioridad del centro (Codocencia, Tut. indiv., J.E.…,
+  mapeada a actividad + rol + etiqueta y comprobada en Neon el 13-nov-2026). Dos lecciones para
+  cualquier módulo que pregunte «¿quién está libre a tal hora de tal día?»: **se compara por solape
+  de horas, no por tramo** (infantil y primaria tienen rejillas con horas distintas), y **el periodo
+  se elige por rejilla** (en septiembre y junio solo primaria tiene rejilla propia). No usan
+  `hor_actividades.cubre_sustitucion`: guardan su propia foto en `sust_*` para que reimportar
+  horarios no les borre el histórico.
 - **Documentación por clase**: "los papeles de 2ESO B" cuelgan de `curso`/`letra` como en el
   resto del repo, y el horario da el contexto (quién entra, cuándo).
 - **Duplicar de un año al anterior**: todo cuelga de `hor_periodos`, así que duplicar es
@@ -751,7 +754,7 @@ que el adaptador aguante un fichero sucio sin inventarse nada.
 | `hor_alias` | Traducción de códigos del fichero externo a nuestros IDs (materias y espacios; el profesorado casa por `edu_teachers.alias`) |
 | `hor_import_runs` | Bitácora de importaciones (como `edu_sync_runs`) |
 
-Futuras, **no en este alcance**: `hor_ausencias` y `hor_sustituciones`.
+Las ausencias del día no van aquí: son del módulo Sustituciones, con sus tablas `sust_*` ([`32-sustituciones.md`](./32-sustituciones.md)).
 
 ### Código
 

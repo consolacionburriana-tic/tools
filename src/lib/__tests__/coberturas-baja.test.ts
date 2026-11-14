@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aplicarSustituciones,
+  aplicarCoberturasBaja,
   candidatoDeExtra,
-  estadoSustitucion,
+  estadoCoberturaBaja,
   esVigente,
-  planSustitucionesEducamos,
+  planCoberturasBajaEducamos,
   resolverTitular,
   sustituirTutores,
   titularesQueCubre,
   type CandidatoSustituto,
   type ProfeParaTitular,
-  type SustitucionBase,
-  type SustitucionExistente,
-} from '@/lib/sustituciones';
+  type CoberturaBajaBase,
+  type CoberturaBajaExistente,
+} from '@/lib/coberturas-baja';
 
 const HOY = '2026-11-02';
 
-const s = (o: Partial<SustitucionBase> = {}): SustitucionBase => ({
+const s = (o: Partial<CoberturaBajaBase> = {}): CoberturaBajaBase => ({
   sustitutoId: 'ana',
   titularId: 'beto',
   desde: null,
@@ -25,23 +25,23 @@ const s = (o: Partial<SustitucionBase> = {}): SustitucionBase => ({
   ...o,
 });
 
-describe('estadoSustitucion', () => {
+describe('estadoCoberturaBaja', () => {
   it('sin fechas y activa: vigente', () => {
-    expect(estadoSustitucion(s(), HOY)).toBe('vigente');
+    expect(estadoCoberturaBaja(s(), HOY)).toBe('vigente');
   });
   it('apagada a mano: desactivada, aunque las fechas valgan', () => {
-    expect(estadoSustitucion(s({ activa: false, desde: '2026-10-01' }), HOY)).toBe('desactivada');
+    expect(estadoCoberturaBaja(s({ activa: false, desde: '2026-10-01' }), HOY)).toBe('desactivada');
   });
   it('los dos extremos son inclusive', () => {
-    expect(estadoSustitucion(s({ desde: HOY }), HOY)).toBe('vigente');
-    expect(estadoSustitucion(s({ hasta: HOY }), HOY)).toBe('vigente');
+    expect(estadoCoberturaBaja(s({ desde: HOY }), HOY)).toBe('vigente');
+    expect(estadoCoberturaBaja(s({ hasta: HOY }), HOY)).toBe('vigente');
   });
   it('antes del desde: programada · después del hasta: caducada', () => {
-    expect(estadoSustitucion(s({ desde: '2026-11-03' }), HOY)).toBe('programada');
-    expect(estadoSustitucion(s({ hasta: '2026-11-01' }), HOY)).toBe('caducada');
+    expect(estadoCoberturaBaja(s({ desde: '2026-11-03' }), HOY)).toBe('programada');
+    expect(estadoCoberturaBaja(s({ hasta: '2026-11-01' }), HOY)).toBe('caducada');
   });
   it('desactivada gana a caducada (se ve que está apagada)', () => {
-    expect(estadoSustitucion(s({ activa: false, hasta: '2026-01-01' }), HOY)).toBe('desactivada');
+    expect(estadoCoberturaBaja(s({ activa: false, hasta: '2026-01-01' }), HOY)).toBe('desactivada');
   });
   it('esVigente solo es true para vigente', () => {
     expect(esVigente(s(), HOY)).toBe(true);
@@ -63,20 +63,20 @@ describe('titularesQueCubre', () => {
   });
 });
 
-describe('aplicarSustituciones', () => {
+describe('aplicarCoberturasBaja', () => {
   it('cambia al titular por su sustituto y deja a los demás', () => {
-    expect(aplicarSustituciones(['beto', 'carla'], [s()], HOY)).toEqual(['ana', 'carla']);
+    expect(aplicarCoberturasBaja(['beto', 'carla'], [s()], HOY)).toEqual(['ana', 'carla']);
   });
   it('una sustitución caducada, programada o apagada no cambia nada', () => {
-    expect(aplicarSustituciones(['beto'], [s({ hasta: '2026-01-01' })], HOY)).toEqual(['beto']);
-    expect(aplicarSustituciones(['beto'], [s({ desde: '2027-01-01' })], HOY)).toEqual(['beto']);
-    expect(aplicarSustituciones(['beto'], [s({ activa: false })], HOY)).toEqual(['beto']);
+    expect(aplicarCoberturasBaja(['beto'], [s({ hasta: '2026-01-01' })], HOY)).toEqual(['beto']);
+    expect(aplicarCoberturasBaja(['beto'], [s({ desde: '2027-01-01' })], HOY)).toEqual(['beto']);
+    expect(aplicarCoberturasBaja(['beto'], [s({ activa: false })], HOY)).toEqual(['beto']);
   });
   it('dos sustitutos de la misma persona: salen los dos', () => {
-    expect(aplicarSustituciones(['beto'], [s(), s({ sustitutoId: 'gus' })], HOY)).toEqual(['ana', 'gus']);
+    expect(aplicarCoberturasBaja(['beto'], [s(), s({ sustitutoId: 'gus' })], HOY)).toEqual(['ana', 'gus']);
   });
   it('si el sustituto ya era tutor de la clase no se repite', () => {
-    expect(aplicarSustituciones(['beto', 'ana'], [s()], HOY)).toEqual(['ana']);
+    expect(aplicarCoberturasBaja(['beto', 'ana'], [s()], HOY)).toEqual(['ana']);
   });
 });
 
@@ -122,7 +122,7 @@ describe('resolverTitular', () => {
   });
 });
 
-describe('planSustitucionesEducamos', () => {
+describe('planCoberturasBajaEducamos', () => {
   const cand = (o: Partial<CandidatoSustituto> = {}): CandidatoSustituto => ({
     sustitutoId: 'ana',
     esSustituto: true,
@@ -131,7 +131,7 @@ describe('planSustitucionesEducamos', () => {
     hasta: null,
     ...o,
   });
-  const ex = (o: Partial<SustitucionExistente> = {}): SustitucionExistente => ({
+  const ex = (o: Partial<CoberturaBajaExistente> = {}): CoberturaBajaExistente => ({
     id: 'x1',
     sustitutoId: 'ana',
     titularId: 'beto',
@@ -143,64 +143,64 @@ describe('planSustitucionesEducamos', () => {
   });
 
   it('crea la sustitución con la vigencia de alta y baja', () => {
-    const plan = planSustitucionesEducamos([cand({ hasta: '2026-12-18' })], profes, [], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ hasta: '2026-12-18' })], profes, [], HOY);
     expect(plan.crear).toEqual([{ sustitutoId: 'ana', titularId: 'beto', desde: '2026-10-19', hasta: '2026-12-18' }]);
     expect(plan.avisos).toEqual([]);
   });
 
   it('si ya existe igual, no hace nada (idempotente)', () => {
-    const plan = planSustitucionesEducamos([cand()], profes, [ex()], HOY);
+    const plan = planCoberturasBajaEducamos([cand()], profes, [ex()], HOY);
     expect(plan).toEqual({ crear: [], actualizar: [], apagar: [], avisos: [] });
   });
 
   it('si cambian las fechas, las actualiza pero no toca el interruptor', () => {
-    const plan = planSustitucionesEducamos([cand({ hasta: '2026-12-18' })], profes, [ex({ activa: false })], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ hasta: '2026-12-18' })], profes, [ex({ activa: false })], HOY);
     expect(plan.actualizar).toEqual([{ id: 'x1', desde: '2026-10-19', hasta: '2026-12-18' }]);
     expect(plan.apagar).toEqual([]); // ya estaba apagada: no hay nada que apagar ni se reactiva
   });
 
   it('una sustitución manual del mismo par no se pisa ni se duplica', () => {
-    const plan = planSustitucionesEducamos([cand({ hasta: '2026-12-18' })], profes, [ex({ origen: 'manual' })], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ hasta: '2026-12-18' })], profes, [ex({ origen: 'manual' })], HOY);
     expect(plan).toEqual({ crear: [], actualizar: [], apagar: [], avisos: [] });
   });
 
   it('un sustituto con baja ya pasada (histórico) no crea nada', () => {
-    const plan = planSustitucionesEducamos([cand({ hasta: '2025-06-30' })], profes, [], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ hasta: '2025-06-30' })], profes, [], HOY);
     expect(plan.crear).toEqual([]);
   });
 
   it('PROF. SUSTITUTO = FALSE no crea, aunque quede el titular escrito', () => {
-    const plan = planSustitucionesEducamos([cand({ esSustituto: false })], profes, [], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ esSustituto: false })], profes, [], HOY);
     expect(plan.crear).toEqual([]);
   });
 
   it('si Educamos deja de contarlo (ya no es sustituto), se apaga la de origen educamos', () => {
-    const plan = planSustitucionesEducamos([cand({ esSustituto: false })], profes, [ex()], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ esSustituto: false })], profes, [ex()], HOY);
     expect(plan.apagar).toEqual(['x1']);
   });
 
   it('si cambia de titular: crea la nueva y apaga la vieja', () => {
-    const plan = planSustitucionesEducamos([cand({ titularTexto: 'CARLA SOL MAR' })], profes, [ex()], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ titularTexto: 'CARLA SOL MAR' })], profes, [ex()], HOY);
     expect(plan.crear).toEqual([{ sustitutoId: 'ana', titularId: 'carla', desde: '2026-10-19', hasta: null }]);
     expect(plan.apagar).toEqual(['x1']);
   });
 
   it('nunca apaga una manual', () => {
-    const plan = planSustitucionesEducamos([cand({ esSustituto: false })], profes, [ex({ origen: 'manual' })], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ esSustituto: false })], profes, [ex({ origen: 'manual' })], HOY);
     expect(plan.apagar).toEqual([]);
   });
 
   it('titular que no existe o ambiguo: avisa y no crea', () => {
-    const a = planSustitucionesEducamos([cand({ titularTexto: 'ZOE NADIE' })], profes, [], HOY);
+    const a = planCoberturasBajaEducamos([cand({ titularTexto: 'ZOE NADIE' })], profes, [], HOY);
     expect(a.crear).toEqual([]);
     expect(a.avisos[0]).toContain('ZOE NADIE');
-    const b = planSustitucionesEducamos([cand({ titularTexto: 'DANI PINO ROCA' })], profes, [], HOY);
+    const b = planCoberturasBajaEducamos([cand({ titularTexto: 'DANI PINO ROCA' })], profes, [], HOY);
     expect(b.crear).toEqual([]);
     expect(b.avisos[0]).toContain('2 fichas');
   });
 
   it('no se sustituye a sí mismo', () => {
-    const plan = planSustitucionesEducamos([cand({ titularTexto: 'ANA LUNA PEREZ' })], profes, [], HOY);
+    const plan = planCoberturasBajaEducamos([cand({ titularTexto: 'ANA LUNA PEREZ' })], profes, [], HOY);
     expect(plan.crear).toEqual([]);
     expect(plan.avisos).toHaveLength(1);
   });

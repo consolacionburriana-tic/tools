@@ -67,7 +67,7 @@ import {
 } from '@/lib/cuentas-google';
 import { esEtapa, type Etapa } from '@/lib/cursos';
 import { enParalelo, explicarError } from '@/lib/google-sa';
-import { listarSustituciones } from '@/lib/sustituciones-server';
+import { listarCoberturasBaja } from '@/lib/coberturas-baja-server';
 import { hoyISO } from '@/lib/tableros';
 
 const AJUSTES_CLAVE = 'cuentas';
@@ -112,8 +112,8 @@ export interface EstadoCuentas {
   /** Las unidades se han leído de Google (si no, se deducen de las cuentas y faltan las vacías). */
   unidadesDeGoogle: boolean;
   grupos: GrupoFila[];
-  /** Sustituciones vigentes hoy: para sugerir meter al sustituto en los grupos del titular. */
-  sustituciones: { id: string; sustituto: string; titular: string }[];
+  /** Coberturas por baja vigentes hoy: para sugerir meter al sustituto en los grupos del titular. */
+  coberturasBaja: { id: string; sustituto: string; titular: string }[];
   leidoAt: string | null;
   dominio: string;
 }
@@ -259,7 +259,7 @@ function aGrupoFila(g: typeof cueGrupos.$inferSelect): GrupoFila {
 
 /** Todo lo que pinta la pantalla, en una tanda de consultas. */
 export async function estadoCuentas(hoy = new Date()): Promise<EstadoCuentas> {
-  const [c, sustituciones] = await Promise.all([cargar(), listarSustituciones(hoyISO(hoy))]);
+  const [c, sustituciones] = await Promise.all([cargar(), listarCoberturasBaja(hoyISO(hoy))]);
   const { cruce, ajustes, propuestos } = cruzarCargado(c, hoy);
   const porRuta = new Map<string, { cuentas: number; activas: number }>();
   for (const cu of c.cuentas) {
@@ -284,7 +284,7 @@ export async function estadoCuentas(hoy = new Date()): Promise<EstadoCuentas> {
     unidades,
     unidadesDeGoogle: deGoogle.size > 0,
     grupos: c.grupos.map(aGrupoFila).sort((a, b) => Number(b.gestionado) - Number(a.gestionado) || a.email.localeCompare(b.email)),
-    sustituciones: sustituciones
+    coberturasBaja: sustituciones
       .filter((x) => x.estado === 'vigente')
       .map((x) => ({ id: x.id, sustituto: x.sustitutoNombre, titular: x.titularNombre })),
     leidoAt: c.leidoAt,
@@ -923,7 +923,7 @@ export async function aplicarGrupo(
   return { anadidos, quitados, errores, quedan };
 }
 
-// ─── Sustituciones: meter al sustituto en los grupos del titular ───────────────
+// ─── Coberturas por baja: meter al sustituto en los grupos del titular ───────────────
 
 export interface SugerenciaGrupo {
   email: string;
@@ -936,8 +936,8 @@ export interface SugerenciaGrupo {
   bloqueado: string | null;
 }
 
-export interface SugerenciasSustitucion {
-  sustitucionId: string;
+export interface SugerenciasCoberturaBaja {
+  coberturaId: string;
   sustituto: { nombre: string; correo: string | null };
   titular: { nombre: string; correo: string | null };
   /** Los grupos donde está el titular, para que se elija a mano en cuáles entra el sustituto. */
@@ -951,10 +951,10 @@ function correoActivoDeProfe(cruce: CruceCuentas, profeId: string): string | nul
   return f?.cuenta && !f.cuenta.suspendida ? f.cuenta.email : null;
 }
 
-async function cargarSustitucion(id: string) {
-  const fila = (await listarSustituciones(hoyISO())).find((x) => x.id === id);
-  if (!fila) throw new Error('Esa sustitución ya no existe');
-  if (fila.estado !== 'vigente') throw new Error('Esa sustitución no está vigente: enciéndela o revisa sus fechas');
+async function cargarCoberturaBaja(id: string) {
+  const fila = (await listarCoberturasBaja(hoyISO())).find((x) => x.id === id);
+  if (!fila) throw new Error('Esa cobertura por baja ya no existe');
+  if (fila.estado !== 'vigente') throw new Error('Esa cobertura por baja no está vigente: enciéndela o revisa sus fechas');
   return fila;
 }
 
@@ -963,13 +963,13 @@ async function cargarSustitucion(id: string) {
  * No se mete a nadie: la persona de TIC elige a mano en cuáles. Si el sustituto o el titular no
  * tienen cuenta activa, se dice (sin cuenta no hay grupos que mirar).
  */
-export async function sugerirGruposSustitucion(admin: string, sustitucionId: string): Promise<SugerenciasSustitucion> {
-  const [fila, c] = await Promise.all([cargarSustitucion(sustitucionId), cargar()]);
+export async function sugerirGruposCoberturaBaja(admin: string, coberturaId: string): Promise<SugerenciasCoberturaBaja> {
+  const [fila, c] = await Promise.all([cargarCoberturaBaja(coberturaId), cargar()]);
   const { cruce } = cruzarCargado(c);
   const sustitutoCorreo = correoActivoDeProfe(cruce, fila.sustitutoId);
   const titularCorreo = correoActivoDeProfe(cruce, fila.titularId);
-  const salida: SugerenciasSustitucion = {
-    sustitucionId,
+  const salida: SugerenciasCoberturaBaja = {
+    coberturaId,
     sustituto: { nombre: fila.sustitutoNombre, correo: sustitutoCorreo },
     titular: { nombre: fila.titularNombre, correo: titularCorreo },
     grupos: [],
@@ -1008,11 +1008,11 @@ export interface ResultadoGrupoSustituto {
  */
 export async function anadirSustitutoAGrupos(
   admin: string,
-  sustitucionId: string,
+  coberturaId: string,
   grupos: string[],
   quien: string,
 ): Promise<ResultadoGrupoSustituto[]> {
-  const previa = await sugerirGruposSustitucion(admin, sustitucionId);
+  const previa = await sugerirGruposCoberturaBaja(admin, coberturaId);
   const correo = previa.sustituto.correo;
   if (!correo) throw new Error(previa.avisos[0] ?? 'El sustituto no tiene cuenta activa en Google');
   const permitidos = new Map(previa.grupos.map((g) => [g.email, g]));

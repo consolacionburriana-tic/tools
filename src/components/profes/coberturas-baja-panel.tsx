@@ -1,8 +1,8 @@
 'use client';
 
-// Sustituciones del profesorado: «Ángela Guillamón sustituye a Alejandro Sánchez».
+// Coberturas por baja (las sustituciones largas que marca Educamos, o a mano): «Ángela Guillamón sustituye a Alejandro Sánchez».
 //
-// Mientras una sustitución está vigente, el sistema asume que lo del titular (sus tutorías, a
+// Mientras una cobertura por baja está vigente, el sistema asume que lo del titular (sus tutorías, a
 // quién se avisa, lo que ve en Alumnado y en Puntualidad) es de quien lo sustituye. Nacen de
 // Educamos (columnas PROF. SUSTITUTO y PROF. TITULAR, con la vigencia de alta y baja) o se
 // apuntan a mano aquí. Se pueden apagar y encender con un toque y llevan fechas opcionales.
@@ -26,9 +26,9 @@ import { Etiqueta } from '@/components/ui/etiqueta';
 import { Interruptor } from '@/components/ui/interruptor';
 import { ConfirmarEnLinea } from '@/components/ui/confirmar';
 import { Vacio } from '@/components/ui/vacio';
-import type { EstadoSustitucion } from '@/lib/sustituciones';
+import type { EstadoCoberturaBaja } from '@/lib/coberturas-baja';
 
-export interface SustitucionUI {
+export interface CoberturaBajaUI {
   id: string;
   sustitutoNombre: string;
   titularNombre: string;
@@ -36,7 +36,7 @@ export interface SustitucionUI {
   hasta: string | null;
   activa: boolean;
   origen: 'educamos' | 'manual';
-  estado: EstadoSustitucion;
+  estado: EstadoCoberturaBaja;
 }
 
 export interface ProfeOpcion {
@@ -44,14 +44,14 @@ export interface ProfeOpcion {
   nombre: string;
 }
 
-const ESTADO: Record<EstadoSustitucion, { tono: TonoEstado; texto: string }> = {
+const ESTADO: Record<EstadoCoberturaBaja, { tono: TonoEstado; texto: string }> = {
   vigente: { tono: 'ok', texto: 'Vigente' },
   programada: { tono: 'info', texto: 'Programada' },
   caducada: { tono: 'neutro', texto: 'Caducada' },
   desactivada: { tono: 'neutro', texto: 'Desactivada' },
 };
 
-async function llamar(metodo: 'POST' | 'PATCH' | 'DELETE', cuerpo: unknown, url = '/api/profes/admin/sustituciones') {
+async function llamar(metodo: 'POST' | 'PATCH' | 'DELETE', cuerpo: unknown, url = '/api/profes/admin/coberturas-baja') {
   const res = await fetch(url, {
     method: metodo,
     headers: { 'Content-Type': 'application/json' },
@@ -62,7 +62,7 @@ async function llamar(metodo: 'POST' | 'PATCH' | 'DELETE', cuerpo: unknown, url 
   return data;
 }
 
-export function SustitucionesPanel({ filas, profes }: { filas: SustitucionUI[]; profes: ProfeOpcion[] }) {
+export function CoberturasBajaPanel({ filas, profes }: { filas: CoberturaBajaUI[]; profes: ProfeOpcion[] }) {
   const router = useRouter();
   const vigentes = filas.filter((f) => f.estado === 'vigente').length;
   const [abierto, setAbierto] = useState(vigentes > 0);
@@ -71,7 +71,7 @@ export function SustitucionesPanel({ filas, profes }: { filas: SustitucionUI[]; 
   async function releer() {
     setLeyendo(true);
     try {
-      const data = await llamar('POST', {}, '/api/profes/admin/sustituciones/educamos');
+      const data = await llamar('POST', {}, '/api/profes/admin/coberturas-baja/educamos');
       const r = data.resumen as { nuevas: number; actualizadas: number; apagadas: number; avisos: string[] };
       const hechos = r.nuevas + r.actualizadas + r.apagadas;
       toast.success(
@@ -100,7 +100,7 @@ export function SustitucionesPanel({ filas, profes }: { filas: SustitucionUI[]; 
       >
         <UserRoundCog aria-hidden className="h-5 w-5 shrink-0 text-zinc-400" />
         <span className="flex-1">
-          <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Sustituciones</span>
+          <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Coberturas por baja</span>
           <span className="block text-sm text-zinc-500 dark:text-zinc-400">
             Quién cubre a quién mientras dura: hereda sus tutorías y sus avisos
             {vigentes > 0 ? ` · ${vigentes} vigente(s)` : ''}
@@ -112,7 +112,7 @@ export function SustitucionesPanel({ filas, profes }: { filas: SustitucionUI[]; 
       {abierto && (
         <div className="space-y-5 border-t border-zinc-100 px-4 py-4 dark:border-zinc-800">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Mientras una sustitución esté <strong>vigente</strong>, quien sustituye es tutor/a de las clases del titular
+            Mientras una cobertura por baja esté <strong>vigente</strong>, quien sustituye es tutor/a de las clases del titular
             (los avisos van a esa persona, no a quien falta). Las que vienen de Educamos se crean y se cierran solas con
             su alta y su baja; apaga con el interruptor las que no valgan, o apunta una a mano abajo.
           </p>
@@ -120,14 +120,14 @@ export function SustitucionesPanel({ filas, profes }: { filas: SustitucionUI[]; 
           <div>
             <Rotulo as="h3" className="mb-1.5">Ahora mismo</Rotulo>
             {filas.length === 0 ? (
-              <Vacio icono={<UserRoundCog />} titulo="Nadie está sustituyendo a nadie">
+              <Vacio icono={<UserRoundCog />} titulo="Nadie está cubriendo ninguna baja">
                 Si ya has importado el profesorado de Educamos, pulsa «Releer de Educamos» para traer las que ya vienen
                 marcadas allí.
               </Vacio>
             ) : (
               <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {filas.map((f) => (
-                  <FilaSustitucion key={`${f.id}-${f.desde}-${f.hasta}`} fila={f} onCambio={() => router.refresh()} />
+                  <FilaCoberturaBaja key={`${f.id}-${f.desde}-${f.hasta}`} fila={f} onCambio={() => router.refresh()} />
                 ))}
               </ul>
             )}
@@ -145,7 +145,7 @@ export function SustitucionesPanel({ filas, profes }: { filas: SustitucionUI[]; 
   );
 }
 
-function textoFechas(f: Pick<SustitucionUI, 'desde' | 'hasta'>): string {
+function textoFechas(f: Pick<CoberturaBajaUI, 'desde' | 'hasta'>): string {
   const fmt = (iso: string) => {
     const [a, m, d] = iso.split('-');
     return `${Number(d)}/${Number(m)}/${a}`;
@@ -156,7 +156,7 @@ function textoFechas(f: Pick<SustitucionUI, 'desde' | 'hasta'>): string {
   return 'Sin fechas: mientras esté encendida';
 }
 
-function FilaSustitucion({ fila, onCambio }: { fila: SustitucionUI; onCambio: () => void }) {
+function FilaCoberturaBaja({ fila, onCambio }: { fila: CoberturaBajaUI; onCambio: () => void }) {
   const [desde, setDesde] = useState(fila.desde ?? '');
   const [hasta, setHasta] = useState(fila.hasta ?? '');
   const [editando, setEditando] = useState(false);
@@ -180,7 +180,7 @@ function FilaSustitucion({ fila, onCambio }: { fila: SustitucionUI; onCambio: ()
   async function borrar() {
     try {
       await llamar('DELETE', { id: fila.id });
-      toast.success('Sustitución borrada');
+      toast.success('Cobertura por baja borrada');
       haptic.success();
       onCambio();
     } catch (err) {
@@ -210,7 +210,7 @@ function FilaSustitucion({ fila, onCambio }: { fila: SustitucionUI; onCambio: ()
           activo={fila.activa}
           disabled={guardando}
           onChange={(activa) => void cambiar({ activa })}
-          etiqueta={`${fila.activa ? 'Apagar' : 'Encender'} la sustitución de ${fila.titularNombre} por ${fila.sustitutoNombre}`}
+          etiqueta={`${fila.activa ? 'Apagar' : 'Encender'} la cobertura de la baja de ${fila.titularNombre} por ${fila.sustitutoNombre}`}
         />
       </div>
 
@@ -270,7 +270,7 @@ function FormularioNueva({ profes, onCreada }: { profes: ProfeOpcion[]; onCreada
     setGuardando(true);
     try {
       await llamar('POST', { sustitutoId, titularId, desde: desde || null, hasta: hasta || null });
-      toast.success('Sustitución apuntada');
+      toast.success('Cobertura por baja apuntada');
       haptic.success();
       setSustitutoId('');
       setTitularId('');
@@ -320,7 +320,7 @@ function FormularioNueva({ profes, onCreada }: { profes: ProfeOpcion[]; onCreada
         </p>
       )}
       <Button type="submit" cargando={guardando}>
-        <Plus aria-hidden /> Apuntar sustitución
+        <Plus aria-hidden /> Apuntar cobertura por baja
       </Button>
     </form>
   );
