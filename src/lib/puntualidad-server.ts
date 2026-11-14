@@ -10,7 +10,7 @@ import {
   conConsequenceTypes,
   conConsequences,
   eduStudents,
-  eduSustituciones,
+  eduCoberturasBaja,
   eduTeachers,
   eduTutorias,
   punDigestRuns,
@@ -24,8 +24,8 @@ import { CONFIGURACION } from '@/lib/configuracion';
 import { nombreClase, PATRONES_CURSO_SQL } from '@/lib/cursos';
 import { vePuntualidadCompleta, type Role } from '@/lib/permissions';
 import { nombreProfe, nombreProfeBreve } from '@/lib/profes';
-import { condVigente, titularesVigentesSub } from '@/lib/sustituciones-server';
-import { sustituirTutores } from '@/lib/sustituciones';
+import { condVigente, titularesVigentesSub } from '@/lib/coberturas-baja-server';
+import { sustituirTutores } from '@/lib/coberturas-baja';
 import { hoyISO } from '@/lib/tableros';
 import { tutorPersonalDeAlumno } from '@/lib/tutorias-server';
 import {
@@ -294,7 +294,7 @@ export interface TutorClase {
 
 /**
  * Tutor/es de una clase en el curso académico en vigor. Si un tutor está sustituido (hay una
- * sustitución vigente, ver `sustituciones.ts`), sale quien lo cubre en su lugar: se avisa a
+ * sustitución vigente, ver `coberturas-baja.ts`), sale quien lo cubre en su lugar: se avisa a
  * quien está, no a quien no.
  */
 export async function tutoresDeClase(
@@ -313,13 +313,13 @@ export async function tutoresDeClase(
   const [rows, cubiertos] = await Promise.all([
     db.select({ t: eduTeachers }).from(eduTutorias).innerJoin(eduTeachers, eq(eduTutorias.eduTeacherId, eduTeachers.id)).where(deLaClase),
     db
-      .select({ titularId: eduSustituciones.titularId, t: eduTeachers })
-      .from(eduSustituciones)
-      .innerJoin(eduTeachers, eq(eduSustituciones.sustitutoId, eduTeachers.id))
+      .select({ titularId: eduCoberturasBaja.titularId, t: eduTeachers })
+      .from(eduCoberturasBaja)
+      .innerJoin(eduTeachers, eq(eduCoberturasBaja.sustitutoId, eduTeachers.id))
       .where(
         and(
           condVigente(hoyISO()),
-          inArray(eduSustituciones.titularId, db.select({ id: eduTutorias.eduTeacherId }).from(eduTutorias).where(deLaClase)),
+          inArray(eduCoberturasBaja.titularId, db.select({ id: eduTutorias.eduTeacherId }).from(eduTutorias).where(deLaClase)),
         ),
       ),
   ]);
@@ -371,7 +371,7 @@ export async function clasesDeTutor(
         eq(eduTutorias.academicYear, academicYear),
         or(
           inArray(eduTutorias.eduTeacherId, yo),
-          inArray(eduTutorias.eduTeacherId, titularesVigentesSub(inArray(eduSustituciones.sustitutoId, yo))),
+          inArray(eduTutorias.eduTeacherId, titularesVigentesSub(inArray(eduCoberturasBaja.sustitutoId, yo))),
         ),
       ),
     );

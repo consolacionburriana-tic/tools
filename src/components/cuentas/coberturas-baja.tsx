@@ -1,6 +1,6 @@
 'use client';
 
-// «Sustituciones» en Correos y grupos: cuando alguien está sustituyendo a otra persona, se
+// «Coberturas por baja» en Correos y grupos: cuando alguien está sustituyendo a otra persona, se
 // sugiere meterla en los grupos de Google donde está el titular (el equipo de sostenibilidad,
 // el claustro de su etapa…). No se añade a nadie solo: se ve en qué grupos está el titular y
 // se marca a mano en cuáles entra el sustituto. Los grupos que mantienen reglas que añaden y
@@ -10,7 +10,7 @@ import { UserRoundCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
-import type { ResultadoGrupoSustituto, SugerenciasSustitucion } from '@/lib/cuentas-server';
+import type { ResultadoGrupoSustituto, SugerenciasCoberturaBaja } from '@/lib/cuentas-server';
 import { Aviso } from '@/components/ui/aviso';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,28 +18,28 @@ import { Etiqueta } from '@/components/ui/etiqueta';
 import { Tarjeta, TarjetaCabecera } from '@/components/ui/tarjeta';
 import { post } from './comun';
 
-const API = '/api/cuentas/admin/sustituciones';
+const API = '/api/cuentas/admin/coberturas-baja';
 
-export function SustitucionesGrupos({
-  sustituciones,
+export function CoberturasBajaGrupos({
+  coberturas,
   puedeGestionar,
 }: {
-  sustituciones: { id: string; sustituto: string; titular: string }[];
+  coberturas: { id: string; sustituto: string; titular: string }[];
   puedeGestionar: boolean;
 }) {
   const [abierta, setAbierta] = useState<string | null>(null);
-  if (sustituciones.length === 0) return null;
+  if (coberturas.length === 0) return null;
 
   return (
     <Tarjeta>
       <TarjetaCabecera
         className="border-b-0"
         icono={<UserRoundCog />}
-        titulo="Sustituciones"
-        descripcion="Quien sustituye a alguien puede necesitar sus grupos (equipos, claustro…). Mira en cuáles está el titular y elige a mano."
+        titulo="Coberturas por baja"
+        descripcion="Quien cubre una baja puede necesitar sus grupos (equipos, claustro…). Mira en cuáles está el titular y elige a mano."
       />
       <ul className="divide-y divide-zinc-100 px-4 pb-3 dark:divide-zinc-800">
-        {sustituciones.map((s) => (
+        {coberturas.map((s) => (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
             <span className="text-sm text-zinc-800 dark:text-zinc-200">
               <b className="font-semibold">{s.sustituto}</b> sustituye a <b className="font-semibold">{s.titular}</b>
@@ -52,13 +52,13 @@ export function SustitucionesGrupos({
           </li>
         ))}
       </ul>
-      {abierta && <DialogoGrupos sustitucionId={abierta} onCerrar={() => setAbierta(null)} />}
+      {abierta && <DialogoGrupos coberturaId={abierta} onCerrar={() => setAbierta(null)} />}
     </Tarjeta>
   );
 }
 
-function DialogoGrupos({ sustitucionId, onCerrar }: { sustitucionId: string; onCerrar: () => void }) {
-  const [datos, setDatos] = useState<SugerenciasSustitucion | null>(null);
+function DialogoGrupos({ coberturaId, onCerrar }: { coberturaId: string; onCerrar: () => void }) {
+  const [datos, setDatos] = useState<SugerenciasCoberturaBaja | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [enviando, setEnviando] = useState(false);
@@ -67,13 +67,13 @@ function DialogoGrupos({ sustitucionId, onCerrar }: { sustitucionId: string; onC
   // Se lee de Google al abrir (una vez): cuesta dos llamadas, no se hace al cargar la pestaña.
   useEffect(() => {
     let vigente = true;
-    post<SugerenciasSustitucion>(API, { sustitucionId })
+    post<SugerenciasCoberturaBaja>(API, { coberturaId })
       .then((d) => vigente && setDatos(d))
       .catch((e) => vigente && setError(e instanceof Error ? e.message : 'No se ha podido leer de Google'));
     return () => {
       vigente = false;
     };
-  }, [sustitucionId]);
+  }, [coberturaId]);
 
   const elegibles = datos?.grupos.filter((g) => !g.bloqueado) ?? [];
 
@@ -89,7 +89,7 @@ function DialogoGrupos({ sustitucionId, onCerrar }: { sustitucionId: string; onC
   async function aplicar() {
     setEnviando(true);
     try {
-      const r = await post<{ resultados: ResultadoGrupoSustituto[] }>(`${API}/aplicar`, { sustitucionId, grupos: [...marcados] });
+      const r = await post<{ resultados: ResultadoGrupoSustituto[] }>(`${API}/aplicar`, { coberturaId, grupos: [...marcados] });
       setResultados(r.resultados);
       const bien = r.resultados.filter((x) => x.ok).length;
       const mal = r.resultados.length - bien;
@@ -115,7 +115,7 @@ function DialogoGrupos({ sustitucionId, onCerrar }: { sustitucionId: string; onC
           <DialogTitle>{datos ? `Grupos de ${datos.titular.nombre}` : 'Grupos del titular'}</DialogTitle>
           <DialogDescription>
             {datos
-              ? `Marca en cuáles entra ${datos.sustituto.nombre}. No se añade nada sin marcar; cuando termine la sustitución, quitarlo es a mano.`
+              ? `Marca en cuáles entra ${datos.sustituto.nombre}. No se añade nada sin marcar; cuando termine la baja, quitarlo es a mano.`
               : 'Leyendo de Google…'}
           </DialogDescription>
         </DialogHeader>

@@ -7,7 +7,7 @@ enseña los conflictos, decides, y listo. Es el **hito 1 del roadmap** (ver `pla
 
 ---
 
-## Estado: fases 0-1 + import de profesorado + sustituciones implementados ✅ · faltan pantallas de gestión (Fase 2)
+## Estado: fases 0-1 + import de profesorado + coberturas por baja implementados ✅ · faltan pantallas de gestión (Fase 2)
 
 La BBDD central ya está poblada (642 alumnos, 97 profes) y Licencias y el Registro ABC
 leen de ella. Quedan las pantallas de gestión (listado con bulk de banco de libros, ficha
@@ -275,7 +275,16 @@ salga un profe = llamar a esos helpers, nunca volver a juntar `[nombre, apellido
 - [x] Enganchado en ASM, cuaderno, Puntualidad, Evaluaciones, ABC, Salidas, Horarios y Usuarios
 - [x] `src/db/sql/profes-nombre-mostrado.sql` *(aplicado en Neon el 9-sep-2026)*
 
-### Sustituciones: «Ángela Guillamón sustituye a Alejandro Sánchez» (2-nov-2026)
+### Coberturas por baja: «Ángela Guillamón cubre la baja de Alejandro Sánchez» (2-nov-2026)
+
+> **Nombre (13-nov-2026, David):** esto se llamaba «Sustituciones». Pasa a llamarse **coberturas
+> por baja** en pantalla y en código (`src/lib/coberturas-baja.ts`, `coberturas-baja-server.ts`,
+> `components/profes/coberturas-baja-panel.tsx`, `/api/profes/admin/coberturas-baja`,
+> `/api/cuentas/admin/coberturas-baja`), para dejar «Sustituciones» al módulo de las ausencias
+> del día ([`32-sustituciones.md`](./32-sustituciones.md)). La tabla **sigue siendo
+> `edu_sustituciones`** (export TS `eduCoberturasBaja`): renombrarla sería una migración sobre
+> datos reales sin ganar nada. Y el resumen guardado de cada sync de profes conserva su clave
+> `sustituciones` (son históricos en `jsonb`). Los papeles siguen siendo **sustituto** y **titular**.
 
 El export de profesorado **ya trae** quién sustituye a quién, en dos columnas que hasta ahora
 se guardaban en `edu_teachers.extra` sin que nada las usara:
@@ -307,7 +316,7 @@ opcionales), el sustituto hereda del titular:
   para que reexportar o deshacer uno no toque el otro.
 - **Oratorios**: los correos de aviso y la invitación de Google Calendar van a quien cubre, no al
   titular, con una línea que dice por qué le llega («ahora estás sustituyendo a…»).
-- **Correos y grupos** (`Por hacer` → «Sustituciones»): **solo sugiere**. «Ver grupos» lee de Google
+- **Correos y grupos** (`Por hacer` → «Coberturas por baja»): **solo sugiere**. «Ver grupos» lee de Google
   en cuáles está el titular y se marca **a mano** en cuáles entra el sustituto; no se añade nada solo.
   Un grupo con reglas que añaden y quitan sale sin casilla (el próximo «Aplicar» lo sacaría). Al
   terminar la sustitución, quitarlo es a mano.
@@ -316,8 +325,8 @@ opcionales), el sustituto hereda del titular:
 
 Cómo se guarda y se mantiene: tabla `edu_sustituciones` (`sustituto_id`, `titular_id`, `desde`,
 `hasta`, `activa`, `origen` = `educamos` | `manual`, `nota`; única por par). Lógica pura y testeada
-en `src/lib/sustituciones.ts`; consultas en `sustituciones-server.ts`; pantalla en
-`/gestion/profes` → tarjeta **Sustituciones**.
+en `src/lib/coberturas-baja.ts`; consultas en `coberturas-baja-server.ts`; pantalla en
+`/gestion/profes` → tarjeta **Coberturas por baja**.
 
 - El **sync de profesorado** crea y actualiza las de origen `educamos` (y muestra cuántas en la vista
   previa). Un titular que no se encuentra o que tiene dos fichas con ese nombre **se avisa, no se
@@ -332,7 +341,7 @@ en `src/lib/sustituciones.ts`; consultas en `sustituciones-server.ts`; pantalla 
 - [x] Tabla `edu_sustituciones` + `src/db/sql/edu-sustituciones.sql` *(aplicado en Neon el 2-nov-2026)*
 - [x] Lógica pura (vigencia, titular por nombre, plan del sync) con 32 tests
 - [x] El sync de profesorado la crea/actualiza/apaga; vista previa con el recuento y avisos
-- [x] Tarjeta «Sustituciones» en `/gestion/profes`: lista con estado, interruptor, fechas, borrar, apuntar a mano y «Releer de Educamos»
+- [x] Tarjeta «Sustituciones» (hoy «Coberturas por baja») en `/gestion/profes`: lista con estado, interruptor, fechas, borrar, apuntar a mano y «Releer de Educamos»
 - [x] Efecto: avisos de Puntualidad, alcance de Alumnado y Puntualidad, destinatarios del ABC
 - [x] Verificado contra Neon con datos reales: 4 sustituciones detectadas sin avisos, idempotente,
       Ángela Guillamón pasa a ser tutora de 3PRI A y el aviso de esa clase le llega a ella; apagada,

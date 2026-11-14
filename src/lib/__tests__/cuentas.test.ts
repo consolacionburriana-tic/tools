@@ -596,7 +596,7 @@ describe('grupos', () => {
   });
 });
 
-describe('sustituciones: a qué grupos se puede meter al sustituto', () => {
+describe('coberturas por baja: a qué grupos se puede meter al sustituto', () => {
   it('un grupo normal se puede marcar', () => {
     expect(motivoGrupoBloqueado({ gestionado: false, modo: null, yaEsta: false })).toBeNull();
   });

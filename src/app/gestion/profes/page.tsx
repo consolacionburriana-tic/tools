@@ -10,8 +10,8 @@ import { EtapasPanel } from '@/components/profes/etapas-panel';
 import { etapasAutomaticasPorProfe } from '@/lib/alumnado-server';
 import { esEtapa } from '@/lib/cursos';
 import { NombresPanel } from '@/components/profes/nombres-panel';
-import { SustitucionesPanel } from '@/components/profes/sustituciones-panel';
-import { listarSustituciones } from '@/lib/sustituciones-server';
+import { CoberturasBajaPanel } from '@/components/profes/coberturas-baja-panel';
+import { listarCoberturasBaja } from '@/lib/coberturas-baja-server';
 import { nombreProfeBreve, nombresDeProfe } from '@/lib/profes';
 import { mayusculasBellas, nombreDePila } from '@/lib/personas';
 
@@ -23,7 +23,7 @@ export default async function ProfesPage() {
     getClasesConTutores(),
     getTeachers(),
     etapasAutomaticasPorProfe(),
-    listarSustituciones(),
+    listarCoberturasBaja(),
   ]);
   return (
     <div className="space-y-4">
@@ -41,7 +41,7 @@ export default async function ProfesPage() {
           }))}
       />
       {/* Quién cubre a quién: el sustituto hereda las tutorías y los avisos del titular mientras dure. */}
-      <SustitucionesPanel
+      <CoberturasBajaPanel
         filas={sustituciones}
         profes={profes.map((p) => ({ id: p.id, nombre: nombresDeProfe(p).usual }))}
       />
