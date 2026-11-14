@@ -8,7 +8,6 @@
 // Un módulo nuevo = una entrada en `HERRAMIENTAS`, en su grupo.
 import { canAccess, type Acceso } from '@/lib/permissions';
 import { esSolicitable, TEXTO_SOLICITAR } from '@/lib/solicitud-acceso';
-import { puedeGestionarSustituciones } from '@/lib/sustituciones-diarias';
 
 export const GRUPOS = ['dia', 'alumnado', 'familias', 'centro', 'tic', 'config'] as const;
 export type Grupo = (typeof GRUPOS)[number];
@@ -78,6 +77,8 @@ export interface ContextoEscritorio {
   nouvinguts: number | null;
   dispositivosSinInformar: number | null;
   tableros: { pendientes: number; urgente: { texto: string; tono: TonoAviso } | null } | null;
+  /** Sustituciones de hoy (solo para quien tiene el módulo): horas a cubrir y cuántas quedan sin cubrir. */
+  sustituciones?: { aCubrir: number; sinCubrir: number } | null;
 }
 
 interface Definicion extends Omit<Herramienta, 'badge' | 'desc' | 'bloqueo'> {
@@ -257,12 +258,18 @@ const HERRAMIENTAS: readonly Definicion[] = [
   {
     clave: 'sustituciones',
     titulo: 'Sustituciones',
-    desc: 'Organizar la cobertura de las sesiones del profesorado',
+    desc: (ctx) => {
+      const s = ctx.sustituciones;
+      if (!s || s.aCubrir === 0) return 'Quién entra en las clases de quien falta, y los avisos';
+      if (s.sinCubrir === 0) return `Hoy, ${plural(s.aCubrir, 'hora cubierta', 'horas cubiertas')}`;
+      return `Hoy, ${plural(s.sinCubrir, 'hora sin cubrir', 'horas sin cubrir')}`;
+    },
     href: '/gestion/sustituciones',
     grupo: 'centro',
     icono: 'sustituciones',
-    palabras: ['ausencias', 'guardias', 'coberturas'],
-    visible: (a) => puedeGestionarSustituciones(a.role) && canAccess(a, 'sustituciones'),
+    palabras: ['ausencias', 'faltas', 'guardias', 'cubrir', 'profesorado'],
+    visible: tiene('sustituciones'),
+    badge: (ctx) => (ctx.sustituciones && ctx.sustituciones.sinCubrir > 0 ? { texto: `${ctx.sustituciones.sinCubrir} sin cubrir`, tono: 'ambar' } : null),
   },
   {
     clave: 'oratorios',

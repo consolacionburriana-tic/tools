@@ -62,8 +62,8 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
 | `PUNTUALIDAD_AVISOS_COPIA` | Correos (separados por comas) que reciben copia del aviso del tercer retraso, además del tutor/a. Vacío = solo el tutor |
-| `SUSTITUCIONES_EMAIL_DIRECCION_TITULAR` | Buzón de Dirección titular que recibe el resumen mensual de sustituciones (junto a todas las cuentas `jefe`) |
-| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, worker del envío de Evaluaciones, foto mensual de Números del cole, avisos programados de Oratorios y aviso diario de vencimientos de Tableros. El worker también lo usa para re-despertarse a sí mismo |
+| `SUSTITUCIONES_INFORME_COPIA` | Buzones (separados por comas) que reciben el informe mensual de Sustituciones además de todas las cuentas activas de `jefe`. En Consolación, `titular@…` (Dirección titular). Vacío = solo Jefatura |
+| `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, worker del envío de Evaluaciones, foto mensual de Números del cole, avisos programados de Oratorios, aviso diario de vencimientos de Tableros e informe mensual de Sustituciones. El worker también lo usa para re-despertarse a sí mismo |
 
 Cualquier var nueva se añade a esta tabla y a `.env.local.example` en el mismo commit que el
 código que la usa. Los pasos para conseguir cada credencial (dónde se crea, qué se copia) están
@@ -73,7 +73,7 @@ Ya retiradas: las de `licencias-auth` (el login por cookie murió con el hito 2)
 ## Base de datos (Drizzle + Neon)
 
 - **Todas las tablas en `src/db/schema.ts`**, agrupadas por módulo con su prefijo (`abc_`,
-  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`, `tab_`, `nou_`, `dis_`, `cue_`) y un comentario separador
+  `lic_`, `edu_`, `auth_`, `sal_`, `bl_`, `eval_`, `pun_`, `con_`, `cuad_`, `ora_`, `cal_`, `tab_`, `nou_`, `dis_`, `cue_`, `sust_`) y un comentario separador
   por bloque.
   Nombres de tabla y columna en `snake_case`; los exports TS en `camelCase`.
 - ⚠️ **Antes de `pnpm db:push`, mira qué hay en Neon.** Push borra lo que no esté en

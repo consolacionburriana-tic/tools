@@ -14,6 +14,8 @@ import { Aviso } from '@/components/ui/aviso';
 import { Vacio } from '@/components/ui/vacio';
 import { titularesCubiertosPor } from '@/lib/coberturas-baja-server';
 import { buttonVariants } from '@/components/ui/button';
+import { puedeVerMisSustituciones, fechaCorta as fechaCortaSust, hora } from '@/lib/sustituciones';
+import { avisoMisSustituciones } from '@/lib/sustituciones-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,10 +39,12 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
 
   // Quién soy, los periodos, el vigente y a quién estoy sustituyendo: cuatro cosas que no
   // dependen unas de otras.
-  const [periodos, vigente, titulares] = await Promise.all([
+  const [periodos, vigente, titulares, cubro] = await Promise.all([
     getPeriodos(),
     getPeriodoVigente(),
     profe ? titularesCubiertosPor(profe.id) : Promise.resolve([]),
+    // «Esta semana cubres…» (Sustituciones, docs/32 decisión 16): con la misma condición que «Mis sustituciones».
+    profe && puedeVerMisSustituciones(user) ? avisoMisSustituciones(user.email).catch(() => []) : Promise.resolve([]),
   ]);
   const periodo = periodos.find((p) => p.id === sp.periodo) ?? vigente;
 
@@ -75,6 +79,23 @@ export default async function MiHorarioPage({ searchParams }: { searchParams: Pr
   return (
     <div className="space-y-5">
       <h1 className="sr-only">Mi horario</h1>
+      {cubro.length > 0 && (
+        <Aviso
+          tono="info"
+          titulo="Esta semana cubres"
+          accion={
+            <Link href="/gestion/mis-sustituciones" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              Ver
+            </Link>
+          }
+        >
+          {cubro
+            .slice(0, 4)
+            .map((s) => [`${fechaCortaSust(s.fecha)} ${hora(s.horaInicio)}`, s.grupos, s.aula].filter(Boolean).join(' · '))
+            .join(' — ')}
+          {cubro.length > 4 ? ` y ${cubro.length - 4} más` : ''}
+        </Aviso>
+      )}
       {!profe ? (
         <Vacio icono={<UserX />} titulo="Tu correo no está enlazado a ningún profesor">
           {user.email} no aparece en la BBDD central. Habla con TIC para que lo revisen.

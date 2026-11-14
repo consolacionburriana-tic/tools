@@ -170,6 +170,7 @@ Solo estas pueden salirse de las reglas, y solo en lo que se dice:
 | **Formulario rápido del Registro ABC** (`/registro-abc`) | Verde esmeralda (700) en lo que se elige y en «Guardar registro», y la nota de cabecera teñida. Decidido por David el 26-oct-2026 («está aburridísimo»). Es `Filtro acento="verde"`; no se usa en ningún otro sitio. |
 | **Celebración al terminar** (Licencias, Salidas, Evaluaciones, al enviar) | La animación de «hecho». |
 | **Bienvenida del escritorio** y **«gracias» del botón de sugerencias** | Confeti, burbujas con iconos y entrada con rebote, **una sola vez** y sin tapar nada que se toque (`ui/estallido.tsx`). Con «reducir movimiento» no se pintan. |
+| **Icono de Sustituciones** | En **índigo**, no en el teal de «Organización del centro», para no confundirlo con Oratorios (David, 13-nov-2026; docs/32, decisión 20). Es `acento: 'indigo'` en `lib/modulos.ts`, que `IconoModulo` y el escritorio usan antes que el color del grupo. Solo el icono: sus botones siguen en azul. |
 | **Herramienta en gris del escritorio** (`bloqueo`) | Icono y título en gris, sin enlace: «Próximamente» (una pastilla neutra) o «Solicitar acceso» (el único toque, en azul). La explicación va escrita en la tarjeta, nunca solo en un `title`. |
 
 ## 4. Lo que no se hace

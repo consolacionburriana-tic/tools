@@ -65,6 +65,36 @@ Lo que decidí yo al encajar las respuestas (revisar con David):
 6. **El cuadro «HORARIO SUSTITUCIONES»** se guarda como parte del horario (`hor_cuadro_sustituciones`) y
    ordena justo después del nivel. Falta ver su formato en un `.docx` real.
 
+### Sustituciones (14-nov-2026) — lo que decidí al implementarlo
+
+Al rehacer sobre el plan de la PR #136 la rama de Jose Miguel (`codexJM/sustituciones`, que seguía el
+plan antiguo: un solo día, por tramo, solo EI/EP, motivo en los correos). Revisar con David:
+
+1. **Las tablas del primer borrador se retiraron de Neon** (`sust_ausencias` de un día, `sust_sesiones`
+   por tramo, `sust_reportes_mensuales`): estaban vacías. `sustituciones.sql` solo las quita si siguen
+   teniendo esa forma y no tienen ni una fila.
+2. **El Almuerzo también es «nunca liberable»** (`nuncaLiberables` lleva `ALMUERZO`): 31 de sus 61 sesiones
+   vienen sin grupo y, sin esto, caían en «Otras horas sin alumnado».
+3. **Las horas con alumnos sin grupo en el horario (Almuerzo, Taller de Pensamiento, Huerto) piden
+   sustituto** si el ausente es quien las lleva. La decisión 5 decía «con grupo», pero su razón es la misma:
+   hay niños delante.
+4. **«La semana» de Disponibilidad cuenta a todo el claustro con horario**, no solo a los de esa etapa: un
+   candidato puede ser de cualquiera (decisión 1).
+5. **La rejilla «Por profe» va por etapa**: quien da en primaria y en la ESO ve dos rejillas (cada una con sus
+   horas), en vez de una mezcla de 15 filas que no casan.
+6. **«Nueva ausencia» junta los bloques 2 y 3** («Sus horas y quién cubre»): el desplegable de quién cubre va
+   en la misma fila de cada hora, que en el iPad se entiende mejor que dos listas paralelas.
+7. **En la ficha, «Añadir horas» es de una en una** y entra con el primero de la propuesta; luego se cambia en
+   el sitio. **Alargar las fechas no añade horas solas**: salen en «Añadir horas».
+8. **El motivo también se puede cambiar desde la ficha** (decisión 2: quien tiene el módulo lo edita todo).
+9. **La propuesta se calcula en la pantalla** (la API manda el horario recortado a lo necesario, ~90 KB por
+   día) para que cambiar un desplegable no cueste un viaje; confirmar lo vuelve a comprobar todo en el servidor.
+10. **El informe que sale con «Enviarlo ahora» sale aunque ya se hubiera mandado** (el cron no repite nunca).
+11. **Variable del informe: `SUSTITUCIONES_INFORME_COPIA`** (lista con comas, como dice el plan), no la
+    `SUSTITUCIONES_EMAIL_DIRECCION_TITULAR` del primer borrador.
+12. **Pendiente**: leer el cuadro «HORARIO SUSTITUCIONES» en el importador. La tabla y todo lo que lo usa
+    (orden, «En el cuadro: …») ya están; falta un `.docx` real para ver su formato (pedírselo a Jose Miguel).
+
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
 
 - **El Huerto, como tipo nuevo de «Oratorios, Godly Play y Talleres»** (David: «una nueva sección dentro del

@@ -1,7 +1,14 @@
 # Sustituciones · cubrir las ausencias del profesorado (Infantil, Primaria y ESO)
 
-**Estado:** plan funcional ✅ (todo respondido por David el 13-nov-2026) · plan técnico ✅ · implementado ⬜ (hecho el paso previo: las sustituciones largas de
-Educamos ya se llaman **Coberturas por baja**, ver más abajo)
+**Estado:** plan funcional ✅ (todo respondido por David el 13-nov-2026) · plan técnico ✅ · implementado 🟡 (14-nov-2026: las tres
+fases en el código y las tablas en Neon; faltan el cuadro del centro en el importador, una vuelta con sesión real y el primer
+correo de verdad — ver §5). Las sustituciones largas de Educamos ya se llaman **Coberturas por baja** (ver más abajo).
+
+> **14-nov-2026 · rama de Jose Miguel rehecha sobre este plan.** Su primer borrador (`codexJM/sustituciones`) seguía el
+> plan antiguo (un solo día, por tramo, solo EI/EP, motivo en los correos) y se aplicó en Neon con otra forma de tablas,
+> sin datos. Se ha rehecho entero sobre lo de aquí, conservando lo que valía (perfil de correo, cron, arreglo del build
+> de ABC). Lo que se decidió al implementarlo está en [`00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)
+> («Sustituciones (14-nov-2026)»).
 
 Idea y primer plan de Jose Miguel Batalla (12-nov-2026, con David). Revisado contra el código y
 contra los horarios reales de Neon y cerrado con David el 13-nov-2026 (§1: lo que cambió y por qué).
@@ -655,33 +662,34 @@ cómo queda: Nouvinguts.
 
 ### Fase 1 · proponer, confirmar y avisar (lo mínimo que se usa de verdad)
 
-- [ ] Módulo `sustituciones` en `permissions.ts` (`MODULES`, `MODULE_LABELS`, `jefe` y `direccion`), `modulos.ts` (grupo `centro`, icono, `acento` índigo + excepción en `diseno.md`), `escritorio.ts`; tests de permisos.
-- [ ] `CONFIGURACION.sustituciones` (§4.3) y su test.
-- [ ] Schema `sust_*` en `schema.ts` + `src/db/sql/sustituciones.sql` idempotente + línea en `pendientes.txt`; aplicado con `pnpm db:sql --pendientes` (si no hay `DATABASE_URL`, `[~]` y decirlo).
-- [ ] `sustituciones.ts` puro con los tests de §4.4 en verde.
-- [ ] `horarioDeDias` en una tanda; probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (primaria con su horario de septiembre; infantil y ESO con el ordinario).
-- [ ] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409`.
-- [ ] Perfil `sustituciones` en `email.ts` y `sustituciones-email.ts` (sustituto, codocente en el aula, ausente) con plantillas de fábrica, asunto con hora y lugar y botón «Añadir a mi Google Calendar»; probado con un envío real a una cuenta propia (que el enlace abra el evento bien en el iPad); sin motivo.
-- [ ] Disponibilidad automática (sin rejilla todavía) usada en la propuesta, con «Solo urgencia» fuera de la elección automática.
-- [ ] Pantallas **Nueva ausencia** (con rango de fechas) y **Ficha** (solo ver + reenviar) con `loading.tsx`; claro/oscuro, 390/1180 px; `diseno:guardia` en verde.
-- [ ] Pantalla **Hoy** con cifras y estado vacío.
-- [ ] Tabla maestra de `plataforma.md` y esta ficha al día.
+- [x] Módulo `sustituciones` en `permissions.ts` (`MODULES`, `MODULE_LABELS`, `jefe` y `direccion`), `modulos.ts` (grupo `centro`, icono, `acento` índigo + excepción en `diseno.md`), `escritorio.ts`; tests de permisos.
+- [x] `CONFIGURACION.sustituciones` (§4.3) y su test (más `ALMUERZO` en `nuncaLiberables`, ver 00-desarrollos-futuros).
+- [x] Schema `sust_*` en `schema.ts` + `src/db/sql/sustituciones.sql` idempotente; aplicado en Neon con `pnpm db:sql sustituciones` el 14-nov-2026 (retira las tablas vacías del primer borrador; `hor_cuadro_sustituciones` incluida), así que no queda en `pendientes.txt`.
+- [x] `sustituciones.ts` puro con los tests de §4.4 en verde (40 tests; 1.479 en total).
+- [x] `horarioDeDias` en una tanda (`cargar` en `sustituciones-server.ts`, ~1,2 s); probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (primaria con su horario de septiembre; infantil y ESO con el ordinario).
+- [x] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409` (probado contra Neon: choque con otra ausencia del mismo profe y con un sustituto ya ocupado por otra).
+- [~] Perfil `sustituciones` en `email.ts` y `sustituciones-email.ts` (sustituto, codocente en el aula, ausente) con plantillas de fábrica, asunto con hora y lugar y botón «Añadir a mi Google Calendar»; sin motivo (test). Vista previa comprobada; **falta el envío real a una cuenta propia** y abrir el enlace en el iPad.
+- [x] Disponibilidad automática usada en la propuesta, con «Solo urgencia» fuera de la elección automática.
+- [x] Pantallas **Nueva ausencia** (con rango de fechas) y **Ficha** con `loading.tsx`; claro/oscuro, 390/1180 px sin desplazamiento lateral; `diseno:guardia` en verde (pintadas en local con datos de Neon).
+- [x] Pantalla **Hoy** con cifras y estado vacío (cambiar de día con `pushState`).
+- [x] Tabla maestra de `plataforma.md` y esta ficha al día.
+- [ ] **Vuelta completa con sesión real** (Jefatura): apuntar, cambiar, añadir, quitar, anular y reenviar desde las pantallas. La lógica está probada contra Neon y las pantallas pintadas, pero no se ha pulsado con una sesión de verdad.
 
 ### Fase 2 · después de confirmar
 
-- [ ] Cambiar sustituto, añadir y quitar hora, cambiar fechas, editar indicaciones (con sus correos de cambio).
-- [ ] Anular ausencia con `ConfirmarEnLinea` y correo a todos.
-- [ ] Tarjeta del escritorio con las horas sin cubrir de hoy.
-- [ ] **Mis sustituciones** (con el `Aviso` de prueba de concepto), aviso «Tus sustituciones» en «Ahora» y franja en Mi horario, todo detrás de `puedeVerMisSustituciones`; comprobado que un profe sin el módulo no entra (y, poniendo `true` en local, que ve lo suyo y nada más).
-- [ ] **Rejilla de disponibilidad** (Por profe y La semana) con `sust_disponibilidad`.
-- [ ] **Ajustes de correos**: plantillas editables en `cfg_ajustes`, vista previa, prueba y volver al de fábrica.
-- [ ] **Cuadro del centro** (decisión 21): ver el formato en un `.docx` real (pedírselo a Jose Miguel), leerlo en el importador de horarios con tests, `hor_cuadro_sustituciones`, y usarlo en la propuesta y en las dos pantallas.
+- [x] Cambiar sustituto, añadir y quitar hora, cambiar fechas, editar indicaciones y motivo (con sus correos de cambio). Probado contra Neon sin correo.
+- [x] Anular ausencia con `ConfirmarEnLinea` y correo a todos (sale de las cifras; probado contra Neon).
+- [x] Tarjeta del escritorio con las horas sin cubrir de hoy (y la pastilla ámbar).
+- [~] **Mis sustituciones** (con el `Aviso` de prueba de concepto), aviso «Tus sustituciones» en «Ahora» y franja en Mi horario, todo detrás de `puedeVerMisSustituciones`; comprobado que un profe sin el módulo no entra (y, poniendo `true` en local, que ve lo suyo y nada más). Hecho; el permiso tiene test, pero **falta comprobarlo en el navegador** con una cuenta de profe.
+- [x] **Rejilla de disponibilidad** (Por profe —una rejilla por etapa— y La semana, de todo el claustro) con `sust_disponibilidad`.
+- [x] **Ajustes de correos**: plantillas editables en `cfg_ajustes`, vista previa en vivo, prueba y volver al de fábrica.
+- [~] **Cuadro del centro** (decisión 21): hechos la tabla `hor_cuadro_sustituciones`, el tercer criterio de orden y «En el cuadro: …» en Nueva ausencia y La semana. **Falta leerlo en el importador**: ver el formato en un `.docx` real (pedírselo a Jose Miguel), leerlo en el importador de horarios con tests, `hor_cuadro_sustituciones`, y usarlo en la propuesta y en las dos pantallas.
 
 ### Fase 3 · cuentas e informe
 
-- [ ] Historial con filtros.
-- [ ] Números (mes / trimestre / curso; por ausente y quién ha cubierto más, con urgencias).
-- [ ] Informe mensual: vista previa, «Enviarlo ahora», cron del día 1 en `vercel.json`, idempotente con `sust_informes`; `SUSTITUCIONES_INFORME_COPIA` en `.env.local.example`, en la tabla de variables de `04-convenciones-tecnicas.md` y en `08-despliegue-y-fork.md`.
+- [x] Historial con filtros (mes, profe, escolar / personal).
+- [x] Números (mes / trimestre / curso; por ausente y quién ha cubierto más, con urgencias).
+- [x] Informe mensual: vista previa, «Enviarlo ahora», cron del día 1 en `vercel.json`, idempotente con `sust_informes` (reserva el mes antes de mandar); `SUSTITUCIONES_INFORME_COPIA` en `.env.local.example`, en la tabla de variables de `04-convenciones-tecnicas.md` y en `08-despliegue-y-fork.md`.
 - [ ] Poner `SUSTITUCIONES_INFORME_COPIA=titular@consolacionburriana.com` en Vercel (David o quien tenga acceso).
 
 ### Más adelante (ideas, no se hacen sin que David las pida)

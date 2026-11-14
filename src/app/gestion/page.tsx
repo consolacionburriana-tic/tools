@@ -18,6 +18,9 @@ import { accesoComunActivo } from '@/lib/oratorios-server';
 import { misTarjetas } from '@/lib/tableros-server';
 import { cuentaNouvinguts } from '@/lib/nouvinguts-server';
 import { cuentaSinInformar } from '@/lib/dispositivos-server';
+import { avisoMisSustituciones, resumenHoy } from '@/lib/sustituciones-server';
+import { puedeVerMisSustituciones } from '@/lib/sustituciones';
+import { hoyEnEspana } from '@/lib/oratorios';
 import { hoyISO, resumenUrgente, textoResumenUrgente } from '@/lib/tableros';
 import { esTemporadaLicencias } from '@/lib/licencias';
 import { herramientasDe, saludo } from '@/lib/escritorio';
@@ -54,7 +57,7 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
   const ahora = new Date();
   const temporadaLicencias = puede('licencias') && esTemporadaLicencias(ahora);
 
-  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas, nouvinguts, sinIpad] = await Promise.all([
+  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas, nouvinguts, sinIpad, sustHoy, misSust] = await Promise.all([
     puede('educamos') ? db.select({ n: count() }).from(eduStudents).where(eq(eduStudents.active, true)) : null,
     puede('educamos') ? db.select({ n: count() }).from(eduTeachers).where(eq(eduTeachers.active, true)) : null,
     puede('educamos') ? db.select({ at: eduSyncRuns.createdAt }).from(eduSyncRuns).orderBy(desc(eduSyncRuns.createdAt)).limit(1) : null,
@@ -69,6 +72,9 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
     puede('tableros') ? misTarjetas(user.email).catch(() => null) : null,
     puede('nouvinguts') ? cuentaNouvinguts().catch(() => null) : null,
     puede('dispositivos') ? cuentaSinInformar().catch(() => null) : null,
+    puede('sustituciones') ? resumenHoy().catch(() => null) : null,
+    // «Tus sustituciones» (docs/32, decisión 16): mientras sea prueba de concepto, solo con el módulo.
+    puedeVerMisSustituciones(user) ? avisoMisSustituciones(user.email).catch(() => []) : [],
   ]);
   const urgente = misTareas ? resumenUrgente(misTareas, hoyISO(ahora)) : null;
   const textoUrgente = urgente ? textoResumenUrgente(urgente) : '';
@@ -144,10 +150,27 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
     });
   }
 
+  if (misSust.length > 0) {
+    const hoyIso = hoyEnEspana(ahora);
+    const deHoy = misSust.filter((s) => s.fecha === hoyIso);
+    const primera = deHoy[0];
+    avisos.push({
+      clave: 'mis-sustituciones',
+      titulo: 'Tus sustituciones',
+      texto: primera
+        ? `Hoy a las ${primera.horaInicio.replace(/^0/, '')}${primera.grupos ? ` en ${primera.grupos}` : ''}${primera.aula ? `, ${primera.aula}` : ''}${deHoy.length > 1 ? ` y ${plural(deHoy.length - 1, 'hora más', 'horas más')}` : ''}`
+        : `${plural(misSust.length, 'hora', 'horas')} en los próximos días`,
+      href: '/gestion/mis-sustituciones',
+      tono: primera ? 'ambar' : 'azul',
+      icono: 'sustituciones',
+    });
+  }
+
   const herramientas = herramientasDe(user, {
     oratoriosComun,
     nouvinguts,
     dispositivosSinInformar: sinIpad,
+    sustituciones: sustHoy,
     tableros: misTareas
       ? { pendientes: misTareas.length, urgente: textoUrgente ? { texto: textoUrgente, tono: urgente?.vencidas ? 'rojo' : 'azul' } : null }
       : null,

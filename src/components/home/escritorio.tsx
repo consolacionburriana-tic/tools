@@ -23,7 +23,7 @@ import {
   type TonoAviso,
 } from '@/lib/escritorio';
 import { NavPending } from '@/components/ui/nav-pending';
-import { ACENTO_GRUPO, ICONOS_MODULO } from '@/components/ui/icono-modulo';
+import { ACENTO_GRUPO, ICONOS_MODULO, acentoDe } from '@/components/ui/icono-modulo';
 import { Estado, type TonoEstado } from '@/components/ui/estado';
 import { Input } from '@/components/ui/input';
 import { Rotulo } from '@/components/ui/rotulo';
@@ -355,7 +355,7 @@ function Tesela({ h }: { h: Herramienta }) {
       )}
     >
       <span className="flex items-start justify-between gap-2">
-        <span className={cn('flex h-11 w-11 items-center justify-center rounded-xl', ACENTO_GRUPO[h.grupo])}>
+        <span className={cn('flex h-11 w-11 items-center justify-center rounded-xl', acentoDe(h.icono, h.grupo))}>
           <Icono className="h-5.5 w-5.5" />
         </span>
         <Insignia badge={h.badge} />
@@ -439,7 +439,7 @@ function Fila({ h, conGrupo = false }: { h: Herramienta; conGrupo?: boolean }) {
       href={h.href}
       className="group flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 active:bg-blue-50/60 dark:hover:bg-zinc-800/60 dark:active:bg-blue-500/10"
     >
-      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', ACENTO_GRUPO[h.grupo])}>
+      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', acentoDe(h.icono, h.grupo))}>
         <Icono className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">

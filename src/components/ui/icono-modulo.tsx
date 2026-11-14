@@ -6,7 +6,7 @@ import {
   Bus,
   CalendarCheck,
   CalendarDays,
-  CalendarCheck2,
+  CalendarClock,
   CalendarX2,
   ChartColumnBig,
   ClipboardCheck,
@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Grupo } from '@/lib/escritorio';
-import type { IconoModulo as NombreIcono } from '@/lib/modulos';
+import { MODULOS, type AcentoModulo, type IconoModulo as NombreIcono } from '@/lib/modulos';
 
 /** El icono de cada módulo, por nombre (las listas viajan del servidor a la pantalla como datos). */
 export const ICONOS_MODULO: Record<NombreIcono, LucideIcon> = {
@@ -48,7 +48,7 @@ export const ICONOS_MODULO: Record<NombreIcono, LucideIcon> = {
   banco: Library,
   salidas: Bus,
   horarios: CalendarDays,
-  sustituciones: CalendarCheck2,
+  sustituciones: CalendarClock,
   evaluaciones: ClipboardCheck,
   profes: GraduationCap,
   dispositivos: Tablet,
@@ -77,6 +77,22 @@ export const ACENTO_GRUPO: Record<Grupo, string> = {
   config: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
 };
 
+/** Los colores propios de `MODULOS[…].acento` (excepción de `docs/diseno.md` §3). */
+const ACENTO_PROPIO: Record<AcentoModulo, string> = {
+  indigo: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300',
+};
+
+const ACENTO_POR_ICONO: Partial<Record<NombreIcono, string>> = Object.fromEntries(
+  Object.values(MODULOS)
+    .filter((m): m is (typeof m) & { acento: AcentoModulo } => 'acento' in m && Boolean(m.acento))
+    .map((m) => [m.icono, ACENTO_PROPIO[m.acento]]),
+);
+
+/** El color del icono: el propio del módulo si lo tiene; si no, el de su grupo. */
+export function acentoDe(icono: NombreIcono, grupo: Grupo): string {
+  return ACENTO_POR_ICONO[icono] ?? ACENTO_GRUPO[grupo];
+}
+
 const TAMANO = {
   sm: { caja: 'size-8 rounded-lg', icono: 'size-4.5' },
   md: { caja: 'size-10 rounded-xl', icono: 'size-5' },
@@ -98,7 +114,7 @@ export function IconoModulo({
   const Icono = ICONOS_MODULO[icono];
   const t = TAMANO[tamano];
   return (
-    <span aria-hidden className={cn('flex shrink-0 items-center justify-center', t.caja, ACENTO_GRUPO[grupo], className)}>
+    <span aria-hidden className={cn('flex shrink-0 items-center justify-center', t.caja, acentoDe(icono, grupo), className)}>
       <Icono className={t.icono} />
     </span>
   );

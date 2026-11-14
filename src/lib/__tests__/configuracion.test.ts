@@ -108,4 +108,24 @@ describe('el resto de parámetros, con los valores de Consolación', () => {
       profesDesdeCurso: '5PRI',
     });
   });
+
+  it('sustituciones: ESO incluida, seis motivos, 15 días, prueba de concepto y la lista de David', () => {
+    const c = CONFIGURACION.sustituciones;
+    expect(c.etapas).toEqual(['EI', 'EP', 'ESO']);
+    expect(c.motivos.map((m) => m.clave)).toEqual(['actividad_escolar', 'medico', 'medico_familiar', 'enfermedad_leve', 'baja', 'otros']);
+    expect(c.motivos.filter((m) => m.escolar).map((m) => m.clave)).toEqual(['actividad_escolar']);
+    expect(c.motivos.find((m) => m.clave === 'otros')?.pideNota).toBe(true);
+    expect(c.maxDiasAusencia).toBe(15);
+    expect(c.diasReparto).toBe(30);
+    expect(c.avisoProximosDias).toBe(7);
+    expect(c.misSustitucionesParaTodos).toBe(false);
+    expect(c.niveles.map((n) => n.clave)).toEqual([
+      'guardia', 'codocencia', 'tut_indiv', 'je', 'al', 'pt', 'godly', 'tic', 'pastoral', 'gabinete', 'direccion', 'otras',
+    ]);
+    expect(c.disponibilidadPorDefecto.en_aula).toBe('si');
+    expect(c.disponibilidadPorDefecto.guardia).toBe('si');
+    expect(c.disponibilidadPorDefecto.otras).toBe('si_hace_falta');
+    expect(c.disponibilidadPorDefecto.libre).toBe('urgencia');
+    expect(c.nuncaLiberables).toEqual(['TALLER DE PENSAMIENTO', 'HUERTO', 'ALMUERZO']);
+  });
 });

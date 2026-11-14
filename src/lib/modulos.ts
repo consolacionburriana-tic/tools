@@ -15,7 +15,15 @@ export interface IdentidadModulo {
   grupo: Grupo;
   /** Su portada: adonde lleva tocar el nombre en la cabecera. */
   href: string;
+  /**
+   * Un color propio para el icono, que pisa al del grupo. Excepción apuntada en `docs/diseno.md`
+   * §3: solo Sustituciones, en índigo, para no confundirse con Oratorios (docs/32, decisión 20).
+   */
+  acento?: AcentoModulo;
 }
+
+/** Colores propios de icono permitidos (ninguno de estado ni de grupo). */
+export type AcentoModulo = 'indigo';
 
 export const MODULOS = {
   tableros: { titulo: 'Tableros', icono: 'tableros', grupo: 'dia', href: '/gestion/tableros' },
@@ -30,7 +38,7 @@ export const MODULOS = {
   bancolibros: { titulo: 'Banco de libros', icono: 'banco', grupo: 'familias', href: '/gestion/bancolibros' },
   salidas: { titulo: 'Salidas y pagos', icono: 'salidas', grupo: 'familias', href: '/gestion/salidas' },
   horarios: { titulo: 'Horarios', icono: 'horarios', grupo: 'centro', href: '/gestion/horarios' },
-  sustituciones: { titulo: 'Sustituciones', icono: 'sustituciones', grupo: 'centro', href: '/gestion/sustituciones' },
+  sustituciones: { titulo: 'Sustituciones', icono: 'sustituciones', grupo: 'centro', href: '/gestion/sustituciones', acento: 'indigo' },
   oratorios: { titulo: 'Oratorios y talleres', icono: 'oratorios', grupo: 'centro', href: '/gestion/oratorios' },
   evaluaciones: { titulo: 'Evaluaciones', icono: 'evaluaciones', grupo: 'centro', href: '/gestion/evaluaciones' },
   profes: { titulo: 'Profesorado y tutorías', icono: 'profes', grupo: 'centro', href: '/gestion/profes' },
