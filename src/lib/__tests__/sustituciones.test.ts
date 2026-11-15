@@ -8,6 +8,7 @@ import {
   aulaVisible,
   claveSesion,
   cuandoYDonde,
+  cubreDentro,
   diasLectivos,
   enlaceGoogleCalendar,
   etiquetaGrupo,
@@ -134,6 +135,14 @@ describe('qué horario manda en una fecha (decisión 4)', () => {
     expect(h.rejillas.has('r-ep-jun')).toBe(true);
     expect(h.rejillas.has('r-ei')).toBe(true);
   });
+  it('una rejilla de «centro entero» en septiembre no hace que mande en infantil ni en la ESO', () => {
+    const conCentro = [...rejillas, { id: 'r-centro-sep', periodoId: 'sep', ambitos: [{ etapa: null, curso: null }] }];
+    const h = horarioDeFecha('2026-09-15', periodos, conCentro);
+    expect(h.porEtapa.map((e) => [e.etapa, e.periodo?.id])).toEqual([['EI', 'ord'], ['EP', 'sep'], ['ESO', 'ord']]);
+    expect(h.rejillas.has('r-ei')).toBe(true);
+    expect(h.rejillas.has('r-eso')).toBe(true);
+    expect(h.rejillas.has('r-centro-sep')).toBe(true); // sus horas sueltas sí cuentan
+  });
   it('cuando se suba el de septiembre de infantil, manda solo', () => {
     const h = horarioDeFecha('2026-09-15', periodos, [...rejillas, { id: 'r-ei-sep', periodoId: 'sep', ambitos: [{ etapa: 'EI', curso: null }] }]);
     expect(h.rejillas.has('r-ei-sep')).toBe(true);
@@ -187,6 +196,11 @@ describe('sesiones del ausente (decisión 5)', () => {
       ['12:00', false],
     ]);
     expect(r[2].otrosEnAula).toEqual(['pere']);
+  });
+  it('en el Almuerzo, el otro adulto que ya está es «Ya está en el aula»', () => {
+    const h = [ses({ horaInicio: '10:35', horaFin: '10:45', actividad: 'otros', etiqueta: 'Almuerzo', profes: [pr('marta'), pr('eva', false, 'apoyo')] })];
+    const [p] = proponerSustitutos(entrada(h, 'marta'));
+    expect(p.elegido).toMatchObject({ id: 'eva', nivel: 'en_aula', disponibilidad: 'si' });
   });
   it('el Almuerzo sin grupo también hay que cubrirlo: son horas con alumnos', () => {
     const r = sesionesDelAusente([ses({ horaInicio: '10:35', horaFin: '10:45', actividad: 'otros', etiqueta: 'Almuerzo', profes: [pr('marta')] })], 'marta');
@@ -329,6 +343,21 @@ describe('horario recortado para la pantalla', () => {
   });
 });
 
+describe('quien falta y estaba cubriendo a otra persona', () => {
+  it('solo cuentan las horas que cubría dentro de lo que falta ese día', () => {
+    const cubre = [
+      { id: '1', fecha: MAR, horaInicio: '10:30', horaFin: '11:15' },
+      { id: '2', fecha: MAR, horaInicio: '15:30', horaFin: '16:15' },
+      { id: '3', fecha: MIE, horaInicio: '10:30', horaFin: '11:15' },
+    ];
+    const faltas = [
+      { fecha: MAR, horaInicio: '09:00', horaFin: '09:45' },
+      { fecha: MAR, horaInicio: '11:45', horaFin: '12:30' },
+    ];
+    expect(cubreDentro(cubre, faltas).map((c) => c.id)).toEqual(['1']);
+  });
+});
+
 describe('coberturas por baja', () => {
   it('el sustituto hereda el horario del titular; el titular no es candidato', () => {
     const h = [
@@ -378,6 +407,15 @@ describe('disponibilidad (decisión 15)', () => {
     const retoques: Retoque[] = [{ profeId: 'ana', dia: 2, horaInicio: '11:00', horaFin: '12:00', estado: 'si', nota: 'piscina' }];
     const c = rejillaDisponibilidad('ana', semana, franjas, retoques).find((x) => x.dia === 2 && x.horaInicio === '11:00');
     expect(c).toMatchObject({ disponibilidad: 'si', automatica: 'urgencia', retocada: true, nota: 'piscina' });
+  });
+  it('quien da en dos etapas: un retoque de una franja no se cuela en la otra que empieza igual', () => {
+    const dos = new Map<number, SesionDia[]>([[2, [ses({ horaInicio: '10:00', horaFin: '11:00', actividad: 'departamento', profes: [pr('ana')] })]]]);
+    const ep = { horaInicio: '09:00', horaFin: '09:45' };
+    const ei = { horaInicio: '09:00', horaFin: '10:10' };
+    const retoques: Retoque[] = [{ profeId: 'ana', dia: 2, ...ep, estado: 'no' }];
+    const [cEp, cEi] = rejillaDisponibilidad('ana', dos, [ep, ei], retoques).filter((c) => c.dia === 2);
+    expect(cEp).toMatchObject({ retocada: true, disponibilidad: 'no' });
+    expect(cEi).toMatchObject({ retocada: false });
   });
   it('tocar cicla Sí → Si hace falta → Solo urgencia → No → Automático', () => {
     expect([null, 'si', 'si_hace_falta', 'urgencia', 'no'].map((e) => siguienteEstado(e as never))).toEqual(['si', 'si_hace_falta', 'urgencia', 'no', null]);

@@ -92,7 +92,15 @@ plan antiguo: un solo día, por tramo, solo EI/EP, motivo en los correos). Revis
 10. **El informe que sale con «Enviarlo ahora» sale aunque ya se hubiera mandado** (el cron no repite nunca).
 11. **Variable del informe: `SUSTITUCIONES_INFORME_COPIA`** (lista con comas, como dice el plan), no la
     `SUSTITUCIONES_EMAIL_DIRECCION_TITULAR` del primer borrador.
-12. **Pendiente**: leer el cuadro «HORARIO SUSTITUCIONES» en el importador. La tabla y todo lo que lo usa
+12. **Si quien falta estaba cubriendo a otra persona a esas horas**, al confirmar esas horas se quedan
+    sin cubrir (la pantalla lo avisa antes y luego salen en ámbar en «Hoy»). No se manda correo: lo
+    decide Jefatura desde la ficha de la otra ausencia.
+13. **Que dos personas de Jefatura no pongan a la misma persona a la vez**: además de la comprobación
+    con nombre y hora, cada escritura que pone sustitutos lleva dentro de su transacción un cerrojo y una
+    guarda que relee y lo deshace todo si choca (409). Probado con dos confirmaciones simultáneas.
+14. **Los retoques de disponibilidad van por franja entera** (inicio y fin): quien da en infantil y
+    primaria tiene franjas que empiezan a las 9:00 y acaban distinto, y no se pisan.
+15. **Pendiente**: leer el cuadro «HORARIO SUSTITUCIONES» en el importador. La tabla y todo lo que lo usa
     (orden, «En el cuadro: …») ya están; falta un `.docx` real para ver su formato (pedírselo a Jose Miguel).
 
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026

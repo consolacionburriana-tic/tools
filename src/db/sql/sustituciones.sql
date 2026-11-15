@@ -81,7 +81,10 @@ CREATE TABLE IF NOT EXISTS sust_disponibilidad (
   updated_by_email text,
   updated_at timestamp NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS sust_disponibilidad_uq ON sust_disponibilidad (profe_id, academic_year, dia_semana, hora_inicio);
+-- Por franja entera (inicio Y fin): quien da en dos etapas tiene franjas que empiezan a la misma hora
+-- y acaban distinto (09:00-09:45 en EP, 09:00-10:10 en EI). El primer índice (solo inicio) se retira.
+DROP INDEX IF EXISTS sust_disponibilidad_uq;
+CREATE UNIQUE INDEX IF NOT EXISTS sust_disponibilidad_franja_uq ON sust_disponibilidad (profe_id, academic_year, dia_semana, hora_inicio, hora_fin);
 
 CREATE TABLE IF NOT EXISTS sust_informes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

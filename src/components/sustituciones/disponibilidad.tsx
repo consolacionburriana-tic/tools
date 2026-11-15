@@ -4,7 +4,7 @@
 // Sale sola del horario y Jefatura la retoca a mano. Dos vistas (filtros, no un segundo segmentado:
 // ya hay secciones): «Por profe», su rejilla tocable; y «La semana», cuántos hay en cada estado y
 // dónde va a faltar gente. Mismo aspecto que la rejilla de Oratorios.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -38,15 +38,20 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
   const [vista, setVista] = useState<Vista>(vistaInicial);
   const [etapa, setEtapa] = useState<Etapa>(etapaInicial ?? inicial.semana.find((s) => s.franjas.length > 0)?.etapa ?? 'EP');
   const [cargando, setCargando] = useState(false);
+  // Mientras se guarda una casilla no se toca otra: la siguiente se calcula desde lo guardado.
+  const [guardando, setGuardando] = useState(false);
+  const peticion = useRef(0);
 
   async function recargar(profeId: string | null) {
+    const n = ++peticion.current;
     setCargando(true);
     try {
-      setDatos(await pedir<DatosDisponibilidad>(`/api/sustituciones/admin/disponibilidad${profeId ? `?profeId=${profeId}` : ''}`));
+      const d = await pedir<DatosDisponibilidad>(`/api/sustituciones/admin/disponibilidad${profeId ? `?profeId=${profeId}` : ''}`);
+      if (n === peticion.current) setDatos(d);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se ha podido cargar');
+      if (n === peticion.current) toast.error(e instanceof Error ? e.message : 'No se ha podido cargar');
     } finally {
-      setCargando(false);
+      if (n === peticion.current) setCargando(false);
     }
   }
 
@@ -62,7 +67,8 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
 
   async function tocar(c: CasillaDisponibilidad) {
     const profe = datos.porProfe?.profe;
-    if (!profe || c.bloqueada) return;
+    if (!profe || c.bloqueada || guardando) return;
+    setGuardando(true);
     const actual = c.retocada ? c.disponibilidad : null;
     const nuevo = siguienteEstado(actual);
     haptic.tap();
@@ -76,7 +82,7 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
               bloques: d.porProfe.bloques.map((b) => ({
                 ...b,
                 casillas: b.casillas.map((x) =>
-                  x.dia === c.dia && x.horaInicio === c.horaInicio ? { ...x, disponibilidad: nuevo ?? x.automatica, retocada: nuevo !== null } : x,
+                  x.dia === c.dia && x.horaInicio === c.horaInicio && x.horaFin === c.horaFin ? { ...x, disponibilidad: nuevo ?? x.automatica, retocada: nuevo !== null } : x,
                 ),
               })),
             },
@@ -86,10 +92,12 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
     try {
       await pedir('/api/sustituciones/admin/disponibilidad', { method: 'PUT', body: { profeId: profe.id, dia: c.dia, horaInicio: c.horaInicio, horaFin: c.horaFin, estado: nuevo } });
       toast.success(`${diaLargo(c.dia)} ${hora(c.horaInicio)}: ${nuevo ? DISPONIBILIDAD_INFO[nuevo].nombre : `automático (${DISPONIBILIDAD_INFO[c.automatica].nombre})`}`);
-      void recargar(profe.id);
+      await recargar(profe.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se ha podido guardar');
-      void recargar(profe.id);
+      await recargar(profe.id);
+    } finally {
+      setGuardando(false);
     }
   }
 
@@ -156,7 +164,7 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
                   {datos.porProfe!.bloques.length > 1 && <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{ETAPA_LABEL[b.etapa]}</h2>}
                   <Rejilla franjas={b.franjas}>
                     {(dia, f) => {
-                      const c = b.casillas.find((x) => x.dia === dia && x.horaInicio === f.horaInicio);
+                      const c = b.casillas.find((x) => x.dia === dia && x.horaInicio === f.horaInicio && x.horaFin === f.horaFin);
                       return c ? <Casilla c={c} onTocar={() => void tocar(c)} /> : <div />;
                     }}
                   </Rejilla>

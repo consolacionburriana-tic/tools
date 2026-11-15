@@ -1893,7 +1893,8 @@ export const sustDisponibilidad = pgTable('sust_disponibilidad', {
   updatedByEmail: text('updated_by_email'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
-  uniqueIndex('sust_disponibilidad_uq').on(t.profeId, t.academicYear, t.diaSemana, t.horaInicio),
+  // Con la hora de fin: quien da en dos etapas tiene franjas que empiezan igual y acaban distinto.
+  uniqueIndex('sust_disponibilidad_franja_uq').on(t.profeId, t.academicYear, t.diaSemana, t.horaInicio, t.horaFin),
 ]);
 
 // Un informe mensual mandado (idempotencia del cron del día 1).

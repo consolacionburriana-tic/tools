@@ -15,6 +15,7 @@ import { CONFIGURACION } from '@/lib/configuracion';
 import {
   agruparCandidatos,
   claveSesion,
+  cubreDentro,
   describirSesion,
   entradaDesdeContexto,
   fechaLarga,
@@ -89,6 +90,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
     if (!profeId || !desde || !hasta || hasta < desde) {
       peticion.current++;
       setDatos(null);
+      setCargando(false);
       return;
     }
     const n = ++peticion.current;
@@ -127,6 +129,8 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
   }, [datos, encendidas, fijados]);
 
   const elegidas = useMemo(() => (datos?.dias ?? []).flatMap((d) => d.sesiones.filter((s) => encendidas.has(claveSesion(s)))), [datos, encendidas]);
+  // Si falta a horas en las que cubría a otra persona, esas se quedan sin cubrir al confirmar.
+  const cubriaA = datos ? cubreDentro(datos.cubreYa, elegidas) : [];
   const sustitutos = new Set([...propuesta.values()].map((p) => p.elegido?.id).filter(Boolean));
   const personas = sustitutos.size + (elegidas.length > 0 ? 1 : 0);
   const sinCubrir = [...propuesta.values()].filter((p) => !p.elegido).length;
@@ -173,13 +177,14 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
         horSesionId: s.sesionId,
         sustitutoId: s.hayQueCubrir ? (propuesta.get(claveSesion(s))?.elegido?.id ?? null) : null,
       }));
-      const r = await pedir<{ id: string; avisos: Avisos | null }>('/api/sustituciones/admin/ausencias', {
+      const r = await pedir<{ id: string; avisos: Avisos | null; liberadas: unknown[] }>('/api/sustituciones/admin/ausencias', {
         body: { profeId: datos.profe.id, desde: datos.desde, hasta: datos.hasta, motivo, nota: nota || null, indicaciones: indicaciones || null, avisar, sesiones },
       });
       haptic.success();
       const avisos = textoAvisos(r.avisos);
       if (r.avisos?.fallidos.length) toast.warning(`Ausencia guardada. ${avisos}. Puedes reenviarlo desde la ficha.`);
       else toast.success(avisos ? `Ausencia guardada. ${avisos}.` : 'Ausencia guardada');
+      if (r.liberadas.length > 0) toast.warning(`${r.liberadas.length === 1 ? 'Una hora que cubría se ha quedado' : `${r.liberadas.length} horas que cubría se han quedado`} sin cubrir: búscalas en «Hoy».`);
       router.push(`/gestion/sustituciones/${r.id}`);
     } catch (e) {
       haptic.warning();
@@ -260,6 +265,12 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
             </Aviso>
           )}
           {datos.saltados.length > 0 && !datos.excede && <p className="text-sm text-zinc-500 dark:text-zinc-400">{textoSaltados(datos.saltados)}</p>}
+          {cubriaA.length > 0 && (
+            <Aviso tono="aviso" titulo={cubriaA.length === 1 ? 'Estaba cubriendo una hora' : `Estaba cubriendo ${cubriaA.length} horas`}>
+              Al confirmar, se quedan sin cubrir:{' '}
+              {cubriaA.map((c) => `${fechaLarga(c.fecha)} a las ${c.horaInicio.replace(/^0/, '')}${c.grupos ? ` (${c.grupos})` : ''}, de ${c.cubreA}`).join('; ')}. Luego, desde su ficha, se busca a otra persona.
+            </Aviso>
+          )}
 
           {!bloqueado && (
             <Tarjeta>

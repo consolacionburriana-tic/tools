@@ -63,6 +63,7 @@ import {
   proponerSustitutos,
   rangoPeriodo,
   recortarHorario,
+  cubreDentro,
   rejillaDisponibilidad,
   resumir,
   sesionesDelAusente,
@@ -442,6 +443,8 @@ export interface RespuestaPropuesta {
   bajaCubiertaPor: string | null;
   /** Ya tiene otras ausencias en esas fechas (sus horas no se pueden repetir). */
   yaApuntadas: { fecha: string; horaInicio: string; horaFin: string }[];
+  /** Horas en las que esta persona ya cubre a otra (si falta a esa hora, esas se quedan sin cubrir). */
+  cubreYa: HoraQueCubre[];
   /** Con esto la pantalla calcula la propuesta (`proponerSustitutos`) y la rehace al cambiar algo. */
   contexto: ContextoPropuesta;
 }
@@ -453,15 +456,77 @@ export async function propuesta(profeId: string, desde: string, hasta: string, e
   const dias: DiaPropuesta[] = c.ctx.horario.map(([fecha, sesiones]) => ({ fecha, sesiones: sesionesDelAusente(sesiones, profeId), notas: c.notasPorDia.get(fecha) ?? [] }));
   const cubre = c.coberturas.find((x) => x.titularId === profeId && c.lectivos.some((f) => (!x.desde || x.desde <= f) && (!x.hasta || f <= x.hasta)));
   // Lo que ya está apuntado de este profe (otra ausencia): esas horas no se pueden repetir.
-  const yaApuntadas = await horasApuntadas(profeId, desde, hasta, excluirAusencia);
+  const [yaApuntadas, cubreYa] = await Promise.all([horasApuntadas(profeId, desde, hasta, excluirAusencia), horasQueCubre(profeId, desde, hasta)]);
   const excede = excedeTope(c.lectivos);
   const bajaCubiertaPor = cubre ? (c.ctx.profes.find((p) => p.id === cubre.sustitutoId)?.nombre ?? 'otra persona') : null;
   // Lo que viaja a la pantalla: solo lo que hace falta para volver a proponer allí (recortado).
   const porDia = new Map(dias.map((d) => [d.fecha, d.sesiones]));
   const contexto: ContextoPropuesta = { ...c.ctx, horario: c.ctx.horario.map(([f, delDia]) => [f, recortarHorario(delDia, porDia.get(f) ?? [])]) };
-  const base = { profe: { id: profe.id, nombre: profe.nombre }, desde, hasta, saltados: c.saltados, excede, bajaCubiertaPor, yaApuntadas };
+  const base = { profe: { id: profe.id, nombre: profe.nombre }, desde, hasta, saltados: c.saltados, excede, bajaCubiertaPor, yaApuntadas, cubreYa };
   if (excede || bajaCubiertaPor) return { ...base, dias: [], contexto: { ...contexto, horario: [] } };
   return { ...base, dias, contexto };
+}
+
+export interface HoraQueCubre {
+  id: string;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  grupos: string | null;
+  /** A quién cubre. */
+  cubreA: string;
+}
+
+/** Las horas en las que alguien cubre a otra persona en un rango (ausencias confirmadas). */
+async function horasQueCubre(profeId: string, desde: string, hasta: string): Promise<HoraQueCubre[]> {
+  return db
+    .select({ id: sustSesiones.id, fecha: sustSesiones.fecha, horaInicio: sustSesiones.horaInicio, horaFin: sustSesiones.horaFin, grupos: sustSesiones.grupos, cubreA: sustAusencias.profeNombre })
+    .from(sustSesiones)
+    .innerJoin(sustAusencias, eq(sustAusencias.id, sustSesiones.ausenciaId))
+    .where(and(eq(sustSesiones.sustitutoId, profeId), eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, desde), lte(sustSesiones.fecha, hasta)))
+    .orderBy(asc(sustSesiones.fecha), asc(sustSesiones.horaInicio));
+}
+
+// ─── Que dos personas no guarden lo mismo a la vez (decisión 9) ──────────────
+
+/**
+ * Dos sentencias que van al principio de la transacción (`db.batch`) de cada escritura que pone
+ * sustitutos: un cerrojo que pone en fila las escrituras de Sustituciones y una guarda que REVIENTA
+ * (división por cero → se deshace todo el lote) si, releído dentro de la transacción, alguno de los
+ * elegidos ya cubre o falta a esa hora (`s`), o el ausente ya tiene otra ausencia a esa hora (`a`).
+ * La comprobación amable de antes (`comprobarSustitutos`) da el mensaje con nombre y hora; esta es
+ * la que cierra el hueco entre leer y escribir cuando dos personas de Jefatura confirman a la vez.
+ */
+function guardaSinChoques(filas: { tipo: 's' | 'a'; profeId: string; fecha: string; horaInicio: string; horaFin: string }[], excluirAusencia: string | null) {
+  const cerrojo = db.execute(sql`select pg_advisory_xact_lock(hashtext('sust_sesiones'))`);
+  if (filas.length === 0) return [cerrojo] as const;
+  const valores = sql.join(
+    filas.map((f) => sql`(${f.tipo}::text, ${f.profeId}::uuid, ${f.fecha}::date, ${f.horaInicio}::text, ${f.horaFin}::text)`),
+    sql`, `,
+  );
+  const guarda = db.execute(sql`
+    select 1 / (case when exists (
+      select 1
+      from (values ${valores}) as v(tipo, pid, f, hi, hf)
+      join ${sustSesiones} s on s.fecha = v.f and s.hora_inicio < v.hf and v.hi < s.hora_fin
+      join ${sustAusencias} a on a.id = s.ausencia_id and a.estado = 'confirmada'
+      where (a.profe_id = v.pid or (v.tipo = 's' and s.sustituto_id = v.pid))
+        ${excluirAusencia ? sql`and a.id <> ${excluirAusencia}::uuid` : sql``}
+    ) then 0 else 1 end) as sin_choques`);
+  return [cerrojo, guarda] as const;
+}
+
+/** Ejecuta el lote; si la guarda ha saltado, un 409 entendible. */
+async function lote(sentencias: Parameters<typeof db.batch>[0]): Promise<void> {
+  try {
+    await db.batch(sentencias);
+  } catch (e) {
+    const texto = `${e instanceof Error ? e.message : ''} ${(e as { cause?: { message?: string; code?: string } })?.cause?.message ?? ''} ${(e as { cause?: { code?: string } })?.cause?.code ?? ''}`;
+    if (/division by zero|22012/i.test(texto)) {
+      throw new ErrorSustitucion('Alguien ha guardado otra sustitución a la vez con alguna de estas personas. Vuelve a cargar y revisa.', 409);
+    }
+    throw e;
+  }
 }
 
 async function horasApuntadas(profeId: string, desde: string, hasta: string, excluir?: string | null) {
@@ -697,6 +762,8 @@ function resolverPedidas(
 export interface ResultadoConfirmar {
   id: string;
   avisos: ResultadoAvisos | null;
+  /** Horas que esta persona cubría a otros y se han quedado sin cubrir. */
+  liberadas: HoraQueCubre[];
 }
 
 /**
@@ -722,7 +789,18 @@ export async function confirmarAusencia(e: EntradaAusencia, q: Quien): Promise<R
   const id = crypto.randomUUID();
   const ahora = new Date();
   const filas = elegidas.map((x) => ({ ...filaSesion(id, x.s, x.sustitutoId, c.ctx, x.delDia), id: crypto.randomUUID() }));
-  await db.batch([
+  // Si quien falta estaba cubriendo a otra persona a esas horas, esas horas se quedan sin cubrir (y se ven en ámbar en «Hoy»).
+  const liberadas = cubreDentro(await horasQueCubre(e.profeId, e.desde, e.hasta), filas);
+  const guardas = guardaSinChoques(
+    [
+      ...filas.map((f) => ({ tipo: 'a' as const, profeId: e.profeId, fecha: f.fecha, horaInicio: f.horaInicio, horaFin: f.horaFin })),
+      ...filas.filter((f) => f.sustitutoId).map((f) => ({ tipo: 's' as const, profeId: f.sustitutoId!, fecha: f.fecha, horaInicio: f.horaInicio, horaFin: f.horaFin })),
+    ],
+    null,
+  );
+  await lote([
+    ...guardas,
+    ...(liberadas.length > 0 ? [soltar(liberadas.map((l) => l.id), ahora)] : []),
     db.insert(sustAusencias).values({
       id,
       academicYear: cursoDeFecha(e.desde),
@@ -741,8 +819,16 @@ export async function confirmarAusencia(e: EntradaAusencia, q: Quien): Promise<R
     db.insert(sustSesiones).values(filas),
   ]);
 
-  if (!e.avisar) return { id, avisos: null };
-  return { id, avisos: await avisarTodo(id, q) };
+  if (!e.avisar) return { id, avisos: null, liberadas };
+  return { id, avisos: await avisarTodo(id, q), liberadas };
+}
+
+/** Deja sin sustituto unas horas (quien las cubría ahora falta). */
+function soltar(ids: string[], ahora: Date) {
+  return db
+    .update(sustSesiones)
+    .set({ sustitutoId: null, sustitutoNombre: null, sustitutoEmail: null, nivel: null, disponibilidad: null, avisoEstado: 'no', avisoError: null, avisoEnviadoAt: null, updatedAt: ahora })
+    .where(inArray(sustSesiones.id, ids));
 }
 
 /** Avisa a los sustitutos (los que aún no lo están, o todos) y al ausente. */
@@ -859,7 +945,10 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
       avisoEnviadoAt: null,
       updatedAt: ahora,
     };
-    await db.batch([
+    // Las demás horas de ESTA ausencia no entran en la guarda (se excluye entera): ya se comprobaron arriba.
+    const guardas = guardaSinChoques(cambio.sustitutoId ? [{ tipo: 's', profeId: cambio.sustitutoId, fecha: s.fecha, horaInicio: s.horaInicio, horaFin: s.horaFin }] : [], id);
+    await lote([
+      ...guardas,
       db
         .update(sustSesiones)
         .set({ sustitutoId: nueva.sustitutoId, sustitutoNombre: nueva.sustitutoNombre, sustitutoEmail: nueva.sustitutoEmail, nivel, disponibilidad, avisoEstado: 'no', avisoError: null, avisoEnviadoAt: null, updatedAt: ahora })
@@ -889,7 +978,14 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     { ...c.ctx, cubriendo: [...c.ctx.cubriendo, ...otrasMias] },
   );
   const filas = elegidas.map((x) => ({ ...filaSesion(id, x.s, x.sustitutoId, c.ctx, x.delDia), id: crypto.randomUUID() }));
-  await db.batch([db.insert(sustSesiones).values(filas), tocar()]);
+  const guardas = guardaSinChoques(
+    [
+      ...filas.map((f) => ({ tipo: 'a' as const, profeId: a.profeId, fecha: f.fecha, horaInicio: f.horaInicio, horaFin: f.horaFin })),
+      ...filas.filter((f) => f.sustitutoId).map((f) => ({ tipo: 's' as const, profeId: f.sustitutoId!, fecha: f.fecha, horaInicio: f.horaInicio, horaFin: f.horaFin })),
+    ],
+    id,
+  );
+  await lote([...guardas, db.insert(sustSesiones).values(filas), tocar()]);
   if (!cambio.avisar) return { avisos: null };
   const nuevas = (await leerAusencia(id)).sesiones;
   const r1 = await avisarSustitutos(a, nuevas.filter((s) => filas.some((f) => f.id === s.id)), q, plantillas, profes);
@@ -1191,11 +1287,13 @@ export async function enviarInforme(mes: string, opciones: { forzar?: boolean; q
     }
   }
   const resumen = { ausencias: inf.delMes.ausencias, sesiones: inf.delMes.sesiones, cubiertas: inf.delMes.cubiertas, sinCubrir: inf.delMes.sinCubrir };
+  // Si no ha salido a nadie, no se pisa el registro de un envío anterior que sí salió.
+  if (ok.length === 0) return { enviado: false, destinatarios: [], motivo: 'No ha salido a nadie', fallidos };
   await db
     .insert(sustInformes)
-    .values({ mes, destinatarios: ok, resumen, enviadoAt: ok.length > 0 ? new Date() : null })
-    .onConflictDoUpdate({ target: sustInformes.mes, set: { destinatarios: ok, resumen, enviadoAt: ok.length > 0 ? new Date() : null } });
-  return { enviado: ok.length > 0, destinatarios: ok, fallidos };
+    .values({ mes, destinatarios: ok, resumen, enviadoAt: new Date() })
+    .onConflictDoUpdate({ target: sustInformes.mes, set: { destinatarios: ok, resumen, enviadoAt: new Date() } });
+  return { enviado: true, destinatarios: ok, fallidos };
 }
 
 /** El cron del día 1: el informe del mes anterior. */
@@ -1310,7 +1408,15 @@ export async function guardarRetoque(
   if (r.estado === null) {
     await db
       .delete(sustDisponibilidad)
-      .where(and(eq(sustDisponibilidad.profeId, r.profeId), eq(sustDisponibilidad.academicYear, academicYear), eq(sustDisponibilidad.diaSemana, r.dia), eq(sustDisponibilidad.horaInicio, r.horaInicio)));
+      .where(
+        and(
+          eq(sustDisponibilidad.profeId, r.profeId),
+          eq(sustDisponibilidad.academicYear, academicYear),
+          eq(sustDisponibilidad.diaSemana, r.dia),
+          eq(sustDisponibilidad.horaInicio, r.horaInicio),
+          eq(sustDisponibilidad.horaFin, r.horaFin),
+        ),
+      );
     return;
   }
   const valores = { profeId: r.profeId, academicYear, diaSemana: r.dia, horaInicio: r.horaInicio, horaFin: r.horaFin, estado: r.estado, nota: r.nota?.trim() || null, updatedByEmail: email, updatedAt: new Date() };
@@ -1318,8 +1424,8 @@ export async function guardarRetoque(
     .insert(sustDisponibilidad)
     .values(valores)
     .onConflictDoUpdate({
-      target: [sustDisponibilidad.profeId, sustDisponibilidad.academicYear, sustDisponibilidad.diaSemana, sustDisponibilidad.horaInicio],
-      set: { horaFin: valores.horaFin, estado: valores.estado, nota: valores.nota, updatedByEmail: email, updatedAt: valores.updatedAt },
+      target: [sustDisponibilidad.profeId, sustDisponibilidad.academicYear, sustDisponibilidad.diaSemana, sustDisponibilidad.horaInicio, sustDisponibilidad.horaFin],
+      set: { estado: valores.estado, nota: valores.nota, updatedByEmail: email, updatedAt: valores.updatedAt },
     });
 }
 

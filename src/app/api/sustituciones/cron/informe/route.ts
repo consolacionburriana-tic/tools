@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { mensajeSeguro } from '@/lib/sustituciones-api';
 import { enviarInformeDelMesPasado } from '@/lib/sustituciones-server';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   try {
     return NextResponse.json({ ok: true, ...(await enviarInformeDelMesPasado()) });
   } catch (error) {
-    console.error('Sustituciones · informe mensual:', error instanceof Error ? error.message : error);
+    console.error('Sustituciones · informe mensual:', mensajeSeguro(error));
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

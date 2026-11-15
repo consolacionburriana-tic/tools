@@ -220,13 +220,14 @@ export interface RejillaHorario {
   ambitos: { etapa: string | null; curso: string | null }[];
 }
 
-/** ¿Vale esta rejilla para esa etapa? Un ámbito vacío (centro entero) vale para todas. */
-function rejillaCubreEtapa(r: RejillaHorario, etapa: Etapa): boolean {
-  if (r.ambitos.length === 0) return true;
-  return r.ambitos.some((a) => {
-    const e = a.etapa ?? etapaDeCurso(a.curso);
-    return e === null ? !a.curso : e === etapa;
-  });
+/** Una rejilla de «centro entero»: sin ámbitos, o con un ámbito todo a null. */
+function esDeCentro(r: RejillaHorario): boolean {
+  return r.ambitos.length === 0 || r.ambitos.some((a) => !a.etapa && !a.curso);
+}
+
+/** ¿Es una rejilla PROPIA de esa etapa? (su ámbito la nombra, o nombra un curso suyo). La de centro no cuenta. */
+function rejillaDeEtapa(r: RejillaHorario, etapa: Etapa): boolean {
+  return r.ambitos.some((a) => (a.etapa ?? etapaDeCurso(a.curso)) === etapa);
 }
 
 export interface HorarioDeFecha {
@@ -251,8 +252,12 @@ export function horarioDeFecha(
   const usadas = new Set<string>();
   const porEtapa: HorarioDeFecha['porEtapa'] = [];
   const contienen = periodos.filter((p) => p.fechaInicio <= fecha && fecha <= p.fechaFin);
+  const elegidos = new Set<string>();
   for (const etapa of etapas) {
-    const conRejilla = (p: PeriodoHorario) => rejillas.some((r) => r.periodoId === p.id && rejillaCubreEtapa(r, etapa));
+    // El periodo de cada etapa se elige SOLO por sus rejillas propias: una rejilla de «centro entero»
+    // (las horas sueltas que el importador no casa con una etapa) no hace que un periodo especial de
+    // primaria pase a mandar también en infantil o en la ESO.
+    const conRejilla = (p: PeriodoHorario) => rejillas.some((r) => r.periodoId === p.id && rejillaDeEtapa(r, etapa));
     const candidatos = contienen.filter(conRejilla);
     let periodo: PeriodoHorario | null = null;
     if (candidatos.length > 0) periodo = candidatos.reduce((a, b) => (b.prioridad > a.prioridad ? b : a));
@@ -266,8 +271,13 @@ export function horarioDeFecha(
     }
     const especial = contienen.some((p) => !p.esOrdinario);
     porEtapa.push({ etapa, periodo, ordinarioDeRespaldo: Boolean(periodo?.esOrdinario && especial) });
-    if (periodo) for (const r of rejillas) if (r.periodoId === periodo.id && rejillaCubreEtapa(r, etapa)) usadas.add(r.id);
+    if (periodo) {
+      elegidos.add(periodo.id);
+      for (const r of rejillas) if (r.periodoId === periodo.id && rejillaDeEtapa(r, etapa)) usadas.add(r.id);
+    }
   }
+  // Las de centro entero cuentan si son de un periodo que manda en alguna etapa.
+  for (const r of rejillas) if (esDeCentro(r) && elegidos.has(r.periodoId)) usadas.add(r.id);
   return { rejillas: usadas, porEtapa };
 }
 
@@ -398,7 +408,7 @@ export function sesionesDelAusente(sesiones: readonly SesionDia[], profeId: stri
       // Con grupo, o una de las horas «con alumnos aunque el horario no ponga el grupo» (el Almuerzo
       // de infantil, el Taller de Pensamiento, el Huerto: `nuncaLiberables`).
       hayQueCubrir: (s.grupos.length > 0 || conAlumnosSinGrupo(s, cfg)) && esPrincipalEn(s, profeId),
-      otrosEnAula: s.grupos.length > 0 ? s.profes.filter((p) => p.id !== profeId).map((p) => p.id) : [],
+      otrosEnAula: s.grupos.length > 0 || conAlumnosSinGrupo(s, cfg) ? s.profes.filter((p) => p.id !== profeId).map((p) => p.id) : [],
     }))
     .sort(ordenSesion);
 }
@@ -489,7 +499,7 @@ export function evaluar(
   delDia: readonly SesionDia[],
   retoques: readonly Retoque[],
   dia: number,
-  opciones: { mismaSesion?: string | null; cfg?: ConfigSustituciones } = {},
+  opciones: { mismaSesion?: string | null; cfg?: ConfigSustituciones; /** Solo el retoque de esta misma franja (la rejilla), no los que solapan. */ exacto?: boolean } = {},
 ): Evaluacion {
   const cfg = opciones.cfg ?? CFG;
   const suyas = delDia.filter((s) => s.profes.some((p) => p.id === profeId));
@@ -519,7 +529,9 @@ export function evaluar(
       automatica = peorDisponibilidad(automatica, disponibilidadDeNivel(n, cfg));
     }
   }
-  const suyos = retoques.filter((r) => r.profeId === profeId && r.dia === dia && solapa(r, franja));
+  const suyos = retoques.filter(
+    (r) => r.profeId === profeId && r.dia === dia && (opciones.exacto ? r.horaInicio === franja.horaInicio && r.horaFin === franja.horaFin : solapa(r, franja)),
+  );
   let disponibilidad = automatica;
   let retocada = false;
   if (suyos.length > 0 && !bloqueada) {
@@ -753,6 +765,26 @@ export function entradaDesdeContexto(
   };
 }
 
+/**
+ * De las horas que cubre alguien, las que caen dentro de lo que falta cada día (de su primera a su
+ * última hora de ausencia): si falta a esas horas, esas se quedan sin cubrir.
+ */
+export function cubreDentro<T extends Franja & { fecha: string }>(cubre: readonly T[], faltas: readonly (Franja & { fecha: string })[]): T[] {
+  const ventanas = new Map<string, Franja>();
+  for (const f of faltas) {
+    const v = ventanas.get(f.fecha);
+    if (!v) ventanas.set(f.fecha, { horaInicio: f.horaInicio, horaFin: f.horaFin });
+    else {
+      if (aMin(f.horaInicio) < aMin(v.horaInicio)) v.horaInicio = f.horaInicio;
+      if (aMin(f.horaFin) > aMin(v.horaFin)) v.horaFin = f.horaFin;
+    }
+  }
+  return cubre.filter((c) => {
+    const v = ventanas.get(c.fecha);
+    return Boolean(v && solapa(v, c));
+  });
+}
+
 export interface GrupoCandidatos {
   etiqueta: string;
   candidatos: Candidato[];
@@ -800,8 +832,10 @@ export function rejillaDisponibilidad(
   for (let dia = 1; dia <= 5; dia++) {
     const delDia = semana.get(dia) ?? [];
     for (const f of franjas) {
-      const ev = evaluar(profeId, f, delDia, retoques, dia, { cfg });
-      const retoque = retoques.find((r) => r.profeId === profeId && r.dia === dia && r.horaInicio === f.horaInicio);
+      // En la rejilla, cada casilla con su propio retoque: quien da en dos etapas tiene franjas que
+      // empiezan a la misma hora y acaban distinto, y no se pisan.
+      const ev = evaluar(profeId, f, delDia, retoques, dia, { cfg, exacto: true });
+      const retoque = retoques.find((r) => r.profeId === profeId && r.dia === dia && r.horaInicio === f.horaInicio && r.horaFin === f.horaFin);
       casillas.push({ dia, ...f, ...ev, nota: retoque?.nota ?? null });
     }
   }

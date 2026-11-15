@@ -665,9 +665,9 @@ cómo queda: Nouvinguts.
 - [x] Módulo `sustituciones` en `permissions.ts` (`MODULES`, `MODULE_LABELS`, `jefe` y `direccion`), `modulos.ts` (grupo `centro`, icono, `acento` índigo + excepción en `diseno.md`), `escritorio.ts`; tests de permisos.
 - [x] `CONFIGURACION.sustituciones` (§4.3) y su test (más `ALMUERZO` en `nuncaLiberables`, ver 00-desarrollos-futuros).
 - [x] Schema `sust_*` en `schema.ts` + `src/db/sql/sustituciones.sql` idempotente; aplicado en Neon con `pnpm db:sql sustituciones` el 14-nov-2026 (retira las tablas vacías del primer borrador; `hor_cuadro_sustituciones` incluida), así que no queda en `pendientes.txt`.
-- [x] `sustituciones.ts` puro con los tests de §4.4 en verde (40 tests; 1.479 en total).
+- [x] `sustituciones.ts` puro con los tests de §4.4 en verde (44 tests; 1.483 en total).
 - [x] `horarioDeDias` en una tanda (`cargar` en `sustituciones-server.ts`, ~1,2 s); probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (primaria con su horario de septiembre; infantil y ESO con el ordinario).
-- [x] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409` (probado contra Neon: choque con otra ausencia del mismo profe y con un sustituto ya ocupado por otra).
+- [x] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409`: la amable (con nombre y hora) y una guarda dentro de la misma transacción con cerrojo. Probado contra Neon: choque con otra ausencia del mismo profe, con un sustituto ya ocupado y **dos confirmaciones simultáneas con el mismo sustituto** (una entra, la otra 409).
 - [~] Perfil `sustituciones` en `email.ts` y `sustituciones-email.ts` (sustituto, codocente en el aula, ausente) con plantillas de fábrica, asunto con hora y lugar y botón «Añadir a mi Google Calendar»; sin motivo (test). Vista previa comprobada; **falta el envío real a una cuenta propia** y abrir el enlace en el iPad.
 - [x] Disponibilidad automática usada en la propuesta, con «Solo urgencia» fuera de la elección automática.
 - [x] Pantallas **Nueva ausencia** (con rango de fechas) y **Ficha** con `loading.tsx`; claro/oscuro, 390/1180 px sin desplazamiento lateral; `diseno:guardia` en verde (pintadas en local con datos de Neon).
