@@ -2692,3 +2692,161 @@ export const audCambios = pgTable('aud_cambios', {
   index('aud_cambios_alumno_idx').on(t.eduStudentId, t.at),
 ]);
 export type AudCambio = typeof audCambios.$inferSelect;
+
+// ─── Inventario y aulas (prefijo inv_) ────────────────────────────────────────
+// Ficha: docs/33-inventario.md. El aula es el sitio físico y se conoce por el NÚMERO de su
+// puerta, que no cambia; la clase que la ocupa sí cambia cada curso (se cambia el cartelito), y
+// por eso vive aparte, en `inv_ocupacion`, una fila por aula y curso académico. Lo que hay
+// dentro (audiovisual, mesas y sillas, antena, material de robótica, arreglos) cuelga del aula,
+// nunca de la clase: así sobrevive al cambio de curso sin tocar nada.
+export const invAulas = pgTable('inv_aulas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  numero: text('numero'), // lo que pone en la puerta: '12', '17-18'. Null en salas sin número
+  orden: integer('orden').notNull().default(0), // para ordenar: 17 en '17-18'
+  piso: text('piso'), // 'PB' | 'P1' | 'P2' | 'P3'; null si no se sabe
+  nombre: text('nombre'), // nombre fijo de una sala: 'Aula de Música', 'Informática'
+  espacioCodigo: text('espacio_codigo'), // su código en Horarios (`hor_espacios.codigo`): MUS, CREA…
+  notas: text('notas'),
+  activa: boolean('activa').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('inv_aulas_numero_uq').on(t.numero),
+]);
+export type InvAula = typeof invAulas.$inferSelect;
+
+// Qué clase ocupa cada aula en cada curso académico. Una clase (curso + letra, los códigos de
+// `edu_students`: '3PRI' + 'B') solo puede estar en un aula por curso. `etiqueta` es para lo que
+// no es una clase («Desdobles», «Apoyo»); un aula sin fila ese curso = sin clase.
+export const invOcupacion = pgTable('inv_ocupacion', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  aulaId: uuid('aula_id').notNull().references(() => invAulas.id),
+  academicYear: text('academic_year').notNull(),
+  curso: text('curso'),
+  letra: text('letra'),
+  etiqueta: text('etiqueta'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('inv_ocupacion_aula_uq').on(t.aulaId, t.academicYear),
+  index('inv_ocupacion_year_idx').on(t.academicYear),
+]);
+export type InvOcupacion = typeof invOcupacion.$inferSelect;
+
+// El audiovisual de un aula (uno por aula): pantalla, audio, Apple TV, cómo está y qué hay que hacer.
+export const invAv = pgTable('inv_av', {
+  aulaId: uuid('aula_id').primaryKey().references(() => invAulas.id),
+  pantalla: text('pantalla'), // 'proyector' | 'tv' | 'ninguna'
+  marca: text('marca'), // 'Epson EB-X20', 'HKC 50"'
+  audio: text('audio'), // 'altavoz_grande' | 'pantalla' | 'altavoces_pequenos' | 'tv' | 'ninguno'
+  appleTv: boolean('apple_tv').notNull().default(false),
+  valoracion: integer('valoracion'), // 0-5; null = sin valorar
+  accion: text('accion').notNull().default('correcto'), // ver ACCIONES_AV en src/lib/inventario.ts
+  notas: text('notas'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+export type InvAv = typeof invAv.$inferSelect;
+
+// Mesas y sillas de un aula (uno por aula). Null = sin contar.
+export const invMobiliario = pgTable('inv_mobiliario', {
+  aulaId: uuid('aula_id').primaryKey().references(() => invAulas.id),
+  sillas: integer('sillas'),
+  mesas: integer('mesas'),
+  notas: text('notas'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+export type InvMobiliario = typeof invMobiliario.$inferSelect;
+
+// Los puntos de acceso wifi. `nombre_nuevo` es el que tiene que llevar (por número de aula o por
+// pasillo); mientras no coincida con `nombre_actual`, la antena está «por renombrar».
+export const invAntenas = pgTable('inv_antenas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  nombreActual: text('nombre_actual').notNull(),
+  nombreNuevo: text('nombre_nuevo'),
+  aulaId: uuid('aula_id').references(() => invAulas.id),
+  piso: text('piso'),
+  ubicacion: text('ubicacion'), // dónde está, si no es un aula: 'Pasillo 3 años'
+  notas: text('notas'),
+  activa: boolean('activa').notNull().default(true),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('inv_antenas_actual_uq').on(t.nombreActual),
+]);
+export type InvAntena = typeof invAntenas.$inferSelect;
+
+// Robótica: el catálogo de lo pedido (modelos) y cada unidad que ha llegado, con su número.
+// `pedidas` null = está en el catálogo del proveedor pero no se ha pedido.
+export const invRobModelos = pgTable('inv_rob_modelos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  codigoArticulo: text('codigo_articulo'), // el del proveedor: '169961'
+  nombre: text('nombre').notNull(),
+  categoria: text('categoria').notNull().default('otro'), // ver CATEGORIAS_ROB
+  pedidas: integer('pedidas'),
+  prefijo: text('prefijo'), // 'L' → L1, L2…
+  notas: text('notas'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('inv_rob_modelos_nombre_uq').on(t.nombre),
+]);
+export type InvRobModelo = typeof invRobModelos.$inferSelect;
+
+export const invRobKits = pgTable('inv_rob_kits', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  modeloId: uuid('modelo_id').notNull().references(() => invRobModelos.id),
+  codigo: text('codigo').notNull(), // 'L3'
+  aulaId: uuid('aula_id').references(() => invAulas.id), // dónde está
+  estado: text('estado').notNull().default('ok'), // 'ok' | 'incompleto' | 'averiado' | 'baja'
+  notas: text('notas'),
+  recibidoAt: date('recibido_at'),
+  actualizadoPor: text('actualizado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('inv_rob_kits_codigo_uq').on(t.codigo),
+  index('inv_rob_kits_modelo_idx').on(t.modeloId),
+]);
+export type InvRobKit = typeof invRobKits.$inferSelect;
+
+// Recursos didácticos de un modelo: la guía, las sesiones, el curso de formación…
+export const invRobRecursos = pgTable('inv_rob_recursos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  modeloId: uuid('modelo_id').notNull().references(() => invRobModelos.id),
+  titulo: text('titulo').notNull(),
+  url: text('url'),
+  notas: text('notas'),
+  creadoPor: text('creado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('inv_rob_recursos_modelo_idx').on(t.modeloId),
+]);
+export type InvRobRecurso = typeof invRobRecursos.$inferSelect;
+
+// Lo que hay que arreglar, de un aula o de un kit de robótica. Hecho = `hecho_at` puesto: no se
+// borra, para poder ver qué se hizo y cuándo.
+export const invArreglos = pgTable('inv_arreglos', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  aulaId: uuid('aula_id').references(() => invAulas.id),
+  kitId: uuid('kit_id').references(() => invRobKits.id),
+  area: text('area').notNull().default('otro'), // 'av' | 'mobiliario' | 'red' | 'robotica' | 'otro'
+  texto: text('texto').notNull(),
+  prioridad: text('prioridad').notNull().default('normal'), // 'urgente' | 'normal' | 'baja'
+  hechoAt: timestamp('hecho_at'),
+  hechoPor: text('hecho_por'),
+  creadoPor: text('creado_por'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('inv_arreglos_aula_idx').on(t.aulaId),
+  index('inv_arreglos_kit_idx').on(t.kitId),
+]);
+export type InvArreglo = typeof invArreglos.$inferSelect;

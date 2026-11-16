@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { herramientasDe, type ContextoEscritorio } from '@/lib/escritorio';
 import { MODULOS } from '@/lib/modulos';
 
-const CTX: ContextoEscritorio = { oratoriosComun: true, nouvinguts: null, dispositivosSinInformar: null, tableros: null };
+const CTX: ContextoEscritorio = { oratoriosComun: true, nouvinguts: null, dispositivosSinInformar: null, inventario: null, tableros: null };
 
 describe('identidad de los módulos (cabecera común)', () => {
   it('cada módulo sale en la cabecera con el mismo icono y el mismo grupo que en el escritorio', () => {

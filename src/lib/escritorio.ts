@@ -39,6 +39,7 @@ export type IconoHerramienta =
   | 'evaluaciones'
   | 'profes'
   | 'dispositivos'
+  | 'inventario'
   | 'cuentas'
   | 'calendarios'
   | 'autoasm'
@@ -75,6 +76,8 @@ export interface ContextoEscritorio {
   oratoriosComun: boolean;
   nouvinguts: number | null;
   dispositivosSinInformar: number | null;
+  /** Inventario y aulas: arreglos urgentes sin hacer y, del 10-jul al 30-sep, el curso cuyas clases faltan por ajustar. */
+  inventario: { urgentes: number; ajustarCurso: string | null } | null;
   tableros: { pendientes: number; urgente: { texto: string; tono: TonoAviso } | null } | null;
 }
 
@@ -309,6 +312,21 @@ const HERRAMIENTAS: readonly Definicion[] = [
     visible: tiene('dispositivos'),
     badge: (ctx) =>
       ctx.dispositivosSinInformar ? { texto: `${ctx.dispositivosSinInformar} sin informar`, tono: 'ambar' } : null,
+  },
+  {
+    clave: 'inventario',
+    titulo: 'Inventario y aulas',
+    desc: 'Equipamiento AV de aulas, antenas, mesas y sillas y robótica',
+    href: '/gestion/inventario',
+    grupo: 'tic',
+    icono: 'inventario',
+    palabras: ['proyector', 'tv', 'pantalla', 'altavoz', 'apple tv', 'mesas', 'sillas', 'antenas', 'wifi', 'robotica', 'lego', 'aulas', 'arreglos'],
+    visible: tiene('inventario'),
+    badge: (ctx) => {
+      if (ctx.inventario?.ajustarCurso) return { texto: `Ajustar clases ${ctx.inventario.ajustarCurso}`, tono: 'ambar' };
+      if (ctx.inventario?.urgentes) return { texto: plural(ctx.inventario.urgentes, 'urgente', 'urgentes'), tono: 'rojo' };
+      return null;
+    },
   },
   {
     clave: 'cuentas',

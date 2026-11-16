@@ -158,6 +158,17 @@ export const CONFIGURACION = {
     profesDesdeCurso: '5PRI',
   },
 
+  /** Inventario y aulas. Ver `docs/33-inventario.md`. */
+  inventario: {
+    /**
+     * Cuándo sale el aviso de «Ajusta qué clase va en cada aula» del curso que viene (`MM-DD`, ambos
+     * incluidos): desde el 10 de julio hasta que se hace; si el 30 de septiembre sigue sin hacer,
+     * desaparece (David, 16-nov-2026).
+     */
+    avisoCursosDesde: '07-10',
+    avisoCursosHasta: '09-30',
+  },
+
   /** Horarios. Ver `docs/07-horarios.md`. */
   horarios: {
     /**
