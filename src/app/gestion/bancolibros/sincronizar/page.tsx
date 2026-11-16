@@ -24,7 +24,7 @@ export default async function SincronizarBancoPage() {
       {puede ? (
         <BancoSyncPanel />
       ) : (
-        <Vacio titulo="No puedes sincronizar">Solo dirección y TIC pueden sincronizar el catálogo de libros.</Vacio>
+        <Vacio titulo="No puedes sincronizar">Solo secretaría, jefatura, dirección y TIC pueden sincronizar el catálogo de libros.</Vacio>
       )}
     </div>
   );

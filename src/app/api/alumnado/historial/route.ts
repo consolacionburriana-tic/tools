@@ -18,13 +18,13 @@ const consulta = z.object({
  *  - `?lote=<id>`    las líneas de un cambio (un clic, aunque tocara a 600 alumnos)
  *  - `?alumno=<id>`  las últimas líneas de UNA persona, para su ficha
  *  - nada            los últimos cambios, resumidos por lote (`grupo` y `antesDe` para filtrar y paginar)
- * Solo lo ven quienes pueden restaurar: secretaría, dirección y TIC.
+ * Solo lo ven quienes pueden restaurar: secretaría, jefatura, dirección y TIC.
  */
 export async function GET(request: Request) {
   const guard = await requireModule('alumnado');
   if (isGuardResponse(guard)) return guard;
   if (!puedeVerHistorialAlumnado(guard.role)) {
-    return NextResponse.json({ error: 'El historial de cambios lo ven secretaría, dirección y TIC' }, { status: 403 });
+    return NextResponse.json({ error: 'El historial de cambios lo ven secretaría, jefatura, dirección y TIC' }, { status: 403 });
   }
   try {
     const q = consulta.parse(Object.fromEntries(new URL(request.url).searchParams));

@@ -616,7 +616,7 @@ export function BancoPanel({
               </div>
               {!puedeGestionarParticipantes && (
                 <p className="border-b border-zinc-100 px-4 py-2 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                  Solo dirección y TIC pueden cambiar quién está en el banco.
+                  Solo secretaría, jefatura, dirección y TIC pueden cambiar quién está en el banco.
                 </p>
               )}
               {alumnado === null ? (
