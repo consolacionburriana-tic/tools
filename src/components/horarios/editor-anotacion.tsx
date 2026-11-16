@@ -28,6 +28,10 @@ export interface HuecoAnotable {
   dia: number;
   horaInicio: string;
   horaFin: string;
+  /** El patio o el comedor (null en una hora de clase), para decirlo en la cabecera. */
+  lugar?: string | null;
+  /** Ya hay algo a esa hora y lo nuevo convive con ello (una codocencia, dos cosas en el patio). */
+  sumar?: boolean;
 }
 
 /** Lo que hace falta de una anotación ya existente para reabrirla. */
@@ -47,7 +51,7 @@ export function EditorAnotacion({
   onCerrar,
   onGuardado,
 }: {
-  hueco: Pick<HuecoAnotable, 'dia' | 'horaInicio' | 'horaFin'> & Partial<Pick<HuecoAnotable, 'periodoId' | 'tramoId'>>;
+  hueco: Pick<HuecoAnotable, 'dia' | 'horaInicio' | 'horaFin'> & Partial<Pick<HuecoAnotable, 'periodoId' | 'tramoId' | 'lugar' | 'sumar'>>;
   existente?: AnotacionExistente;
   onCerrar: () => void;
   /** Se llama tras guardar o quitar con éxito, para que quien pinta recargue el horario. */
@@ -74,7 +78,7 @@ export function EditorAnotacion({
           ? { sesionId: existente!.sesionId }
           : metodo === 'PATCH'
             ? { sesionId: existente!.sesionId, actividad: opcion.actividad, etiqueta, aula, notas }
-            : { periodoId: hueco.periodoId, tramoId: hueco.tramoId, actividad: opcion.actividad, etiqueta, aula, notas };
+            : { periodoId: hueco.periodoId, tramoId: hueco.tramoId, sumar: Boolean(hueco.sumar), actividad: opcion.actividad, etiqueta, aula, notas };
       const res = await fetch('/api/mi-horario/anotaciones', {
         method: metodo,
         headers: { 'Content-Type': 'application/json' },
@@ -105,9 +109,11 @@ export function EditorAnotacion({
     <Dialog open onOpenChange={(o) => !o && !ocupado && onCerrar()}>
       <DialogContent variante="hoja">
         <DialogHeader>
-          <DialogTitle>{existente ? 'Tu anotación' : 'Añadir a tu horario'}</DialogTitle>
-          <DialogDescription className="capitalize tabular-nums">
-            {DIAS[hueco.dia - 1]} · {hueco.horaInicio}–{hueco.horaFin}
+          <DialogTitle>{existente ? 'Tu anotación' : hueco.sumar ? 'Añadir otra cosa' : 'Añadir a tu horario'}</DialogTitle>
+          <DialogDescription className="tabular-nums">
+            <span className="capitalize">{DIAS[hueco.dia - 1]}</span> · {hueco.lugar ? `${hueco.lugar} · ` : ''}
+            {hueco.horaInicio}–{hueco.horaFin}
+            {hueco.sumar && !existente && <span className="block">Se suma a lo que ya tienes a esa hora.</span>}
           </DialogDescription>
         </DialogHeader>
 
