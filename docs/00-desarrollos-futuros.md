@@ -4,20 +4,15 @@ Documento vivo de trabajo. No es una ficha de módulo (esas están en `docs/<nn>
 aquí apuntamos todo lo que **aún no está decidido**, para hablarlo con calma en ratos libres sin
 perder ideas por el camino.
 
-> **Cómo usar este documento:** cuatro secciones, en este orden.
+> **Cómo usar este documento:** tres secciones, en este orden.
 > - **🔴 Decisiones pendientes** — preguntas concretas que bloquean el plan técnico de un
 >   módulo. Al responderse, la decisión se traslada a "Decisiones cerradas" de la ficha del
->   módulo (`docs/<nn>-<modulo>.md`); si no tiene ficha donde caber, baja a "Decisiones ya
->   cerradas" de aquí. Lo que **no** se hace es dejarla arriba tachada: si esta sección se
+>   módulo (`docs/<nn>-<modulo>.md`) y se borra de aquí. Lo que **no** se hace es dejarla arriba tachada: si esta sección se
 >   llena de cosas hechas, deja de servir para lo único que sirve, ver qué falta.
 > - **📥 Inputs pendientes de David** — accesos, ficheros y credenciales. No son decisiones:
 >   es lo que nadie más puede desbloquear.
-> - **✅ Decisiones ya cerradas** — el histórico, por el *por qué*.
 > - **💡 Ideas** — ocurrencias sin madurar; no bloquean nada. Suben a "Decisión pendiente"
 >   cuando se quieran concretar.
-
-> **Estado (5-sep-2026):** ocho decisiones abiertas, ninguna bloquea un hito del roadmap. Los
-> estados de módulo viven en la tabla maestra de [`plataforma.md`](./plataforma.md), no aquí.
 
 ---
 
@@ -489,12 +484,6 @@ puede apuntar a mano tocándola en el hueco. Lo que decidí yo 🤖: siempre, no
 candidato; aviso naranja (no 🔴); solo EF, no Música ni otras. Si hay que ampliarlo, es
 `esEducacionFisica()` y `PESO_EF` en `oratorios.ts`.
 
-### ~~Idea: juntar clases en una misma sesión~~ ✅ hecho (5-nov-2026)
-David lo pidió para los PDC (3º + 4º en la misma hora). Una sesión lleva varias clases; ver
-[`26-oratorios.md`](./26-oratorios.md) → «Juntar clases». Lo que decidí yo: 🤖 el hueco permite juntar
-las candidatas del mismo hueco y «A mano» cualquier clase; 🤖 cuenta para el objetivo de todas;
-🤖 mover exige que todas tengan clase a esa hora. Queda sin hacer juntar o separar sesiones ya apuntadas.
-
 ### Oratorios y Godly Play: lo que decidí yo al construirlo (30-sep-2026) — revisar con David
 
 Están todas en «Decisiones cerradas» de [`26-oratorios.md`](./26-oratorios.md), marcadas 🤖. Las
@@ -591,19 +580,6 @@ las decidí sobre la marcha porque no estaban cerradas. Ninguna bloquea; todas s
 - **Permiso por defecto: editor.** Para que el tutor pueda retocar el documento antes de
   imprimirlo. Se cambia a "solo lectura" desde el propio panel, sin tocar código.
 
-### ~~Mi horario en Google Calendar: tres decisiones~~ ✅ decididas (2026-09-06)
-Diseño y código en [`20-mi-horario.md`](./20-mi-horario.md), Fases 0-3 hechas. David decidió
-ir directo a Calendar (sin `.ics`), plantilla general pero editable por persona, y exportar
-TODAS las horas del profesor (lectivas y no lectivas, solo quedan fuera recreo y comedor).
-
-📥 **Sigue pendiente de David, en la consola de Workspace**: añadir el scope
-`https://www.googleapis.com/auth/calendar` al Client ID de la cuenta de servicio que ya
-tiene delegación de dominio para `gmail.send` (pasos esquemáticos en la ficha). Sin eso, la
-pantalla de `/mi-horario` deja preparar la plantilla y los emojis pero el botón de exportar
-avisa de que Calendar no está configurado. Y una vez añadido, la primera exportación real
-hay que mirarla con calma: el código sigue el mismo patrón que `email-gmail.ts` (ya probado
-en producción) pero esta sesión no tiene credenciales para probarlo en vivo.
-
 ### Identificación de familias: ¿vale el DNI/NIE del propio alumno?
 `identifyFamily()` (`src/lib/familias-server.ts`) acepta hoy el **documento del tutor**
 (`edu_guardians.dni`, comparado normalizado) o el **NIA del alumno**. `edu_students.dni` se
@@ -617,7 +593,6 @@ NIA "no localizaban nada".
 
 Decisión de David pendiente. Si es sí, es una rama más en `identifyFamily` con la misma
 normalización SQL que el documento del tutor.
-
 
 ### Legacy pendiente de retirar del todo (cuando deje de hacer falta)
 - Tabla `teachers` (ABC pre-login): solo se usa para pintar nombres de los 6 registros
@@ -635,7 +610,6 @@ normalización SQL que el documento del tutor.
 ### Salidas: flecos
 - Export CSV del seguimiento de una salida (los recordatorios de pago y el enlace de
   entradas manuales ya están, 2026-07-11).
-
 
 ### Portada pública: lo que quedó anotado al hacerla dinámica (2026-09-13)
 La portada ya enseña lo que hay abierto (ver [`22-portada.md`](./22-portada.md)). Ideas que
@@ -677,32 +651,11 @@ surgieron y **no** se implementaron, por si interesan:
   formulario con "parte de profes" y "parte de alumnos" habría mezclado el 100 % anónimo del
   claustro con la trazabilidad del alumnado. Si se quisiera abrir/cerrar todos los sectores a
   la vez con un botón, es añadirlo encima del grupo.
-- ~~Copiar una conjunta entera a otro curso~~ ✅ hecho el mismo día (`duplicarGrupo`).
 - **Eliminar con respuestas** (pedido por David): se permite escribiendo ELIMINAR. Si en la
   práctica se prefiere que lo respondido no se pueda borrar nunca, es quitar `forzar` del route.
-- ~~Evaluaciones sale por Resend por código~~ ✅ vuelto a Gmail el 7-oct-2026: el plan gratuito
-  de Resend corta a 100 correos/día y un envío de 200 se quedó a medias (ver `16-evaluaciones.md`).
-  Consecuencia que se aceptó: **Programar envíos ya no se ofrece** (era cosa de Resend). Si hiciera
-  falta programar sin Resend, habría que montar un cron propio — hoy no cabe en el plan Hobby.
 - Recordar: el envío de Evaluaciones en segundo plano no tiene botón «solo a quien no ha recibido el
   correo» (el filtro sigue siendo «quien no ha respondido»). Con la cola ya no hace falta para los
   fallos (se reintentan), pero sí para un reenvío a quien nunca lo recibió.
-
-### ~~Evaluaciones: publicarlas también en Google Classroom~~ ✅ construido (4-oct-2026) — falta estrenarlo
-Idea de David (24-sep-2026), decidida y montada el 4-oct-2026. Cómo quedó está en
-[`16-evaluaciones.md`](./16-evaluaciones.md#classroom-4-oct-2026). Lo que decidí yo por el camino
-y conviene que David confirme:
-- ~~No se guarda historial de lo publicado~~ ✅ resuelto el mismo día (David dijo que sí a la
-  tabla): `eval_classroom_posts`, con «Retirar» desde la app y sin duplicados.
-- **Programar en Classroom** usa `state: DRAFT` + `scheduledTime`, como dice la documentación de
-  la API, pero **no está probado en vivo**. Probar con una clase de prueba antes de fiarse.
-- **Tareas sin nota**, con «marcar como hecha» (no entregan nada): valen para perseguir, no
-  prueban que se haya respondido.
-- Si una clase tiene varias candidatas a tutoría sin desempate, **no se publica** y se avisa en
-  pantalla (preferimos no publicar a publicar en la clase equivocada); David puede pegar el enlace de la
-  clase a mano y se recuerda todo el curso (`eval_classroom_destinos`).
-- Un anuncio no puede llevar tema (la API no lo permite): el tema «Evaluamos 🔍 Tu opinión cuenta»
-  es solo de las tareas.
 
 ### Evaluaciones: la IA y los "más críticos" (15-oct-2026) — revisar con David
 - "Los más críticos" ordena por la NOTA media de cada respuesta. Quien pone todo "Bastante" y
@@ -732,8 +685,6 @@ Recopilados de las fichas, para verlos de un vistazo:
   `admin.directory.user`, `admin.directory.orgunit` y `admin.directory.group` (el botón «Permisos» de
   `/gestion/cuentas` los da para copiar). Sin ellos el módulo lee y cruza, pero no crea, ni mueve, ni
   suspende, ni toca grupos.
-- ~~**Educamos**: un export real de alumnado y de tutores~~ ✅ recibido (jul 2026) — mapeo de
-  columnas fijado en `02-integracion-educamos.md`. El fichero NO se commitea (`.gitignore`).
 - **Logo vectorial del colegio (SVG o AI)**: los iconos de la PWA ya llevan el emblema real,
   extraído del PNG del lockup, así que el de 192 sale nítido y el de 512 algo suave. Con el
   vectorial se regeneran perfectos cambiando una línea (`ORIGEN` en `scripts/iconos-pwa.py`)
@@ -768,8 +719,6 @@ Recopilados de las fichas, para verlos de un vistazo:
   de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin
   esto el botón de exportar a Google Calendar no funciona; el resto de la pantalla
   (plantilla, emojis, vista previa) sí.
-- ~~**Vercel Blob**: activar el store para justificantes~~ ✅ hecho — store creado, token
-  disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
 - **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
   en Resend — pendiente, faltan cosas del dominio.
 - **Idioma de las clases que faltan** (16-sep-2026): el idioma ya se pone a mano en
@@ -791,11 +740,6 @@ Recopilados de las fichas, para verlos de un vistazo:
   **Administrador de contenido** de esa unidad, (c) compartir con ese mismo correo cada plantilla
   de Google Docs. Las tablas `cuad_*` ya están creadas en Neon (4-sep). Con eso, el módulo se
   estrena; todo lo demás está hecho y probado.
-- ~~**Tutorías del curso 2026-27**~~ ✅ hecho (verificado el 5-sep-2026: 36 tutorías que
-  cubren las 28 clases con alumnado). Se clonaron tal cual las de 2025-26 —cada tutor en su
-  misma clase—, según decidió David, con el SQL idempotente de
-  `src/db/sql/tutorias-2026-27.sql`. Con esto Puntualidad ya manda avisos y resumen semanal, y
-  el ABC sugiere destinatarios.
 - **Puntualidad** (ficha `17`): ~~ejecutar el SQL de las tablas~~ ✅ hecho (2026-09-03).
   Queda opcional: poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del
   aviso del 3er retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su
@@ -807,9 +751,6 @@ Recopilados de las fichas, para verlos de un vistazo:
   está diseñado. Ideal: que el generador pueda sacar **lista larga** (una fila por sesión: día,
   orden, grupo, materia, profe, aula) en vez de la matriz de imprimir — ahorra media
   importación. El fichero NO se commitea (lleva nombres del profesorado).
-- ~~**Banco de libros** (ficha `12`): aplicar `edu_students.ampa` y `bl_libros_curso`~~ ✅ hecho
-  (verificado el 5-sep-2026: las dos existen en Neon, con la columna `cod` del conector Excel).
-  `bl_libros_curso` está todavía vacía: el catálogo se llena con el conector o a mano.
 
 ---
 
@@ -825,129 +766,6 @@ Recopilados de las fichas, para verlos de un vistazo:
 - **Borrar un retraso** lo puede hacer cualquiera con el módulo (y un tutor solo en sus
   clases). No hay auditoría de borrados: si algún día importa, es el caso de uso del
   historial transversal que ya está apuntado como idea abajo.
-
-## ✅ Decisiones ya cerradas (histórico)
-
-Estaban mezcladas con las pendientes y no dejaban ver lo que falta de verdad. Se quedan
-aquí porque el *por qué* de una decisión vale más que la decisión: cuando alguien pregunte
-"¿y por qué esto es así?", la respuesta está en este bloque.
-
-### ~~¿Dos tablas de alumnado (`edu_students` + `lic_students`)?~~ ✅ decidido (2026-09-03)
-**No.** Una sola fuente de verdad (`edu_students`) y `lic_students` adelgazada a "quién participa
-en esta campaña". La foto histórica del pedido ya vive en `lic_orders`, que guarda su propio
-`curso` y `banco_libros`. Plan cerrado y listo para ejecutar en
-[`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md), **con prioridad máxima a partir
-del 1 de noviembre de 2026**.
-
-
-### ~~Horarios: cinco decisiones antes de crear las tablas~~ ✅ decididas (2026-09-03)
-Cuatro cerradas y trasladadas a "Decisiones cerradas" de
-[`07-horarios.md`](./07-horarios.md): `hor_materias` se come a `pun_subjects` (no hay
-histórico, pero la demolición espera a la Fase 1 para no dejar a Puntualidad sin catálogo);
-etapas EI/EP/ESO activas y BACH/CFGM/CFGS previstas y desactivadas; PT y AL vienen en el
-fichero como profes normales (lo que encogió `hor_apoyos` a "qué alumnos toca cada hora");
-y los permisos van en **dos** módulos, `horarios` (clases, todo el claustro) y
-`horarios-profes` (horario de un profe, restringible), con la edición por rol.
-
-Queda una sin responder, que **no bloquea**: si hacen falta **días especiales** (un día
-suelto con rejilla propia — media jornada, día del colegio, festivos). Es una tabla chica y
-aditiva; no se crea por si acaso.
-### `pnpm db:push` y las dos sesiones en paralelo (2026-09-04) — resuelto
-
-Queda anotado porque puede repetirse. El 4-sep había dos módulos construyéndose a la vez en
-sesiones distintas (Horarios y Cuaderno de tutor). Al ir a crear las tablas del cuaderno, la
-BBDD de producción ya tenía 14 tablas `hor_*` que **no estaban en `src/db/schema.ts` ni en
-`main`**: eran de la otra sesión, que las había aplicado directamente en Neon.
-
-`drizzle-kit push` compara el schema con la BBDD y **borra lo que no esté en el schema**: en
-ese momento, un `pnpm db:push` se habría llevado las 14 tablas de horarios con sus datos.
-
-Cómo se resolvió, y la regla que queda:
-
-- Las tablas de cada módulo se crearon con **SQL aditivo** en `src/db/sql/`
-  (`horarios.sql` y `cuaderno-tutor.sql`), no con push. Los dos ficheros son idempotentes y
-  usan los nombres de constraints e índices que genera Drizzle, así que push no ve diferencias.
-- Las dos ramas están unificadas: `schema.ts` tiene ya los bloques `hor_*` y `cuad_*`, así que
-  **una vez esto esté en `main`, `db:push` vuelve a ser seguro**.
-- **La regla**: con dos módulos en marcha a la vez, no se lanza `db:push` sin mirar antes qué
-  tablas hay en Neon que no estén en `schema.ts`. Un `\dt` de treinta segundos evita perder
-  datos de producción de otra persona.
-
-### ~~Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?~~ ✅ decidido (2026-09-01)
-No: se queda **solo dirección y TIC** (`puedeGestionarParticipantesBanco()` en
-`src/lib/permissions.ts`). Tutores y profes conservan el resto del módulo (lotes, checks, pasar
-lista) y ven esos dos toggles en modo lectura. Cerrado en
-[`12-bancolibros.md`](./12-bancolibros.md).
-
-### ~~Correo: opción B (Google Workspace) además de Resend~~ ✅ hecho (2026-08-31)
-Implementado como se había planteado: `src/lib/email.ts` es el único punto de entrada, con dos
-transportes detrás de la misma interfaz (`src/lib/email-gmail.ts` con la API de Gmail sobre la
-cuenta de servicio que ya existía, y Resend) y **perfiles de remitente por módulo**. Lo que se
-decidió al ejecutarlo, por si hay que revisarlo:
-- **El interruptor es por env, no en el panel**: `EMAIL_TRANSPORTE` global y
-  `EMAIL_TRANSPORTE_<PERFIL>` por módulo. Cambiarlo no toca código; una UI en `/gestion` se
-  puede añadir después si de verdad se cambia a menudo (hoy es una variable que se toca una vez).
-- **Remitente por módulo**: Licencias sale y contesta a `licencias@consolacionburriana.com`
-  (centralizado). El resto sale del buzón genérico y el `Reply-To` es el correo de quien manda
-  (tutor de la salida, gestor de la evaluación), que es a quien hay que contestar.
-- **Sigue pendiente en la consola de admin de Workspace** (no es código): añadir el scope
-  `gmail.send` a la delegación de dominio de la cuenta de servicio y confirmar que
-  `licencias@` es un buzón real (o poner `EMAIL_BUZON_LICENCIAS` si es un alias/grupo).
-- Coste del cambio: Gmail manda de uno en uno (≈ 2,5 correos/s, ~2.000/día por buzón) frente
-  a los 100 por llamada de Resend. Para los masivos grandes, ese perfil puede quedarse en
-  Resend con una sola variable.
-
-### ~~Tutorías: botón "promocionar todos +1 curso"~~ ✅ hecho (2026-09-02)
-David cerró las reglas de ciclo: **Infantil rota** (3→4→5→3), **Primaria rota dentro del ciclo**
-(1↔2, 3↔4, 5↔6, misma letra) y **ESO sube** (1→2→3→4) con **4º egresando**. Implementado en
-`/gestion/profes` con vista previa + confirmación, junto con "limpiar tutorías" (todas o por
-etapa). Lógica pura en `src/lib/tutorias.ts` y `cursoSiguiente()` en `src/lib/cursos.ts`, con
-tests. Queda como referencia el planteamiento original:
-La pantalla `/gestion/profes` (nueva, 2026-07-16) ya permite asignar/quitar tutores por clase
-a mano (tabla `edu_tutorias`, muchos-a-muchos: sin límite de tutores por clase ni de clases por
-profe, decisión explícita de David). Lo que falta es el botón de promoción automática que pidió
-originalmente, y su regla de negocio no está clara en los bordes:
-- **ESO**: sube todo el mundo +1 curso, salvo 4º ESO → se queda sin tutoría (hay que reasignar
-  a mano el año que viene). Esto sí está claro.
-- **Primaria**: "cambia dentro del ciclo" (1º→2º, 3º→4º, 5º→6º, misma letra) — pero no se
-  especificó qué pasa con los tutores que YA están en 2º/4º/6º (fin de ciclo): ¿se quedan sin
-  tutoría como el 4º ESO, o se dejan intactos hasta reasignar a mano? Hay que confirmarlo antes
-  de tocar código, porque mover mal esto desordenaría tutorías reales de todo el centro.
-- **Infantil**: "cíclico 3-4-5" — ¿significa que el tutor de 5INF vuelve a 3INF (rota) o se queda
-  sin tutoría igual que el resto de finales de ciclo? También sin confirmar.
-
-### ~~Magic links para familias (`fam_access_tokens`)~~ ✅ hecho (2026-07-30), estrenado en Salidas (2026-08-06)
-Implementado para Licencias y **reutilizable tal cual** por cualquier módulo público: un token
-por correo de familia que combina a todos sus hijos, `/licencias?t=tok_…`, correo masivo por
-cursos y clases desde `/gestion/licencias/correos`. Decisiones cerradas (agrupación por correo,
-multiuso, caducidad 120 días, revocación) en [`11-licencias-v2.md`](./11-licencias-v2.md).
-Salidas ya lo usa: `/salidas?t=tok_…` auto-identifica a la familia, y el recordatorio de pago
-(`/gestion/salidas/<id>`, panel de recordatorio) manda `{enlace}` personal en el correo.
-
-### ~~Evaluaciones: catálogo de preguntas predefinidas~~ ✅ hecho (2026-08-25)
-Vive en código (`CATALOGO` y `presetActividad` en `src/lib/evaluaciones.ts`), sacado de los
-formularios reales de Pastoral: preset distinto para alumnado y profesorado, con las frases a
-adaptar marcadas en ámbar. Las preguntas propias que guarde el claustro van a
-`eval_question_templates`. Detalle en [`16-evaluaciones.md`](./16-evaluaciones.md).
-
-### ~~Evaluaciones: redacción del aviso de anonimato al alumnado~~ ✅ decidido (2026-08-25)
-El pie del formulario de alumnado dice solo "🔒 Tus respuestas son anónimas."; la coletilla
-explicativa se quitó por decisión de David. Queda anotado, porque es lo único del módulo con
-aristas: en alumnado con enlace personalizado **sí** se guarda `edu_student_id` (decisión
-cerrada, para poder investigar un caso puntual), así que si alguna vez una familia pregunta,
-la respuesta honesta es "en pantalla nadie ve nombres, pero el envío es nominal". El profesorado
-no tiene ese matiz: ahí no se guarda absolutamente nada.
-
-### ~~Un usuario = un rol~~ ✅ resuelto (2026-08-27)
-Ya no hace falta elegir entre "tutor" y "el que lleva las evaluaciones": el rol da el punto de
-partida y `auth_users.modulos_extra` / `modulos_bloqueados` permiten afinar persona a persona
-desde `/gestion/usuarios`. Ver [`01-auth-roles.md`](./01-auth-roles.md).
-
-### ~~Banco de libros: dónde vive el `academic_year`~~ ✅ decidido e implementado
-Constante en código (`academicYearActual()` en `src/lib/constants.ts`), sin tabla de
-configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolibros.md).
-
----
 
 ## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
 
@@ -1050,265 +868,6 @@ configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolib
   merece la pena si quien lleva el colegio necesita cambiarlos sin desarrollador. Ver el final de
   `09`. Y quedan fuera de la configuración —por ir atados a datos o a SQL— los cursos de Licencias,
   las etapas de Puntualidad y la plantilla de ASM (lista completa en `09`).
-- **Calendarios del dominio** (ficha `25`, 30-sep-2026): en la delegación de dominio del
-  mismo Client ID, añadir `admin.directory.user.readonly`, `classroom.courses.readonly` y
-  `calendar` (este último lo comparte con Mi horario), y habilitar en Google Cloud *Admin SDK
-  API*, *Google Classroom API* y *Google Calendar API*. Luego, «Comprobar permisos» en
-  `/gestion/calendarios` dice si falta algo. Pasos en `25-calendarios.md`.
-- **Mi horario** (ficha `20`): en la consola de administración de Google Workspace, añadir
-  el scope `https://www.googleapis.com/auth/calendar` al Client ID que ya tiene delegación
-  de dominio (el mismo que usa `gmail.send`). Pasos esquemáticos en `20-mi-horario.md`. Sin
-  esto el botón de exportar a Google Calendar no funciona; el resto de la pantalla
-  (plantilla, emojis, vista previa) sí.
-- ~~**Vercel Blob**: activar el store para justificantes~~ ✅ hecho — store creado, token
-  disponible, subida y visor verificados con archivos reales (`15-salidasypagos.md`).
-- **Licencias** (ficha `11`): ~~cuenta de servicio de Google~~ ✅ hecha · remitente verificado
-  en Resend — pendiente, faltan cosas del dominio.
-- **Idioma de las clases que faltan** (16-sep-2026): el idioma ya se pone a mano en
-  `/gestion/licencias/lenguas` y quedan cuatro clases sin asignar — **6ºEP A y B** y los dos
-  **PDC**—, que mientras tanto cuentan como castellano. De paso: `edu_students.modelo_linguistico`
-  está NULL en los 643 alumnos activos; si algún día Educamos lo exporta, el sync lo recoge solo
-  y esa pantalla pasa a ser el respaldo en vez de la fuente.
-- **AUTOASM** (ficha `19`): (a) **ejecutar `src/db/sql/autoasm.sql` en Neon** — dos tablas
-  aditivas para el histórico de entregas y el FTP; sin ellas el módulo va, pero sin memoria
-  de qué se subió; (b) meter **los datos del FTP** de ASM en el módulo (una vez: la
-  contraseña se guarda cifrada); (c) subir un ZIP generado por el módulo y confirmar que ASM
-  lo acepta; (d) el **horario de secundaria** en `hor_*` — sin él, las clases de ESO siguen
-  viniendo del ZIP del curso pasado (infantil y primaria ya están, así que 5º y 6º EP salen
-  del horario). Lo que la validación encontró en el export viejo (29 matrículas duplicadas,
-  correos en mayúsculas, una clase sin nombre) ya no hace falta arreglarlo: el fichero nuevo
-  sale limpio por construcción.
-- **Cuaderno de tutor** (ficha `18`): (a) la **URL de la subcarpeta de la unidad compartida** donde
-  van los cuadernos, (b) dar de alta a la cuenta de servicio (`GOOGLE_SA_CLIENT_EMAIL`) como
-  **Administrador de contenido** de esa unidad, (c) compartir con ese mismo correo cada plantilla
-  de Google Docs. Las tablas `cuad_*` ya están creadas en Neon (4-sep). Con eso, el módulo se
-  estrena; todo lo demás está hecho y probado.
-- ~~**Tutorías del curso 2026-27**~~ ✅ hecho (verificado el 5-sep-2026: 36 tutorías que
-  cubren las 28 clases con alumnado). Se clonaron tal cual las de 2025-26 —cada tutor en su
-  misma clase—, según decidió David, con el SQL idempotente de
-  `src/db/sql/tutorias-2026-27.sql`. Con esto Puntualidad ya manda avisos y resumen semanal, y
-  el ABC sugiere destinatarios.
-- **Puntualidad** (ficha `17`): ~~ejecutar el SQL de las tablas~~ ✅ hecho (2026-09-03).
-  Queda opcional: poner `PUNTUALIDAD_AVISOS_COPIA` en Vercel si jefatura quiere copia del
-  aviso del 3er retraso, y confirmar que el cron semanal (`vercel.json`) queda activo con su
-  `CRON_SECRET`.
-- **Horarios** (ficha `07`): ~~ejecutar el SQL de las tablas~~ ✅ hecho (2026-09-03, 13 tablas
-  y semilla, con prueba de humo). Queda un **export real de horarios de al menos una etapa** en CSV/XLSX
-  (del generador de horarios o de Educamos) y, si se puede, la **definición de las rejillas**.
-  Sin ver la forma real del fichero el importador no se puede escribir; el modelo de destino ya
-  está diseñado. Ideal: que el generador pueda sacar **lista larga** (una fila por sesión: día,
-  orden, grupo, materia, profe, aula) en vez de la matriz de imprimir — ahorra media
-  importación. El fichero NO se commitea (lleva nombres del profesorado).
-- ~~**Banco de libros** (ficha `12`): aplicar `edu_students.ampa` y `bl_libros_curso`~~ ✅ hecho
-  (verificado el 5-sep-2026: las dos existen en Neon, con la columna `cod` del conector Excel).
-  `bl_libros_curso` está todavía vacía: el catálogo se llena con el conector o a mano.
-
----
-
-### Puntualidad: lo que quedó anotado al construirlo (2026-09-02)
-- **Consecuencias como módulo propio**: nacen dentro de Puntualidad pero con prefijo `con_*`
-  y `origen` ('puntualidad' | 'manual') justo para poder separarlas. Cuando haga falta
-  registrar consecuencias de convivencia, se mudan esas tres tablas y sus pantallas.
-- **Aviso a familias en cada retraso**: descartado por ahora (sería el correo con más ruido
-  del colegio). Si algún día se quiere, el sitio natural es el mismo route de alta.
-- **Franjas además de la entrada**: hoy solo se registra la entrada de las 8:00 con límite
-  08:05. Si se quisiera apuntar retrasos tras el patio, habría que añadir franja + límite por
-  franja. Se decidió esperar a tener los horarios.
-- **Borrar un retraso** lo puede hacer cualquiera con el módulo (y un tutor solo en sus
-  clases). No hay auditoría de borrados: si algún día importa, es el caso de uso del
-  historial transversal que ya está apuntado como idea abajo.
-
-## ✅ Decisiones ya cerradas (histórico)
-
-Estaban mezcladas con las pendientes y no dejaban ver lo que falta de verdad. Se quedan
-aquí porque el *por qué* de una decisión vale más que la decisión: cuando alguien pregunte
-"¿y por qué esto es así?", la respuesta está en este bloque.
-
-### ~~¿Dos tablas de alumnado (`edu_students` + `lic_students`)?~~ ✅ decidido (2026-09-03)
-**No.** Una sola fuente de verdad (`edu_students`) y `lic_students` adelgazada a "quién participa
-en esta campaña". La foto histórica del pedido ya vive en `lic_orders`, que guarda su propio
-`curso` y `banco_libros`. Plan cerrado y listo para ejecutar en
-[`06-fuente-unica-alumnado.md`](./06-fuente-unica-alumnado.md), **con prioridad máxima a partir
-del 1 de noviembre de 2026**.
-
-
-### ~~Horarios: cinco decisiones antes de crear las tablas~~ ✅ decididas (2026-09-03)
-Cuatro cerradas y trasladadas a "Decisiones cerradas" de
-[`07-horarios.md`](./07-horarios.md): `hor_materias` se come a `pun_subjects` (no hay
-histórico, pero la demolición espera a la Fase 1 para no dejar a Puntualidad sin catálogo);
-etapas EI/EP/ESO activas y BACH/CFGM/CFGS previstas y desactivadas; PT y AL vienen en el
-fichero como profes normales (lo que encogió `hor_apoyos` a "qué alumnos toca cada hora");
-y los permisos van en **dos** módulos, `horarios` (clases, todo el claustro) y
-`horarios-profes` (horario de un profe, restringible), con la edición por rol.
-
-Queda una sin responder, que **no bloquea**: si hacen falta **días especiales** (un día
-suelto con rejilla propia — media jornada, día del colegio, festivos). Es una tabla chica y
-aditiva; no se crea por si acaso.
-### `pnpm db:push` y las dos sesiones en paralelo (2026-09-04) — resuelto
-
-Queda anotado porque puede repetirse. El 4-sep había dos módulos construyéndose a la vez en
-sesiones distintas (Horarios y Cuaderno de tutor). Al ir a crear las tablas del cuaderno, la
-BBDD de producción ya tenía 14 tablas `hor_*` que **no estaban en `src/db/schema.ts` ni en
-`main`**: eran de la otra sesión, que las había aplicado directamente en Neon.
-
-`drizzle-kit push` compara el schema con la BBDD y **borra lo que no esté en el schema**: en
-ese momento, un `pnpm db:push` se habría llevado las 14 tablas de horarios con sus datos.
-
-Cómo se resolvió, y la regla que queda:
-
-- Las tablas de cada módulo se crearon con **SQL aditivo** en `src/db/sql/`
-  (`horarios.sql` y `cuaderno-tutor.sql`), no con push. Los dos ficheros son idempotentes y
-  usan los nombres de constraints e índices que genera Drizzle, así que push no ve diferencias.
-- Las dos ramas están unificadas: `schema.ts` tiene ya los bloques `hor_*` y `cuad_*`, así que
-  **una vez esto esté en `main`, `db:push` vuelve a ser seguro**.
-- **La regla**: con dos módulos en marcha a la vez, no se lanza `db:push` sin mirar antes qué
-  tablas hay en Neon que no estén en `schema.ts`. Un `\dt` de treinta segundos evita perder
-  datos de producción de otra persona.
-
-### ~~Banco de libros / AMPA: ¿algún rol más aparte de dirección/TIC marca participantes?~~ ✅ decidido (2026-09-01)
-No: se queda **solo dirección y TIC** (`puedeGestionarParticipantesBanco()` en
-`src/lib/permissions.ts`). Tutores y profes conservan el resto del módulo (lotes, checks, pasar
-lista) y ven esos dos toggles en modo lectura. Cerrado en
-[`12-bancolibros.md`](./12-bancolibros.md).
-
-### ~~Correo: opción B (Google Workspace) además de Resend~~ ✅ hecho (2026-08-31)
-Implementado como se había planteado: `src/lib/email.ts` es el único punto de entrada, con dos
-transportes detrás de la misma interfaz (`src/lib/email-gmail.ts` con la API de Gmail sobre la
-cuenta de servicio que ya existía, y Resend) y **perfiles de remitente por módulo**. Lo que se
-decidió al ejecutarlo, por si hay que revisarlo:
-- **El interruptor es por env, no en el panel**: `EMAIL_TRANSPORTE` global y
-  `EMAIL_TRANSPORTE_<PERFIL>` por módulo. Cambiarlo no toca código; una UI en `/gestion` se
-  puede añadir después si de verdad se cambia a menudo (hoy es una variable que se toca una vez).
-- **Remitente por módulo**: Licencias sale y contesta a `licencias@consolacionburriana.com`
-  (centralizado). El resto sale del buzón genérico y el `Reply-To` es el correo de quien manda
-  (tutor de la salida, gestor de la evaluación), que es a quien hay que contestar.
-- **Sigue pendiente en la consola de admin de Workspace** (no es código): añadir el scope
-  `gmail.send` a la delegación de dominio de la cuenta de servicio y confirmar que
-  `licencias@` es un buzón real (o poner `EMAIL_BUZON_LICENCIAS` si es un alias/grupo).
-- Coste del cambio: Gmail manda de uno en uno (≈ 2,5 correos/s, ~2.000/día por buzón) frente
-  a los 100 por llamada de Resend. Para los masivos grandes, ese perfil puede quedarse en
-  Resend con una sola variable.
-
-### ~~Tutorías: botón "promocionar todos +1 curso"~~ ✅ hecho (2026-09-02)
-David cerró las reglas de ciclo: **Infantil rota** (3→4→5→3), **Primaria rota dentro del ciclo**
-(1↔2, 3↔4, 5↔6, misma letra) y **ESO sube** (1→2→3→4) con **4º egresando**. Implementado en
-`/gestion/profes` con vista previa + confirmación, junto con "limpiar tutorías" (todas o por
-etapa). Lógica pura en `src/lib/tutorias.ts` y `cursoSiguiente()` en `src/lib/cursos.ts`, con
-tests. Queda como referencia el planteamiento original:
-La pantalla `/gestion/profes` (nueva, 2026-07-16) ya permite asignar/quitar tutores por clase
-a mano (tabla `edu_tutorias`, muchos-a-muchos: sin límite de tutores por clase ni de clases por
-profe, decisión explícita de David). Lo que falta es el botón de promoción automática que pidió
-originalmente, y su regla de negocio no está clara en los bordes:
-- **ESO**: sube todo el mundo +1 curso, salvo 4º ESO → se queda sin tutoría (hay que reasignar
-  a mano el año que viene). Esto sí está claro.
-- **Primaria**: "cambia dentro del ciclo" (1º→2º, 3º→4º, 5º→6º, misma letra) — pero no se
-  especificó qué pasa con los tutores que YA están en 2º/4º/6º (fin de ciclo): ¿se quedan sin
-  tutoría como el 4º ESO, o se dejan intactos hasta reasignar a mano? Hay que confirmarlo antes
-  de tocar código, porque mover mal esto desordenaría tutorías reales de todo el centro.
-- **Infantil**: "cíclico 3-4-5" — ¿significa que el tutor de 5INF vuelve a 3INF (rota) o se queda
-  sin tutoría igual que el resto de finales de ciclo? También sin confirmar.
-
-### ~~Magic links para familias (`fam_access_tokens`)~~ ✅ hecho (2026-07-30), estrenado en Salidas (2026-08-06)
-Implementado para Licencias y **reutilizable tal cual** por cualquier módulo público: un token
-por correo de familia que combina a todos sus hijos, `/licencias?t=tok_…`, correo masivo por
-cursos y clases desde `/gestion/licencias/correos`. Decisiones cerradas (agrupación por correo,
-multiuso, caducidad 120 días, revocación) en [`11-licencias-v2.md`](./11-licencias-v2.md).
-Salidas ya lo usa: `/salidas?t=tok_…` auto-identifica a la familia, y el recordatorio de pago
-(`/gestion/salidas/<id>`, panel de recordatorio) manda `{enlace}` personal en el correo.
-
-### ~~Evaluaciones: catálogo de preguntas predefinidas~~ ✅ hecho (2026-08-25)
-Vive en código (`CATALOGO` y `presetActividad` en `src/lib/evaluaciones.ts`), sacado de los
-formularios reales de Pastoral: preset distinto para alumnado y profesorado, con las frases a
-adaptar marcadas en ámbar. Las preguntas propias que guarde el claustro van a
-`eval_question_templates`. Detalle en [`16-evaluaciones.md`](./16-evaluaciones.md).
-
-### ~~Evaluaciones: redacción del aviso de anonimato al alumnado~~ ✅ decidido (2026-08-25)
-El pie del formulario de alumnado dice solo "🔒 Tus respuestas son anónimas."; la coletilla
-explicativa se quitó por decisión de David. Queda anotado, porque es lo único del módulo con
-aristas: en alumnado con enlace personalizado **sí** se guarda `edu_student_id` (decisión
-cerrada, para poder investigar un caso puntual), así que si alguna vez una familia pregunta,
-la respuesta honesta es "en pantalla nadie ve nombres, pero el envío es nominal". El profesorado
-no tiene ese matiz: ahí no se guarda absolutamente nada.
-
-### ~~Un usuario = un rol~~ ✅ resuelto (2026-08-27)
-Ya no hace falta elegir entre "tutor" y "el que lleva las evaluaciones": el rol da el punto de
-partida y `auth_users.modulos_extra` / `modulos_bloqueados` permiten afinar persona a persona
-desde `/gestion/usuarios`. Ver [`01-auth-roles.md`](./01-auth-roles.md).
-
-### ~~Banco de libros: dónde vive el `academic_year`~~ ✅ decidido e implementado
-Constante en código (`academicYearActual()` en `src/lib/constants.ts`), sin tabla de
-configuración en BBDD. Decisión cerrada en [`12-bancolibros.md`](./12-bancolibros.md).
-
----
-
-## 💡 Ideas y caminos de crecimiento (sin decidir, para explorar)
-
-- **Que otros colegios puedan usar el repo** ([`08-despliegue-y-fork.md`](./08-despliegue-y-fork.md),
-  escrita el 30-sep-2026). Dos cosas que la guía deja anotadas y que decide David:
-  (1) **Licencia del repo.** No hay `LICENSE`: sin ella, otro colegio puede hacer fork en GitHub
-  pero no tiene permiso expreso para reutilizar el código. Si el objetivo es compartirlo, hay que
-  elegir una (MIT/Apache si vale cualquier uso; AGPL si se quiere que las mejoras vuelvan).
-  (2) **Centralizar la identidad del colegio.** Hoy dominio, remitentes, nombre, contactos y los
-  IDs de Drive de Licencias están repartidos por ~20 ficheros (tabla del §6 de la guía). Una
-  única `src/lib/colegio.ts` (o variables de entorno) los reduciría a un solo sitio y haría el
-  fork casi de solo configuración. Además, `db:push` no conoce cuatro tablas `lic_*` que solo
-  existen en SQL: pasarlas a `schema.ts` simplificaría el arranque de una base vacía a un solo
-  comando. Y quien no use Educamos necesita otro lector de alumnado (`src/lib/educamos.ts`).
-- **Calendarios del dominio** ([`25-calendarios.md`](./25-calendarios.md)), decisiones de
-  alcance tomadas al construirlo que David puede revisar: el corte de «este curso» en Classroom
-  es el **1 de julio** (no septiembre), el borrado es **de verdad** (`calendars.delete`) y no
-  «quitar de la lista de todos», y **secretaría no tiene el módulo** aunque tenga «todo».
-  Ideas: (1) versión suave «ocultar a todos» (`calendarList.delete` por suscriptor) si algún
-  calendario no se quiere perder; (2) los calendarios cuyo dueño es una cuenta **suspendida**
-  (profes que se fueron) no se pueden borrar suplantándola: habría que transferirlos desde la
-  consola o reactivar la cuenta un momento — ver cuántos salen en el primer escaneo; (3) un
-  aviso anual (julio) en el escritorio para hacer la limpieza del curso que acaba.
-- **Tareas de la plataforma → kanban** ([`23-tareas.md`](./23-tareas.md)): columnas por estado
-  con arrastrar, y quizá prioridad, responsable y enlazar un fallito con el commit/PR que lo
-  arregla. También por decidir: si quien reporta recibe un aviso cuando su fallito pasa a «hecho»
-  (el resto del claustro ya puede reportar desde el 2-nov-2026: ver «Presentación al claustro»).
-- ~~**Mejorar la PWA** (instalación en iPad)~~ → promocionada a ficha propia con plan y
-  checklist: [`05-pwa.md`](./05-pwa.md).
-- **Plataforma de pago online** para Salidas (y quizá Licencias): sustituiría el justificante
-  subido por pago real. Implica pasarela (Stripe u otra), comisiones y decisión de dirección.
-- IA (Gemini u otro modelo) para sugerir redirecciones o detectar patrones en Registro ABC
-  (ya apuntado como "Fase 3" en el README original).
-- Notificaciones por WhatsApp o push, además de email, para avisos urgentes (p. ej. "falta tu
-  justificante de pago").
-- ~~Dashboard agregado de dirección que cruce datos de varios módulos~~ → ficha propia, con
-  las decisiones cerradas el 28-sep-2026: [`24-numeros.md`](./24-numeros.md) (Números del cole).
-- **Números del cole, quizá más adelante** (David, 29-sep-2026: «maybe futuro»): Salidas y
-  Puntualidad por clase; sacar todas las fotos del histórico juntas para analizarlas; un
-  «Pedir análisis» a Gemini con los recuentos (nunca nombres) y un informe de varias hojas A4;
-  y un filtro de verdad en Alumnado (`?filtro=`) si la lista de «quiénes son» se queda corta.
-  Detalle en [`24-numeros.md`](./24-numeros.md).
-- Firma electrónica de documentos (autorizaciones de salidas, documentación de banco de libros)
-  en vez de papel escaneado.
-- **AUTOASM en Neon** (hoy el proyecto vive en `localStorage`, ver
-  [`19-autoasm.md`](./19-autoasm.md)): si algún día lo prepara más de una persona, o hace
-  falta ver "qué se subió a ASM en septiembre", tocaría un par de tablas `asm_*` con el
-  histórico de exports. Mientras lo lleve TIC desde su portátil, no compensa.
-- ~~**AUTOASM ↔ horarios**~~ ✅ hecho (2026-09-06) · ~~**clases de curso entero y accesos de
-  TIC**~~ ✅ hecho (2026-09-06). Ver [`19-autoasm.md`](./19-autoasm.md).
-- **AUTOASM: diff contra lo que ya está en ASM** — subir el export actual de ASM y que el
-  módulo diga "12 altas, 3 bajas, 5 cambios de curso" antes de subir nada. **Aparcado**
-  (David, 2026-09-06): hace falta el export real de ASM y hoy no lo tenemos.
-- ~~**AUTOASM: subida por FTP**~~ ✅ hecha (2026-09-06), como paso opcional tras generar.
-- ~~**AUTOASM: histórico en Neon**~~ ✅ hecho (2026-09-06): `asm_entregas`.
-- ~~**AUTOASM: recordatorio anual**~~ ✅ resuelto de otra forma (2026-09-06): el módulo sube
-  solo al principio del escritorio en julio-septiembre y cuando hay alumnado nuevo sin
-  cuenta, en vez de mandar un aviso.
-- Exportación/sincronización automática hacia Educamos (hoy todo lo que sale de la app hacia
-  Educamos es manual).
-- Auditoría/historial de cambios transversal (quién tocó qué registro y cuándo), útil sobre
-  todo para Registro ABC y Banco de libros. (`edu_sync_runs` ya nace con esta filosofía.)
-- ~~**Pasada de rediseño, PERFECTITO PERFECTITO**~~ ✅ hecho (2026-08-29) para **Evaluaciones**:
-  jerarquía de cuatro niveles, guía de color por actividad, edición en sitio y acciones
-  atenuadas. Ver "Jerarquía visual del módulo" en [`16-evaluaciones.md`](./16-evaluaciones.md).
-  El vocabulario (`src/components/evaluaciones/ui.tsx`) está pensado para poder extenderse a
-  otros módulos: **Salidas, Banco de libros y Licencias siguen con el lenguaje viejo** (borde
-  gris de 1px, campos con borde permanente). Cuando alguno se quede igual de denso, el camino ya
-  está trazado — pero no se ha tocado, que cada módulo tiene sus propios usuarios y sus manías.
 
 ---
 
