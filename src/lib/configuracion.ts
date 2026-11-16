@@ -15,6 +15,7 @@
 //
 // Guía de despliegue: docs/08-despliegue-y-fork.md · inventario: docs/09-parametros-del-centro.md.
 import type { Etapa } from './cursos';
+import type { COLEGIO } from './colegio';
 
 export type TipoPromocion =
   /** Rota dentro de la etapa: el último curso vuelve al primero (Infantil: 3→4→5→3). */
@@ -238,11 +239,12 @@ export const CONFIGURACION = {
         INFO: { nombre: 'Aula de informática', tipo: 'aula', admiteSolapes: false },
         PLAST: { nombre: 'Aula de plástica', tipo: 'aula', admiteSolapes: false },
         LAB: { nombre: 'Laboratorio', tipo: 'laboratorio', admiteSolapes: false },
-        CREA: { nombre: 'Aula de Creatividad', tipo: 'aula', admiteSolapes: false },
+        CREA: { nombre: 'Aula Creativa', tipo: 'aula', admiteSolapes: false },
         // Música es la de primaria (MUS): una sola aula compartida.
-        MUS: { nombre: 'Música', tipo: 'aula', admiteSolapes: false },
-        // El pabellón es el polideportivo de primaria (POLI): una sola sala, y caben varias clases.
-        POLI: { nombre: 'Polideportivo', tipo: 'pista', admiteSolapes: true },
+        MUS: { nombre: 'Aula de música', tipo: 'aula', admiteSolapes: false },
+        // El pabellón deportivo (planta P0 del edificio Pabellón) es el polideportivo de primaria (POLI): una
+        // sola sala, y caben varias clases. Los nombres son los mismos que en Inventario y aulas (docs/33).
+        POLI: { nombre: 'Pabellón deportivo', tipo: 'pista', admiteSolapes: true },
       } as Record<string, { nombre: string; tipo: string; admiteSolapes: boolean }>,
       normas: [
         { aula: 'TEC', materias: ['TYD', 'Tecnología y Digitalización', 'Tecnología'], detalles: ['Tecnología', 'Digitalización'], oAulaPropia: true },
@@ -311,6 +313,15 @@ export const CONFIGURACION = {
      * la ve quien tiene el módulo. Abrirla es poner `true` (y redesplegar).
      */
     misSustitucionesParaTodos: false as boolean,
+    /**
+     * El informe del día 1, partido por etapa (David, 16-nov-2026). Cada ausencia cuenta en la etapa
+     * del profe que falta (`sust_ausencias.etapa`). `buzon` es la clave del buzón en `colegio.ts`.
+     */
+    informes: [
+      { nombre: 'Infantil y Primaria', etapas: ['EI', 'EP'], buzon: 'correoJefaturaInfantilPrimaria' },
+      { nombre: 'ESO', etapas: ['ESO'], buzon: 'correoJefaturaEso' },
+      { nombre: 'Infantil, Primaria y ESO', etapas: ['EI', 'EP', 'ESO'], buzon: 'correoTitular' },
+    ] as readonly { nombre: string; etapas: readonly Etapa[]; buzon: keyof typeof COLEGIO }[],
     /**
      * Lo dispuesto que está cada profe en una franja, según lo que tenga en el horario (decisión
      * 15). Clave = nivel (o `libre`, una hora sin nada estando en el colegio). Lo que no está, `no`.

@@ -6,18 +6,53 @@
 // qué clase va en cada aula el curso que viene y los códigos de los kits de robótica.
 import { z } from 'zod';
 import { CONFIGURACION } from './configuracion';
-import { compararClases, cursoSiguiente, etapaDeCurso, nombreClase } from './cursos';
+import { compararClases, cursoBaseEso, cursoSiguiente, etapaDeCurso, nombreClase } from './cursos';
 
 // ─── Vocabulario ─────────────────────────────────────────────────────────────
 
-export const PISOS = ['PB', 'P1', 'P2', 'P3'] as const;
-export type Piso = (typeof PISOS)[number];
-export const PISO_LABEL: Record<Piso, string> = { PB: 'Planta baja', P1: 'Primer piso', P2: 'Segundo piso', P3: 'Tercer piso' };
+/**
+ * El cole son dos edificios (David, 16-nov-2026): el **Colegio**, con cuatro plantas, y el
+ * **Pabellón**, con tres. Cada planta tiene un código con la letra del edificio delante (C2, P1) para
+ * que nunca se confundan; es el que llevan los nombres de las antenas (`C2_15`).
+ */
+export const EDIFICIOS = ['C', 'P'] as const;
+export type Edificio = (typeof EDIFICIOS)[number];
+export const EDIFICIO_LABEL: Record<Edificio, string> = { C: 'Colegio', P: 'Pabellón' };
 
-export function etiquetaPiso(piso: string | null | undefined): string {
-  if (!piso) return 'Sin piso';
-  return (PISO_LABEL as Record<string, string>)[piso] ?? piso;
+export const PISOS = ['C0', 'C1', 'C2', 'C3', 'P0', 'P1', 'P2'] as const;
+export type Piso = (typeof PISOS)[number];
+
+const PLANTA = ['planta baja', '1.ª planta', '2.ª planta', '3.ª planta'];
+
+export function edificioDe(piso: string | null | undefined): Edificio | null {
+  const e = piso?.[0];
+  return e === 'C' || e === 'P' ? e : null;
 }
+
+/** «Colegio · 2.ª planta (C2)». */
+export function etiquetaPiso(piso: string | null | undefined): string {
+  const e = edificioDe(piso);
+  const n = Number(piso?.slice(1));
+  if (!e || !Number.isInteger(n) || !PLANTA[n]) return piso || 'Sin planta';
+  return `${EDIFICIO_LABEL[e]} · ${PLANTA[n]} (${piso})`;
+}
+
+/** Para los desplegables: «C2 · 2.ª planta». */
+export const PISO_LABEL: Record<Piso, string> = Object.fromEntries(PISOS.map((p) => [p, `${p} · ${PLANTA[Number(p[1])]}`])) as Record<Piso, string>;
+
+/** Lo que es un espacio: no todo es un aula con su clase (el comedor, los vestuarios…). */
+export const TIPOS_ESPACIO = ['clase', 'especifica', 'comun'] as const;
+export type TipoEspacio = (typeof TIPOS_ESPACIO)[number];
+export const TIPO_ESPACIO_LABEL: Record<TipoEspacio, string> = {
+  clase: 'Aula de clase',
+  especifica: 'Aula específica',
+  comun: 'Espacio común',
+};
+export const TIPO_ESPACIO_AYUDA: Record<TipoEspacio, string> = {
+  clase: 'Tiene una clase cada curso (se cambia en «Clases de cada aula»)',
+  especifica: 'Informática, laboratorio, música… se usa por horas',
+  comun: 'Comedor, vestuarios, sala AMPA…',
+};
 
 export const PANTALLAS = ['proyector', 'tv', 'ninguna'] as const;
 export type Pantalla = (typeof PANTALLAS)[number];
@@ -131,6 +166,28 @@ export function cartelClase(curso: string | null | undefined, letra: string | nu
   if (/PDC/i.test(curso) || letra === 'PDC') return `${n}º ESO PDC`;
   const sufijo = etapa === 'EI' ? `${n} años` : etapa === 'EP' ? `${n}º EP` : etapa === 'ESO' ? `${n}º ESO` : nombreClase(curso, null);
   return letra ? `${sufijo} ${letra}` : sufijo;
+}
+
+// ─── Horarios ────────────────────────────────────────────────────────────────
+// Horarios llama a las clases con su curso de verdad (el PDC es `3ESO` + `PDC`, no el `3ºPPDC` de
+// Educamos) y al aula propia de cada grupo `A-<curso><letra>` (`A-1ESOA`). Las salas (informática,
+// laboratorio…) se enlazan por su código (`inv_aulas.espacio_codigo` = `hor_espacios.codigo`).
+
+/** La clave de una clase en el navegador de Horarios: `3ESO|PDC`, `1PRI|A`. */
+export function claveHorario(curso: string, letra: string | null | undefined): string {
+  return `${cursoBaseEso(curso) ?? curso}|${letra ?? ''}`;
+}
+
+/** El código del aula propia de una clase en Horarios: `A-1ESOA`, `A-3ESOPDC`. */
+export function codigoAulaPropia(curso: string, letra: string | null | undefined): string {
+  return `A-${cursoBaseEso(curso) ?? curso}${letra ?? ''}`.toUpperCase();
+}
+
+/** Dónde está un espacio, para enseñarlo en Horarios: «Puerta 30 · C3», «Pabellón · P2». */
+export function ubicacionEspacio(a: { numero: string | null; piso: string | null }): string | null {
+  if (a.numero) return a.piso ? `Puerta ${a.numero} · ${a.piso}` : `Puerta ${a.numero}`;
+  const e = edificioDe(a.piso);
+  return e ? `${EDIFICIO_LABEL[e]} · ${a.piso}` : (a.piso ?? null);
 }
 
 // ─── Audiovisual: qué pide atención ──────────────────────────────────────────
@@ -427,6 +484,8 @@ export const aulaSchema = z.object({
   numero: texto(20),
   piso: z.enum(PISOS).nullable(),
   nombre: texto(80),
+  tipo: z.enum(TIPOS_ESPACIO),
+  espacioCodigo: texto(20),
   notas: texto(2000),
 });
 export type AulaInput = z.infer<typeof aulaSchema>;

@@ -2850,8 +2850,10 @@ export const invAulas = pgTable('inv_aulas', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   numero: text('numero'), // lo que pone en la puerta: '12', '17-18'. Null en salas sin número
   orden: integer('orden').notNull().default(0), // para ordenar: 17 en '17-18'
-  piso: text('piso'), // 'PB' | 'P1' | 'P2' | 'P3'; null si no se sabe
-  nombre: text('nombre'), // nombre fijo de una sala: 'Aula de Música', 'Informática'
+  // Edificio y planta en un código: C0-C3 (Colegio), P0-P2 (Pabellón). Null si no se sabe.
+  piso: text('piso'),
+  tipo: text('tipo').notNull().default('clase'), // 'clase' | 'especifica' | 'comun'
+  nombre: text('nombre'), // nombre fijo de una sala: 'Aula de música', 'Comedor'
   espacioCodigo: text('espacio_codigo'), // su código en Horarios (`hor_espacios.codigo`): MUS, CREA…
   notas: text('notas'),
   activa: boolean('activa').notNull().default(true),

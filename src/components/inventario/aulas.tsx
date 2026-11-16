@@ -15,6 +15,13 @@ import {
   antenaPorRenombrar,
   cuadreMobiliario,
   etiquetaPiso,
+  edificioDe,
+  EDIFICIOS,
+  EDIFICIO_LABEL,
+  PISOS,
+  TIPO_ESPACIO_LABEL,
+  type Edificio,
+  type TipoEspacio,
   normalizar,
   textoCuadre,
   type AccionAv,
@@ -59,6 +66,7 @@ export function Aulas({ inv }: { inv: Inventario }) {
   const filas = useIndice(inv);
   const [q, setQ] = useState('');
   const [filtro, setFiltro] = useState<FiltroAulas>('todas');
+  const [edificio, setEdificio] = useState<Edificio | 'todos'>('todos');
   const [nueva, setNueva] = useState(false);
 
   const faltanSillas = (f: FilaAula) => (cuadreMobiliario(f.mob, f.alumnos, f.ocupacion?.curso ?? null).sillas ?? 0) < 0;
@@ -70,6 +78,7 @@ export function Aulas({ inv }: { inv: Inventario }) {
   };
   const busqueda = useMemo(() => new Map(filas.map((f) => [f.aula.id, textoBusqueda(f)])), [filas]);
   const visibles = filas.filter((f) => {
+    if (edificio !== 'todos' && edificioDe(f.aula.piso) !== edificio) return false;
     if (filtro === 'urgente' && f.urgentes === 0) return false;
     if (filtro === 'arreglos' && f.pendientes.length === 0) return false;
     if (filtro === 'sillas' && !faltanSillas(f)) return false;
@@ -88,7 +97,7 @@ export function Aulas({ inv }: { inv: Inventario }) {
 
   return (
     <div className="space-y-5">
-      <h1 className="sr-only">Aulas</h1>
+      <h1 className="sr-only">Aulas y espacios</h1>
       <Cifras>
         <Cifra
           etiqueta="Arreglos pendientes"
@@ -123,14 +132,30 @@ export function Aulas({ inv }: { inv: Inventario }) {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Aula, clase, tutor, marca, nota…"
-            aria-label="Buscar en las aulas"
+            placeholder="Aula, clase, tutor, sala, marca, nota…"
+            aria-label="Buscar en las aulas y espacios"
             className="pl-9"
           />
         </div>
+        <Filtros etiqueta="Edificio">
+          <Filtro activo={edificio === 'todos'} onClick={() => setEdificio('todos')} cuenta={filas.length}>
+            Los dos edificios
+          </Filtro>
+          {EDIFICIOS.map((e) => (
+            <Filtro
+              key={e}
+              activo={edificio === e}
+              onClick={() => setEdificio(edificio === e ? 'todos' : e)}
+              cuenta={filas.filter((f) => edificioDe(f.aula.piso) === e).length}
+            >
+              {EDIFICIO_LABEL[e]}
+            </Filtro>
+          ))}
+        </Filtros>
+        <span aria-hidden className="mx-1 hidden h-6 w-px bg-zinc-200 sm:block dark:bg-zinc-700" />
         <Filtros etiqueta="Mostrar">
           <Filtro activo={filtro === 'todas'} onClick={() => setFiltro('todas')} cuenta={cuentas.todas}>
-            Todas
+            Todo
           </Filtro>
           <Filtro activo={filtro === 'urgente'} onClick={() => setFiltro('urgente')} cuenta={cuentas.urgente} tono="error">
             Algo urgente
@@ -154,29 +179,39 @@ export function Aulas({ inv }: { inv: Inventario }) {
         <a href="/api/inventario/excel" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
           <FileSpreadsheet aria-hidden /> Excel con todo
         </a>
-        <button type="button" onClick={() => { haptic.tap(); setNueva(true); }} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-          <Plus aria-hidden /> Añadir aula o sala
+        <button
+          type="button"
+          onClick={() => {
+            haptic.tap();
+            setNueva(true);
+          }}
+          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+        >
+          <Plus aria-hidden /> Añadir aula o espacio
         </button>
       </div>
 
       {visibles.length === 0 ? (
-        <Vacio icono={<Search />} titulo="Ningún aula coincide">
+        <Vacio icono={<Search />} titulo="Nada coincide">
           Prueba con el número de la puerta («12»), la clase («3 EP B») o una marca («Epson»).
         </Vacio>
       ) : (
-        [...pisos.entries()].map(([piso, lista]) => (
-          <section key={piso} aria-labelledby={`piso-${piso || 'otras'}`} className="space-y-2">
-            <Rotulo id={`piso-${piso || 'otras'}`}>{piso ? etiquetaPiso(piso) : 'Otras salas'}</Rotulo>
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {lista.map((f) => (
-                <TarjetaAula key={f.aula.id} f={f} />
-              ))}
-            </ul>
-          </section>
-        ))
+        [...PISOS, '']
+          .filter((p) => pisos.has(p))
+          .map((piso) => [piso, pisos.get(piso)!] as const)
+          .map(([piso, lista]) => (
+            <section key={piso} aria-labelledby={`piso-${piso || 'otras'}`} className="space-y-2">
+              <Rotulo id={`piso-${piso || 'otras'}`}>{piso ? etiquetaPiso(piso) : 'Sin planta apuntada'}</Rotulo>
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {lista.map((f) => (
+                  <TarjetaAula key={f.aula.id} f={f} />
+                ))}
+              </ul>
+            </section>
+          ))
       )}
 
-      {nueva && <NuevaAula onCerrar={() => setNueva(false)} />}
+      {nueva && <NuevaAula espacios={inv.espaciosHorario} onCerrar={() => setNueva(false)} />}
     </div>
   );
 }
@@ -202,7 +237,9 @@ function TarjetaAula({ f }: { f: FilaAula }) {
               {f.aula.nombre ?? (f.cartel || 'Sin clase este curso')}
             </span>
             <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">
-              {[f.tutores.join(' y '), f.alumnos !== null ? `${f.alumnos} alumnos` : null].filter(Boolean).join(' · ') || ' '}
+              {f.aula.tipo === 'clase'
+                ? [f.tutores.join(' y '), f.alumnos !== null ? `${f.alumnos} alumnos` : null].filter(Boolean).join(' · ') || '\u00a0'
+                : TIPO_ESPACIO_LABEL[f.aula.tipo as TipoEspacio]}
             </span>
           </span>
           {f.av && (
@@ -210,7 +247,9 @@ function TarjetaAula({ f }: { f: FilaAula }) {
               {pantalla === 'tv' ? <Tv aria-hidden className="size-4 text-zinc-500" /> : <Projector aria-hidden className="size-4 text-zinc-500" />}
               <span className="truncate">{[pantalla ? PANTALLA_LABEL[pantalla] : null, f.av.marca].filter(Boolean).join(' ')}</span>
               <Estrellas valor={f.av.valoracion} />
-              {f.av.accion !== 'correcto' && <Estado tono={ACCION_AV_TONO[f.av.accion as AccionAv]}>{ACCION_AV_LABEL[f.av.accion as AccionAv]}</Estado>}
+              {f.av.accion !== 'correcto' && (
+                <Estado tono={ACCION_AV_TONO[f.av.accion as AccionAv]}>{ACCION_AV_LABEL[f.av.accion as AccionAv]}</Estado>
+              )}
             </span>
           )}
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">

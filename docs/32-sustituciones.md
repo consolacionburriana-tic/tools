@@ -1,7 +1,7 @@
 # Sustituciones · cubrir las ausencias del profesorado (Infantil, Primaria y ESO)
 
-**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (tablas base en Neon; pendientes las migraciones de etapas,
-confirmaciones, envíos programados y coberturas dobles; también el cuadro del centro en el importador, una vuelta con sesión
+**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (todas las tablas en Neon, también etapas, confirmaciones, envíos
+programados y coberturas dobles, 16-nov-2026; faltan el cuadro del centro en el importador, una vuelta con sesión
 real y el primer correo de verdad — ver §5). Las sustituciones largas de Educamos ya se llaman **Coberturas por baja**.
 
 > **Ajustes acordados el 16-nov-2026:** el perfil de correo sale desde
@@ -242,7 +242,7 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     agrupa en **Actividad escolar** (motivo «Actividad escolar») y **Personal** (el resto) (David,
     12-nov-2026). El motivo concreto solo se ve en la ficha de la ausencia y en el historial,
     dentro del módulo. No se loguea.
-12. **Informe mensual** del mes anterior, el **día 1**, por cron (`/api/sustituciones/cron/informe`, protegido con `CRON_SECRET`, en `vercel.json`). Se separa en tres envíos: Infantil+Primaria a `jeinfyprim@consolacionburriana.com`, ESO a `jesecundaria@consolacionburriana.com` y el conjunto de EI+EP+ESO a `titular@consolacionburriana.com`. Es idempotente: `sust_informes` guarda el mes y los destinatarios enviados.
+12. **Informe mensual** del mes anterior, el **día 1**, por cron (`/api/sustituciones/cron/informe`, protegido con `CRON_SECRET`, en `vercel.json`). Se separa en tres envíos: Infantil+Primaria a `jeinfyprim@consolacionburriana.com`, ESO a `jesecundaria@consolacionburriana.com` y el conjunto de EI+EP+ESO a `titular@consolacionburriana.com`. Es idempotente: `sust_informes` guarda el mes y los destinatarios enviados. Los buzones viven en `colegio.ts` (`correoJefaturaInfantilPrimaria`, `correoJefaturaEso`, `correoTitular`) y el reparto por etapa en `CONFIGURACION.sustituciones.informes`; el asunto lleva la etapa (`Sustituciones · Octubre · ESO`). Cada ausencia cuenta en la etapa del profe que falta (la primera de `etapa`/`etapas`): quien da en primaria y en la ESO cuenta en una sola.
     Incluye el total del mes, el desglose por profe y el acumulado del curso; el motivo se agrupa
     en Actividad escolar / Personal. En Números se puede previsualizar y enviar a mano.
 13. **Curso académico** con `academicYearActual(fecha)` de `src/lib/constants.ts`, guardado en la
@@ -674,12 +674,12 @@ cómo queda: Nouvinguts.
 
 - [x] Módulo `sustituciones` en `permissions.ts` (`MODULES`, `MODULE_LABELS`, `jefe` y `direccion`), `modulos.ts` (grupo `centro`, icono, `acento` índigo + excepción en `diseno.md`), `escritorio.ts`; tests de permisos.
 - [x] `CONFIGURACION.sustituciones` (§4.3) y su test (más `ALMUERZO` en `nuncaLiberables`, ver 00-desarrollos-futuros).
-- [~] Schema `sust_*` base aplicado en Neon; falta aplicar `sustituciones-etapas-confirmacion.sql` (pendiente por fallo de conexión).
-- [~] Envíos programados, franja de segundo sustituto y cuenta de sesiones ausentes: código y migración `sustituciones-horarios-envios.sql`; pendiente aplicar en Neon.
+- [x] Schema `sust_*` aplicado en Neon, con `sustituciones-etapas-confirmacion.sql` (16-nov-2026; desde Codex no se podía por falta de conexión a Neon).
+- [x] Envíos programados, franja de segundo sustituto y cuenta de sesiones ausentes: código y migración `sustituciones-horarios-envios.sql`, aplicada en Neon el 16-nov-2026. El cron `/api/sustituciones/cron/envios` va **una vez al día a las 7:05 UTC** (8:05 en invierno, 9:05 en verano): todos los envíos programados caen a las 8:00, y un cron horario no lo admite el plan Hobby de Vercel.
 - [x] `sustituciones.ts` puro con los tests de §4.4 en verde (44 tests; 1.483 en total).
 - [x] `horarioDeDias` en una tanda (`cargar` en `sustituciones-server.ts`, ~1,2 s); probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (primaria con su horario de septiembre; infantil y ESO con el ordinario).
 - [x] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409`: la amable (con nombre y hora) y una guarda dentro de la misma transacción con cerrojo. Probado contra Neon: choque con otra ausencia del mismo profe, con un sustituto ya ocupado y **dos confirmaciones simultáneas con el mismo sustituto** (una entra, la otra 409).
-- [~] Perfil `sustituciones` envía desde `jeinfyprim@consolacionburriana.com`; los avisos al sustituto incluyen el enlace de confirmación y agradecimiento. Falta aplicar `sustituciones-etapas-confirmacion.sql` y probar un envío real.
+- [~] Perfil `sustituciones` envía desde `jeinfyprim@consolacionburriana.com`; los avisos al sustituto incluyen el enlace de confirmación y agradecimiento. Falta probar un envío real (y la delegación de Gmail de ese buzón).
 - [x] Disponibilidad automática usada en la propuesta, con «Solo urgencia» fuera de la elección automática.
 - [x] Pantallas **Nueva ausencia** (con rango de fechas) y **Ficha** con `loading.tsx`; claro/oscuro, 390/1180 px sin desplazamiento lateral; `diseno:guardia` en verde (pintadas en local con datos de Neon).
 - [x] Pantalla **Hoy** con cifras y estado vacío (cambiar de día con `pushState`).
@@ -701,7 +701,7 @@ cómo queda: Nouvinguts.
 
 - [x] Historial con filtros (mes, profe, escolar / personal).
 - [x] Números (mes / trimestre / curso; por ausente y quién ha cubierto más, con urgencias).
-- [~] Informe mensual por etapa (EI+EP a jeinfyprim, ESO a jesecundaria y conjunto a titular), selector de etapa en Números e idempotencia por mes. Pendiente aplicar la migración SQL y validar destinatarios con envío real.
+- [~] Informe mensual por etapa (EI+EP a jeinfyprim, ESO a jesecundaria y conjunto a titular), selector de etapa en Números e idempotencia por mes. Pendiente validar destinatarios con un envío real.
 - [~] Envío manual en Números: cuenta activa de Jefatura/Dirección y etapa seleccionable; pendiente probar con cuentas reales.
 - [~] Configurar y comprobar la delegación Gmail del remitente `jeinfyprim@consolacionburriana.com` en el entorno de producción.
 

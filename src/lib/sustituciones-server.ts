@@ -35,6 +35,7 @@ import {
   type SustAusencia,
   type SustSesion,
 } from '@/db/schema';
+import { COLEGIO } from '@/lib/colegio';
 import { CONFIGURACION } from '@/lib/configuracion';
 import { appBaseUrl } from '@/lib/constants';
 import { enviar } from '@/lib/email';
@@ -95,7 +96,7 @@ import {
   type TipoPlantilla,
 } from '@/lib/sustituciones';
 import { correoAviso, correoInforme, type HoraBloque } from '@/lib/sustituciones-email';
-import type { Etapa } from '@/lib/cursos';
+import { ETAPA_LABEL, type Etapa } from '@/lib/cursos';
 
 const CFG = CONFIGURACION.sustituciones;
 const CLAVE_PLANTILLAS = 'sustituciones.correos';
@@ -824,12 +825,24 @@ function filaSesion(
 }
 
 /** Resuelve las sesiones pedidas contra el horario de esos días (y que no repitan horas ya apuntadas). */
+/** Una hora pedida, ya casada con el horario: quién la cubre y en qué tramo de la sesión (puede ser parcial, y con una segunda persona). */
+interface PedidaResuelta {
+  s: SesionAusente;
+  sustitutoId: string | null;
+  sustitutoHoraInicio: string;
+  sustitutoHoraFin: string;
+  sustituto2Id: string | null;
+  sustituto2HoraInicio: string;
+  sustituto2HoraFin: string;
+  delDia: readonly SesionDia[];
+}
+
 function resolverPedidas(
   pedidas: { fecha: string; horSesionId: string; sustitutoId: string | null; sustitutoHoraInicio?: string; sustitutoHoraFin?: string; sustituto2Id?: string | null; sustituto2HoraInicio?: string; sustituto2HoraFin?: string }[],
   profeId: string,
   c: Cargado,
   yaApuntadas: { fecha: string; horaInicio: string; horaFin: string }[],
-): { s: SesionAusente; sustitutoId: string | null; delDia: readonly SesionDia[] }[] {
+): PedidaResuelta[] {
   const horario = new Map(c.ctx.horario);
   const vistas = new Set<string>();
   return pedidas.map((p) => {
@@ -926,7 +939,7 @@ export async function confirmarAusencia(e: EntradaAusencia, q: Quien): Promise<R
 async function etapaProfe(profeId: string): Promise<string> {
   const [p] = await db.select({ etapa: eduTeachers.etapa, etapas: eduTeachers.etapas }).from(eduTeachers).where(eq(eduTeachers.id, profeId)).limit(1);
   const etapas = [...new Set([...(p?.etapa ? [p.etapa] : []), ...(p?.etapas ?? [])])];
-  return etapas.find((x) => ['EI', 'EP', 'ESO'].includes(x)) ?? 'EP';
+  return etapas.find((x) => (CONFIGURACION.sustituciones.etapas as readonly string[]).includes(x)) ?? 'EP';
 }
 
 /** Deja sin sustituto unas horas (quien las cubría ahora falta). */
@@ -1324,7 +1337,7 @@ export async function profesConAusencias(): Promise<{ id: string; nombre: string
   return [...vistos].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
 
-async function filasCuenta(desde: string, hasta: string, etapa?: string): Promise<FilaCuenta[]> {
+async function filasCuenta(desde: string, hasta: string, etapas?: readonly string[]): Promise<FilaCuenta[]> {
   return db
     .select({
       ausenciaId: sustSesiones.ausenciaId,
@@ -1341,14 +1354,14 @@ async function filasCuenta(desde: string, hasta: string, etapa?: string): Promis
     })
     .from(sustSesiones)
     .innerJoin(sustAusencias, eq(sustAusencias.id, sustSesiones.ausenciaId))
-    .where(and(eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, desde), lte(sustSesiones.fecha, hasta), etapa ? eq(sustAusencias.etapa, etapa) : undefined));
+    .where(and(eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, desde), lte(sustSesiones.fecha, hasta), etapas ? inArray(sustAusencias.etapa, [...etapas]) : undefined));
 }
 
 export async function cifras(periodo: PeriodoCifras, hoy = hoyEnEspana(), etapa?: string): Promise<{ periodo: PeriodoCifras; etapa: string; desde: string; hasta: string; resumen: Resumen }> {
   const { trimestres } = await getAjustesOratorios(cursoDeFecha(hoy));
   const r = rangoPeriodo(periodo, hoy, trimestres);
-  const filtro = ['EI', 'EP', 'ESO'].includes(etapa ?? '') ? etapa : undefined;
-  return { periodo, etapa: filtro ?? 'todas', ...r, resumen: resumir(await filasCuenta(r.desde, r.hasta, filtro)) };
+  const filtro = (CONFIGURACION.sustituciones.etapas as readonly string[]).includes(etapa ?? '') ? etapa : undefined;
+  return { periodo, etapa: filtro ?? 'todas', ...r, resumen: resumir(await filasCuenta(r.desde, r.hasta, filtro ? [filtro] : undefined)) };
 }
 
 // ─── Informe mensual (decisión 12) ───────────────────────────────────────────
@@ -1363,17 +1376,18 @@ export interface Informe {
   enviado: { at: Date; destinatarios: string[] } | null;
 }
 
-const DESTINATARIOS_INFORME = [
-  { etapa: 'EI_EP', email: 'jeinfyprim@consolacionburriana.com' },
-  { etapa: 'ESO', email: 'jesecundaria@consolacionburriana.com' },
-  { etapa: 'TODAS', email: 'titular@consolacionburriana.com' },
-] as const;
+/** Un informe por etapa y uno conjunto (`CONFIGURACION.sustituciones.informes`), cada uno a su buzón. */
+const DESTINATARIOS_INFORME = CONFIGURACION.sustituciones.informes.map((d) => ({ ...d, email: String(COLEGIO[d.buzon]) }));
+
+function inicioDeCurso(curso: string): string {
+  return `${curso.slice(0, 4)}-${String(CONFIGURACION.calendario.mesInicioCurso).padStart(2, '0')}-01`;
+}
 
 export async function informeMes(mes: string): Promise<Informe> {
   const desde = `${mes}-01`;
   const hasta = finDeMes(desde);
   const curso = cursoDeFecha(desde);
-  const inicioCurso = `${curso.slice(0, 4)}-${String(CONFIGURACION.calendario.mesInicioCurso).padStart(2, '0')}-01`;
+  const inicioCurso = inicioDeCurso(curso);
   const [delMes, delCurso, [ya], usuarios] = await Promise.all([
     filasCuenta(desde, hasta),
     filasCuenta(inicioCurso, hasta),
@@ -1387,9 +1401,7 @@ export async function informeMes(mes: string): Promise<Informe> {
     curso,
     destinatarios: DESTINATARIOS_INFORME.map((d) => d.email),
     opcionesDestinatarios: [
-      { email: 'jeinfyprim@consolacionburriana.com', nombre: 'Jefatura de Infantil y Primaria', rol: 'jefe' },
-      { email: 'jesecundaria@consolacionburriana.com', nombre: 'Jefatura de Secundaria', rol: 'jefe' },
-      { email: 'titular@consolacionburriana.com', nombre: 'Dirección titular', rol: 'direccion' },
+      ...DESTINATARIOS_INFORME.map((d) => ({ email: d.email, nombre: `Informe de ${d.nombre}`, rol: d.etapas.length === 3 ? 'direccion' : 'jefe' })),
       ...usuarios.map((u) => ({ email: u.email, nombre: u.nombre ?? u.email, rol: u.role })),
     ].filter((x, i, a) => a.findIndex((y) => y.email.toLowerCase() === x.email.toLowerCase()) === i),
     enviado: ya?.enviadoAt ? { at: ya.enviadoAt, destinatarios: ya.destinatarios } : null,
@@ -1419,18 +1431,20 @@ export async function enviarInforme(mes: string, opciones: { forzar?: boolean; q
   }
   const ok: string[] = [];
   const fallidos: string[] = [];
-  const destinosCorreo = destinosElegidos
-    ? destinosValidos.map((email) => ({ email, etapa: opciones.etapa === 'todas' ? 'TODAS' : opciones.etapa! }))
+  // A mano se elige a quién y de qué etapa; el cron manda cada informe a su buzón.
+  const etapasElegidas: readonly Etapa[] = !opciones.etapa || opciones.etapa === 'todas' ? CFG.etapas : [opciones.etapa];
+  const nombreElegido = !opciones.etapa || opciones.etapa === 'todas' ? 'Infantil, Primaria y ESO' : ETAPA_LABEL[opciones.etapa];
+  const destinosCorreo: readonly { email: string; etapas: readonly Etapa[]; nombre: string }[] = destinosElegidos
+    ? destinosValidos.map((email) => ({ email, etapas: etapasElegidas, nombre: nombreElegido }))
     : DESTINATARIOS_INFORME;
   for (const destino of destinosCorreo) {
     if (inf.enviado?.destinatarios.includes(destino.email) && !opciones.forzar) { ok.push(destino.email); continue; }
-    const etapas = destino.etapa === 'EI_EP' ? ['EI', 'EP'] : destino.etapa === 'ESO' ? ['ESO'] : destino.etapa === 'EI' || destino.etapa === 'EP' ? [destino.etapa] : ['EI', 'EP', 'ESO'];
+    const finMes = finDeMes(`${mes}-01`);
     const [delMesFilas, delCursoFilas] = await Promise.all([
-      Promise.all(etapas.map((e) => filasCuenta(`${mes}-01`, finDeMes(`${mes}-01`), e))).then((sets) => sets.flat()),
-      Promise.all(etapas.map((e) => filasCuenta(`${inf.curso.slice(0, 4)}-${String(CONFIGURACION.calendario.mesInicioCurso).padStart(2, '0')}-01`, finDeMes(`${mes}-01`), e))).then((sets) => sets.flat()),
+      filasCuenta(`${mes}-01`, finMes, destino.etapas),
+      filasCuenta(inicioDeCurso(inf.curso), finMes, destino.etapas),
     ]);
-    const nombreEtapa = destino.etapa === 'EI_EP' ? 'Infantil y Primaria' : destino.etapa === 'ESO' ? 'ESO' : destino.etapa === 'EI' ? 'Infantil' : destino.etapa === 'EP' ? 'Primaria' : 'Infantil, Primaria y ESO';
-    const { subject, html } = correoInforme({ mes, delMes: resumir(delMesFilas), delCurso: resumir(delCursoFilas), curso: inf.curso, enlace: `${appBaseUrl()}/gestion/sustituciones/numeros`, etapa: nombreEtapa });
+    const { subject, html } = correoInforme({ mes, delMes: resumir(delMesFilas), delCurso: resumir(delCursoFilas), curso: inf.curso, enlace: `${appBaseUrl()}/gestion/sustituciones/numeros`, etapa: destino.nombre });
     try {
       await enviar('sustituciones', { to: destino.email, subject, html, ...(opciones.quien ? { replyTo: opciones.quien.email } : {}) });
       ok.push(destino.email);

@@ -184,7 +184,7 @@ export function correoInforme(d: DatosInforme): { subject: string; html: string 
     <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">El detalle, en <a href="${escaparHtml(d.enlace)}" style="color:#1d4ed8;">Sustituciones</a>. Por ser datos de salud, aquí el motivo va agrupado en «Actividad escolar» y «Personal».</p>
   </div>
 </body></html>`;
-  return { subject: `Sustituciones · ${mayuscula(nombreMes(d.mes))}`, html };
+  return { subject: `Sustituciones · ${mayuscula(nombreMes(d.mes))}${d.etapa ? ` · ${d.etapa}` : ''}`, html };
 }
 
 // ─── Vista previa y prueba (Ajustes) ─────────────────────────────────────────
