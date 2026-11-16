@@ -123,14 +123,14 @@ export function Hoy({ inicial, hoy }: { inicial: DatosHoy; hoy: string }) {
                       {f.hayQueCubrir && (
                         <>
                           <ArrowRight aria-hidden className="size-3.5 text-zinc-400" />
-                          {f.sustituto ? <span>entra <strong className="font-semibold">{f.sustituto}</strong></span> : <span className="text-amber-700 dark:text-amber-400">nadie todavía</span>}
+                          {f.sustituto || f.sustituto2 ? <span>entra <strong className="font-semibold">{[f.sustituto, f.sustituto2].filter(Boolean).join(' y ')}</strong></span> : <span className="text-amber-700 dark:text-amber-400">nadie todavía</span>}
                         </>
                       )}
                     </span>
                   </span>
                   <span className="flex items-center gap-2">
                     {f.avisoEstado === 'enviado' && <Mail aria-label="Avisado por correo" className="size-4 text-zinc-400" />}
-                    <EstadoHora hayQueCubrir={f.hayQueCubrir} sustituto={f.sustituto} avisoEstado={f.avisoEstado} />
+                    <EstadoHora hayQueCubrir={f.hayQueCubrir} sustituto={f.sustituto ?? f.sustituto2} avisoEstado={f.avisoEstado} />
                   </span>
                 </Link>
               </li>

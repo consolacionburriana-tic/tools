@@ -1869,14 +1869,25 @@ export const sustSesiones = pgTable('sust_sesiones', {
   sustitutoId: uuid('sustituto_id').references(() => eduTeachers.id), // null = sin cubrir (o no hace falta)
   sustitutoNombre: text('sustituto_nombre'),
   sustitutoEmail: text('sustituto_email'),
+  sustitutoHoraInicio: text('sustituto_hora_inicio'),
+  sustitutoHoraFin: text('sustituto_hora_fin'),
+  sustituto2Id: uuid('sustituto_2_id').references(() => eduTeachers.id),
+  sustituto2Nombre: text('sustituto_2_nombre'),
+  sustituto2Email: text('sustituto_2_email'),
+  sustituto2HoraInicio: text('sustituto_2_hora_inicio'),
+  sustituto2HoraFin: text('sustituto_2_hora_fin'),
   nivel: text('nivel'), // 'en_aula'|'guardia'|'codocencia'|…|'otras'|'libre'|'manual'
   disponibilidad: text('disponibilidad'), // con la que se eligió: 'si'|'si_hace_falta'|'urgencia'|'no'
   avisoEstado: text('aviso_estado').notNull().default('no'), // 'no'|'enviado'|'error'
+  avisoProgramadoPara: timestamp('aviso_programado_para'),
   avisoEnviadoAt: timestamp('aviso_enviado_at'),
   avisoError: text('aviso_error'),
   confirmacionToken: uuid('confirmacion_token'),
   confirmacionEstado: text('confirmacion_estado').notNull().default('pendiente'), // 'pendiente' | 'confirmada'
   confirmacionAt: timestamp('confirmacion_at'),
+  confirmacion2Token: uuid('confirmacion_2_token'),
+  confirmacion2Estado: text('confirmacion_2_estado').notNull().default('pendiente'),
+  confirmacion2At: timestamp('confirmacion_2_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
@@ -1910,6 +1921,22 @@ export const sustInformes = pgTable('sust_informes', {
   mes: text('mes').notNull().unique(), // '2026-10'
   destinatarios: jsonb('destinatarios').$type<string[]>().notNull().default([]),
   resumen: jsonb('resumen').$type<Record<string, unknown>>(),
+  enviadoAt: timestamp('enviado_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const sustEnvios = pgTable('sust_envios', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  ausenciaId: uuid('ausencia_id').notNull().references(() => sustAusencias.id),
+  sesionesIds: text('sesiones_ids').array().notNull().default([]),
+  destinatario: text('destinatario').notNull(),
+  tipo: text('tipo').notNull(),
+  asunto: text('asunto').notNull(),
+  html: text('html').notNull(),
+  replyTo: text('reply_to'),
+  programadoPara: timestamp('programado_para').notNull(),
+  estado: text('estado').notNull().default('pendiente'), // pendiente | enviado | error | cancelado
+  error: text('error'),
   enviadoAt: timestamp('enviado_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

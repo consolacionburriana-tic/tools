@@ -105,8 +105,8 @@ export function FichaAusencia({ ficha, hoy }: { ficha: DatosFicha; hoy: string }
   for (const s of ficha.sesiones) porDia.set(s.fecha, [...(porDia.get(s.fecha) ?? []), s]);
   const conError = ficha.sesiones.filter((s) => s.avisoEstado === 'error');
   const aCubrir = ficha.sesiones.filter((s) => s.hayQueCubrir);
-  const sinCubrir = aCubrir.filter((s) => !s.sustitutoId).length;
-  const avisados = new Set(ficha.sesiones.filter((s) => s.avisoEstado === 'enviado' && s.sustitutoId && s.fecha >= hoy).map((s) => s.sustitutoId)).size;
+  const sinCubrir = aCubrir.filter((s) => !s.sustitutoId && !s.sustituto2Id).length;
+  const avisados = new Set(ficha.sesiones.filter((s) => s.avisoEstado === 'enviado' && s.fecha >= hoy).flatMap((s) => [s.sustitutoId, s.sustituto2Id]).filter(Boolean)).size;
   const motivoInfo = CFG.motivos.find((m) => m.clave === motivo);
   const cambioMotivo = motivo !== a.motivo || (nota || '') !== (a.nota ?? '');
   const cambioIndicaciones = (indicaciones || '') !== (a.indicaciones ?? '');
@@ -177,7 +177,7 @@ export function FichaAusencia({ ficha, hoy }: { ficha: DatosFicha; hoy: string }
                           {horaRango(s.horaInicio, s.horaFin)}
                         </span>
                         {s.grupos && <Etiqueta>{s.grupos}</Etiqueta>}
-                        <EstadoHora hayQueCubrir={s.hayQueCubrir} sustituto={s.sustitutoNombre} avisoEstado={s.avisoEstado} />
+                        <EstadoHora hayQueCubrir={s.hayQueCubrir} sustituto={s.sustitutoNombre ?? s.sustituto2Nombre} avisoEstado={s.avisoEstado} />
                       </div>
                       <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{lugarDe({ grupos: null, materia: s.materia, aula: s.aula })}</p>
                       {s.hayQueCubrir && (
@@ -211,7 +211,8 @@ export function FichaAusencia({ ficha, hoy }: { ficha: DatosFicha; hoy: string }
                               ))}
                             </Selector>
                           )}
-                          {s.sustitutoId && <span className="text-xs text-zinc-500 dark:text-zinc-400">{nombreNivel(s.nivel)} · {TEXTO_AVISO[s.avisoEstado] ?? s.avisoEstado}{s.confirmacionToken ? ` · ${s.confirmacionEstado === 'confirmada' ? 'confirmada por el sustituto' : 'pendiente de confirmación'}` : ''}</span>}
+                          {s.sustitutoId && <span className="text-xs text-zinc-500 dark:text-zinc-400">{nombreNivel(s.nivel)} · {TEXTO_AVISO[s.avisoEstado] ?? s.avisoEstado}{s.avisoProgramadoPara ? ` para ${s.avisoProgramadoPara.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', dateStyle: 'short', timeStyle: 'short' })}` : ''}{s.confirmacionToken ? ` · ${s.confirmacionEstado === 'confirmada' ? 'confirmada por el sustituto' : 'pendiente de confirmación'}` : ''}</span>}
+                          {s.sustituto2Id && <span className="text-xs text-zinc-500 dark:text-zinc-400">También entra {s.sustituto2Nombre} · {horaRango(s.sustituto2HoraInicio ?? s.horaInicio, s.sustituto2HoraFin ?? s.horaFin)}{s.confirmacion2Token ? ` · ${s.confirmacion2Estado === 'confirmada' ? 'confirmada' : 'pendiente de confirmación'}` : ''}</span>}
                         </div>
                       )}
                     </div>

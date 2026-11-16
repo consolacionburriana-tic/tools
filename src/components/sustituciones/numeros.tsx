@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Filtro, Filtros } from '@/components/ui/filtro';
 import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
 import { Vacio } from '@/components/ui/vacio';
+import { Selector } from '@/components/ui/selector';
 import { pedir } from './comun';
 
 const NOMBRE_PERIODO: Record<PeriodoCifras, string> = { mes: 'Este mes', trimestre: 'Trimestre', curso: 'Curso' };
@@ -26,20 +27,22 @@ export interface DatosNumeros {
   desde: string;
   hasta: string;
   resumen: Resumen;
-  informe: { mes: string; html: string; asunto: string; destinatarios: string[]; enviado: { at: string; destinatarios: string[] } | null };
+  informe: { mes: string; html: string; asunto: string; destinatarios: string[]; opcionesDestinatarios: { email: string; nombre: string; rol: string }[]; enviado: { at: string; destinatarios: string[] } | null };
 }
 
 export function Numeros({ datos }: { datos: DatosNumeros }) {
   const router = useRouter();
   const ruta = usePathname();
   const [vista, setVista] = useState(false);
+  const [destinatario, setDestinatario] = useState(datos.informe.opcionesDestinatarios[0]?.email ?? '');
+  const [etapaEnvio, setEtapaEnvio] = useState<'todas' | 'EI' | 'EP' | 'ESO'>('todas');
   const r = datos.resumen;
   const maxCubiertas = Math.max(1, ...r.porSustituto.map((s) => s.total));
   const inf = datos.informe;
 
   async function enviarAhora() {
     try {
-      const res = await pedir<{ enviado: boolean; destinatarios: string[]; motivo?: string; fallidos: string[] }>('/api/sustituciones/admin/informe', { body: { mes: inf.mes } });
+      const res = await pedir<{ enviado: boolean; destinatarios: string[]; motivo?: string; fallidos: string[] }>('/api/sustituciones/admin/informe', { body: { mes: inf.mes, destinatarios: [destinatario], etapa: etapaEnvio } });
       if (res.enviado) toast.success(`Informe enviado a ${res.destinatarios.length === 1 ? '1 persona' : `${res.destinatarios.length} personas`}${res.fallidos.length ? `; falló a ${res.fallidos.join(', ')}` : ''}`);
       else toast.error(res.motivo ?? 'No ha salido');
       router.refresh();
@@ -150,18 +153,17 @@ export function Numeros({ datos }: { datos: DatosNumeros }) {
           ) : (
             <p className="text-sm text-zinc-600 dark:text-zinc-300">Todavía no se ha mandado.</p>
           )}
-          {inf.destinatarios.length === 0 ? (
-            <Aviso tono="aviso">No se han configurado los destinatarios de los informes.</Aviso>
-          ) : (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Le llega a: {inf.destinatarios.join(', ')}</p>
-          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-sm font-medium">Enviar a<Selector aria-label="Destinatario del informe" value={destinatario} onChange={(e) => setDestinatario(e.target.value)}><option value="">Elige jefatura o dirección…</option>{inf.opcionesDestinatarios.map((o) => <option key={o.email} value={o.email}>{o.rol === 'jefe' ? 'Jefatura' : 'Dirección'} · {o.nombre} ({o.email})</option>)}</Selector></label>
+            <label className="space-y-1 text-sm font-medium">Etapa del informe<Selector aria-label="Etapa del informe" value={etapaEnvio} onChange={(e) => setEtapaEnvio(e.target.value as typeof etapaEnvio)}><option value="todas">Todas las etapas</option><option value="EI">Infantil</option><option value="EP">Primaria</option><option value="ESO">ESO</option></Selector></label>
+          </div>
           <ConfirmarEnLinea
             etiqueta={inf.enviado ? 'Volver a enviarlo' : 'Enviarlo ahora'}
             icono={<Send aria-hidden />}
             variante="outline"
-            pregunta={`¿Mandarlo a ${inf.destinatarios.length === 1 ? '1 persona' : `${inf.destinatarios.length} personas`}?`}
+            pregunta={`¿Enviar el resumen ${etapaEnvio === 'todas' ? 'de todas las etapas' : `de ${etapaEnvio}`} a ${destinatario || 'la cuenta seleccionada'}?`}
             confirmar="Enviar"
-            disabled={inf.destinatarios.length === 0}
+            disabled={!destinatario}
             onConfirmar={enviarAhora}
           />
         </TarjetaCuerpo>

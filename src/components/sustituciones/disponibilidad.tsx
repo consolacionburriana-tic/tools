@@ -14,6 +14,7 @@ import { ETAPA_LABEL, type Etapa } from '@/lib/cursos';
 import { DISPONIBILIDAD_INFO, DISPONIBILIDADES, hora, siguienteEstado, type CasillaDisponibilidad, type Disponibilidad as Disp } from '@/lib/sustituciones';
 import type { DatosDisponibilidad } from '@/lib/sustituciones-server';
 import { Aviso } from '@/components/ui/aviso';
+import { Button } from '@/components/ui/button';
 import { ConfirmarEnLinea } from '@/components/ui/confirmar';
 import { Filtro, Filtros } from '@/components/ui/filtro';
 import { Selector } from '@/components/ui/selector';
@@ -186,6 +187,10 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
             <Vacio titulo="Esta etapa no tiene horario importado" />
           ) : (
             <>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
+                <span>La vista «La semana» resume la disponibilidad del equipo. Para cambiar una casilla, edítala por profesor.</span>
+                <Button variant="outline" size="sm" className="min-h-11" onClick={() => cambiarVista('profe')}>Editar por profe</Button>
+              </div>
               {semana.casillas.some((c) => c.falta) && (
                 <Aviso tono="aviso">En ámbar, las franjas sin nadie en «Sí» ni en «Si hace falta»: si alguien falta ahí, costará cubrirlo.</Aviso>
               )}
@@ -269,9 +274,10 @@ function Casilla({ c, onTocar }: { c: CasillaDisponibilidad; onTocar: () => void
       type="button"
       onClick={onTocar}
       disabled={c.bloqueada}
+      aria-pressed={c.retocada}
       aria-label={`${diaLargo(c.dia)} ${hora(c.horaInicio)}: ${DISPONIBILIDAD_INFO[d].nombre}${c.retocada ? ' (a mano)' : ''}. ${texto}`}
       className={cn(
-        'flex min-h-14 w-full flex-col items-start gap-0.5 rounded-lg border p-1.5 text-left text-xs transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed',
+        'touch-manipulation flex min-h-14 w-full flex-col items-start gap-0.5 rounded-lg border p-1.5 text-left text-xs transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed',
         COLOR_DISPONIBILIDAD[d],
       )}
     >

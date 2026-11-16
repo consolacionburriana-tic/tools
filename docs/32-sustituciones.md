@@ -1,8 +1,8 @@
 # Sustituciones · cubrir las ausencias del profesorado (Infantil, Primaria y ESO)
 
-**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (código de las tres fases y tablas base en Neon; pendiente la
-migración de etapas y confirmaciones, el cuadro del centro en el importador, una vuelta con sesión real y el primer correo
-de verdad — ver §5). Las sustituciones largas de Educamos ya se llaman **Coberturas por baja** (ver más abajo).
+**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (tablas base en Neon; pendientes las migraciones de etapas,
+confirmaciones, envíos programados y coberturas dobles; también el cuadro del centro en el importador, una vuelta con sesión
+real y el primer correo de verdad — ver §5). Las sustituciones largas de Educamos ya se llaman **Coberturas por baja**.
 
 > **Ajustes acordados el 16-nov-2026:** el perfil de correo sale desde
 > `jeinfyprim@consolacionburriana.com`; el aviso al sustituto incluye un enlace para confirmar y da las
@@ -12,6 +12,13 @@ de verdad — ver §5). Las sustituciones largas de Educamos ya se llaman **Cobe
 > `jesecundaria@…` y el informe conjunto a `titular@…`. Estos acuerdos sustituyen las instrucciones
 > anteriores de las decisiones 7, 10 y 12 en lo que se contradigan. Las ausencias se asignan a la
 > etapa principal de `edu_teachers.etapa`; si está vacía se usa la primera etapa de `edu_teachers.etapas`.
+
+> **Ampliación solicitada el 16-nov-2026:** los avisos por sustitución se encolan para respetar el
+> límite de las 18:00 y la antelación máxima de dos días; se entregan desde las 08:00 (Europe/Madrid)
+> mediante el worker horario. La propuesta admite un segundo sustituto con franja manual dentro de
+> la sesión. Cada fila elegida significa que el ausente no asiste a esa sesión, aunque quede sin
+> cubrir, y cuenta en las cifras. Números permite elegir una cuenta activa de Jefatura/Dirección y
+> etapa del envío manual. Las cuentas con rol Dirección comparten rol; la titular tiene opción fija.
 
 > **14-nov-2026 · rama de Jose Miguel rehecha sobre este plan.** Su primer borrador (`codexJM/sustituciones`) seguía el
 > plan antiguo (un solo día, por tramo, solo EI/EP, motivo en los correos) y se aplicó en Neon con otra forma de tablas,
@@ -668,6 +675,7 @@ cómo queda: Nouvinguts.
 - [x] Módulo `sustituciones` en `permissions.ts` (`MODULES`, `MODULE_LABELS`, `jefe` y `direccion`), `modulos.ts` (grupo `centro`, icono, `acento` índigo + excepción en `diseno.md`), `escritorio.ts`; tests de permisos.
 - [x] `CONFIGURACION.sustituciones` (§4.3) y su test (más `ALMUERZO` en `nuncaLiberables`, ver 00-desarrollos-futuros).
 - [~] Schema `sust_*` base aplicado en Neon; falta aplicar `sustituciones-etapas-confirmacion.sql` (pendiente por fallo de conexión).
+- [~] Envíos programados, franja de segundo sustituto y cuenta de sesiones ausentes: código y migración `sustituciones-horarios-envios.sql`; pendiente aplicar en Neon.
 - [x] `sustituciones.ts` puro con los tests de §4.4 en verde (44 tests; 1.483 en total).
 - [x] `horarioDeDias` en una tanda (`cargar` en `sustituciones-server.ts`, ~1,2 s); probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (primaria con su horario de septiembre; infantil y ESO con el ordinario).
 - [x] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409`: la amable (con nombre y hora) y una guarda dentro de la misma transacción con cerrojo. Probado contra Neon: choque con otra ausencia del mismo profe, con un sustituto ya ocupado y **dos confirmaciones simultáneas con el mismo sustituto** (una entra, la otra 409).
@@ -685,6 +693,7 @@ cómo queda: Nouvinguts.
 - [x] Tarjeta del escritorio con las horas sin cubrir de hoy (y la pastilla ámbar).
 - [~] **Mis sustituciones** (con el `Aviso` de prueba de concepto), aviso «Tus sustituciones» en «Ahora» y franja en Mi horario, todo detrás de `puedeVerMisSustituciones`; comprobado que un profe sin el módulo no entra (y, poniendo `true` en local, que ve lo suyo y nada más). Hecho; el permiso tiene test, pero **falta comprobarlo en el navegador** con una cuenta de profe.
 - [x] **Rejilla de disponibilidad** (Por profe —una rejilla por etapa— y La semana, de todo el claustro) con `sust_disponibilidad`.
+- [x] Retoque de disponibilidad desde las casillas «Por profe»; la vista «La semana» sigue siendo un resumen agregado.
 - [x] **Ajustes de correos**: plantillas editables en `cfg_ajustes`, vista previa en vivo, prueba y volver al de fábrica.
 - [~] **Cuadro del centro** (decisión 21): hechos la tabla `hor_cuadro_sustituciones`, el tercer criterio de orden y «En el cuadro: …» en Nueva ausencia y La semana. **Falta leerlo en el importador**: ver el formato en un `.docx` real (pedírselo a Jose Miguel), leerlo en el importador de horarios con tests, `hor_cuadro_sustituciones`, y usarlo en la propuesta y en las dos pantallas.
 
@@ -693,6 +702,7 @@ cómo queda: Nouvinguts.
 - [x] Historial con filtros (mes, profe, escolar / personal).
 - [x] Números (mes / trimestre / curso; por ausente y quién ha cubierto más, con urgencias).
 - [~] Informe mensual por etapa (EI+EP a jeinfyprim, ESO a jesecundaria y conjunto a titular), selector de etapa en Números e idempotencia por mes. Pendiente aplicar la migración SQL y validar destinatarios con envío real.
+- [~] Envío manual en Números: cuenta activa de Jefatura/Dirección y etapa seleccionable; pendiente probar con cuentas reales.
 - [~] Configurar y comprobar la delegación Gmail del remitente `jeinfyprim@consolacionburriana.com` en el entorno de producción.
 
 ### Más adelante (ideas, no se hacen sin que David las pida)

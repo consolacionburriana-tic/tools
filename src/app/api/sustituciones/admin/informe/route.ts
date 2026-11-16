@@ -25,8 +25,8 @@ export async function POST(request: Request) {
   const user = await requireModule('sustituciones');
   if (isGuardResponse(user)) return user;
   try {
-    const { mes } = z.object({ mes: Mes }).parse(await request.json());
-    return NextResponse.json(await enviarInforme(mes, { forzar: true, quien: await quienDe(user) }));
+    const { mes, destinatarios, etapa } = z.object({ mes: Mes, destinatarios: z.array(z.string().email()).min(1).optional(), etapa: z.enum(['todas', 'EI', 'EP', 'ESO']).optional() }).parse(await request.json());
+    return NextResponse.json(await enviarInforme(mes, { forzar: true, quien: await quienDe(user), destinatarios, etapa }));
   } catch (e) {
     return respuestaError(e, 'mandar el informe');
   }

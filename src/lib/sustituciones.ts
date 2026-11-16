@@ -39,7 +39,7 @@ export function peorDisponibilidad(a: Disponibilidad, b: Disponibilidad): Dispon
 export const ESTADOS_AUSENCIA = ['confirmada', 'anulada'] as const;
 export type EstadoAusencia = (typeof ESTADOS_AUSENCIA)[number];
 
-export const ESTADOS_AVISO = ['no', 'enviado', 'error'] as const;
+export const ESTADOS_AVISO = ['no', 'programado', 'enviado', 'error'] as const;
 export type EstadoAvisoSust = (typeof ESTADOS_AVISO)[number];
 
 /** Claves de nivel que no salen de la lista: el codocente de la misma sesión, la hora libre y lo elegido a mano. */
@@ -1064,6 +1064,8 @@ export interface FilaCuenta {
   hayQueCubrir: boolean;
   sustitutoId: string | null;
   sustitutoNombre: string | null;
+  sustituto2Id?: string | null;
+  sustituto2Nombre?: string | null;
   disponibilidad: string | null;
 }
 
@@ -1089,12 +1091,15 @@ export function resumir(filas: readonly FilaCuenta[], cfg: ConfigSustituciones =
     a.total++;
     ausentes.set(f.profeId, a);
     if (f.hayQueCubrir) aCubrir++;
-    if (f.sustitutoId) {
+    if (f.sustitutoId || f.sustituto2Id) {
       if (f.hayQueCubrir) cubiertas++;
-      const s = sustitutos.get(f.sustitutoId) ?? { id: f.sustitutoId, nombre: f.sustitutoNombre ?? '—', total: 0, urgencia: 0 };
+    }
+    for (const [id, nombre] of [[f.sustitutoId, f.sustitutoNombre], [f.sustituto2Id ?? null, f.sustituto2Nombre ?? null]] as const) {
+      if (!id) continue;
+      const s = sustitutos.get(id) ?? { id, nombre: nombre ?? '—', total: 0, urgencia: 0 };
       s.total++;
-      if (f.disponibilidad === 'urgencia') s.urgencia++;
-      sustitutos.set(f.sustitutoId, s);
+      if (id === f.sustitutoId && f.disponibilidad === 'urgencia') s.urgencia++;
+      sustitutos.set(id, s);
     }
   }
   const porNombre = (a: { nombre: string }, b: { nombre: string }) => a.nombre.localeCompare(b.nombre, 'es');
@@ -1151,6 +1156,11 @@ export const SesionElegida = z.object({
   fecha,
   horSesionId: uuid,
   sustitutoId: uuid.nullable(),
+  sustituto2Id: uuid.nullable().optional(),
+  sustitutoHoraInicio: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  sustitutoHoraFin: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  sustituto2HoraInicio: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  sustituto2HoraFin: z.string().regex(/^\d{2}:\d{2}$/).optional(),
 });
 
 export const PeticionAusencia = z

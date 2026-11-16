@@ -7,3 +7,4 @@
 # quitan de aquí en el mismo commit y se marcan las casillas de la ficha del módulo.
 # Aplicar antes de desplegar la ampliación de Sustituciones.
 sustituciones-etapas-confirmacion
+sustituciones-horarios-envios

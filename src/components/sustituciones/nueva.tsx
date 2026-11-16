@@ -64,6 +64,9 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
   const [error, setError] = useState<string | null>(null);
   const [encendidas, setEncendidas] = useState<Set<string>>(new Set());
   const [fijados, setFijados] = useState<Record<string, string | null>>({});
+  const [segundos, setSegundos] = useState<Record<string, string | null>>({});
+  const [rangosPrincipales, setRangosPrincipales] = useState<Record<string, { inicio: string; fin: string }>>({});
+  const [rangosCobertura, setRangosCobertura] = useState<Record<string, { inicio: string; fin: string }>>({});
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const [guardando, setGuardando] = useState(false);
   const peticion = useRef(0);
@@ -104,6 +107,9 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
       const ya = (s: SesionAusente) => r.yaApuntadas.some((y) => y.fecha === s.fecha && solapa(y, s));
       setEncendidas(new Set(r.dias.flatMap((d) => d.sesiones.filter((s) => s.hayQueCubrir && !ya(s)).map(claveSesion))));
       setFijados({});
+      setSegundos({});
+      setRangosPrincipales({});
+      setRangosCobertura({});
       setAbiertos(new Set(r.dias.slice(0, 1).map((d) => d.fecha)));
     } catch (e) {
       if (n === peticion.current) {
@@ -177,6 +183,15 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
         fecha: s.fecha,
         horSesionId: s.sesionId,
         sustitutoId: s.hayQueCubrir ? (propuesta.get(claveSesion(s))?.elegido?.id ?? null) : null,
+        sustituto2Id: s.hayQueCubrir ? (segundos[claveSesion(s)] ?? null) : null,
+        ...(s.hayQueCubrir ? {
+          sustitutoHoraInicio: rangosPrincipales[claveSesion(s)]?.inicio ?? s.horaInicio,
+          sustitutoHoraFin: rangosPrincipales[claveSesion(s)]?.fin ?? s.horaFin,
+        } : {}),
+        ...(s.hayQueCubrir && segundos[claveSesion(s)] ? {
+          sustituto2HoraInicio: rangosCobertura[claveSesion(s)]?.inicio ?? s.horaInicio,
+          sustituto2HoraFin: rangosCobertura[claveSesion(s)]?.fin ?? s.horaFin,
+        } : {}),
       }));
       const r = await pedir<{ id: string; avisos: Avisos | null; liberadas: unknown[] }>('/api/sustituciones/admin/ausencias', {
         body: { profeId: datos.profe.id, desde: datos.desde, hasta: datos.hasta, motivo, nota: nota || null, indicaciones: indicaciones || null, avisar, avisarAusente, sesiones },
@@ -323,7 +338,13 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
                                       yaApuntada={yaApuntada(s)}
                                       onActiva={(v) => alternar(s, v)}
                                       propuesta={propuesta.get(claveSesion(s))}
-                                      onElegir={(id) => setFijados((prev) => ({ ...prev, [claveSesion(s)]: id }))}
+                                      onElegir={(id) => { const clave = claveSesion(s); setFijados((prev) => ({ ...prev, [clave]: id })); if (id && id === segundos[clave]) setSegundos((prev) => ({ ...prev, [clave]: null })); }}
+                                      segundo={segundos[claveSesion(s)] ?? null}
+                                      onElegirSegundo={(id) => setSegundos((prev) => ({ ...prev, [claveSesion(s)]: id }))}
+                                      rangoPrincipal={rangosPrincipales[claveSesion(s)] ?? { inicio: s.horaInicio, fin: s.horaFin }}
+                                      onCambiarRangoPrincipal={(inicio, fin) => setRangosPrincipales((prev) => ({ ...prev, [claveSesion(s)]: { inicio, fin } }))}
+                                      rango={rangosCobertura[claveSesion(s)] ?? { inicio: s.horaInicio, fin: s.horaFin }}
+                                      onCambiarRango={(inicio, fin) => setRangosCobertura((prev) => ({ ...prev, [claveSesion(s)]: { inicio, fin } }))}
                                     />
                                   ))}
                                 </ul>
@@ -403,6 +424,12 @@ export function FilaHora({
   onActiva,
   propuesta,
   onElegir,
+  segundo,
+  onElegirSegundo,
+  rangoPrincipal,
+  onCambiarRangoPrincipal,
+  rango,
+  onCambiarRango,
 }: {
   s: SesionAusente;
   activa: boolean;
@@ -410,13 +437,19 @@ export function FilaHora({
   onActiva: (v: boolean) => void;
   propuesta?: PropuestaSesion;
   onElegir: (id: string | null) => void;
+  segundo: string | null;
+  onElegirSegundo: (id: string | null) => void;
+  rangoPrincipal: { inicio: string; fin: string };
+  onCambiarRangoPrincipal: (inicio: string, fin: string) => void;
+  rango: { inicio: string; fin: string };
+  onCambiarRango: (inicio: string, fin: string) => void;
 }) {
   const elegido = propuesta?.elegido ?? null;
   const que = describirSesion(s);
   return (
     <li className={cn('rounded-xl border border-zinc-200 p-3 dark:border-zinc-800', !activa && 'bg-zinc-50 dark:bg-zinc-900/40')}>
       <div className="flex items-start gap-3">
-        <Interruptor activo={activa} onChange={onActiva} etiqueta={`${s.horaInicio} ${que}`} etiquetaOculta disabled={yaApuntada} />
+        <Interruptor activo={activa} onChange={onActiva} etiqueta={`No asiste · ${s.horaInicio} ${que}`} etiquetaOculta disabled={yaApuntada} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-sm font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">
@@ -459,6 +492,14 @@ export function FilaHora({
                 )}
               </div>
               {propuesta.enCuadro.length > 0 && <p className="text-xs text-zinc-500 dark:text-zinc-400">En el cuadro: {propuesta.enCuadro.join(', ')}</p>}
+              {elegido && <div className="flex flex-wrap items-center gap-2 text-sm"><span>Franja de {elegido.nombre}:</span><label>Desde <input aria-label="Desde la hora del primer sustituto" type="time" value={rangoPrincipal.inicio} onChange={(e) => onCambiarRangoPrincipal(e.target.value, rangoPrincipal.fin)} className="h-11 rounded-md border bg-background px-2" /></label><label>Hasta <input aria-label="Hasta la hora del primer sustituto" type="time" value={rangoPrincipal.fin} onChange={(e) => onCambiarRangoPrincipal(rangoPrincipal.inicio, e.target.value)} className="h-11 rounded-md border bg-background px-2" /></label></div>}
+              {elegido && <div className="grid gap-2 sm:grid-cols-2">
+                <Selector aria-label={`Segundo sustituto de ${s.horaInicio}`} value={segundo ?? ''} onChange={(e) => onElegirSegundo(e.target.value || null)}>
+                  <option value="">Sin segundo sustituto</option>
+                  {propuesta.candidatos.filter((c) => c.id !== elegido?.id).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </Selector>
+                {segundo && <div className="flex items-center gap-2 text-sm"><span>Franja del segundo:</span><label>Desde <input aria-label="Desde la hora del segundo sustituto" type="time" value={rango.inicio} onChange={(e) => onCambiarRango(e.target.value, rango.fin)} className="h-11 rounded-md border bg-background px-2" /></label><label>Hasta <input aria-label="Hasta la hora del segundo sustituto" type="time" value={rango.fin} onChange={(e) => onCambiarRango(rango.inicio, e.target.value)} className="h-11 rounded-md border bg-background px-2" /></label></div>}
+              </div>}
             </div>
           )}
         </div>

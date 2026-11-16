@@ -35,7 +35,10 @@ export function EtiquetaDisponibilidad({ d }: { d: Disponibilidad }) {
 export function EstadoHora({ hayQueCubrir, sustituto, avisoEstado }: { hayQueCubrir: boolean; sustituto: string | null; avisoEstado: string }) {
   let tono: TonoEstado = 'neutro';
   let texto = 'Solo cuenta';
-  if (hayQueCubrir && avisoEstado === 'error') {
+  if (hayQueCubrir && avisoEstado === 'programado') {
+    tono = 'aviso';
+    texto = 'Correo programado';
+  } else if (hayQueCubrir && avisoEstado === 'error') {
     tono = 'error';
     texto = 'Correo con error';
   } else if (hayQueCubrir && sustituto) {
@@ -48,7 +51,7 @@ export function EstadoHora({ hayQueCubrir, sustituto, avisoEstado }: { hayQueCub
   return <Estado tono={tono}>{texto}</Estado>;
 }
 
-export const TEXTO_AVISO: Record<string, string> = { no: 'Sin avisar', enviado: 'Avisado', error: 'Error al avisar' };
+export const TEXTO_AVISO: Record<string, string> = { no: 'Sin avisar', programado: 'Correo programado', enviado: 'Avisado', error: 'Error al avisar' };
 
 /** fetch con JSON y el error del servidor como mensaje. */
 export async function pedir<T>(url: string, init?: { method?: string; body?: unknown }): Promise<T> {
@@ -64,6 +67,7 @@ export async function pedir<T>(url: string, init?: { method?: string; body?: unk
 
 export interface Avisos {
   enviados: number;
+  programados: number;
   fallidos: { nombre: string; error: string }[];
 }
 
@@ -71,8 +75,9 @@ export interface Avisos {
 export function textoAvisos(a: Avisos | null | undefined): string | null {
   if (!a) return null;
   const ok = a.enviados === 1 ? 'Avisada 1 persona' : `Avisadas ${a.enviados} personas`;
-  if (a.fallidos.length === 0) return a.enviados ? ok : null;
-  return `${a.enviados ? `${ok}; ` : ''}falló el correo a ${a.fallidos.map((f) => f.nombre).join(', ')}`;
+  const programados = a.programados ? `${a.programados} correo${a.programados === 1 ? '' : 's'} programado${a.programados === 1 ? '' : 's'}` : '';
+  if (a.fallidos.length === 0) return [a.enviados ? ok : '', programados].filter(Boolean).join('; ') || null;
+  return `${[a.enviados ? ok : '', programados].filter(Boolean).join('; ')}${a.enviados || programados ? '; ' : ''}falló el correo a ${a.fallidos.map((f) => f.nombre).join(', ')}`;
 }
 
 export function horaRango(inicio: string, fin: string): string {

@@ -22,7 +22,7 @@ export default async function NumerosPage({ searchParams }: { searchParams: Prom
       <Numeros
         datos={{
           ...c,
-          informe: { mes, html, asunto: subject, destinatarios: inf.destinatarios, enviado: inf.enviado ? { at: inf.enviado.at.toISOString(), destinatarios: inf.enviado.destinatarios } : null },
+          informe: { mes, html, asunto: subject, destinatarios: inf.destinatarios, opcionesDestinatarios: inf.opcionesDestinatarios, enviado: inf.enviado ? { at: inf.enviado.at.toISOString(), destinatarios: inf.enviado.destinatarios } : null },
         }}
       />
     </>
