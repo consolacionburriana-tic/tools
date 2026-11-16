@@ -27,9 +27,8 @@ Léelo en este orden si te incorporas a una sesión de desarrollo (persona o age
    Lectura obligada antes de implementar nada.
    **[`docs/diseno.md`](./diseno.md)** — CÓMO se pinta: las piezas comunes de
    `src/components/ui/`, las reglas de diseño y lo que no se hace. Antes de tocar una pantalla.
-3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — decisiones pendientes,
-   inputs que solo David puede desbloquear, decisiones ya cerradas (el histórico del *por qué*) e
-   ideas sin decidir. Documento vivo.
+3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — una página: lo que
+   está para decidir, ideas sin decidir y limpieza técnica pendiente.
 4. **[`docs/08-despliegue-y-fork.md`](./08-despliegue-y-fork.md)** — dónde se hace cada cosa para
    desplegar el repo en otro colegio (fork con cuentas propias). Si tocas algo que afecte a
    variables de entorno, cuentas externas o al schema inicial, actualízala en el mismo commit.
@@ -37,7 +36,7 @@ Léelo en este orden si te incorporas a una sesión de desarrollo (persona o age
    técnico y checklist de fases (formato heredado de `11-licencias-v2.md`, que fue el primero).
 
 **Regla de oro:** antes de tocar un módulo, lee su ficha. Antes de decidir alcance nuevo, mira
-"Decisiones pendientes" en `00-desarrollos-futuros.md`. Cuando una decisión se cierra, se mueve
+«Para decidir» en `00-desarrollos-futuros.md`. Cuando una decisión se cierra, se mueve
 del doc de futuros a la sección "Decisiones cerradas" de la ficha del módulo correspondiente.
 
 ### Protocolo "sigue haciendo" (para agentes)
@@ -57,7 +56,7 @@ Cuando David diga "sigue haciendo" (o equivalente) sin más contexto, este es el
    pendiente de implementar. No abuses de este estado: solo cuando el código ya existe y
    funciona, y lo único que falta es algo que solo David puede dar o probar.
 5. Si durante el trabajo surge una decisión nueva, no la tomes en silencio: apúntala en
-   `00-desarrollos-futuros.md` (si bloquea, en "Decisiones pendientes"; si no, en "Ideas") y
+   `00-desarrollos-futuros.md` (en «Para decidir», en una línea) y
    menciónala al reportar.
 6. Al terminar la sesión, actualiza la tabla maestra si algún estado cambió (⬜ → 🟡 → ✅).
 
