@@ -128,6 +128,8 @@ function palabraAviso(a: AvisoCandidato): string {
       return 'Sin profe';
     case 'cubierta':
       return 'Cubierta';
+    case 'educacion_fisica':
+      return 'EF · mejor no';
   }
 }
 

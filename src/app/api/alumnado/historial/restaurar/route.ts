@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const guard = await requireModule('alumnado');
   if (isGuardResponse(guard)) return guard;
   if (!puedeVerHistorialAlumnado(guard.role)) {
-    return NextResponse.json({ error: 'Restaurar lo cambian secretaría, dirección y TIC' }, { status: 403 });
+    return NextResponse.json({ error: 'Restaurar lo cambian secretaría, jefatura, dirección y TIC' }, { status: 403 });
   }
   try {
     const { ids, lote } = cuerpo.parse(await request.json());

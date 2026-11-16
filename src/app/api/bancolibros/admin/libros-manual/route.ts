@@ -10,7 +10,7 @@ async function guard() {
   const user = await requireModule('bancolibros');
   if (isGuardResponse(user)) return user;
   if (!puedeGestionarParticipantesBanco(user.role)) {
-    return NextResponse.json({ error: 'Solo dirección/TIC pueden configurar el catálogo de libros' }, { status: 403 });
+    return NextResponse.json({ error: 'Solo secretaría, jefatura, dirección y TIC pueden configurar el catálogo de libros' }, { status: 403 });
   }
   return user;
 }

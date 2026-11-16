@@ -286,13 +286,15 @@ export function diffModulos(
 }
 
 /**
- * Dentro del módulo `bancolibros`, dos cosas quedan reservadas a dirección/TIC (no a
- * tutores, de momento): marcar quién participa en el banco/AMPA, y configurar a mano el
- * catálogo de libros por curso. El resto del módulo (lotes, checks, pasar lista) lo sigue
+ * Dentro del módulo `bancolibros`, dos cosas quedan reservadas a quien lleva el centro
+ * (secretaría, jefatura, dirección y TIC; no tutores): marcar quién participa en el banco/AMPA,
+ * y configurar a mano el catálogo de libros por curso. Jefatura entra el 16-nov-2026 (David:
+ * «Jefatura puede editar Banco, AMPA y protección de datos, como secretaría»), en el permiso
+ * entero: es el mismo dato se toque desde el banco o desde Alumnado. El resto del módulo (lotes, checks, pasar lista) lo sigue
  * llevando cualquier rol con acceso al módulo, sin cambios.
  */
 export function puedeGestionarParticipantesBanco(role: Role | null): boolean {
-  return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
+  return role === 'direccion' || role === 'jefe' || role === 'secretaria' || role === 'tic' || role === 'supertic';
 }
 
 /**
@@ -326,18 +328,18 @@ export function veProteccionDatosCompleta(acceso: Acceso | null | undefined): bo
 }
 
 /**
- * Y EDITARLA es todavía más estrecho: los papeles firmados los guarda secretaría, y
- * dirección/TIC arreglan lo que haga falta. Un tutor la ve (la suya) pero no la toca: si
+ * Y EDITARLA es todavía más estrecho: los papeles firmados los guarda secretaría, jefatura y
+ * dirección los gestionan (jefatura desde el 16-nov-2026, David) y TIC arregla lo que haga falta. Un tutor la ve (la suya) pero no la toca: si
  * cada uno pudiera cambiarla desde la ficha, el dato dejaría de significar «lo que hay
  * firmado» para significar «lo que le pareció a alguien».
  */
 export function puedeEditarProteccionDatos(role: Role | null): boolean {
-  return role === 'direccion' || role === 'secretaria' || role === 'tic' || role === 'supertic';
+  return role === 'direccion' || role === 'jefe' || role === 'secretaria' || role === 'tic' || role === 'supertic';
 }
 
 /**
  * El libro de cambios de Alumnado (docs/31-auditoria.md): ver quién marcó qué y restaurarlo.
- * Lo ven y lo usan quienes pueden marcar esas casillas: secretaría, dirección y TIC. Cada
+ * Lo ven y lo usan quienes pueden marcar esas casillas: secretaría, jefatura, dirección y TIC. Cada
  * restauración vuelve a comprobar el permiso del tipo de casilla (banco/AMPA exige además el
  * módulo del banco).
  */

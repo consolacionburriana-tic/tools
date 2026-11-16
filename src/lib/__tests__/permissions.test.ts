@@ -234,9 +234,9 @@ describe('banco de libros', () => {
     }
   });
 
-  it('marcar quién participa desde Alumnado no depende del módulo: secretaría, dirección y TIC sí', () => {
-    for (const r of ['secretaria', 'direccion', 'tic', 'supertic'] as const) expect(puedeGestionarParticipantesBanco(r)).toBe(true);
-    for (const r of ['tutor', 'profe', 'jefe', 'orientacion'] as const) expect(puedeGestionarParticipantesBanco(r)).toBe(false);
+  it('marcar quién participa desde Alumnado no depende del módulo: secretaría, jefatura, dirección y TIC sí', () => {
+    for (const r of ['secretaria', 'jefe', 'direccion', 'tic', 'supertic'] as const) expect(puedeGestionarParticipantesBanco(r)).toBe(true);
+    for (const r of ['tutor', 'profe', 'orientacion'] as const) expect(puedeGestionarParticipantesBanco(r)).toBe(false);
   });
 });
 
@@ -279,9 +279,9 @@ describe('Horarios: el profe raso solo ve su tutoría', () => {
 });
 
 describe('libro de cambios de Alumnado', () => {
-  it('lo ven y restauran secretaría, dirección y TIC; nadie más', () => {
-    for (const role of ['secretaria', 'direccion', 'tic', 'supertic'] as const) expect(puedeVerHistorialAlumnado(role), role).toBe(true);
-    for (const role of ['tutor', 'profe', 'jefe', 'orientacion', 'comunicacion', 'evaluaciones', null] as const) {
+  it('lo ven y restauran secretaría, jefatura, dirección y TIC; nadie más', () => {
+    for (const role of ['secretaria', 'jefe', 'direccion', 'tic', 'supertic'] as const) expect(puedeVerHistorialAlumnado(role), role).toBe(true);
+    for (const role of ['tutor', 'profe', 'orientacion', 'comunicacion', 'evaluaciones', null] as const) {
       expect(puedeVerHistorialAlumnado(role), String(role)).toBe(false);
     }
   });
