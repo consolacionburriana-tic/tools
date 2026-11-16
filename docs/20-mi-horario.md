@@ -319,7 +319,13 @@ cuadrícula solo tenía filas donde había alguna clase; ahora pinta toda la rej
 - [ ] **Probar con sesión real en el navegador**: lo verificado salta el login (se llamó a las
       funciones del servidor directamente), así que el tramo HTTP con la sesión de Google no está
       probado de punta a punta
-- [ ] Anotar en el recreo o el comedor (guardia de patio) — hoy solo franjas lectivas
+- [x] Anotar en el recreo o el comedor (guardia de patio): el patio y el comedor llevan un «+» por día y
+      lo anotado se ve en su franja; al reimportar, lo del patio vuelve al patio (16-nov-2026, sobre el
+      trabajo a medias de la rama `claude/cool-thompson-v8hojk`). Probado contra Neon.
+- [x] Sumar otra cosa a una hora que ya tiene algo (una codocencia): desde el detalle de la clase,
+      «Añadir otra cosa a esta hora» (en iPad y ordenador igual, sin botones que solo salen con el
+      ratón). El servidor solo lo deja si se pide así (`sumar`); sin eso sigue diciendo «Ya tienes algo
+      a esa hora». Opciones nuevas: Codocencia y Otra cosa.
 - [ ] Anotaciones «solo este día» o quincenales (hoy se repiten cada semana del periodo)
 - [ ] Que jefatura pueda anotar en el horario de otro profe
 

@@ -277,7 +277,7 @@ export function FichaAlumnoPanel({
         puedeServicios={Boolean(ficha.permisos?.servicios)}
         onCambio={(cambio) => onActualizar(ficha.id, cambio)}
       />
-      {/* El libro de cambios de esta persona: ver quién marcó qué y restaurarlo (secretaría, dirección y TIC). */}
+      {/* El libro de cambios de esta persona: ver quién marcó qué y restaurarlo (secretaría, jefatura, dirección y TIC). */}
       {ficha.permisos?.historial && <HistorialAlumno id={ficha.id} />}
 
       {/* ── 4 · Identificadores ──────────────────────────────────────── */}

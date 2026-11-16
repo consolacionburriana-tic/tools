@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const guard = await requireModule('alumnado');
   if (isGuardResponse(guard)) return guard;
   if (!puedeGestionarParticipantesBanco(guard.role)) {
-    return NextResponse.json({ error: 'Solo dirección/TIC pueden cambiar el banco de libros y el AMPA' }, { status: 403 });
+    return NextResponse.json({ error: 'Solo secretaría, jefatura, dirección y TIC pueden cambiar el banco de libros y el AMPA' }, { status: 403 });
   }
 
   try {

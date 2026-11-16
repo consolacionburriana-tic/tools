@@ -169,6 +169,8 @@ export class ErrorAnotacion extends Error {
  * grupo, con una sesión en ese tramo. Tres inserciones en un solo `batch`: o están las tres o
  * ninguna (no hay transacciones interactivas sobre neon-http, pero el batch sí es atómico).
  */
+const TIPOS_ANOTABLES: readonly string[] = ['sesion', 'recreo', 'comedor'];
+
 export async function crearAnotacion(profeId: string, datos: CrearAnotacion): Promise<{ sesionId: string }> {
   const [tramo] = await db
     .select({
@@ -182,7 +184,9 @@ export async function crearAnotacion(profeId: string, datos: CrearAnotacion): Pr
     .where(eq(horTramos.id, datos.tramoId))
     .limit(1);
   if (!tramo || tramo.periodoId !== datos.periodoId) throw new ErrorAnotacion('Ese hueco no existe en este horario', 404);
-  if ((tramo.tipo ?? 'sesion') !== 'sesion') throw new ErrorAnotacion('Solo se puede anotar en una franja lectiva, no en el recreo ni en el comedor');
+  // Se anota en una hora lectiva, en el patio o en el comedor (una guardia de patio, una tutoría
+  // en el comedor). La entrada y la salida no son un hueco.
+  if (!TIPOS_ANOTABLES.includes(tramo.tipo ?? 'sesion')) throw new ErrorAnotacion('Solo se puede anotar en una hora de clase, en el patio o en el comedor');
 
   // Lo mismo que se ve en pantalla: si a esa hora (mismo día, mismas horas) ya tienes algo, ese
   // hueco no está libre. Se mira por hora y no por tramo porque dos rejillas pueden compartirla.
@@ -202,7 +206,9 @@ export async function crearAnotacion(profeId: string, datos: CrearAnotacion): Pr
       ),
     )
     .limit(1);
-  if (ocupado) throw new ErrorAnotacion('Ya tienes algo a esa hora', 409);
+  // Sin `sumar`, un hueco ocupado es que la pantalla estaba vieja: no se pisa. Con `sumar`, lo nuevo
+  // convive con lo que hay (se ha pedido desde «Añadir otra cosa»).
+  if (ocupado && !datos.sumar) throw new ErrorAnotacion('Ya tienes algo a esa hora', 409);
 
   const [actividad] = await db.select({ id: horActividades.id }).from(horActividades).where(eq(horActividades.codigo, datos.actividad)).limit(1);
   if (!actividad) throw new ErrorAnotacion('Esa actividad no existe en el catálogo: ¿se ejecutó la semilla de horarios?');

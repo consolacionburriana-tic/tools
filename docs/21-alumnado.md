@@ -304,7 +304,7 @@ exactamente la deuda que documenta
       momento solo ahí; banco, AMPA, comedor y materiales siguen sin candado («ya vemos el resto»).
     - **Libro de cambios** (`aud_cambios`, ficha [`31-auditoria.md`](./31-auditoria.md)): cada casilla
       que se marca —protección de datos, banco, AMPA, comedor, complementarias— deja una línea con quién,
-      cuándo, antes y después. Pestaña **«Historial de cambios»** (secretaría, dirección y TIC): lista
+      cuándo, antes y después. Pestaña **«Historial de cambios»** (secretaría, jefatura, dirección y TIC): lista
       por cambio, «Deshacer todo» o «Restaurar» línea a línea; y en cada ficha, el historial de esa
       persona. Lo que llega de Educamos (altas, bajas, cambios de clase) **se anota y no se restaura**.
 

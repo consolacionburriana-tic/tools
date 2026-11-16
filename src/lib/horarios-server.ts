@@ -955,6 +955,7 @@ async function sesionesManualesEnEtapas(periodoId: string, etapas: readonly stri
       dia: horTramos.diaSemana,
       horaInicio: horTramos.horaInicio,
       horaFin: horTramos.horaFin,
+      tipo: horTramos.tipo,
       etapa: horRejillaAmbitos.etapa,
       profeId: horAsignacionProfes.eduTeacherId,
     })
@@ -975,7 +976,7 @@ async function sesionesManualesEnEtapas(periodoId: string, etapas: readonly stri
   // profe ya tiene algo a esa hora necesita a todos.
   return filas.map((f) => ({
     sesionId: f.sesionId, asignacionId: f.asignacionId, dia: f.dia, horaInicio: f.horaInicio, horaFin: f.horaFin,
-    etapa: f.etapa ?? undefined, profeId: f.profeId,
+    tipo: f.tipo, etapa: f.etapa ?? undefined, profeId: f.profeId,
   }));
 }
 
@@ -988,6 +989,7 @@ async function sesionesManualesEnRejilla(periodoId: string, nombreRejilla: strin
       dia: horTramos.diaSemana,
       horaInicio: horTramos.horaInicio,
       horaFin: horTramos.horaFin,
+      tipo: horTramos.tipo,
       profeId: horAsignacionProfes.eduTeacherId,
     })
     .from(horSesiones)

@@ -57,8 +57,9 @@ Depende de: BBDD central (✅) · auth/roles (✅) · catálogo de libros de Lic
   `banco_libros` pero sin lote ni valoración, solo pertenencia. Pestaña propia "AMPA" en el panel
   (toggle sí/no + bulk "todos sí/no"), separada de "Alumnado" porque se reconcilia contra un PDF
   distinto del banco de libros.
-- **Marcar participantes (banco y AMPA) es de dirección/TIC, no de tutores** (2026-09-01, David;
-  confirmado el mismo día como definitivo: no hace falta abrirlo a jefatura ni a tutores). El
+- **Marcar participantes (banco y AMPA) es de secretaría, jefatura, dirección y TIC, no de tutores**
+  (2026-09-01, David; **jefatura entra el 16-nov-2026**, David: «Jefatura puede editar Banco, AMPA y
+  protección de datos, como secretaría». Lo arrastra el mismo permiso: también el catálogo de libros). El
   resto del módulo (lotes, checks de entrega/doc, pasar lista de valoración)
   sigue abierto a cualquier rol con acceso a `bancolibros` — sin cambios ahí. Implementado en
   `puedeGestionarParticipantesBanco()` (`src/lib/permissions.ts`), con guard en las rutas

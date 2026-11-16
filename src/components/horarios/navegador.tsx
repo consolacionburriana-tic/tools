@@ -77,10 +77,12 @@ export function Navegador({
   // Anotar en un hueco libre, o reabrir una anotación propia para cambiarla o quitarla.
   const [hueco, setHueco] = useState<HuecoAnotable | null>(null);
   const [anotada, setAnotada] = useState<CeldaHorario | null>(null);
+  // `sumar` = esa hora ya tiene algo (una clase, una guardia…) y lo nuevo convive con ello.
   const alHueco = editable
-    ? (dia: number, f: FilaHorario) => {
+    ? (dia: number, f: FilaHorario, sumar = false) => {
         const tramoId = f.tramos[dia - 1];
-        if (tramoId) setHueco({ periodoId: editable.periodoId, tramoId, dia, horaInicio: f.horaInicio, horaFin: f.horaFin });
+        if (!tramoId) return;
+        setHueco({ periodoId: editable.periodoId, tramoId, dia, horaInicio: f.horaInicio, horaFin: f.horaFin, lugar: f.tipo === 'sesion' ? null : f.etiqueta, sumar });
       }
     : undefined;
   const [ahora, setAhora] = useState<ReturnType<typeof situarAhora> | null>(null);
@@ -200,7 +202,8 @@ export function Navegador({
 
       {alHueco && (
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Toca un hueco libre para anotar algo a mano: una tutoría individual, atención a familias, una guardia…
+          Toca un hueco libre, o el «+» del patio, para anotar algo a mano: una tutoría individual, una guardia… Para sumar algo a
+          una hora que ya tiene clase (una codocencia), toca la clase y «Añadir otra cosa a esta hora».
         </p>
       )}
 
@@ -210,6 +213,14 @@ export function Navegador({
           celda={detalle}
           onCerrar={() => setDetalle(null)}
           onEditar={editable && detalle.origen === 'manual' ? () => { setAnotada(detalle); setDetalle(null); } : undefined}
+          onAnadir={(() => {
+            const f = filas.find((x) => x.horaInicio === detalle.horaInicio && x.horaFin === detalle.horaFin);
+            if (!alHueco || !f?.tramos[detalle.dia - 1]) return undefined;
+            return () => {
+              alHueco(detalle.dia, f, true);
+              setDetalle(null);
+            };
+          })()}
         />
       )}
       {editable && hueco && (
@@ -243,11 +254,34 @@ function FilaMovil({
   dia: number;
   enCurso: boolean;
   onCelda: (c: CeldaHorario) => void;
-  onHueco?: (dia: number, fila: FilaHorario) => void;
+  onHueco?: (dia: number, fila: FilaHorario, sumar?: boolean) => void;
   colorDe2: (c: CeldaHorario) => ColorCategoria | null;
 }) {
   const celdas = fila.dias[dia - 1];
-  if (fila.tipo !== 'sesion') return <Separador fila={fila} />;
+  if (fila.tipo !== 'sesion') {
+    // El patio y el comedor siguen siendo una línea; debajo, lo que haya anotado y, si se puede,
+    // el botón para anotar (con el mismo aspecto que un hueco libre).
+    const anotable = Boolean(onHueco && fila.tramos[dia - 1]);
+    if (!anotable && celdas.length === 0) return <Separador fila={fila} />;
+    return (
+      <div>
+        <Separador fila={fila} />
+        <div className="space-y-1.5 pb-1.5 pl-16">
+          {celdas.map((c) => <Celda key={c.sesionId} celda={c} onClick={() => onCelda(c)} grande color={colorDe2(c)} />)}
+          {anotable && (
+            <button
+              type="button"
+              onClick={() => { haptic.tap(); onHueco!(dia, fila, celdas.length > 0); }}
+              className="flex min-h-11 w-full items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-left text-sm text-zinc-600 outline-none hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
+              aria-label={`Anotar algo en ${enEl(fila.etiqueta)} el ${DIAS[dia - 1]}, de ${fila.horaInicio} a ${fila.horaFin}`}
+            >
+              <Plus aria-hidden className="size-4" /> {celdas.length > 0 ? 'Añadir otra cosa' : `Anotar algo en ${enEl(fila.etiqueta)}`}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={cn('flex gap-2 rounded-xl p-1.5', enCurso && 'bg-blue-50 ring-1 ring-blue-300 dark:bg-blue-500/10 dark:ring-blue-500/40')}>
       <ColumnaHora fila={fila} className="w-14 shrink-0 pt-1.5" />
@@ -287,10 +321,44 @@ function FilaSemana({
   ahora: ReturnType<typeof situarAhora> | null;
   enCurso: boolean;
   onCelda: (c: CeldaHorario) => void;
-  onHueco?: (dia: number, fila: FilaHorario) => void;
+  onHueco?: (dia: number, fila: FilaHorario, sumar?: boolean) => void;
   colorDe2: (c: CeldaHorario) => ColorCategoria | null;
 }) {
   if (fila.tipo !== 'sesion') {
+    const anotable = Boolean(onHueco && fila.tramos.some(Boolean));
+    // Con algo anotado, o si se puede anotar, el patio pasa de línea a fila con sus cinco días,
+    // con el fondo apagado de un descanso.
+    if (anotable || fila.dias.some((d) => d.length > 0)) {
+      return (
+        <tr className="bg-zinc-50 dark:bg-zinc-800/50">
+          <td className="border-b border-zinc-200 p-2 align-middle dark:border-zinc-800">
+            <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{fila.etiqueta}</p>
+            <p className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
+              {fila.horaInicio}–{fila.horaFin}
+            </p>
+          </td>
+          {fila.dias.map((celdas, i) => (
+            <td key={i} className={cn('border-b border-l border-zinc-200 p-1 align-middle dark:border-zinc-800', ahora?.dia === i + 1 && 'bg-blue-50/40 dark:bg-blue-500/5')}>
+              <div className="space-y-1">
+                {celdas.map((c) => (
+                  <Celda key={c.sesionId} celda={c} onClick={() => onCelda(c)} color={colorDe2(c)} />
+                ))}
+                {onHueco && fila.tramos[i] && (
+                  <button
+                    type="button"
+                    onClick={() => { haptic.tap(); onHueco(i + 1, fila, celdas.length > 0); }}
+                    className="flex h-10 w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 text-zinc-400 transition-colors outline-none hover:border-blue-300 hover:bg-blue-50/60 hover:text-blue-700 focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-zinc-700 dark:text-zinc-500 dark:hover:border-blue-500/50 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
+                    aria-label={`Anotar algo en ${enEl(fila.etiqueta)} el ${DIAS[i]}, de ${fila.horaInicio} a ${fila.horaFin}`}
+                  >
+                    <Plus aria-hidden className="size-4" />
+                  </button>
+                )}
+              </div>
+            </td>
+          ))}
+        </tr>
+      );
+    }
     return (
       <tr>
         <td colSpan={6} className="border-b border-zinc-200 bg-zinc-50 px-3 py-1 dark:border-zinc-800 dark:bg-zinc-800/50">
@@ -382,6 +450,11 @@ function ColumnaHora({ fila, conEtiqueta, className }: { fila: FilaHorario; conE
   );
 }
 
+/** «el patio», «el comedor» (o «el descanso» si la franja no tiene nombre). */
+function enEl(etiqueta: string | null | undefined): string {
+  return `el ${(etiqueta ?? 'descanso').toLowerCase()}`;
+}
+
 function Separador({ fila }: { fila: FilaHorario }) {
   return (
     <div className="flex items-center gap-2 px-1 py-1 text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -455,7 +528,18 @@ function Celda({
   );
 }
 
-function Detalle({ celda, onCerrar, onEditar }: { celda: CeldaHorario; onCerrar: () => void; onEditar?: () => void }) {
+function Detalle({
+  celda,
+  onCerrar,
+  onEditar,
+  onAnadir,
+}: {
+  celda: CeldaHorario;
+  onCerrar: () => void;
+  onEditar?: () => void;
+  /** Sumar otra cosa a esta misma hora (una codocencia, una guardia). */
+  onAnadir?: () => void;
+}) {
   return (
     <Dialog open onOpenChange={(o) => !o && onCerrar()}>
       <DialogContent variante="hoja">
@@ -499,6 +583,11 @@ function Detalle({ celda, onCerrar, onEditar }: { celda: CeldaHorario; onCerrar:
           {celda.notas && <Dato titulo="Notas">{celda.notas}</Dato>}
         </dl>
 
+        {onAnadir && (
+          <Button variant="outline" className="w-full" onClick={() => { haptic.tap(); onAnadir(); }}>
+            <Plus aria-hidden /> Añadir otra cosa a esta hora
+          </Button>
+        )}
         {onEditar && (
           <Button variant="outline" className="w-full" onClick={() => { haptic.tap(); onEditar(); }}>
             <Pencil aria-hidden /> Cambiar o quitar mi anotación
