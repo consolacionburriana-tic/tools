@@ -108,10 +108,13 @@ https://www.googleapis.com/auth/classroom.rosters
 https://www.googleapis.com/auth/admin.directory.user
 https://www.googleapis.com/auth/admin.directory.orgunit
 https://www.googleapis.com/auth/admin.directory.group
+https://www.googleapis.com/auth/gmail.modify
 ```
 
-Los tres últimos son de Correos y grupos (`docs/30-cuentas.md`): crear y suspender cuentas, unidades
-organizativas y grupos.
+`admin.directory.user`, `admin.directory.orgunit` y `admin.directory.group` son de Correos y grupos
+(`docs/30-cuentas.md`): crear y suspender cuentas, unidades organizativas y grupos. `gmail.modify` es de
+las **tareas por correo** (`docs/34-paleta-y-tareas-por-correo.md`): leer y etiquetar los correos que llegan
+a `tic+tarea@` (el buzón se cambia con `TAREAS_BUZON`).
 
 ## 4 · Alumnado y profesorado (paso 16)
 

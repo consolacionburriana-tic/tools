@@ -226,7 +226,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
             </Campo>
           </div>
           <Campo etiqueta="Motivo" id="motivo" ayuda="Solo lo ve quien tiene este módulo: no sale en los correos.">
-            <Selector id="motivo" value={motivo} onChange={(e) => { setMotivo(e.target.value); if (e.target.value === 'baja') setAvisarAusente(false); }}>
+            <Selector id="motivo" value={motivo} onChange={(e) => { setMotivo(e.target.value); setAvisarAusente(e.target.value !== 'baja'); }}>
               <option value="">Elige…</option>
               {CFG.motivos.map((m) => (
                 <option key={m.clave} value={m.clave}>
@@ -364,7 +364,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
               etiqueta="Avisar por correo"
               className="w-auto flex-row-reverse justify-end border-0 bg-transparent px-0 py-0 hover:border-0 dark:bg-transparent"
             />
-            {avisar && <Interruptor activo={avisarAusente} onChange={setAvisarAusente} etiqueta="Enviar correo al profesor sustituido" className="w-auto flex-row-reverse justify-end border-0 bg-transparent px-0 py-0 hover:border-0 dark:bg-transparent" />}
+            {avisar && <Interruptor activo={avisarAusente} onChange={setAvisarAusente} etiqueta="Avisar también a quien falta" className="w-auto flex-row-reverse justify-end border-0 bg-transparent px-0 py-0 hover:border-0 dark:bg-transparent" />}
             {sinCubrir > 0 && <span className="hidden text-amber-700 sm:inline dark:text-amber-400">{sinCubrir === 1 ? '1 sin cubrir' : `${sinCubrir} sin cubrir`}</span>}
           </div>
         }

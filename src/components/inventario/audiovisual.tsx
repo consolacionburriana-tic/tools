@@ -51,7 +51,8 @@ export function Audiovisual({ inv }: { inv: Inventario }) {
   const [accion, setAccion] = useState<AccionAv | 'todas'>('todas');
   const [abierta, setAbierta] = useState<string | null>(null);
 
-  const conAv = filas.filter((f) => f.av || !f.aula.nombre);
+  // Las aulas de clase y las específicas; los espacios comunes (comedor, vestuarios), solo si tienen algo apuntado.
+  const conAv = filas.filter((f) => f.av || f.aula.tipo !== 'comun');
   const visibles = ordenarAv(
     conAv.filter((f) => (pantalla === 'todas' || f.av?.pantalla === pantalla) && (accion === 'todas' || f.av?.accion === accion)),
     orden,

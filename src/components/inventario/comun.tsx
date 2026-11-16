@@ -7,6 +7,7 @@ import { Minus, Plus, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import { PISOS, etiquetaPiso } from '@/lib/inventario';
 import { indexar, etiquetaAula, type FilaAula } from '@/lib/inventario-indice';
 import type { Inventario } from '@/lib/inventario-server';
 import type { Resultado } from '@/app/gestion/inventario/acciones';
@@ -199,21 +200,23 @@ export function ColumnaOrden<T extends string>({
   );
 }
 
-/** Opciones de aula para un `Selector`, por piso. */
+/** Opciones de aula para un `Selector`, por edificio y planta. */
 export function OpcionesAulas({ filas }: { filas: readonly FilaAula[] }) {
   const pisos = new Map<string, FilaAula[]>();
-  for (const f of filas) pisos.set(f.aula.piso ?? 'Otras salas', [...(pisos.get(f.aula.piso ?? 'Otras salas') ?? []), f]);
+  for (const f of filas) pisos.set(f.aula.piso ?? '', [...(pisos.get(f.aula.piso ?? '') ?? []), f]);
   return (
     <>
-      {[...pisos.entries()].map(([piso, lista]) => (
-        <optgroup key={piso} label={piso}>
-          {lista.map((f) => (
-            <option key={f.aula.id} value={f.aula.id}>
-              {etiquetaAula(f)}
-            </option>
-          ))}
-        </optgroup>
-      ))}
+      {[...PISOS, '']
+        .filter((p) => pisos.has(p))
+        .map((piso) => (
+          <optgroup key={piso} label={piso ? etiquetaPiso(piso) : 'Sin planta'}>
+            {pisos.get(piso)!.map((f) => (
+              <option key={f.aula.id} value={f.aula.id}>
+                {etiquetaAula(f)}
+              </option>
+            ))}
+          </optgroup>
+        ))}
     </>
   );
 }

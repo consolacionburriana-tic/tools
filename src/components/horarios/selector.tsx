@@ -179,6 +179,7 @@ export function Selector({
                       icono={cargando ? <Loader2 aria-hidden className="animate-spin" /> : undefined}
                     >
                       {e.nombre}
+                      {e.ubicacion && <span className="text-xs font-normal opacity-70">{e.ubicacion}</span>}
                     </Filtro>
                   );
                 })}

@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Printer, Wrench } from 'lucide-react';
-import { AREAS, AREA_LABEL, PRIORIDADES, PRIORIDAD_LABEL, etiquetaPiso, type Area, type Prioridad } from '@/lib/inventario';
+import { AREAS, AREA_LABEL, PISOS, PRIORIDADES, PRIORIDAD_LABEL, etiquetaPiso, type Area, type Prioridad } from '@/lib/inventario';
 import type { ArregloInv, Inventario } from '@/lib/inventario-server';
 import { buttonVariants } from '@/components/ui/button';
 import { Filtro, Filtros } from '@/components/ui/filtro';
@@ -60,7 +60,7 @@ export function ListaGeneralArreglos({ inv, apuntar }: { inv: Inventario; apunta
       const aulaId = a.aulaId ?? (a.kitId ? kits.get(a.kitId)?.aulaId : null);
       return (aulaId ? aulas.get(aulaId)?.aula.piso : null) ?? '';
     };
-    for (const p of ['PB', 'P1', 'P2', 'P3', '']) {
+    for (const p of [...PISOS, '']) {
       const lista = ordenarArreglos(visibles.filter((a) => pisoDe(a) === p)).sort((x, y) => ordenAula(x) - ordenAula(y));
       if (lista.length) grupos.push({ clave: p || 'otros', titulo: p ? etiquetaPiso(p) : 'Sin aula', lista });
     }
@@ -86,7 +86,7 @@ export function ListaGeneralArreglos({ inv, apuntar }: { inv: Inventario; apunta
             etiqueta="Agrupar por"
             opciones={[
               { valor: 'prioridad', etiqueta: 'Por prioridad' },
-              { valor: 'piso', etiqueta: 'Por piso' },
+              { valor: 'piso', etiqueta: 'Por planta' },
             ]}
             valor={agrupar}
             onChange={setAgrupar}

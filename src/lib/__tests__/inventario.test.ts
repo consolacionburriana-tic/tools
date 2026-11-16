@@ -88,7 +88,7 @@ describe('antenas', () => {
     expect(antenaPorRenombrar({ nombreActual: 'X', nombreNuevo: null })).toBe(false);
   });
   it('propone el nombre por piso y número', () => {
-    expect(nombreAntenaDeAula({ piso: 'P2', numero: '17-18' })).toBe('P2_17');
+    expect(nombreAntenaDeAula({ piso: 'C2', numero: '17-18' })).toBe('C2_17');
     expect(nombreAntenaDeAula({ piso: null, numero: '3' })).toBeNull();
   });
 });
@@ -180,5 +180,31 @@ describe('robótica', () => {
     expect(normalizarUrl('education.lego.com/es-es')).toBe('https://education.lego.com/es-es');
     expect(normalizarUrl('  ')).toBeNull();
     expect(tituloDeUrl('https://www.makeblock.com/x')).toBe('makeblock.com');
+  });
+});
+
+describe('edificios y plantas', () => {
+  it('el código lleva el edificio delante', async () => {
+    const { edificioDe, etiquetaPiso, PISO_LABEL } = await import('../inventario');
+    expect(edificioDe('C2')).toBe('C');
+    expect(edificioDe('P0')).toBe('P');
+    expect(edificioDe(null)).toBeNull();
+    expect(etiquetaPiso('C0')).toBe('Colegio · planta baja (C0)');
+    expect(etiquetaPiso('P2')).toBe('Pabellón · 2.ª planta (P2)');
+    expect(etiquetaPiso(null)).toBe('Sin planta');
+    expect(PISO_LABEL.P1).toBe('P1 · 1.ª planta');
+  });
+});
+
+describe('enlaces con Horarios', () => {
+  it('traduce el PDC de Educamos al de Horarios', async () => {
+    const { claveHorario, codigoAulaPropia, ubicacionEspacio } = await import('../inventario');
+    expect(claveHorario('3ºPPDC', 'PDC')).toBe('3ESO|PDC');
+    expect(claveHorario('1PRI', 'A')).toBe('1PRI|A');
+    expect(codigoAulaPropia('1ESO', 'A')).toBe('A-1ESOA');
+    expect(codigoAulaPropia('4ºPPDC', 'PDC')).toBe('A-4ESOPDC');
+    expect(ubicacionEspacio({ numero: '30', piso: 'C3' })).toBe('Puerta 30 · C3');
+    expect(ubicacionEspacio({ numero: null, piso: 'P2' })).toBe('Pabellón · P2');
+    expect(ubicacionEspacio({ numero: null, piso: null })).toBeNull();
   });
 });
