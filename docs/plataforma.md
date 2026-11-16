@@ -27,9 +27,8 @@ Léelo en este orden si te incorporas a una sesión de desarrollo (persona o age
    Lectura obligada antes de implementar nada.
    **[`docs/diseno.md`](./diseno.md)** — CÓMO se pinta: las piezas comunes de
    `src/components/ui/`, las reglas de diseño y lo que no se hace. Antes de tocar una pantalla.
-3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — decisiones pendientes,
-   inputs que solo David puede desbloquear, decisiones ya cerradas (el histórico del *por qué*) e
-   ideas sin decidir. Documento vivo.
+3. **[`docs/00-desarrollos-futuros.md`](./00-desarrollos-futuros.md)** — una página: lo que
+   está para decidir, ideas sin decidir y limpieza técnica pendiente.
 4. **[`docs/08-despliegue-y-fork.md`](./08-despliegue-y-fork.md)** — dónde se hace cada cosa para
    desplegar el repo en otro colegio (fork con cuentas propias). Si tocas algo que afecte a
    variables de entorno, cuentas externas o al schema inicial, actualízala en el mismo commit.
@@ -37,7 +36,7 @@ Léelo en este orden si te incorporas a una sesión de desarrollo (persona o age
    técnico y checklist de fases (formato heredado de `11-licencias-v2.md`, que fue el primero).
 
 **Regla de oro:** antes de tocar un módulo, lee su ficha. Antes de decidir alcance nuevo, mira
-"Decisiones pendientes" en `00-desarrollos-futuros.md`. Cuando una decisión se cierra, se mueve
+«Para decidir» en `00-desarrollos-futuros.md`. Cuando una decisión se cierra, se mueve
 del doc de futuros a la sección "Decisiones cerradas" de la ficha del módulo correspondiente.
 
 ### Protocolo "sigue haciendo" (para agentes)
@@ -57,7 +56,7 @@ Cuando David diga "sigue haciendo" (o equivalente) sin más contexto, este es el
    pendiente de implementar. No abuses de este estado: solo cuando el código ya existe y
    funciona, y lo único que falta es algo que solo David puede dar o probar.
 5. Si durante el trabajo surge una decisión nueva, no la tomes en silencio: apúntala en
-   `00-desarrollos-futuros.md` (si bloquea, en "Decisiones pendientes"; si no, en "Ideas") y
+   `00-desarrollos-futuros.md` (en «Para decidir», en una línea) y
    menciónala al reportar.
 6. Al terminar la sesión, actualiza la tabla maestra si algún estado cambió (⬜ → 🟡 → ✅).
 
@@ -120,6 +119,7 @@ a construir) y si está **implementado** (ya funciona en el repo).
 | Nouvinguts (ciclo de vida del alumno nuevo: matrícula, claves, protección de datos, correo, iPad, ASM, licencias… hasta cerrar su ciclo) | ✅ | ✅ | 🟡 (en `/gestion/nouvinguts`: lista con la línea de pasos de cada alumno, ficha con sus pasos y notas, apuntar a mano, proceso arrastrable; las altas de la sincronización de Educamos entran solas y se vinculan con lo apuntado. Tablas `nou_*` en Neon. Falta estrenarlo con altas reales) | [`28-nouvinguts.md`](./28-nouvinguts.md) |
 | Dispositivos 1:1 (el iPad de cada alumno —comprado, de casa, prestado o de un hermano—, las cuotas y los iPads del cole: sustitución —los del alumnado— y profesorado) | ✅ | ✅ | 🟡 (en `/gestion/dispositivos`, TIC, secretaría y dirección: alumnado del alcance de AUTOASM por clase, cuotas en Excel y CSV, inventario con alta en serie, modelos e historial; enganchado al paso «iPad» de Nouvinguts y al aviso «No se lleva el iPad a casa» de la ficha de Alumnado. Tablas `dis_*` en Neon, **cargadores de cada iPad del cole** y el inventario de sustitución (S1–S21) ya volcado el 26-oct-2026. Falta el volcado del estado del alumnado y cerrar cómo se cobra) | [`29-dispositivos.md`](./29-dispositivos.md) |
 | Inventario y aulas (cada aula por su número de puerta y la clase que la ocupa cada curso; equipamiento audiovisual, mesas y sillas, antenas wifi, arreglos y el material de robótica con sus kits numerados) | ✅ | ✅ | 🟡 (en `/gestion/inventario` desde el 16-nov-2026, TIC, secretaría y dirección: seis secciones, informes para imprimir y Excel; los cuatro Excel de David volcados en Neon (`inventario.sql`). «Clases de cada aula» con propuesta por tutor o ciclo y aviso del 10-jul al 30-sep. Dos edificios (Colegio C0-C3, Pabellón P0-P2) con el tipo de cada espacio, y cruzado con Horarios: mismos nombres y la puerta de cada aula en el navegador. Falta que David marque lo que ha llegado de robótica) | [`33-inventario.md`](./33-inventario.md) |
+| Paleta ⌘K y tareas por correo (transversal: ir a cualquier herramienta, tablero, aula o alumno, y apuntar una tarea de Tableros en una línea o reenviando un correo) | ✅ | ✅ | 🟡 (⌘K / Ctrl+K y la lupa de la barra en todo `/gestion` desde el 16-nov-2026, probado; las tareas por correo a `tic+tarea@` están escritas y esperan a que David añada `gmail.modify` a la delegación de dominio) | [`34-paleta-y-tareas-por-correo.md`](./34-paleta-y-tareas-por-correo.md) |
 | Sustituciones del profesorado (ausencias de horas o días en infantil, primaria y ESO: quién cubre cada hora por la disponibilidad de cada profe y la prioridad del centro, avisos por correo con plantillas y botón de Calendar, «Mis sustituciones» en prueba de concepto, recuentos e informe mensual) | ✅ (13-nov-2026, todo respondido por David) | ✅ (comprobado contra los horarios de Neon) | ⬜ (hecho el paso previo: las sustituciones largas de Educamos se llaman ya «Coberturas por baja») | [`32-sustituciones.md`](./32-sustituciones.md) |
 | Correos y grupos (cuentas de Google cruzadas con Educamos: crear correos, cada alumno en la unidad de su clase, suspender y archivar bajas, grupos con reglas) | ✅ | ✅ | 🟡 (en `/gestion/cuentas` desde el 20-oct-2026: TIC gestiona, secretaría ve. Leer Google en real (1.237 cuentas, 70 alumnos y 2 profes sin correo); crear, mover, suspender, unidades y grupos escritos: faltan tres scopes en la delegación y confirmar las unidades de cada clase) | [`30-cuentas.md`](./30-cuentas.md) |
 | Libro de cambios (auditoría de las casillas de Alumnado: quién, cuándo, antes y después; restaurar un cambio entero o una línea; el sync de Educamos se anota sin poder restaurarse) | ✅ | ✅ | 🟡 (3-nov-2026: protección de datos, banco, AMPA, comedor y complementarias; pestaña «Historial de cambios» e historial en la ficha para secretaría/dirección/TIC. Falta probarlo con sesión real; la venta de materiales aún no se audita) | [`31-auditoria.md`](./31-auditoria.md) |

@@ -21,6 +21,10 @@
       "schedule": "45 6 * * 1-5"
     },
     {
+      "path": "/api/tableros/cron/correos",
+      "schedule": "10 7 * * 1-5"
+    },
+    {
       "path": "/api/evaluaciones/worker",
       "schedule": "20 4 * * *"
     }
