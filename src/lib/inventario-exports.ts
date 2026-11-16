@@ -4,7 +4,10 @@ import {
   AREA_LABEL,
   AUDIO_LABEL,
   CATEGORIA_ROB_LABEL,
+  EDIFICIO_LABEL,
   ESTADO_KIT_LABEL,
+  TIPO_ESPACIO_LABEL,
+  edificioDe,
   NIVEL_LABEL,
   PANTALLA_LABEL,
   PRIORIDAD_LABEL,
@@ -17,6 +20,7 @@ import {
   type EstadoKit,
   type Pantalla,
   type Prioridad,
+  type TipoEspacio,
 } from './inventario';
 import { etiquetaAula, indexar } from './inventario-indice';
 import type { Inventario } from './inventario-server';
@@ -45,9 +49,24 @@ export function libroInventario(inv: Inventario): Libro {
     hojas: [
       hoja(
         'Aulas',
-        ['Aula', 'Piso', 'Sala', `Clase ${inv.cursoActual}`, 'Tutor/a', 'Alumnos', 'Arreglos pendientes', 'Notas'],
-        filas.map((f) => [f.aula.numero, f.aula.piso, f.aula.nombre, f.cartel, f.tutores.join(', '), f.alumnos, f.pendientes.length, f.aula.notas]),
-        [8, 6, 20, 14, 30, 9, 10, 40],
+        ['Puerta', 'Edificio', 'Planta', 'Tipo', 'Nombre', `Clase ${inv.cursoActual}`, 'Tutor/a', 'Alumnos', 'En Horarios', 'Arreglos pendientes', 'Notas'],
+        filas.map((f) => {
+          const e = edificioDe(f.aula.piso);
+          return [
+            f.aula.numero,
+            e ? EDIFICIO_LABEL[e] : '',
+            f.aula.piso,
+            TIPO_ESPACIO_LABEL[f.aula.tipo as TipoEspacio] ?? f.aula.tipo,
+            f.aula.nombre,
+            f.cartel,
+            f.tutores.join(', '),
+            f.alumnos,
+            f.aula.espacioCodigo,
+            f.pendientes.length,
+            f.aula.notas,
+          ];
+        }),
+        [8, 10, 7, 15, 22, 14, 30, 9, 11, 10, 40],
       ),
       hoja(
         'Audiovisual',

@@ -44,6 +44,17 @@ Ficha: [`33-inventario.md`](./33-inventario.md). Lo pidió David con cuatro Exce
   si no, la regla de promoción de cada etapa. En la ESO no sé si las clases suben de curso en la misma aula: lo
   propone y lo marca «Revisar».
 
+**Edificios (16-nov-2026, segunda vuelta):** David dio los dos edificios y los espacios del Pabellón; lo
+demás lo decidí yo:
+- **Tipo de cada espacio**: el Pabellón deportivo, COM / Godly Play y el Aula Pequeña como *aula
+  específica*; Comedor, Vestuarios, Sala AMPA y Salón Verde como *espacio común*. Se cambia en «Datos».
+- **Nombres unificados con Horarios**: «Aula de Creatividad» → **Aula Creativa** (como en el Excel), «Música»
+  → **Aula de música**, «Polideportivo» → **Pabellón deportivo**. Afecta a lo que se ve en Horarios y a la
+  ubicación que lleva Mi horario a Google Calendar.
+- **Antenas a la norma `C2_15`**: todas las del Excel se dieron por del Colegio (`P2_PASILLO_APOYO`, «pasillo
+  3er ciclo laboratorio», también: el 3er ciclo está en la C2). Si alguna está en el Pabellón, se cambia su
+  planta y nombre en la hoja de la antena. Las del Pabellón no estaban en el Excel.
+
 **Ideas para más adelante (sin decidir):** reservas o registro de uso del material de robótica («ya iremos
 viendo», David); que un profe avise de una avería de su aula y entre como arreglo; historial de cambios del
 audiovisual y de los kits; fotos del aula o del kit; etapa o curso para el que es cada material de robótica,

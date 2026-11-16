@@ -218,11 +218,12 @@ export const CONFIGURACION = {
         INFO: { nombre: 'Aula de informática', tipo: 'aula', admiteSolapes: false },
         PLAST: { nombre: 'Aula de plástica', tipo: 'aula', admiteSolapes: false },
         LAB: { nombre: 'Laboratorio', tipo: 'laboratorio', admiteSolapes: false },
-        CREA: { nombre: 'Aula de Creatividad', tipo: 'aula', admiteSolapes: false },
+        CREA: { nombre: 'Aula Creativa', tipo: 'aula', admiteSolapes: false },
         // Música es la de primaria (MUS): una sola aula compartida.
-        MUS: { nombre: 'Música', tipo: 'aula', admiteSolapes: false },
-        // El pabellón es el polideportivo de primaria (POLI): una sola sala, y caben varias clases.
-        POLI: { nombre: 'Polideportivo', tipo: 'pista', admiteSolapes: true },
+        MUS: { nombre: 'Aula de música', tipo: 'aula', admiteSolapes: false },
+        // El pabellón deportivo (planta P0 del edificio Pabellón) es el polideportivo de primaria (POLI): una
+        // sola sala, y caben varias clases. Los nombres son los mismos que en Inventario y aulas (docs/33).
+        POLI: { nombre: 'Pabellón deportivo', tipo: 'pista', admiteSolapes: true },
       } as Record<string, { nombre: string; tipo: string; admiteSolapes: boolean }>,
       normas: [
         { aula: 'TEC', materias: ['TYD', 'Tecnología y Digitalización', 'Tecnología'], detalles: ['Tecnología', 'Digitalización'], oAulaPropia: true },

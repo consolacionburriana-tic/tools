@@ -7,7 +7,7 @@
 // una foto completa de un curso, no un diario de cambios, y "lo que trae el fichero" es
 // siempre la verdad.
 
-import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/db';
@@ -25,10 +25,13 @@ import {
   horRejillas,
   horSesiones,
   horTramos,
+  invAulas,
+  invOcupacion,
 } from '@/db/schema';
 import { compararClases, nombreClase } from '@/lib/cursos';
 import { type AulaDeNorma, type AulasDeNormas } from '@/lib/horarios';
 import { CONFIGURACION } from '@/lib/configuracion';
+import { codigoAulaPropia, ubicacionEspacio } from '@/lib/inventario';
 import {
   aulasEsoPorNormas,
   etapaDeCursoHorario,
@@ -1140,14 +1143,45 @@ export async function getPeriodoVigente(iso = new Date().toISOString().slice(0, 
 export interface OpcionesNavegador {
   clases: { curso: string; letra: string | null; etiqueta: string; etapa: string | null }[];
   profes: { id: string; nombre: string; alias: string | null; etapa: string | null }[];
-  espacios: { id: string; codigo: string; nombre: string }[];
+  /** `ubicacion`: dónde está, sacado de Inventario y aulas («Puerta 30 · C3», «P2»), si se sabe. */
+  espacios: { id: string; codigo: string; nombre: string; ubicacion?: string | null }[];
+}
+
+/**
+ * Dónde está cada espacio de Horarios, según Inventario y aulas: las salas por su código (`INFO` →
+ * «P2») y el aula propia de cada grupo por la clase que la ocupa el curso del periodo (`A-1ESOA` →
+ * «Puerta 30 · C3»). Código de Horarios → texto.
+ */
+async function ubicacionesDeInventario(periodoId: string): Promise<Map<string, string>> {
+  const [salas, clases] = await Promise.all([
+    db
+      .select({ codigo: invAulas.espacioCodigo, numero: invAulas.numero, piso: invAulas.piso })
+      .from(invAulas)
+      .where(and(eq(invAulas.activa, true), isNotNull(invAulas.espacioCodigo))),
+    db
+      .select({ curso: invOcupacion.curso, letra: invOcupacion.letra, numero: invAulas.numero, piso: invAulas.piso })
+      .from(invOcupacion)
+      .innerJoin(invAulas, eq(invAulas.id, invOcupacion.aulaId))
+      .innerJoin(horPeriodos, eq(horPeriodos.academicYear, invOcupacion.academicYear))
+      .where(and(eq(horPeriodos.id, periodoId), isNotNull(invOcupacion.curso))),
+  ]);
+  const mapa = new Map<string, string>();
+  for (const c of clases) {
+    const u = ubicacionEspacio(c);
+    if (u) mapa.set(codigoAulaPropia(c.curso!, c.letra), u);
+  }
+  for (const s of salas) {
+    const u = ubicacionEspacio(s);
+    if (u && s.codigo) mapa.set(s.codigo.toUpperCase(), u);
+  }
+  return mapa;
 }
 
 /** Lo que se puede elegir en el navegador, sacado de lo que REALMENTE tiene horario. */
 export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesNavegador> {
   // Las consultas son independientes y se lanzan juntas para que el navegador no espere
   // viajes encadenados a Neon. También se incluyen salas especiales sin sesiones.
-  const [filas, conProfes, conEspaciosAsig, conEspaciosSes, salasEspeciales] = await Promise.all([
+  const [filas, conProfes, conEspaciosAsig, conEspaciosSes, salasEspeciales, ubicaciones] = await Promise.all([
     db
       .select({
         curso: horAsignacionGrupos.curso,
@@ -1188,6 +1222,8 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
       .select({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre })
       .from(horEspacios)
       .where(and(eq(horEspacios.active, true), inArray(horEspacios.codigo, Object.keys(CONFIGURACION.horarios.aulasEso.aulas)))),
+    // Dónde está cada aula, según Inventario y aulas (docs/33-inventario.md).
+    ubicacionesDeInventario(periodoId).catch(() => new Map<string, string>()),
   ]);
 
   const vistas = new Map<string, { curso: string; letra: string | null }>();
@@ -1207,7 +1243,10 @@ export async function getOpcionesNavegador(periodoId: string): Promise<OpcionesN
     }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
-  const espacios = [...new Map([...salasEspeciales, ...conEspaciosAsig, ...conEspaciosSes].map((e) => [e.id, e])).values()];
+  const espacios = [...new Map([...salasEspeciales, ...conEspaciosAsig, ...conEspaciosSes].map((e) => [e.id, e])).values()].map((e) => ({
+    ...e,
+    ubicacion: ubicaciones.get(e.codigo) ?? null,
+  }));
   return { clases, profes, espacios: espacios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) };
 }
 

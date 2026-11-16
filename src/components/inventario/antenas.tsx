@@ -1,7 +1,7 @@
 'use client';
 
-// Antenas wifi: el nombre que tienen y el que les toca (por número de aula, `P2_15`, o por pasillo,
-// `P1_PASILLO_ASCENSOR`). La parte de «aula del curso 22/23» del Excel se dejó fuera: estaba
+// Antenas wifi: el nombre que tienen y el que les toca (por edificio, planta y número de
+// aula, `C2_15`, o por pasillo, `C1_PASILLO_ASCENSOR`). La parte de «aula del curso 22/23» del Excel se dejó fuera: estaba
 // obsoleta, y el aula de una antena se lee de su número de puerta.
 import { useState } from 'react';
 import Link from 'next/link';
@@ -34,7 +34,7 @@ export function Antenas({ inv }: { inv: Inventario }) {
   const visibles = soloPendientes ? pendientes : inv.antenas;
   const pisos = new Map<string, AntenaInv[]>();
   for (const a of visibles) pisos.set(a.piso ?? '', [...(pisos.get(a.piso ?? '') ?? []), a]);
-  const orden = ['PB', 'P1', 'P2', 'P3', ''];
+  const orden = [...PISOS, ''];
 
   return (
     <div className="space-y-5">
@@ -69,7 +69,7 @@ export function Antenas({ inv }: { inv: Inventario }) {
         .filter((p) => pisos.has(p))
         .map((piso) => (
           <section key={piso || 'otras'} className="space-y-2">
-            <Rotulo>{piso ? etiquetaPiso(piso) : 'Sin piso'}</Rotulo>
+            <Rotulo>{piso ? etiquetaPiso(piso) : 'Sin planta'}</Rotulo>
             <Tarjeta as="section">
               <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {pisos.get(piso)!.map((a) => {
@@ -178,7 +178,7 @@ function HojaAntena({ antena, filas, onCerrar }: { antena: AntenaInv | null; fil
           </Campo>
           {!aulaId && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Campo etiqueta="Piso" id="ant-piso">
+              <Campo etiqueta="Planta" id="ant-piso">
                 <Selector id="ant-piso" value={piso} onChange={(e) => setPiso(e.target.value as Piso | '')}>
                   <option value="">Sin apuntar</option>
                   {PISOS.map((p) => (

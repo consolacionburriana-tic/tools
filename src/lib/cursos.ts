@@ -227,10 +227,12 @@ export function bancoTrasCambioDeCurso(
 
 /**
  * Etiqueta de clase para pantalla: `'2ESO' + 'B'` → `'2ESO B'`, y `'3ºPPDC' + 'PDC'` →
- * `'3ºPPDC'` (en PDC la letra ES el curso, repetirla sobra). Igual que la de Registro ABC,
- * pero aquí porque no es de ningún módulo: la usa todo el que pinte una clase.
+ * `'3ºPPDC'` (en PDC la letra ES el curso, repetirla sobra). Pero Horarios guarda el PDC con su
+ * curso de verdad (`'3ESO' + 'PDC'`), y ahí la letra sí hace falta: `'3ESO PDC'`. Igual que la de
+ * Registro ABC, pero aquí porque no es de ningún módulo: la usa todo el que pinte una clase.
  */
 export function nombreClase(curso: string | null | undefined, letra: string | null | undefined): string {
   if (!curso) return '';
-  return letra && letra !== 'PDC' ? `${curso} ${letra}` : curso;
+  if (!letra || (letra === 'PDC' && /PDC/i.test(curso))) return curso;
+  return `${curso} ${letra}`;
 }
