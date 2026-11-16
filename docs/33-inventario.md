@@ -9,8 +9,35 @@ robótica»), con cuatro Excel: *Clases - Proyectores - TV*, *Mesas y Sillas Cla
 *Nombre Antenas Cole* e *Inventario material pensamiento computacional*. Va en el grupo **Tecnología** del
 escritorio, justo detrás de Dispositivos 1:1, pero es un módulo aparte.
 
-Ruta: `/gestion/inventario`. Acceso: **TIC, SuperTIC, Secretaría y Dirección** (módulo `inventario`, como
+Ruta: `/gestion/inventario`. SQL: `inventario.sql` y `inventario-edificios.sql`, los dos aplicados. Acceso: **TIC, SuperTIC, Secretaría y Dirección** (módulo `inventario`, como
 Dispositivos). Prefijo de tablas: `inv_`.
+
+## Dos edificios, y no todo es un aula (16-nov-2026)
+
+El cole son **dos edificios** (David): el **Colegio** y el **Pabellón**. Cada planta tiene un código con la
+letra del edificio delante, para que nunca se confundan:
+
+| Edificio | Plantas | Qué hay |
+|---|---|---|
+| **Colegio** | C0 · C1 · C2 · C3 | Las 31 aulas del Excel (Infantil en la C0), el Aula de música (15) y el Aula Creativa (22) |
+| **Pabellón** | P0 · P1 · P2 | P0: Pabellón deportivo, Comedor, Vestuarios · P1: Taller de tecnología, Salón Verde, Aula Pequeña · P2: Aula de informática, Aula de plástica, Laboratorio, COM / Godly Play, Sala AMPA |
+
+(David eligió P0 y no PB para la planta baja del Pabellón: así todos los códigos son letra + número.)
+
+Cada espacio tiene además su **tipo**: **aula de clase** (tiene una clase cada curso), **aula específica**
+(se usa por horas: informática, laboratorio, música, el pabellón deportivo, COM / Godly Play, el Aula
+Pequeña…) o **espacio común** (comedor, vestuarios, Sala AMPA, Salón Verde). Solo las aulas de clase salen
+en «Clases de cada aula»; en Audiovisual salen las de clase y las específicas.
+
+**Con Horarios cuadra todo**: las salas tienen el mismo nombre en los dos módulos y cada una está enlazada a
+su código de Horarios (`INFO`, `PLAST`, `LAB`, `TEC`, `MUS`, `CREA`, `POLI`). La ficha de un espacio lleva a
+su horario (y, si es un aula de clase, al de su clase); y en Horarios, cada aula dice su puerta y su planta.
+COM / Godly Play, el Aula Pequeña y los espacios comunes no salen en Horarios (no tienen horas puestas): si
+algún día las tienen, se enlazan desde «Datos» de su ficha.
+
+**Antenas**: la norma de nombres pasa a ser edificio + planta + aula o sitio: `C2_15`, `C0_PASILLO_ASCENSOR`,
+y las del Pabellón `P1_…`. Por eso las que ya estaban renombradas a la norma vieja (`P3_26`, `P3_29`) vuelven a
+salir «por renombrar» (a `C3_26`, `C3_29`). CAPILLA se queda igual (no se sabe su planta).
 
 ## La idea que lo ordena todo: el aula es la puerta, no la clase
 
@@ -116,6 +143,8 @@ El Excel bueno es *Clases - Proyectores - TV* (David): su columna «Clase 25/26�
 - [x] Clases de cada aula con propuesta (tutor o ciclo) y aviso del 10-jul al 30-sep (cabecera, escritorio e insignia)
 - [x] Informes para imprimir y Excel con todo
 - [x] Módulo `inventario` en la matriz de roles y tarjeta en el escritorio
+- [x] Dos edificios (Colegio C0-C3, Pabellón P0-P2), tipo de cada espacio, los espacios del Pabellón y la norma de antenas `C2_15` (`inventario-edificios.sql`, aplicado el 16-nov-2026)
+- [x] Cruzado con Horarios: mismos nombres, enlaces de ida y vuelta y la puerta de cada aula en el navegador
 - [ ] Estreno de David: marcar lo que ha llegado de robótica (los Lego Spike, L1…) y repasar los arreglos sembrados
 
 ### Fase 2 · ideas (sin decidir, en `00-desarrollos-futuros.md`)

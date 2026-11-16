@@ -12,14 +12,21 @@ import {
   AUDIO_LABEL,
   PANTALLAS,
   PANTALLA_LABEL,
+  EDIFICIOS,
+  EDIFICIO_LABEL,
   PISOS,
   PISO_LABEL,
+  TIPOS_ESPACIO,
+  TIPO_ESPACIO_AYUDA,
+  TIPO_ESPACIO_LABEL,
+  edificioDe,
   cuadreMobiliario,
   textoCuadre,
   type AccionAv,
   type Audio,
   type Pantalla,
   type Piso,
+  type TipoEspacio,
 } from '@/lib/inventario';
 import type { AulaInv, AvInv, MobiliarioInv } from '@/lib/inventario-server';
 import { guardarAula, guardarAv, guardarMobiliario } from '@/app/gestion/inventario/acciones';
@@ -155,62 +162,105 @@ export function FormMobiliario({
   );
 }
 
-// ─── El aula ─────────────────────────────────────────────────────────────────
+// ─── El espacio ──────────────────────────────────────────────────────────────
 
-export function FormAula({ aula, onHecho }: { aula: AulaInv | null; onHecho?: (id: string) => void }) {
+type EspacioHorario = { id: string; codigo: string; nombre: string };
+
+/** Las plantas del desplegable, por edificio. */
+function OpcionesPlanta() {
+  return (
+    <>
+      {EDIFICIOS.map((e) => (
+        <optgroup key={e} label={EDIFICIO_LABEL[e]}>
+          {PISOS.filter((p) => edificioDe(p) === e).map((p) => (
+            <option key={p} value={p}>
+              {PISO_LABEL[p]}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
+
+export function FormAula({ aula, espacios, onHecho }: { aula: AulaInv | null; espacios: readonly EspacioHorario[]; onHecho?: (id: string) => void }) {
+  const [tipo, setTipo] = useState<TipoEspacio>((aula?.tipo as TipoEspacio) ?? 'clase');
   const [numero, setNumero] = useState(aula?.numero ?? '');
   const [piso, setPiso] = useState<Piso | ''>((aula?.piso as Piso) ?? '');
   const [nombre, setNombre] = useState(aula?.nombre ?? '');
+  const [espacioCodigo, setEspacioCodigo] = useState(aula?.espacioCodigo ?? '');
   const [notas, setNotas] = useState(aula?.notas ?? '');
   const { correr, ocupado } = useAccion();
+  // Las salas de Horarios; las aulas propias de cada grupo (`A-1ESOA`) se enlazan solas por la clase.
+  const salas = espacios.filter((e) => !e.codigo.startsWith('A-'));
 
   async function guardar() {
     const r = await correr(
-      () => guardarAula({ id: aula?.id, numero, piso: piso || null, nombre, notas }),
-      aula ? 'Aula guardada' : 'Aula añadida',
+      () => guardarAula({ id: aula?.id, numero, piso: piso || null, tipo, nombre, espacioCodigo: tipo === 'clase' ? null : espacioCodigo, notas }),
+      aula ? 'Guardado' : 'Añadido',
     );
     if (r !== false) onHecho?.(aula?.id ?? '');
   }
 
   return (
     <div className="space-y-4">
+      <Campo etiqueta="Qué es" ayuda={TIPO_ESPACIO_AYUDA[tipo]}>
+        <Segmentado
+          etiqueta="Qué es"
+          lleno
+          opciones={TIPOS_ESPACIO.map((t) => ({ valor: t, etiqueta: TIPO_ESPACIO_LABEL[t] }))}
+          valor={tipo}
+          onChange={setTipo}
+        />
+      </Campo>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Campo etiqueta="Número de la puerta" id="aula-numero" ayuda="Vacío si es una sala sin número">
-          <Input id="aula-numero" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="12, 17-18…" />
-        </Campo>
-        <Campo etiqueta="Piso" id="aula-piso">
+        <Campo etiqueta="Edificio y planta" id="aula-piso">
           <Selector id="aula-piso" value={piso} onChange={(e) => setPiso(e.target.value as Piso | '')}>
             <option value="">Sin apuntar</option>
-            {PISOS.map((p) => (
-              <option key={p} value={p}>
-                {PISO_LABEL[p]}
-              </option>
-            ))}
+            <OpcionesPlanta />
           </Selector>
         </Campo>
+        <Campo etiqueta="Número de la puerta" id="aula-numero" opcional={tipo !== 'clase'}>
+          <Input id="aula-numero" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="12, 17-18…" />
+        </Campo>
       </div>
-      <Campo etiqueta="Nombre de la sala" id="aula-nombre" opcional ayuda="Solo si es una sala fija: Música, Informática, Taller de tecnología…">
-        <Input id="aula-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-      </Campo>
-      <Campo etiqueta="Notas del aula" id="aula-notas" opcional>
+      {tipo !== 'clase' && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo etiqueta="Nombre" id="aula-nombre">
+            <Input id="aula-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Aula de informática, Comedor…" />
+          </Campo>
+          <Campo etiqueta="En Horarios es" id="aula-horario" ayuda="Para ver su horario y que Horarios sepa dónde está">
+            <Selector id="aula-horario" value={espacioCodigo} onChange={(e) => setEspacioCodigo(e.target.value)}>
+              <option value="">No sale en Horarios</option>
+              {salas.map((e) => (
+                <option key={e.codigo} value={e.codigo}>
+                  {e.nombre} ({e.codigo})
+                </option>
+              ))}
+            </Selector>
+          </Campo>
+        </div>
+      )}
+      <Campo etiqueta="Notas" id="aula-notas" opcional>
         <Textarea id="aula-notas" value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} />
       </Campo>
       <Button onClick={guardar} cargando={ocupado}>
-        <Save aria-hidden /> {aula ? 'Guardar el aula' : 'Añadir el aula'}
+        <Save aria-hidden /> {aula ? 'Guardar' : 'Añadir'}
       </Button>
     </div>
   );
 }
 
-export function NuevaAula({ onCerrar }: { onCerrar: () => void }) {
+export function NuevaAula({ espacios, onCerrar }: { espacios: readonly EspacioHorario[]; onCerrar: () => void }) {
   const router = useRouter();
   return (
     <Dialog open onOpenChange={(o) => !o && onCerrar()}>
       <DialogContent variante="hoja" className="sm:max-w-lg">
-        <DialogTitle>Añadir aula o sala</DialogTitle>
-        <DialogDescription>Por el número de su puerta. La clase que la ocupa se pone en «Clases de cada aula».</DialogDescription>
+        <DialogTitle>Añadir aula o espacio</DialogTitle>
+        <DialogDescription>Un aula de clase por el número de su puerta; una sala o un espacio común, por su nombre.</DialogDescription>
         <FormAula
           aula={null}
+          espacios={espacios}
           onHecho={() => {
             onCerrar();
             router.refresh();

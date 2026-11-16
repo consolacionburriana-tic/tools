@@ -118,3 +118,13 @@ describe('banco de libros al dar de alta o cambiar de curso', () => {
     expect(bancoTrasCambioDeCurso('5INF', '1PRI')).toBeNull();
   });
 });
+
+describe('nombre de una clase', () => {
+  it('el PDC de Educamos no repite la letra; el de Horarios (curso de ESO) sí la lleva', async () => {
+    const { nombreClase } = await import('../cursos');
+    expect(nombreClase('3ºPPDC', 'PDC')).toBe('3ºPPDC');
+    expect(nombreClase('3ESO', 'PDC')).toBe('3ESO PDC');
+    expect(nombreClase('2ESO', 'B')).toBe('2ESO B');
+    expect(nombreClase('2ESO', null)).toBe('2ESO');
+  });
+});

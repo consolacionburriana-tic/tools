@@ -48,7 +48,8 @@ const FUENTE: Record<Sugerencia['fuente'], { texto: string; tono: 'ok' | 'info' 
 
 export function AjusteClases({ inv, curso, opciones }: { inv: Inventario; curso: string; opciones: string[] }) {
   const router = useRouter();
-  const filas = useIndice(inv);
+  // Solo las aulas de clase: las específicas y los espacios comunes no tienen una clase por curso.
+  const filas = useIndice(inv).filter((f) => f.aula.tipo === 'clase');
   const origen = cursoAnterior(curso);
   const { correr, ocupado } = useAccion();
 
@@ -234,7 +235,7 @@ export function AjusteClases({ inv, curso, opciones }: { inv: Inventario; curso:
                         onChange={(ev) => cambiar(f.aula.id, { valor: ev.target.value })}
                         aria-invalid={repe || undefined}
                       >
-                        <option value="">{f.aula.nombre ? 'Sala (sin clase)' : 'Sin clase'}</option>
+                        <option value="">Sin clase</option>
                         {claves.map((c) => (
                           <option key={c} value={`c:${c}`}>
                             {cartelClase(deClave(c).curso, deClave(c).letra)}
@@ -269,7 +270,7 @@ export function AjusteClases({ inv, curso, opciones }: { inv: Inventario; curso:
         </table>
       </Tarjeta>
 
-      <BarraAcciones ancho="ancho" resumen={`${usadas.size} clases en ${filas.length} aulas y salas`}>
+      <BarraAcciones ancho="ancho" resumen={`${usadas.size} clases en ${filas.length} aulas`}>
         <Button
           variant="outline"
           onClick={() => setEleccion(Object.fromEntries(filas.map((f) => [f.aula.id, deSugerencia(sugerenciaDe.get(f.aula.id))])))}

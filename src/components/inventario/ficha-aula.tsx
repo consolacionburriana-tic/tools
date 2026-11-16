@@ -5,8 +5,20 @@
 // el material de robótica que está aquí.
 import { useState } from 'react';
 import Link from 'next/link';
-import { Armchair, Bot, DoorOpen, Pencil, Printer, Projector, Wifi, Wrench } from 'lucide-react';
-import { cartelClase, antenaPorRenombrar, etiquetaPiso, nombreAntenaDeAula, ESTADO_KIT_LABEL, ESTADO_KIT_TONO, type EstadoKit } from '@/lib/inventario';
+import { Armchair, Bot, CalendarDays, DoorOpen, Pencil, Printer, Projector, Wifi, Wrench } from 'lucide-react';
+import {
+  cartelClase,
+  antenaPorRenombrar,
+  claveHorario,
+  codigoAulaPropia,
+  etiquetaPiso,
+  nombreAntenaDeAula,
+  ESTADO_KIT_LABEL,
+  ESTADO_KIT_TONO,
+  TIPO_ESPACIO_LABEL,
+  type EstadoKit,
+  type TipoEspacio,
+} from '@/lib/inventario';
 import type { Inventario } from '@/lib/inventario-server';
 import { buttonVariants } from '@/components/ui/button';
 import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
@@ -23,10 +35,16 @@ export function FichaAula({ inv, aulaId }: { inv: Inventario; aulaId: string }) 
   const filas = useIndice(inv);
   const f = filas.find((x) => x.aula.id === aulaId)!;
   const [editarAula, setEditarAula] = useState(false);
-  const historia = inv.ocupacion
-    .filter((o) => o.aulaId === aulaId)
-    .sort((a, b) => b.academicYear.localeCompare(a.academicYear));
+  const historia = inv.ocupacion.filter((o) => o.aulaId === aulaId).sort((a, b) => b.academicYear.localeCompare(a.academicYear));
   const modelos = new Map(inv.modelos.map((m) => [m.id, m]));
+  const esClase = f.aula.tipo === 'clase';
+  // Su horario: el de la clase que la ocupa y, si Horarios la tiene como aula propia del grupo
+  // (`A-1ESOA`) o como sala (`INFO`), quién más la usa.
+  const espacioHorario = inv.espaciosHorario.find((e) =>
+    esClase && f.ocupacion?.curso
+      ? e.codigo === codigoAulaPropia(f.ocupacion.curso, f.ocupacion.letra)
+      : f.aula.espacioCodigo && e.codigo === f.aula.espacioCodigo.toUpperCase(),
+  );
   const arreglosKits = inv.arreglos.filter((a) => a.kitId && f.kits.some((k) => k.id === a.kitId) && !a.hechoAt);
 
   return (
@@ -34,16 +52,18 @@ export function FichaAula({ inv, aulaId }: { inv: Inventario; aulaId: string }) 
       <div>
         <EnlaceVolver href="/gestion/inventario">Todas las aulas</EnlaceVolver>
         <TituloPagina
-          antes={etiquetaPiso(f.aula.piso)}
+          antes={`${etiquetaPiso(f.aula.piso)} · ${TIPO_ESPACIO_LABEL[f.aula.tipo as TipoEspacio] ?? f.aula.tipo}`}
           descripcion={
-            f.cartel
-              ? [`${f.cartel} este curso`, f.tutores.join(' y '), f.alumnos !== null ? `${f.alumnos} alumnos` : null].filter(Boolean).join(' · ')
-              : 'Sin clase este curso'
+            !esClase
+              ? (f.aula.notas ?? undefined)
+              : f.cartel
+                ? [`${f.cartel} este curso`, f.tutores.join(' y '), f.alumnos !== null ? `${f.alumnos} alumnos` : null].filter(Boolean).join(' · ')
+                : 'Sin clase este curso'
           }
           acciones={
             <>
               <Button variant="outline" size="sm" onClick={() => setEditarAula(true)}>
-                <Pencil aria-hidden /> Datos del aula
+                <Pencil aria-hidden /> Datos
               </Button>
               <Link href={`/gestion/inventario/imprimir?informe=aula&id=${f.aula.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                 <Printer aria-hidden /> Imprimir ficha
@@ -53,7 +73,7 @@ export function FichaAula({ inv, aulaId }: { inv: Inventario; aulaId: string }) 
         >
           {f.nombre}
         </TituloPagina>
-        {f.aula.notas && <p className="-mt-3 text-sm whitespace-pre-line text-zinc-600 dark:text-zinc-400">{f.aula.notas}</p>}
+        {esClase && f.aula.notas && <p className="-mt-3 text-sm whitespace-pre-line text-zinc-600 dark:text-zinc-400">{f.aula.notas}</p>}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -129,7 +149,11 @@ export function FichaAula({ inv, aulaId }: { inv: Inventario; aulaId: string }) 
             <TarjetaCabecera
               icono={<Bot />}
               titulo="Robótica en esta aula"
-              descripcion={f.kits.length ? `${f.kits.length} kits${arreglosKits.length ? ` · ${arreglosKits.length} con algo que arreglar` : ''}` : 'Ningún kit guardado aquí'}
+              descripcion={
+                f.kits.length
+                  ? `${f.kits.length} kits${arreglosKits.length ? ` · ${arreglosKits.length} con algo que arreglar` : ''}`
+                  : 'Ningún kit guardado aquí'
+              }
               accion={
                 <Link href="/gestion/inventario/robotica" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
                   Robótica
@@ -147,7 +171,9 @@ export function FichaAula({ inv, aulaId }: { inv: Inventario; aulaId: string }) 
                         title={modelos.get(k.modeloId)?.nombre}
                       >
                         <span className="font-mono font-semibold">{k.codigo}</span>
-                        {k.estado !== 'ok' && <Estado tono={ESTADO_KIT_TONO[k.estado as EstadoKit]}>{ESTADO_KIT_LABEL[k.estado as EstadoKit]}</Estado>}
+                        {k.estado !== 'ok' && (
+                          <Estado tono={ESTADO_KIT_TONO[k.estado as EstadoKit]}>{ESTADO_KIT_LABEL[k.estado as EstadoKit]}</Estado>
+                        )}
                       </Link>
                     </li>
                   ))}
@@ -156,40 +182,66 @@ export function FichaAula({ inv, aulaId }: { inv: Inventario; aulaId: string }) 
             )}
           </Tarjeta>
 
-          <Tarjeta>
-            <TarjetaCabecera
-              icono={<DoorOpen />}
-              titulo="Clases que ha tenido"
-              accion={
-                <Link href="/gestion/inventario/clases" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-                  Cambiar
-                </Link>
-              }
-            />
-            <TarjetaCuerpo>
-              {historia.length === 0 ? (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Sin clases apuntadas.</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {historia.map((o) => (
-                    <li key={o.academicYear} className="flex justify-between gap-3">
-                      <span className="text-zinc-500 tabular-nums dark:text-zinc-400">{o.academicYear}</span>
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">{o.curso ? cartelClase(o.curso, o.letra) : o.etiqueta}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </TarjetaCuerpo>
-          </Tarjeta>
+          {(espacioHorario || (esClase && f.ocupacion?.curso)) && (
+            <Tarjeta>
+              <TarjetaCabecera icono={<CalendarDays />} titulo="Horario" descripcion="Lo que pasa en esta aula, en Horarios" />
+              <TarjetaCuerpo className="flex flex-wrap gap-2">
+                {esClase && f.ocupacion?.curso && (
+                  <Link
+                    href={`/gestion/horarios?vista=clase&clave=${encodeURIComponent(claveHorario(f.ocupacion.curso, f.ocupacion.letra))}`}
+                    className={buttonVariants({ variant: 'suave', size: 'sm' })}
+                  >
+                    Horario de {f.cartel}
+                  </Link>
+                )}
+                {espacioHorario && (
+                  <Link
+                    href={`/gestion/horarios?vista=aula&clave=${espacioHorario.id}`}
+                    className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                  >
+                    Quién usa {esClase ? 'el aula' : espacioHorario.nombre}
+                  </Link>
+                )}
+              </TarjetaCuerpo>
+            </Tarjeta>
+          )}
+
+          {esClase && (
+            <Tarjeta>
+              <TarjetaCabecera
+                icono={<DoorOpen />}
+                titulo="Clases que ha tenido"
+                accion={
+                  <Link href="/gestion/inventario/clases" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                    Cambiar
+                  </Link>
+                }
+              />
+              <TarjetaCuerpo>
+                {historia.length === 0 ? (
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">Sin clases apuntadas.</p>
+                ) : (
+                  <ul className="space-y-1 text-sm">
+                    {historia.map((o) => (
+                      <li key={o.academicYear} className="flex justify-between gap-3">
+                        <span className="text-zinc-500 tabular-nums dark:text-zinc-400">{o.academicYear}</span>
+                        <span className="font-medium text-zinc-900 dark:text-zinc-100">{o.curso ? cartelClase(o.curso, o.letra) : o.etiqueta}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </TarjetaCuerpo>
+            </Tarjeta>
+          )}
         </div>
       </div>
 
       {editarAula && (
         <Dialog open onOpenChange={(o) => !o && setEditarAula(false)}>
           <DialogContent variante="hoja" className="sm:max-w-lg">
-            <DialogTitle>Datos del aula</DialogTitle>
+            <DialogTitle>Datos del espacio</DialogTitle>
             <DialogDescription>El número de la puerta no cambia con el curso; la clase, sí (eso va en «Clases de cada aula»).</DialogDescription>
-            <FormAula aula={f.aula} onHecho={() => setEditarAula(false)} />
+            <FormAula aula={f.aula} espacios={inv.espaciosHorario} onHecho={() => setEditarAula(false)} />
           </DialogContent>
         </Dialog>
       )}

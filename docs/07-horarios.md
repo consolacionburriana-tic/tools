@@ -18,6 +18,18 @@ futura que necesite saber qué pasa en un aula un martes a las 10:15.
 ---
 
 
+## Las aulas, cruzadas con Inventario y aulas (16-nov-2026)
+
+Las salas de Horarios (`hor_espacios`) y los espacios de [Inventario y aulas](./33-inventario.md) son
+los mismos sitios con **el mismo nombre**: Aula de informática, Aula de plástica, Laboratorio, Taller de
+tecnología, Aula Creativa (antes «Aula de Creatividad»), Aula de música (antes «Música») y Pabellón
+deportivo (antes «Polideportivo»). Los nombres viven en `CONFIGURACION.horarios.aulasEso.aulas` y se
+aplicaron en Neon con `inventario-edificios.sql`. En la pestaña **Aula** del navegador, cada aula dice
+dónde está: las salas, su edificio y planta («Pabellón · P2»); el aula propia de cada grupo (`A-1ESOA`),
+la puerta que ocupa esa clase el curso del periodo («Puerta 30 · C3»), sacada de `inv_ocupacion`. Y la
+ficha de cada espacio en Inventario enlaza con su horario. De paso, `nombreClase('3ESO', 'PDC')` dice ya
+«3ESO PDC» (antes se comía la letra y el título de la clase salía «3ESO»).
+
 ## Color y rendimiento del navegador (13-sep-2026)
 
 **Por defecto se colorea por MATERIA.** Es el tipo de clase lo que se busca de un vistazo

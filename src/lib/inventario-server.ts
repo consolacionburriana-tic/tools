@@ -10,6 +10,7 @@ import {
   eduStudents,
   eduTeachers,
   eduTutorias,
+  horEspacios,
   invAntenas,
   invArreglos,
   invAulas,
@@ -52,6 +53,7 @@ export interface AulaInv {
   numero: string | null;
   orden: number;
   piso: string | null;
+  tipo: string;
   nombre: string | null;
   espacioCodigo: string | null;
   notas: string | null;
@@ -166,6 +168,8 @@ export interface Inventario {
   tutorias: Tutoria[];
   /** Del 10-jul al 30-sep, el curso que falta por ajustar; si no, null. */
   ajustarCurso: string | null;
+  /** Los espacios de Horarios (`hor_espacios`), para enlazar cada sala con su horario. */
+  espaciosHorario: { id: string; codigo: string; nombre: string }[];
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -176,13 +180,14 @@ export async function cargarInventario(): Promise<Inventario> {
   // Tutorías del curso anterior, del actual y del que viene: la sugerencia de «Clases de cada aula»
   // sigue al tutor de un curso al siguiente.
   const years = [cursoAnterior(cursoActual), cursoActual, cursoPosterior(cursoActual)];
-  const [aulas, ocupacion, av, mobiliario, antenas, arreglos, modelos, kits, recursos, alumnos, tutorias] = await Promise.all([
+  const [aulas, ocupacion, av, mobiliario, antenas, arreglos, modelos, kits, recursos, alumnos, tutorias, espaciosHorario] = await Promise.all([
     db
       .select({
         id: invAulas.id,
         numero: invAulas.numero,
         orden: invAulas.orden,
         piso: invAulas.piso,
+        tipo: invAulas.tipo,
         nombre: invAulas.nombre,
         espacioCodigo: invAulas.espacioCodigo,
         notas: invAulas.notas,
@@ -252,6 +257,10 @@ export async function cargarInventario(): Promise<Inventario> {
       .from(eduTutorias)
       .innerJoin(eduTeachers, eq(eduTeachers.id, eduTutorias.eduTeacherId))
       .where(inArray(eduTutorias.academicYear, years)),
+    db
+      .select({ id: horEspacios.id, codigo: horEspacios.codigo, nombre: horEspacios.nombre })
+      .from(horEspacios)
+      .where(eq(horEspacios.active, true)),
   ]);
 
   const hechos = new Set(ocupacion.map((o) => o.academicYear));
@@ -299,6 +308,7 @@ export async function cargarInventario(): Promise<Inventario> {
       nombre: nombreProfeBreve(t),
     })),
     ajustarCurso: avisoAjusteCursos(hoy, (d) => hechos.has(d)),
+    espaciosHorario,
   };
 }
 
@@ -326,7 +336,9 @@ export async function guardarAula(input: AulaInput): Promise<string> {
     numero: input.numero,
     orden: ordenDeNumero(input.numero),
     piso: input.piso,
+    tipo: input.tipo,
     nombre: input.nombre,
+    espacioCodigo: input.espacioCodigo?.toUpperCase() ?? null,
     notas: input.notas,
     updatedAt: ahora(),
   };

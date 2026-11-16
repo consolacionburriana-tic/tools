@@ -15,6 +15,7 @@ import {
   ESTADO_KIT_LABEL,
   NIVEL_LABEL,
   PANTALLA_LABEL,
+  PISOS,
   PRIORIDADES,
   PRIORIDAD_LABEL,
   PRIORIDAD_PESO,
@@ -72,7 +73,7 @@ export default async function ImprimirPage({ searchParams }: { searchParams: Pro
   if (informe === 'av') {
     const orden = sp.orden ?? 'prioridad';
     const lista = filas
-      .filter((f) => f.av || !f.aula.nombre)
+      .filter((f) => f.av || f.aula.tipo !== 'comun')
       .sort((a, b) =>
         orden === 'prioridad'
           ? pesoAtencion(a.atencionAv, a.av?.valoracion ?? null) - pesoAtencion(b.atencionAv, b.av?.valoracion ?? null) || a.aula.orden - b.aula.orden
@@ -211,7 +212,7 @@ export default async function ImprimirPage({ searchParams }: { searchParams: Pro
     };
     const porPiso = sp.agrupar === 'piso';
     const grupos = porPiso
-      ? ['PB', 'P1', 'P2', 'P3', ''].map((p) => ({ titulo: p ? etiquetaPiso(p) : 'Sin aula', lista: pend.filter((a) => (aulaDe(a)?.aula.piso ?? '') === p) }))
+      ? [...PISOS, ''].map((p) => ({ titulo: p ? etiquetaPiso(p) : 'Sin aula', lista: pend.filter((a) => (aulaDe(a)?.aula.piso ?? '') === p) }))
       : PRIORIDADES.map((p) => ({ titulo: PRIORIDAD_LABEL[p], lista: pend.filter((a) => a.prioridad === p) }));
     const ordenar = (l: ArregloInv[]) =>
       [...l].sort(
