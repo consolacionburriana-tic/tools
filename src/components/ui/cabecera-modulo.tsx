@@ -6,6 +6,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { IconoModulo } from '@/components/ui/icono-modulo';
 import { ANCHO_PAGINA, type AnchoPagina } from '@/components/ui/ancho';
 import { Secciones, type Seccion } from '@/components/ui/segmentado';
+import { BotonPaleta } from '@/components/paleta/boton';
 
 // La cabecera común de los módulos de /gestion y la página que la envuelve. Una sola barra
 // para toda la app: icono del módulo (con el color de su grupo), su nombre, la acción que
@@ -37,7 +38,10 @@ export function BarraSuperior({
     <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95 print:hidden">
       <div className={cn('mx-auto flex h-14 items-center justify-between gap-3 px-4 sm:px-6', ANCHO_PAGINA[ancho])}>
         {izquierda}
-        {derecha && <div className="flex shrink-0 items-center gap-2">{derecha}</div>}
+        <div className="flex shrink-0 items-center gap-2">
+          <BotonPaleta />
+          {derecha}
+        </div>
       </div>
       {debajo}
     </header>
