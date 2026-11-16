@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buscarHerramientas, GRUPOS, herramientasDe, saludo, type ContextoEscritorio } from '@/lib/escritorio';
 
-const CTX: ContextoEscritorio = { oratoriosComun: false, nouvinguts: null, dispositivosSinInformar: null, tableros: null };
+const CTX: ContextoEscritorio = { oratoriosComun: false, nouvinguts: null, dispositivosSinInformar: null, inventario: null, tableros: null };
 const claves = (role: Parameters<typeof herramientasDe>[0]['role'], ctx = CTX) =>
   herramientasDe({ role }, ctx).map((h) => h.clave);
 
@@ -64,6 +64,14 @@ describe('qué ve cada uno en el escritorio', () => {
     expect(h('tableros').badge).toEqual({ texto: '1 vencida', tono: 'rojo' });
     expect(h('tableros').desc).toBe('2 tareas pendientes en tus equipos');
     expect(h('alumnado').badge).toBeNull();
+  });
+
+  it('Inventario avisa de ajustar las clases en verano y, si no, de lo urgente', () => {
+    const h = (inventario: ContextoEscritorio['inventario']) =>
+      herramientasDe({ role: 'tic' }, { ...CTX, inventario }).find((x) => x.clave === 'inventario')!;
+    expect(h({ urgentes: 3, ajustarCurso: '2027-28' }).badge).toEqual({ texto: 'Ajustar clases 2027-28', tono: 'ambar' });
+    expect(h({ urgentes: 3, ajustarCurso: null }).badge).toEqual({ texto: '3 urgentes', tono: 'rojo' });
+    expect(h({ urgentes: 0, ajustarCurso: null }).badge).toBeNull();
   });
 });
 

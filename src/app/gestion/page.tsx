@@ -18,6 +18,7 @@ import { accesoComunActivo } from '@/lib/oratorios-server';
 import { misTarjetas } from '@/lib/tableros-server';
 import { cuentaNouvinguts } from '@/lib/nouvinguts-server';
 import { cuentaSinInformar } from '@/lib/dispositivos-server';
+import { resumenInventario } from '@/lib/inventario-server';
 import { hoyISO, resumenUrgente, textoResumenUrgente } from '@/lib/tableros';
 import { esTemporadaLicencias } from '@/lib/licencias';
 import { herramientasDe, saludo } from '@/lib/escritorio';
@@ -54,7 +55,7 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
   const ahora = new Date();
   const temporadaLicencias = puede('licencias') && esTemporadaLicencias(ahora);
 
-  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas, nouvinguts, sinIpad] = await Promise.all([
+  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas, nouvinguts, sinIpad, inventario] = await Promise.all([
     puede('educamos') ? db.select({ n: count() }).from(eduStudents).where(eq(eduStudents.active, true)) : null,
     puede('educamos') ? db.select({ n: count() }).from(eduTeachers).where(eq(eduTeachers.active, true)) : null,
     puede('educamos') ? db.select({ at: eduSyncRuns.createdAt }).from(eduSyncRuns).orderBy(desc(eduSyncRuns.createdAt)).limit(1) : null,
@@ -69,6 +70,7 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
     puede('tableros') ? misTarjetas(user.email).catch(() => null) : null,
     puede('nouvinguts') ? cuentaNouvinguts().catch(() => null) : null,
     puede('dispositivos') ? cuentaSinInformar().catch(() => null) : null,
+    puede('inventario') ? resumenInventario().catch(() => null) : null,
   ]);
   const urgente = misTareas ? resumenUrgente(misTareas, hoyISO(ahora)) : null;
   const textoUrgente = urgente ? textoResumenUrgente(urgente) : '';
@@ -143,11 +145,23 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
       icono: 'dispositivos',
     });
   }
+  // Inventario y aulas: del 10-jul al 30-sep, hasta que se ajusten las clases del curso que viene.
+  if (inventario?.ajustarCurso) {
+    avisos.push({
+      clave: 'inventario',
+      titulo: 'Clases de cada aula',
+      texto: `Curso ${inventario.ajustarCurso}: ajusta qué clase va en cada aula`,
+      href: `/gestion/inventario/clases?curso=${inventario.ajustarCurso}`,
+      tono: 'ambar',
+      icono: 'inventario',
+    });
+  }
 
   const herramientas = herramientasDe(user, {
     oratoriosComun,
     nouvinguts,
     dispositivosSinInformar: sinIpad,
+    inventario,
     tableros: misTareas
       ? { pendientes: misTareas.length, urgente: textoUrgente ? { texto: textoUrgente, tono: urgente?.vencidas ? 'rojo' : 'azul' } : null }
       : null,
