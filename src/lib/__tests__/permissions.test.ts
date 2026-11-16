@@ -214,6 +214,15 @@ describe('dispositivos', () => {
   });
 });
 
+describe('inventario', () => {
+  it('lo llevan TIC, secretaría y dirección, como Dispositivos', () => {
+    for (const r of ['secretaria', 'direccion', 'tic', 'supertic'] as const) expect(canAccess({ role: r }, 'inventario')).toBe(true);
+    for (const r of ['profe', 'tutor', 'jefe', 'orientacion', 'evaluaciones', 'comunicacion'] as const) {
+      expect(canAccess({ role: r }, 'inventario')).toBe(false);
+    }
+  });
+});
+
 describe('banco de libros', () => {
   it('el módulo es solo de SuperTIC (David, 5-nov-2026): ningún otro rol, ni dado a mano', () => {
     expect(canAccess({ role: 'supertic' }, 'bancolibros')).toBe(true);

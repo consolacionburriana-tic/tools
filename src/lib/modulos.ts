@@ -43,6 +43,7 @@ export const MODULOS = {
   evaluaciones: { titulo: 'Evaluaciones', icono: 'evaluaciones', grupo: 'centro', href: '/gestion/evaluaciones' },
   profes: { titulo: 'Profesorado y tutorías', icono: 'profes', grupo: 'centro', href: '/gestion/profes' },
   dispositivos: { titulo: 'Dispositivos 1:1', icono: 'dispositivos', grupo: 'tic', href: '/gestion/dispositivos' },
+  inventario: { titulo: 'Inventario y aulas', icono: 'inventario', grupo: 'tic', href: '/gestion/inventario' },
   cuentas: { titulo: 'Correos y grupos', icono: 'cuentas', grupo: 'tic', href: '/gestion/cuentas' },
   calendarios: { titulo: 'Classrooms y calendarios', icono: 'calendarios', grupo: 'tic', href: '/gestion/calendarios' },
   autoasm: { titulo: 'AUTOASM', icono: 'autoasm', grupo: 'tic', href: '/gestion/autoasm' },

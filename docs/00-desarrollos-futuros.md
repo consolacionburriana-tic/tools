@@ -23,6 +23,32 @@ perder ideas por el camino.
 
 ## 🔴 Decisiones pendientes
 
+### Inventario y aulas: lo que decidí yo al construirlo (16-nov-2026) — revisar con David
+
+Ficha: [`33-inventario.md`](./33-inventario.md). Lo pidió David con cuatro Excel; esto lo decidí yo:
+
+- **La columna «Clase 25/26» del Excel de proyectores se cargó como la ocupación de 2026-27** (el curso en
+  vigor): David dijo que ese Excel es «el bueno», y las clases cuadran con las de Educamos de este curso. Si en
+  realidad era la del curso pasado, se corrige en «Clases de cada aula».
+- **Valoración 0 con «Correcto» = sin valorar** (tres aulas). 0 con «Cambiar» se queda en 0.
+- **46 arreglos sembrados a partir de las notas** (los ⚠️ y «URGENTE» como urgentes; quitar proyectores viejos
+  como «cuando se pueda»; las quejas del wifi como «wifi y red»). Las notas originales siguen en cada aula.
+  Conviene repasarlos una vez.
+- **Acceso**: TIC, SuperTIC, secretaría y dirección, igual que Dispositivos. El claustro no entra.
+- **Informática y Taller de tecnología** se crearon sin número ni piso (no venían en los Excel): se completan
+  desde su ficha.
+- **No se creó ningún kit**: David dijo que los Lego Spike ya están numerados (L1, L2…) pero no cuántos. Se dejó
+  la letra **L** puesta en Lego Spike Prime para que «Ha llegado» numere desde L1.
+- **Prioridad del audiovisual** calculada (ver la ficha, decisión 3), no escrita a mano.
+- **Propuesta de «Clases de cada aula»**: primero sigue al tutor (si están las tutorías del curso que viene) y,
+  si no, la regla de promoción de cada etapa. En la ESO no sé si las clases suben de curso en la misma aula: lo
+  propone y lo marca «Revisar».
+
+**Ideas para más adelante (sin decidir):** reservas o registro de uso del material de robótica («ya iremos
+viendo», David); que un profe avise de una avería de su aula y entre como arreglo; historial de cambios del
+audiovisual y de los kits; fotos del aula o del kit; etapa o curso para el que es cada material de robótica,
+para filtrar.
+
 ### Grupos de usuarios: lo que decidí yo al construirlo (12-nov-2026) — revisar con David
 
 David pidió grupos (Pastoral con Números y Evaluaciones) y que **lo que da un grupo se dé entero,

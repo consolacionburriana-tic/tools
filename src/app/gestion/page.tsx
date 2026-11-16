@@ -21,6 +21,7 @@ import { cuentaSinInformar } from '@/lib/dispositivos-server';
 import { avisoMisSustituciones, resumenHoy } from '@/lib/sustituciones-server';
 import { puedeVerMisSustituciones } from '@/lib/sustituciones';
 import { hoyEnEspana } from '@/lib/oratorios';
+import { resumenInventario } from '@/lib/inventario-server';
 import { hoyISO, resumenUrgente, textoResumenUrgente } from '@/lib/tableros';
 import { esTemporadaLicencias } from '@/lib/licencias';
 import { herramientasDe, saludo } from '@/lib/escritorio';
@@ -57,7 +58,7 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
   const ahora = new Date();
   const temporadaLicencias = puede('licencias') && esTemporadaLicencias(ahora);
 
-  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas, nouvinguts, sinIpad, sustHoy, misSust] = await Promise.all([
+  const [alumnos, profes, ultimoSync, pedidos, registrosAbc, estadoAsm, oratoriosComun, misTareas, nouvinguts, sinIpad, inventario, sustHoy, misSust] = await Promise.all([
     puede('educamos') ? db.select({ n: count() }).from(eduStudents).where(eq(eduStudents.active, true)) : null,
     puede('educamos') ? db.select({ n: count() }).from(eduTeachers).where(eq(eduTeachers.active, true)) : null,
     puede('educamos') ? db.select({ at: eduSyncRuns.createdAt }).from(eduSyncRuns).orderBy(desc(eduSyncRuns.createdAt)).limit(1) : null,
@@ -72,6 +73,7 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
     puede('tableros') ? misTarjetas(user.email).catch(() => null) : null,
     puede('nouvinguts') ? cuentaNouvinguts().catch(() => null) : null,
     puede('dispositivos') ? cuentaSinInformar().catch(() => null) : null,
+    puede('inventario') ? resumenInventario().catch(() => null) : null,
     puede('sustituciones') ? resumenHoy().catch(() => null) : null,
     // «Tus sustituciones» (docs/32, decisión 16): mientras sea prueba de concepto, solo con el módulo.
     puedeVerMisSustituciones(user) ? avisoMisSustituciones(user.email).catch(() => []) : [],
@@ -149,6 +151,17 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
       icono: 'dispositivos',
     });
   }
+  // Inventario y aulas: del 10-jul al 30-sep, hasta que se ajusten las clases del curso que viene.
+  if (inventario?.ajustarCurso) {
+    avisos.push({
+      clave: 'inventario',
+      titulo: 'Clases de cada aula',
+      texto: `Curso ${inventario.ajustarCurso}: ajusta qué clase va en cada aula`,
+      href: `/gestion/inventario/clases?curso=${inventario.ajustarCurso}`,
+      tono: 'ambar',
+      icono: 'inventario',
+    });
+  }
 
   if (misSust.length > 0) {
     const hoyIso = hoyEnEspana(ahora);
@@ -170,6 +183,7 @@ export default async function EscritorioPage({ searchParams }: { searchParams: P
     oratoriosComun,
     nouvinguts,
     dispositivosSinInformar: sinIpad,
+    inventario,
     sustituciones: sustHoy,
     tableros: misTareas
       ? { pendientes: misTareas.length, urgente: textoUrgente ? { texto: textoUrgente, tono: urgente?.vencidas ? 'rojo' : 'azul' } : null }

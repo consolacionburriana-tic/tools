@@ -45,6 +45,7 @@ export const MODULES = [
   'nouvinguts',
   'nouvinguts-proceso',
   'dispositivos',
+  'inventario',
   'ajustes',
 ] as const;
 export type Module = (typeof MODULES)[number];
@@ -79,6 +80,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   nouvinguts: 'Nouvinguts (alumnado nuevo)',
   'nouvinguts-proceso': 'Nouvinguts (ordenar los pasos)',
   dispositivos: 'Dispositivos 1:1 (iPads y cuotas)',
+  inventario: 'Inventario y aulas (audiovisual, mesas y sillas, antenas, robótica)',
   ajustes: 'Ajustes del colegio',
 };
 
@@ -152,6 +154,7 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'tableros',
     'nouvinguts',
     'dispositivos',
+    'inventario',
   ],
   jefe: ['salidas', 'puntualidad', 'horarios', 'sustituciones', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
