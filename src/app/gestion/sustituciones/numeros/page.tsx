@@ -8,12 +8,13 @@ import { Numeros } from '@/components/sustituciones/numeros';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Números · Sustituciones' };
 
-export default async function NumerosPage({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
+export default async function NumerosPage({ searchParams }: { searchParams: Promise<{ periodo?: string; etapa?: string }> }) {
   const sp = await searchParams;
   const periodo: PeriodoCifras = (PERIODOS_CIFRAS as readonly string[]).includes(sp.periodo ?? '') ? (sp.periodo as PeriodoCifras) : 'mes';
   const hoy = hoyEnEspana();
   const mes = mesAnterior(hoy);
-  const [c, inf] = await Promise.all([cifras(periodo, hoy), informeMes(mes)]);
+  const etapa = sp.etapa && ['EI', 'EP', 'ESO'].includes(sp.etapa) ? sp.etapa : 'todas';
+  const [c, inf] = await Promise.all([cifras(periodo, hoy, etapa), informeMes(mes)]);
   const { subject, html } = correoInforme({ mes, delMes: inf.delMes, delCurso: inf.delCurso, curso: inf.curso, enlace: `${appBaseUrl()}/gestion/sustituciones/numeros` });
   return (
     <>

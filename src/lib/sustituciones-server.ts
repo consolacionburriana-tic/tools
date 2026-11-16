@@ -8,7 +8,6 @@ import { aliasedTable, and, asc, desc, eq, gte, inArray, isNotNull, lte, ne, sql
 
 import { db } from '@/db';
 import {
-  authUsers,
   cfgAjustes,
   eduCoberturasBaja,
   eduTeachers,
@@ -36,7 +35,7 @@ import {
 } from '@/db/schema';
 import { CONFIGURACION } from '@/lib/configuracion';
 import { appBaseUrl } from '@/lib/constants';
-import { enviar, type Mensaje } from '@/lib/email';
+import { enviar } from '@/lib/email';
 import { hoyEnEspana, sumarDias, diaSemana } from '@/lib/oratorios';
 import { getAjustes as getAjustesOratorios } from '@/lib/oratorios-server';
 import { nombreProfeBreve, pilaProfe } from '@/lib/profes';
@@ -589,14 +588,10 @@ function aHora(s: SustSesion, profes?: Map<string, ProfeSust>): HoraBloque {
   };
 }
 
-function como(q: Quien): Mensaje['como'] {
-  return q.emulando ? undefined : { nombre: q.nombre, email: q.email };
-}
-
 async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Quien): Promise<string | null> {
   const { subject, html } = correoAviso(d);
   try {
-    await enviar('sustituciones', { to: para, subject, html, como: como(q), replyTo: q.email });
+    await enviar('sustituciones', { to: para, subject, html, replyTo: q.email });
     return null;
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
@@ -623,6 +618,8 @@ async function avisarSustitutos(a: SustAusencia, sesiones: SustSesion[], q: Quie
     const [sustitutoId, t] = k.split('#') as [string, TipoPlantilla];
     const p = profes.get(sustitutoId);
     const email = p?.email ?? lista[0].sustitutoEmail;
+    const token = !tipo ? crypto.randomUUID() : null;
+    if (token) await db.update(sustSesiones).set({ confirmacionToken: token, confirmacionEstado: 'pendiente', confirmacionAt: null }).where(inArray(sustSesiones.id, lista.map((s) => s.id)));
     let error: string | null;
     if (!email) error = 'No tiene correo en la BBDD central';
     else {
@@ -639,6 +636,7 @@ async function avisarSustitutos(a: SustAusencia, sesiones: SustSesion[], q: Quie
           hasta: fechas[fechas.length - 1],
           horas: lista.map((s) => aHora(s)),
           indicaciones: a.indicaciones,
+          confirmacionUrl: token ? `${appBaseUrl()}/sustituciones/confirmar/${token}` : undefined,
         },
         q,
       );
@@ -659,6 +657,7 @@ async function avisarSustitutos(a: SustAusencia, sesiones: SustSesion[], q: Quie
 
 /** Al ausente: qué horas se cubren y quién entra (o la anulación). Sin motivo. */
 async function avisarAusente(a: SustAusencia, sesiones: SustSesion[], q: Quien, plantillas: Plantillas, profes: Map<string, ProfeSust>, tipo: 'ausente' | 'anulacion' = 'ausente'): Promise<ResultadoAvisos> {
+  if (!a.avisarAusente) return vacio();
   const p = profes.get(a.profeId);
   if (!p?.email) return { enviados: 0, fallidos: [{ nombre: a.profeNombre, error: 'No tiene correo en la BBDD central' }] };
   if (sesiones.length === 0) return vacio();
@@ -668,6 +667,15 @@ async function avisarAusente(a: SustAusencia, sesiones: SustSesion[], q: Quien, 
     q,
   );
   return error ? { enviados: 0, fallidos: [{ nombre: p.nombre, error }] } : { enviados: 1, fallidos: [] };
+}
+
+/** Confirmación pública por enlace aleatorio enviado al sustituto. */
+export async function confirmarPorEnlace(token: string): Promise<'confirmada' | 'ya_confirmada' | 'no_encontrada'> {
+  const [s] = await db.select({ id: sustSesiones.id, estado: sustSesiones.confirmacionEstado }).from(sustSesiones).innerJoin(sustAusencias, eq(sustAusencias.id, sustSesiones.ausenciaId)).where(and(eq(sustSesiones.confirmacionToken, token), eq(sustAusencias.estado, 'confirmada'), isNotNull(sustSesiones.sustitutoId))).limit(1);
+  if (!s) return 'no_encontrada';
+  if (s.estado === 'confirmada') return 'ya_confirmada';
+  await db.update(sustSesiones).set({ confirmacionEstado: 'confirmada', confirmacionAt: new Date(), updatedAt: new Date() }).where(and(eq(sustSesiones.confirmacionToken, token), eq(sustSesiones.confirmacionEstado, 'pendiente')));
+  return 'confirmada';
 }
 
 async function profesPorId(): Promise<Map<string, ProfeSust>> {
@@ -808,6 +816,8 @@ export async function confirmarAusencia(e: EntradaAusencia, q: Quien): Promise<R
       hasta: e.hasta,
       profeId: profe.id,
       profeNombre: profe.nombre,
+      etapa: await etapaProfe(profe.id),
+      avisarAusente: e.avisarAusente,
       motivo: e.motivo,
       nota: e.nota?.trim() || null,
       indicaciones: e.indicaciones?.trim() || null,
@@ -823,11 +833,17 @@ export async function confirmarAusencia(e: EntradaAusencia, q: Quien): Promise<R
   return { id, avisos: await avisarTodo(id, q), liberadas };
 }
 
+async function etapaProfe(profeId: string): Promise<string> {
+  const [p] = await db.select({ etapa: eduTeachers.etapa, etapas: eduTeachers.etapas }).from(eduTeachers).where(eq(eduTeachers.id, profeId)).limit(1);
+  const etapas = [...new Set([...(p?.etapa ? [p.etapa] : []), ...(p?.etapas ?? [])])];
+  return etapas.find((x) => ['EI', 'EP', 'ESO'].includes(x)) ?? 'EP';
+}
+
 /** Deja sin sustituto unas horas (quien las cubría ahora falta). */
 function soltar(ids: string[], ahora: Date) {
   return db
     .update(sustSesiones)
-    .set({ sustitutoId: null, sustitutoNombre: null, sustitutoEmail: null, nivel: null, disponibilidad: null, avisoEstado: 'no', avisoError: null, avisoEnviadoAt: null, updatedAt: ahora })
+    .set({ sustitutoId: null, sustitutoNombre: null, sustitutoEmail: null, nivel: null, disponibilidad: null, avisoEstado: 'no', avisoError: null, avisoEnviadoAt: null, confirmacionToken: null, confirmacionEstado: 'pendiente', confirmacionAt: null, updatedAt: ahora })
     .where(inArray(sustSesiones.id, ids));
 }
 
@@ -836,7 +852,7 @@ async function avisarTodo(id: string, q: Quien, soloPendientes = false): Promise
   const [{ a, sesiones }, plantillas, profes] = await Promise.all([leerAusencia(id), getPlantillas(), profesPorId()]);
   const aSustitutos = sesiones.filter((s) => s.sustitutoId && (!soloPendientes || s.avisoEstado !== 'enviado'));
   const r1 = await avisarSustitutos(a, aSustitutos, q, plantillas, profes);
-  const r2 = soloPendientes ? vacio() : await avisarAusente(a, sesiones, q, plantillas, profes);
+  const r2 = soloPendientes || !a.avisarAusente ? vacio() : await avisarAusente(a, sesiones, q, plantillas, profes);
   return sumar(r1, r2);
 }
 
@@ -943,6 +959,9 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
       avisoEstado: 'no',
       avisoError: null,
       avisoEnviadoAt: null,
+      confirmacionToken: null,
+      confirmacionEstado: 'pendiente',
+      confirmacionAt: null,
       updatedAt: ahora,
     };
     // Las demás horas de ESTA ausencia no entran en la guarda (se excluye entera): ya se comprobaron arriba.
@@ -951,7 +970,7 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
       ...guardas,
       db
         .update(sustSesiones)
-        .set({ sustitutoId: nueva.sustitutoId, sustitutoNombre: nueva.sustitutoNombre, sustitutoEmail: nueva.sustitutoEmail, nivel, disponibilidad, avisoEstado: 'no', avisoError: null, avisoEnviadoAt: null, updatedAt: ahora })
+        .set({ sustitutoId: nueva.sustitutoId, sustitutoNombre: nueva.sustitutoNombre, sustitutoEmail: nueva.sustitutoEmail, nivel, disponibilidad, avisoEstado: 'no', avisoError: null, avisoEnviadoAt: null, confirmacionToken: null, confirmacionEstado: 'pendiente', confirmacionAt: null, updatedAt: ahora })
         .where(eq(sustSesiones.id, s.id)),
       tocar(),
     ]);
@@ -1191,7 +1210,7 @@ export async function profesConAusencias(): Promise<{ id: string; nombre: string
   return [...vistos].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
 
-async function filasCuenta(desde: string, hasta: string): Promise<FilaCuenta[]> {
+async function filasCuenta(desde: string, hasta: string, etapa?: string): Promise<FilaCuenta[]> {
   return db
     .select({
       ausenciaId: sustSesiones.ausenciaId,
@@ -1206,13 +1225,14 @@ async function filasCuenta(desde: string, hasta: string): Promise<FilaCuenta[]> 
     })
     .from(sustSesiones)
     .innerJoin(sustAusencias, eq(sustAusencias.id, sustSesiones.ausenciaId))
-    .where(and(eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, desde), lte(sustSesiones.fecha, hasta)));
+    .where(and(eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, desde), lte(sustSesiones.fecha, hasta), etapa ? eq(sustAusencias.etapa, etapa) : undefined));
 }
 
-export async function cifras(periodo: PeriodoCifras, hoy = hoyEnEspana()): Promise<{ periodo: PeriodoCifras; desde: string; hasta: string; resumen: Resumen }> {
+export async function cifras(periodo: PeriodoCifras, hoy = hoyEnEspana(), etapa?: string): Promise<{ periodo: PeriodoCifras; etapa: string; desde: string; hasta: string; resumen: Resumen }> {
   const { trimestres } = await getAjustesOratorios(cursoDeFecha(hoy));
   const r = rangoPeriodo(periodo, hoy, trimestres);
-  return { periodo, ...r, resumen: resumir(await filasCuenta(r.desde, r.hasta)) };
+  const filtro = ['EI', 'EP', 'ESO'].includes(etapa ?? '') ? etapa : undefined;
+  return { periodo, etapa: filtro ?? 'todas', ...r, resumen: resumir(await filasCuenta(r.desde, r.hasta, filtro)) };
 }
 
 // ─── Informe mensual (decisión 12) ───────────────────────────────────────────
@@ -1226,25 +1246,20 @@ export interface Informe {
   enviado: { at: Date; destinatarios: string[] } | null;
 }
 
-/** Los buzones del informe: las cuentas activas de Jefatura y los de `SUSTITUCIONES_INFORME_COPIA`. */
-async function destinatariosInforme(): Promise<string[]> {
-  const jefes = await db.select({ email: authUsers.email }).from(authUsers).where(and(eq(authUsers.role, 'jefe'), eq(authUsers.active, true)));
-  const copia = (process.env.SUSTITUCIONES_INFORME_COPIA ?? '')
-    .split(',')
-    .map((x) => x.trim().toLowerCase())
-    .filter((x) => /^[^@\s]+@[^@\s]+$/.test(x));
-  return [...new Set([...jefes.map((j) => j.email.toLowerCase()), ...copia])].sort();
-}
+const DESTINATARIOS_INFORME = [
+  { etapa: 'EI_EP', email: 'jeinfyprim@consolacionburriana.com' },
+  { etapa: 'ESO', email: 'jesecundaria@consolacionburriana.com' },
+  { etapa: 'TODAS', email: 'titular@consolacionburriana.com' },
+] as const;
 
 export async function informeMes(mes: string): Promise<Informe> {
   const desde = `${mes}-01`;
   const hasta = finDeMes(desde);
   const curso = cursoDeFecha(desde);
   const inicioCurso = `${curso.slice(0, 4)}-${String(CONFIGURACION.calendario.mesInicioCurso).padStart(2, '0')}-01`;
-  const [delMes, delCurso, destinatarios, [ya]] = await Promise.all([
+  const [delMes, delCurso, [ya]] = await Promise.all([
     filasCuenta(desde, hasta),
     filasCuenta(inicioCurso, hasta),
-    destinatariosInforme(),
     db.select().from(sustInformes).where(eq(sustInformes.mes, mes)).limit(1),
   ]);
   return {
@@ -1252,7 +1267,7 @@ export async function informeMes(mes: string): Promise<Informe> {
     delMes: resumir(delMes),
     delCurso: resumir(delCurso),
     curso,
-    destinatarios,
+    destinatarios: DESTINATARIOS_INFORME.map((d) => d.email),
     enviado: ya?.enviadoAt ? { at: ya.enviadoAt, destinatarios: ya.destinatarios } : null,
   };
 }
@@ -1264,26 +1279,33 @@ export async function informeMes(mes: string): Promise<Informe> {
  */
 export async function enviarInforme(mes: string, opciones: { forzar?: boolean; quien?: Quien } = {}): Promise<{ enviado: boolean; destinatarios: string[]; motivo?: string; fallidos: string[] }> {
   const inf = await informeMes(mes);
-  if (inf.destinatarios.length === 0) return { enviado: false, destinatarios: [], motivo: 'No hay destinatarios (ninguna cuenta de Jefatura activa ni SUSTITUCIONES_INFORME_COPIA)', fallidos: [] };
-  if (inf.enviado && !opciones.forzar) return { enviado: false, destinatarios: inf.enviado.destinatarios, motivo: 'Ya se mandó', fallidos: [] };
+  if (inf.destinatarios.length === 0) return { enviado: false, destinatarios: [], motivo: 'No hay destinatarios configurados', fallidos: [] };
+  if (inf.enviado && !opciones.forzar && DESTINATARIOS_INFORME.every((d) => inf.enviado!.destinatarios.includes(d.email))) return { enviado: false, destinatarios: inf.enviado.destinatarios, motivo: 'Ya se mandó', fallidos: [] };
   if (!opciones.forzar) {
     const reservado = await db.insert(sustInformes).values({ mes, destinatarios: [] }).onConflictDoNothing({ target: sustInformes.mes }).returning({ id: sustInformes.id });
     if (reservado.length === 0) {
       const [fila] = await db.select().from(sustInformes).where(eq(sustInformes.mes, mes)).limit(1);
       // Reservado por otra llamada que aún no ha terminado, o que falló sin mandar nada: solo se reintenta lo segundo.
-      if (fila?.enviadoAt || (fila && Date.now() - fila.createdAt.getTime() < 10 * 60_000)) return { enviado: false, destinatarios: fila?.destinatarios ?? [], motivo: 'Ya se está mandando', fallidos: [] };
+      const completo = DESTINATARIOS_INFORME.every((d) => fila?.destinatarios.includes(d.email));
+      if ((fila?.enviadoAt && completo) || (fila && !fila.enviadoAt && Date.now() - fila.createdAt.getTime() < 10 * 60_000)) return { enviado: false, destinatarios: fila?.destinatarios ?? [], motivo: 'Ya se está mandando', fallidos: [] };
     }
   }
-  const { subject, html } = correoInforme({ mes, delMes: inf.delMes, delCurso: inf.delCurso, curso: inf.curso, enlace: `${appBaseUrl()}/gestion/sustituciones/numeros` });
   const ok: string[] = [];
   const fallidos: string[] = [];
-  for (const to of inf.destinatarios) {
+  for (const destino of DESTINATARIOS_INFORME) {
+    if (inf.enviado?.destinatarios.includes(destino.email) && !opciones.forzar) { ok.push(destino.email); continue; }
+    const etapas = destino.etapa === 'EI_EP' ? ['EI', 'EP'] : destino.etapa === 'ESO' ? ['ESO'] : ['EI', 'EP', 'ESO'];
+    const [delMesFilas, delCursoFilas] = await Promise.all([
+      Promise.all(etapas.map((e) => filasCuenta(`${mes}-01`, finDeMes(`${mes}-01`), e))).then((sets) => sets.flat()),
+      Promise.all(etapas.map((e) => filasCuenta(`${inf.curso.slice(0, 4)}-${String(CONFIGURACION.calendario.mesInicioCurso).padStart(2, '0')}-01`, finDeMes(`${mes}-01`), e))).then((sets) => sets.flat()),
+    ]);
+    const { subject, html } = correoInforme({ mes, delMes: resumir(delMesFilas), delCurso: resumir(delCursoFilas), curso: inf.curso, enlace: `${appBaseUrl()}/gestion/sustituciones/numeros`, etapa: destino.etapa === 'EI_EP' ? 'Infantil y Primaria' : destino.etapa === 'ESO' ? 'ESO' : 'Infantil, Primaria y ESO' });
     try {
-      await enviar('sustituciones', { to, subject, html, ...(opciones.quien ? { replyTo: opciones.quien.email } : {}) });
-      ok.push(to);
+      await enviar('sustituciones', { to: destino.email, subject, html, ...(opciones.quien ? { replyTo: opciones.quien.email } : {}) });
+      ok.push(destino.email);
     } catch (e) {
       console.error('Sustituciones · informe:', e instanceof Error ? e.message : e);
-      fallidos.push(to);
+      fallidos.push(destino.email);
     }
   }
   const resumen = { ausencias: inf.delMes.ausencias, sesiones: inf.delMes.sesiones, cubiertas: inf.delMes.cubiertas, sinCubrir: inf.delMes.sinCubrir };

@@ -47,6 +47,7 @@ export interface DatosAviso {
   horas: readonly HoraBloque[];
   /** Qué hace la clase. Solo para quien entra en el aula. */
   indicaciones?: string | null;
+  confirmacionUrl?: string;
 }
 
 const FUENTE = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
@@ -126,6 +127,7 @@ export function correoAviso(d: DatosAviso): { subject: string; html: string } {
     ${textoAHtml(pintarPlantilla(d.plantilla.antes, vars))}
     ${horas.map((h) => bloque(h, d)).join('')}
     ${indicaciones}
+    ${(d.tipo === 'sustituto' || d.tipo === 'en_aula') && d.confirmacionUrl ? `<p style="margin:16px 0 6px;">Confirma, por favor, que puedes realizar esta sustitución:</p>${boton(d.confirmacionUrl, 'Confirmar sustitución')}` : ''}
     ${textoAHtml(pintarPlantilla(d.plantilla.despues, vars), 'margin:14px 0 0')}
   </div>
 </body></html>`;
@@ -140,6 +142,7 @@ export interface DatosInforme {
   delCurso: Resumen;
   curso: string;
   enlace: string;
+  etapa?: string;
 }
 
 function tabla(cabeceras: string[], filas: (string | number)[][]): string {
@@ -168,7 +171,7 @@ export function correoInforme(d: DatosInforme): { subject: string; html: string 
     `<td style="padding:8px 12px;border:1px solid #e4e4e7;border-radius:8px;"><div style="font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:${aviso && n > 0 ? '#b45309' : '#18181b'};">${n}</div><div style="font-size:12px;color:#52525b;">${escaparHtml(t)}</div></td>`;
   const html = `<!doctype html><html><body style="margin:0;padding:0;">
   <div style="font-family:${FUENTE};font-size:15px;line-height:1.5;color:#1f2937;max-width:640px;padding:8px 4px;">
-    <p style="margin:0 0 14px;">Este es el resumen de sustituciones de <strong>${escaparHtml(nombreMes(d.mes))}</strong>.</p>
+    <p style="margin:0 0 14px;">Este es el resumen de sustituciones de <strong>${escaparHtml(nombreMes(d.mes))}</strong>${d.etapa ? ` · ${escaparHtml(d.etapa)}` : ''}.</p>
     <table style="border-collapse:separate;border-spacing:6px;margin:0 0 14px -6px;"><tr>
       ${cifra(r.ausencias, 'ausencias')}${cifra(r.sesiones, 'horas ausentes')}${cifra(r.cubiertas, 'horas cubiertas')}${cifra(r.sinCubrir, 'sin cubrir', true)}
     </tr></table>
@@ -202,5 +205,6 @@ export function ejemploAviso(tipo: TipoPlantilla, plantilla: Plantilla, quien: s
     hasta: hoy,
     horas: tipo === 'en_aula' ? horas.slice(0, 1) : horas,
     indicaciones: 'Repasan la ficha 12 del cuadernillo. Las soluciones están en la mesa.',
+    confirmacionUrl: tipo === 'sustituto' || tipo === 'en_aula' ? 'https://example.com/sustituciones/confirmar/00000000-0000-4000-8000-000000000000' : undefined,
   });
 }

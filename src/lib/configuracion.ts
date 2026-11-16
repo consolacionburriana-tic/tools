@@ -319,6 +319,7 @@ export const CONFIGURACION = {
       en_aula: 'si',
       guardia: 'si',
       codocencia: 'si_hace_falta',
+      lectura: 'si_hace_falta',
       tut_indiv: 'si_hace_falta',
       je: 'si_hace_falta',
       al: 'si_hace_falta',
@@ -345,6 +346,7 @@ export const CONFIGURACION = {
     niveles: [
       { clave: 'guardia', nombre: 'Guardia', actividades: ['guardia'] },
       { clave: 'codocencia', nombre: 'Codocencia', actividades: ['clase', 'tutoria'], noPrincipal: true, conGrupo: true },
+      { clave: 'lectura', nombre: 'Lectura', etiquetaContiene: ['LECTURA'] },
       { clave: 'tut_indiv', nombre: 'Tut. indiv.', etiquetaContiene: ['TUTORIA INDIVIDUAL'] },
       { clave: 'je', nombre: 'J.E.', actividades: ['coordinacion'], etiquetaContiene: ['JEFATURA'] },
       { clave: 'al', nombre: 'A.L.', actividades: ['apoyo_al'] },

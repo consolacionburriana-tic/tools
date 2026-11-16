@@ -83,7 +83,7 @@ Lo que decidí yo al encajar las respuestas (revisar con David):
    `edu_sustituciones` y el resumen guardado de cada sync conserva su clave `sustituciones`.
 2. **Nivel «Guardia» el primero** (tras «Ya está en el aula»), para la ESO, aunque hoy no hay ninguna
    guardia importada.
-3. **«Otras horas sin alumnado»** (nivel 12, «al final») son las horas **sin grupo** de atención a
+3. **«Otras horas sin alumnado»** (nivel 13 desde el 16-nov-2026, «al final») son las horas **sin grupo** de atención a
    familias y a alumnado, departamento, reuniones, coordinaciones, libre disposición y «Otros»; quedan
    fuera el Taller de Pensamiento Computacional y el Huerto (son con alumnos aunque el horario no ponga grupo).
 4. **Tope de 15 días lectivos** por ausencia: más largo es una cobertura por baja.
@@ -128,6 +128,16 @@ plan antiguo: un solo día, por tramo, solo EI/EP, motivo en los correos). Revis
     primaria tiene franjas que empiezan a las 9:00 y acaban distinto, y no se pisan.
 15. **Pendiente**: leer el cuadro «HORARIO SUSTITUCIONES» en el importador. La tabla y todo lo que lo usa
     (orden, «En el cuadro: …») ya están; falta un `.docx` real para ver su formato (pedírselo a Jose Miguel).
+
+### Sustituciones (16-nov-2026) — cambios acordados
+
+David indicó separar Infantil, Primaria y ESO; el informe se envía a jeinfyprim (EI+EP),
+jesecundaria (ESO) y titular (conjunto). Los correos de sustitución salen desde
+`jeinfyprim@consolacionburriana.com`; los sustitutos confirman desde un enlace en su correo; las
+horas de Lectura de Jorge y Santiago se sitúan después de Codocencia; y Jefatura puede elegir si
+avisar al profesor sustituido, desactivado por defecto para «Baja». Cerrado e implementado en la
+ficha [`32-sustituciones.md`](./32-sustituciones.md). La migración de columnas sigue pendiente por
+falta de conexión a Neon.
 
 ### Horarios: lo que quedó por decidir tras el import de 2-nov-2026
 

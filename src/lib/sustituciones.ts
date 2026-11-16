@@ -1162,6 +1162,7 @@ export const PeticionAusencia = z
     nota: textoCorto(300),
     indicaciones: textoCorto(1500),
     avisar: z.boolean(),
+    avisarAusente: z.boolean().default(true),
     sesiones: z.array(SesionElegida).min(1, 'Elige al menos una hora').max(200),
   })
   .refine((p) => p.hasta >= p.desde, { message: 'La fecha de fin va después de la de inicio', path: ['hasta'] })

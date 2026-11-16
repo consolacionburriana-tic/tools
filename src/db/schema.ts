@@ -1832,6 +1832,8 @@ export const sustAusencias = pgTable('sust_ausencias', {
   hasta: date('hasta').notNull(), // = desde si es un día
   profeId: uuid('profe_id').notNull().references(() => eduTeachers.id),
   profeNombre: text('profe_nombre').notNull(),
+  etapa: text('etapa').notNull().default('EP'), // 'EI' | 'EP' | 'ESO', etapa a la que pertenece la ausencia
+  avisarAusente: boolean('avisar_ausente').notNull().default(true),
   // 'actividad_escolar'|'medico'|'medico_familiar'|'enfermedad_leve'|'baja'|'otros'. Dato de
   // salud en casi todos: NUNCA sale en un correo, en «Mis sustituciones» ni en un log.
   motivo: text('motivo').notNull(),
@@ -1847,6 +1849,7 @@ export const sustAusencias = pgTable('sust_ausencias', {
   index('sust_ausencias_fechas_idx').on(t.desde, t.hasta),
   index('sust_ausencias_profe_idx').on(t.profeId, t.desde),
   index('sust_ausencias_year_idx').on(t.academicYear),
+  index('sust_ausencias_etapa_fechas_idx').on(t.etapa, t.desde, t.hasta),
 ]);
 
 // Cada hora de cada día de la ausencia, con su foto. Es lo que se cuenta.
@@ -1871,12 +1874,16 @@ export const sustSesiones = pgTable('sust_sesiones', {
   avisoEstado: text('aviso_estado').notNull().default('no'), // 'no'|'enviado'|'error'
   avisoEnviadoAt: timestamp('aviso_enviado_at'),
   avisoError: text('aviso_error'),
+  confirmacionToken: uuid('confirmacion_token'),
+  confirmacionEstado: text('confirmacion_estado').notNull().default('pendiente'), // 'pendiente' | 'confirmada'
+  confirmacionAt: timestamp('confirmacion_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   index('sust_sesiones_ausencia_idx').on(t.ausenciaId),
   index('sust_sesiones_sustituto_idx').on(t.sustitutoId, t.fecha),
   index('sust_sesiones_fecha_idx').on(t.fecha),
+  index('sust_sesiones_confirmacion_token_idx').on(t.confirmacionToken),
 ]);
 
 // Los retoques a mano de la disponibilidad (decisión 15). Lo que no está aquí sale del horario.

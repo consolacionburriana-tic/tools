@@ -211,7 +211,7 @@ export function FichaAusencia({ ficha, hoy }: { ficha: DatosFicha; hoy: string }
                               ))}
                             </Selector>
                           )}
-                          {s.sustitutoId && <span className="text-xs text-zinc-500 dark:text-zinc-400">{nombreNivel(s.nivel)} · {TEXTO_AVISO[s.avisoEstado] ?? s.avisoEstado}</span>}
+                          {s.sustitutoId && <span className="text-xs text-zinc-500 dark:text-zinc-400">{nombreNivel(s.nivel)} · {TEXTO_AVISO[s.avisoEstado] ?? s.avisoEstado}{s.confirmacionToken ? ` · ${s.confirmacionEstado === 'confirmada' ? 'confirmada por el sustituto' : 'pendiente de confirmación'}` : ''}</span>}
                         </div>
                       )}
                     </div>

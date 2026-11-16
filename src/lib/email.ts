@@ -80,7 +80,7 @@ const DEFECTOS: Record<PerfilCorreo, { nombre: string; email: string; replyTo?: 
   tableros: { nombre: `Tableros · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
   // Avisos de alumnado nuevo. Las notas que alguien manda a mano salen con `como` (su buzón).
   nouvinguts: { nombre: `Nouvinguts · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
-  sustituciones: { nombre: `Sustituciones · ${COLEGIO.nombre}`, email: `no-responder@${DOMINIO}` },
+  sustituciones: { nombre: `Sustituciones · ${COLEGIO.nombre}`, email: `jeinfyprim@consolacionburriana.com` },
   general: { nombre: COLEGIO.nombre, email: `no-responder@${DOMINIO}` },
 };
 

@@ -22,6 +22,7 @@ const NOMBRE_PERIODO: Record<PeriodoCifras, string> = { mes: 'Este mes', trimest
 
 export interface DatosNumeros {
   periodo: PeriodoCifras;
+  etapa: string;
   desde: string;
   hasta: string;
   resumen: Resumen;
@@ -52,10 +53,19 @@ export function Numeros({ datos }: { datos: DatosNumeros }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Filtros etiqueta="Periodo">
           {PERIODOS_CIFRAS.map((p) => (
-            <Filtro key={p} activo={datos.periodo === p} onClick={() => router.push(p === 'mes' ? ruta : `${ruta}?periodo=${p}`)}>
+            <Filtro key={p} activo={datos.periodo === p} onClick={() => { const params = new URLSearchParams(); if (p !== 'mes') params.set('periodo', p); if (datos.etapa !== 'todas') params.set('etapa', datos.etapa); const query = params.toString(); router.push(query ? `${ruta}?${query}` : ruta); }}>
               {NOMBRE_PERIODO[p]}
             </Filtro>
           ))}
+        </Filtros>
+        <Filtros etiqueta="Etapa">
+          {(['todas', 'EI', 'EP', 'ESO'] as const).map((e) => {
+            const params = new URLSearchParams();
+            if (datos.periodo !== 'mes') params.set('periodo', datos.periodo);
+            if (e !== 'todas') params.set('etapa', e);
+            const query = params.toString();
+            return <Filtro key={e} activo={datos.etapa === e} onClick={() => router.push(query ? `${ruta}?${query}` : ruta)}>{e === 'todas' ? 'Todas' : e}</Filtro>;
+          })}
         </Filtros>
         <span className="text-sm text-zinc-500 dark:text-zinc-400">{rangoCorto(datos.desde, datos.hasta)}</span>
       </div>
@@ -125,7 +135,7 @@ export function Numeros({ datos }: { datos: DatosNumeros }) {
       <Tarjeta>
         <TarjetaCabecera
           titulo={`Informe de ${nombreMes(inf.mes)}`}
-          descripcion="Sale solo el día 1 a Jefatura y a los buzones de copia (Dirección titular)."
+          descripcion="Sale el día 1 por etapa y en un resumen conjunto para Dirección titular."
           accion={
             <Button variant="outline" size="sm" onClick={() => setVista(true)}>
               <Eye aria-hidden /> Ver el informe
@@ -141,7 +151,7 @@ export function Numeros({ datos }: { datos: DatosNumeros }) {
             <p className="text-sm text-zinc-600 dark:text-zinc-300">Todavía no se ha mandado.</p>
           )}
           {inf.destinatarios.length === 0 ? (
-            <Aviso tono="aviso">No hay destinatarios: ninguna cuenta de Jefatura activa ni `SUSTITUCIONES_INFORME_COPIA` en Vercel.</Aviso>
+            <Aviso tono="aviso">No se han configurado los destinatarios de los informes.</Aviso>
           ) : (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">Le llega a: {inf.destinatarios.join(', ')}</p>
           )}

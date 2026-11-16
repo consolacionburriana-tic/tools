@@ -54,6 +54,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
   const [desde, setDesde] = useState(inicial.fecha ?? hoy);
   const [hasta, setHasta] = useState(inicial.fecha ?? hoy);
   const [motivo, setMotivo] = useState('');
+  const [avisarAusente, setAvisarAusente] = useState(true);
   const [nota, setNota] = useState('');
   const [indicaciones, setIndicaciones] = useState('');
   const [avisar, setAvisar] = useState(desde >= hoy);
@@ -178,7 +179,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
         sustitutoId: s.hayQueCubrir ? (propuesta.get(claveSesion(s))?.elegido?.id ?? null) : null,
       }));
       const r = await pedir<{ id: string; avisos: Avisos | null; liberadas: unknown[] }>('/api/sustituciones/admin/ausencias', {
-        body: { profeId: datos.profe.id, desde: datos.desde, hasta: datos.hasta, motivo, nota: nota || null, indicaciones: indicaciones || null, avisar, sesiones },
+        body: { profeId: datos.profe.id, desde: datos.desde, hasta: datos.hasta, motivo, nota: nota || null, indicaciones: indicaciones || null, avisar, avisarAusente, sesiones },
       });
       haptic.success();
       const avisos = textoAvisos(r.avisos);
@@ -225,7 +226,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
             </Campo>
           </div>
           <Campo etiqueta="Motivo" id="motivo" ayuda="Solo lo ve quien tiene este módulo: no sale en los correos.">
-            <Selector id="motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)}>
+            <Selector id="motivo" value={motivo} onChange={(e) => { setMotivo(e.target.value); if (e.target.value === 'baja') setAvisarAusente(false); }}>
               <option value="">Elige…</option>
               {CFG.motivos.map((m) => (
                 <option key={m.clave} value={m.clave}>
@@ -363,6 +364,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
               etiqueta="Avisar por correo"
               className="w-auto flex-row-reverse justify-end border-0 bg-transparent px-0 py-0 hover:border-0 dark:bg-transparent"
             />
+            {avisar && <Interruptor activo={avisarAusente} onChange={setAvisarAusente} etiqueta="Enviar correo al profesor sustituido" className="w-auto flex-row-reverse justify-end border-0 bg-transparent px-0 py-0 hover:border-0 dark:bg-transparent" />}
             {sinCubrir > 0 && <span className="hidden text-amber-700 sm:inline dark:text-amber-400">{sinCubrir === 1 ? '1 sin cubrir' : `${sinCubrir} sin cubrir`}</span>}
           </div>
         }

@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS sust_ausencias (
   hasta date NOT NULL,
   profe_id uuid NOT NULL REFERENCES edu_teachers(id),
   profe_nombre text NOT NULL,
+  etapa text NOT NULL DEFAULT 'EP',
+  avisar_ausente boolean NOT NULL DEFAULT true,
   motivo text NOT NULL,
   nota text,
   indicaciones text,
@@ -40,6 +42,7 @@ CREATE TABLE IF NOT EXISTS sust_ausencias (
 CREATE INDEX IF NOT EXISTS sust_ausencias_fechas_idx ON sust_ausencias (desde, hasta);
 CREATE INDEX IF NOT EXISTS sust_ausencias_profe_idx ON sust_ausencias (profe_id, desde);
 CREATE INDEX IF NOT EXISTS sust_ausencias_year_idx ON sust_ausencias (academic_year);
+CREATE INDEX IF NOT EXISTS sust_ausencias_etapa_fechas_idx ON sust_ausencias (etapa, desde, hasta);
 
 CREATE TABLE IF NOT EXISTS sust_sesiones (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -62,12 +65,16 @@ CREATE TABLE IF NOT EXISTS sust_sesiones (
   aviso_estado text NOT NULL DEFAULT 'no',
   aviso_enviado_at timestamp,
   aviso_error text,
+  confirmacion_token uuid,
+  confirmacion_estado text NOT NULL DEFAULT 'pendiente',
+  confirmacion_at timestamp,
   created_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS sust_sesiones_ausencia_idx ON sust_sesiones (ausencia_id);
 CREATE INDEX IF NOT EXISTS sust_sesiones_sustituto_idx ON sust_sesiones (sustituto_id, fecha);
 CREATE INDEX IF NOT EXISTS sust_sesiones_fecha_idx ON sust_sesiones (fecha);
+CREATE INDEX IF NOT EXISTS sust_sesiones_confirmacion_token_idx ON sust_sesiones (confirmacion_token);
 
 CREATE TABLE IF NOT EXISTS sust_disponibilidad (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
