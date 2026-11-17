@@ -366,3 +366,20 @@ describe('grupos de usuarios (Pastoral, Comunicación…)', () => {
     }
   });
 });
+
+describe('Sustituciones (docs/32, decisión 2)', () => {
+  it('lo tienen Jefatura, Dirección, Secretaría, TIC y SuperTIC; nadie más por su rol', () => {
+    for (const role of ['jefe', 'direccion', 'secretaria', 'tic', 'supertic'] as const) {
+      expect(canAccess({ role }, 'sustituciones')).toBe(true);
+    }
+    for (const role of ['profe', 'tutor', 'orientacion', 'evaluaciones', 'comunicacion'] as const) {
+      expect(canAccess({ role }, 'sustituciones')).toBe(false);
+    }
+  });
+
+  it('se puede dar a mano a una persona, y quitar', () => {
+    expect(canAccess({ role: 'tutor', modulosExtra: ['sustituciones'] }, 'sustituciones')).toBe(true);
+    expect(canAccess({ role: 'jefe', modulosBloqueados: ['sustituciones'] }, 'sustituciones')).toBe(false);
+  });
+});
+

@@ -36,6 +36,7 @@ export type IconoHerramienta =
   | 'banco'
   | 'salidas'
   | 'horarios'
+  | 'sustituciones'
   | 'evaluaciones'
   | 'profes'
   | 'dispositivos'
@@ -79,6 +80,8 @@ export interface ContextoEscritorio {
   /** Inventario y aulas: arreglos urgentes sin hacer y, del 10-jul al 30-sep, el curso cuyas clases faltan por ajustar. */
   inventario: { urgentes: number; ajustarCurso: string | null } | null;
   tableros: { pendientes: number; urgente: { texto: string; tono: TonoAviso } | null } | null;
+  /** Sustituciones de hoy (solo para quien tiene el módulo): horas a cubrir y cuántas quedan sin cubrir. */
+  sustituciones?: { aCubrir: number; sinCubrir: number } | null;
 }
 
 interface Definicion extends Omit<Herramienta, 'badge' | 'desc' | 'bloqueo'> {
@@ -254,6 +257,22 @@ const HERRAMIENTAS: readonly Definicion[] = [
     icono: 'horarios',
     palabras: ['aulas', 'sesiones'],
     visible: tiene('horarios'),
+  },
+  {
+    clave: 'sustituciones',
+    titulo: 'Sustituciones',
+    desc: (ctx) => {
+      const s = ctx.sustituciones;
+      if (!s || s.aCubrir === 0) return 'Quién entra en las clases de quien falta, y los avisos';
+      if (s.sinCubrir === 0) return `Hoy, ${plural(s.aCubrir, 'hora cubierta', 'horas cubiertas')}`;
+      return `Hoy, ${plural(s.sinCubrir, 'hora sin cubrir', 'horas sin cubrir')}`;
+    },
+    href: '/gestion/sustituciones',
+    grupo: 'centro',
+    icono: 'sustituciones',
+    palabras: ['ausencias', 'faltas', 'guardias', 'cubrir', 'profesorado'],
+    visible: tiene('sustituciones'),
+    badge: (ctx) => (ctx.sustituciones && ctx.sustituciones.sinCubrir > 0 ? { texto: `${ctx.sustituciones.sinCubrir} sin cubrir`, tono: 'ambar' } : null),
   },
   {
     clave: 'oratorios',

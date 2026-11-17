@@ -107,6 +107,7 @@ const FICHAS: Partial<Record<Module, string>> = {
   cuentas: 'docs/30-cuentas.md',
   'cuentas-ver': 'docs/30-cuentas.md',
   oratorios: 'docs/26-oratorios.md',
+  sustituciones: 'docs/32-sustituciones.md',
   tableros: 'docs/27-tableros.md',
   nouvinguts: 'docs/28-nouvinguts.md',
   'nouvinguts-proceso': 'docs/28-nouvinguts.md',

@@ -15,6 +15,7 @@
 //
 // Guía de despliegue: docs/08-despliegue-y-fork.md · inventario: docs/09-parametros-del-centro.md.
 import type { Etapa } from './cursos';
+import type { COLEGIO } from './colegio';
 
 export type TipoPromocion =
   /** Rota dentro de la etapa: el último curso vuelve al primero (Infantil: 3→4→5→3). */
@@ -35,6 +36,26 @@ function etapasVisiblesDeEntorno(): readonly Etapa[] {
   const crudo = (process.env.NEXT_PUBLIC_ETAPAS_VISIBLES ?? 'EI,EP,ESO').split(',').map((e) => e.trim().toUpperCase());
   const lista = validas.filter((e) => crudo.includes(e));
   return lista.length > 0 ? lista : ['EI', 'EP', 'ESO'];
+}
+
+/**
+ * Un escalón de la lista de prioridad de Sustituciones (`CONFIGURACION.sustituciones.niveles`).
+ * Casa si se cumplen TODAS las condiciones que lleve. Las etiquetas, normalizadas.
+ */
+export interface NivelSustitucionConfig {
+  clave: string;
+  nombre: string;
+  /** Código de `hor_actividades` ('clase', 'reunion'…). */
+  actividades?: readonly string[];
+  etiquetaContiene?: readonly string[];
+  etiquetaIgual?: readonly string[];
+  etiquetaEmpieza?: readonly string[];
+  /** El candidato NO es el principal de esa hora (rol de apoyo). */
+  noPrincipal?: boolean;
+  /** La hora tiene grupo. */
+  conGrupo?: boolean;
+  /** La hora no tiene grupo. */
+  sinGrupo?: boolean;
 }
 
 /** Una norma de aula de la ESO. Ver `CONFIGURACION.horarios.aulasEso`. */
@@ -261,6 +282,98 @@ export const CONFIGURACION = {
       /** El resto de clases de un solo grupo van a su aula propia. */
       propia: true,
     },
+  },
+
+  /**
+   * Sustituciones: quién cubre las horas de un profe que falta (docs/32-sustituciones.md). Lo
+   * leen `lib/sustituciones.ts` (la propuesta, la disponibilidad, los motivos) y sus pantallas.
+   */
+  sustituciones: {
+    /** Etapas cuyas horas se cubren desde aquí (decisión 1). Un candidato puede ser de cualquiera. */
+    etapas: ['EI', 'EP', 'ESO'] as readonly Etapa[],
+    /** En este orden en el desplegable. `escolar` cuenta como «Actividad escolar»; el resto, «Personal». */
+    motivos: [
+      { clave: 'actividad_escolar', nombre: 'Actividad escolar', escolar: true },
+      { clave: 'medico', nombre: 'Médico' },
+      { clave: 'medico_familiar', nombre: 'Médico familiar' },
+      { clave: 'enfermedad_leve', nombre: 'Enfermedad leve' },
+      { clave: 'baja', nombre: 'Baja' },
+      { clave: 'otros', nombre: 'Otros', pideNota: true },
+    ] as readonly { clave: string; nombre: string; escolar?: boolean; pideNota?: boolean }[],
+    /** Días lectivos como mucho en una ausencia: más largo es una cobertura por baja (Profesorado). */
+    maxDiasAusencia: 15 as number,
+    /** El otro profe de la misma sesión va el primero («Ya está en el aula»). */
+    enAulaPrimero: true as boolean,
+    /** Ventana (días) del desempate «quien menos ha cubierto». */
+    diasReparto: 30 as number,
+    /** «Tus sustituciones» en el escritorio: hoy y los próximos N días. */
+    avisoProximosDias: 7 as number,
+    /**
+     * «Mis sustituciones» para todo el claustro (decisión 16). `false` = prueba de concepto: solo
+     * la ve quien tiene el módulo. Abrirla es poner `true` (y redesplegar).
+     */
+    misSustitucionesParaTodos: false as boolean,
+    /**
+     * El informe del día 1, partido por etapa (David, 16-nov-2026). Cada ausencia cuenta en la etapa
+     * del profe que falta (`sust_ausencias.etapa`). `buzon` es la clave del buzón en `colegio.ts`.
+     */
+    informes: [
+      { nombre: 'Infantil y Primaria', etapas: ['EI', 'EP'], buzon: 'correoJefaturaInfantilPrimaria' },
+      { nombre: 'ESO', etapas: ['ESO'], buzon: 'correoJefaturaEso' },
+      { nombre: 'Infantil, Primaria y ESO', etapas: ['EI', 'EP', 'ESO'], buzon: 'correoTitular' },
+    ] as readonly { nombre: string; etapas: readonly Etapa[]; buzon: keyof typeof COLEGIO }[],
+    /**
+     * Lo dispuesto que está cada profe en una franja, según lo que tenga en el horario (decisión
+     * 15). Clave = nivel (o `libre`, una hora sin nada estando en el colegio). Lo que no está, `no`.
+     */
+    disponibilidadPorDefecto: {
+      en_aula: 'si',
+      guardia: 'si',
+      codocencia: 'si_hace_falta',
+      lectura: 'si_hace_falta',
+      tut_indiv: 'si_hace_falta',
+      je: 'si_hace_falta',
+      al: 'si_hace_falta',
+      pt: 'si_hace_falta',
+      godly: 'si_hace_falta',
+      tic: 'si_hace_falta',
+      pastoral: 'si_hace_falta',
+      gabinete: 'si_hace_falta',
+      direccion: 'si_hace_falta',
+      otras: 'si_hace_falta',
+      libre: 'urgencia',
+    } as Readonly<Record<string, 'si' | 'si_hace_falta' | 'urgencia' | 'no'>>,
+    /**
+     * Etiquetas (normalizadas: mayúsculas, sin acentos) de horas con alumnado aunque el horario
+     * no ponga el grupo: nunca se liberan. El Almuerzo de infantil también va así cuando viene
+     * sin grupo (31 de sus 61 sesiones en Neon, 14-nov-2026).
+     */
+    nuncaLiberables: ['TALLER DE PENSAMIENTO', 'HUERTO', 'ALMUERZO'] as readonly string[],
+    /**
+     * La lista de prioridad de David traducida al horario real (decisión 7). Gana el PRIMER nivel
+     * que case. Las etiquetas se comparan normalizadas. «Ya está en el aula» (nivel 0) no está
+     * aquí: no depende de la actividad, sino de estar en la misma sesión que se cubre.
+     */
+    niveles: [
+      { clave: 'guardia', nombre: 'Guardia', actividades: ['guardia'] },
+      { clave: 'codocencia', nombre: 'Codocencia', actividades: ['clase', 'tutoria'], noPrincipal: true, conGrupo: true },
+      { clave: 'lectura', nombre: 'Lectura', etiquetaContiene: ['LECTURA'] },
+      { clave: 'tut_indiv', nombre: 'Tut. indiv.', etiquetaContiene: ['TUTORIA INDIVIDUAL'] },
+      { clave: 'je', nombre: 'J.E.', actividades: ['coordinacion'], etiquetaContiene: ['JEFATURA'] },
+      { clave: 'al', nombre: 'A.L.', actividades: ['apoyo_al'] },
+      { clave: 'pt', nombre: 'P.T.', actividades: ['apoyo_pt'] },
+      { clave: 'godly', nombre: 'Godly', actividades: ['oratorio'], etiquetaContiene: ['GODLY'] },
+      { clave: 'tic', nombre: 'TIC', actividades: ['reunion'], etiquetaIgual: ['TIC'] },
+      { clave: 'pastoral', nombre: 'Pastoral', etiquetaContiene: ['PASTORAL'] },
+      { clave: 'gabinete', nombre: 'Gabinete', etiquetaContiene: ['ORIENTACION'] },
+      { clave: 'direccion', nombre: 'Dirección', actividades: ['coordinacion'], etiquetaEmpieza: ['DIRECCION'] },
+      {
+        clave: 'otras',
+        nombre: 'Otras horas sin alumnado',
+        sinGrupo: true,
+        actividades: ['atencion_padres', 'atencion_alumnos', 'departamento', 'reunion', 'coordinacion', 'libre_disposicion', 'otros'],
+      },
+    ] as readonly NivelSustitucionConfig[],
   },
 
   /** Sesión del claustro (Auth.js). Ver `src/auth.ts`. */

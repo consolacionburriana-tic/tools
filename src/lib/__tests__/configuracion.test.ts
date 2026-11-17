@@ -2,6 +2,7 @@
 // prueban que, con los valores de Consolación, todo se comporta EXACTAMENTE como antes.
 import { describe, expect, it } from 'vitest';
 import { CONFIGURACION } from '@/lib/configuracion';
+import { COLEGIO } from '@/lib/colegio';
 import { BLOB_MAX_BYTES } from '@/lib/blob';
 import { academicYearActual } from '@/lib/constants';
 import { cursoEnBanco, cursoSiguiente, etapaDeCurso, nivelDeCurso } from '@/lib/cursos';
@@ -107,5 +108,31 @@ describe('el resto de parámetros, con los valores de Consolación', () => {
       cuotaMensual: 10,
       profesDesdeCurso: '5PRI',
     });
+  });
+
+  it('sustituciones: ESO incluida, seis motivos, 15 días, prueba de concepto y la lista de David', () => {
+    const c = CONFIGURACION.sustituciones;
+    expect(c.etapas).toEqual(['EI', 'EP', 'ESO']);
+    expect(c.motivos.map((m) => m.clave)).toEqual(['actividad_escolar', 'medico', 'medico_familiar', 'enfermedad_leve', 'baja', 'otros']);
+    expect(c.motivos.filter((m) => m.escolar).map((m) => m.clave)).toEqual(['actividad_escolar']);
+    expect(c.motivos.find((m) => m.clave === 'otros')?.pideNota).toBe(true);
+    expect(c.maxDiasAusencia).toBe(15);
+    expect(c.diasReparto).toBe(30);
+    expect(c.avisoProximosDias).toBe(7);
+    expect(c.misSustitucionesParaTodos).toBe(false);
+    expect(c.niveles.map((n) => n.clave)).toEqual([
+      'guardia', 'codocencia', 'lectura', 'tut_indiv', 'je', 'al', 'pt', 'godly', 'tic', 'pastoral', 'gabinete', 'direccion', 'otras',
+    ]);
+    expect(c.disponibilidadPorDefecto.en_aula).toBe('si');
+    expect(c.disponibilidadPorDefecto.guardia).toBe('si');
+    expect(c.disponibilidadPorDefecto.otras).toBe('si_hace_falta');
+    expect(c.disponibilidadPorDefecto.libre).toBe('urgencia');
+    expect(c.nuncaLiberables).toEqual(['TALLER DE PENSAMIENTO', 'HUERTO', 'ALMUERZO']);
+    // El informe del día 1 (16-nov-2026): Infantil y Primaria, ESO y uno conjunto para Dirección titular.
+    expect(c.informes.map((i) => [i.etapas.join('+'), COLEGIO[i.buzon]])).toEqual([
+      ['EI+EP', 'jeinfyprim@consolacionburriana.com'],
+      ['ESO', 'jesecundaria@consolacionburriana.com'],
+      ['EI+EP+ESO', 'titular@consolacionburriana.com'],
+    ]);
   });
 });

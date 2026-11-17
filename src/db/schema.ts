@@ -1799,6 +1799,153 @@ export const horFestivos = pgTable('hor_festivos', {
 export type HorFestivo = typeof horFestivos.$inferSelect;
 export type NewHorFestivo = typeof horFestivos.$inferInsert;
 
+// El cuadro «HORARIO SUSTITUCIONES» del .docx de horarios: quién está para sustituir a cada hora
+// (docs/32, decisión 21). Es parte del horario de su periodo: se rehace con cada importación,
+// como las sesiones. `texto` guarda lo que ponía la celda, case o no con un profe.
+export const horCuadroSustituciones = pgTable('hor_cuadro_sustituciones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  periodoId: uuid('periodo_id').notNull().references(() => horPeriodos.id),
+  diaSemana: integer('dia_semana').notNull(), // 1 = lunes … 5 = viernes
+  horaInicio: text('hora_inicio').notNull(),
+  horaFin: text('hora_fin').notNull(),
+  eduTeacherId: uuid('edu_teacher_id').references(() => eduTeachers.id), // null = el texto no casa con nadie
+  texto: text('texto').notNull(),
+  importRunId: uuid('import_run_id'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('hor_cuadro_sustituciones_idx').on(t.periodoId, t.diaSemana),
+]);
+
+// ─── Sustituciones (prefijo sust_) ─────────────────────────────────────────────
+// Ficha: docs/32-sustituciones.md. Cuando un profe falta unas horas o unos días, quién entra
+// en cada una de sus clases. No confundir con las Coberturas por baja (`edu_sustituciones`).
+// Todo es FOTO: una reimportación de horarios borra y rehace `hor_sesiones`, así que cada hora
+// guarda fecha, tramo, grupos, materia, aula y nombres, y `hor_sesion_id` va sin FK.
+
+// Una ausencia: un profe, de tal a tal fecha, un motivo. Las horas, en sust_sesiones. No se
+// borra nunca: se anula (deja de contar). Sin unicidad (profe, fecha) a propósito: dos ausencias
+// del mismo profe pueden caer el mismo día si no se solapan en horas (lo comprueba el servidor).
+export const sustAusencias = pgTable('sust_ausencias', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  desde: date('desde').notNull(),
+  hasta: date('hasta').notNull(), // = desde si es un día
+  profeId: uuid('profe_id').notNull().references(() => eduTeachers.id),
+  profeNombre: text('profe_nombre').notNull(),
+  etapa: text('etapa').notNull().default('EP'), // 'EI' | 'EP' | 'ESO', etapa a la que pertenece la ausencia
+  avisarAusente: boolean('avisar_ausente').notNull().default(true),
+  // 'actividad_escolar'|'medico'|'medico_familiar'|'enfermedad_leve'|'baja'|'otros'. Dato de
+  // salud en casi todos: NUNCA sale en un correo, en «Mis sustituciones» ni en un log.
+  motivo: text('motivo').notNull(),
+  nota: text('nota'), // detalle de «Otros» u observación interna; tampoco va en correos
+  indicaciones: text('indicaciones'), // qué hace la clase: SÍ va al sustituto
+  estado: text('estado').notNull().default('confirmada'), // 'confirmada' | 'anulada'
+  creadaPorEmail: text('creada_por_email').notNull(),
+  anuladaPorEmail: text('anulada_por_email'),
+  anuladaAt: timestamp('anulada_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('sust_ausencias_fechas_idx').on(t.desde, t.hasta),
+  index('sust_ausencias_profe_idx').on(t.profeId, t.desde),
+  index('sust_ausencias_year_idx').on(t.academicYear),
+  index('sust_ausencias_etapa_fechas_idx').on(t.etapa, t.desde, t.hasta),
+]);
+
+// Cada hora de cada día de la ausencia, con su foto. Es lo que se cuenta.
+export const sustSesiones = pgTable('sust_sesiones', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  ausenciaId: uuid('ausencia_id').notNull().references(() => sustAusencias.id),
+  fecha: date('fecha').notNull(),
+  horSesionId: uuid('hor_sesion_id'), // SIN FK: los imports rehacen hor_sesiones
+  tramo: text('tramo'), // '3ª'
+  horaInicio: text('hora_inicio').notNull(), // 'HH:mm', como hor_tramos
+  horaFin: text('hora_fin').notNull(),
+  grupos: text('grupos'), // '2º B' o '3 años A, 3 años B', ya formateado
+  materia: text('materia'),
+  aula: text('aula'),
+  actividad: text('actividad'),
+  hayQueCubrir: boolean('hay_que_cubrir').notNull(),
+  sustitutoId: uuid('sustituto_id').references(() => eduTeachers.id), // null = sin cubrir (o no hace falta)
+  sustitutoNombre: text('sustituto_nombre'),
+  sustitutoEmail: text('sustituto_email'),
+  sustitutoHoraInicio: text('sustituto_hora_inicio'),
+  sustitutoHoraFin: text('sustituto_hora_fin'),
+  sustituto2Id: uuid('sustituto_2_id').references(() => eduTeachers.id),
+  sustituto2Nombre: text('sustituto_2_nombre'),
+  sustituto2Email: text('sustituto_2_email'),
+  sustituto2HoraInicio: text('sustituto_2_hora_inicio'),
+  sustituto2HoraFin: text('sustituto_2_hora_fin'),
+  nivel: text('nivel'), // 'en_aula'|'guardia'|'codocencia'|…|'otras'|'libre'|'manual'
+  disponibilidad: text('disponibilidad'), // con la que se eligió: 'si'|'si_hace_falta'|'urgencia'|'no'
+  avisoEstado: text('aviso_estado').notNull().default('no'), // 'no'|'enviado'|'error'
+  avisoProgramadoPara: timestamp('aviso_programado_para'),
+  avisoEnviadoAt: timestamp('aviso_enviado_at'),
+  avisoError: text('aviso_error'),
+  confirmacionToken: uuid('confirmacion_token'),
+  confirmacionEstado: text('confirmacion_estado').notNull().default('pendiente'), // 'pendiente' | 'confirmada'
+  confirmacionAt: timestamp('confirmacion_at'),
+  confirmacion2Token: uuid('confirmacion_2_token'),
+  confirmacion2Estado: text('confirmacion_2_estado').notNull().default('pendiente'),
+  confirmacion2At: timestamp('confirmacion_2_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('sust_sesiones_ausencia_idx').on(t.ausenciaId),
+  index('sust_sesiones_sustituto_idx').on(t.sustitutoId, t.fecha),
+  index('sust_sesiones_fecha_idx').on(t.fecha),
+  index('sust_sesiones_confirmacion_token_idx').on(t.confirmacionToken),
+]);
+
+// Los retoques a mano de la disponibilidad (decisión 15). Lo que no está aquí sale del horario.
+// Por día + horas, no por id de tramo (como ora_disponibilidad): reimportar no lo borra.
+export const sustDisponibilidad = pgTable('sust_disponibilidad', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  profeId: uuid('profe_id').notNull().references(() => eduTeachers.id),
+  academicYear: text('academic_year').notNull(),
+  diaSemana: integer('dia_semana').notNull(), // 1-5
+  horaInicio: text('hora_inicio').notNull(),
+  horaFin: text('hora_fin').notNull(),
+  estado: text('estado').notNull(), // 'si'|'si_hace_falta'|'urgencia'|'no'
+  nota: text('nota'),
+  updatedByEmail: text('updated_by_email'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  // Con la hora de fin: quien da en dos etapas tiene franjas que empiezan igual y acaban distinto.
+  uniqueIndex('sust_disponibilidad_franja_uq').on(t.profeId, t.academicYear, t.diaSemana, t.horaInicio, t.horaFin),
+]);
+
+// Un informe mensual mandado (idempotencia del cron del día 1).
+export const sustInformes = pgTable('sust_informes', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  mes: text('mes').notNull().unique(), // '2026-10'
+  destinatarios: jsonb('destinatarios').$type<string[]>().notNull().default([]),
+  resumen: jsonb('resumen').$type<Record<string, unknown>>(),
+  enviadoAt: timestamp('enviado_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const sustEnvios = pgTable('sust_envios', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  ausenciaId: uuid('ausencia_id').notNull().references(() => sustAusencias.id),
+  sesionesIds: text('sesiones_ids').array().notNull().default([]),
+  destinatario: text('destinatario').notNull(),
+  tipo: text('tipo').notNull(),
+  asunto: text('asunto').notNull(),
+  html: text('html').notNull(),
+  replyTo: text('reply_to'),
+  programadoPara: timestamp('programado_para').notNull(),
+  estado: text('estado').notNull().default('pendiente'), // pendiente | enviado | error | cancelado
+  error: text('error'),
+  enviadoAt: timestamp('enviado_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type SustAusencia = typeof sustAusencias.$inferSelect;
+export type SustSesion = typeof sustSesiones.$inferSelect;
+export type NewSustSesion = typeof sustSesiones.$inferInsert;
+export type SustDisponibilidad = typeof sustDisponibilidad.$inferSelect;
+
 // ─── Tool: Mi horario (prefijo mih_) ───────────────────────────────────────────
 //
 // Módulo pequeño y personal: cada profe ve SOLO lo suyo y se lo lleva a su Google Calendar.

@@ -15,48 +15,14 @@ import { Vacio } from '@/components/ui/vacio';
 import { Aviso } from '@/components/ui/aviso';
 import { FichaRegistroModal, type FichaRegistroData } from '@/components/registro-abc/ficha-registro';
 import { BEHAVIORS, CONTEXTS, TIME_SLOTS } from '@/lib/constants';
-import { FILTROS_ABC_KEY, PERIODOS, periodoValido, rangoDePeriodo } from '@/lib/abc';
+import { FILTROS_ABC_KEY, periodoValido } from '@/lib/abc';
+import { getDateRange, label, TIME_PRESETS, type ReportRow } from '@/lib/abc-registros';
 import type { Teacher } from '@/db/schema';
 import type { AbcStudentPanel } from '@/lib/abc-server';
 
 // El informe agregado (recharts, el chunk de cliente más pesado del repo) solo se pinta en
 // mode === 'informe'; el listado (modo por defecto) nunca debe descargarlo.
 const RegistrosCharts = dynamic(() => import('@/components/registro-abc/registros-charts'), { ssr: false });
-
-export type ReportRow = {
-  id: string;
-  studentId: string;
-  teacherId: string | null;
-  otherTeacherName: string | null;
-  reportDate: string;
-  dayOfWeek: number;
-  context: string;
-  contextNote: string | null;
-  timeSlot: string;
-  presentPeople: string[];
-  presentNames: string | null;
-  behaviors: string[];
-  involvedWith: string | null;
-  situationDescription: string | null;
-  antecedents: string | null;
-  consequences: string | null;
-  redirectActions: string | null;
-  reasons: string[] | null;
-  reasonOther: string | null;
-  effectivenessRating: string | null;
-  comments: string | null;
-  createdAt: string;
-};
-
-export const TIME_PRESETS: { value: string; label: string }[] = [...PERIODOS];
-
-export function getDateRange(preset: string): { from: Date; to: Date } | null {
-  return rangoDePeriodo(preset);
-}
-
-export function label<T extends { value: string; label: string }>(arr: readonly T[], val: string): string {
-  return arr.find((x) => x.value === val)?.label ?? val;
-}
 
 // Recuerda el filtro temporal y de alumnos entre visitas (por navegador, no por usuario):
 // David entra a mirar siempre el mismo caso, no tiene sentido reconfigurar cada vez.

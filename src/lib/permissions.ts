@@ -23,6 +23,7 @@ export const MODULES = [
   'evaluaciones',
   'puntualidad',
   'horarios',
+  'sustituciones',
   'horarios-profes',
   'mi-horario',
   'educamos',
@@ -57,6 +58,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   evaluaciones: 'Evaluaciones',
   puntualidad: 'Puntualidad',
   horarios: 'Horarios de clase',
+  sustituciones: 'Sustituciones',
   'horarios-profes': 'Horarios del profesorado',
   'mi-horario': 'Mi horario',
   educamos: 'BBDD central',
@@ -138,6 +140,7 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'evaluaciones',
     'puntualidad',
     'horarios',
+    'sustituciones',
     'horarios-profes',
     'mi-horario',
     'educamos',
@@ -153,7 +156,7 @@ export const ROLE_MODULES: Record<Role, readonly Module[]> = {
     'dispositivos',
     'inventario',
   ],
-  jefe: ['salidas', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
+  jefe: ['salidas', 'puntualidad', 'horarios', 'sustituciones', 'horarios-profes', 'mi-horario', 'profes', 'autoasm', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   orientacion: ['abc', 'puntualidad', 'horarios', 'horarios-profes', 'mi-horario', 'alumnado', 'numeros', 'tareas-reportar', 'oratorios-ver', 'tableros'],
   // Secretaría tiene acceso a TODO, como TIC (David, 23-sep-2026: «son los DIOSES»)…
   // menos al tablero de tareas de la plataforma, que es cosa de TIC: secretaría apunta

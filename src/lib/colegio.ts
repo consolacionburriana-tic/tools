@@ -28,4 +28,10 @@ export const COLEGIO = {
   correoNoResponder: `no-responder@${dominio}`,
   /** Buzón de soporte que ven las familias en pantalla. */
   correoTic: `tic@${dominio}`,
+  /** Jefatura de Estudios de Infantil y Primaria: remitente de Sustituciones y su informe mensual. */
+  correoJefaturaInfantilPrimaria: `jeinfyprim@${dominio}`,
+  /** Jefatura de Estudios de la ESO: su informe mensual de Sustituciones. */
+  correoJefaturaEso: `jesecundaria@${dominio}`,
+  /** Dirección titular: el informe mensual conjunto de Sustituciones. */
+  correoTitular: `titular@${dominio}`,
 } as const;
