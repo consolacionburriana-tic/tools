@@ -37,24 +37,93 @@ export function llevaCompra(m: Modalidad | null | undefined): boolean {
   return m === 'comprado' || m === 'hermano';
 }
 
-/** Para qué es un iPad del cole. Cada uso tiene su letra en el código. */
-// Dos lotes (David, 20-oct-2026). Los de sustitución son los del alumnado: el mismo S3 se presta
-// para todo el curso a un alumno «Prestado» o se deja mientras arreglan el suyo.
-export const USOS = ['sustitucion', 'profesorado'] as const;
-export type Uso = (typeof USOS)[number];
-export const USO_LABEL: Record<Uso, string> = {
-  sustitucion: 'Sustitución',
-  profesorado: 'Profesorado',
-};
-export const USO_EXPLICA: Record<Uso, string> = {
-  sustitucion: 'Los del alumnado: se prestan para todo el curso o se dejan mientras arreglan el de un alumno',
-  profesorado: 'Los del claustro, desde el 3er ciclo de Primaria',
-};
-/** Las letras las fijó David (20-oct-2026). */
-export const PREFIJO: Record<Uso, string> = { sustitucion: 'S', profesorado: 'P' };
+// ─── Categorías de iPads del cole ─────────────────────────────────────────────
+//
+// Antes eran dos lotes fijos. Desde el 18-nov-2026 son filas de `dis_categorias` y el colegio
+// añade las suyas (TEC de la escuela de idiomas, AL de audición y lenguaje…). Dos siguen siendo
+// especiales porque el resto del módulo cuelga de ellas, y por eso no se pueden quitar:
+//  - `sustitucion` («S»): los del alumnado. El mismo S3 se presta para todo el curso a un alumno
+//    «Prestado» o se deja mientras arreglan el suyo (David, 20-oct-2026).
+//  - `profesorado` («P»): los del claustro, desde 5º EP; su pantalla dice a qué profes les toca.
+// Su `clave` es el `uso` que ya llevaban los iPads, así que no hubo que migrar ninguno.
+export const USO_SUSTITUCION = 'sustitucion';
+export const USO_PROFESORADO = 'profesorado';
+/** Las que el código necesita para funcionar: se pueden renombrar, no quitar ni cambiar de titular. */
+export const USOS_FIJOS: readonly string[] = [USO_SUSTITUCION, USO_PROFESORADO];
 
-export function esUso(valor: unknown): valor is Uso {
-  return typeof valor === 'string' && (USOS as readonly string[]).includes(valor);
+/** La clave de una categoría: `sustitucion`, `profesorado`, `tec`, `audicion-lenguaje`… */
+export type Uso = string;
+
+/** A quién se le da un iPad de la categoría. `nadie`: es del centro, sin titular (un carro, un aula). */
+export const TITULARES = ['alumno', 'profe', 'nadie'] as const;
+export type TitularTipo = (typeof TITULARES)[number];
+export const TITULAR_LABEL: Record<TitularTipo, string> = {
+  alumno: 'Alumnado',
+  profe: 'Profesorado',
+  nadie: 'Nadie (del centro)',
+};
+export const TITULAR_EXPLICA: Record<TitularTipo, string> = {
+  alumno: 'Se le da a un alumno',
+  profe: 'Se le da a un profe',
+  nadie: 'Se queda en el centro, sin dárselo a nadie',
+};
+
+export function esTitularTipo(valor: unknown): valor is TitularTipo {
+  return typeof valor === 'string' && (TITULARES as readonly string[]).includes(valor);
+}
+
+/** Una categoría tal como viaja a la pantalla. */
+export interface CategoriaDis {
+  clave: Uso;
+  nombre: string;
+  /** Las letras de sus códigos: «S» → S1, S2… */
+  prefijo: string;
+  titular: TitularTipo;
+  explica: string | null;
+  orden: number;
+  /** false = archivada: ya no sale como pestaña. */
+  activo: boolean;
+}
+
+/** Los códigos son letras y luego el número: `TEC12`. Sin cifras en el prefijo, para que `TEC1` y `TEC12` no se mezclen. */
+export const PREFIJO_RE = /^[A-Z]{1,4}$/;
+
+/** «Escola d'idiomes» → «EI»; «Audición y lenguaje» → «AL» (las palabras de una letra no cuentan); una sola palabra, sus tres primeras letras. */
+export function sugerirPrefijo(nombre: string): string {
+  const palabras = quitarTildes(nombre)
+    .toUpperCase()
+    .replace(/[^A-Z\s]/g, ' ')
+    .split(/\s+/)
+    .filter((p) => p.length > 1);
+  if (palabras.length === 0) return '';
+  if (palabras.length === 1) return palabras[0].slice(0, 3);
+  return palabras
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 4);
+}
+
+/** «Escola d'idiomes (TEC)» → «escola-d-idiomes-tec». La clave de una categoría nueva. */
+export function claveDeNombre(nombre: string): string {
+  return quitarTildes(nombre)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+}
+
+function quitarTildes(t: string): string {
+  return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Cómo se quiere el nombre de una categoría dentro de una frase: «Alta (sustitución)». */
+export function nombreEnFrase(c: Pick<CategoriaDis, 'nombre'>): string {
+  return c.nombre.trim().toLowerCase();
+}
+
+/** Las categorías que salen como pestaña, en su orden. */
+export function categoriasVisibles(categorias: readonly CategoriaDis[]): CategoriaDis[] {
+  return categorias.filter((c) => c.activo).sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
 /** El estado físico del aparato. Quién lo tiene va aparte (`titular`). */
@@ -235,16 +304,17 @@ export function resumenCuotas(cuotas: readonly Cuota[]): ResumenCuotas {
 
 // ─── Códigos de los iPads del cole ────────────────────────────────────────────
 
-/** El número de un código de ese uso («S12» → 12), o null si no es de ese uso. */
-export function numeroDeCodigo(uso: Uso, codigo: string): number | null {
-  const m = codigo.trim().toUpperCase().match(new RegExp(`^${PREFIJO[uso]}(\\d+)$`));
+/** El número de un código con ese prefijo («S12» con «S» → 12), o null si es de otra categoría. */
+export function numeroDeCodigo(prefijo: string, codigo: string): number | null {
+  const m = codigo.trim().toUpperCase().match(new RegExp(`^${prefijo.toUpperCase()}(\\d+)$`));
   return m ? Number(m[1]) : null;
 }
 
-/** Los `n` códigos libres siguientes de un uso: tras el más alto que haya («S7» → S8, S9…). */
-export function siguientesCodigos(uso: Uso, existentes: readonly string[], n = 1): string[] {
-  const max = existentes.reduce((acc, c) => Math.max(acc, numeroDeCodigo(uso, c) ?? 0), 0);
-  return Array.from({ length: n }, (_, i) => `${PREFIJO[uso]}${max + i + 1}`);
+/** Los `n` códigos libres siguientes de un prefijo: tras el más alto que haya («S7» → S8, S9…). */
+export function siguientesCodigos(prefijo: string, existentes: readonly string[], n = 1): string[] {
+  const p = prefijo.toUpperCase();
+  const max = existentes.reduce((acc, c) => Math.max(acc, numeroDeCodigo(p, c) ?? 0), 0);
+  return Array.from({ length: n }, (_, i) => `${p}${max + i + 1}`);
 }
 
 /** Orden natural de códigos: S2 antes que S10, y por letra primero. */
@@ -326,7 +396,8 @@ export const masivoSchema = z.object({
 /** Alta de iPads del cole: en serie (`cantidad`) o pegando números de serie (`series`). */
 export const altaAparatosSchema = z
   .object({
-    uso: z.enum(USOS),
+    /** La clave de la categoría (se comprueba contra `dis_categorias` en el servidor). */
+    uso: z.string().trim().min(1).max(40),
     modeloId: id.nullable().optional(),
     cantidad: z.number().int().min(1).max(200).optional(),
     series: z.array(z.string().trim().min(1).max(60)).max(400).optional(),
@@ -368,3 +439,16 @@ export const modeloSchema = z.object({
   notas: texto(300),
   activo: z.boolean().optional(),
 });
+
+/** Crear o cambiar una categoría de iPads del cole. */
+export const categoriaSchema = z.object({
+  nombre: z.string().trim().min(2, 'Ponle nombre a la categoría').max(60),
+  prefijo: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => PREFIJO_RE.test(v), 'El prefijo son de 1 a 4 letras (TEC, AL…), sin números'),
+  titular: z.enum(TITULARES),
+  explica: texto(200),
+});
+export type CategoriaInput = z.infer<typeof categoriaSchema>;

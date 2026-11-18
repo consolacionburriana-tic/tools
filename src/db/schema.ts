@@ -2665,10 +2665,29 @@ export const disModelos = pgTable('dis_modelos', {
 });
 export type DisModelo = typeof disModelos.$inferSelect;
 
-// Los iPads del cole. Un titular como mucho: un alumno (sustitución) o un profe (profesorado).
+// Las categorías de iPads del cole (las pestañas de «iPads del cole»). Sustitución («S») y
+// Profesorado («P») vienen sembradas —su `clave` es el `uso` que ya llevaban los iPads— y el
+// colegio añade las suyas: TEC, AL… `titular` dice a quién se le dan: un alumno, un profe o a
+// nadie (iPads del centro, sin dueño). Prefijo y titular no cambian cuando ya hay iPads dentro.
+export const disCategorias = pgTable('dis_categorias', {
+  clave: text('clave').primaryKey(), // 'sustitucion', 'profesorado', 'tec'…
+  nombre: text('nombre').notNull(),
+  prefijo: text('prefijo').notNull(), // 'S', 'P', 'TEC': letras; los códigos son prefijo + número
+  titular: text('titular').notNull().default('profe'), // 'alumno' | 'profe' | 'nadie'
+  explica: text('explica'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true), // false = archivada: ya no sale como pestaña
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('dis_categorias_prefijo_uq').on(sql`upper(${t.prefijo})`),
+]);
+export type DisCategoria = typeof disCategorias.$inferSelect;
+
+// Los iPads del cole. Un titular como mucho: un alumno o un profe, según la categoría.
 export const disAparatos = pgTable('dis_aparatos', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  uso: text('uso').notNull(), // 'sustitucion' | 'profesorado'
+  uso: text('uso').notNull(), // la `clave` de su categoría (dis_categorias): 'sustitucion', 'profesorado', 'tec'…
   codigo: text('codigo').notNull(), // 'S3', 'P12'
   tipo: text('tipo').notNull().default('ipad'),
   modeloId: uuid('modelo_id').references(() => disModelos.id),
