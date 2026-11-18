@@ -2316,7 +2316,7 @@ export const oraSesiones = pgTable('ora_sesiones', {
   materia: text('materia'),
   // TODOS los profes que pierden esa hora (el primero es `profeId`): en un desdoble o una
   // optativa conjunta son varios, y a todos se les invita y se les avisa.
-  profes: jsonb('profes').$type<{ id: string; nombre: string; materia: string | null }[]>().notNull().default([]),
+  profes: jsonb('profes').$type<{ id: string; nombre: string; materia: string | null; sinMolestia?: boolean }[]>().notNull().default([]),
   estado: text('estado').notNull().default('borrador'), // 'borrador'|'confirmado'|'reprogramar'|'anulado'
   avisoEstado: text('aviso_estado').notNull().default('no'), // 'no'|'pendiente'|'programado'|'enviado'
   avisoTipo: text('aviso_tipo').notNull().default('aviso'), // 'aviso'|'cambio'|'anulacion'

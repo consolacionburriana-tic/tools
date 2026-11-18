@@ -42,7 +42,9 @@ import {
   avisoTrasCambio,
   claveClase,
   etiquetaClases,
+  horaDeClase,
   hoyEnEspana,
+  indexarHorario,
   nivelDe,
   PREFS_CALENDARIO_DEFECTO,
   profesDe,
@@ -303,7 +305,7 @@ async function getHorario(): Promise<{ periodos: Periodo[]; horario: HuecoHorari
   const profesPor = new Map<string, HuecoHorario['profes']>();
   for (const p of profes) {
     const lista = profesPor.get(p.asignacionId) ?? [];
-    lista.push({ id: p.id, nombre: nombreProfeHorario(p.nombre, p.apellido1, p.nombreMostrado), titular: p.rol === 'titular' || p.principal });
+    lista.push({ id: p.id, nombre: nombreProfeHorario(p.nombre, p.apellido1, p.nombreMostrado), titular: p.rol === 'titular' || p.principal, rol: p.rol });
     profesPor.set(p.asignacionId, lista);
   }
 
@@ -904,12 +906,22 @@ export async function accionLote(accion: AccionLote, ids: string[], por: Quien, 
  * Manda los avisos de estas sesiones, UN correo por profe (y responsable, tipo y clase de
  * correo): si a Ana le tocan dos oratorios en el mismo envío, recibe uno con los dos.
  */
-export async function enviarAvisos(ids: string[], por: Quien | null): Promise<ResultadoLote> {
+export async function enviarAvisos(
+  ids: string[],
+  por: Quien | null,
+  /**
+   * Solo a estos profes, aunque la sesión ya estuviera avisada: para el profe que se añade a una
+   * sesión ya avisada y no recibió nada (`corregirProfesFuturos`). Ni cambia el estado del aviso.
+   */
+  opciones: { soloProfes?: ReadonlySet<string> } = {},
+): Promise<ResultadoLote> {
   const { sesiones, tipos } = await cargar(ids);
-  const elegibles = sesiones.filter(
-    (s) =>
-      (s.estado === 'confirmado' && (s.avisoEstado === 'pendiente' || s.avisoEstado === 'programado')) ||
-      (s.estado === 'anulado' && s.avisoEstado === 'pendiente' && s.avisoTipo === 'anulacion'),
+  const solo = opciones.soloProfes;
+  const elegibles = sesiones.filter((s) =>
+    solo
+      ? s.estado === 'confirmado' && profesDe(aSesion(s)).some((p) => solo.has(p.id))
+      : (s.estado === 'confirmado' && (s.avisoEstado === 'pendiente' || s.avisoEstado === 'programado')) ||
+        (s.estado === 'anulado' && s.avisoEstado === 'pendiente' && s.avisoTipo === 'anulacion'),
   );
   if (elegibles.length === 0) return { sesiones: [], borradas: [], mensaje: 'Nada que avisar' };
 
@@ -932,6 +944,7 @@ export async function enviarAvisos(ids: string[], por: Quien | null): Promise<Re
     const lista = profesDe(aSesion(s));
     if (lista.length === 0) sinCorreo.add(s.id);
     for (const p of lista) {
+      if (solo && !solo.has(p.id)) continue;
       const aQuien = destinos.get(p.id) ?? [];
       if (aQuien.length === 0) sinCorreo.add(s.id);
       for (const d of aQuien) {
@@ -988,6 +1001,11 @@ export async function enviarAvisos(ids: string[], por: Quien | null): Promise<Re
   const hechas = await Promise.all(
     elegibles.map((s) => {
       const error = fallos.get(s.id) ?? (sinCorreo.has(s.id) ? 'Algún profe no tiene correo en la BBDD central' : null);
+      if (solo) {
+        // Solo se deja constancia: el aviso de la sesión ya estaba enviado y sigue así.
+        if (ok.has(s.id) && !fallos.has(s.id)) return actualizar(s.id, { historial: [...(s.historial ?? []), entrada(quien, 'aviso enviado al profe añadido')] });
+        return actualizar(s.id, { avisoError: error ?? 'No se pudo enviar' });
+      }
       if (ok.has(s.id) && !fallos.has(s.id)) {
         return actualizar(s.id, {
           avisoEstado: s.estado === 'anulado' ? 'no' : 'enviado',
@@ -1017,3 +1035,118 @@ export async function enviarAvisosDebidos(): Promise<ResultadoLote> {
   return enviarAvisos(debidas.map((d) => d.id), null);
 }
 
+// ─── Corregir los profes de sesiones ya creadas ──────────────────────────────
+
+export interface CorreccionProfes {
+  id: string;
+  clase: string;
+  fecha: string;
+  horaInicio: string;
+  estado: string;
+  avisoEstado: string;
+  /** Profes que tenía la sesión. */
+  antes: string[];
+  /** Profes del horario que faltaban (se añaden). */
+  anadidos: string[];
+  /** Profes de apoyo (PT/AL) que pasan a no contar como molestados. */
+  sinMolestia: string[];
+  /** Profes de la sesión que el horario ya no da a esa hora (solo se informa, no se quitan). */
+  sobran: string[];
+  /** Por qué no se ha podido mirar. */
+  omitida?: string;
+  calendario?: 'actualizado' | string;
+  correoAlAnadido?: 'enviado' | string;
+}
+
+/**
+ * Recalcula, desde el horario de ahora, los profes de las sesiones FUTURAS (borrador o
+ * confirmadas) y añade los que faltan: antes de 18-nov-2026 solo entraba el titular de la hora, y
+ * el otro profe de la clase no recibía invitación ni aviso. Solo AÑADE (y marca a los de apoyo PT/AL
+ * como «sin molestia»); nunca quita a nadie. Con `aplicar`, además:
+ *  - en las confirmadas, actualiza el evento de Calendar (el profe nuevo recibe la invitación);
+ *  - con `avisar`, y si la sesión ya estaba avisada, manda el correo SOLO al profe añadido (si el
+ *    aviso aún no ha salido, saldrá con todos como siempre).
+ */
+export async function corregirProfesFuturos(opciones: { aplicar: boolean; avisar?: boolean; hoy?: string }): Promise<CorreccionProfes[]> {
+  const hoy = opciones.hoy ?? hoyEnEspana();
+  const [filas, { periodos, horario }] = await Promise.all([
+    db
+      .select()
+      .from(oraSesiones)
+      .where(and(gte(oraSesiones.fecha, hoy), inArray(oraSesiones.estado, ['borrador', 'confirmado'])))
+      .orderBy(asc(oraSesiones.fecha), asc(oraSesiones.horaInicio)),
+    getHorario(),
+  ]);
+  const idx = indexarHorario(horario);
+  const idsResponsable = new Map<string, string | null>();
+  const resultado: CorreccionProfes[] = [];
+  const quien: Quien = { email: 'script', nombre: 'corrección de profes' };
+
+  for (const f of filas) {
+    const s = aSesion(f);
+    const clases: Clase[] = [{ curso: s.curso, letra: s.letra }, ...s.juntas];
+    const base = { id: s.id, clase: etiquetaClases(s), fecha: s.fecha, horaInicio: s.horaInicio, estado: s.estado, avisoEstado: s.avisoEstado };
+    const horas = clases.map((c) => horaDeClase(idx, periodos, c, s.fecha, { horaInicio: s.horaInicio, horaFin: s.horaFin }));
+    const antes = profesDe(s);
+    if (horas.some((h) => h === null)) {
+      resultado.push({ ...base, antes: antes.map((p) => p.nombre), anadidos: [], sinMolestia: [], sobran: [], omitida: 'alguna clase no tiene horario importado a esa hora' });
+      continue;
+    }
+    // Los profes de TODAS las clases juntas; solo es «de apoyo» quien lo es en todas.
+    const delHorario = new Map<string, ProfeAfectado>();
+    for (const h of horas) {
+      for (const p of h!.profes) {
+        const previo = delHorario.get(p.id);
+        delHorario.set(p.id, previo ? { ...previo, ...(previo.sinMolestia && p.sinMolestia ? {} : { sinMolestia: undefined }) } : p);
+      }
+    }
+    if (!idsResponsable.has(s.responsableEmail)) idsResponsable.set(s.responsableEmail, await profeIdDe(s.responsableEmail));
+    const nuevos = sinResponsable([...delHorario.values()], idsResponsable.get(s.responsableEmail) ?? null);
+
+    const actualesIds = new Set(antes.map((p) => p.id));
+    const nuevosPorId = new Map(nuevos.map((p) => [p.id, p]));
+    const anadidos = nuevos.filter((p) => !actualesIds.has(p.id));
+    const sinMolestia = antes.filter((p) => nuevosPorId.get(p.id)?.sinMolestia && !p.sinMolestia);
+    const sobran = antes.filter((p) => !nuevosPorId.has(p.id));
+    if (anadidos.length === 0 && sinMolestia.length === 0 && sobran.length === 0) continue;
+
+    const fila: CorreccionProfes = {
+      ...base,
+      antes: antes.map((p) => p.nombre),
+      anadidos: anadidos.map((p) => p.nombre),
+      sinMolestia: sinMolestia.map((p) => p.nombre),
+      sobran: sobran.map((p) => p.nombre),
+    };
+    resultado.push(fila);
+    if (!opciones.aplicar || (anadidos.length === 0 && sinMolestia.length === 0)) continue;
+
+    const marcados = antes.map((p) => (nuevosPorId.get(p.id)?.sinMolestia ? { ...p, sinMolestia: true } : p));
+    const profes = [...marcados, ...anadidos];
+    const cambios: Partial<typeof oraSesiones.$inferInsert> = {
+      profes,
+      historial: [
+        ...s.historial,
+        entrada(quien, `profes corregidos${anadidos.length ? `: añadido/a ${anadidos.map((p) => p.nombre).join(', ')}` : ''}${sinMolestia.length ? `; sin molestia: ${sinMolestia.map((p) => p.nombre).join(', ')}` : ''}`),
+      ],
+    };
+    if (antes.length === 0) Object.assign(cambios, principal(profes));
+    await actualizar(s.id, cambios);
+
+    if (anadidos.length === 0) continue;
+    if (s.estado === 'confirmado' && s.googleEventId) {
+      const c = await cargar([s.id]);
+      const tipo = c.tipos.get(s.tipoId);
+      const nueva = c.sesiones[0];
+      if (tipo && nueva) {
+        const r = await sincronizarCalendario(nueva, tipo, c.correos, c.prefs);
+        await actualizar(s.id, r);
+        fila.calendario = r.calendarioError ? `error: ${r.calendarioError}` : 'actualizado';
+      }
+    }
+    if (opciones.avisar && s.estado === 'confirmado' && s.avisoEstado === 'enviado') {
+      const r = await enviarAvisos([s.id], quien, { soloProfes: new Set(anadidos.map((p) => p.id)) });
+      fila.correoAlAnadido = r.sesiones[0]?.avisoError ? `error: ${r.sesiones[0].avisoError}` : 'enviado';
+    }
+  }
+  return resultado;
+}

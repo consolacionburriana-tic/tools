@@ -19,6 +19,7 @@
     "db:migrate:abc-nia": "npx dotenv-cli -e .env.local tsx src/db/migrate-abc-nia.ts",
     "horarios:importar": "tsx scripts/importar-horarios.ts",
     "horarios:aulas": "tsx scripts/aplicar-aulas-eso.ts",
+    "oratorios:profes": "tsx scripts/corregir-profes-oratorios.ts",
     "diseno:guardia": "tsx scripts/guardia-diseno.ts"
   },
   "dependencies": {

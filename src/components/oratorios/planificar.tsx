@@ -947,7 +947,7 @@ function DialogoManual({
     try {
       const profes: ProfeAfectado[] = profeIds.map((id) => {
         const h = delHorarioProfes.find((p) => p.id === id);
-        return { id, nombre: h?.nombre ?? e.datos.profes.find((p) => p.id === id)?.nombre ?? '', materia: h?.materia ?? null };
+        return { id, nombre: h?.nombre ?? e.datos.profes.find((p) => p.id === id)?.nombre ?? '', materia: h?.materia ?? null, ...(h?.sinMolestia ? { sinMolestia: true } : {}) };
       });
       const [nueva] = await api.crear([{ tipoId, curso: clase.curso, letra: clase.letra, juntas, fecha, horaInicio: inicio, horaFin: fin, profes, responsableEmail: e.responsable, catalogoId: catalogoId || null }]);
       e.guardarSesiones([nueva]);
