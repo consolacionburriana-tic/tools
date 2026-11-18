@@ -1935,7 +1935,10 @@ export const sustEnvios = pgTable('sust_envios', {
   html: text('html').notNull(),
   replyTo: text('reply_to'),
   programadoPara: timestamp('programado_para').notNull(),
-  estado: text('estado').notNull().default('pendiente'), // pendiente | enviado | error | cancelado
+  // pendiente (lo guardamos nosotros: aún no está en Resend) | programado (en Resend, con `resend_id`,
+  // que lo manda a su hora sin cron) | enviando | enviado | error | cancelado
+  estado: text('estado').notNull().default('pendiente'),
+  resendId: text('resend_id'),
   error: text('error'),
   enviadoAt: timestamp('enviado_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
