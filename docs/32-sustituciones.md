@@ -262,7 +262,7 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     agrupa en **Actividad escolar** (motivo «Actividad escolar») y **Personal** (el resto) (David,
     12-nov-2026). El motivo concreto solo se ve en la ficha de la ausencia y en el historial,
     dentro del módulo. No se loguea.
-12. **Informe mensual** del mes anterior, el **día 1**, por cron (`/api/sustituciones/cron/informe`, protegido con `CRON_SECRET`, en `vercel.json`). Se separa en tres envíos: Infantil+Primaria a `jeinfyprim@consolacionburriana.com`, ESO a `jesecundaria@consolacionburriana.com` y el conjunto de EI+EP+ESO a `titular@consolacionburriana.com`. Es idempotente: `sust_informes` guarda el mes y los destinatarios enviados. Los buzones viven en `colegio.ts` (`correoJefaturaInfantilPrimaria`, `correoJefaturaEso`, `correoTitular`) y el reparto por etapa en `CONFIGURACION.sustituciones.informes`; el asunto lleva la etapa (`Sustituciones · Octubre · ESO`). Cada ausencia cuenta en la etapa del profe que falta (la primera de `etapa`/`etapas`): quien da en primaria y en la ESO cuenta en una sola.
+12. **Informe mensual** del mes anterior, **sin cron** (18-nov-2026; antes un cron del día 1). Resend no lo puede programar (no se sabe qué dice hasta que cierra el mes), así que `enviarInformePendiente()` se lanza en `after()` al abrir Hoy o la ficha: si el mes anterior tuvo horas y aún no salió completo, lo manda (si nadie abre el módulo el día 1, sale al primer acceso). Se separa en tres envíos: Infantil+Primaria a `jeinfyprim@consolacionburriana.com`, ESO a `jesecundaria@consolacionburriana.com` y el conjunto de EI+EP+ESO a `titular@consolacionburriana.com`. Es idempotente: `sust_informes` guarda el mes y los destinatarios enviados. Los buzones viven en `colegio.ts` (`correoJefaturaInfantilPrimaria`, `correoJefaturaEso`, `correoTitular`) y el reparto por etapa en `CONFIGURACION.sustituciones.informes`; el asunto lleva la etapa (`Sustituciones · Octubre · ESO`). Cada ausencia cuenta en la etapa del profe que falta (la primera de `etapa`/`etapas`): quien da en primaria y en la ESO cuenta en una sola.
     Incluye el total del mes, el desglose por profe y el acumulado del curso; el motivo se agrupa
     en Actividad escolar / Personal. En Números se puede previsualizar y enviar a mano.
 13. **Curso académico** con `academicYearActual(fecha)` de `src/lib/constants.ts`, guardado en la
@@ -358,7 +358,7 @@ septiembre y junio cuando una etapa no tiene el suyo subido: **el ordinario** (d
 |---|---|
 | Módulo (`permissions.ts`, `modulos.ts`, `escritorio.ts`) | `sustituciones` · «Sustituciones» · grupo `centro` · `acento` índigo |
 | Rutas de pantalla | `src/app/gestion/sustituciones/…` y `src/app/gestion/mis-sustituciones/` |
-| API | `src/app/api/sustituciones/admin/…` (guard `requireModule('sustituciones')`), `src/app/api/sustituciones/mias` y `src/app/api/sustituciones/cron/informe` |
+| API | `src/app/api/sustituciones/admin/…` (guard `requireModule('sustituciones')`), y `src/app/api/sustituciones/mias` |
 | Tablas | `sust_ausencias`, `sust_sesiones`, `sust_disponibilidad`, `sust_informes`; y `hor_cuadro_sustituciones` (de Horarios) |
 | Lógica pura (con tests) | `src/lib/sustituciones.ts` · `src/lib/__tests__/sustituciones.test.ts` |
 | Consultas | `src/lib/sustituciones-server.ts` |
@@ -562,7 +562,6 @@ Más su test en `configuracion.test.ts` (fija los valores de Consolación, como 
 | `GET /api/sustituciones/admin/disponibilidad?profeId=` · `PUT` · `DELETE` | módulo | Rejilla de un profe · guardar un retoque · «Volver a lo del horario». |
 | `GET /api/sustituciones/admin/plantillas` · `PUT` · `POST …/plantillas/prueba` | módulo | Leer · guardar · enviarme una prueba. |
 | `GET /api/sustituciones/mias` | `puedeVerMisSustituciones` | Lo mío, filtrado por el correo de la sesión. |
-| `GET /api/sustituciones/cron/informe` | `CRON_SECRET` | Cron del día 1, mes anterior, idempotente. |
 
 ### 4.7 Pantallas (todo con piezas de `src/components/ui/`, ver [`diseno.md`](./diseno.md))
 
@@ -696,6 +695,7 @@ cómo queda: Nouvinguts.
 - [x] `CONFIGURACION.sustituciones` (§4.3) y su test (más `ALMUERZO` en `nuncaLiberables`, ver 00-desarrollos-futuros).
 - [x] Schema `sust_*` aplicado en Neon, con `sustituciones-etapas-confirmacion.sql` (16-nov-2026; desde Codex no se podía por falta de conexión a Neon).
 - [x] Envíos programados, franja de segundo sustituto y cuenta de sesiones ausentes: código y migración `sustituciones-horarios-envios.sql`, aplicada en Neon el 16-nov-2026.
+- [x] Informe mensual **sin cron** (18-nov-2026): `enviarInformePendiente()` al abrir el módulo, idempotente por `sust_informes`; cron eliminado. Falta ver salir el del 1-dic.
 - [x] Programación de correos **sin cron** (18-nov-2026): `scheduled_at` de Resend + `repasarEnvios()`, cancelado selectivo al cambiar horas, `sustituciones-envios-resend.sql` aplicado en Neon el 18-nov-2026; el cron `/api/sustituciones/cron/envios` se ha eliminado. Probado contra Resend (programar, ver `scheduled`, cancelar) y con tests de `cuandoEnviar`. Falta ver un correo real salir a su hora.
 - [x] `sustituciones.ts` puro con los tests de §4.4 en verde (44 tests; 1.483 en total).
 - [x] `horarioDeDias` en una tanda (`cargar` en `sustituciones-server.ts`, ~1,2 s); probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (primaria con su horario de septiembre; infantil y ESO con el ordinario).

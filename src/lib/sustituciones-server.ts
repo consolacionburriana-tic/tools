@@ -1516,7 +1516,7 @@ export async function enviarInforme(mes: string, opciones: { forzar?: boolean; q
       await enviar('sustituciones', { to: destino.email, subject, html, ...(opciones.quien ? { replyTo: opciones.quien.email } : {}) });
       ok.push(destino.email);
     } catch (e) {
-      console.error('Sustituciones · informe:', e instanceof Error ? e.message : e);
+      console.error('Sustituciones · informe:', mensajeSeguro(e));
       fallidos.push(destino.email);
     }
   }
@@ -1532,10 +1532,24 @@ export async function enviarInforme(mes: string, opciones: { forzar?: boolean; q
   return { enviado: true, destinatarios: ok, fallidos };
 }
 
-/** El cron del día 1: el informe del mes anterior. */
-export async function enviarInformeDelMesPasado(): Promise<Awaited<ReturnType<typeof enviarInforme>> & { mes: string }> {
+/**
+ * El informe del mes anterior, **sin cron** (Resend no puede programarlo: no se sabe qué dice hasta
+ * que el mes se cierra). Se llama al abrir las pantallas del módulo y solo hace algo si el mes
+ * anterior tuvo sustituciones y aún no se mandó completo. `enviarInforme` es idempotente y
+ * reserva el mes en `sust_informes`, así que dos aperturas a la vez no lo mandan dos veces.
+ */
+export async function enviarInformePendiente(): Promise<void> {
   const mes = mesAnterior(hoyEnEspana());
-  return { mes, ...(await enviarInforme(mes)) };
+  const [fila] = await db.select().from(sustInformes).where(eq(sustInformes.mes, mes)).limit(1);
+  if (fila?.enviadoAt && DESTINATARIOS_INFORME.every((d) => fila.destinatarios.includes(d.email))) return;
+  // Sin horas ese mes (p. ej. el mes anterior a estrenar el módulo) no hay informe que mandar.
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(sustSesiones)
+    .innerJoin(sustAusencias, eq(sustAusencias.id, sustSesiones.ausenciaId))
+    .where(and(eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, `${mes}-01`), lte(sustSesiones.fecha, finDeMes(`${mes}-01`))));
+  if (n === 0) return;
+  await enviarInforme(mes);
 }
 
 /** Para `after()` de las pantallas: repasa los envíos sin romper nada si algo falla. */
