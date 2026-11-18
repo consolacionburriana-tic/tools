@@ -546,6 +546,21 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
 - [ ] **Jose Miguel**: marcar su disponibilidad (⭐ 👍 🤏, y para qué cursos) y planificar el primer mes
 - [ ] Primer correo real del taller
 
+### Fallitos de Jose Miguel (2-nov-2026) — ✅
+- [x] **«⚡ Desde mi horario» decía que no hay huecos de Oratorio.** Causa: solo buscaba horas con la
+      actividad `oratorio`, y las horas del taller de Jose Miguel están en su horario como actividad
+      «Otros» con la etiqueta «Taller de Pensamiento Computacional · INFANTIL / 1ER CICLO / 3ER CICLO /
+      3ºA / 3ºB / 4º A Y B» (1 hora cada una). Ahora cuenta como hora del momento la de «Oratorio» **o** la
+      que lleve en la etiqueta el nombre de un tipo (`esHoraDeMomento`), y de esa etiqueta saca los
+      cursos del hueco (`nivelesDeEtiquetaHora`: INFANTIL = 3-5 años, 1ER CICLO = 1º-2º, 3ER CICLO =
+      5º-6º, «3ºA» = 3º). Eso hace ya la «otra idea» de Jose Miguel de más abajo para el taller.
+- [x] **Las franjas de Infantil y Primaria se mezclaban.** Causa: la rejilla y el asistente juntaban
+      las horas de todas las etapas del tipo en una sola columna (Infantil 9:00-10:10 frente a
+      Primaria 9:00-9:45, y Primaria con 3 rejillas distintas en Neon). Ahora cada etapa tiene su bloque
+      con su título (`franjasPorEtapa`); en el asistente cada bloque solo enseña las clases de su etapa.
+      Límite: un hueco se guarda por día + hora de inicio, así que dos filas de etapas distintas que
+      empiezan igual (9:00) comparten marca; los cursos del hueco (pincel) lo distinguen.
+
 ### Quizá, más adelante
 - **Resumen mensual por profe** antes de empezar el mes (hoy cada sesión avisa a los 7 días): un
   correo con todas las sesiones del mes a cada profe afectado, programado para los últimos días

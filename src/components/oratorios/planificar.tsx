@@ -4,7 +4,7 @@
 // cada uno (con la materia y el profe que pierde la hora y sus avisos). Dos
 // toques por sesión: el hueco y la clase. Ficha: docs/26-oratorios.md
 import { ArrowRightLeft, BookOpen, BookOpenText, CalendarClock, CalendarOff, ChevronLeft, ChevronRight, Check, CheckCheck, Link2, Plus, Sparkles, Target, Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { Aviso } from '@/components/ui/aviso';
@@ -38,7 +38,8 @@ import {
   nombreClases,
   fechaCorta,
   fechaLarga,
-  franjasDeEtapas,
+  ETAPA_LABELS,
+  franjasPorEtapa,
   horaBonita,
   horaDeClase,
   huecoEn,
@@ -63,7 +64,7 @@ import {
   type SesionCatalogo,
   type SesionOra,
 } from '@/lib/oratorios';
-import { ETAPAS, nombreClase } from '@/lib/cursos';
+import { ETAPAS, etapaDeCurso, nombreClase } from '@/lib/cursos';
 import { api, AvisosCandidato, capital, EstadoChip, IconoNivel } from './comun';
 import type { Estado } from './panel';
 
@@ -158,12 +159,22 @@ export function Planificar({ e }: { e: Estado }) {
     setSemana(lunesDe(moviendo.fecha));
   }
 
-  const franjas = useMemo(() => {
+  // Una rejilla por etapa (Infantil y Primaria tienen horas distintas; mezcladas se pisaban). Con
+  // más de una, cada bloque solo enseña las clases de su etapa. Las horas de huecos ya marcados
+  // que no están en ninguna rejilla salen aparte.
+  const grupos = useMemo(() => {
     if (!tipo) return [];
-    const deRejilla = franjasDeEtapas(e.datos.tramos, tipo.etapas.length ? tipo.etapas : ETAPAS);
-    const mapa = new Map(deRejilla.map((f) => [`${f.horaInicio}-${f.horaFin}`, f]));
-    for (const d of disp) if (![...mapa.values()].some((f) => f.horaInicio === d.horaInicio)) mapa.set(`${d.horaInicio}-${d.horaFin}`, { horaInicio: d.horaInicio, horaFin: d.horaFin });
-    return [...mapa.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio));
+    const porEtapa: { clave: string; titulo: string; etapa: string | null; franjas: Franja[] }[] = franjasPorEtapa(e.datos.tramos, tipo.etapas.length ? tipo.etapas : ETAPAS).map((g) => ({
+      clave: g.etapa,
+      titulo: ETAPA_LABELS[g.etapa] ?? g.etapa,
+      etapa: g.etapa,
+      franjas: g.franjas,
+    }));
+    const conocidas = new Set(porEtapa.flatMap((g) => g.franjas.map((f) => f.horaInicio)));
+    const sueltas = new Map<string, Franja>();
+    for (const d of disp) if (!conocidas.has(d.horaInicio)) sueltas.set(`${d.horaInicio}-${d.horaFin}`, { horaInicio: d.horaInicio, horaFin: d.horaFin });
+    if (sueltas.size > 0) porEtapa.push({ clave: 'otras', titulo: 'Otras horas', etapa: null, franjas: [...sueltas.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio)) });
+    return porEtapa;
   }, [tipo, e.datos.tramos, disp]);
 
   const dias = [0, 1, 2, 3, 4].map((i) => sumarDias(semana, i));
@@ -456,11 +467,22 @@ export function Planificar({ e }: { e: Estado }) {
               </div>
             );
           })}
-          {franjas.map((f) => (
-            <FilaFranja key={`${f.horaInicio}-${f.horaFin}`} e={e} ctx={ctx} franja={f} dias={dias} disp={disp} profeResp={profeResp} clases={clases} tipoId={tipo.id} moviendo={moviendo} onTocar={tocarCelda} />
-          ))}
+          {grupos.map((g) => {
+            const separar = grupos.length > 1;
+            const clasesGrupo = separar && g.etapa ? clases.filter((c) => etapaDeCurso(c.curso) === g.etapa) : clases;
+            return (
+              <Fragment key={g.clave}>
+                {separar && (
+                  <div className="col-span-6 mt-1 border-b border-zinc-200 pb-0.5 text-xs font-semibold tracking-wide text-zinc-600 uppercase dark:border-zinc-700 dark:text-zinc-300">{g.titulo}</div>
+                )}
+                {g.franjas.map((f) => (
+                  <FilaFranja key={`${g.clave}-${f.horaInicio}-${f.horaFin}`} e={e} ctx={ctx} franja={f} dias={dias} disp={disp} profeResp={profeResp} clases={clasesGrupo} tipoId={tipo.id} moviendo={moviendo} onTocar={tocarCelda} />
+                ))}
+              </Fragment>
+            );
+          })}
         </div>
-        {franjas.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">No hay horario importado para las etapas de este tipo. Usa «A mano».</p>}
+        {grupos.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">No hay horario importado para las etapas de este tipo. Usa «A mano».</p>}
       </div>
 
       {hueco && (

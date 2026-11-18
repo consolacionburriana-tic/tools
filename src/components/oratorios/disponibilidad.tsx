@@ -3,11 +3,11 @@
 // Mis huecos: la semana tipo de quien lo lleva, con su horario pintado debajo. Cada toque
 // cicla óptima → alternativa → último recurso → nada y se guarda solo. «Desde mi horario» marca
 // como óptimas las horas
-// que el horario ya tiene como Oratorio. Con «Al tocar: Cursos», el toque dice para qué niveles
+// que el horario ya tiene como Oratorio o como taller. Con «Al tocar: Cursos», el toque dice para qué niveles
 // es el hueco (Jose Miguel: «los lunes de 16:15 son para 1er ciclo siempre»). Va con `key` = la
 // persona: cambiar de responsable monta una rejilla nueva con la suya.
 import { Eraser, Star, Users, Zap } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -22,11 +22,13 @@ import {
   diaCorto,
   ETAPA_LABELS,
   etiquetaCursosHueco,
+  esHoraDeMomento,
   etiquetaNivel,
-  franjasDeEtapas,
+  franjasPorEtapa,
   horaBonita,
   huecoEn,
   NIVEL_INFO,
+  nivelesDeEtiquetaHora,
   nivelesDeTipo,
   periodoDeFecha,
   siguienteNivel,
@@ -64,11 +66,15 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
   const niveles = useMemo(() => nivelesDeTipo({ clases: null, etapas }, e.datos.clases), [etapas, e.datos.clases]);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const franjas = useMemo(() => {
-    const base = franjasDeEtapas(e.datos.tramos, etapas);
-    const mapa = new Map(base.map((f) => [`${f.horaInicio}-${f.horaFin}`, f]));
-    for (const h of huecos) if (!base.some((f) => f.horaInicio === h.horaInicio)) mapa.set(`${h.horaInicio}-${h.horaFin}`, { horaInicio: h.horaInicio, horaFin: h.horaFin });
-    return [...mapa.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio));
+  // Una rejilla por etapa: Infantil y Primaria tienen horas distintas y mezcladas se pisaban.
+  // Los huecos que ya existen a una hora que no está en ninguna rejilla salen aparte.
+  const grupos = useMemo(() => {
+    const porEtapa = franjasPorEtapa(e.datos.tramos, etapas).map((g) => ({ clave: g.etapa, titulo: ETAPA_LABELS[g.etapa] ?? g.etapa, franjas: g.franjas }));
+    const conocidas = new Set(porEtapa.flatMap((g) => g.franjas.map((f) => f.horaInicio)));
+    const sueltas = new Map<string, { horaInicio: string; horaFin: string }>();
+    for (const h of huecos) if (!conocidas.has(h.horaInicio)) sueltas.set(`${h.horaInicio}-${h.horaFin}`, { horaInicio: h.horaInicio, horaFin: h.horaFin });
+    if (sueltas.size > 0) porEtapa.push({ clave: 'otras', titulo: 'Otras horas', franjas: [...sueltas.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio)) });
+    return porEtapa;
   }, [e.datos.tramos, etapas, huecos]);
 
   function guardar(nuevos: Disponibilidad[]) {
@@ -104,20 +110,33 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
   }
 
   function desdeMiHorario() {
-    const oratorio = mio.filter((h) => h.actividad === 'oratorio');
-    if (oratorio.length === 0) {
-      toast.info('Tu horario no tiene horas marcadas como Oratorio');
+    // Las horas de Oratorio y las que llevan en la etiqueta el nombre de un tipo (el taller:
+    // «Taller de Pensamiento Computacional · 1ER CICLO»; esa etiqueta dice además los cursos).
+    const delMomento = mio.filter((h) => esHoraDeMomento(h, e.tipos));
+    if (delMomento.length === 0) {
+      toast.info(
+        mio.length === 0
+          ? 'No hay horario importado a tu nombre: marca tus huecos tocando la rejilla'
+          : 'Tu horario no tiene horas de Oratorio ni de ningún taller (con su nombre en la etiqueta). Marca tus huecos tocando la rejilla',
+      );
       return;
     }
     const nuevos = [...huecos];
-    for (const h of oratorio) {
+    const deEstaVez = new Map<string, string[] | null>();
+    for (const h of delMomento) {
+      const clave = `${h.dia}|${h.horaInicio}`;
       const i = nuevos.findIndex((x) => x.dia === h.dia && x.horaInicio === h.horaInicio);
-      const hueco = { dia: h.dia, horaInicio: h.horaInicio, horaFin: h.horaFin, nivel: 'optima' as const, cursos: i >= 0 ? (nuevos[i].cursos ?? null) : null };
+      const derivados = nivelesDeEtiquetaHora(h.materia);
+      // Dos horas a la vez (3ºA y 3ºB): los cursos de las dos. Si una no dice cursos, queda abierto.
+      const previo = deEstaVez.get(clave);
+      const cursos = deEstaVez.has(clave) ? (previo && derivados ? [...new Set([...previo, ...derivados])] : null) : (derivados ?? (i >= 0 ? (nuevos[i].cursos ?? null) : null));
+      deEstaVez.set(clave, cursos);
+      const hueco = { dia: h.dia, horaInicio: h.horaInicio, horaFin: h.horaFin, nivel: 'optima' as const, cursos };
       if (i >= 0) nuevos[i] = hueco;
       else nuevos.push(hueco);
     }
     guardar(nuevos);
-    toast.success(`${oratorio.length} horas de Oratorio marcadas como óptimas`);
+    toast.success(`${deEstaVez.size} horas de tu horario marcadas como óptimas`);
   }
 
   // Si se sale con un cambio sin guardar (el guardado espera 0,7 s), el navegador pregunta.
@@ -146,7 +165,7 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" onClick={desdeMiHorario} disabled={!profeId} title="Marca como óptimas las horas de Oratorio de tu horario">
+        <Button variant="outline" onClick={desdeMiHorario} disabled={!profeId} title="Marca como óptimas las horas de Oratorio o de taller de tu horario, con sus cursos si la etiqueta los dice">
           <Zap /> Desde mi horario
         </Button>
         {huecos.length > 0 && (
@@ -205,8 +224,15 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
               {diaCorto(d)}
             </div>
           ))}
-          {franjas.map((f) => (
-            <FilaHuecos key={`${f.horaInicio}-${f.horaFin}`} franja={f} huecos={huecos} mio={mio} onTocar={tocar} />
+          {grupos.map((g) => (
+            <Fragment key={g.clave}>
+              {(grupos.length > 1) && (
+                <div className="col-span-6 mt-1 border-b border-zinc-200 pb-0.5 text-xs font-semibold tracking-wide text-zinc-600 uppercase dark:border-zinc-700 dark:text-zinc-300">{g.titulo}</div>
+              )}
+              {g.franjas.map((f) => (
+                <FilaHuecos key={`${g.clave}-${f.horaInicio}-${f.horaFin}`} franja={f} huecos={huecos} mio={mio} onTocar={tocar} />
+              ))}
+            </Fragment>
           ))}
         </div>
       </div>

@@ -650,6 +650,57 @@ export function franjasDeEtapas(tramos: readonly TramoRejilla[], etapas: readonl
   return [...vistas.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio) || aMin(a.horaFin) - aMin(b.horaFin));
 }
 
+/**
+ * Las franjas de la rejilla **separadas por etapa** (Infantil, Primaria, ESO…), cada una con sus
+ * propias horas. Infantil y Primaria no comparten rejilla (9:00-10:10 frente a 9:00-9:45…):
+ * mezcladas en una sola columna de horas salían filas que se pisaban y no se sabía de quién era
+ * cada una (fallito de Jose Miguel, 2-nov-2026). Las etapas sin franjas no salen.
+ */
+export function franjasPorEtapa(
+  tramos: readonly TramoRejilla[],
+  etapas: readonly string[],
+): { etapa: string; franjas: { horaInicio: string; horaFin: string }[] }[] {
+  const orden = ['EI', 'EP', 'ESO', 'BACH'];
+  const rank = (x: string) => (orden.includes(x) ? orden.indexOf(x) : orden.length);
+  return [...new Set(etapas)]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((etapa) => ({ etapa, franjas: franjasDeEtapas(tramos, [etapa]) }))
+    .filter((g) => g.franjas.length > 0);
+}
+
+const sinTildes = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+
+/**
+ * ¿Es esta hora de su horario una hora de este momento? Sí si es de la actividad «Oratorio» (la
+ * ESO y Godly Play) o si la etiqueta lleva el nombre de un tipo («Taller de Pensamiento
+ * Computacional · 1ER CICLO», que en el horario viene como actividad «Otros»).
+ */
+export function esHoraDeMomento(h: { actividad: string; materia: string | null }, tipos: readonly { nombre: string }[]): boolean {
+  if (h.actividad === 'oratorio') return true;
+  const etiqueta = sinTildes(h.materia ?? '');
+  return tipos.some((t) => t.nombre.trim() !== '' && etiqueta.includes(sinTildes(t.nombre.trim())));
+}
+
+/**
+ * Los niveles que dice la etiqueta de una hora del horario, la parte tras el «·»: «INFANTIL»
+ * (3, 4 y 5 años), «1ER CICLO» (1º-2º), «2º CICLO» (3º-4º), «3ER CICLO» (5º-6º), «3ºA», «4º A Y B»
+ * (ese curso). Null si no dice cursos (entonces el hueco queda abierto a todos).
+ */
+export function nivelesDeEtiquetaHora(etiqueta: string | null | undefined): string[] | null {
+  const parte = sinTildes((etiqueta ?? '').split('·').slice(1).join('·')).trim();
+  if (!parte) return null;
+  const prim = (...ns: number[]) => ns.map((n) => `${n}PRI`);
+  if (parte.includes('INFANTIL')) {
+    const { min, max } = CONFIGURACION.niveles.EI;
+    return Array.from({ length: max - min + 1 }, (_, i) => `${min + i}INF`);
+  }
+  const ciclo = parte.match(/([123])\s*(?:ER|O|º|°|ª)?\s*CICLO/);
+  if (ciclo) return ciclo[1] === '1' ? prim(1, 2) : ciclo[1] === '2' ? prim(3, 4) : prim(5, 6);
+  const curso = parte.match(/^([1-6])\s*(?:º|°|O)/);
+  if (curso) return prim(Number(curso[1]));
+  return null;
+}
+
 /** El hueco marcado en un día y franja: el que empieza a esa hora o, si no, el que la pisa. */
 export function huecoEn(disp: readonly Disponibilidad[], dia: number, franja: { horaInicio: string; horaFin: string }): Disponibilidad | null {
   return disp.find((d) => d.dia === dia && d.horaInicio === franja.horaInicio) ?? disp.find((d) => d.dia === dia && solapa(d, franja)) ?? null;

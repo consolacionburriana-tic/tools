@@ -33,3 +33,6 @@ Reglas para quien lo toque (personas o agentes):
 ## Limpieza técnica pendiente
 
 - Tabla `teachers` del ABC antiguo, alias `students`/`behaviorReports` en `schema.ts`, `lic_students.educamos_id` y `cuad_plantillas.etapa`: quitar cuando David dé el ok (borrar columnas es con su permiso).
+- **Oratorios · huecos por etapa** (2-nov-2026): hoy un hueco se guarda por día + hora de inicio, así
+  que una fila de Infantil y otra de Primaria que empiecen igual comparten marca. Guardarlos por
+  etapa si hace falta separarlos de verdad ([`26`](./26-oratorios.md)).
