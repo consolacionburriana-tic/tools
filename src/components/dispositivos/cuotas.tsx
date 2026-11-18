@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, FileDown, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
-import { CONCEPTO_LABEL, cuotaDe, resumenCuotas, type Concepto } from '@/lib/dispositivos';
+import { CONCEPTO_LABEL, cuotaDe, resumenCuotas, USO_SUSTITUCION, type Concepto } from '@/lib/dispositivos';
 import type { PanelDispositivos } from '@/lib/dispositivos-server';
 import type { Acciones } from './panel';
 import { buttonVariants } from '@/components/ui/button';
@@ -26,7 +26,7 @@ export function Cuotas({ panel, acciones }: { panel: PanelDispositivos; acciones
   const resumen = resumenCuotas(filas.map((f) => f.cuota));
   const sinInformar = panel.alumnos.length - filas.length;
   const prestadosSinIpad = useMemo(() => {
-    const conIpad = new Set(panel.aparatos.filter((x) => x.uso === 'sustitucion' && x.titular?.tipo === 'alumno').map((x) => x.titular!.id));
+    const conIpad = new Set(panel.aparatos.filter((x) => x.uso === USO_SUSTITUCION && x.titular?.tipo === 'alumno').map((x) => x.titular!.id));
     return panel.alumnos.filter((a) => a.estado?.modalidad === 'prestado' && !conIpad.has(a.id)).length;
   }, [panel.alumnos, panel.aparatos]);
 

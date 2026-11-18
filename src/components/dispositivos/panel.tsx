@@ -10,7 +10,7 @@ import { Boxes, Receipt, Tablet, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
-import { VISTAS, type EstadoAlumnoInput, type Vista } from '@/lib/dispositivos';
+import { VISTAS, type CategoriaDis, type EstadoAlumnoInput, type Vista } from '@/lib/dispositivos';
 import type { AlumnoDis, AparatoDis, EstadoDis, ModeloDis, PanelDispositivos as Panel } from '@/lib/dispositivos-server';
 import { pedir } from './comun';
 import { TablaAlumnado, type FiltroAlumnado } from './tabla-alumnado';
@@ -28,6 +28,8 @@ export interface Acciones {
   mezclarAparatos: (lista: AparatoDis[], quitar?: string[]) => void;
   mezclarEstados: (estados: Record<string, EstadoDis | null>) => void;
   setModelos: (m: ModeloDis[]) => void;
+  /** Cambia la lista de categorías de iPads del cole (alta, edición, archivo). */
+  setCategorias: (c: CategoriaDis[]) => void;
   irA: (vista: Vista, filtro?: FiltroAlumnado) => void;
 }
 
@@ -101,6 +103,7 @@ export function PanelDispositivos({ inicial, vistaInicial, alumnoInicial = null 
     mezclarAparatos,
     mezclarEstados,
     setModelos: (modelos) => setPanel((p) => ({ ...p, modelos })),
+    setCategorias: (categorias) => setPanel((p) => ({ ...p, categorias })),
     irA,
   };
 

@@ -18,6 +18,7 @@ import {
   MODALIDADES,
   seguroDe,
   TEXTO_SEGURO,
+  USO_SUSTITUCION,
   type Modalidad,
 } from '@/lib/dispositivos';
 import type { AlumnoDis, AparatoDis, EstadoDis, PanelDispositivos } from '@/lib/dispositivos-server';
@@ -98,7 +99,7 @@ export function TablaAlumnado({
   // El iPad del cole que tiene cada uno (de sustitución): prestado para el curso si el alumno
   // es «Prestado», o dejado mientras arreglan el suyo si no.
   const delColeDe = useMemo(
-    () => new Map(panel.aparatos.filter((a) => a.uso === 'sustitucion' && a.titular?.tipo === 'alumno').map((a) => [a.titular!.id, a])),
+    () => new Map(panel.aparatos.filter((a) => a.uso === USO_SUSTITUCION && a.titular?.tipo === 'alumno').map((a) => [a.titular!.id, a])),
     [panel.aparatos],
   );
 

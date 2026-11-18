@@ -16,6 +16,7 @@ import {
   MODALIDADES,
   seguroDe,
   TEXTO_SEGURO,
+  USO_SUSTITUCION,
   type Modalidad,
 } from '@/lib/dispositivos';
 import type { AlumnoDis, LineaHistorial, PanelDispositivos } from '@/lib/dispositivos-server';
@@ -38,7 +39,7 @@ export function FichaEstado({
   const e = a.estado;
   // El iPad del cole que tiene (de sustitución): el prestado, o el que se le ha dejado mientras
   // arreglan el suyo. Si pasa a «Prestado», ese mismo sale ya elegido.
-  const delCole = panel.aparatos.find((x) => x.uso === 'sustitucion' && x.titular?.tipo === 'alumno' && x.titular.id === a.id);
+  const delCole = panel.aparatos.find((x) => x.uso === USO_SUSTITUCION && x.titular?.tipo === 'alumno' && x.titular.id === a.id);
 
   const [modalidad, setModalidad] = useState<Modalidad | null>(e?.modalidad ?? null);
   const [cursoCompra, setCursoCompra] = useState(e?.cursoCompra ?? '');
@@ -62,7 +63,7 @@ export function FichaEstado({
   }, [a.id, e?.updatedAt]);
 
   // Los que se le pueden prestar: los de sustitución libres y operativos, más el que ya tiene.
-  const libres = panel.aparatos.filter((x) => x.uso === 'sustitucion' && x.estado === 'activo' && (!x.titular || x.id === delCole?.id));
+  const libres = panel.aparatos.filter((x) => x.uso === USO_SUSTITUCION && x.estado === 'activo' && (!x.titular || x.id === delCole?.id));
   const modelos = panel.modelos.filter((m) => m.activo || m.id === modeloId);
   const cuota = modalidad ? cuotaDe({ modalidad, cursoCompra: cursoCompra || null, aCasa }, panel.cursoActual) : null;
   const seguro = seguroDe(cursoCompra || null, panel.cursoActual);

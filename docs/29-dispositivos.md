@@ -1,6 +1,6 @@
 # Dispositivos 1:1 · el iPad de cada alumno, y los del cole
 
-**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (Fases 1 y 2 en `/gestion/dispositivos` desde el 20-oct-2026, probadas contra Neon y en el navegador; falta el volcado real de Bárbara y Amparo y cerrar cómo se cobra)
+**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (Fases 1 y 2 en `/gestion/dispositivos` desde el 20-oct-2026, probadas contra Neon y en el navegador; categorías de iPads del cole editables desde el 18-nov-2026; falta el volcado real de Bárbara y Amparo y cerrar cómo se cobra)
 
 Idea de Jose Miguel Batalla (13-oct-2026, «Módulo nuevo: iPad»), cerrada con David el
 19/20-oct-2026 sobre un wireframe. Se llama **Dispositivos 1:1** y no «iPad» porque mañana
@@ -15,8 +15,9 @@ Cuatro preguntas a las que responde:
 1. **¿Cómo tiene el iPad cada alumno?** Comprado, lo trae de casa, prestado por el cole o
    heredado de un hermano. Y quién está todavía **sin informar**.
 2. **¿Quién tiene que pagar qué?** El listado de cuotas.
-3. **¿Qué iPads tiene el cole y quién tiene cada uno?** Los de sustitución (`S1`, `S2`…), que son
-   los del alumnado, y los del profesorado (`P1`, `P2`…).
+3. **¿Qué iPads tiene el cole y quién tiene cada uno?** Por categorías: los de sustitución (`S1`,
+   `S2`…), que son los del alumnado, los del profesorado (`P1`, `P2`…) y las que añada el colegio
+   (`TEC1` de la escuela de idiomas, `AL1` de audición y lenguaje…).
 4. **¿Qué modelos hay?** Un catálogo corto de modelos estándar («iPad 9.ª generación · 64 GB»)
    para que nadie escriba el mismo modelo de cinco maneras.
 
@@ -55,6 +56,7 @@ Cuatro preguntas a las que responde:
    | **Profesorado** | `P1`, `P2`… | Los del claustro (decisión 6) |
 
    Al dar uno de sustitución a un alumno desde el inventario se pregunta cuál de las dos cosas es.
+   Desde el 18-nov-2026 el colegio puede **añadir más categorías** (decisión 12).
    Bárbara y Amparo tienen toda la información y la vuelcan: por eso hay **alta en serie** (cuántos y
    de qué modelo) y **pegar números de serie** (una línea, un iPad).
 
@@ -95,6 +97,27 @@ Cuatro preguntas a las que responde:
     baja) queda apuntado con quién y cuándo en `dis_historial`. Es lo que contesta «¿desde
     cuándo se lo lleva a casa?» o «¿quién tuvo el S3 en noviembre?».
 
+12. **Categorías de iPads del cole editables** (David, 18-nov-2026: «hay más categorías: TEC, la
+    escuela de idiomas, y AL, audición y lenguaje… que se puedan añadir pestañitas dinámicamente»).
+    Los dos lotes de siempre dejan de estar fijos en el código y pasan a ser filas de
+    `dis_categorias`; en «iPads del cole» hay **una pestaña por categoría** y un botón
+    «+ Categoría». Cada una tiene:
+    - **nombre** y una explicación corta;
+    - **prefijo** de 1 a 4 letras que da sus códigos (`TEC` → `TEC1`, `TEC2`…; se sugiere con las
+      iniciales del nombre: «Audición y lenguaje» → `AL`). Único entre todas, sin cifras;
+    - **a quién se le dan**: alumnado, profesorado o **nadie** (iPads del centro, sin titular: un
+      carro, un aula). Este dato es una **suposición mía** —no sé si los de TEC y AL van a personas o
+      se quedan en el centro—: se elige al crear la categoría.
+
+    Reglas: **Sustitución y Profesorado no se pueden quitar** ni cambiar de prefijo o titular
+    (Alumnado, Cuotas y Nouvinguts cuentan con ellas; sí se pueden renombrar). En una categoría
+    nueva, el prefijo y el titular se pueden cambiar **mientras no tenga iPads**. **Quitar**: sin
+    iPads se borra; si todos sus iPads están de baja se **archiva** (deja de ser pestaña y se
+    recupera desde «Categorías archivadas»); con iPads vivos no se deja. Lo de «prestado» y «mientras
+    arreglan el suyo» y la lista de «a qué profes les toca» siguen siendo solo de Sustitución y de
+    Profesorado. Los iPads de otra categoría que se den a un alumno se dan sin más (no cambian su
+    modalidad ni su cuota).
+
 ### Pendiente (no bloquea)
 
 - **Cómo se cobra** (David, 20-oct: «pendiente de secretaría y Jose Miguel»): si el listado
@@ -108,8 +131,12 @@ Cuatro preguntas a las que responde:
 
 - **Tablas** (`src/db/schema.ts`, SQL aditivo `src/db/sql/dispositivos.sql`):
   - `dis_modelos`: catálogo (tipo, nombre, capacidad en GB, notas, activo).
-  - `dis_aparatos`: el inventario del cole. `uso` (`sustitucion`|`profesorado`),
-    `codigo` único (`S1`, `P1`), modelo, nº de serie, estado
+  - `dis_categorias`: las categorías de iPads del cole (SQL `dispositivos-categorias.sql`).
+    `clave` (PK: `sustitucion`, `profesorado`, `tec`…), nombre, `prefijo` único sin mirar mayúsculas,
+    `titular` (`alumno`|`profe`|`nadie`), explicación, orden y `activo` (archivada = false). Las dos
+    de siempre se siembran con su clave de antes, que es el `uso` que ya llevaban los iPads.
+  - `dis_aparatos`: el inventario del cole. `uso` = la `clave` de su categoría,
+    `codigo` único (`S1`, `P1`, `TEC1`), modelo, nº de serie, estado
     (`activo`|`reparacion`|`baja`), notas y **titular** (`edu_student_id` o `edu_teacher_id`,
     nunca los dos) con fecha de asignación.
   - `dis_cargadores`: el cargador de un iPad del cole (SQL `dispositivos-cargadores.sql`).
@@ -124,13 +151,13 @@ Cuatro preguntas a las que responde:
   cursos escolares, seguro y cuota, siguiente código libre, textos y schemas Zod.
 - **Servidor** (`src/lib/dispositivos-server.ts`): alcance de AUTOASM, panel entero en una
   tanda, guardar estado (uno y en bloque), inventario (alta en serie, editar, asignar,
-  devolver), modelos, profes a los que les toca, historial, y lo que leen Alumnado y
+  devolver), categorías (crear, editar, archivar, recuperar), modelos, profes a los que les toca, historial, y lo que leen Alumnado y
   Nouvinguts (`resumenDispositivo`, `ipadsEnElCole`).
 - **API** (`/api/dispositivos/…`, todas con `requireModule('dispositivos')`): `alumnos`,
-  `alumnos/masivo`, `aparatos`, `aparatos/[id]`, `modelos`, `modelos/[id]`, `historial`,
+  `alumnos/masivo`, `aparatos`, `aparatos/[id]`, `categorias`, `categorias/[clave]`, `modelos`, `modelos/[id]`, `historial`,
   `cuotas` (Excel/CSV).
 - **UI** (`src/components/dispositivos/`): pestañas **Alumnado** (por clase, un toque por
-  estado), **Cuotas**, **iPads del cole** (sustitución y profesorado) y **Modelos**.
+  estado), **Cuotas**, **iPads del cole** (una pestaña por categoría) y **Modelos**.
 
 ## Checklist
 
@@ -160,6 +187,12 @@ orientación, y el paso «iPad» de un nouvingut). Todo lo de prueba se borró d
 ### Fase 2b · cargadores y volcado de sustitución (26-oct-2026)
 - [x] Tabla `dis_cargadores` (`dispositivos-cargadores.sql`) y su pieza en la ficha del iPad, la lista y el alta en serie
 - [x] Volcado del Excel «iPad de Sustitución/Beca»: iPads S1–S21 con su cargador (ver decisiones en `00-desarrollos-futuros.md`)
+
+### Fase 2c · categorías editables (18-nov-2026)
+- [x] Tabla `dis_categorias` (`dispositivos-categorias.sql`, aplicado en Neon el 18-nov-2026) con Sustitución y Profesorado sembradas
+- [x] Pestañas dinámicas en «iPads del cole»: crear, editar, archivar y recuperar categorías; prefijo sugerido; a quién se le dan (alumnado, profesorado, nadie)
+- [x] Códigos por prefijo (`TEC1`, `AL1`) sin pisarse entre categorías; alta, asignación y filtros según la categoría
+- [x] Probado contra Neon con una categoría de prueba (crear, prefijo repetido, alta, dar a un profe, titular equivocado, cambiar con iPads, archivar y recuperar) y borrada después; tests puros. **Sin ver en el navegador** (la sesión de gestión no se pudo abrir en esa sesión de desarrollo): falta una mirada en iPad y a 390 px
 
 ### Fase 3 · estrenarlo
 - [ ] Que Bárbara y Amparo vuelquen el estado del alumnado (el inventario de sustitución ya está volcado)

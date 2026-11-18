@@ -1,34 +1,44 @@
 'use client';
 
-// Pestaña «iPads del cole»: el inventario. Sustitución (S1…), que son los del alumnado —se
-// prestan para el curso o se dejan mientras arreglan el de un alumno—, y profesorado (P1…), con
-// su modelo, nº de serie, estado y quién lo tiene. Bárbara y Amparo lo vuelcan de una vez: por
-// eso el alta es en serie («6 de este modelo») o pegando la columna de números de serie del Excel.
+// Pestaña «iPads del cole»: el inventario, con una pestañita por categoría. Sustitución (S1…), que
+// son los del alumnado —se prestan para el curso o se dejan mientras arreglan el de un alumno—, y
+// profesorado (P1…), más las que añada el colegio (TEC, AL…), cada una con su prefijo y a quién se
+// le dan. De cada iPad: modelo, nº de serie, estado y quién lo tiene. Bárbara y Amparo lo vuelcan de
+// una vez: por eso el alta es en serie («6 de este modelo») o pegando la columna de números de serie.
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, History, Loader2, Plug, Plus, Search, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, Archive, ArchiveRestore, History, Loader2, Pencil, Plug, Plus, Search, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
 import {
+  categoriasVisibles,
   ESTADO_APARATO_LABEL,
   ESTADO_CARGADOR_LABEL,
   ESTADOS_APARATO,
   ESTADOS_CARGADOR,
+  nombreEnFrase,
   parsearSeries,
   siguientesCodigos,
-  USO_EXPLICA,
-  USO_LABEL,
-  USOS,
+  sugerirPrefijo,
+  TITULAR_EXPLICA,
+  TITULAR_LABEL,
+  TITULARES,
+  USO_PROFESORADO,
+  USO_SUSTITUCION,
+  USOS_FIJOS,
+  type CategoriaDis,
   type EstadoAparato,
   type EstadoCargador,
-  type Uso,
+  type TitularTipo,
 } from '@/lib/dispositivos';
 import type { AparatoDis, LineaHistorial, PanelDispositivos } from '@/lib/dispositivos-server';
 import type { Acciones } from './panel';
 import { cuandoYQuien, normalizar, pedir } from './comun';
 import { buttonVariants } from '@/components/ui/button';
 import { claseCampo } from '@/components/ui/input';
+import { Segmentado } from '@/components/ui/segmentado';
+import { ConfirmarEnLinea } from '@/components/ui/confirmar';
 
 type Filtro = 'todos' | 'almacen' | 'asignados' | 'prestados' | 'temporal' | 'reparacion' | 'sin_cargador' | 'baja';
 const FILTRO_LABEL: Record<Filtro, string> = {
@@ -41,11 +51,15 @@ const FILTRO_LABEL: Record<Filtro, string> = {
   sin_cargador: 'Sin cargador',
   baja: 'De baja',
 };
-/** Los de sustitución se reparten en prestados y temporales; los de profesorado, solo «dados». */
-const FILTROS: Record<Uso, Filtro[]> = {
-  sustitucion: ['todos', 'almacen', 'prestados', 'temporal', 'reparacion', 'sin_cargador', 'baja'],
-  profesorado: ['todos', 'almacen', 'asignados', 'reparacion', 'sin_cargador', 'baja'],
-};
+/**
+ * Los de sustitución se reparten en prestados y temporales; el resto de los que se dan a alguien,
+ * solo en «dados»; y los que no se dan a nadie (del centro) no tienen almacén ni «dados».
+ */
+function filtrosDe(c: CategoriaDis): Filtro[] {
+  if (c.clave === USO_SUSTITUCION) return ['todos', 'almacen', 'prestados', 'temporal', 'reparacion', 'sin_cargador', 'baja'];
+  if (c.titular === 'nadie') return ['todos', 'reparacion', 'sin_cargador', 'baja'];
+  return ['todos', 'almacen', 'asignados', 'reparacion', 'sin_cargador', 'baja'];
+}
 
 const COLOR_CARGADOR: Record<EstadoCargador, string> = {
   activo: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
@@ -63,10 +77,15 @@ const COLOR_ESTADO: Record<EstadoAparato, string> = {
 };
 
 export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; acciones: Acciones }) {
-  const [uso, setUso] = useState<Uso>('sustitucion');
+  const visibles = useMemo(() => categoriasVisibles(panel.categorias), [panel.categorias]);
+  const [usoElegido, setUso] = useState<string>(visibles[0]?.clave ?? USO_SUSTITUCION);
+  // Si la categoría elegida ya no está (archivada o borrada), se cae a la primera.
+  const categoria = visibles.find((c) => c.clave === usoElegido) ?? visibles[0];
+  const uso = categoria?.clave ?? usoElegido;
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [busca, setBusca] = useState('');
   const [alta, setAlta] = useState(false);
+  const [editandoCategoria, setEditandoCategoria] = useState<CategoriaDis | 'nueva' | null>(null);
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
 
   const modelo = useMemo(() => new Map(panel.modelos.map((m) => [m.id, m.etiqueta])), [panel.modelos]);
@@ -96,7 +115,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
       ? ''
       : !a.titular.activo
         ? 'ya no está en el cole'
-        : a.titular.tipo === 'alumno'
+        : a.titular.tipo === 'alumno' && a.uso === USO_SUSTITUCION
           ? `${a.titular.detalle} · ${prestado.has(a.titular.id) ? 'prestado' : 'mientras arreglan el suyo'}`
           : a.titular.detalle;
   const q = normalizar(busca.trim());
@@ -127,31 +146,41 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1.5">
-        {USOS.map((u) => {
-          const n = panel.aparatos.filter((a) => a.uso === u && a.estado !== 'baja').length;
-          return (
-            <button
-              key={u}
-              type="button"
-              onClick={() => {
-                haptic.tap();
-                setUso(u);
-                setFiltro('todos');
-              }}
-              className={cn(
-                'h-11 cursor-pointer rounded-xl border px-4 text-sm transition-colors',
-                uso === u
-                  ? 'border-zinc-900 bg-zinc-900 font-semibold text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
-              )}
-            >
-              {USO_LABEL[u]} <span className="ml-1 opacity-70">{n}</span>
-            </button>
-          );
-        })}
+      {/* Una pestañita por categoría, y el «+» para añadir otra (TEC, AL…) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmentado
+          etiqueta="Categoría de iPads"
+          valor={uso}
+          onChange={(u) => {
+            setUso(u);
+            setFiltro('todos');
+            setBusca('');
+          }}
+          opciones={visibles.map((c) => ({
+            valor: c.clave,
+            etiqueta: c.nombre,
+            cuenta: panel.aparatos.filter((a) => a.uso === c.clave && a.estado !== 'baja').length,
+          }))}
+        />
+        <button type="button" className={buttonVariants({ variant: 'outline' })} onClick={() => setEditandoCategoria('nueva')}>
+          <Plus className="h-4 w-4" /> Categoría
+        </button>
       </div>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">{USO_EXPLICA[uso]}.</p>
+      {categoria && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <span className="font-semibold">{categoria.prefijo}</span> · {categoria.explica ? `${categoria.explica}. ` : ''}
+            {TITULAR_EXPLICA[categoria.titular]}.
+          </p>
+          <button
+            type="button"
+            onClick={() => setEditandoCategoria(categoria)}
+            className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm text-zinc-600 underline-offset-2 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Editar categoría
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative min-w-[200px] flex-1 sm:max-w-xs">
@@ -165,7 +194,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
           />
         </label>
         <div className="flex flex-wrap gap-1.5">
-          {FILTROS[uso].map((f) => (
+          {(categoria ? filtrosDe(categoria) : ['todos' as Filtro]).map((f) => (
             <button
               key={f}
               type="button"
@@ -181,7 +210,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
             </button>
           ))}
         </div>
-        <button type="button" className={cn(buttonVariants(), 'ml-auto')} onClick={() => setAlta(true)}>
+        <button type="button" className={cn(buttonVariants(), 'ml-auto')} onClick={() => setAlta(true)} disabled={!categoria}>
           <Plus className="h-4 w-4" /> Dar de alta
         </button>
       </div>
@@ -189,7 +218,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         {lista.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-zinc-500">
-            {delUso.length === 0 ? `Todavía no hay iPads de ${USO_LABEL[uso].toLowerCase()}. «Dar de alta» para empezar.` : 'Ninguno con ese filtro.'}
+            {delUso.length === 0 ? `Todavía no hay iPads de ${categoria ? nombreEnFrase(categoria) : 'esta categoría'}. «Dar de alta» para empezar.` : 'Ninguno con ese filtro.'}
           </p>
         ) : (
           lista.map((a) => (
@@ -226,7 +255,7 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
                     <span className="block text-xs font-normal text-zinc-500">{detalleTitular(a)}</span>
                   </span>
                 ) : (
-                  <span className="text-zinc-400">{a.estado === 'activo' ? 'En el almacén' : ''}</span>
+                  <span className="text-zinc-500">{a.estado === 'activo' ? (categoria?.titular === 'nadie' ? 'Del centro' : 'En el almacén') : ''}</span>
                 )}
               </span>
             </button>
@@ -234,11 +263,33 @@ export function IpadsDelCole({ panel, acciones }: { panel: PanelDispositivos; ac
         )}
       </div>
 
-      {uso === 'profesorado' && <ProfesSinIpad panel={panel} acciones={acciones} />}
+      {uso === USO_PROFESORADO && <ProfesSinIpad panel={panel} acciones={acciones} />}
 
-      {alta && <AltaAparatos uso={uso} panel={panel} acciones={acciones} onCerrar={() => setAlta(false)} />}
+      <Archivadas categorias={panel.categorias} acciones={acciones} />
+
+      {alta && categoria && <AltaAparatos categoria={categoria} panel={panel} acciones={acciones} onCerrar={() => setAlta(false)} />}
       {abierto && (
-        <FichaAparato aparato={abierto} detalle={detalleTitular(abierto)} panel={panel} acciones={acciones} onCerrar={() => setAbiertoId(null)} />
+        <FichaAparato
+          aparato={abierto}
+          categoria={panel.categorias.find((c) => c.clave === abierto.uso)}
+          detalle={detalleTitular(abierto)}
+          panel={panel}
+          acciones={acciones}
+          onCerrar={() => setAbiertoId(null)}
+        />
+      )}
+      {editandoCategoria && (
+        <FormCategoria
+          categoria={editandoCategoria === 'nueva' ? undefined : editandoCategoria}
+          nIpads={editandoCategoria === 'nueva' ? 0 : panel.aparatos.filter((a) => a.uso === editandoCategoria.clave).length}
+          nVivos={editandoCategoria === 'nueva' ? 0 : panel.aparatos.filter((a) => a.uso === editandoCategoria.clave && a.estado !== 'baja').length}
+          acciones={acciones}
+          onCreada={(clave) => {
+            setUso(clave);
+            setFiltro('todos');
+          }}
+          onCerrar={() => setEditandoCategoria(null)}
+        />
       )}
     </div>
   );
@@ -249,7 +300,7 @@ function ProfesSinIpad({ panel, acciones }: { panel: PanelDispositivos; acciones
   const [todos, setTodos] = useState(false);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const conIpad = new Set(panel.aparatos.filter((a) => a.titular?.tipo === 'profe').map((a) => a.titular!.id));
-  const libres = panel.aparatos.filter((a) => a.uso === 'profesorado' && !a.titular && a.estado === 'activo');
+  const libres = panel.aparatos.filter((a) => a.uso === USO_PROFESORADO && !a.titular && a.estado === 'activo');
   const lista = panel.profes.filter((p) => !conIpad.has(p.id) && (todos || p.leToca));
 
   async function dar(profeId: string, aparatoId: string) {
@@ -317,7 +368,220 @@ function ProfesSinIpad({ panel, acciones }: { panel: PanelDispositivos; acciones
   );
 }
 
-function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: PanelDispositivos; acciones: Acciones; onCerrar: () => void }) {
+/** Las categorías archivadas, para poder recuperarlas (no salen como pestaña). */
+function Archivadas({ categorias, acciones }: { categorias: CategoriaDis[]; acciones: Acciones }) {
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const archivadas = categorias.filter((c) => !c.activo);
+  if (archivadas.length === 0) return null;
+
+  async function recuperar(c: CategoriaDis) {
+    setOcupado(c.clave);
+    try {
+      const r = await pedir<{ categorias: CategoriaDis[] }>(`/api/dispositivos/categorias/${c.clave}`, 'PATCH', { recuperar: true });
+      acciones.setCategorias(r.categorias);
+      haptic.success();
+      toast.success(`${c.nombre}: recuperada`);
+    } catch (error) {
+      haptic.warning();
+      toast.error(error instanceof Error ? error.message : 'No se ha podido recuperar');
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+      <span className="flex items-center gap-1.5">
+        <Archive className="h-4 w-4" /> Categorías archivadas:
+      </span>
+      {archivadas.map((c) => (
+        <button
+          key={c.clave}
+          type="button"
+          disabled={ocupado === c.clave}
+          onClick={() => void recuperar(c)}
+          className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3.5 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+        >
+          {ocupado === c.clave ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArchiveRestore className="h-4 w-4" />}
+          {c.nombre} <span className="font-semibold">{c.prefijo}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Crear una categoría o cambiar una. El prefijo (las letras de los códigos) y a quién se le dan se
+ * bloquean cuando ya hay iPads dentro, y siempre en las dos de siempre. Quitar: sin iPads se
+ * borra; con todos de baja se archiva; con iPads vivos, el servidor no deja.
+ */
+function FormCategoria({
+  categoria,
+  nIpads,
+  nVivos,
+  acciones,
+  onCreada,
+  onCerrar,
+}: {
+  /** Sin categoría = crear una nueva. */
+  categoria?: CategoriaDis;
+  nIpads: number;
+  nVivos: number;
+  acciones: Acciones;
+  onCreada: (clave: string) => void;
+  onCerrar: () => void;
+}) {
+  const [nombre, setNombre] = useState(categoria?.nombre ?? '');
+  const [prefijo, setPrefijo] = useState(categoria?.prefijo ?? '');
+  const [prefijoATocado, setPrefijoATocado] = useState(Boolean(categoria));
+  const [titular, setTitular] = useState<TitularTipo>(categoria?.titular ?? 'profe');
+  const [explica, setExplica] = useState(categoria?.explica ?? '');
+  const [ocupado, setOcupado] = useState(false);
+
+  const fija = Boolean(categoria && USOS_FIJOS.includes(categoria.clave));
+  const bloqueada = fija || nIpads > 0;
+  const motivo = fija
+    ? 'Una de las dos de siempre: se puede renombrar, pero el prefijo y a quién se le da no cambian.'
+    : nIpads > 0
+      ? `Ya tiene ${nIpads} iPads: el prefijo y a quién se le dan no se pueden cambiar.`
+      : null;
+
+  async function guardar(e: React.FormEvent) {
+    e.preventDefault();
+    setOcupado(true);
+    try {
+      const cuerpo = { nombre: nombre.trim(), prefijo: prefijo.trim().toUpperCase(), titular, explica: explica.trim() || null };
+      const r = categoria
+        ? await pedir<{ categorias: CategoriaDis[] }>(`/api/dispositivos/categorias/${categoria.clave}`, 'PATCH', cuerpo)
+        : await pedir<{ categorias: CategoriaDis[] }>('/api/dispositivos/categorias', 'POST', cuerpo);
+      acciones.setCategorias(r.categorias);
+      haptic.success();
+      if (!categoria) {
+        // La nueva es la que tiene el orden más alto: se salta a su pestaña.
+        const nueva = r.categorias.reduce((a, c) => (c.orden >= a.orden ? c : a));
+        onCreada(nueva.clave);
+        toast.success(`Categoría ${nueva.nombre} creada: ya puedes dar de alta sus iPads`);
+      }
+      onCerrar();
+    } catch (error) {
+      haptic.warning();
+      toast.error(error instanceof Error ? error.message : 'No se ha podido guardar');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function quitar() {
+    if (!categoria) return;
+    setOcupado(true);
+    try {
+      const r = await pedir<{ categorias: CategoriaDis[]; archivada: boolean }>(`/api/dispositivos/categorias/${categoria.clave}`, 'DELETE');
+      acciones.setCategorias(r.categorias);
+      haptic.success();
+      toast.success(r.archivada ? `${categoria.nombre}: archivada (sus iPads de baja se conservan)` : `${categoria.nombre}: quitada`);
+      onCerrar();
+    } catch (error) {
+      haptic.warning();
+      toast.error(error instanceof Error ? error.message : 'No se ha podido quitar');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onCerrar()}>
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
+        <form onSubmit={guardar} className="space-y-4">
+          <div className="space-y-1 pr-8">
+            <DialogTitle className="text-lg font-semibold">{categoria ? `Categoría ${categoria.nombre}` : 'Categoría nueva de iPads'}</DialogTitle>
+            <DialogDescription className="text-sm text-zinc-600 dark:text-zinc-400">
+              {categoria
+                ? 'Cambia el nombre o la explicación.'
+                : 'Una pestaña más en «iPads del cole», con su propio prefijo en los códigos (TEC1, TEC2…).'}
+            </DialogDescription>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_110px]">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Nombre</span>
+              <input
+                className={claseCampo}
+                value={nombre}
+                onChange={(e) => {
+                  setNombre(e.target.value);
+                  if (!prefijoATocado) setPrefijo(sugerirPrefijo(e.target.value));
+                }}
+                placeholder="Escuela de idiomas, Audición y lenguaje…"
+                required
+                autoFocus
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Prefijo</span>
+              <input
+                className={cn(claseCampo, 'uppercase')}
+                value={prefijo}
+                onChange={(e) => {
+                  setPrefijoATocado(true);
+                  setPrefijo(e.target.value.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase());
+                }}
+                placeholder="TEC"
+                disabled={bloqueada}
+                required
+                autoComplete="off"
+              />
+            </label>
+          </div>
+
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium text-zinc-700 dark:text-zinc-300">¿A quién se le dan?</legend>
+            <Segmentado
+              etiqueta="A quién se le dan"
+              lleno
+              valor={titular}
+              onChange={setTitular}
+              disabled={bloqueada}
+              opciones={TITULARES.map((t) => ({ valor: t, etiqueta: TITULAR_LABEL[t] }))}
+            />
+            <p className="text-xs text-zinc-500">{TITULAR_EXPLICA[titular]}.</p>
+          </fieldset>
+          {motivo && <p className="rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400">{motivo}</p>}
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Para qué es <span className="font-normal text-zinc-500">(opcional)</span>
+            </span>
+            <input className={claseCampo} value={explica} onChange={(e) => setExplica(e.target.value)} placeholder="Los de la escuela de idiomas, para las clases de inglés" />
+          </label>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {categoria && !fija && (
+              <ConfirmarEnLinea
+                etiqueta="Quitar"
+                icono={<Trash2 className="h-4 w-4" />}
+                pregunta={
+                  nVivos > 0
+                    ? `${categoria.nombre} todavía tiene ${nVivos} iPads: no se puede quitar hasta darlos de baja.`
+                    : nIpads > 0
+                      ? `Todos sus iPads están de baja: se archiva ${categoria.nombre} (se puede recuperar).`
+                      : `¿Borrar la categoría ${categoria.nombre}? No tiene ningún iPad.`
+                }
+                confirmar={nIpads > 0 ? 'Sí, archivar' : 'Sí, borrar'}
+                disabled={ocupado}
+                onConfirmar={quitar}
+              />
+            )}
+            <button type="submit" className={cn(buttonVariants(), 'ml-auto')} disabled={ocupado || nombre.trim().length < 2 || prefijo.length < 1}>
+              {ocupado && <Loader2 className="h-4 w-4 animate-spin" />} {categoria ? 'Guardar' : 'Crear categoría'}
+            </button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AltaAparatos({ categoria, panel, acciones, onCerrar }: { categoria: CategoriaDis; panel: PanelDispositivos; acciones: Acciones; onCerrar: () => void }) {
   const [modo, setModo] = useState<'cantidad' | 'series'>('cantidad');
   const [cantidad, setCantidad] = useState(1);
   const [texto, setTexto] = useState('');
@@ -327,13 +591,13 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
   const [ocupado, setOcupado] = useState(false);
   const series = parsearSeries(texto);
   const n = modo === 'cantidad' ? cantidad : series.length;
-  const codigos = siguientesCodigos(uso, panel.aparatos.map((a) => a.codigo), Math.max(n, 0));
+  const codigos = siguientesCodigos(categoria.prefijo, panel.aparatos.map((a) => a.codigo), Math.max(n, 0));
 
   async function crear() {
     setOcupado(true);
     try {
       const r = await pedir<{ aparatos: AparatoDis[] }>('/api/dispositivos/aparatos', 'POST', {
-        uso,
+        uso: categoria.clave,
         modeloId: modeloId || null,
         notas: notas.trim() || null,
         conCargador,
@@ -356,7 +620,7 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
         <div className="space-y-4">
           <div className="space-y-1 pr-8">
-            <DialogTitle className="text-lg font-semibold">Dar de alta iPads de {USO_LABEL[uso].toLowerCase()}</DialogTitle>
+            <DialogTitle className="text-lg font-semibold">Dar de alta iPads de {nombreEnFrase(categoria)}</DialogTitle>
             <DialogDescription className="text-sm text-zinc-600 dark:text-zinc-400">
               Cada uno se lleva el siguiente código libre. El código se puede cambiar después, uno a uno.
             </DialogDescription>
@@ -444,12 +708,15 @@ function AltaAparatos({ uso, panel, acciones, onCerrar }: { uso: Uso; panel: Pan
 
 function FichaAparato({
   aparato: a,
+  categoria,
   detalle,
   panel,
   acciones,
   onCerrar,
 }: {
   aparato: AparatoDis;
+  /** Su categoría (a quién se le da). Sin ella —no debería pasar—, se trata como de sustitución. */
+  categoria: CategoriaDis | undefined;
   /** Lo que se dice debajo del titular («1º ESO B · prestado»). */
   detalle: string;
   panel: PanelDispositivos;
@@ -481,11 +748,14 @@ function FichaAparato({
     };
   }, [a.id, a.titular?.id, a.estado]);
 
+  // A quién se le da: lo dice su categoría. Sin ella (no debería pasar) se mira el lote de siempre.
+  const titularTipo: TitularTipo = categoria?.titular ?? (a.uso === USO_PROFESORADO ? 'profe' : 'alumno');
+  const nombreCategoria = categoria?.nombre ?? a.uso;
   const q = normalizar(busca.trim());
   const candidatos =
     q.length < 2
       ? []
-      : a.uso === 'profesorado'
+      : titularTipo === 'profe'
         ? panel.profes.filter((p) => normalizar(p.nombre).includes(q)).slice(0, 8).map((p) => ({ id: p.id, nombre: p.nombre, detalle: p.email ?? '' }))
         : panel.alumnos.filter((x) => normalizar(x.nombre).includes(q)).slice(0, 8).map((x) => ({ id: x.id, nombre: x.nombre, detalle: x.clase }));
 
@@ -507,10 +777,11 @@ function FichaAparato({
   }
 
   /**
-   * A un profe se le da sin más. A un alumno, de dos maneras: **prestado para el curso** (le pone
+   * A un profe se le da sin más, y a un alumno de otra categoría que no sea sustitución, también.
+   * A un alumno con un iPad de sustitución, de dos maneras: **prestado para el curso** (le pone
    * «Prestado» con este iPad: una sola verdad) o **mientras arreglan el suyo** (no le cambia nada).
    */
-  async function darA(id: string, como: 'profe' | 'prestado' | 'temporal') {
+  async function darA(id: string, como: 'profe' | 'alumno' | 'prestado' | 'temporal') {
     setBusca('');
     setElegido(null);
     if (como === 'prestado') {
@@ -556,13 +827,15 @@ function FichaAparato({
         <div className="space-y-4">
           <div className="space-y-1 pr-8">
             <DialogTitle className="text-lg font-semibold">
-              {a.codigo} · iPad de {USO_LABEL[a.uso].toLowerCase()}
+              {a.codigo} · iPad de {nombreCategoria.toLowerCase()}
             </DialogTitle>
             <DialogDescription className="text-sm text-zinc-600 dark:text-zinc-400">
               {a.titular
                 ? `Lo tiene ${a.titular.nombre}${a.asignadoAt ? ` desde el ${new Date(a.asignadoAt).toLocaleDateString('es-ES')}` : ''}`
                 : a.estado === 'activo'
-                  ? 'En el almacén'
+                  ? titularTipo === 'nadie'
+                    ? 'Del centro, sin titular'
+                    : 'En el almacén'
                   : ESTADO_APARATO_LABEL[a.estado]}
             </DialogDescription>
           </div>
@@ -583,6 +856,10 @@ function FichaAparato({
               </div>
             ) : a.estado === 'baja' ? (
               <p className="text-sm text-zinc-500">De baja: no se le da a nadie.</p>
+            ) : titularTipo === 'nadie' ? (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Es un iPad del centro ({nombreCategoria}): no se le da a nadie. Aquí se apunta su estado, su modelo y su cargador.
+              </p>
             ) : elegido ? (
               <div className="space-y-2">
                 <p className="text-sm">
@@ -609,7 +886,7 @@ function FichaAparato({
                   className={claseCampo}
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  placeholder={a.uso === 'profesorado' ? 'Nombre del profe' : 'Nombre del alumno'}
+                  placeholder={titularTipo === 'profe' ? 'Nombre del profe' : 'Nombre del alumno'}
                   autoComplete="off"
                 />
                 {candidatos.length > 0 && (
@@ -619,7 +896,13 @@ function FichaAparato({
                         <button
                           type="button"
                           disabled={ocupado}
-                          onClick={() => (a.uso === 'profesorado' ? void darA(c.id, 'profe') : setElegido({ id: c.id, nombre: c.nombre }))}
+                          onClick={() =>
+                            titularTipo === 'profe'
+                              ? void darA(c.id, 'profe')
+                              : a.uso === USO_SUSTITUCION
+                                ? setElegido({ id: c.id, nombre: c.nombre })
+                                : void darA(c.id, 'alumno')
+                          }
                           className="flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800"
                         >
                           <span className="font-medium">{c.nombre}</span>

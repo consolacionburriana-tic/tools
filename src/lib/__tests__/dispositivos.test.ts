@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   altaAparatosSchema,
+  categoriaSchema,
+  categoriasVisibles,
+  claveDeNombre,
   compararCodigos,
   cuotaDe,
   cursosDeCompra,
@@ -14,8 +17,12 @@ import {
   resumenCuotas,
   seguroDe,
   siguientesCodigos,
+  sugerirPrefijo,
   textoEstado,
-  USOS,
+  USO_PROFESORADO,
+  USO_SUSTITUCION,
+  USOS_FIJOS,
+  type CategoriaDis,
 } from '@/lib/dispositivos';
 
 const CURSO = '2026-27';
@@ -122,16 +129,23 @@ describe('textos', () => {
 });
 
 describe('códigos de los iPads del cole', () => {
-  it('dos lotes con su letra (los prestados son de sustitución), y el siguiente libre tras el más alto', () => {
-    expect(USOS).toEqual(['sustitucion', 'profesorado']);
-    expect(siguientesCodigos('sustitucion', [])).toEqual(['S1']);
-    expect(siguientesCodigos('sustitucion', ['S1', 'S7', 'P20'], 3)).toEqual(['S8', 'S9', 'S10']);
-    expect(siguientesCodigos('profesorado', ['S1', 'p4'])).toEqual(['P5']);
+  it('cada categoría con su prefijo, y el siguiente libre tras el más alto', () => {
+    expect(USOS_FIJOS).toEqual([USO_SUSTITUCION, USO_PROFESORADO]);
+    expect(siguientesCodigos('S', [])).toEqual(['S1']);
+    expect(siguientesCodigos('S', ['S1', 'S7', 'P20'], 3)).toEqual(['S8', 'S9', 'S10']);
+    expect(siguientesCodigos('P', ['S1', 'p4'])).toEqual(['P5']);
   });
 
   it('un código a mano que no sigue la serie no la rompe', () => {
-    expect(numeroDeCodigo('sustitucion', 'S-ROTO')).toBeNull();
-    expect(siguientesCodigos('sustitucion', ['S2', 'S-ROTO', 'SX'])).toEqual(['S3']);
+    expect(numeroDeCodigo('S', 'S-ROTO')).toBeNull();
+    expect(siguientesCodigos('S', ['S2', 'S-ROTO', 'SX'])).toEqual(['S3']);
+  });
+
+  it('prefijos de varias letras no se pisan con los de una: TEC no cuenta como T, AL no cuenta como A', () => {
+    expect(siguientesCodigos('TEC', ['TEC1', 'TEC12', 'T3', 'TECX'], 2)).toEqual(['TEC13', 'TEC14']);
+    expect(siguientesCodigos('T', ['TEC1', 'TEC12'])).toEqual(['T1']);
+    expect(siguientesCodigos('AL', ['AL4', 'A9', 'ALTA2'])).toEqual(['AL5']);
+    expect(numeroDeCodigo('al', 'al7')).toBe(7);
   });
 
   it('orden natural: S2 antes que S10', () => {
@@ -173,5 +187,52 @@ describe('schemas', () => {
     expect(altaAparatosSchema.safeParse({ uso: 'sustitucion', series: ['DMPX1'] }).success).toBe(true);
     expect(altaAparatosSchema.safeParse({ uso: 'sustitucion' }).success).toBe(false);
     expect(altaAparatosSchema.safeParse({ uso: 'sustitucion', cantidad: 2, series: ['X'] }).success).toBe(false);
+  });
+});
+
+describe('categorías de iPads del cole', () => {
+  const cat = (clave: string, nombre: string, orden: number, activo = true): CategoriaDis => ({
+    clave,
+    nombre,
+    prefijo: nombre.slice(0, 2).toUpperCase(),
+    titular: 'profe',
+    explica: null,
+    orden,
+    activo,
+  });
+
+  it('sugiere el prefijo con las iniciales (las palabras de una letra no cuentan)', () => {
+    expect(sugerirPrefijo('Audición y lenguaje')).toBe('AL');
+    expect(sugerirPrefijo("Escola d'idiomes")).toBe('EI');
+    expect(sugerirPrefijo('TEC')).toBe('TEC');
+    expect(sugerirPrefijo('Pastoral')).toBe('PAS');
+    expect(sugerirPrefijo('  ')).toBe('');
+  });
+
+  it('la clave sale del nombre, sin tildes ni símbolos', () => {
+    expect(claveDeNombre('Audición y lenguaje')).toBe('audicion-y-lenguaje');
+    expect(claveDeNombre("Escola d'idiomes (TEC)")).toBe('escola-d-idiomes-tec');
+    expect(claveDeNombre('¿?')).toBe('');
+  });
+
+  it('las pestañas son las activas, en su orden', () => {
+    const lista = [cat('tec', 'TEC', 3), cat('p', 'Profesorado', 2), cat('viejo', 'Viejo', 1, false), cat('s', 'Sustitución', 1)];
+    expect(categoriasVisibles(lista).map((c) => c.clave)).toEqual(['s', 'p', 'tec']);
+  });
+
+  it('el schema pide un prefijo de letras (1 a 4) y lo pasa a mayúsculas', () => {
+    const base = { nombre: 'Escuela de idiomas', titular: 'profe' as const };
+    expect(categoriaSchema.parse({ ...base, prefijo: ' tec ' }).prefijo).toBe('TEC');
+    expect(categoriaSchema.safeParse({ ...base, prefijo: 'TEC1' }).success).toBe(false);
+    expect(categoriaSchema.safeParse({ ...base, prefijo: 'TECNO' }).success).toBe(false);
+    expect(categoriaSchema.safeParse({ ...base, prefijo: '' }).success).toBe(false);
+    expect(categoriaSchema.safeParse({ ...base, prefijo: 'TEC', titular: 'otro' }).success).toBe(false);
+    expect(categoriaSchema.safeParse({ nombre: 'X', prefijo: 'X', titular: 'nadie' }).success).toBe(false);
+  });
+
+  it('el alta de iPads acepta la clave de cualquier categoría', () => {
+    const uso = 'audicion-y-lenguaje';
+    expect(altaAparatosSchema.safeParse({ uso, cantidad: 3 }).success).toBe(true);
+    expect(altaAparatosSchema.safeParse({ uso: '', cantidad: 3 }).success).toBe(false);
   });
 });

@@ -5,9 +5,11 @@
 //  2. Quién tiene un iPad del cole vive en el iPad (`dis_aparatos.edu_student_id` /
 //     `edu_teacher_id`). El alumno prestado no guarda «el S12»: se busca qué aparato le tiene.
 //
-// Los iPads del cole para el alumnado son UN solo lote, el de sustitución (David, 20-oct-2026:
-// «los de préstamo son de sustitución»): el mismo S3 sirve para prestarlo todo el curso o para
-// dejarlo mientras arreglan el de un alumno. Qué es en cada caso lo dice la modalidad del alumno.
+// Los iPads del cole se reparten en categorías (`dis_categorias`). Las dos de siempre mandan:
+// la de sustitución es la de los alumnos prestados (David, 20-oct-2026: «los de préstamo son de
+// sustitución»): el mismo S3 sirve para prestarlo todo el curso o para dejarlo mientras arreglan
+// el de un alumno, y qué es en cada caso lo dice la modalidad del alumno. Las que añade el
+// colegio (TEC, AL…) son listas con su prefijo y, según su `titular`, a alumnos, a profes o a nadie.
 import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
@@ -15,6 +17,7 @@ import {
   disAlumnos,
   disAparatos,
   disCargadores,
+  disCategorias,
   disHistorial,
   disModelos,
   eduStudents,
@@ -29,19 +32,25 @@ import { entraEnAlcance, labelCurso, OPCIONES_POR_DEFECTO } from '@/lib/autoasm-
 import { compararClases, type Etapa } from '@/lib/cursos';
 import { nombresDe } from '@/lib/personas';
 import {
+  claveDeNombre,
   compararCodigos,
   ESTADO_APARATO_LABEL,
   ESTADO_CARGADOR_LABEL,
-  esUso,
+  esTitularTipo,
   etiquetaModelo,
   llevaCompra,
   MODALIDAD_LABEL,
   noSeLoLlevaACasa,
+  nombreEnFrase,
   normalizarCodigo,
   profeLeToca,
   siguientesCodigos,
   textoEstado,
-  USO_LABEL,
+  USO_PROFESORADO,
+  USO_SUSTITUCION,
+  USOS_FIJOS,
+  type CategoriaDis,
+  type CategoriaInput,
   type EstadoAlumnoInput,
   type EstadoAparato,
   type EstadoCargador,
@@ -119,6 +128,7 @@ export interface CargadorDis {
 
 export interface AparatoDis {
   id: string;
+  /** La clave de su categoría. */
   uso: Uso;
   codigo: string;
   modeloId: string | null;
@@ -163,6 +173,8 @@ export interface PanelDispositivos {
   cursoActual: string;
   alcance: AlcanceDis;
   alumnos: AlumnoDis[];
+  /** Las categorías de iPads del cole, archivadas incluidas, en su orden. */
+  categorias: CategoriaDis[];
   aparatos: AparatoDis[];
   profes: ProfeDis[];
   modelos: ModeloDis[];
@@ -287,7 +299,7 @@ async function leerAparatos(ids?: string[]): Promise<AparatoDis[]> {
       }
       return {
         id: a.id,
-        uso: esUso(a.uso) ? a.uso : 'sustitucion',
+        uso: a.uso,
         codigo: a.codigo,
         modeloId: a.modeloId,
         numeroSerie: a.numeroSerie,
@@ -299,6 +311,23 @@ async function leerAparatos(ids?: string[]): Promise<AparatoDis[]> {
       };
     })
     .sort((x, y) => compararCodigos(x.codigo, y.codigo));
+}
+
+async function leerCategorias(): Promise<CategoriaDis[]> {
+  const filas = await db.select().from(disCategorias);
+  return filas
+    .map(
+      (c): CategoriaDis => ({
+        clave: c.clave,
+        nombre: c.nombre,
+        prefijo: c.prefijo,
+        titular: esTitularTipo(c.titular) ? c.titular : 'profe',
+        explica: c.explica,
+        orden: c.orden,
+        activo: c.activo,
+      }),
+    )
+    .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
 async function leerModelos(): Promise<ModeloDis[]> {
@@ -362,10 +391,11 @@ async function leerProfes(academicYear: string): Promise<ProfeDis[]> {
 /** El panel entero, en una tanda (más la de hermanos, que depende del alumnado). */
 export async function panelDispositivos(): Promise<PanelDispositivos> {
   const cursoActual = academicYearActual();
-  const [alcance, todos, estados, aparatos, profes, modelos] = await Promise.all([
+  const [alcance, todos, estados, categorias, aparatos, profes, modelos] = await Promise.all([
     alcanceDispositivos(cursoActual),
     db.select(COLS_ALUMNO).from(eduStudents).where(eq(eduStudents.active, true)),
     db.select().from(disAlumnos),
+    leerCategorias(),
     leerAparatos(),
     leerProfes(cursoActual),
     leerModelos(),
@@ -407,7 +437,7 @@ export async function panelDispositivos(): Promise<PanelDispositivos> {
     })
     .sort((x, y) => compararClases(x, y) || x.apellidos.localeCompare(y.apellidos, 'es') || x.nombre.localeCompare(y.nombre, 'es'));
 
-  return { cursoActual, alcance, alumnos, aparatos, profes, modelos };
+  return { cursoActual, alcance, alumnos, categorias, aparatos, profes, modelos };
 }
 
 // ─── Historial ────────────────────────────────────────────────────────────────
@@ -470,7 +500,7 @@ export async function guardarEstadoAlumno(input: EstadoAlumnoInput, firma: Firma
     db
       .select({ id: disAparatos.id, codigo: disAparatos.codigo })
       .from(disAparatos)
-      .where(and(eq(disAparatos.eduStudentId, input.eduStudentId), eq(disAparatos.uso, 'sustitucion'))),
+      .where(and(eq(disAparatos.eduStudentId, input.eduStudentId), eq(disAparatos.uso, USO_SUSTITUCION))),
   ]);
   const eraPrestado = antes?.modalidad === 'prestado';
   if (!alumno || !alumno.active) throw new ErrorDispositivos('Ese alumno no está en el cole', 404);
@@ -544,7 +574,7 @@ export async function guardarEstadoAlumno(input: EstadoAlumnoInput, firma: Firma
     await devolverPrestamos('se le quita');
   } else if (input.aparatoId) {
     const [uso] = await db.select({ uso: disAparatos.uso }).from(disAparatos).where(eq(disAparatos.id, input.aparatoId)).limit(1);
-    if (uso && uso.uso !== 'sustitucion') throw new ErrorDispositivos('A un alumno se le presta uno de sustitución');
+    if (uso && uso.uso !== USO_SUSTITUCION) throw new ErrorDispositivos('A un alumno se le presta uno de sustitución');
     const dado = await darAparato(input.aparatoId, { tipo: 'alumno', id: alumno.id }, firma, lineas);
     tocados.add(dado);
     // Un alumno, un iPad del cole: si tenía otro (el de una reparación), vuelve.
@@ -552,7 +582,7 @@ export async function guardarEstadoAlumno(input: EstadoAlumnoInput, firma: Firma
   }
 
   const codigo = (await leerAparatos([...tocados, ...prestamos.map((p) => p.id)])).find(
-    (a) => a.uso === 'sustitucion' && a.titular?.id === alumno.id,
+    (a) => a.uso === USO_SUSTITUCION && a.titular?.id === alumno.id,
   )?.codigo;
   const texto = textoEstado({ modalidad, cursoCompra, aCasa, aparato: codigo }, cursoActual);
   if (!antes || textoEstado({ modalidad: antes.modalidad as Modalidad, cursoCompra: antes.cursoCompra, aCasa: antes.aCasa }, cursoActual) !== texto || input.aparatoId !== undefined) {
@@ -612,7 +642,7 @@ export async function guardarMasivo(
     const tenian = await db
       .select({ id: disAparatos.id, codigo: disAparatos.codigo, alumno: disAparatos.eduStudentId })
       .from(disAparatos)
-      .where(and(inArray(disAparatos.eduStudentId, eranPrestados), eq(disAparatos.uso, 'sustitucion')));
+      .where(and(inArray(disAparatos.eduStudentId, eranPrestados), eq(disAparatos.uso, USO_SUSTITUCION)));
     devueltos = tenian.map((t) => t.id);
     if (devueltos.length) {
       await db
@@ -651,9 +681,14 @@ async function darAparato(
   const [ap] = await db.select().from(disAparatos).where(eq(disAparatos.id, aparatoId)).limit(1);
   if (!ap) throw new ErrorDispositivos('Ese iPad no existe', 404);
   if (ap.estado === 'baja') throw new ErrorDispositivos(`El ${ap.codigo} está de baja`);
-  // Cada uso es para quien es: los de profesorado, para profes; los de sustitución, para alumnos.
-  if ((a.tipo === 'profe') !== (ap.uso === 'profesorado')) {
-    throw new ErrorDispositivos(a.tipo === 'profe' ? `El ${ap.codigo} no es de profesorado` : `El ${ap.codigo} es de profesorado`);
+  // Cada categoría es para quien es: a un profe, los de profesores; a un alumno, los de alumnado.
+  const [cat] = await db.select().from(disCategorias).where(eq(disCategorias.clave, ap.uso)).limit(1);
+  const titular = cat && esTitularTipo(cat.titular) ? cat.titular : ap.uso === USO_PROFESORADO ? 'profe' : 'alumno';
+  if (titular === 'nadie') {
+    throw new ErrorDispositivos(`El ${ap.codigo} es del centro (${cat?.nombre ?? 'sin categoría'}): no se le da a nadie`);
+  }
+  if (titular !== a.tipo) {
+    throw new ErrorDispositivos(`El ${ap.codigo} es de ${titular === 'profe' ? 'profesorado' : 'alumnado'}`);
   }
   const yaEsSuyo = a.tipo === 'alumno' ? ap.eduStudentId === a.id : ap.eduTeacherId === a.id;
   if (yaEsSuyo) return ap.id;
@@ -700,6 +735,9 @@ export async function altaAparatos(
   input: { uso: Uso; modeloId?: string | null; cantidad?: number; series?: string[]; notas?: string | null; conCargador?: boolean },
   firma: Firma,
 ): Promise<AparatoDis[]> {
+  const [categoria] = await db.select().from(disCategorias).where(eq(disCategorias.clave, input.uso)).limit(1);
+  if (!categoria) throw new ErrorDispositivos('Esa categoría no existe', 404);
+  if (!categoria.activo) throw new ErrorDispositivos(`La categoría ${categoria.nombre} está archivada: recupérala para dar de alta iPads`);
   const existentes = await db.select({ codigo: disAparatos.codigo, serie: disAparatos.numeroSerie }).from(disAparatos);
   const series = input.series ?? [];
   if (series.length) {
@@ -708,7 +746,7 @@ export async function altaAparatos(
     if (repetidas.length) throw new ErrorDispositivos(`Ya están dados de alta: ${repetidas.slice(0, 5).join(', ')}${repetidas.length > 5 ? '…' : ''}`, 409);
   }
   const n = series.length || input.cantidad || 0;
-  const codigos = siguientesCodigos(input.uso, existentes.map((e) => e.codigo), n);
+  const codigos = siguientesCodigos(categoria.prefijo, existentes.map((e) => e.codigo), n);
   const filas = await db
     .insert(disAparatos)
     .values(
@@ -728,7 +766,7 @@ export async function altaAparatos(
       .values(filas.map((f) => ({ aparatoId: f.id, codigo: f.codigo, actualizadoPor: firma.email })));
   }
   await apuntar(
-    filas.map((f) => ({ aparatoId: f.id, texto: `Alta (${USO_LABEL[input.uso].toLowerCase()})${input.conCargador ? ' con cargador' : ''}` })),
+    filas.map((f) => ({ aparatoId: f.id, texto: `Alta (${nombreEnFrase(categoria)})${input.conCargador ? ' con cargador' : ''}` })),
     firma,
   );
   return leerAparatos(filas.map((f) => f.id));
@@ -856,6 +894,76 @@ export async function borrarAparato(id: string): Promise<void> {
   await db.delete(disAparatos).where(eq(disAparatos.id, id));
 }
 
+// ─── Categorías de iPads del cole ─────────────────────────────────────────────
+
+/**
+ * Crea una categoría (`clave` null) o cambia una. El prefijo y el titular se pueden cambiar
+ * mientras no haya iPads dentro: con iPads, sus códigos y quién los tiene dependen de ellos. Las
+ * dos de siempre (sustitución y profesorado) solo cambian de nombre y de explicación.
+ */
+export async function guardarCategoria(clave: string | null, input: CategoriaInput): Promise<CategoriaDis[]> {
+  const nombre = input.nombre.trim();
+  const prefijo = input.prefijo.toUpperCase();
+  const todas = await db.select().from(disCategorias);
+  const actual = clave ? todas.find((c) => c.clave === clave) : undefined;
+  if (clave && !actual) throw new ErrorDispositivos('Esa categoría no existe', 404);
+  const otras = todas.filter((c) => c.clave !== clave);
+  if (otras.some((c) => c.nombre.toLowerCase() === nombre.toLowerCase())) throw new ErrorDispositivos(`Ya hay una categoría ${nombre}`, 409);
+  const mismoPrefijo = otras.find((c) => c.prefijo.toUpperCase() === prefijo);
+  if (mismoPrefijo) throw new ErrorDispositivos(`El prefijo ${prefijo} ya es de ${mismoPrefijo.nombre}`, 409);
+
+  if (actual) {
+    const cambiaCodigos = prefijo !== actual.prefijo.toUpperCase() || input.titular !== actual.titular;
+    if (cambiaCodigos) {
+      if (USOS_FIJOS.includes(actual.clave)) {
+        throw new ErrorDispositivos(`${actual.nombre} no puede cambiar de prefijo ni de a quién se le da: el resto del módulo cuenta con ello`);
+      }
+      const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(disAparatos).where(eq(disAparatos.uso, actual.clave));
+      if (n > 0) {
+        throw new ErrorDispositivos(`Ya tiene ${n} iPads dentro: el prefijo y a quién se le dan no se pueden cambiar. Crea otra categoría`, 409);
+      }
+    }
+    await db
+      .update(disCategorias)
+      .set({ nombre, prefijo, titular: input.titular, explica: input.explica?.trim() || null, updatedAt: new Date() })
+      .where(eq(disCategorias.clave, actual.clave));
+  } else {
+    let nueva = claveDeNombre(nombre) || prefijo.toLowerCase();
+    // Una clave que ya existe (por ejemplo, de una categoría archivada con otro prefijo) no se pisa.
+    for (let i = 2; todas.some((c) => c.clave === nueva); i++) nueva = `${claveDeNombre(nombre) || prefijo.toLowerCase()}-${i}`;
+    const orden = todas.reduce((m, c) => Math.max(m, c.orden), 0) + 1;
+    await db.insert(disCategorias).values({ clave: nueva, nombre, prefijo, titular: input.titular, explica: input.explica?.trim() || null, orden });
+  }
+  return leerCategorias();
+}
+
+/**
+ * Quitar una categoría. Sin iPads, se borra; con iPads que ya están todos de baja, se archiva
+ * (deja de salir como pestaña y se puede recuperar); con iPads vivos, no: se perderían de vista.
+ * Las dos de siempre no se quitan.
+ */
+export async function quitarCategoria(clave: string): Promise<{ categorias: CategoriaDis[]; archivada: boolean }> {
+  const [cat] = await db.select().from(disCategorias).where(eq(disCategorias.clave, clave)).limit(1);
+  if (!cat) throw new ErrorDispositivos('Esa categoría no existe', 404);
+  if (USOS_FIJOS.includes(cat.clave)) throw new ErrorDispositivos(`${cat.nombre} no se puede quitar: el resto del módulo cuenta con ella`);
+  const iPads = await db.select({ estado: disAparatos.estado }).from(disAparatos).where(eq(disAparatos.uso, clave));
+  const vivos = iPads.filter((a) => a.estado !== 'baja').length;
+  if (vivos > 0) {
+    throw new ErrorDispositivos(`${cat.nombre} todavía tiene ${vivos} iPads: dalos de baja primero (o déjala como está)`, 409);
+  }
+  const archivada = iPads.length > 0;
+  if (archivada) await db.update(disCategorias).set({ activo: false, updatedAt: new Date() }).where(eq(disCategorias.clave, clave));
+  else await db.delete(disCategorias).where(eq(disCategorias.clave, clave));
+  return { categorias: await leerCategorias(), archivada };
+}
+
+/** Recuperar una categoría archivada. */
+export async function recuperarCategoria(clave: string): Promise<CategoriaDis[]> {
+  const r = await db.update(disCategorias).set({ activo: true, updatedAt: new Date() }).where(eq(disCategorias.clave, clave)).returning({ clave: disCategorias.clave });
+  if (r.length === 0) throw new ErrorDispositivos('Esa categoría no existe', 404);
+  return leerCategorias();
+}
+
 // ─── Modelos ──────────────────────────────────────────────────────────────────
 
 export async function guardarModelo(
@@ -922,7 +1030,7 @@ export async function resumenDispositivos(ids: readonly string[]): Promise<Map<s
     db
       .select({ id: disAparatos.eduStudentId, codigo: disAparatos.codigo })
       .from(disAparatos)
-      .where(and(inArray(disAparatos.eduStudentId, [...ids]), eq(disAparatos.uso, 'sustitucion'))),
+      .where(and(inArray(disAparatos.eduStudentId, [...ids]), eq(disAparatos.uso, USO_SUSTITUCION))),
   ]);
   const codigo = new Map(prestamos.map((p) => [p.id, p.codigo]));
   return new Map(
