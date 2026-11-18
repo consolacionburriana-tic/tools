@@ -1208,3 +1208,18 @@ export const PeticionPlantillas = z.object({
 
 export type EntradaAusencia = z.infer<typeof PeticionAusencia>;
 export type EntradaCambio = z.infer<typeof PeticionCambio>;
+
+/**
+ * Qué decir en el log de un error SIN datos: el `message` de un error de Drizzle lleva la consulta y
+ * sus parámetros (el motivo de una ausencia, que es un dato de salud). Solo el nombre y el error de
+ * Postgres que lo causó.
+ */
+export function mensajeSeguro(e: unknown): string {
+  if (!(e instanceof Error)) return 'error desconocido';
+  const causa = (e as { cause?: unknown }).cause;
+  if (e.name === 'DrizzleQueryError' || /^Failed query:/.test(e.message)) {
+    const c = causa instanceof Error ? causa : null;
+    return `${e.name}: ${c ? `${c.name} ${(c as { code?: string }).code ?? ''} ${c.message}`.trim() : 'fallo en la consulta'}`;
+  }
+  return `${e.name}: ${e.message}`;
+}
