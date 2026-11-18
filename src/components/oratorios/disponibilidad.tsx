@@ -3,7 +3,7 @@
 // Mis huecos: la semana tipo de quien lo lleva, con su horario pintado debajo. Cada toque
 // cicla óptima → alternativa → último recurso → nada y se guarda solo. «Desde mi horario» marca
 // como óptimas las horas
-// que el horario ya tiene como Oratorio. Con «Al tocar: Cursos», el toque dice para qué niveles
+// que el horario ya tiene como Oratorio o como taller. Con «Al tocar: Cursos», el toque dice para qué niveles
 // es el hueco (Jose Miguel: «los lunes de 16:15 son para 1er ciclo siempre»). Va con `key` = la
 // persona: cambiar de responsable monta una rejilla nueva con la suya.
 import { Eraser, Star, Users, Zap } from 'lucide-react';
@@ -22,11 +22,13 @@ import {
   diaCorto,
   ETAPA_LABELS,
   etiquetaCursosHueco,
+  esHoraDeMomento,
   etiquetaNivel,
   franjasPorEtapa,
   horaBonita,
   huecoEn,
   NIVEL_INFO,
+  nivelesDeEtiquetaHora,
   nivelesDeTipo,
   periodoDeFecha,
   siguienteNivel,
@@ -108,44 +110,33 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
   }
 
   function desdeMiHorario() {
-    const oratorio = mio.filter((h) => h.actividad === 'oratorio');
+    // Las horas de Oratorio y las que llevan en la etiqueta el nombre de un tipo (el taller:
+    // «Taller de Pensamiento Computacional · 1ER CICLO»; esa etiqueta dice además los cursos).
+    const delMomento = mio.filter((h) => esHoraDeMomento(h, e.tipos));
+    if (delMomento.length === 0) {
+      toast.info(
+        mio.length === 0
+          ? 'No hay horario importado a tu nombre: marca tus huecos tocando la rejilla'
+          : 'Tu horario no tiene horas de Oratorio ni de ningún taller (con su nombre en la etiqueta). Marca tus huecos tocando la rejilla',
+      );
+      return;
+    }
     const nuevos = [...huecos];
-    if (oratorio.length > 0) {
-      for (const h of oratorio) {
-        const i = nuevos.findIndex((x) => x.dia === h.dia && x.horaInicio === h.horaInicio);
-        const hueco = { dia: h.dia, horaInicio: h.horaInicio, horaFin: h.horaFin, nivel: 'optima' as const, cursos: i >= 0 ? (nuevos[i].cursos ?? null) : null };
-        if (i >= 0) nuevos[i] = hueco;
-        else nuevos.push(hueco);
-      }
-      guardar(nuevos);
-      toast.success(`${oratorio.length} horas de Oratorio marcadas como óptimas`);
-      return;
-    }
-    // Sin horas de Oratorio en su horario (solo las trae el de la ESO; Primaria e Infantil no, y
-    // el taller tampoco): se proponen como 👍 las horas de la rejilla en las que NO tiene nada
-    // en su horario, sin tocar lo que ya haya marcado. Las revisa a mano después.
-    if (mio.length === 0) {
-      toast.info('No hay horario importado a tu nombre: marca tus huecos tocando la rejilla');
-      return;
-    }
-    let puestas = 0;
-    for (const g of grupos) {
-      for (const f of g.franjas) {
-        for (const dia of [1, 2, 3, 4, 5]) {
-          if (huecoEn(nuevos, dia, f)) continue;
-          const ocupado = mio.some((h) => h.dia === dia && h.actividad !== 'libre_disposicion' && aMin(h.horaInicio) < aMin(f.horaFin) && aMin(f.horaInicio) < aMin(h.horaFin));
-          if (ocupado) continue;
-          nuevos.push({ dia, horaInicio: f.horaInicio, horaFin: f.horaFin, nivel: 'alternativa', cursos: null });
-          puestas++;
-        }
-      }
-    }
-    if (puestas === 0) {
-      toast.info('Tu horario no tiene horas de Oratorio ni horas libres en esta rejilla. Toca la rejilla para marcarlas a mano');
-      return;
+    const deEstaVez = new Map<string, string[] | null>();
+    for (const h of delMomento) {
+      const clave = `${h.dia}|${h.horaInicio}`;
+      const i = nuevos.findIndex((x) => x.dia === h.dia && x.horaInicio === h.horaInicio);
+      const derivados = nivelesDeEtiquetaHora(h.materia);
+      // Dos horas a la vez (3ºA y 3ºB): los cursos de las dos. Si una no dice cursos, queda abierto.
+      const previo = deEstaVez.get(clave);
+      const cursos = deEstaVez.has(clave) ? (previo && derivados ? [...new Set([...previo, ...derivados])] : null) : (derivados ?? (i >= 0 ? (nuevos[i].cursos ?? null) : null));
+      deEstaVez.set(clave, cursos);
+      const hueco = { dia: h.dia, horaInicio: h.horaInicio, horaFin: h.horaFin, nivel: 'optima' as const, cursos };
+      if (i >= 0) nuevos[i] = hueco;
+      else nuevos.push(hueco);
     }
     guardar(nuevos);
-    toast.success(`Tu horario no tiene horas de Oratorio: he marcado ${puestas} horas en las que no tienes nada como 👍 alternativa. Revísalas`);
+    toast.success(`${deEstaVez.size} horas de tu horario marcadas como óptimas`);
   }
 
   // Si se sale con un cambio sin guardar (el guardado espera 0,7 s), el navegador pregunta.
@@ -174,7 +165,7 @@ export function EditorDisponibilidad({ e }: { e: Estado }) {
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" onClick={desdeMiHorario} disabled={!profeId} title="Marca como óptimas las horas de Oratorio de tu horario; si no tienes, propone como alternativa las horas en las que no das nada">
+        <Button variant="outline" onClick={desdeMiHorario} disabled={!profeId} title="Marca como óptimas las horas de Oratorio o de taller de tu horario, con sus cursos si la etiqueta los dice">
           <Zap /> Desde mi horario
         </Button>
         {huecos.length > 0 && (

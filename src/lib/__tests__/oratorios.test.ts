@@ -23,6 +23,8 @@ import {
   etiquetaNivel,
   franjasDeEtapas,
   franjasPorEtapa,
+  esHoraDeMomento,
+  nivelesDeEtiquetaHora,
   generacion,
   horaDeClase,
   indexarHorario,
@@ -237,6 +239,27 @@ describe('horario', () => {
     const idx = indexarHorario([h('2ESO', 'A', 1, '08:00', '08:55', 'Religión', [ANA, apoyo]), h('2ESO', 'A', 1, '08:00', '08:55', 'Valores', [PEPE])]);
     const r = horaDeClase(idx, PERIODOS, { curso: '2ESO', letra: 'A' }, '2026-10-05', { horaInicio: '08:00', horaFin: '08:55' });
     expect(r?.profes.map((p) => p.nombre)).toEqual(['Ana García', 'Pepe Ruiz']);
+  });
+
+  it('hora de un momento: Oratorio, o la etiqueta con el nombre de un tipo', () => {
+    const tipos = [{ nombre: 'Oratorio' }, { nombre: 'Taller de Pensamiento Computacional' }];
+    expect(esHoraDeMomento({ actividad: 'oratorio', materia: 'Oratorio' }, tipos)).toBe(true);
+    expect(esHoraDeMomento({ actividad: 'otros', materia: 'Taller de Pensamiento Computacional · 1ER CICLO' }, tipos)).toBe(true);
+    expect(esHoraDeMomento({ actividad: 'otros', materia: 'taller de pensamiento computacional · INFANTIL' }, tipos)).toBe(true);
+    expect(esHoraDeMomento({ actividad: 'reunion', materia: 'TIC' }, tipos)).toBe(false);
+    expect(esHoraDeMomento({ actividad: 'clase', materia: null }, tipos)).toBe(false);
+  });
+
+  it('niveles que dice la etiqueta de una hora del taller', () => {
+    const t = (x: string) => nivelesDeEtiquetaHora(`Taller de Pensamiento Computacional · ${x}`);
+    expect(t('INFANTIL')).toEqual(['3INF', '4INF', '5INF']);
+    expect(t('1ER CICLO')).toEqual(['1PRI', '2PRI']);
+    expect(t('3ER CICLO')).toEqual(['5PRI', '6PRI']);
+    expect(t('3ºA')).toEqual(['3PRI']);
+    expect(t('4º A Y B')).toEqual(['4PRI']);
+    expect(t('algo raro')).toBeNull();
+    expect(nivelesDeEtiquetaHora('Oratorio')).toBeNull();
+    expect(nivelesDeEtiquetaHora(null)).toBeNull();
   });
 
   it('franjas por etapa: Infantil y Primaria no se mezclan en una sola lista de horas', () => {
