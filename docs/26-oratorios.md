@@ -367,6 +367,13 @@ Lo que pidió David, tal cual, y lo que decidí yo al construirlo (marcado con �
 12. 🤖 **El autocompletar empieza mañana**, nunca hoy: no le da tiempo a nadie a enterarse.
 13. 🤖 **La hora que queda en la sesión es la del tramo de la clase**, no la del hueco de
     disponibilidad: si 1º ESO sale a las 14:00 y 3º a las 15:05, cada una lleva la suya.
+27. **Si una clase tiene dos profes a esa hora, se avisa y se invita a los dos** (David, 18-nov-2026:
+    en 1º ESO A solo le llegó el oratorio a una de las dos profes). El horario importado guarda al
+    primero de la celda como titular y a los demás como `apoyo`/`pt`/`al`, y `horaDeClase` se quedaba
+    solo con los titulares. Ahora entran **todos los profes de esa hora, sea cual sea su rol** (docencia
+    compartida, apoyo, PT, AL). Efecto colateral aceptado: también cuentan para «×N molestado».
+    ⚠️ Las sesiones **ya creadas** antes de este arreglo conservan solo el titular; se corrigen al
+    moverlas o anulándolas y volviéndolas a apuntar.
 
 ### Las Sesiones del abanico (4-oct-2026)
 

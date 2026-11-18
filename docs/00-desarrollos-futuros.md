@@ -36,3 +36,8 @@ Reglas para quien lo toque (personas o agentes):
 - **Oratorios · huecos por etapa** (2-nov-2026): hoy un hueco se guarda por día + hora de inicio, así
   que una fila de Infantil y otra de Primaria que empiecen igual comparten marca. Guardarlos por
   etapa si hace falta separarlos de verdad ([`26`](./26-oratorios.md)).
+- **Oratorios · corregir las sesiones ya creadas con un solo profe** (18-nov-2026): el arreglo de
+  «a los dos profes de la hora» solo vale para lo que se apunte desde ahora. Las sesiones ya
+  creadas donde la hora tenía titular + apoyo siguen con uno solo (sin invitación ni aviso al otro).
+  Falta un botón/script que recalcule `ora_sesiones.profes` desde el horario para las futuras y
+  reenvíe invitación y aviso a quien faltaba ([`26`](./26-oratorios.md), decisión 27).

@@ -594,8 +594,11 @@ export interface HoraDeClase {
 }
 
 /**
- * Qué tiene una clase en una franja de un día concreto, según el horario vigente. Varias filas
- * = desdoble u optativa: todos sus profes pierden esa hora. Los apoyos no cuentan si hay titular.
+ * Qué tiene una clase en una franja de un día concreto, según el horario vigente. **Todos** los
+ * profes de esa hora pierden la hora y a todos se les invita y se les avisa: varias filas
+ * (desdoble u optativa) y también varios profes en una misma fila (docencia compartida, apoyo,
+ * PT). Antes solo contaba el titular y a la segunda profe de la clase no le llegaba nada
+ * (18-nov-2026, 1º ESO A).
  */
 export function horaDeClase(
   idx: Map<string, HuecoHorario[]>,
@@ -613,8 +616,7 @@ export function horaDeClase(
   const profes: ProfeAfectado[] = [];
   const vistos = new Set<string>();
   for (const f of filas) {
-    const titulares = f.profes.some((p) => p.titular) ? f.profes.filter((p) => p.titular) : f.profes;
-    for (const p of titulares) {
+    for (const p of f.profes) {
       if (vistos.has(p.id)) continue;
       vistos.add(p.id);
       profes.push({ id: p.id, nombre: p.nombre, materia: f.materia });

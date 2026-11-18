@@ -234,11 +234,20 @@ describe('horario', () => {
     expect(horaDeClase(idx, PERIODOS, { curso: '1ESO', letra: 'A' }, '2026-10-05', { horaInicio: '12:00', horaFin: '13:00' })).toBeNull();
   });
 
-  it('en un desdoble pierden la hora todos los titulares; los apoyos no', () => {
+  it('en un desdoble pierden la hora todos los profes, también los de apoyo', () => {
     const apoyo = { id: '44444444-4444-4444-8444-444444444444', nombre: 'PT', titular: false };
     const idx = indexarHorario([h('2ESO', 'A', 1, '08:00', '08:55', 'Religión', [ANA, apoyo]), h('2ESO', 'A', 1, '08:00', '08:55', 'Valores', [PEPE])]);
     const r = horaDeClase(idx, PERIODOS, { curso: '2ESO', letra: 'A' }, '2026-10-05', { horaInicio: '08:00', horaFin: '08:55' });
-    expect(r?.profes.map((p) => p.nombre)).toEqual(['Ana García', 'Pepe Ruiz']);
+    expect(r?.profes.map((p) => p.nombre)).toEqual(['Ana García', 'PT', 'Pepe Ruiz']);
+  });
+
+  it('si una clase tiene dos profes en la misma hora, se avisa y se invita a los dos', () => {
+    // Una sola fila de horario con dos profes (la segunda marcada como apoyo al importar).
+    const segunda = { id: '55555555-5555-4555-8555-555555555555', nombre: 'Marta Ibáñez', titular: false };
+    const primera = { id: '66666666-6666-4666-8666-666666666666', nombre: 'Marina Soler', titular: true };
+    const idx = indexarHorario([h('1ESO', 'A', 3, '12:10', '13:05', 'Inglés', [primera, segunda])]);
+    const r = horaDeClase(idx, PERIODOS, { curso: '1ESO', letra: 'A' }, '2026-10-07', { horaInicio: '12:10', horaFin: '13:05' });
+    expect(r?.profes.map((p) => p.nombre)).toEqual(['Marina Soler', 'Marta Ibáñez']);
   });
 
   it('hora de un momento: Oratorio, o la etiqueta con el nombre de un tipo', () => {
