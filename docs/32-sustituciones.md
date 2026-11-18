@@ -15,7 +15,8 @@ real y el primer correo de verdad — ver §5). Las sustituciones largas de Educ
 
 > **Ampliación solicitada el 16-nov-2026:** los avisos por sustitución se encolan para respetar el
 > límite de las 18:00 y la antelación máxima de dos días; se entregan desde las 08:00 (Europe/Madrid)
-> mediante el worker horario. La propuesta admite un segundo sustituto con franja manual dentro de
+> sin cron: el correo se entrega a **Resend con `scheduled_at`** y Resend lo dispara a su hora (ver
+> la decisión 10, «Programación sin cron», y el arreglo del 18-nov-2026). La propuesta admite un segundo sustituto con franja manual dentro de
 > la sesión. Cada fila elegida significa que el ausente no asiste a esa sesión, aunque quede sin
 > cubrir, y cuenta en las cifras. Números permite elegir una cuenta activa de Jefatura/Dirección y
 > etapa del envío manual. Las cuentas con rol Dirección comparten rol; la titular tiene opción fija.
@@ -233,8 +234,27 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     - **Al ausente, uno**: qué horas se cubren y quién entra en cada una (y cuáles se quedan sin cubrir), solo si Jefatura activa el envío; para «Baja» viene apagado por defecto. Tampoco repite el motivo.
     - **Cambios**: al sustituto nuevo, el aviso normal; al que deja de serlo, «ya no hace falta que
       cubras…»; al ausente, la lista actualizada. **Anulación**: a todos los sustitutos y al ausente.
-    - Cada sesión guarda `aviso_estado` (`no` · `enviado` · `error`): un correo que falla **no
+    - Cada sesión guarda `aviso_estado` (`no` · `programado` · `enviado` · `error`): un correo que falla **no
       deshace** la ausencia; la ficha enseña el error y el botón «Reenviar».
+    - **Programación sin cron** (18-nov-2026; antes un cron diario a las 7:05 UTC lo entregaba todo, y si
+      el cron no corría —Hobby solo admite 2 diarios— el correo se quedaba en «programado» para siempre).
+      Reglas de `cuandoEnviar`: nunca antes de las 08:00 ni después de las 18:00 (Madrid) y como mucho
+      2 días antes. Si toca ya, sale por el transporte del perfil; si toca más tarde, **se entrega a
+      Resend con `scheduled_at`** (`programar()` en `email.ts`; sale por Resend aunque el transporte
+      global sea Gmail, que no sabe programar) y se guarda el id en `sust_envios.resend_id`. Resend solo
+      guarda 30 días: si la hora pasa de 29, o `RESEND_API_KEY` no está, queda `pendiente`.
+      `repasarEnvios()` (en `after()` al abrir **Hoy** y la **ficha**, sin cron) cuadra cuentas:
+      pregunta a Resend por los programados ya vencidos (→ `enviado`/`error` y el estado de la hora),
+      y entrega los `pendiente` (los manda si ya tocan y la ventana está abierta, o los programa en
+      Resend si ya caben).
+    - **Cambios con correos en vuelo.** Cambiar, quitar o acortar horas cancela (en Resend, con
+      `cancelarProgramados`) **solo** los correos que tocan esas horas y el resumen del ausente, no los
+      de los demás sustitutos (antes se cancelaban todos y el resto quedaba «programado» sin correo).
+      Un correo lleva todas las horas de un sustituto: si se cancela por una hora, las otras se vuelven
+      a avisar. A quien su correo se canceló antes de salir no se le manda «ya no hace falta».
+    - **Resend gratis corta a 100 correos al día** (ver 16-evaluaciones): holgado para sustituciones.
+      El remitente `jeinfyprim@…` sale por Resend en los programados, así que el dominio tiene que
+      estar verificado en Resend (comprobado el 18-nov-2026 programando y cancelando un correo).
     - Botón **«Confirmar sustitución»** en el correo al sustituto; registra la confirmación desde un enlace personal. El correo incluye un agradecimiento.
     - Opción **«Enviar correo al profesor sustituido»**; desactivada por defecto cuando el motivo es «Baja».
 11. **Cuentas y datos de salud.** Cada sesión ausente de una ausencia confirmada cuenta **para el
@@ -675,7 +695,8 @@ cómo queda: Nouvinguts.
 - [x] Módulo `sustituciones` en `permissions.ts` (`MODULES`, `MODULE_LABELS`, `jefe` y `direccion`), `modulos.ts` (grupo `centro`, icono, `acento` índigo + excepción en `diseno.md`), `escritorio.ts`; tests de permisos.
 - [x] `CONFIGURACION.sustituciones` (§4.3) y su test (más `ALMUERZO` en `nuncaLiberables`, ver 00-desarrollos-futuros).
 - [x] Schema `sust_*` aplicado en Neon, con `sustituciones-etapas-confirmacion.sql` (16-nov-2026; desde Codex no se podía por falta de conexión a Neon).
-- [x] Envíos programados, franja de segundo sustituto y cuenta de sesiones ausentes: código y migración `sustituciones-horarios-envios.sql`, aplicada en Neon el 16-nov-2026. El cron `/api/sustituciones/cron/envios` va **una vez al día a las 7:05 UTC** (8:05 en invierno, 9:05 en verano): todos los envíos programados caen a las 8:00, y un cron horario no lo admite el plan Hobby de Vercel.
+- [x] Envíos programados, franja de segundo sustituto y cuenta de sesiones ausentes: código y migración `sustituciones-horarios-envios.sql`, aplicada en Neon el 16-nov-2026.
+- [x] Programación de correos **sin cron** (18-nov-2026): `scheduled_at` de Resend + `repasarEnvios()`, cancelado selectivo al cambiar horas, `sustituciones-envios-resend.sql` aplicado en Neon el 18-nov-2026; el cron `/api/sustituciones/cron/envios` se ha eliminado. Probado contra Resend (programar, ver `scheduled`, cancelar) y con tests de `cuandoEnviar`. Falta ver un correo real salir a su hora.
 - [x] `sustituciones.ts` puro con los tests de §4.4 en verde (44 tests; 1.483 en total).
 - [x] `horarioDeDias` en una tanda (`cargar` en `sustituciones-server.ts`, ~1,2 s); probado contra Neon con un profe de EI, uno de EP y uno de la ESO, un lunes de octubre, un rango de tres días con un festivo y un día de septiembre (primaria con su horario de septiembre; infantil y ESO con el ordinario).
 - [x] API `propuesta` y `ausencias` (confirmar) con Zod, guard y la doble comprobación del `409`: la amable (con nombre y hora) y una guarda dentro de la misma transacción con cerrojo. Probado contra Neon: choque con otra ausencia del mismo profe, con un sustituto ya ocupado y **dos confirmaciones simultáneas con el mismo sustituto** (una entra, la otra 409).

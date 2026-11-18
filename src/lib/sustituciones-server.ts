@@ -38,7 +38,7 @@ import {
 import { COLEGIO } from '@/lib/colegio';
 import { CONFIGURACION } from '@/lib/configuracion';
 import { appBaseUrl } from '@/lib/constants';
-import { enviar } from '@/lib/email';
+import { cancelarProgramados, enviar, estadoCorreo, MAX_DIAS_PROGRAMADO, programar, resendConfigurado } from '@/lib/email';
 import { hoyEnEspana, sumarDias, diaSemana } from '@/lib/oratorios';
 import { getAjustes as getAjustesOratorios } from '@/lib/oratorios-server';
 import { nombreProfeBreve, pilaProfe } from '@/lib/profes';
@@ -625,26 +625,44 @@ function horaLocalMadrid(fecha: string, hhmm: string): Date {
   return new Date(objetivo - (comoUtc - prueba.getTime()));
 }
 
-/** Máximo dos días de antelación; dentro de 08:00–18:00 Europe/Madrid. */
-function cuandoEnviar(fechaSustitucion: string, ahora = new Date()): Date {
+/** Máximo dos días de antelación; dentro de 08:00–18:00 Europe/Madrid (antes de las 8, a las 8; después de las 18, a las 8 del día siguiente). */
+export function cuandoEnviar(fechaSustitucion: string, ahora = new Date()): Date {
   const desde = horaLocalMadrid(sumarDias(fechaSustitucion, -2), '08:00');
   const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ahora);
   const v = Object.fromEntries(p.map((x) => [x.type, x.value]));
   const local = `${v.year}-${v.month}-${v.day}`;
   const tarde = Number(v.hour) > 18 || (Number(v.hour) === 18 && Number(v.minute) > 0);
-  const apertura = tarde ? horaLocalMadrid(sumarDias(local, 1), '08:00') : ahora;
+  const temprano = Number(v.hour) < 8;
+  const apertura = tarde ? horaLocalMadrid(sumarDias(local, 1), '08:00') : temprano ? horaLocalMadrid(local, '08:00') : ahora;
   return new Date(Math.max(desde.getTime(), apertura.getTime()));
 }
 
-async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Quien, ausenciaId: string, sesionesIds: string[], tipoEnvio: 'sustituto' | 'ausente' | 'anulacion_sustituto' | 'anulacion_ausente' | 'cambio_sustituto'): Promise<{ error?: string; programadoPara?: Date }> {
+type TipoEnvio = 'sustituto' | 'ausente' | 'anulacion_sustituto' | 'anulacion_ausente' | 'cambio_sustituto';
+
+/**
+ * Guarda el correo y lo manda. Sin cron: si toca más tarde (límite de las 18:00, máximo dos días de
+ * antelación), se lo **entrega a Resend con `scheduled_at`** y Resend lo dispara a su hora. Si Resend
+ * no está configurado o la hora pasa de 30 días, queda `pendiente` y `repasarEnvios()` lo entrega
+ * cuando se pueda (se lanza al abrir las pantallas del módulo).
+ */
+async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Quien, ausenciaId: string, sesionesIds: string[], tipoEnvio: TipoEnvio): Promise<{ error?: string; programadoPara?: Date }> {
   const { subject, html } = correoAviso(d);
+  const mensaje = { to: para, subject, html, replyTo: q.email };
   const programadoPara = cuandoEnviar(d.horas[0]?.fecha ?? d.desde);
-  const [fila] = await db.insert(sustEnvios).values({ ausenciaId, sesionesIds, destinatario: para, tipo: tipoEnvio, asunto: subject, html, replyTo: q.email, programadoPara, estado: programadoPara > new Date() ? 'pendiente' : 'enviando' }).returning({ id: sustEnvios.id });
-  if (programadoPara > new Date()) return { programadoPara };
+  const ahora = Date.now();
+  const futuro = programadoPara.getTime() > ahora + 60_000;
+  const [fila] = await db.insert(sustEnvios).values({ ausenciaId, sesionesIds, destinatario: para, tipo: tipoEnvio, asunto: subject, html, replyTo: q.email, programadoPara, estado: futuro ? 'pendiente' : 'enviando' }).returning({ id: sustEnvios.id });
   try {
-    await enviar('sustituciones', { to: para, subject, html, replyTo: q.email });
-    await db.update(sustEnvios).set({ estado: 'enviado', enviadoAt: new Date() }).where(eq(sustEnvios.id, fila.id));
-    return {};
+    if (!futuro) {
+      await enviar('sustituciones', mensaje);
+      await db.update(sustEnvios).set({ estado: 'enviado', enviadoAt: new Date() }).where(eq(sustEnvios.id, fila.id));
+      return {};
+    }
+    if (resendConfigurado() && programadoPara.getTime() - ahora <= MAX_DIAS_PROGRAMADO * 86_400_000) {
+      const resendId = await programar('sustituciones', mensaje, programadoPara);
+      await db.update(sustEnvios).set({ estado: 'programado', resendId }).where(eq(sustEnvios.id, fila.id));
+    }
+    return { programadoPara };
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
     console.error('Sustituciones · correo:', m);
@@ -652,6 +670,49 @@ async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Qui
     return { error: m.slice(0, 300) };
   }
 }
+
+/**
+ * Anula los correos de una ausencia que aún no han salido (los de Resend se cancelan en Resend).
+ * Sin `sesiones`, todos; con ellas, solo los que tocan esas horas y el resumen del ausente, que se
+ * rehace entero. Devuelve las horas cuyo correo al sustituto se cancelló ANTES de salir: a esos no
+ * hay que mandarles «ya no hace falta», porque nunca supieron nada.
+ */
+async function cancelarEnvios(ausenciaId: string, q: Quien, sesiones?: string[], conAusente = true): Promise<Set<string>> {
+  const filas = await db
+    .select({ id: sustEnvios.id, tipo: sustEnvios.tipo, resendId: sustEnvios.resendId, sesionesIds: sustEnvios.sesionesIds })
+    .from(sustEnvios)
+    .where(and(eq(sustEnvios.ausenciaId, ausenciaId), inArray(sustEnvios.estado, ['pendiente', 'programado'])));
+  const sinSalir = new Set<string>();
+  const huerfanas = new Set<string>(); // horas de un correo cancelado que NO han cambiado: hay que volver a avisarlas
+  for (const f of filas) {
+    const esAusente = f.tipo === 'ausente';
+    if (sesiones && (esAusente ? !conAusente : !f.sesionesIds.some((x) => sesiones.includes(x)))) continue;
+    if (f.resendId) {
+      const r = await cancelarProgramados([f.resendId]);
+      if (r.noCancelables > 0) {
+        // Resend ya lo había mandado: no se puede deshacer; se apunta como enviado.
+        await db.update(sustEnvios).set({ estado: 'enviado', enviadoAt: new Date() }).where(eq(sustEnvios.id, f.id));
+        continue;
+      }
+    }
+    await db.update(sustEnvios).set({ estado: 'cancelado' }).where(eq(sustEnvios.id, f.id));
+    if (f.tipo === 'sustituto') {
+      f.sesionesIds.forEach((x) => sinSalir.add(x));
+      // Un correo lleva todas las horas de un sustituto: cancelarlo por una hora tumba también las demás.
+      if (sesiones) f.sesionesIds.filter((x) => !sesiones.includes(x)).forEach((x) => huerfanas.add(x));
+    }
+  }
+  if (huerfanas.size > 0) {
+    const [{ a, sesiones: actuales }, plantillas, profes] = await Promise.all([leerAusencia(ausenciaId), getPlantillas(), profesPorId()]);
+    const aRehacer = actuales.filter((x) => huerfanas.has(x.id) && (x.sustitutoId || x.sustituto2Id));
+    aRehacer.forEach((x) => sinSalir.delete(x.id));
+    if (aRehacer.length > 0) await avisarSustitutos(a, aRehacer, q, plantillas, profes);
+  }
+  return sinSalir;
+}
+
+/** ¿A esta hora ya se le avisó (o el aviso salió ya de camino)? Lo que se canceló antes de salir no cuenta. */
+const yaAvisada = (s: SustSesion, sinSalir: Set<string>) => s.avisoEstado === 'enviado' || (s.avisoEstado === 'programado' && !sinSalir.has(s.id));
 
 /**
  * Avisa a los sustitutos de unas sesiones (uno por persona, con todas sus horas) y apunta en cada
@@ -953,8 +1014,9 @@ function soltar(ids: string[], ahora: Date) {
 /** Avisa a los sustitutos (los que aún no lo están, o todos) y al ausente. */
 async function avisarTodo(id: string, q: Quien, soloPendientes = false): Promise<ResultadoAvisos> {
   const [{ a, sesiones }, plantillas, profes] = await Promise.all([leerAusencia(id), getPlantillas(), profesPorId()]);
-  await db.update(sustEnvios).set({ estado: 'cancelado' }).where(and(eq(sustEnvios.ausenciaId, id), eq(sustEnvios.estado, 'pendiente')));
   const aSustitutos = sesiones.filter((s) => (s.sustitutoId || s.sustituto2Id) && (!soloPendientes || s.avisoEstado !== 'enviado'));
+  // Se rehacen solo los avisos de estas horas (y el del ausente): los demás sustitutos conservan el suyo.
+  await cancelarEnvios(id, q, soloPendientes ? aSustitutos.map((s) => s.id) : undefined, !soloPendientes);
   const r1 = await avisarSustitutos(a, aSustitutos, q, plantillas, profes);
   const r2 = soloPendientes || !a.avisarAusente ? vacio() : await avisarAusente(a, sesiones, q, plantillas, profes);
   return sumar(r1, r2);
@@ -995,14 +1057,14 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
   }
 
   const [plantillas, profes] = await Promise.all([getPlantillas(), profesPorId()]);
-  await db.update(sustEnvios).set({ estado: 'cancelado' }).where(and(eq(sustEnvios.ausenciaId, id), eq(sustEnvios.estado, 'pendiente')));
 
   if (cambio.accion === 'anular') {
     await db.update(sustAusencias).set({ estado: 'anulada', anuladaPorEmail: q.firma ?? q.email, anuladaAt: ahora, updatedAt: ahora }).where(eq(sustAusencias.id, id));
+    const sinSalir = await cancelarEnvios(id, q);
     if (!cambio.avisar) return { avisos: null };
     const hoy = hoyEnEspana();
     const futuras = sesiones.filter((s) => s.fecha >= hoy);
-    const r1 = await avisarSustitutos(a, futuras.filter((s) => ['enviado', 'programado'].includes(s.avisoEstado)), q, plantillas, profes, 'anulacion');
+    const r1 = await avisarSustitutos(a, futuras.filter((s) => yaAvisada(s, sinSalir)), q, plantillas, profes, 'anulacion');
     const r2 = futuras.length > 0 ? await avisarAusente(a, futuras, q, plantillas, profes, 'anulacion') : vacio();
     return { avisos: sumar(r1, r2) };
   }
@@ -1012,9 +1074,10 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     if (!s) throw new ErrorSustitucion('Esa hora no es de esta ausencia.', 404);
     if (sesiones.length === 1) throw new ErrorSustitucion('Es la única hora: si al final no falta, anula la ausencia.');
     await db.batch([db.delete(sustSesiones).where(eq(sustSesiones.id, s.id)), tocar()]);
+    const sinSalir = await cancelarEnvios(id, q, [s.id]);
     if (!cambio.avisar) return { avisos: null };
     const resto = sesiones.filter((x) => x.id !== s.id);
-    const r1 = (s.sustitutoId || s.sustituto2Id) && ['enviado', 'programado'].includes(s.avisoEstado) ? await avisarSustitutos(a, [s], q, plantillas, profes, 'cambio') : vacio();
+    const r1 = (s.sustitutoId || s.sustituto2Id) && yaAvisada(s, sinSalir) ? await avisarSustitutos(a, [s], q, plantillas, profes, 'cambio') : vacio();
     return { avisos: sumar(r1, await avisarAusente(a, resto, q, plantillas, profes)) };
   }
 
@@ -1029,8 +1092,9 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     const fechas = db.update(sustAusencias).set({ desde: cambio.desde, hasta: cambio.hasta, academicYear: cursoDeFecha(cambio.desde), updatedAt: ahora }).where(eq(sustAusencias.id, id));
     if (fuera.length > 0) await db.batch([db.delete(sustSesiones).where(inArray(sustSesiones.id, fuera.map((s) => s.id))), fechas]);
     else await fechas;
+    const sinSalir = await cancelarEnvios(id, q, fuera.map((s) => s.id));
     if (!cambio.avisar || fuera.length === 0) return { avisos: null };
-    const r1 = await avisarSustitutos(a, fuera.filter((s) => ['enviado', 'programado'].includes(s.avisoEstado)), q, plantillas, profes, 'cambio');
+    const r1 = await avisarSustitutos(a, fuera.filter((s) => yaAvisada(s, sinSalir)), q, plantillas, profes, 'cambio');
     const a2 = { ...a, desde: cambio.desde, hasta: cambio.hasta };
     return { avisos: sumar(r1, await avisarAusente(a2, sesiones.filter((s) => !fuera.includes(s)), q, plantillas, profes)) };
   }
@@ -1093,8 +1157,9 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
         .where(eq(sustSesiones.id, s.id)),
       tocar(),
     ]);
+    const sinSalir = await cancelarEnvios(id, q, [s.id]);
     if (!cambio.avisar) return { avisos: null };
-    const r0 = s.sustitutoId && s.avisoEstado === 'enviado' ? await avisarSustitutos(a, [s], q, plantillas, profes, 'cambio') : vacio();
+    const r0 = s.sustitutoId && yaAvisada(s, sinSalir) ? await avisarSustitutos(a, [s], q, plantillas, profes, 'cambio') : vacio();
     const r1 = nueva.sustitutoId ? await avisarSustitutos(a, [nueva], q, plantillas, profes) : vacio();
     const todas = sesiones.map((x) => (x.id === s.id ? nueva : x));
     return { avisos: sumar(sumar(r0, r1), await avisarAusente(a, todas, q, plantillas, profes)) };
@@ -1127,6 +1192,7 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     id,
   );
   await lote([...guardas, db.insert(sustSesiones).values(filas), tocar()]);
+  await cancelarEnvios(id, q, []); // solo el resumen del ausente, que se rehace con las horas nuevas
   if (!cambio.avisar) return { avisos: null };
   const nuevas = (await leerAusencia(id)).sesiones;
   const r1 = await avisarSustitutos(a, nuevas.filter((s) => filas.some((f) => f.id === s.id)), q, plantillas, profes);
@@ -1471,45 +1537,113 @@ export async function enviarInformeDelMesPasado(): Promise<Awaited<ReturnType<ty
   return { mes, ...(await enviarInforme(mes)) };
 }
 
-/** Entrega mensajes en cola dentro de la ventana local. Cada fila es idempotente y se reintenta al siguiente cron si falla. */
-export async function procesarAvisosProgramados(): Promise<{ enviados: number; fallidos: number; pendientes: number }> {
+/** Para `after()` de las pantallas: repasa los envíos sin romper nada si algo falla. */
+export async function repasarEnviosSilencioso(): Promise<void> {
+  try {
+    await repasarEnvios();
+  } catch (e) {
+    console.error('Sustituciones · repaso de envíos:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** ¿Sigue haciendo falta este correo? (la ausencia no se anuló, el destinatario sigue siendo el mismo). */
+async function sigueVigente(f: { tipo: string; sesionesIds: string[]; destinatario: string; profeId: string }): Promise<boolean> {
+  if (f.tipo === 'cambio_sustituto') return true;
+  const actuales = f.sesionesIds.length ? await db.select({ email: sustSesiones.sustitutoEmail, email2: sustSesiones.sustituto2Email }).from(sustSesiones).where(inArray(sustSesiones.id, f.sesionesIds)) : [];
+  if (f.tipo === 'ausente' || f.tipo === 'anulacion_ausente') {
+    if (actuales.length !== f.sesionesIds.length) return false;
+    const [p] = await db.select({ email: eduTeachers.email }).from(eduTeachers).where(eq(eduTeachers.id, f.profeId)).limit(1);
+    return p?.email?.toLowerCase() === f.destinatario.toLowerCase();
+  }
+  return actuales.length === f.sesionesIds.length && actuales.length > 0 && actuales.every((x) => [x.email, x.email2].some((e) => e?.toLowerCase() === f.destinatario.toLowerCase()));
+}
+
+/**
+ * Pone al día los correos de sustituciones **sin cron**. Los programados los guarda y dispara
+ * Resend (`scheduled_at`); esto solo cuadra cuentas, y se lanza al abrir las pantallas del módulo:
+ *  1. Los `programado` cuya hora ya pasó: pregunta a Resend si salieron (o fallaron) y lo apunta.
+ *  2. Los `pendiente` (no están en Resend: Resend no estaba configurado o faltaban más de 29 días):
+ *     si ya toca y la ventana de 08:00–18:00 está abierta, salen ahora; si ya caben en Resend, se programan.
+ */
+export async function repasarEnvios(): Promise<{ conciliados: number; programados: number; enviados: number; fallidos: number }> {
+  const res = { conciliados: 0, programados: 0, enviados: 0, fallidos: 0 };
   const ahora = new Date();
-  const partes = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ahora);
-  const v = Object.fromEntries(partes.map((p) => [p.type, p.value]));
-  const hh = Number(v.hour);
-  if (hh > 18) return { enviados: 0, fallidos: 0, pendientes: 0 };
-  if (hh < 8) return { enviados: 0, fallidos: 0, pendientes: 0 };
-  const filas = await db.select({ id: sustEnvios.id, ausenciaId: sustEnvios.ausenciaId, sesionesIds: sustEnvios.sesionesIds, destinatario: sustEnvios.destinatario, tipo: sustEnvios.tipo, asunto: sustEnvios.asunto, html: sustEnvios.html, replyTo: sustEnvios.replyTo, profeId: sustAusencias.profeId })
-    .from(sustEnvios).innerJoin(sustAusencias, eq(sustAusencias.id, sustEnvios.ausenciaId))
-    .where(and(eq(sustEnvios.estado, 'pendiente'), lte(sustEnvios.programadoPara, ahora), or(eq(sustAusencias.estado, 'confirmada'), inArray(sustEnvios.tipo, ['anulacion_sustituto', 'anulacion_ausente']))))
-    .orderBy(asc(sustEnvios.programadoPara)).limit(100);
-  let enviados = 0;
-  let fallidos = 0;
+
+  // 1) Cuadrar cuentas con Resend (unos minutos después de la hora, para que haya salido).
+  if (resendConfigurado()) {
+    const salidos = await db
+      .select({ id: sustEnvios.id, tipo: sustEnvios.tipo, sesionesIds: sustEnvios.sesionesIds, resendId: sustEnvios.resendId })
+      .from(sustEnvios)
+      .where(and(eq(sustEnvios.estado, 'programado'), lte(sustEnvios.programadoPara, new Date(ahora.getTime() - 2 * 60_000))))
+      .orderBy(asc(sustEnvios.programadoPara))
+      .limit(30);
+    for (const f of salidos) {
+      if (!f.resendId) continue;
+      let estado: Awaited<ReturnType<typeof estadoCorreo>>;
+      try {
+        estado = await estadoCorreo(f.resendId);
+      } catch {
+        continue;
+      }
+      if (estado === 'enviado') {
+        await db.update(sustEnvios).set({ estado: 'enviado', enviadoAt: new Date(), error: null }).where(eq(sustEnvios.id, f.id));
+        if (f.tipo === 'sustituto') await db.update(sustSesiones).set({ avisoEstado: 'enviado', avisoProgramadoPara: null, avisoEnviadoAt: new Date(), avisoError: null, updatedAt: new Date() }).where(and(inArray(sustSesiones.id, f.sesionesIds), eq(sustSesiones.avisoEstado, 'programado')));
+        res.conciliados++;
+      } else if (estado === 'error') {
+        const msg = 'Resend no pudo entregar el correo (rebotó o falló): mira «Emails» en Resend';
+        await db.update(sustEnvios).set({ estado: 'error', error: msg }).where(eq(sustEnvios.id, f.id));
+        if (f.tipo === 'sustituto') await db.update(sustSesiones).set({ avisoEstado: 'error', avisoProgramadoPara: null, avisoError: msg, updatedAt: new Date() }).where(and(inArray(sustSesiones.id, f.sesionesIds), eq(sustSesiones.avisoEstado, 'programado')));
+        res.conciliados++;
+        res.fallidos++;
+      } else if (estado === 'cancelado') {
+        await db.update(sustEnvios).set({ estado: 'cancelado' }).where(eq(sustEnvios.id, f.id));
+        res.conciliados++;
+      }
+    }
+  }
+
+  // 2) Los que aún guardamos nosotros.
+  const hh = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hourCycle: 'h23' }).format(ahora));
+  const ventanaAbierta = hh >= 8 && hh < 18;
+  const limiteResend = new Date(ahora.getTime() + MAX_DIAS_PROGRAMADO * 86_400_000);
+  const filas = await db
+    .select({ id: sustEnvios.id, ausenciaId: sustEnvios.ausenciaId, sesionesIds: sustEnvios.sesionesIds, destinatario: sustEnvios.destinatario, tipo: sustEnvios.tipo, asunto: sustEnvios.asunto, html: sustEnvios.html, replyTo: sustEnvios.replyTo, programadoPara: sustEnvios.programadoPara, profeId: sustAusencias.profeId })
+    .from(sustEnvios)
+    .innerJoin(sustAusencias, eq(sustAusencias.id, sustEnvios.ausenciaId))
+    .where(and(eq(sustEnvios.estado, 'pendiente'), lte(sustEnvios.programadoPara, limiteResend), or(eq(sustAusencias.estado, 'confirmada'), inArray(sustEnvios.tipo, ['anulacion_sustituto', 'anulacion_ausente']))))
+    .orderBy(asc(sustEnvios.programadoPara))
+    .limit(50);
   for (const f of filas) {
+    const dueNow = f.programadoPara <= ahora;
+    if (dueNow && !ventanaAbierta) continue; // ya tocaba, pero fuera de horas: espera a la mañana
+    if (!dueNow && !resendConfigurado()) continue; // aún no toca y no hay quien lo programe
     const [reclamado] = await db.update(sustEnvios).set({ estado: 'enviando' }).where(and(eq(sustEnvios.id, f.id), eq(sustEnvios.estado, 'pendiente'))).returning({ id: sustEnvios.id });
     if (!reclamado) continue;
-    const destinatariosActuales = f.sesionesIds.length ? await db.select({ email: sustSesiones.sustitutoEmail, email2: sustSesiones.sustituto2Email }).from(sustSesiones).where(inArray(sustSesiones.id, f.sesionesIds)) : [];
-    const esAusente = f.tipo === 'ausente' || f.tipo === 'anulacion_ausente';
-    const vigente = f.tipo === 'cambio_sustituto' ? true : esAusente
-      ? destinatariosActuales.length === f.sesionesIds.length && (await db.select({ email: eduTeachers.email }).from(eduTeachers).where(eq(eduTeachers.id, f.profeId)).limit(1))[0]?.email?.toLowerCase() === f.destinatario.toLowerCase()
-      : destinatariosActuales.length === f.sesionesIds.length && destinatariosActuales.length > 0 && destinatariosActuales.every((x) => [x.email, x.email2].some((e) => e?.toLowerCase() === f.destinatario.toLowerCase()));
-    if (!vigente) {
+    if (!(await sigueVigente(f))) {
       await db.update(sustEnvios).set({ estado: 'cancelado' }).where(eq(sustEnvios.id, f.id));
       continue;
     }
+    const mensaje = { to: f.destinatario, subject: f.asunto, html: f.html, ...(f.replyTo ? { replyTo: f.replyTo } : {}) };
     try {
-      await enviar('sustituciones', { to: f.destinatario, subject: f.asunto, html: f.html, ...(f.replyTo ? { replyTo: f.replyTo } : {}) });
-      await db.update(sustEnvios).set({ estado: 'enviado', enviadoAt: new Date(), error: null }).where(eq(sustEnvios.id, f.id));
-      if (f.tipo === 'sustituto' || f.tipo === 'anulacion_sustituto' || f.tipo === 'cambio_sustituto') await db.update(sustSesiones).set({ avisoEstado: 'enviado', avisoProgramadoPara: null, avisoEnviadoAt: new Date(), avisoError: null, updatedAt: new Date() }).where(inArray(sustSesiones.id, f.sesionesIds));
-      enviados++;
+      if (dueNow) {
+        await enviar('sustituciones', mensaje);
+        await db.update(sustEnvios).set({ estado: 'enviado', enviadoAt: new Date(), error: null }).where(eq(sustEnvios.id, f.id));
+        if (f.tipo === 'sustituto') await db.update(sustSesiones).set({ avisoEstado: 'enviado', avisoProgramadoPara: null, avisoEnviadoAt: new Date(), avisoError: null, updatedAt: new Date() }).where(inArray(sustSesiones.id, f.sesionesIds));
+        res.enviados++;
+      } else {
+        const resendId = await programar('sustituciones', mensaje, f.programadoPara);
+        await db.update(sustEnvios).set({ estado: 'programado', resendId, error: null }).where(eq(sustEnvios.id, f.id));
+        res.programados++;
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message.slice(0, 300) : 'Error de correo';
+      console.error('Sustituciones · repaso de envíos:', msg);
       await db.update(sustEnvios).set({ estado: 'error', error: msg }).where(eq(sustEnvios.id, f.id));
-      if (f.tipo === 'sustituto' || f.tipo === 'anulacion_sustituto' || f.tipo === 'cambio_sustituto') await db.update(sustSesiones).set({ avisoEstado: 'error', avisoProgramadoPara: null, avisoError: msg, updatedAt: new Date() }).where(inArray(sustSesiones.id, f.sesionesIds));
-      fallidos++;
+      if (f.tipo === 'sustituto') await db.update(sustSesiones).set({ avisoEstado: 'error', avisoProgramadoPara: null, avisoError: msg, updatedAt: new Date() }).where(inArray(sustSesiones.id, f.sesionesIds));
+      res.fallidos++;
     }
   }
-  return { enviados, fallidos, pendientes: filas.length };
+  return res;
 }
 
 // ─── Disponibilidad (decisión 15) ────────────────────────────────────────────

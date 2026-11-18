@@ -246,6 +246,49 @@ export async function enviarLote(
   return { sent, errors, ids };
 }
 
+/** ¿Se puede programar? Programar lo hace Resend (Gmail no tiene «enviar más tarde» en su API). */
+export function resendConfigurado(): boolean {
+  return Boolean(process.env.RESEND_API_KEY);
+}
+
+/** Resend solo guarda correos programados hasta 30 días vista; se deja un día de margen. */
+export const MAX_DIAS_PROGRAMADO = 29;
+
+/**
+ * Un correo que Resend guarda y manda a su hora (`scheduledAt`), SIN cron nuestro. Sale por Resend
+ * aunque el transporte del perfil sea Gmail (Gmail no sabe programar). Devuelve el id de Resend,
+ * que sirve para cancelarlo (`cancelarProgramados`) o ver cómo fue (`estadoCorreo`).
+ * Lanza si Resend no está configurado, si la hora pasa de 30 días o si Resend rechaza el correo.
+ */
+export async function programar(perfil: PerfilCorreo, mensaje: Mensaje, cuando: Date): Promise<string> {
+  if (cuando.getTime() - Date.now() > MAX_DIAS_PROGRAMADO * 86_400_000) throw new Error('Resend solo programa hasta 30 días vista');
+  const r = conComo({ ...remitente(perfil), transporte: 'resend' }, mensaje.como);
+  const { data, error } = await getResend().emails.send({
+    from: from(r),
+    to: aLista(mensaje.to),
+    replyTo: mensaje.replyTo ?? r.replyTo,
+    subject: mensaje.subject,
+    html: mensaje.html,
+    scheduledAt: cuando.toISOString(),
+  });
+  if (error || !data?.id) throw new Error(error?.message ?? 'Resend no devolvió el id del correo');
+  return data.id;
+}
+
+export type EstadoCorreo = 'programado' | 'enviado' | 'error' | 'cancelado' | 'desconocido';
+
+/** Cómo va un correo de Resend: `programado` aún espera su hora; `enviado` ya salió (entregado o en camino). */
+export async function estadoCorreo(id: string): Promise<EstadoCorreo> {
+  const { data, error } = await getResend().emails.get(id);
+  if (error || !data) return 'desconocido';
+  const e = String(data.last_event ?? '');
+  if (e === 'scheduled' || e === 'queued') return 'programado';
+  if (e === 'canceled') return 'cancelado';
+  if (e === 'bounced' || e === 'failed' || e === 'complained' || e === 'suppressed') return 'error';
+  if (['sent', 'delivered', 'delivery_delayed', 'opened', 'clicked'].includes(e)) return 'enviado';
+  return 'desconocido';
+}
+
 /**
  * Cancela correos programados en Resend. Devuelve cuántos se cancelaron y cuántos ya no se
  * podían (salieron ya o no existían). Resend tarda unos segundos en pasar un correo recién

@@ -17,10 +17,6 @@
       "schedule": "0 5 1 * *"
     },
     {
-      "path": "/api/sustituciones/cron/envios",
-      "schedule": "5 7 * * *"
-    },
-    {
       "path": "/api/oratorios/cron/avisos",
       "schedule": "30 6 * * *"
     },

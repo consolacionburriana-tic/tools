@@ -1,5 +1,6 @@
+import { after } from 'next/server';
 import { hoyEnEspana } from '@/lib/oratorios';
-import { listarDia } from '@/lib/sustituciones-server';
+import { listarDia, repasarEnviosSilencioso } from '@/lib/sustituciones-server';
 import { Hoy } from '@/components/sustituciones/hoy';
 
 export const dynamic = 'force-dynamic';
@@ -9,6 +10,7 @@ export default async function SustitucionesHoyPage({ searchParams }: { searchPar
   const { fecha: pedida } = await searchParams;
   const hoy = hoyEnEspana();
   const fecha = pedida && /^\d{4}-\d{2}-\d{2}$/.test(pedida) ? pedida : hoy;
+  after(repasarEnviosSilencioso); // cuadra los correos programados con Resend, sin cron
   const datos = await listarDia(fecha);
   return (
     <>
