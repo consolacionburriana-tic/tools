@@ -106,8 +106,9 @@ Cuatro preguntas a las que responde:
     - **prefijo** de 1 a 4 letras que da sus códigos (`TEC` → `TEC1`, `TEC2`…; se sugiere con las
       iniciales del nombre: «Audición y lenguaje» → `AL`). Único entre todas, sin cifras;
     - **a quién se le dan**: alumnado, profesorado o **nadie** (iPads del centro, sin titular: un
-      carro, un aula). Este dato es una **suposición mía** —no sé si los de TEC y AL van a personas o
-      se quedan en el centro—: se elige al crear la categoría.
+      carro, un aula). David (18-nov-2026): lo normal en las categorías nuevas es el **«carro de
+      iPads»** —los de TEC y AL no se dan a personas, se quedan en el centro—, así que **«Nadie»
+      sale marcado por defecto** al crear una; se puede elegir otra cosa.
 
     Reglas: **Sustitución y Profesorado no se pueden quitar** ni cambiar de prefijo o titular
     (Alumnado, Cuotas y Nouvinguts cuentan con ellas; sí se pueden renombrar). En una categoría

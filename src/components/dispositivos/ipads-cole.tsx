@@ -434,7 +434,7 @@ function FormCategoria({
   const [nombre, setNombre] = useState(categoria?.nombre ?? '');
   const [prefijo, setPrefijo] = useState(categoria?.prefijo ?? '');
   const [prefijoATocado, setPrefijoATocado] = useState(Boolean(categoria));
-  const [titular, setTitular] = useState<TitularTipo>(categoria?.titular ?? 'profe');
+  const [titular, setTitular] = useState<TitularTipo>(categoria?.titular ?? 'nadie');
   const [explica, setExplica] = useState(categoria?.explica ?? '');
   const [ocupado, setOcupado] = useState(false);
 

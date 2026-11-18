@@ -13,7 +13,7 @@ Reglas para quien lo toque (personas o agentes):
 ## Para decidir (David)
 
 - **Dispositivos 1:1 · cómo se cobra** ([`29`](./29-dispositivos.md)): pendiente de secretaría y Jose Miguel. ¿Listado cada mes o una vez al curso (¿10 €/mes de septiembre a junio?), se prorratea un cambio a mitad de curso, y el «pagado / no pagado» se lleva aquí o en Educamos?
-- **Dispositivos 1:1 · categorías de iPads del cole** ([`29`](./29-dispositivos.md), decisión 12): al crear una categoría (TEC, AL…) se elige a quién se le dan sus iPads —alumnado, profesorado o nadie—; lo supuse sin preguntar. ¿Los de TEC y AL van a personas o se quedan en el centro? Y, si hace falta, ¿se pueden **mover** iPads de una categoría a otra (hoy no: el código lleva el prefijo)?
+- **Dispositivos 1:1 · categorías de iPads del cole** ([`29`](./29-dispositivos.md), decisión 12): ¿hace falta poder **mover** un iPad de una categoría a otra? Hoy no se puede: su código lleva el prefijo.
 - **Protección de datos · de dónde salen los noes** ([`21`](./21-alumnado.md)): se arrancó con todo en «sí». Importar la lista de secretaría, preguntarlo a las familias con magic link, o seguir marcando a mano.
 - **Tutor personal · más avisos**: ¿el resumen semanal de Puntualidad se parte por tutor personal? ¿El ABC sugiere primero al tutor personal?
 - **Identificación de familias · DNI del alumno**: ¿se acepta también el DNI/NIE del propio alumno en las pantallas públicas? (Hoy, documento del tutor o NIA.)
