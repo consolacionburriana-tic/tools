@@ -1013,9 +1013,9 @@ function soltar(ids: string[], ahora: Date) {
 }
 
 /** Avisa a los sustitutos (los que aún no lo están, o todos) y al ausente. */
-async function avisarTodo(id: string, q: Quien, soloPendientes = false): Promise<ResultadoAvisos> {
+async function avisarTodo(id: string, q: Quien, soloPendientes = false, soloEnCamino = false): Promise<ResultadoAvisos> {
   const [{ a, sesiones }, plantillas, profes] = await Promise.all([leerAusencia(id), getPlantillas(), profesPorId()]);
-  const aSustitutos = sesiones.filter((s) => (s.sustitutoId || s.sustituto2Id) && (!soloPendientes || s.avisoEstado !== 'enviado'));
+  const aSustitutos = sesiones.filter((s) => (s.sustitutoId || s.sustituto2Id) && (!soloPendientes || s.avisoEstado !== 'enviado') && (!soloEnCamino || s.avisoEstado === 'programado' || s.avisoEstado === 'error'));
   // Se rehacen solo los avisos de estas horas (y el del ausente): los demás sustitutos conservan el suyo.
   await cancelarEnvios(id, q, soloPendientes ? aSustitutos.map((s) => s.id) : undefined, !soloPendientes);
   const r1 = await avisarSustitutos(a, aSustitutos, q, plantillas, profes);
@@ -1049,7 +1049,8 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
 
   if (cambio.accion === 'indicaciones') {
     await db.update(sustAusencias).set({ indicaciones: cambio.indicaciones?.trim() || null, updatedAt: ahora }).where(eq(sustAusencias.id, id));
-    return { avisos: await avisarTodo(id, q, true) };
+    // Las indicaciones nuevas solo viajan a quien aún no ha recibido su aviso (programado o fallido): a una ausencia registrada «sin avisar» no se le manda nada.
+    return { avisos: await avisarTodo(id, q, true, true) };
   }
   if (cambio.accion === 'motivo') {
     if (cambio.motivo === 'otros' && !cambio.nota?.trim()) throw new ErrorSustitucion('Con «Otros», escribe una nota corta.');
@@ -1075,7 +1076,7 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     if (!s) throw new ErrorSustitucion('Esa hora no es de esta ausencia.', 404);
     if (sesiones.length === 1) throw new ErrorSustitucion('Es la única hora: si al final no falta, anula la ausencia.');
     await db.batch([db.delete(sustSesiones).where(eq(sustSesiones.id, s.id)), tocar()]);
-    const sinSalir = await cancelarEnvios(id, q, [s.id]);
+    const sinSalir = await cancelarEnvios(id, q, [s.id], cambio.avisar);
     if (!cambio.avisar) return { avisos: null };
     const resto = sesiones.filter((x) => x.id !== s.id);
     const r1 = (s.sustitutoId || s.sustituto2Id) && yaAvisada(s, sinSalir) ? await avisarSustitutos(a, [s], q, plantillas, profes, 'cambio') : vacio();
@@ -1093,7 +1094,7 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     const fechas = db.update(sustAusencias).set({ desde: cambio.desde, hasta: cambio.hasta, academicYear: cursoDeFecha(cambio.desde), updatedAt: ahora }).where(eq(sustAusencias.id, id));
     if (fuera.length > 0) await db.batch([db.delete(sustSesiones).where(inArray(sustSesiones.id, fuera.map((s) => s.id))), fechas]);
     else await fechas;
-    const sinSalir = await cancelarEnvios(id, q, fuera.map((s) => s.id));
+    const sinSalir = await cancelarEnvios(id, q, fuera.map((s) => s.id), cambio.avisar && fuera.length > 0);
     if (!cambio.avisar || fuera.length === 0) return { avisos: null };
     const r1 = await avisarSustitutos(a, fuera.filter((s) => yaAvisada(s, sinSalir)), q, plantillas, profes, 'cambio');
     const a2 = { ...a, desde: cambio.desde, hasta: cambio.hasta };
@@ -1154,11 +1155,11 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
       ...guardas,
       db
         .update(sustSesiones)
-        .set({ sustitutoId: nueva.sustitutoId, sustitutoNombre: nueva.sustitutoNombre, sustitutoEmail: nueva.sustitutoEmail, nivel, disponibilidad, avisoEstado: 'no', avisoError: null, avisoEnviadoAt: null, confirmacionToken: null, confirmacionEstado: 'pendiente', confirmacionAt: null, updatedAt: ahora })
+        .set({ sustitutoId: nueva.sustitutoId, sustitutoNombre: nueva.sustitutoNombre, sustitutoEmail: nueva.sustitutoEmail, sustitutoHoraInicio: nueva.sustitutoHoraInicio, sustitutoHoraFin: nueva.sustitutoHoraFin, sustituto2Id: null, sustituto2Nombre: null, sustituto2Email: null, sustituto2HoraInicio: null, sustituto2HoraFin: null, nivel, disponibilidad, avisoEstado: 'no', avisoProgramadoPara: null, avisoError: null, avisoEnviadoAt: null, confirmacionToken: null, confirmacionEstado: 'pendiente', confirmacionAt: null, confirmacion2Token: null, confirmacion2Estado: 'pendiente', confirmacion2At: null, updatedAt: ahora })
         .where(eq(sustSesiones.id, s.id)),
       tocar(),
     ]);
-    const sinSalir = await cancelarEnvios(id, q, [s.id]);
+    const sinSalir = await cancelarEnvios(id, q, [s.id], cambio.avisar);
     if (!cambio.avisar) return { avisos: null };
     const r0 = s.sustitutoId && yaAvisada(s, sinSalir) ? await avisarSustitutos(a, [s], q, plantillas, profes, 'cambio') : vacio();
     const r1 = nueva.sustitutoId ? await avisarSustitutos(a, [nueva], q, plantillas, profes) : vacio();
@@ -1193,7 +1194,7 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     id,
   );
   await lote([...guardas, db.insert(sustSesiones).values(filas), tocar()]);
-  await cancelarEnvios(id, q, []); // solo el resumen del ausente, que se rehace con las horas nuevas
+  await cancelarEnvios(id, q, [], cambio.avisar); // solo el resumen del ausente, que se rehace con las horas nuevas
   if (!cambio.avisar) return { avisos: null };
   const nuevas = (await leerAusencia(id)).sesiones;
   const r1 = await avisarSustitutos(a, nuevas.filter((s) => filas.some((f) => f.id === s.id)), q, plantillas, profes);
