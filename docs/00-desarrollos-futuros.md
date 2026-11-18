@@ -33,3 +33,8 @@ Reglas para quien lo toque (personas o agentes):
 ## Limpieza técnica pendiente
 
 - Tabla `teachers` del ABC antiguo, alias `students`/`behaviorReports` en `schema.ts`, `lic_students.educamos_id` y `cuad_plantillas.etapa`: quitar cuando David dé el ok (borrar columnas es con su permiso).
+- **Oratorios · «Desde mi horario» sin horas de Oratorio** (2-nov-2026): se decidió proponer como 👍
+  las horas libres de la persona cuando su horario no trae ninguna de Oratorio. Alternativa: que el
+  horario importado de Primaria/Infantil marque las horas de Oratorio/taller y se use solo eso.
+  Y guardar los huecos por etapa (hoy, por día + hora de inicio) si hace falta separar de verdad
+  Infantil y Primaria cuando empiezan a la misma hora ([`26`](./26-oratorios.md)).

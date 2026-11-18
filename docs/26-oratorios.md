@@ -546,6 +546,20 @@ src/components/oratorios/     # asistente, agenda, abanico, números, disponibil
 - [ ] **Jose Miguel**: marcar su disponibilidad (⭐ 👍 🤏, y para qué cursos) y planificar el primer mes
 - [ ] Primer correo real del taller
 
+### Fallitos de Jose Miguel (2-nov-2026) — ✅
+- [x] **«⚡ Desde mi horario» decía que no hay huecos de Oratorio.** Causa: solo busca horas con la
+      actividad `oratorio` en el horario, y en Neon solo las tienen 5 profes de la ESO (6 asignaciones);
+      Jose Miguel tiene 28 asignaciones, ninguna de Oratorio (y el taller no sale en ningún horario).
+      Ahora, si no hay horas de Oratorio, propone como 👍 alternativa las horas de la rejilla en las
+      que no tiene nada en su horario (sin pisar lo que ya haya marcado) y lo dice en el aviso; si
+      no hay horario a su nombre, lo explica.
+- [x] **Las franjas de Infantil y Primaria se mezclaban.** Causa: la rejilla y el asistente juntaban
+      las horas de todas las etapas del tipo en una sola columna (Infantil 9:00-10:10 frente a
+      Primaria 9:00-9:45, y Primaria con 3 rejillas distintas en Neon). Ahora cada etapa tiene su bloque
+      con su título (`franjasPorEtapa`); en el asistente cada bloque solo enseña las clases de su etapa.
+      Límite: un hueco se guarda por día + hora de inicio, así que dos filas de etapas distintas que
+      empiezan igual (9:00) comparten marca; los cursos del hueco (pincel) lo distinguen.
+
 ### Quizá, más adelante
 - **Resumen mensual por profe** antes de empezar el mes (hoy cada sesión avisa a los 7 días): un
   correo con todas las sesiones del mes a cada profe afectado, programado para los últimos días

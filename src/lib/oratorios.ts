@@ -650,6 +650,24 @@ export function franjasDeEtapas(tramos: readonly TramoRejilla[], etapas: readonl
   return [...vistas.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio) || aMin(a.horaFin) - aMin(b.horaFin));
 }
 
+/**
+ * Las franjas de la rejilla **separadas por etapa** (Infantil, Primaria, ESO…), cada una con sus
+ * propias horas. Infantil y Primaria no comparten rejilla (9:00-10:10 frente a 9:00-9:45…):
+ * mezcladas en una sola columna de horas salían filas que se pisaban y no se sabía de quién era
+ * cada una (fallito de Jose Miguel, 2-nov-2026). Las etapas sin franjas no salen.
+ */
+export function franjasPorEtapa(
+  tramos: readonly TramoRejilla[],
+  etapas: readonly string[],
+): { etapa: string; franjas: { horaInicio: string; horaFin: string }[] }[] {
+  const orden = ['EI', 'EP', 'ESO', 'BACH'];
+  const rank = (x: string) => (orden.includes(x) ? orden.indexOf(x) : orden.length);
+  return [...new Set(etapas)]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((etapa) => ({ etapa, franjas: franjasDeEtapas(tramos, [etapa]) }))
+    .filter((g) => g.franjas.length > 0);
+}
+
 /** El hueco marcado en un día y franja: el que empieza a esa hora o, si no, el que la pisa. */
 export function huecoEn(disp: readonly Disponibilidad[], dia: number, franja: { horaInicio: string; horaFin: string }): Disponibilidad | null {
   return disp.find((d) => d.dia === dia && d.horaInicio === franja.horaInicio) ?? disp.find((d) => d.dia === dia && solapa(d, franja)) ?? null;

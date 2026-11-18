@@ -22,6 +22,7 @@ import {
   etiquetaClase,
   etiquetaNivel,
   franjasDeEtapas,
+  franjasPorEtapa,
   generacion,
   horaDeClase,
   indexarHorario,
@@ -236,6 +237,28 @@ describe('horario', () => {
     const idx = indexarHorario([h('2ESO', 'A', 1, '08:00', '08:55', 'Religión', [ANA, apoyo]), h('2ESO', 'A', 1, '08:00', '08:55', 'Valores', [PEPE])]);
     const r = horaDeClase(idx, PERIODOS, { curso: '2ESO', letra: 'A' }, '2026-10-05', { horaInicio: '08:00', horaFin: '08:55' });
     expect(r?.profes.map((p) => p.nombre)).toEqual(['Ana García', 'Pepe Ruiz']);
+  });
+
+  it('franjas por etapa: Infantil y Primaria no se mezclan en una sola lista de horas', () => {
+    const tramos = [
+      { etapa: 'EP', dia: 1, horaInicio: '09:00', horaFin: '09:45', tipo: 'sesion' },
+      { etapa: 'EI', dia: 1, horaInicio: '09:00', horaFin: '10:10', tipo: 'sesion' },
+      { etapa: 'EP', dia: 1, horaInicio: '09:45', horaFin: '10:30', tipo: 'sesion' },
+      { etapa: 'EI', dia: 1, horaInicio: '10:10', horaFin: '10:35', tipo: 'recreo' },
+      { etapa: 'ESO', dia: 1, horaInicio: '08:00', horaFin: '08:55', tipo: 'sesion' },
+    ];
+    expect(franjasPorEtapa(tramos, ['EP', 'EI'])).toEqual([
+      { etapa: 'EI', franjas: [{ horaInicio: '09:00', horaFin: '10:10' }] },
+      {
+        etapa: 'EP',
+        franjas: [
+          { horaInicio: '09:00', horaFin: '09:45' },
+          { horaInicio: '09:45', horaFin: '10:30' },
+        ],
+      },
+    ]);
+    // Una etapa sin rejilla importada no sale.
+    expect(franjasPorEtapa(tramos, ['BACH'])).toEqual([]);
   });
 
   it('franjas de la rejilla de unas etapas, sin recreos ni repetidas', () => {
