@@ -57,6 +57,7 @@ import {
   hora,
   horarioDeFecha,
   leerPlantillas,
+  mensajeSeguro,
   mapaSemana,
   mesAnterior,
   NIVEL_MANUAL,
@@ -664,7 +665,7 @@ async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Qui
     }
     return { programadoPara };
   } catch (e) {
-    const m = e instanceof Error ? e.message : String(e);
+    const m = mensajeSeguro(e);
     console.error('Sustituciones · correo:', m);
     await db.update(sustEnvios).set({ estado: 'error', error: m.slice(0, 300) }).where(eq(sustEnvios.id, fila.id));
     return { error: m.slice(0, 300) };
@@ -1542,7 +1543,7 @@ export async function repasarEnviosSilencioso(): Promise<void> {
   try {
     await repasarEnvios();
   } catch (e) {
-    console.error('Sustituciones · repaso de envíos:', e instanceof Error ? e.message : e);
+    console.error('Sustituciones · repaso de envíos:', mensajeSeguro(e));
   }
 }
 
@@ -1636,7 +1637,7 @@ export async function repasarEnvios(): Promise<{ conciliados: number; programado
         res.programados++;
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message.slice(0, 300) : 'Error de correo';
+      const msg = mensajeSeguro(e).slice(0, 300);
       console.error('Sustituciones · repaso de envíos:', msg);
       await db.update(sustEnvios).set({ estado: 'error', error: msg }).where(eq(sustEnvios.id, f.id));
       if (f.tipo === 'sustituto') await db.update(sustSesiones).set({ avisoEstado: 'error', avisoProgramadoPara: null, avisoError: msg, updatedAt: new Date() }).where(inArray(sustSesiones.id, f.sesionesIds));
