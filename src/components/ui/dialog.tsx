@@ -54,7 +54,7 @@ const VARIANTE = {
   // Un panel que se abre al lado de lo que se está mirando (el calendario de Sustituciones): en el
   // móvil, una hoja casi a pantalla completa; desde `md`, a la derecha y de arriba abajo.
   lateral:
-    "inset-x-0 bottom-0 max-h-[94dvh] gap-3 rounded-t-2xl px-4 pt-4 pb-0 data-open:slide-in-from-bottom data-closed:slide-out-to-bottom md:inset-y-0 md:right-0 md:left-auto md:max-h-dvh md:w-[min(46rem,100vw)] md:rounded-none md:rounded-l-2xl md:px-6 md:pt-5 md:data-open:slide-in-from-right md:data-closed:slide-out-to-right",
+    "inset-x-0 bottom-0 max-h-[94dvh] grid-rows-[auto_1fr] gap-3 rounded-t-2xl px-4 pt-4 pb-0 data-open:slide-in-from-bottom data-closed:slide-out-to-bottom md:inset-y-0 md:right-0 md:left-auto md:max-h-dvh md:w-[min(46rem,100vw)] md:rounded-none md:rounded-l-2xl md:px-6 md:pt-5 md:data-open:slide-in-from-right md:data-closed:slide-out-to-right",
 } as const
 
 function DialogContent({

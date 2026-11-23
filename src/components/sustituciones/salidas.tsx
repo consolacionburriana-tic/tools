@@ -6,14 +6,14 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Ban, Bus, CircleOff, Plus, Search, Users, X } from 'lucide-react';
+import { ArrowRight, Ban, Bus, CircleOff, Download, Plus, Search, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
 import { ETAPA_LABEL, type Etapa } from '@/lib/cursos';
 import { sinAcentos } from '@/lib/sustituciones-interpretar';
 import { fechaLarga, hora, mayuscula } from '@/lib/sustituciones';
-import type { GrupoHorario, ResultadoSalida, SalidaLista, YaNoHaceFalta } from '@/lib/sustituciones-salidas-server';
+import type { GrupoHorario, ResultadoSalida, SalidaLista, SalidaParaImportar, YaNoHaceFalta } from '@/lib/sustituciones-salidas-server';
 import type { ProfeSelector } from '@/lib/sustituciones-server';
 import { Aviso } from '@/components/ui/aviso';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -40,7 +40,9 @@ export function Salidas({
   profes,
   etapas,
   hoy,
+  importables,
 }: {
+  importables: SalidaParaImportar[];
   proximas: SalidaLista[];
   pasadas: SalidaLista[];
   sobrantes: Record<string, YaNoHaceFalta[]>;
@@ -52,6 +54,7 @@ export function Salidas({
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [resultado, setResultado] = useState<ResultadoSalida | null>(null);
+  const [desde, setDesde] = useState<SalidaParaImportar | null>(null);
 
   return (
     <div className="space-y-5">
@@ -62,12 +65,42 @@ export function Salidas({
         <Button
           onClick={() => {
             setResultado(null);
+            setDesde(null);
             setAbierto(true);
           }}
         >
           <Plus aria-hidden /> Nueva salida
         </Button>
       </div>
+
+      {importables.length > 0 && (
+        <section className="space-y-2">
+          <Rotulo>Del módulo Salidas · próximos dos meses</Rotulo>
+          <Tarjeta className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {importables.map((t) => (
+              <div key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">{t.nombre}</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {mayuscula(fechaLarga(t.fecha))} · {t.grupos.map((g) => g.etiqueta).join(', ')}
+                  </p>
+                </div>
+                <Button
+                  variant="suave"
+                  size="sm"
+                  onClick={() => {
+                    setResultado(null);
+                    setDesde(t);
+                    setAbierto(true);
+                  }}
+                >
+                  <Download aria-hidden /> Importar
+                </Button>
+              </div>
+            ))}
+          </Tarjeta>
+        </section>
+      )}
 
       <section className="space-y-2">
         <Rotulo>Próximas</Rotulo>
@@ -98,6 +131,8 @@ export function Salidas({
             <ResumenSalida r={resultado} onCerrar={() => setAbierto(false)} fecha={proximas.find((x) => x.id === resultado.id)?.fecha ?? hoy} />
           ) : (
             <FormularioSalida
+              key={desde?.id ?? 'nueva'}
+              desde={desde}
               grupos={grupos}
               profes={profes}
               etapas={etapas}
@@ -248,14 +283,29 @@ function ResumenSalida({ r, fecha, onCerrar }: { r: ResultadoSalida; fecha: stri
   );
 }
 
-function FormularioSalida({ grupos, profes, etapas, hoy, onHecho }: { grupos: GrupoHorario[]; profes: ProfeSelector[]; etapas: Etapa[]; hoy: string; onHecho: (r: ResultadoSalida) => void }) {
-  const [fecha, setFecha] = useState(hoy);
+function FormularioSalida({
+  desde,
+  grupos,
+  profes,
+  etapas,
+  hoy,
+  onHecho,
+}: {
+  /** Si se importa una del módulo Salidas: viene rellena (van quienes reciben sus justificantes; los tutores, a elegir). */
+  desde: SalidaParaImportar | null;
+  grupos: GrupoHorario[];
+  profes: ProfeSelector[];
+  etapas: Etapa[];
+  hoy: string;
+  onHecho: (r: ResultadoSalida) => void;
+}) {
+  const [fecha, setFecha] = useState(desde?.fecha ?? hoy);
   const [todoElDia, setTodoElDia] = useState(true);
   const [hi, setHi] = useState('09:00');
   const [hf, setHf] = useState('13:00');
-  const [elegidos, setElegidos] = useState<Set<string>>(new Set());
-  const [descripcion, setDescripcion] = useState('');
-  const [van, setVan] = useState<string[]>([]);
+  const [elegidos, setElegidos] = useState<Set<string>>(() => new Set((desde?.grupos ?? []).map((g) => `${g.curso}|${g.letra ?? ''}`)));
+  const [descripcion, setDescripcion] = useState(desde?.nombre ?? '');
+  const [van, setVan] = useState<string[]>(() => (desde?.van ?? []).map((p) => p.id).filter((id) => profes.some((p) => p.id === id)));
   const [q, setQ] = useState('');
   const [verOtras, setVerOtras] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -279,9 +329,13 @@ function FormularioSalida({ grupos, profes, etapas, hoy, onHecho }: { grupos: Gr
           fecha,
           horaInicio: todoElDia ? null : hi,
           horaFin: todoElDia ? null : hf,
-          grupos: grupos.filter((g) => elegidos.has(clave(g))).map((g) => ({ curso: g.curso, letra: g.letra })),
+          grupos: [...elegidos].map((k) => {
+            const [curso, letra] = k.split('|');
+            return { curso, letra: letra || null };
+          }),
           descripcion,
           acompanantes: van,
+          salTripId: desde?.id ?? null,
         },
       });
       haptic.success();
@@ -354,6 +408,18 @@ function FormularioSalida({ grupos, profes, etapas, hoy, onHecho }: { grupos: Gr
           <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
             Quién va con ellos <span className="font-normal text-zinc-500 dark:text-zinc-400">· no estarán libres y se cubren sus clases</span>
           </p>
+          {desde && desde.tutores.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">¿Van los tutores? Tócalos si van.</p>
+              <div className="flex flex-wrap gap-1.5">
+                {desde.tutores.map((t) => (
+                  <Filtro key={t.id} activo={van.includes(t.id)} onClick={() => setVan((v) => (v.includes(t.id) ? v.filter((x) => x !== t.id) : [...v, t.id]))}>
+                    {t.nombre}
+                  </Filtro>
+                ))}
+              </div>
+            </div>
+          )}
           {van.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {van.map((id) => (

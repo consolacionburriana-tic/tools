@@ -57,6 +57,11 @@ export interface Mensaje {
   como?: { nombre: string; email: string };
   /** Cabeceras de hilo (`Message-ID`, `In-Reply-To`, `References`), para que un correo sea respuesta de otro. */
   cabeceras?: Record<string, string>;
+  /**
+   * Otro buzón del dominio como remitente (con el nombre del perfil): Sustituciones manda lo de la ESO
+   * desde `jesecundaria@` y lo de Infantil y Primaria desde `jeinfyprim@`. Fuera del dominio se ignora.
+   */
+  desde?: string;
 }
 
 const DOMINIO = COLEGIO.dominio;
@@ -166,9 +171,15 @@ export function conComo(r: Remitente, como: Mensaje['como']): Remitente {
 
 // ── API pública ───────────────────────────────────────────────────────────────
 
+/** El remitente con el buzón de `desde` (si es del dominio). Lo de Gmail lo suplanta; Resend lo pone de From. */
+export function conDesde(r: Remitente, desde: string | undefined): Remitente {
+  if (!desde || !desde.toLowerCase().endsWith(`@${DOMINIO}`)) return r;
+  return { ...r, email: desde, buzon: desde };
+}
+
 /** Un correo (transaccional). Lanza si falla: quien llama decide si eso rompe su flujo. */
 export async function enviar(perfil: PerfilCorreo, mensaje: Mensaje): Promise<void> {
-  const r = conComo(remitente(perfil), mensaje.como);
+  const r = conComo(conDesde(remitente(perfil), mensaje.desde), mensaje.como);
   const replyTo = mensaje.replyTo ?? r.replyTo;
   if (r.transporte === 'gmail') {
     await enviarGmail(r.buzon, {
@@ -266,7 +277,7 @@ export const MAX_DIAS_PROGRAMADO = 29;
  */
 export async function programar(perfil: PerfilCorreo, mensaje: Mensaje, cuando: Date): Promise<string> {
   if (cuando.getTime() - Date.now() > MAX_DIAS_PROGRAMADO * 86_400_000) throw new Error('Resend solo programa hasta 30 días vista');
-  const r = conComo({ ...remitente(perfil), transporte: 'resend' }, mensaje.como);
+  const r = conComo(conDesde({ ...remitente(perfil), transporte: 'resend' }, mensaje.desde), mensaje.como);
   const { data, error } = await getResend().emails.send({
     from: from(r),
     to: aLista(mensaje.to),

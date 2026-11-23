@@ -10,7 +10,7 @@ import { appBaseUrl } from '@/lib/constants';
 import { enviar } from '@/lib/email';
 import { getJefaturas, jefaturasDe } from '@/lib/jefaturas-server';
 import { escaparHtml, etapasDeGrupo, fechaLarga, hora, lugarDe, mayuscula } from '@/lib/sustituciones';
-import { confirmarPorEnlace, messageIdDeEnvio } from '@/lib/sustituciones-server';
+import { buzonDeEtapa, confirmarPorEnlace, messageIdDeEnvio } from '@/lib/sustituciones-server';
 
 const CLAVE = 'sustituciones.avisoConfirmacion';
 
@@ -96,7 +96,7 @@ export async function avisarConfirmacion(token: string): Promise<void> {
 <p style="margin:16px 0 0;font-size:12px;color:#71717a">Te llega porque tienes activado «Avisarme cuando un sustituto confirme» en Sustituciones › Ajustes.</p>
 </div>`;
     const cabeceras = envio ? { 'In-Reply-To': messageIdDeEnvio(envio.id), References: messageIdDeEnvio(envio.id) } : undefined;
-    await enviar('sustituciones', { to: para, subject, html, cabeceras });
+    await enviar('sustituciones', { to: para, subject, html, cabeceras, desde: buzonDeEtapa(h0.etapa) });
   } catch (e) {
     console.error('Sustituciones · aviso de confirmación:', e instanceof Error ? e.message : 'error');
   }

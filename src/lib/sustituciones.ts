@@ -1341,6 +1341,97 @@ export function aHHMM(min: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+// ─── Vistas de la semana y colores por curso (David, 23-nov-2026) ────────────
+
+/**
+ * Qué se mira en la semana: una etapa (en rejilla, por defecto), Infantil y Primaria juntas, o el cole
+ * entero (estas dos, en calendario: cada etapa tiene su rejilla y solo el reloj las junta).
+ */
+export const VISTAS_SEMANA = ['EI', 'EP', 'ESO', 'infantil-primaria', 'todas'] as const;
+export type VistaSemana = (typeof VISTAS_SEMANA)[number];
+export const VISTA_NOMBRE: Record<VistaSemana, string> = { EI: 'Infantil', EP: 'Primaria', ESO: 'ESO', 'infantil-primaria': 'Infantil y Primaria', todas: 'Todo el cole' };
+export const esVistaSemana = (x: unknown): x is VistaSemana => (VISTAS_SEMANA as readonly unknown[]).includes(x);
+/** Las vistas de una sola etapa: tienen rejilla. */
+export const vistaConRejilla = (v: VistaSemana): v is 'EI' | 'EP' | 'ESO' => v === 'EI' || v === 'EP' || v === 'ESO';
+
+export function etapasDeVista(v: VistaSemana): Etapa[] {
+  if (v === 'infantil-primaria') return ['EI', 'EP'];
+  if (v === 'todas') return [...CFG.etapas];
+  return [v];
+}
+
+/** La vista con la que empieza cada jefatura: su etapa principal, en rejilla (Infantil y Primaria → Primaria). */
+export function vistaPorDefecto(jefatura: string | null | undefined): VistaSemana {
+  if (jefatura === 'eso') return 'ESO';
+  if (jefatura === 'infantil-primaria') return 'EP';
+  return 'todas';
+}
+
+/** La jefatura que corresponde a una vista (para que las demás secciones vean lo mismo). */
+export function jefaturaDeVista(v: VistaSemana): string {
+  if (v === 'ESO') return 'eso';
+  if (v === 'todas') return 'todas';
+  return 'infantil-primaria';
+}
+
+/** De un grupo tal como se guarda («3 años A», «2º B», «4º ESO A», «3º PDC»): su etapa y su nivel. */
+export function etapaDeGrupoTexto(texto: string | null | undefined): { etapa: Etapa | null; nivel: number | null } {
+  const primero = (texto ?? '').split(',')[0].trim();
+  if (!primero) return { etapa: null, nivel: null };
+  const n = /(\d+)/.exec(primero);
+  const nivel = n ? Number(n[1]) : null;
+  if (/años/i.test(primero)) return { etapa: 'EI', nivel };
+  if (/ESO|PDC/i.test(primero)) return { etapa: 'ESO', nivel };
+  if (/BACH/i.test(primero)) return { etapa: null, nivel };
+  if (/º/.test(primero)) return { etapa: 'EP', nivel };
+  return { etapa: null, nivel };
+}
+
+/** Colorear por curso: Infantil, y los tres ciclos de Primaria; en la ESO, cada curso. Cuatro colores por vista. */
+export const COLORES_CURSO = ['c1', 'c2', 'c3', 'c4'] as const;
+export type ColorCurso = (typeof COLORES_CURSO)[number];
+
+export function colorDeCurso(etapa: Etapa | null, nivel: number | null): { color: ColorCurso; nombre: string } | null {
+  if (etapa === 'EI') return { color: 'c4', nombre: 'Infantil' };
+  if (etapa === 'EP' && nivel) {
+    const ciclo = Math.min(3, Math.max(1, Math.ceil(nivel / 2)));
+    return { color: (['c1', 'c2', 'c3'] as const)[ciclo - 1], nombre: `${ciclo}.${ciclo === 2 ? 'º' : 'er'} ciclo` };
+  }
+  if (etapa === 'ESO' && nivel) {
+    const c = Math.min(4, Math.max(1, nivel));
+    return { color: COLORES_CURSO[c - 1], nombre: `${c}º ESO` };
+  }
+  return null;
+}
+
+/** «Alejandro Sánchez Pérez» → «Alejandro Sán.» (nombre y tres letras del apellido). */
+export function nombreCorto(nombre: string): string {
+  const [pila, apellido] = nombre.trim().split(/\s+/);
+  if (!apellido) return pila ?? '';
+  return apellido.length <= 4 ? `${pila} ${apellido}` : `${pila} ${apellido.slice(0, 3)}.`;
+}
+
+export interface FilaRejilla extends Franja {
+  etiqueta: string | null;
+  /** Los días (1-5) que tienen este tramo. */
+  dias: number[];
+}
+
+/** La fila de la rejilla donde cae una hora: la que más se solapa ese día (o -1 si ninguna). */
+export function filaDe(f: Franja, dia: number, filas: readonly FilaRejilla[]): number {
+  let mejor = -1;
+  let solape = 0;
+  filas.forEach((fila, i) => {
+    if (!fila.dias.includes(dia)) return;
+    const s = Math.min(aMin(f.horaFin), aMin(fila.horaFin)) - Math.max(aMin(f.horaInicio), aMin(fila.horaInicio));
+    if (s > solape) {
+      solape = s;
+      mejor = i;
+    }
+  });
+  return mejor;
+}
+
 // ─── Grupos de etapas (Jefatura de cada una) ─────────────────────────────────
 
 export type GrupoEtapas = (typeof CONFIGURACION.sustituciones.jefaturas)[number]['clave'];
@@ -1430,6 +1521,8 @@ export const PeticionSalida = z
     grupos: z.array(z.object({ curso: z.string().min(1).max(20), letra: z.string().max(10).nullable() })).min(1, 'Elige al menos un grupo').max(40),
     descripcion: z.string().trim().min(2, 'Di adónde van').max(200),
     acompanantes: z.array(uuid).max(30),
+    /** Si viene del módulo Salidas y pagos. */
+    salTripId: uuid.optional().nullable(),
   })
   .refine((p) => (p.horaInicio === null) === (p.horaFin === null), { message: 'Pon las dos horas, o ninguna para todo el día', path: ['horaFin'] })
   .refine((p) => !p.horaInicio || !p.horaFin || p.horaInicio < p.horaFin, { message: 'La hora de vuelta va después de la de salida', path: ['horaFin'] });

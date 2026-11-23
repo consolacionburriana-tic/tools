@@ -7,7 +7,7 @@
 // confirmar lo vuelve a comprobar todo en el servidor.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CalendarX2, Info, PencilLine, Search, Send, SplitSquareHorizontal, X } from 'lucide-react';
+import { CalendarX2, Clock3, Info, PencilLine, Search, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
@@ -15,6 +15,7 @@ import { CONFIGURACION } from '@/lib/configuracion';
 import { aMin } from '@/lib/oratorios';
 import { sinAcentos } from '@/lib/sustituciones-interpretar';
 import {
+  aHHMM,
   agruparCandidatos,
   claveSesion,
   cubreDentro,
@@ -199,9 +200,17 @@ export function FormularioAusencia({
 
   const propuesta = useMemo(() => {
     if (!datos) return new Map<string, PropuestaSesion>();
-    const aCubrir = datos.dias.flatMap((d) => d.sesiones.filter((s) => s.hayQueCubrir && encendidas.has(claveSesion(s))));
+    // Si solo se cubre una parte de la hora, se busca a quien esté libre en ESA parte.
+    const aCubrir = datos.dias.flatMap((d) =>
+      d.sesiones
+        .filter((s) => s.hayQueCubrir && encendidas.has(claveSesion(s)))
+        .map((s) => {
+          const r = partidas.has(claveSesion(s)) ? rangos1[claveSesion(s)] : undefined;
+          return r && r.inicio < r.fin ? { ...s, horaInicio: r.inicio, horaFin: r.fin } : s;
+        }),
+    );
     return new Map(proponerSustitutos(entradaDesdeContexto(datos.contexto, aCubrir, datos.profe.id, fijados)).map((p) => [p.clave, p]));
-  }, [datos, encendidas, fijados]);
+  }, [datos, encendidas, fijados, partidas, rangos1]);
 
   const elegidas = useMemo(() => (datos?.dias ?? []).flatMap((d) => d.sesiones.filter((s) => encendidas.has(claveSesion(s)))), [datos, encendidas]);
   const cubriaA = datos ? cubreDentro(datos.cubreYa, elegidas) : [];
@@ -222,13 +231,14 @@ export function FormularioAusencia({
     try {
       const sesiones = elegidas.map((s) => {
         const k = claveSesion(s);
-        const s2 = s.hayQueCubrir && partidas.has(k) ? (segundos[k] ?? null) : null;
+        const parte = s.hayQueCubrir && partidas.has(k);
+        const s2 = parte ? (segundos[k] ?? null) : null;
         return {
           fecha: s.fecha,
           horSesionId: s.sesionId,
           sustitutoId: s.hayQueCubrir ? (propuesta.get(k)?.elegido?.id ?? null) : null,
           sustituto2Id: s2,
-          ...(s.hayQueCubrir ? { sustitutoHoraInicio: rangos1[k]?.inicio ?? s.horaInicio, sustitutoHoraFin: rangos1[k]?.fin ?? s.horaFin } : {}),
+          ...(s.hayQueCubrir ? { sustitutoHoraInicio: (parte && rangos1[k]?.inicio) || s.horaInicio, sustitutoHoraFin: (parte && rangos1[k]?.fin) || s.horaFin } : {}),
           ...(s2 ? { sustituto2HoraInicio: rangos2[k]?.inicio ?? s.horaInicio, sustituto2HoraFin: rangos2[k]?.fin ?? s.horaFin } : {}),
         };
       });
@@ -394,7 +404,16 @@ export function FormularioAusencia({
                                   if (id && id === segundos[k]) setSegundos((prev) => ({ ...prev, [k]: null }));
                                 }}
                                 partida={partidas.has(k)}
-                                onPartir={(v) => setPartidas((prev) => { const sig = new Set(prev); if (v) sig.add(k); else sig.delete(k); return sig; })}
+                                onPartir={(v) => {
+                                  setPartidas((prev) => {
+                                    const sig = new Set(prev);
+                                    if (v) sig.add(k);
+                                    else sig.delete(k);
+                                    return sig;
+                                  });
+                                  // Lo más típico: «llego 20 minutos tarde».
+                                  if (v && !rangos1[k]) setRangos1((prev) => ({ ...prev, [k]: atajoParte(s, 20, 'principio') }));
+                                }}
                                 segundo={segundos[k] ?? null}
                                 onElegirSegundo={(id) => setSegundos((prev) => ({ ...prev, [k]: id }))}
                                 rango1={rangos1[k] ?? { inicio: s.horaInicio, fin: s.horaFin }}
@@ -614,17 +633,41 @@ export function SelectorSustituto({
   );
 }
 
+const ATAJOS_PARTE = [
+  { donde: 'principio', min: 15 },
+  { donde: 'principio', min: 20 },
+  { donde: 'principio', min: 30 },
+  { donde: 'final', min: 15 },
+  { donde: 'final', min: 20 },
+  { donde: 'final', min: 30 },
+] as const;
+
+/** «Llego 20 minutos tarde»: los primeros (o los últimos) N minutos de la hora. */
+function atajoParte(s: { horaInicio: string; horaFin: string }, min: number, donde: 'principio' | 'final'): { inicio: string; fin: string } {
+  const ini = aMin(s.horaInicio);
+  const fin = aMin(s.horaFin);
+  const n = Math.min(min, fin - ini - 5);
+  return donde === 'principio' ? { inicio: s.horaInicio, fin: aHHMM(ini + n) } : { inicio: aHHMM(fin - n), fin: s.horaFin };
+}
+
+/** Lo que queda de la hora fuera de una franja (si la franja toca un borde). */
+function restoDeHora(s: { horaInicio: string; horaFin: string }, r: { inicio: string; fin: string }): { inicio: string; fin: string } | null {
+  if (r.inicio === s.horaInicio && r.fin < s.horaFin) return { inicio: r.fin, fin: s.horaFin };
+  if (r.fin === s.horaFin && r.inicio > s.horaInicio) return { inicio: s.horaInicio, fin: r.inicio };
+  return null;
+}
+
 function Franja({ rango, onCambiar, etiqueta }: { rango: { inicio: string; fin: string }; onCambiar: (inicio: string, fin: string) => void; etiqueta: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
-      <input aria-label={`${etiqueta}: desde`} type="time" value={rango.inicio} onChange={(e) => onCambiar(e.target.value, rango.fin)} className="h-10 rounded-lg border border-zinc-300 bg-white px-2 tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+      <input aria-label={`${etiqueta}: desde`} type="time" step={300} value={rango.inicio} onChange={(e) => onCambiar(e.target.value, rango.fin)} className="h-10 rounded-lg border border-zinc-300 bg-white px-2 tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
       –
-      <input aria-label={`${etiqueta}: hasta`} type="time" value={rango.fin} onChange={(e) => onCambiar(rango.inicio, e.target.value)} className="h-10 rounded-lg border border-zinc-300 bg-white px-2 tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+      <input aria-label={`${etiqueta}: hasta`} type="time" step={300} value={rango.fin} onChange={(e) => onCambiar(rango.inicio, e.target.value)} className="h-10 rounded-lg border border-zinc-300 bg-white px-2 tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
     </span>
   );
 }
 
-/** Una hora del ausente: si cuenta, y si pide sustituto, quién entra (y si se parte entre dos). */
+/** Una hora del ausente: si cuenta, y si pide sustituto, quién entra (toda la hora o solo una parte, en saltos de 5 minutos). */
 function FilaHora({
   s,
   activa,
@@ -687,23 +730,46 @@ function FilaHora({
                 )}
                 {elegido && (
                   <Button variant="ghost" size="sm" aria-pressed={partida} onClick={() => onPartir(!partida)}>
-                    <SplitSquareHorizontal aria-hidden /> {partida ? 'Una sola persona' : 'Partir la hora'}
+                    <Clock3 aria-hidden /> {partida ? 'La hora entera' : 'Solo una parte'}
                   </Button>
                 )}
               </div>
               {propuesta.enCuadro.length > 0 && <p className="text-xs text-zinc-500 dark:text-zinc-400">En el cuadro: {propuesta.enCuadro.join(', ')}</p>}
               {partida && elegido && (
                 <div className="space-y-2 rounded-lg bg-zinc-50 p-2 dark:bg-zinc-800/50">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {ATAJOS_PARTE.map((a) => {
+                      const r = atajoParte(s, a.min, a.donde);
+                      const activo = r.inicio === rango1.inicio && r.fin === rango1.fin;
+                      return (
+                        <Filtro key={`${a.donde}${a.min}`} activo={activo} onClick={() => onRango1(r.inicio, r.fin)} className="h-10 px-3">
+                          {a.donde === 'principio' ? `Primeros ${a.min}′` : `Últimos ${a.min}′`}
+                        </Filtro>
+                      );
+                    })}
+                  </div>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="w-28 shrink-0 truncate font-medium">{elegido.nombre}</span>
                     <Franja rango={rango1} onCambiar={onRango1} etiqueta={`Franja de ${elegido.nombre}`} />
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Selector aria-label="Segunda persona" className="w-auto min-w-0 flex-1 sm:max-w-xs" value={segundo ?? ''} onChange={(e) => onElegirSegundo(e.target.value || null)}>
-                      <option value="">Segunda persona…</option>
+                    <Selector
+                      aria-label="Otra persona para el resto"
+                      className="w-auto min-w-0 flex-1 sm:max-w-xs"
+                      value={segundo ?? ''}
+                      onChange={(e) => {
+                        onElegirSegundo(e.target.value || null);
+                        // Lo normal: la otra persona, el resto de la hora.
+                        if (e.target.value) {
+                          const resto = restoDeHora(s, rango1);
+                          if (resto) onRango2(resto.inicio, resto.fin);
+                        }
+                      }}
+                    >
+                      <option value="">Nadie el resto (lo da quien falta)</option>
                       {propuesta.candidatos.filter((c) => c.id !== elegido.id).map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.nombre}
+                          {c.nombre} el resto
                         </option>
                       ))}
                     </Selector>

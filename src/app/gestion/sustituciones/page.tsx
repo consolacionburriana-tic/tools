@@ -1,7 +1,7 @@
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth-guards';
-import { etapasActivas, jefaturaDe } from '@/lib/jefaturas-server';
+import { vistaActiva } from '@/lib/jefaturas-server';
 import { hoyEnEspana } from '@/lib/oratorios';
 import { lunesDe } from '@/lib/sustituciones';
 import { datosSemana } from '@/lib/sustituciones-semana-server';
@@ -24,8 +24,8 @@ export default async function SustitucionesPage({ searchParams }: { searchParams
   const hoy = hoyEnEspana();
   const lunes = lunesDe(sp.semana && FECHA.test(sp.semana) ? sp.semana : hoy);
   after(repasarEnviosSilencioso); // cuadra los correos programados con Resend, sin cron
-  const [{ grupo, etapas }, propia, profes] = await Promise.all([etapasActivas(user.email), jefaturaDe(user.email), profesConHorario(hoy)]);
-  const datos = await datosSemana(lunes, etapas, hoy);
+  const [{ vista, modo, propia }, profes] = await Promise.all([vistaActiva(user.email), profesConHorario(hoy)]);
+  const datos = await datosSemana(lunes, vista, hoy);
 
   const abrir: AbrirAlCargar = {};
   if (sp.ausencia && UUID.test(sp.ausencia)) abrir.ausencia = sp.ausencia;
@@ -46,7 +46,7 @@ export default async function SustitucionesPage({ searchParams }: { searchParams
   return (
     <>
       <h1 className="sr-only">Sustituciones: la semana</h1>
-      <Calendario inicial={datos} hoy={hoy} grupoInicial={grupo} propia={propia} profes={profes} abrir={abrir} />
+      <Calendario inicial={datos} hoy={hoy} modoInicial={modo} propia={propia} profes={profes} abrir={abrir} />
     </>
   );
 }

@@ -116,3 +116,40 @@ describe('calendario', () => {
     expect(etapasDeGrupo(null)).toEqual(['EI', 'EP', 'ESO']);
   });
 });
+
+import { colorDeCurso, etapaDeGrupoTexto, etapasDeVista, filaDe, jefaturaDeVista, nombreCorto, vistaPorDefecto } from '@/lib/sustituciones';
+
+describe('vistas y colores por curso', () => {
+  it('etapa y nivel del grupo guardado', () => {
+    expect(etapaDeGrupoTexto('3 años A, 3 años B')).toEqual({ etapa: 'EI', nivel: 3 });
+    expect(etapaDeGrupoTexto('5º A')).toEqual({ etapa: 'EP', nivel: 5 });
+    expect(etapaDeGrupoTexto('4º ESO B, 4º PDC')).toEqual({ etapa: 'ESO', nivel: 4 });
+    expect(etapaDeGrupoTexto('3º PDC')).toEqual({ etapa: 'ESO', nivel: 3 });
+    expect(etapaDeGrupoTexto(null)).toEqual({ etapa: null, nivel: null });
+  });
+  it('cuatro colores: Infantil y los tres ciclos; en la ESO, cada curso', () => {
+    expect(colorDeCurso('EI', 4)?.color).toBe('c4');
+    expect([1, 2, 3, 4, 5, 6].map((n) => colorDeCurso('EP', n)?.color)).toEqual(['c1', 'c1', 'c2', 'c2', 'c3', 'c3']);
+    expect(colorDeCurso('EP', 3)?.nombre).toBe('2.º ciclo');
+    expect([1, 2, 3, 4].map((n) => colorDeCurso('ESO', n)?.color)).toEqual(['c1', 'c2', 'c3', 'c4']);
+    expect(colorDeCurso(null, null)).toBeNull();
+  });
+  it('vistas: por defecto cada jefatura su etapa en rejilla', () => {
+    expect(vistaPorDefecto('infantil-primaria')).toBe('EP');
+    expect(vistaPorDefecto('eso')).toBe('ESO');
+    expect(vistaPorDefecto(null)).toBe('todas');
+    expect(etapasDeVista('infantil-primaria')).toEqual(['EI', 'EP']);
+    expect(jefaturaDeVista('EI')).toBe('infantil-primaria');
+  });
+  it('nombre corto y fila de la rejilla', () => {
+    expect(nombreCorto('Alejandro Sánchez')).toBe('Alejandro Sán.');
+    expect(nombreCorto('Ana Gil')).toBe('Ana Gil');
+    const filas = [
+      { horaInicio: '09:00', horaFin: '09:45', etiqueta: '1ª', dias: [1, 2, 3, 4, 5] },
+      { horaInicio: '09:45', horaFin: '10:30', etiqueta: '2ª', dias: [1, 2, 3, 4, 5] },
+      { horaInicio: '15:00', horaFin: '16:00', etiqueta: '6ª', dias: [1, 2] },
+    ];
+    expect(filaDe({ horaInicio: '09:50', horaFin: '10:30' }, 2, filas)).toBe(1);
+    expect(filaDe({ horaInicio: '15:00', horaFin: '16:00' }, 5, filas)).toBe(-1);
+  });
+});
