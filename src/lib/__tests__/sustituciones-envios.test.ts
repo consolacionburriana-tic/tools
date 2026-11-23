@@ -25,4 +25,18 @@ describe('cuandoEnviar (ventana 08:00–18:00 Madrid, máximo 2 días de antelac
     const r = cuandoEnviar('2027-06-10', utc('2027-05-01T10:00:00Z'));
     expect(r.toISOString()).toBe('2027-06-08T06:00:00.000Z');
   });
+  it('nunca en fin de semana: lo del sábado o el domingo sale el lunes a las 8 (David, 23-nov-2026)', () => {
+    // Viernes 20-nov a las 19:30: tocaría el sábado a las 8 → lunes 23 a las 8.
+    expect(cuandoEnviar('2026-11-23', utc('2026-11-20T18:30:00Z')).toISOString()).toBe('2026-11-23T07:00:00.000Z');
+    // Sábado por la mañana, sustitución el martes (el domingo abriría la ventana) → lunes a las 8.
+    expect(cuandoEnviar('2026-11-24', utc('2026-11-21T10:00:00Z')).toISOString()).toBe('2026-11-23T07:00:00.000Z');
+    // Sustitución el lunes 30, apuntada el miércoles: la ventana abre el sábado 28 → lunes 30 a las 8.
+    expect(cuandoEnviar('2026-11-30', utc('2026-11-25T10:00:00Z')).toISOString()).toBe('2026-11-30T07:00:00.000Z');
+    // Entre semana, nada cambia.
+    expect(cuandoEnviar('2026-11-26', utc('2026-11-25T10:00:00Z')).toISOString()).toBe('2026-11-25T10:00:00.000Z');
+  });
+  it('forzado, sale ya aunque sea domingo por la noche', () => {
+    const ahora = utc('2026-11-22T21:00:00Z');
+    expect(cuandoEnviar('2026-11-23', ahora, true).getTime()).toBe(ahora.getTime());
+  });
 });

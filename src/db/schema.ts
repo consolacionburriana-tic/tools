@@ -356,10 +356,33 @@ export type NewEduTutoria = typeof eduTutorias.$inferInsert;
 // SUSTITUTO + PROF. TITULAR del export de profes, con la vigencia sacada de FECHA ALTA y
 // FECHA BAJA) y `manual` (desde /gestion/profes). El sync solo toca las de origen `educamos`
 // y NUNCA reactiva una que se haya apagado a mano. docs/02-integracion-educamos.md.
+// Bajas del profesorado (docs/32, «Bajas», 23-nov-2026). Vigente un día si `desde <= día` y no hay
+// alta real o el día es anterior (el alta es el primer día de vuelta); el alta PREVISTA no la cierra.
+// Mientras dura, la persona no recibe sustituciones. Con sustituto, la cobertura cuelga de aquí
+// (`edu_sustituciones.baja_id`). El motivo es dato de salud: solo dentro del módulo.
+export const eduBajas = pgTable('edu_bajas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  profeId: uuid('profe_id').notNull().references(() => eduTeachers.id),
+  desde: date('desde').notNull(),
+  altaPrevista: date('alta_prevista'),
+  altaReal: date('alta_real'),
+  motivo: text('motivo').notNull(), // CONFIGURACION.bajas.motivos
+  ampliable: boolean('ampliable').notNull().default(false),
+  nota: text('nota'),
+  createdByEmail: text('created_by_email'),
+  updatedByEmail: text('updated_by_email'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [index('edu_bajas_profe_idx').on(t.profeId)]);
+
+export type EduBaja = typeof eduBajas.$inferSelect;
+
 export const eduCoberturasBaja = pgTable('edu_sustituciones', {
   id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   sustitutoId: uuid('sustituto_id').notNull().references(() => eduTeachers.id),
   titularId: uuid('titular_id').notNull().references(() => eduTeachers.id),
+  // La baja de la que cuelga (sus fechas las pone la baja). Null: de Educamos o a mano, sin baja anotada.
+  bajaId: uuid('baja_id').references(() => eduBajas.id, { onDelete: 'set null' }),
   desde: date('desde'), // null = desde siempre
   hasta: date('hasta'), // null = sin fecha de fin (inclusive)
   activa: boolean('activa').notNull().default(true), // el interruptor a mano
@@ -370,6 +393,7 @@ export const eduCoberturasBaja = pgTable('edu_sustituciones', {
 }, (t) => [
   uniqueIndex('edu_sustituciones_par_uq').on(t.sustitutoId, t.titularId),
   index('edu_sustituciones_titular_idx').on(t.titularId),
+  index('edu_sustituciones_baja_idx').on(t.bajaId),
 ]);
 
 export type EduCoberturaBaja = typeof eduCoberturasBaja.$inferSelect;

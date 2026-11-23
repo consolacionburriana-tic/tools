@@ -10,6 +10,7 @@ import {
   cuandoYDonde,
   cubreDentro,
   diasLectivos,
+  disponibilidadDeNivel,
   enlaceGoogleCalendar,
   etiquetaGrupo,
   evaluar,
@@ -25,6 +26,7 @@ import {
   proponerSustitutos,
   puedeVerMisSustituciones,
   rangoLargo,
+  rangoNivel,
   recortarHorario,
   rejillaDisponibilidad,
   resumir,
@@ -170,12 +172,17 @@ describe('niveles (decisión 7)', () => {
     expect(n('coordinacion', 'Coordinación de pastoral')).toBe('pastoral');
     expect(n('departamento', 'DPTO. ORIENTACIÓN')).toBe('gabinete');
   });
-  it('el Almuerzo, el Taller de Pensamiento, el Huerto y un oratorio que no es Godly no se liberan', () => {
+  it('el Huerto se libera (nivel propio, detrás de Godly; David, 23-nov-2026)', () => {
+    const n = (actividad: string, etiqueta: string) => nivelDe(ses({ horaInicio: '11:00', horaFin: '11:30', actividad, etiqueta, grupos: [], profes: [pr('x')] }), 'x');
+    expect(n('oratorio', 'Huerto')).toBe('huerto');
+    expect(rangoNivel('huerto')).toBe(rangoNivel('godly') + 1);
+    expect(disponibilidadDeNivel('huerto')).toBe('si_hace_falta');
+  });
+  it('el Almuerzo, el Taller de Pensamiento y un oratorio que no es Godly no se liberan', () => {
     const n = (actividad: string, etiqueta: string, grupos: string[] = []) => nivelDe(ses({ horaInicio: '11:00', horaFin: '11:30', actividad, etiqueta, grupos, profes: [pr('x')] }), 'x');
     expect(n('otros', 'Almuerzo', ['3 años A'])).toBeNull();
     expect(n('otros', 'Almuerzo')).toBeNull();
     expect(n('otros', 'Taller de Pensamiento Computacional · 3ºA')).toBeNull();
-    expect(n('oratorio', 'Huerto')).toBeNull();
     expect(n('oratorio', 'Oratorio | TECNO 3ºB')).toBeNull();
   });
 });
@@ -255,6 +262,8 @@ describe('proponer sustitutos (decisiones 6 y 8)', () => {
     expect(p.candidatos.map((c) => c.id)).not.toContain('pere');
     expect(p.candidatos.map((c) => c.id)).not.toContain('ana');
     expect(p.candidatos.map((c) => c.id)).not.toContain('tomas');
+    // Quien está de baja sale aparte, para enseñarlo deshabilitado en el desplegable.
+    expect(p.deBaja).toEqual(['Tomas']);
     expect(p.elegido).toBeNull(); // nadie en Sí ni Si hace falta: «Sin cubrir» es normal
   });
 
@@ -289,14 +298,14 @@ describe('proponer sustitutos (decisiones 6 y 8)', () => {
     expect(sinCuadro[0].elegido?.id).toBe('ana'); // menos cubiertas
   });
 
-  it('un retoque a «No» saca a alguien de la elección; un retoque no sube una clase propia', () => {
+  it('un retoque a «No» saca a alguien de la elección; un retoque también sube una clase propia (lo decide Jefatura)', () => {
     const retoques: Retoque[] = [
       { profeId: 'lucia', dia: 2, horaInicio: '09:00', horaFin: '10:10', estado: 'no' },
       { profeId: 'joan', dia: 2, horaInicio: '09:45', horaFin: '10:30', estado: 'si' },
     ];
     const [p] = proponerSustitutos(entrada(base(), 'marta', { retoques }));
-    expect(p.elegido?.id).toBe('pere');
-    expect(p.candidatos.find((c) => c.id === 'joan')?.disponibilidad).toBe('no');
+    expect(p.candidatos.find((c) => c.id === 'joan')?.disponibilidad).toBe('si');
+    expect(p.candidatos.find((c) => c.id === 'lucia')?.disponibilidad).toBe('no');
   });
 
   it('lo elegido a mano se respeta y se descuenta en las demás', () => {

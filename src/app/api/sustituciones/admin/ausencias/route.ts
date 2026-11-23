@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (isGuardResponse(user)) return user;
   try {
     const e = PeticionAusencia.parse(await request.json());
-    return NextResponse.json(await confirmarAusencia(e, await quienDe(user)));
+    return NextResponse.json(await confirmarAusencia(e, { ...(await quienDe(user)), enviarYa: e.enviarYa }));
   } catch (e) {
     return respuestaError(e, 'guardar la ausencia');
   }

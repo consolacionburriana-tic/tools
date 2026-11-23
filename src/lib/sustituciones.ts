@@ -475,9 +475,12 @@ export interface Evaluacion {
   nivel: string | null;
   /** Lo que sale del horario. */
   automatica: Disponibilidad;
-  /** Lo que vale de verdad (con el retoque de Jefatura, si lo hay y se puede). */
+  /** Lo que vale de verdad (con el retoque de Jefatura, si lo hay). */
   disponibilidad: Disponibilidad;
-  /** Tiene algo que no se libera nunca: el retoque no la sube. */
+  /**
+   * Tiene algo que no se libera nunca (una clase propia): de por sí es «No». Jefatura la puede subir
+   * a mano igualmente (David, 23-nov-2026: «pueden pasar cosas»), y la pantalla lo señala.
+   */
   bloqueada: boolean;
   retocada: boolean;
   /** Qué tiene a esa hora, para enseñarlo («Codocencia · 3º A»). Vacío = nada. */
@@ -491,7 +494,7 @@ export interface Evaluacion {
  * sus sesiones ese día (para saber si está en el colegio en una hora libre), `mismaSesion` la que se
  * está cubriendo (si es el otro profe de esa clase, nivel «Ya está en el aula»). Si varias
  * ocupaciones solapan, manda la PEOR disponibilidad y el PEOR nivel. Un retoque a mano pisa a lo
- * automático, salvo que haya algo no liberable (una clase propia no se sube de «No»).
+ * automático, también en una clase propia (David, 23-nov-2026: lo decide Jefatura).
  */
 export function evaluar(
   profeId: string,
@@ -534,7 +537,7 @@ export function evaluar(
   );
   let disponibilidad = automatica;
   let retocada = false;
-  if (suyos.length > 0 && !bloqueada) {
+  if (suyos.length > 0) {
     disponibilidad = suyos.map((r) => r.estado).reduce(peorDisponibilidad);
     retocada = true;
   }
@@ -611,6 +614,8 @@ export interface PropuestaSesion {
   elegido: Candidato | null;
   /** Quién sale en el cuadro del centro a esa hora (para enseñarlo). */
   enCuadro: string[];
+  /** Quién está de baja ese día: sale en el desplegable, deshabilitado, para que se vea por qué no está. */
+  deBaja: string[];
 }
 
 function ordenCandidatos(cfg: ConfigSustituciones) {
@@ -684,7 +689,8 @@ export function proponerSustitutos(e: EntradaPropuesta): PropuestaSesion[] {
       if (elegido) elegidos.push({ profeId: elegido.id, fecha: s.fecha, horaInicio: s.horaInicio, horaFin: s.horaFin, clave: k });
     }
     if (elegido) cargaExtra.set(elegido.id, (cargaExtra.get(elegido.id) ?? 0) + 1);
-    salida.push({ clave: k, candidatos, elegido, enCuadro: [...enCuadroIds].map((id) => nombres.get(id) ?? '—') });
+    const deBaja = e.profes.filter((p) => p.id !== e.ausenteId && baja.has(p.id)).map((p) => p.nombre);
+    salida.push({ clave: k, candidatos, elegido, enCuadro: [...enCuadroIds].map((id) => nombres.get(id) ?? '—'), deBaja });
   }
   return salida;
 }
@@ -1173,6 +1179,8 @@ export const PeticionAusencia = z
     indicaciones: textoCorto(1500),
     avisar: z.boolean(),
     avisarAusente: z.boolean().default(true),
+    /** Que los correos salgan ya, aunque sea fin de semana o fuera de horas (lo pide Jefatura a mano). */
+    enviarYa: z.boolean().default(false),
     sesiones: z.array(SesionElegida).min(1, 'Elige al menos una hora').max(200),
   })
   .refine((p) => p.hasta >= p.desde, { message: 'La fecha de fin va después de la de inicio', path: ['hasta'] })

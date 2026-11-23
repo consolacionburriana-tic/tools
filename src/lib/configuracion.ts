@@ -300,8 +300,25 @@ export const CONFIGURACION = {
       { clave: 'baja', nombre: 'Baja' },
       { clave: 'otros', nombre: 'Otros', pideNota: true },
     ] as readonly { clave: string; nombre: string; escolar?: boolean; pideNota?: boolean }[],
-    /** Días lectivos como mucho en una ausencia: más largo es una cobertura por baja (Profesorado). */
+    /** Días lectivos como mucho en una ausencia: más largo se apunta por tramos o como baja (pestaña Bajas). */
     maxDiasAusencia: 15 as number,
+    /**
+     * Motivos de una baja (pestaña Bajas, David 23-nov-2026), en este orden. `ampliable` es lo que
+     * sale marcado por defecto (una enfermedad se puede alargar; una paternidad tiene el alta segura).
+     */
+    motivosBaja: [
+      { clave: 'enfermedad', nombre: 'Enfermedad', ampliable: true },
+      { clave: 'accidente', nombre: 'Accidente', ampliable: true },
+      { clave: 'maternidad', nombre: 'Maternidad' },
+      { clave: 'paternidad', nombre: 'Paternidad' },
+      { clave: 'riesgo_embarazo', nombre: 'Riesgo durante el embarazo', ampliable: true },
+      { clave: 'otros', nombre: 'Otros', ampliable: true, pideNota: true },
+    ] as readonly { clave: string; nombre: string; ampliable?: boolean; pideNota?: boolean }[],
+    /**
+     * Días de la semana (1 = lunes … 7 = domingo) en que NO sale ningún correo de sustituciones
+     * (David, 23-nov-2026): lo que tocaba en fin de semana sale el lunes a las 8. Se puede forzar.
+     */
+    sinCorreoLosDias: [6, 7] as readonly number[],
     /** El otro profe de la misma sesión va el primero («Ya está en el aula»). */
     enAulaPrimero: true as boolean,
     /** Ventana (días) del desempate «quien menos ha cubierto». */
@@ -336,6 +353,7 @@ export const CONFIGURACION = {
       al: 'si_hace_falta',
       pt: 'si_hace_falta',
       godly: 'si_hace_falta',
+      huerto: 'si_hace_falta',
       tic: 'si_hace_falta',
       pastoral: 'si_hace_falta',
       gabinete: 'si_hace_falta',
@@ -346,9 +364,10 @@ export const CONFIGURACION = {
     /**
      * Etiquetas (normalizadas: mayúsculas, sin acentos) de horas con alumnado aunque el horario
      * no ponga el grupo: nunca se liberan. El Almuerzo de infantil también va así cuando viene
-     * sin grupo (31 de sus 61 sesiones en Neon, 14-nov-2026).
+     * sin grupo (31 de sus 61 sesiones en Neon, 14-nov-2026). El Huerto salió de aquí el 23-nov-2026
+     * (David: «cuenta como opción disponible para sustituir»): ahora es un nivel de la lista.
      */
-    nuncaLiberables: ['TALLER DE PENSAMIENTO', 'HUERTO', 'ALMUERZO'] as readonly string[],
+    nuncaLiberables: ['TALLER DE PENSAMIENTO', 'ALMUERZO'] as readonly string[],
     /**
      * La lista de prioridad de David traducida al horario real (decisión 7). Gana el PRIMER nivel
      * que case. Las etiquetas se comparan normalizadas. «Ya está en el aula» (nivel 0) no está
@@ -363,6 +382,8 @@ export const CONFIGURACION = {
       { clave: 'al', nombre: 'A.L.', actividades: ['apoyo_al'] },
       { clave: 'pt', nombre: 'P.T.', actividades: ['apoyo_pt'] },
       { clave: 'godly', nombre: 'Godly', actividades: ['oratorio'], etiquetaContiene: ['GODLY'] },
+      // En el horario es un `oratorio` con etiqueta «Huerto», sin grupo (Neon, 23-nov-2026).
+      { clave: 'huerto', nombre: 'Huerto', etiquetaContiene: ['HUERTO'] },
       { clave: 'tic', nombre: 'TIC', actividades: ['reunion'], etiquetaIgual: ['TIC'] },
       { clave: 'pastoral', nombre: 'Pastoral', etiquetaContiene: ['PASTORAL'] },
       { clave: 'gabinete', nombre: 'Gabinete', etiquetaContiene: ['ORIENTACION'] },

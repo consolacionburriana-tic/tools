@@ -68,7 +68,7 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
 
   async function tocar(c: CasillaDisponibilidad) {
     const profe = datos.porProfe?.profe;
-    if (!profe || c.bloqueada || guardando) return;
+    if (!profe || guardando) return;
     setGuardando(true);
     const actual = c.retocada ? c.disponibilidad : null;
     const nuevo = siguienteEstado(actual);
@@ -138,7 +138,7 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
               <option value="">Elige un profe…</option>
               {datos.profes.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nombre}
+                  {p.estado ? `${p.nombre} — ${p.estado}` : p.nombre}
                 </option>
               ))}
             </Selector>
@@ -158,7 +158,7 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
           ) : (
             <>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Toca una casilla para cambiarla: Sí → Si hace falta → Solo urgencia → No → automático. Las de clase propia, en gris, no se pueden subir.
+                Toca una casilla para cambiarla: Sí → Si hace falta → Solo urgencia → No → automático. Las de clase propia salen en «No», pero también se pueden subir a mano si ese día se libera.
               </p>
               {datos.porProfe.bloques.map((b) => (
                 <section key={b.etapa} className="space-y-2">
@@ -273,7 +273,6 @@ function Casilla({ c, onTocar }: { c: CasillaDisponibilidad; onTocar: () => void
     <button
       type="button"
       onClick={onTocar}
-      disabled={c.bloqueada}
       aria-pressed={c.retocada}
       aria-label={`${diaLargo(c.dia)} ${hora(c.horaInicio)}: ${DISPONIBILIDAD_INFO[d].nombre}${c.retocada ? ' (a mano)' : ''}. ${texto}`}
       className={cn(
@@ -286,7 +285,7 @@ function Casilla({ c, onTocar }: { c: CasillaDisponibilidad; onTocar: () => void
         {DISPONIBILIDAD_INFO[d].nombre}
       </span>
       <span className="line-clamp-2 w-full opacity-80">{texto}</span>
-      {c.retocada && <span className="rounded bg-white/70 px-1 font-medium dark:bg-black/30">a mano</span>}
+      {c.retocada && <span className="rounded bg-white/70 px-1 font-medium dark:bg-black/30">{c.bloqueada && c.disponibilidad !== 'no' ? 'a mano · tiene clase' : 'a mano'}</span>}
     </button>
   );
 }
