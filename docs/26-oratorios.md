@@ -367,6 +367,17 @@ Lo que pidió David, tal cual, y lo que decidí yo al construirlo (marcado con �
 12. 🤖 **El autocompletar empieza mañana**, nunca hoy: no le da tiempo a nadie a enterarse.
 13. 🤖 **La hora que queda en la sesión es la del tramo de la clase**, no la del hueco de
     disponibilidad: si 1º ESO sale a las 14:00 y 3º a las 15:05, cada una lleva la suya.
+27. **Si una clase tiene dos profes a esa hora, se avisa y se invita a los dos** (David, 18-nov-2026:
+    en 1º ESO A solo le llegó el oratorio a una de las dos profes). El horario importado guarda al
+    primero de la celda como titular y a los demás como `apoyo`/`pt`/`al`, y `horaDeClase` se quedaba
+    solo con los titulares. Ahora entran **todos los profes de esa hora**. **Los de PT y AL se avisan
+    pero no cuentan como «molestados»** (`ProfeAfectado.sinMolestia`, de `hor_asignacion_profes.rol`):
+    ni ×N, ni 🔴/🟡 de «mismo profe», ni Números. Los `apoyo` (la segunda profe de verdad) sí cuentan.
+    🤖 Las prácticas no se han tocado (cuentan como un profe más; hoy no hay ninguna en el horario).
+    **Sesiones ya creadas**: `pnpm oratorios:profes [--dry] [--avisar]` recalcula los profes de las
+    futuras desde el horario y **solo añade** los que faltan (nunca quita a nadie): actualiza el evento
+    de Calendar y, con `--avisar`, escribe solo al profe añadido si la sesión ya estaba avisada.
+    Aplicado el 18-nov-2026: 3 sesiones (1º ESO A del 25-nov, 2º ESO A del 19-nov y del 16-dic).
 
 ### Las Sesiones del abanico (4-oct-2026)
 

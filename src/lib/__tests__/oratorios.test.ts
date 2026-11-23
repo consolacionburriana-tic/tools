@@ -29,7 +29,9 @@ import {
   horaDeClase,
   indexarHorario,
   lunesDe,
+  avisosCandidato,
   molestiasPorProfe,
+  profesQueCuentan,
   nivelEn,
   nivelesDeTipo,
   nuevaSesionSchema,
@@ -53,6 +55,7 @@ import {
   usosQueChocan,
   type ContextoPlan,
   type HuecoHorario,
+  type ProfeAfectado,
   type SesionCatalogo,
   type SesionOra,
   type TipoMomento,
@@ -234,11 +237,40 @@ describe('horario', () => {
     expect(horaDeClase(idx, PERIODOS, { curso: '1ESO', letra: 'A' }, '2026-10-05', { horaInicio: '12:00', horaFin: '13:00' })).toBeNull();
   });
 
-  it('en un desdoble pierden la hora todos los titulares; los apoyos no', () => {
+  it('en un desdoble pierden la hora todos los profes, también los de apoyo', () => {
     const apoyo = { id: '44444444-4444-4444-8444-444444444444', nombre: 'PT', titular: false };
     const idx = indexarHorario([h('2ESO', 'A', 1, '08:00', '08:55', 'Religión', [ANA, apoyo]), h('2ESO', 'A', 1, '08:00', '08:55', 'Valores', [PEPE])]);
     const r = horaDeClase(idx, PERIODOS, { curso: '2ESO', letra: 'A' }, '2026-10-05', { horaInicio: '08:00', horaFin: '08:55' });
-    expect(r?.profes.map((p) => p.nombre)).toEqual(['Ana García', 'Pepe Ruiz']);
+    expect(r?.profes.map((p) => p.nombre)).toEqual(['Ana García', 'PT', 'Pepe Ruiz']);
+  });
+
+  it('si una clase tiene dos profes en la misma hora, se avisa y se invita a los dos', () => {
+    // Una sola fila de horario con dos profes (la segunda marcada como apoyo al importar).
+    const segunda = { id: '55555555-5555-4555-8555-555555555555', nombre: 'Marta Ibáñez', titular: false };
+    const primera = { id: '66666666-6666-4666-8666-666666666666', nombre: 'Marina Soler', titular: true };
+    const idx = indexarHorario([h('1ESO', 'A', 3, '12:10', '13:05', 'Inglés', [primera, segunda])]);
+    const r = horaDeClase(idx, PERIODOS, { curso: '1ESO', letra: 'A' }, '2026-10-07', { horaInicio: '12:10', horaFin: '13:05' });
+    expect(r?.profes.map((p) => p.nombre)).toEqual(['Marina Soler', 'Marta Ibáñez']);
+  });
+
+  it('PT y AL pierden la hora (se les avisa) pero no cuentan como molestados', () => {
+    const pt = { id: '77777777-7777-4777-8777-777777777777', nombre: 'Pilar PT', titular: false, rol: 'pt' };
+    const seg = { id: '88888888-8888-4888-8888-888888888888', nombre: 'Sara Segunda', titular: false, rol: 'apoyo' };
+    const idx = indexarHorario([h('3ESO', 'A', 1, '08:00', '08:55', 'Mates', [{ ...ANA, rol: 'titular' }, seg, pt])]);
+    const r = horaDeClase(idx, PERIODOS, { curso: '3ESO', letra: 'A' }, '2026-10-05', { horaInicio: '08:00', horaFin: '08:55' });
+    expect(r?.profes.map((p) => [p.nombre, Boolean(p.sinMolestia)])).toEqual([['Ana García', false], ['Sara Segunda', false], ['Pilar PT', true]]);
+    expect(profesQueCuentan(r!.profes).map((p) => p.nombre)).toEqual(['Ana García', 'Sara Segunda']);
+  });
+
+  it('la PT no suma ×N ni hace «mismo profe»; la segunda profe de verdad, sí', () => {
+    const pt = { id: '77777777-7777-4777-8777-777777777777', nombre: 'Pilar PT', sinMolestia: true, materia: null as string | null };
+    const previa = sesion({ curso: '2ESO', letra: 'A', fecha: '2026-10-05', horaInicio: '08:00', profes: [pt, { id: '88888888-8888-4888-8888-888888888888', nombre: 'Sara Segunda', materia: null }] });
+    const c = ctx([previa]);
+    const SEGUNDA = '88888888-8888-4888-8888-888888888888';
+    const con = (profes: ProfeAfectado[]) => avisosCandidato(c, { tipo: ORATORIO, clase: { curso: '3ESO', letra: 'A' }, fecha: '2026-10-19', horaInicio: '09:00', profes });
+    expect(con([pt]).some((a) => a.codigo === 'profe_trimestre')).toBe(false);
+    expect(con([{ id: SEGUNDA, nombre: 'Sara Segunda', materia: null }]).some((a) => a.codigo === 'profe_trimestre')).toBe(true);
+    expect(molestiasPorProfe([{ ...previa, estado: 'confirmado' }], TRIMESTRES).map((m) => m.nombre)).toEqual(['Sara Segunda']);
   });
 
   it('hora de un momento: Oratorio, o la etiqueta con el nombre de un tipo', () => {

@@ -33,6 +33,7 @@ pnpm tokens:familias     # genera los magic links de las familias de la campaña
 pnpm db:migrate:abc-nia  # migración puntual: enlaza abc_students con edu_students por NIA
 pnpm horarios:importar <fichero> [--dry]  # importa horarios de Educamos (.docx/.xlsx) a Neon
 pnpm horarios:aulas [--dry]  # pone aula a las clases de ESO ya importadas, con las normas del centro
+pnpm oratorios:profes [--dry] [--avisar]  # añade a las sesiones futuras de Oratorios los profes del horario que faltaban
 ```
 
 ## Variables de entorno

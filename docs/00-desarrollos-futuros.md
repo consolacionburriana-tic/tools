@@ -37,3 +37,8 @@ Reglas para quien lo toque (personas o agentes):
 - **Oratorios · huecos por etapa** (2-nov-2026): hoy un hueco se guarda por día + hora de inicio, así
   que una fila de Infantil y otra de Primaria que empiecen igual comparten marca. Guardarlos por
   etapa si hace falta separarlos de verdad ([`26`](./26-oratorios.md)).
+- **Oratorios · el cron diario de avisos no ha enviado nunca** (18-nov-2026): en `ora_sesiones.historial`
+  todos los «aviso enviado» son de una persona; ninguno del cron. Hay sesiones ya pasadas con el aviso
+  aún «programado» (3º B del 5-nov, programado para el 29-oct; 4º B del 12-nov, para el 5-nov). Hay que
+  mirar en Vercel si `/api/oratorios/cron/avisos` se ejecuta y si `CRON_SECRET` está puesto (desde la
+  cuenta de Claude no se ve el proyecto). Mientras, los avisos salen con «Enviar pendientes».

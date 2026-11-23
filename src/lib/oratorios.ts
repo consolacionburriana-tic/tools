@@ -101,7 +101,20 @@ export interface ProfeAfectado {
   id: string;
   nombre: string;
   materia: string | null;
+  /**
+   * Profe de apoyo (PT, AL): pierde la hora igual que los demás, así que se le invita y se le
+   * avisa, pero NO cuenta como «profe molestado» (×N, avisos 🔴/🟡 ni Números). David, 18-nov-2026.
+   */
+  sinMolestia?: boolean;
 }
+
+/** Los profes que cuentan como «molestados» (todos menos los de apoyo PT/AL). */
+export function profesQueCuentan<T extends { sinMolestia?: boolean }>(profes: readonly T[]): T[] {
+  return profes.filter((p) => !p.sinMolestia);
+}
+
+/** Roles del horario que avisan pero no cuentan como molestia (`hor_asignacion_profes.rol`). */
+export const ROLES_SIN_MOLESTIA: readonly string[] = ['pt', 'al'];
 
 export interface SesionOra {
   id: string;
@@ -155,7 +168,7 @@ export interface HuecoHorario {
   horaFin: string;
   materia: string | null;
   actividad: string; // código de hor_actividades
-  profes: { id: string; nombre: string; titular: boolean }[];
+  profes: { id: string; nombre: string; titular: boolean; rol?: string }[];
 }
 
 export interface TramoRejilla {
@@ -524,7 +537,7 @@ export function molestiasPorProfe(sesiones: readonly SesionOra[], trimestres: re
   const por = new Map<string, Molestias>();
   for (const s of sesiones) {
     if (!estaActiva(s)) continue;
-    for (const p of profesDe(s)) {
+    for (const p of profesQueCuentan(profesDe(s))) {
       const m = por.get(p.id) ?? { profeId: p.id, nombre: p.nombre, porTrimestre: trimestres.map(() => 0), total: 0, borradores: 0 };
       if (s.estado === 'borrador') m.borradores++;
       else {
@@ -594,8 +607,11 @@ export interface HoraDeClase {
 }
 
 /**
- * Qué tiene una clase en una franja de un día concreto, según el horario vigente. Varias filas
- * = desdoble u optativa: todos sus profes pierden esa hora. Los apoyos no cuentan si hay titular.
+ * Qué tiene una clase en una franja de un día concreto, según el horario vigente. **Todos** los
+ * profes de esa hora pierden la hora y a todos se les invita y se les avisa: varias filas
+ * (desdoble u optativa) y también varios profes en una misma fila (docencia compartida, apoyo,
+ * PT). Antes solo contaba el titular y a la segunda profe de la clase no le llegaba nada
+ * (18-nov-2026, 1º ESO A).
  */
 export function horaDeClase(
   idx: Map<string, HuecoHorario[]>,
@@ -613,11 +629,10 @@ export function horaDeClase(
   const profes: ProfeAfectado[] = [];
   const vistos = new Set<string>();
   for (const f of filas) {
-    const titulares = f.profes.some((p) => p.titular) ? f.profes.filter((p) => p.titular) : f.profes;
-    for (const p of titulares) {
+    for (const p of f.profes) {
       if (vistos.has(p.id)) continue;
       vistos.add(p.id);
-      profes.push({ id: p.id, nombre: p.nombre, materia: f.materia });
+      profes.push({ id: p.id, nombre: p.nombre, materia: f.materia, ...(p.rol && ROLES_SIN_MOLESTIA.includes(p.rol) ? { sinMolestia: true } : {}) });
     }
   }
   const materias = [...new Set(filas.map((f) => f.materia).filter((m): m is string => Boolean(m)))];
@@ -822,8 +837,10 @@ export function avisosCandidato(ctx: ContextoPlan, e: EntradaAvisos, necesita = 
     .sort((a, b) => ordenSesion(a).localeCompare(ordenSesion(b)));
   const anterior = [...deLaClase].reverse().find((s) => ordenSesion(s) < yo) ?? null;
   const siguiente = deLaClase.find((s) => ordenSesion(s) > yo) ?? null;
-  const misProfes = new Set(e.profes.map((p) => p.id));
-  const comparte = (s: SesionOra) => profesDe(s).some((p) => misProfes.has(p.id));
+  // Los de apoyo (PT, AL) se avisan pero no cuentan como «el mismo profe» ni para el ×N.
+  const profesContados = profesQueCuentan(e.profes);
+  const misProfes = new Set(profesContados.map((p) => p.id));
+  const comparte = (s: SesionOra) => profesQueCuentan(profesDe(s)).some((p) => misProfes.has(p.id));
   const dia = diaSemana(e.fecha);
 
   // 🔴 El criterio gordo: misma clase, misma hora de la semana y mismo profe que la de al lado.
@@ -862,9 +879,9 @@ export function avisosCandidato(ctx: ContextoPlan, e: EntradaAvisos, necesita = 
     const tri = ctx.trimestres[t];
     let max = 0;
     let quien = '';
-    for (const p of e.profes) {
+    for (const p of profesContados) {
       const n = ctx.sesiones.filter(
-        (s) => s.id !== e.excluirId && estaActiva(s) && s.fecha >= tri.inicio && s.fecha <= tri.fin && profesDe(s).some((x) => x.id === p.id),
+        (s) => s.id !== e.excluirId && estaActiva(s) && s.fecha >= tri.inicio && s.fecha <= tri.fin && profesQueCuentan(profesDe(s)).some((x) => x.id === p.id),
       ).length;
       if (n > max) {
         max = n;
@@ -1374,7 +1391,7 @@ export function avisoTrasCambio(
 
 const fechaIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha no válida');
 const hora = z.string().regex(/^\d{1,2}:\d{2}$/, 'Hora no válida');
-const profeAfectado = z.object({ id: z.string().uuid(), nombre: z.string().max(200), materia: z.string().max(200).nullable() });
+const profeAfectado = z.object({ id: z.string().uuid(), nombre: z.string().max(200), materia: z.string().max(200).nullable(), sinMolestia: z.boolean().optional() });
 
 export const nuevaSesionSchema = z.object({
   tipoId: z.string().uuid(),
