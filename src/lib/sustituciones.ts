@@ -9,7 +9,7 @@
 import { z } from 'zod';
 
 import { CONFIGURACION, type NivelSustitucionConfig } from '@/lib/configuracion';
-import { etapaDeCurso, ETAPA_LABEL, nivelDeCurso, type Etapa } from '@/lib/cursos';
+import { ampliarEtapasConjuntas, esEtapa, etapaDeCurso, ETAPA_LABEL, nivelDeCurso, type Etapa } from '@/lib/cursos';
 import { aMin, diaSemana, sumarDias } from '@/lib/oratorios';
 import { canAccess, type Acceso } from '@/lib/permissions';
 import { esVigente, type CoberturaBajaBase } from '@/lib/coberturas-baja';
@@ -862,41 +862,74 @@ export function franjasDe(lista: readonly Franja[]): Franja[] {
   return [...vistas.values()].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio) || aMin(a.horaFin) - aMin(b.horaFin));
 }
 
+/**
+ * A qué etapas pertenece alguien en Disponibilidad (David, 23-nov-2026: Bárbara, de ESO, no tiene
+ * que salir en Infantil): las de su ficha (`edu_teachers.etapas`, o la etapa única de antes; ESO y
+ * Bachillerato van juntas) más las de su horario (`propias`: las rejillas propias de cada etapa donde
+ * da algo, y las del titular al que cubre). Solo las etapas que se cubren desde aquí, en su orden.
+ * Quien da en dos etapas sale en las dos.
+ */
+export function etapasDePersona(
+  propias: readonly Etapa[],
+  ficha: { etapa: string | null; etapas: readonly string[] | null },
+  cfg: ConfigSustituciones = CFG,
+): Etapa[] {
+  const deFicha = (ficha.etapas?.length ? ficha.etapas : ficha.etapa ? [ficha.etapa] : []).filter(esEtapa);
+  const todas = new Set<Etapa>([...propias, ...ampliarEtapasConjuntas(deFicha)]);
+  return cfg.etapas.filter((e) => todas.has(e));
+}
+
 export interface CasillaSemana extends Franja {
   dia: number;
   cuenta: Record<Disponibilidad, number>;
-  /** Quiénes están en Sí o Si hace falta. */
+  /** Quiénes de la etapa están en Sí o Si hace falta (sin el equipo directivo). */
   disponibles: string[];
+  /** El equipo directivo de esta etapa en Sí o Si hace falta: va al final. */
+  directivos: string[];
+  /** Equipo directivo de OTRA etapa que podría entrar: se enseña marcado y no cuenta. */
+  deOtraEtapa: string[];
   enCuadro: string[];
   /** Ni un Sí ni un Si hace falta: ahí va a faltar gente. */
   falta: boolean;
 }
 
-/** «La semana»: por día y franja, cuántos hay en cada estado (para ver dónde va a faltar gente). */
+/**
+ * «La semana»: por día y franja, cuántos hay en cada estado (para ver dónde va a faltar gente).
+ * `profes` son los de la etapa (los que cuentan; `directivo` los separa en su lista) y `deOtraEtapa`
+ * el equipo directivo que no es de ella: sale marcado, pero no cuenta (no les toca). Quien no es de
+ * la etapa y no es del equipo directivo no se pasa: no tiene por qué salir.
+ */
 export function mapaSemana(
-  profes: readonly Persona[],
+  profes: readonly (Persona & { directivo?: boolean })[],
   semana: ReadonlyMap<number, readonly SesionDia[]>,
   franjas: readonly Franja[],
   retoques: readonly Retoque[],
   cuadro: readonly { profeId: string; dia: number; horaInicio: string; horaFin: string }[] = [],
   cfg: ConfigSustituciones = CFG,
+  deOtraEtapa: readonly Persona[] = [],
 ): CasillaSemana[] {
-  const nombres = new Map(profes.map((p) => [p.id, p.nombre]));
+  const nombres = new Map([...profes, ...deOtraEtapa].map((p) => [p.id, p.nombre]));
   const out: CasillaSemana[] = [];
   for (let dia = 1; dia <= 5; dia++) {
     const delDia = semana.get(dia) ?? [];
     for (const f of franjas) {
       const cuenta: Record<Disponibilidad, number> = { si: 0, si_hace_falta: 0, urgencia: 0, no: 0 };
       const disponibles: string[] = [];
+      const directivos: string[] = [];
+      const fuera: string[] = [];
       for (const p of profes) {
         const ev = evaluar(p.id, f, delDia, retoques, dia, { cfg });
         // Quien no está en el colegio a esa hora no cuenta: no es «No», es que no está.
         if (!ev.enElColegio && !ev.retocada) continue;
         cuenta[ev.disponibilidad]++;
-        if (ev.disponibilidad === 'si' || ev.disponibilidad === 'si_hace_falta') disponibles.push(p.nombre);
+        if (ev.disponibilidad === 'si' || ev.disponibilidad === 'si_hace_falta') (p.directivo ? directivos : disponibles).push(p.nombre);
+      }
+      for (const p of deOtraEtapa) {
+        const ev = evaluar(p.id, f, delDia, retoques, dia, { cfg });
+        if ((ev.enElColegio || ev.retocada) && (ev.disponibilidad === 'si' || ev.disponibilidad === 'si_hace_falta')) fuera.push(p.nombre);
       }
       const enCuadro = cuadro.filter((c) => c.dia === dia && solapa(c, f)).map((c) => nombres.get(c.profeId) ?? '—');
-      out.push({ dia, ...f, cuenta, disponibles, enCuadro, falta: cuenta.si + cuenta.si_hace_falta === 0 });
+      out.push({ dia, ...f, cuenta, disponibles, directivos, deOtraEtapa: fuera, enCuadro, falta: cuenta.si + cuenta.si_hace_falta === 0 });
     }
   }
   return out;

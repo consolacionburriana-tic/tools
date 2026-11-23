@@ -315,6 +315,11 @@ export const CONFIGURACION = {
       { clave: 'otros', nombre: 'Otros', ampliable: true, pideNota: true },
     ] as readonly { clave: string; nombre: string; ampliable?: boolean; pideNota?: boolean }[],
     /**
+     * Roles del equipo directivo (David, 23-nov-2026): en Disponibilidad salen al final de cada etapa,
+     * y marcados si no son de esa etapa («no les toca»). Quien no lo es y no es de la etapa, no sale.
+     */
+    equipoDirectivoRoles: ['direccion', 'jefe'] as readonly string[],
+    /**
      * Días de la semana (1 = lunes … 7 = domingo) en que NO sale ningún correo de sustituciones
      * (David, 23-nov-2026): lo que tocaba en fin de semana sale el lunes a las 8. Se puede forzar.
      */

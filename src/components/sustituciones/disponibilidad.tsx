@@ -3,7 +3,10 @@
 // Disponibilidad (docs/32, decisión 15): lo dispuesto que está cada profe en cada franja de su semana.
 // Sale sola del horario y Jefatura la retoca a mano. Dos vistas (filtros, no un segundo segmentado:
 // ya hay secciones): «Por profe», su rejilla tocable; y «La semana», cuántos hay en cada estado y
-// dónde va a faltar gente. Mismo aspecto que la rejilla de Oratorios.
+// dónde va a faltar gente. Mismo aspecto que la rejilla de Oratorios. Las dos van POR ETAPA (David,
+// 23-nov-2026): cada profe sale en las etapas a las que pertenece (en las dos si da en dos), y el
+// equipo directivo, al final y marcado si no es de esa etapa.
+
 import { useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,6 +16,7 @@ import { diaCorto } from '@/lib/oratorios';
 import { ETAPA_LABEL, type Etapa } from '@/lib/cursos';
 import { DISPONIBILIDAD_INFO, DISPONIBILIDADES, hora, siguienteEstado, type CasillaDisponibilidad, type Disponibilidad as Disp } from '@/lib/sustituciones';
 import type { DatosDisponibilidad } from '@/lib/sustituciones-server';
+type ProfeLista = DatosDisponibilidad['profes'][number];
 import { Aviso } from '@/components/ui/aviso';
 import { Button } from '@/components/ui/button';
 import { ConfirmarEnLinea } from '@/components/ui/confirmar';
@@ -37,7 +41,12 @@ function urlCon(cambios: Record<string, string | null>): URL {
 export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicial: DatosDisponibilidad; vistaInicial: Vista; etapaInicial: Etapa | null }) {
   const [datos, setDatos] = useState(inicial);
   const [vista, setVista] = useState<Vista>(vistaInicial);
-  const [etapa, setEtapa] = useState<Etapa>(etapaInicial ?? inicial.semana.find((s) => s.franjas.length > 0)?.etapa ?? 'EP');
+  const [etapa, setEtapa] = useState<Etapa>(
+    etapaInicial ??
+      inicial.profes.find((p) => p.id === inicial.porProfe?.profe.id)?.etapas[0] ??
+      inicial.semana.find((s) => s.franjas.length > 0)?.etapa ??
+      'EP',
+  );
   const [cargando, setCargando] = useState(false);
   // Mientras se guarda una casilla no se toca otra: la siguiente se calcula desde lo guardado.
   const [guardando, setGuardando] = useState(false);
@@ -56,8 +65,17 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
     }
   }
 
+  function cambiarEtapa(e: Etapa) {
+    setEtapa(e);
+    window.history.pushState(null, '', urlCon({ etapa: e }));
+  }
+
   function elegirProfe(id: string) {
-    window.history.pushState(null, '', urlCon({ profe: id || null }));
+    // Quien no es de la etapa que se está mirando (un enlace, o un directivo de otra) lleva a la suya.
+    const p = datos.profes.find((x) => x.id === id);
+    const suya = p && !p.directivo && !p.etapas.includes(etapa) ? p.etapas[0] : undefined;
+    if (suya) setEtapa(suya);
+    window.history.pushState(null, '', urlCon({ profe: id || null, ...(suya ? { etapa: suya } : {}) }));
     void recargar(id || null);
   }
 
@@ -131,16 +149,22 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
         <Leyenda />
       </div>
 
+      <Filtros etiqueta="Etapa">
+        {datos.semana
+          .filter((s) => s.franjas.length > 0)
+          .map((s) => (
+            <Filtro key={s.etapa} activo={etapa === s.etapa} onClick={() => cambiarEtapa(s.etapa)}>
+              {ETAPA_LABEL[s.etapa]}
+            </Filtro>
+          ))}
+      </Filtros>
+
       {vista === 'profe' ? (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <Selector aria-label="Profe" className="max-w-xs" value={datos.porProfe?.profe.id ?? ''} onChange={(e) => elegirProfe(e.target.value)}>
+            <Selector aria-label={`Profe de ${ETAPA_LABEL[etapa]}`} className="max-w-xs" value={datos.porProfe?.profe.id ?? ''} onChange={(e) => elegirProfe(e.target.value)}>
               <option value="">Elige un profe…</option>
-              {datos.profes.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.estado ? `${p.nombre} — ${p.estado}` : p.nombre}
-                </option>
-              ))}
+              <OpcionesProfe profes={datos.profes} etapa={etapa} elegido={datos.porProfe?.profe.id ?? null} />
             </Selector>
             {retoques > 0 && (
               <ConfirmarEnLinea
@@ -176,13 +200,6 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
         </>
       ) : (
         <>
-          <Filtros etiqueta="Etapa">
-            {datos.semana.map((s) => (
-              <Filtro key={s.etapa} activo={etapa === s.etapa} onClick={() => setEtapa(s.etapa)}>
-                {ETAPA_LABEL[s.etapa]}
-              </Filtro>
-            ))}
-          </Filtros>
           {!semana || semana.franjas.length === 0 ? (
             <Vacio titulo="Esta etapa no tiene horario importado" />
           ) : (
@@ -209,7 +226,17 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
                         ))}
                       </summary>
                       <div className="mt-1 space-y-0.5 text-zinc-700 dark:text-zinc-300">
-                        {c.disponibles.length > 0 ? <p>{c.disponibles.join(', ')}</p> : <p>Nadie disponible</p>}
+                        {c.disponibles.length > 0 ? <p>{c.disponibles.join(', ')}</p> : c.directivos.length === 0 && <p>Nadie disponible</p>}
+                        {c.directivos.length > 0 && (
+                          <p>
+                            <span className="font-medium">Equipo directivo:</span> {c.directivos.join(', ')}
+                          </p>
+                        )}
+                        {c.deOtraEtapa.length > 0 && (
+                          <p className="text-zinc-500 dark:text-zinc-400">
+                            Directivos de otra etapa (no cuentan): {c.deOtraEtapa.join(', ')}
+                          </p>
+                        )}
                         {c.enCuadro.length > 0 && <p className="text-zinc-500 dark:text-zinc-400">En el cuadro: {c.enCuadro.join(', ')}</p>}
                       </div>
                     </details>
@@ -221,6 +248,46 @@ export function Disponibilidad({ inicial, vistaInicial, etapaInicial }: { inicia
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Los profes de una etapa, con el equipo directivo al final y marcado si no es de ella. Quien no es de
+ * la etapa no sale; si es el que está elegido (un enlace directo), sale aparte para no desaparecer.
+ */
+function OpcionesProfe({ profes, etapa, elegido }: { profes: ProfeLista[]; etapa: Etapa; elegido: string | null }) {
+  const texto = (p: ProfeLista, marca = '') => [p.nombre, marca, p.estado].filter(Boolean).join(' — ');
+  const suyos = profes.filter((p) => !p.directivo && p.etapas.includes(etapa));
+  const directivos = profes.filter((p) => p.directivo);
+  const fuera = profes.filter((p) => p.id === elegido && !suyos.includes(p) && !directivos.includes(p));
+  return (
+    <>
+      <optgroup label={ETAPA_LABEL[etapa]}>
+        {suyos.map((p) => (
+          <option key={p.id} value={p.id}>
+            {texto(p)}
+          </option>
+        ))}
+      </optgroup>
+      {directivos.length > 0 && (
+        <optgroup label="Equipo directivo">
+          {directivos.map((p) => (
+            <option key={p.id} value={p.id}>
+              {texto(p, p.etapas.includes(etapa) ? '' : 'no es de esta etapa')}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {fuera.length > 0 && (
+        <optgroup label="Otras etapas">
+          {fuera.map((p) => (
+            <option key={p.id} value={p.id}>
+              {texto(p)}
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </>
   );
 }
 
