@@ -2,7 +2,7 @@
 
 // «Mis sustituciones» (docs/32, decisión 16; abierta a todo el claustro el 23-nov-2026): lo que me
 // toca cubrir hoy y los próximos días, grande y claro para no olvidarlo, con «Confirmar» (lo mismo que
-// el enlace del correo) y «Añadir a mi Google Calendar». Solo sale lo que ya me han avisado por correo.
+// el enlace del correo) y el botón de calendario con «+» (lo añade a su Google Calendar). Solo sale lo que ya me han avisado por correo.
 import { useState } from 'react';
 import { CalendarPlus, Check, CheckCheck, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
@@ -70,9 +70,11 @@ export function TarjetaMia({ s, hoy }: { s: MiSustitucion; hoy: string }) {
           href={enlaceGoogleCalendar({ titulo: `Sustitución · ${[s.grupos, s.materia].filter(Boolean).join(' · ') || s.cubreA}`, fecha: s.fecha, horaInicio: s.horaInicio, horaFin: s.horaFin, lugar: s.aula ? mayuscula(s.aula) : s.grupos, detalles: [`Cubres a ${s.cubreA}.`, s.indicaciones].filter(Boolean).join('\n\n') })}
           target="_blank"
           rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'outline' })}
+          aria-label="Añadir a mi Google Calendar"
+          title="Añadir a mi Google Calendar"
+          className={buttonVariants({ variant: 'outline', size: 'icon' })}
         >
-          <CalendarPlus aria-hidden /> Añadir a mi Google Calendar
+          <CalendarPlus aria-hidden />
         </a>
       </div>
     </Tarjeta>

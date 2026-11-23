@@ -705,11 +705,19 @@ type TipoEnvio = 'sustituto' | 'ausente' | 'anulacion_sustituto' | 'anulacion_au
  * no está configurado o la hora pasa de 30 días, queda `pendiente` y `repasarEnvios()` lo entrega
  * cuando se pueda (se lanza al abrir las pantallas del módulo).
  */
-async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Quien, ausenciaId: string, sesionesIds: string[], tipoEnvio: TipoEnvio): Promise<{ error?: string; programadoPara?: Date }> {
+/**
+ * El buzón del que salen los correos de una ausencia (David, 23-nov-2026): lo de la ESO, de Jefatura de
+ * Secundaria; lo de Infantil y Primaria, de su Jefatura. La etapa es la de la ausencia.
+ */
+export function buzonDeEtapa(etapa: string | null | undefined): string {
+  return etapa === 'ESO' ? COLEGIO.correoJefaturaEso : COLEGIO.correoJefaturaInfantilPrimaria;
+}
+
+async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Quien, ausenciaId: string, sesionesIds: string[], tipoEnvio: TipoEnvio, etapa: string): Promise<{ error?: string; programadoPara?: Date }> {
   const { subject, html } = correoAviso(d);
   const envioId = crypto.randomUUID();
   // Con su Message-ID propio: el aviso de «confirmada» a Jefatura sale como respuesta a este correo.
-  const mensaje = { to: para, subject, html, replyTo: q.email, cabeceras: { 'Message-ID': messageIdDeEnvio(envioId) } };
+  const mensaje = { to: para, subject, html, replyTo: q.email, desde: buzonDeEtapa(etapa), cabeceras: { 'Message-ID': messageIdDeEnvio(envioId) } };
   const programadoPara = cuandoEnviar(d.horas[0]?.fecha ?? d.desde, new Date(), q.enviarYa);
   const ahora = Date.now();
   const futuro = programadoPara.getTime() > ahora + 60_000;
@@ -829,6 +837,7 @@ async function avisarSustitutos(a: SustAusencia, sesiones: SustSesion[], q: Quie
         a.id,
         lista.map((s) => s.id),
         tipo === 'anulacion' ? 'anulacion_sustituto' : tipo === 'cambio' ? 'cambio_sustituto' : 'sustituto',
+        a.etapa,
       );
     }
     if (resultado.error) res.fallidos.push({ nombre: p?.nombre ?? lista[0].sustitutoNombre ?? '—', error: resultado.error });
@@ -856,7 +865,7 @@ async function avisarAusente(a: SustAusencia, sesiones: SustSesion[], q: Quien, 
   const porDia = new Map<string, SustSesion[]>();
   for (const s of sesiones) porDia.set(s.fecha, [...(porDia.get(s.fecha) ?? []), s]);
   for (const [fecha, lista] of porDia) {
-    const resultado = await mandar(p.email, { tipo, plantilla: plantillas[tipo], para: p.pila, ausente: p.nombre, quien: q.nombre, desde: fecha, hasta: fecha, horas: lista.flatMap((s) => horasParaAusente(s, profes)) }, q, a.id, lista.map((s) => s.id), tipo === 'anulacion' ? 'anulacion_ausente' : 'ausente');
+    const resultado = await mandar(p.email, { tipo, plantilla: plantillas[tipo], para: p.pila, ausente: p.nombre, quien: q.nombre, desde: fecha, hasta: fecha, horas: lista.flatMap((s) => horasParaAusente(s, profes)) }, q, a.id, lista.map((s) => s.id), tipo === 'anulacion' ? 'anulacion_ausente' : 'ausente', a.etapa);
     if (resultado.error) res.fallidos.push({ nombre: p.nombre, error: resultado.error });
     else if (resultado.programadoPara) res.programados++;
     else res.enviados++;
@@ -1609,7 +1618,9 @@ export async function enviarInforme(mes: string, opciones: { forzar?: boolean; q
     ]);
     const { subject, html } = correoInforme({ mes, delMes: resumir(delMesFilas), delCurso: resumir(delCursoFilas), curso: inf.curso, enlace: `${appBaseUrl()}/gestion/sustituciones/numeros`, etapa: destino.nombre });
     try {
-      await enviar('sustituciones', { to: destino.email, subject, html, ...(opciones.quien ? { replyTo: opciones.quien.email } : {}) });
+      // El de la ESO sale de su Jefatura; el de Infantil y Primaria y el conjunto, del buzón del perfil.
+      const soloEso = destino.etapas.length > 0 && destino.etapas.every((e) => e === 'ESO');
+      await enviar('sustituciones', { to: destino.email, subject, html, ...(soloEso ? { desde: buzonDeEtapa('ESO') } : {}), ...(opciones.quien ? { replyTo: opciones.quien.email } : {}) });
       ok.push(destino.email);
     } catch (e) {
       console.error('Sustituciones · informe:', e instanceof Error ? e.message : e);
@@ -1704,7 +1715,7 @@ export async function repasarEnvios(): Promise<{ conciliados: number; programado
   const ventanaAbierta = madrid.hora >= 8 && madrid.hora < 18 && !diaSinCorreo(madrid.dia);
   const limiteResend = new Date(ahora.getTime() + MAX_DIAS_PROGRAMADO * 86_400_000);
   const filas = await db
-    .select({ id: sustEnvios.id, ausenciaId: sustEnvios.ausenciaId, sesionesIds: sustEnvios.sesionesIds, destinatario: sustEnvios.destinatario, tipo: sustEnvios.tipo, asunto: sustEnvios.asunto, html: sustEnvios.html, replyTo: sustEnvios.replyTo, programadoPara: sustEnvios.programadoPara, profeId: sustAusencias.profeId })
+    .select({ id: sustEnvios.id, ausenciaId: sustEnvios.ausenciaId, sesionesIds: sustEnvios.sesionesIds, destinatario: sustEnvios.destinatario, tipo: sustEnvios.tipo, asunto: sustEnvios.asunto, html: sustEnvios.html, replyTo: sustEnvios.replyTo, programadoPara: sustEnvios.programadoPara, profeId: sustAusencias.profeId, etapa: sustAusencias.etapa })
     .from(sustEnvios)
     .innerJoin(sustAusencias, eq(sustAusencias.id, sustEnvios.ausenciaId))
     .where(and(eq(sustEnvios.estado, 'pendiente'), lte(sustEnvios.programadoPara, limiteResend), or(eq(sustAusencias.estado, 'confirmada'), inArray(sustEnvios.tipo, ['anulacion_sustituto', 'anulacion_ausente']))))
@@ -1720,7 +1731,7 @@ export async function repasarEnvios(): Promise<{ conciliados: number; programado
       await db.update(sustEnvios).set({ estado: 'cancelado' }).where(eq(sustEnvios.id, f.id));
       continue;
     }
-    const mensaje = { to: f.destinatario, subject: f.asunto, html: f.html, ...(f.replyTo ? { replyTo: f.replyTo } : {}) };
+    const mensaje = { to: f.destinatario, subject: f.asunto, html: f.html, desde: buzonDeEtapa(f.etapa), cabeceras: { 'Message-ID': messageIdDeEnvio(f.id) }, ...(f.replyTo ? { replyTo: f.replyTo } : {}) };
     try {
       if (dueNow) {
         await enviar('sustituciones', mensaje);

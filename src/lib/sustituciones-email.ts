@@ -79,7 +79,7 @@ function bloque(h: HoraBloque, d: DatosAviso): string {
           lugar: h.aula ? mayuscula(h.aula) : h.grupos,
           detalles: [`Cubres a ${d.ausente}.`, d.indicaciones?.trim() || null].filter(Boolean).join('\n\n'),
         }),
-        'Añadir a mi Google Calendar',
+        '+ Calendario',
       )
     : '';
   return `

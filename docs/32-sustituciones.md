@@ -479,6 +479,34 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     para mirar lo otro; la elección se recuerda (cookie `sust_etapas`). Al apuntar, los profes de su etapa salen primero.
     Una ausencia es de la etapa del profe que falta (como hasta ahora).
 
+31. **Rejilla por etapa, calendario para lo conjunto y colores por curso** (David, 23-nov-2026, segunda vuelta: «no es
+    un calendario de horas libres, va a rejillas»). En la Semana se elige qué ver: **Infantil · Primaria · ESO** (cada
+    una en su **rejilla**: sus tramos de verdad en filas, un día por columna; tocar una casilla apunta a esa hora) o
+    **Infantil y Primaria · Todo el cole** (en **calendario** por horas, porque cada etapa tiene su rejilla). Una etapa
+    también se puede ver en calendario con un toque (dos iconos). Por defecto, cada jefatura su etapa en rejilla (José
+    Miguel, Primaria; Lucía, ESO); quien no lleva ninguna, todo el cole. Se recuerda lo último (cookies `sust_vista` y
+    `sust_modo`). Cada hora es de la etapa de **su grupo** (lo que le pasa a ese alumnado), no de quien falta.
+    - **Colores**: por **estado** por defecto; con un toque («Ciclos» / «Cursos»), por **ciclo** en Infantil y Primaria
+      (Infantil y los tres ciclos: cuatro colores) y por **curso** en la ESO (cuatro); el estado sigue en el icono. Es
+      una excepción de `diseno.md`.
+    - **Bajas**: fuera de la rejilla. Un botón «Bajas N» (N = las que no tienen sustituto, que son las que importan) que
+      despliega quién está de baja sin sustituto y, plegado, «Con sustituto»: «Alejandro Sán. → Ángela Gui.».
+32. **Sustituciones de una parte de la hora** (David, 23-nov-2026: «voy a llegar 20 minutos tarde»). En cada hora, «Solo
+    una parte»: atajos «Primeros 15′ · 20′ · 30′» y «Últimos …», o la franja a mano en saltos de 5 minutos, y si hace
+    falta otra persona para el resto (se le pone sola la franja que queda). La propuesta busca a quien esté libre en ESA
+    parte. Ya se guardaba (`sustituto_hora_inicio/fin`); ahora se ve en la ficha («Solo de 11:45-12:05»), en la rejilla y
+    en el calendario, y le llega así al sustituto.
+33. **Importar salidas del módulo Salidas y pagos** (David, 23-nov-2026). En Salidas, «Del módulo Salidas · próximos dos
+    meses»: las salidas de tus etapas con fecha de hoy a dos meses que aún no se han traído. «Importar» abre el formulario
+    relleno (nombre, día y grupos; «3ºPPDC» se entiende como 3º PDC): **van** quienes reciben sus justificantes de pago,
+    **menos los tutores de esos grupos**, que salen aparte para tocarlos si van. Una importada no vuelve a salir
+    (`sust_salidas.sal_trip_id`, `sustituciones-salidas-importar.sql`, aplicado en Neon el 23-nov-2026).
+34. **Los correos de la ESO salen de `jesecundaria@`** (David, 23-nov-2026); los de Infantil y Primaria, de `jeinfyprim@`.
+    Lo decide la etapa de la ausencia (`buzonDeEtapa`), también en los programados, el aviso de «confirmada» y el informe
+    de la ESO (`Mensaje.desde` en `email.ts`). Comprobado el 23-nov-2026 que la cuenta de servicio puede enviar como los dos
+    buzones (delegación de `gmail.send`). En el correo y en «Mis sustituciones», «Añadir a mi Google Calendar» pasa a ser
+    un botón de calendario con «+».
+
 ## 3. Preguntas para David
 
 Ninguna: todas respondidas el 13-nov-2026 (están en §2). La última, qué horario manda en
@@ -875,6 +903,10 @@ cómo queda: Nouvinguts.
 - [x] «Mis sustituciones» abierta a todo el claustro (decisión 16): solo de hoy en adelante y lo ya avisado por correo (también «Te cubren», el aviso del escritorio y la franja de Mi horario), con «Confirmar» desde la pantalla.
 - [x] Aviso a Jefatura cuando confirman (decisión 26), como respuesta al aviso (`Message-ID` propio en cada envío).
 - [x] ⌘K en lenguaje natural (decisión 27): `interpretar` con tests, y Claude para lo que falte (sin nombres).
+- [x] Rejilla por etapa por defecto y calendario para Infantil y Primaria o todo el cole, colores por estado o por ciclo/curso, bajas plegadas en «Bajas N» (decisión 31). Pintado en local con datos de Neon (Primaria y ESO, claro y oscuro, 1366 y 390 px).
+- [x] Sustituciones de una parte de la hora con atajos y saltos de 5 minutos (decisión 32).
+- [x] Importar salidas del módulo Salidas y pagos, con los tutores aparte (decisión 33); probado contra Neon con las convivencias de septiembre.
+- [x] Correos de la ESO desde `jesecundaria@` (decisión 34), con la delegación comprobada.
 
 ### Fase 3 · cuentas e informe
 

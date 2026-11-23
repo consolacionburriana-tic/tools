@@ -294,6 +294,7 @@ export function FichaAusencia({ ficha, hoy, recargar }: { ficha: DatosFicha; hoy
                           )}
                           {s.sustitutoId && (
                             <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                              {s.sustitutoHoraInicio && s.sustitutoHoraFin && (s.sustitutoHoraInicio !== s.horaInicio || s.sustitutoHoraFin !== s.horaFin) ? `Solo de ${horaRango(s.sustitutoHoraInicio, s.sustitutoHoraFin)} · ` : ''}
                               {nombreNivel(s.nivel)} · {TEXTO_AVISO[s.avisoEstado] ?? s.avisoEstado}
                               {s.avisoProgramadoPara ? ` para ${comoFecha(s.avisoProgramadoPara)!.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', dateStyle: 'short', timeStyle: 'short' })}` : ''}
                               {s.confirmacionToken ? ` · ${s.confirmacionEstado === 'confirmada' ? 'confirmada por el sustituto' : 'pendiente de confirmación'}` : ''}

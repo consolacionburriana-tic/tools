@@ -8,9 +8,9 @@
 //  3. lo que ya estaba apuntado no se pisa: las horas que el acompañante ya tenía en otra ausencia se
 //     saltan; lo que él cubría se queda sin cubrir (y se dice); y las sustituciones de esos grupos
 //     que ya no hacen falta se señalan para quitarlas con un toque.
-import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm';
 import { db } from '@/db';
-import { eduTeachers, horAsignaciones, horAsignacionGrupos, horPeriodos, sustAusencias, sustSalidas, sustSesiones } from '@/db/schema';
+import { eduTeachers, eduTutorias, horAsignaciones, horAsignacionGrupos, horPeriodos, salTripManagers, salTrips, sustAusencias, sustSalidas, sustSesiones } from '@/db/schema';
 import { nombreProfeBreve } from '@/lib/profes';
 import { etapaDeCurso, type Etapa } from '@/lib/cursos';
 import { hoyEnEspana, sumarDias } from '@/lib/oratorios';
@@ -177,6 +177,63 @@ export async function sustitucionesQueSobran(s: { id?: string; fecha: string; ho
     .map((f) => ({ sesionId: f.sesionId, ausenciaId: f.ausenciaId, ausente: f.ausente, cuando: `${hora(f.horaInicio)}-${hora(f.horaFin)}`, grupos: f.grupos ?? '', sustituto: f.sustituto }));
 }
 
+export interface SalidaParaImportar {
+  id: string;
+  nombre: string;
+  fecha: string;
+  grupos: { curso: string; letra: string | null; etiqueta: string }[];
+  /** Quien recibe los justificantes de pago: se da por hecho que va (menos los tutores). */
+  van: { id: string; nombre: string }[];
+  /** Los tutores de esos grupos: se eligen a mano si van. */
+  tutores: { id: string; nombre: string }[];
+}
+
+/**
+ * Las salidas del módulo Salidas y pagos de los próximos dos meses, de estas etapas, que aún no se han
+ * traído aquí (David, 23-nov-2026: «Portaventura en junio: ¡pam!, importar; una vez importada ya no sale»).
+ */
+/** Un grupo de Salidas como lo dice el horario: «3ºPPDC» (a mano en Salidas) es 3ESO + PDC. */
+export function cursoComoHorario(curso: string, letra: string | null): { curso: string; letra: string | null } {
+  const c = curso.toUpperCase().replace(/\s+/g, '');
+  const l = letra?.toUpperCase() || null;
+  if (/^\d+(INF|PRI|ESO|BACH)$/.test(c)) return { curso: c, letra: l };
+  const n = /(\d+)/.exec(c)?.[1];
+  if (n && /PDC/.test(c + (l ?? ''))) return { curso: `${n}ESO`, letra: 'PDC' };
+  return { curso: c, letra: l };
+}
+
+export async function salidasParaImportar(etapas: readonly Etapa[], hoy = hoyEnEspana()): Promise<SalidaParaImportar[]> {
+  const hasta = sumarDias(hoy, 61);
+  const [trips, ya, managers, tutorias] = await Promise.all([
+    db.select({ id: salTrips.id, nombre: salTrips.nombre, fecha: salTrips.fecha, clases: salTrips.clases }).from(salTrips).where(and(isNotNull(salTrips.fecha), gte(salTrips.fecha, hoy), lte(salTrips.fecha, hasta))).orderBy(asc(salTrips.fecha)),
+    db.select({ id: sustSalidas.salTripId }).from(sustSalidas).where(and(isNotNull(sustSalidas.salTripId), eq(sustSalidas.estado, 'activa'))),
+    db
+      .select({ tripId: salTripManagers.tripId, id: eduTeachers.id, nombre: eduTeachers.nombre, apellido1: eduTeachers.apellido1, apellido2: eduTeachers.apellido2, nombreMostrado: eduTeachers.nombreMostrado })
+      .from(salTripManagers)
+      .innerJoin(eduTeachers, eq(eduTeachers.id, salTripManagers.eduTeacherId)),
+    db
+      .select({ curso: eduTutorias.curso, letra: eduTutorias.letra, id: eduTeachers.id, nombre: eduTeachers.nombre, apellido1: eduTeachers.apellido1, apellido2: eduTeachers.apellido2, nombreMostrado: eduTeachers.nombreMostrado })
+      .from(eduTutorias)
+      .innerJoin(eduTeachers, eq(eduTeachers.id, eduTutorias.eduTeacherId))
+      .where(eq(eduTutorias.academicYear, cursoDeFecha(hoy))),
+  ]);
+  const importadas = new Set(ya.map((x) => x.id));
+  const de = new Set(etapas);
+  return trips
+    .filter((t) => t.fecha && !importadas.has(t.id) && t.clases.some((c) => de.has(etapaDeCurso(c.curso) as Etapa)))
+    .map((t) => {
+      const grupos = t.clases.map((c) => {
+        const g = cursoComoHorario(c.curso, c.letra);
+        return { ...g, etiqueta: etiquetaGrupo(g.curso, g.letra) };
+      });
+      const claves = new Set(grupos.map((g) => claveGrupo(g.curso, g.letra)));
+      const tutores = new Map<string, string>();
+      for (const x of tutorias) if (claves.has(claveGrupo(x.curso, x.letra))) tutores.set(x.id, nombreProfeBreve(x));
+      const van = managers.filter((m) => m.tripId === t.id && !tutores.has(m.id)).map((m) => ({ id: m.id, nombre: nombreProfeBreve(m) }));
+      return { id: t.id, nombre: t.nombre, fecha: t.fecha!, grupos, van, tutores: [...tutores].map(([id, nombre]) => ({ id, nombre })) };
+    });
+}
+
 export async function crearSalida(e: EntradaSalida, q: Quien): Promise<ResultadoSalida> {
   const grupos = e.grupos.map((g) => ({ curso: g.curso.toUpperCase(), letra: g.letra?.toUpperCase() || null, etiqueta: etiquetaGrupo(g.curso.toUpperCase(), g.letra?.toUpperCase() || null) }));
   const profes = await getProfesBreve(e.acompanantes);
@@ -191,6 +248,7 @@ export async function crearSalida(e: EntradaSalida, q: Quien): Promise<Resultado
     grupos,
     acompanantes: profes,
     descripcion: e.descripcion.trim(),
+    salTripId: e.salTripId ?? null,
     creadaPorEmail: q.firma ?? q.email,
   });
 

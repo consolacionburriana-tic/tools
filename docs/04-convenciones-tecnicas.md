@@ -64,7 +64,7 @@ En uso hoy (`.env.local` local · Settings→Environment Variables en Vercel):
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (justificantes de Salidas) |
 
 | `PUNTUALIDAD_AVISOS_COPIA` | Correos (separados por comas) que reciben copia del aviso del tercer retraso, además del tutor/a. Vacío = solo el tutor |
-| `EMAIL_FROM_SUSTITUCIONES` | Remitente del módulo Sustituciones. En Consolación: `jeinfyprim@consolacionburriana.com`; necesita estar delegado para Gmail. |
+| `EMAIL_FROM_SUSTITUCIONES` | Remitente del módulo Sustituciones. En Consolación: `jeinfyprim@consolacionburriana.com`; necesita estar delegado para Gmail. Lo de la ESO sale siempre de `COLEGIO.correoJefaturaEso` (`jesecundaria@`), que también tiene que poder suplantarse (docs/32, decisión 34). |
 | `SUSTITUCIONES_INFORME_COPIA` | (Retirada) Los informes de Sustituciones se enrutan por etapa a jeinfyprim, jesecundaria y titular. |
 | `CRON_SECRET` | Secreto de los crons de Vercel (`vercel.json`): resumen semanal de Puntualidad, worker del Cuaderno de tutor, worker del envío de Evaluaciones, foto mensual de Números del cole, avisos programados de Oratorios, aviso diario de vencimientos de Tableros e informe mensual de Sustituciones (los avisos por sustitución NO usan cron: los programa Resend con `scheduled_at`, ver docs/32). El worker también lo usa para re-despertarse a sí mismo |
 

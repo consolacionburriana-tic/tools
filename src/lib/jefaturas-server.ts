@@ -7,7 +7,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { authUsers, cfgAjustes } from '@/db/schema';
 import { CONFIGURACION } from '@/lib/configuracion';
-import { etapasDeGrupo } from '@/lib/sustituciones';
+import { esVistaSemana, etapasDeGrupo, vistaPorDefecto, type VistaSemana } from '@/lib/sustituciones';
 import type { Etapa } from '@/lib/cursos';
 
 const CLAVE = 'jefaturas';
@@ -79,4 +79,22 @@ export async function etapasActivas(email: string): Promise<{ grupo: ClaveJefatu
   if (esClaveJefatura(elegido)) return { grupo: elegido, etapas: etapasDeGrupo(elegido) };
   const propia = await jefaturaDe(email);
   return propia ? { grupo: propia, etapas: etapasDeGrupo(propia) } : { grupo: 'todas', etapas: etapasDeGrupo(null) };
+}
+
+export const COOKIE_VISTA = 'sust_vista';
+export const COOKIE_MODO = 'sust_modo';
+
+/** La vista de la semana: la que se eligió (cookie) o la de su jefatura (Primaria o ESO, en rejilla); si no lleva ninguna, todo el cole. */
+export async function vistaActiva(email: string): Promise<{ vista: VistaSemana; modo: 'rejilla' | 'calendario'; propia: ClaveJefatura | null }> {
+  let v: string | undefined;
+  let m: string | undefined;
+  try {
+    const c = await cookies();
+    v = c.get(COOKIE_VISTA)?.value;
+    m = c.get(COOKIE_MODO)?.value;
+  } catch {
+    v = undefined;
+  }
+  const propia = await jefaturaDe(email);
+  return { vista: esVistaSemana(v) ? v : vistaPorDefecto(propia), modo: m === 'calendario' ? 'calendario' : 'rejilla', propia };
 }

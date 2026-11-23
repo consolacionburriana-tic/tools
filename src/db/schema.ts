@@ -1980,6 +1980,8 @@ export const sustSalidas = pgTable('sust_salidas', {
   grupos: jsonb('grupos').$type<{ curso: string; letra: string | null; etiqueta: string }[]>().notNull().default([]),
   acompanantes: jsonb('acompanantes').$type<{ id: string; nombre: string }[]>().notNull().default([]),
   descripcion: text('descripcion').notNull(),
+  // Importada del módulo Salidas y pagos (para no ofrecerla otra vez).
+  salTripId: uuid('sal_trip_id').references(() => salTrips.id),
   estado: text('estado').notNull().default('activa'), // 'activa' | 'anulada'
   creadaPorEmail: text('creada_por_email').notNull(),
   anuladaPorEmail: text('anulada_por_email'),
