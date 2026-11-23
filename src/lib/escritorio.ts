@@ -270,7 +270,7 @@ const HERRAMIENTAS: readonly Definicion[] = [
     href: '/gestion/sustituciones',
     grupo: 'centro',
     icono: 'sustituciones',
-    palabras: ['ausencias', 'faltas', 'guardias', 'cubrir', 'profesorado'],
+    palabras: ['ausencias', 'faltas', 'guardias', 'cubrir', 'profesorado', 'bajas', 'calendario', 'semana'],
     visible: tiene('sustituciones'),
     badge: (ctx) => (ctx.sustituciones && ctx.sustituciones.sinCubrir > 0 ? { texto: `${ctx.sustituciones.sinCubrir} sin cubrir`, tono: 'ambar' } : null),
   },

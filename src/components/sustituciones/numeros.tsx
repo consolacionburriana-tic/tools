@@ -30,6 +30,15 @@ export interface DatosNumeros {
   informe: { mes: string; html: string; asunto: string; destinatarios: string[]; opcionesDestinatarios: { email: string; nombre: string; rol: string }[]; enviado: { at: string; destinatarios: string[] } | null };
 }
 
+/** Por jefatura (lo de cada una) y, dentro de Infantil y Primaria, cada etapa por separado. */
+const OPCIONES_ETAPA = [
+  ['infantil-primaria', 'Infantil y Primaria'],
+  ['EI', 'Infantil'],
+  ['EP', 'Primaria'],
+  ['eso', 'ESO'],
+  ['todas', 'Todo'],
+] as const;
+
 export function Numeros({ datos }: { datos: DatosNumeros }) {
   const router = useRouter();
   const ruta = usePathname();
@@ -56,18 +65,17 @@ export function Numeros({ datos }: { datos: DatosNumeros }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Filtros etiqueta="Periodo">
           {PERIODOS_CIFRAS.map((p) => (
-            <Filtro key={p} activo={datos.periodo === p} onClick={() => { const params = new URLSearchParams(); if (p !== 'mes') params.set('periodo', p); if (datos.etapa !== 'todas') params.set('etapa', datos.etapa); const query = params.toString(); router.push(query ? `${ruta}?${query}` : ruta); }}>
+            <Filtro key={p} activo={datos.periodo === p} onClick={() => { const params = new URLSearchParams(); if (p !== 'mes') params.set('periodo', p); params.set('etapa', datos.etapa); const query = params.toString(); router.push(query ? `${ruta}?${query}` : ruta); }}>
               {NOMBRE_PERIODO[p]}
             </Filtro>
           ))}
         </Filtros>
         <Filtros etiqueta="Etapa">
-          {(['todas', 'EI', 'EP', 'ESO'] as const).map((e) => {
+          {OPCIONES_ETAPA.map(([e, nombre]) => {
             const params = new URLSearchParams();
             if (datos.periodo !== 'mes') params.set('periodo', datos.periodo);
-            if (e !== 'todas') params.set('etapa', e);
-            const query = params.toString();
-            return <Filtro key={e} activo={datos.etapa === e} onClick={() => router.push(query ? `${ruta}?${query}` : ruta)}>{e === 'todas' ? 'Todas' : e}</Filtro>;
+            params.set('etapa', e);
+            return <Filtro key={e} activo={datos.etapa === e} onClick={() => router.push(`${ruta}?${params.toString()}`)}>{nombre}</Filtro>;
           })}
         </Filtros>
         <span className="text-sm text-zinc-500 dark:text-zinc-400">{rangoCorto(datos.desde, datos.hasta)}</span>

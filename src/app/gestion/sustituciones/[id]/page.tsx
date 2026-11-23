@@ -1,20 +1,14 @@
-import { after } from 'next/server';
-import { notFound } from 'next/navigation';
-import { hoyEnEspana } from '@/lib/oratorios';
-import { ErrorSustitucion, fichaAusencia, repasarEnviosSilencioso } from '@/lib/sustituciones-server';
-import { FichaAusencia } from '@/components/sustituciones/ficha';
+import { redirect } from 'next/navigation';
+import { db } from '@/db';
+import { sustAusencias } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Ausencia · Sustituciones' };
 
+// La ficha de una ausencia se abre en el panel del calendario, en su semana (enlaces de antes y del historial).
 export default async function AusenciaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  after(repasarEnviosSilencioso); // cuadra los correos programados con Resend, sin cron
-  const ficha = await fichaAusencia(id).catch((e) => {
-    if (e instanceof ErrorSustitucion && e.status === 404) return null;
-    throw e;
-  });
-  if (!ficha) notFound();
-  return <FichaAusencia ficha={ficha} hoy={hoyEnEspana()} />;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) redirect('/gestion/sustituciones');
+  const [a] = await db.select({ desde: sustAusencias.desde }).from(sustAusencias).where(eq(sustAusencias.id, id)).limit(1);
+  redirect(a ? `/gestion/sustituciones?semana=${a.desde}&ausencia=${id}` : '/gestion/sustituciones');
 }

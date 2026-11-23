@@ -2,7 +2,10 @@
 
 // Piezas pequeñas que comparten las pantallas de Sustituciones (docs/32): la disponibilidad con su
 // icono (nada de emojis: diseno.md), el estado de un aviso y la llamada a la API.
+import { useRouter } from 'next/navigation';
 import { Ban, Frown, Meh, Smile, type LucideIcon } from 'lucide-react';
+import { CONFIGURACION } from '@/lib/configuracion';
+import { Filtro, Filtros } from '@/components/ui/filtro';
 import { cn } from '@/lib/utils';
 import { Estado, type TonoEstado } from '@/components/ui/estado';
 import { DISPONIBILIDAD_INFO, type Disponibilidad } from '@/lib/sustituciones';
@@ -83,4 +86,38 @@ export function textoAvisos(a: Avisos | null | undefined): string | null {
 export function horaRango(inicio: string, fin: string): string {
   const h = (x: string) => x.replace(/^0(\d)/, '$1');
   return `${h(inicio)}-${h(fin)}`;
+}
+
+/**
+ * Qué etapas se ven (Infantil y Primaria · ESO · Todo). Se recuerda (cookie) para todas las secciones;
+ * sin elegir, cada jefatura ve lo suyo (docs/32, «Jefaturas por etapa»).
+ */
+/** Recuerda qué etapas se quieren ver (para todas las secciones del módulo). */
+export function guardarGrupoEtapas(g: string) {
+  try {
+    document.cookie = `sust_etapas=${g}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+  } catch {
+    // Sin cookies: cada sección vuelve a la etapa de su jefatura, que tampoco es grave.
+  }
+}
+
+export function FiltroJefatura({ grupo, onCambio }: { grupo: string; onCambio?: (g: string) => void }) {
+  const router = useRouter();
+  function elegir(g: string) {
+    guardarGrupoEtapas(g);
+    if (onCambio) onCambio(g);
+    else router.refresh();
+  }
+  return (
+    <Filtros etiqueta="Etapas">
+      {CONFIGURACION.sustituciones.jefaturas.map((j) => (
+        <Filtro key={j.clave} activo={grupo === j.clave} onClick={() => elegir(j.clave)}>
+          {j.nombre}
+        </Filtro>
+      ))}
+      <Filtro activo={grupo === 'todas'} onClick={() => elegir('todas')}>
+        Todo
+      </Filtro>
+    </Filtros>
+  );
 }

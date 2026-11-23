@@ -31,6 +31,7 @@ import {
   sustEnvios,
   sustInformes,
   sustSesiones,
+  sustSalidas,
   type NewSustSesion,
   type SustAusencia,
   type SustSesion,
@@ -48,6 +49,9 @@ import { bajasEnRango } from '@/lib/bajas-server';
 import {
   aplicarCoberturas,
   aulaVisible,
+  claveGrupo,
+  marcarGruposFuera,
+  type SalidaGrupos,
   claveSesion,
   cursoDeFecha,
   diasLectivos,
@@ -159,6 +163,7 @@ interface SesionBase {
   etiqueta: string | null;
   materia: string | null;
   grupos: string[];
+  gruposClave: string[];
   aula: string | null;
   profes: { id: string; principal: boolean; rol: string }[];
 }
@@ -266,6 +271,7 @@ async function getHorarioBase(): Promise<HorarioBase> {
         etiqueta: f.etiqueta,
         materia: f.materia,
         grupos: gs.map((g) => etiquetaGrupo(g.curso, g.letra, g.subgrupo)),
+        gruposClave: [...new Set(gs.map((g) => claveGrupo(g.curso, g.letra)))],
         aula: aulaVisible(codigo, nombreEsp, gs),
         profes: profesPor.get(f.asignacionId) ?? [],
       };
@@ -291,6 +297,7 @@ function aSesionDia(s: SesionBase, fecha: string): SesionDia {
     actividadNombre: s.actividadNombre,
     etiqueta: s.etiqueta,
     grupos: s.grupos,
+    gruposClave: s.gruposClave,
     materia: s.materia,
     aula: s.aula,
     profes: s.profes,
@@ -298,12 +305,12 @@ function aSesionDia(s: SesionBase, fecha: string): SesionDia {
 }
 
 /** Las sesiones de todo el claustro una fecha (rejillas que mandan ese día, con coberturas aplicadas). */
-function sesionesDeFecha(base: HorarioBase, fecha: string, coberturas: readonly CoberturaBajaBase[]): { sesiones: SesionDia[]; notas: string[]; periodos: Set<string> } {
+function sesionesDeFecha(base: HorarioBase, fecha: string, coberturas: readonly CoberturaBajaBase[], salidas: readonly SalidaGrupos[] = []): { sesiones: SesionDia[]; notas: string[]; periodos: Set<string> } {
   const h = horarioDeFecha(fecha, base.periodos, base.rejillas);
   const dia = diaSemana(fecha);
   const sesiones = base.sesiones.filter((s) => s.dia === dia && h.rejillas.has(s.rejillaId)).map((s) => aSesionDia(s, fecha));
   const periodos = new Set(h.porEtapa.map((e) => e.periodo?.id).filter((x): x is string => Boolean(x)));
-  return { sesiones: aplicarCoberturas(sesiones, coberturas), notas: notasDeHorario(h, base.periodos, fecha), periodos };
+  return { sesiones: marcarGruposFuera(aplicarCoberturas(sesiones, coberturas), salidas), notas: notasDeHorario(h, base.periodos, fecha), periodos };
 }
 
 // ─── El contexto de una propuesta (una tanda para todo el rango) ─────────────
@@ -317,6 +324,17 @@ interface Cargado {
   coberturas: CoberturaBajaBase[];
   /** Las bajas anotadas que tocan el rango (Sustituciones › Bajas). */
   bajas: BajaBase[];
+  /** Las salidas del rango (sus grupos no están: quien les da clase queda libre). */
+  salidas: SalidaGrupos[];
+}
+
+/** Las salidas activas de un rango, como las entiende la propuesta. */
+export async function salidasEnRango(desde: string, hasta: string): Promise<SalidaGrupos[]> {
+  const filas = await db
+    .select({ fecha: sustSalidas.fecha, horaInicio: sustSalidas.horaInicio, horaFin: sustSalidas.horaFin, grupos: sustSalidas.grupos })
+    .from(sustSalidas)
+    .where(and(eq(sustSalidas.estado, 'activa'), gte(sustSalidas.fecha, desde), lte(sustSalidas.fecha, hasta)));
+  return filas.map((f) => ({ fecha: f.fecha, horaInicio: f.horaInicio, horaFin: f.horaFin, grupos: f.grupos.map((g) => claveGrupo(g.curso, g.letra)) }));
 }
 
 /** Ventanas de otras ausencias: de la primera a la última hora de cada una cada día. */
@@ -339,7 +357,7 @@ async function cargar(desde: string, hasta: string, excluirAusencia?: string | n
   const inicioReparto = sumarDias(desde, -CFG.diasReparto);
   const inicioMes = `${desde.slice(0, 7)}-01`;
   const otra = excluirAusencia ? ne(sustAusencias.id, excluirAusencia) : undefined;
-  const [base, profes, festivos, coberturas, sustFilas, oratorios, retoques, cargas, esteMes, bajas] = await Promise.all([
+  const [base, profes, festivos, coberturas, sustFilas, oratorios, retoques, cargas, esteMes, bajas, salidas] = await Promise.all([
     getHorarioBase(),
     getProfes(),
     db
@@ -378,6 +396,7 @@ async function cargar(desde: string, hasta: string, excluirAusencia?: string | n
     contarCubiertas(inicioReparto, sumarDias(desde, -1)),
     contarCubiertas(inicioMes, finDeMes(desde)),
     bajasEnRango(desde, hasta),
+    salidasEnRango(desde, hasta),
   ]);
 
   const { lectivos, saltados } = diasLectivos(desde, hasta, festivos);
@@ -387,7 +406,7 @@ async function cargar(desde: string, hasta: string, excluirAusencia?: string | n
   const cuadro: EnCuadro[] = [];
   const deBaja: [string, string[]][] = [];
   for (const f of lectivos) {
-    const d = sesionesDeFecha(base, f, coberturas);
+    const d = sesionesDeFecha(base, f, coberturas, salidas);
     horario.push([f, d.sesiones]);
     notasPorDia.set(f, d.notas);
     const dia = diaSemana(f);
@@ -403,6 +422,7 @@ async function cargar(desde: string, hasta: string, excluirAusencia?: string | n
     notasPorDia,
     coberturas,
     bajas,
+    salidas,
     ctx: {
       profes,
       horario,
@@ -687,11 +707,13 @@ type TipoEnvio = 'sustituto' | 'ausente' | 'anulacion_sustituto' | 'anulacion_au
  */
 async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Quien, ausenciaId: string, sesionesIds: string[], tipoEnvio: TipoEnvio): Promise<{ error?: string; programadoPara?: Date }> {
   const { subject, html } = correoAviso(d);
-  const mensaje = { to: para, subject, html, replyTo: q.email };
+  const envioId = crypto.randomUUID();
+  // Con su Message-ID propio: el aviso de «confirmada» a Jefatura sale como respuesta a este correo.
+  const mensaje = { to: para, subject, html, replyTo: q.email, cabeceras: { 'Message-ID': messageIdDeEnvio(envioId) } };
   const programadoPara = cuandoEnviar(d.horas[0]?.fecha ?? d.desde, new Date(), q.enviarYa);
   const ahora = Date.now();
   const futuro = programadoPara.getTime() > ahora + 60_000;
-  const [fila] = await db.insert(sustEnvios).values({ ausenciaId, sesionesIds, destinatario: para, tipo: tipoEnvio, asunto: subject, html, replyTo: q.email, programadoPara, estado: futuro ? 'pendiente' : 'enviando' }).returning({ id: sustEnvios.id });
+  const [fila] = await db.insert(sustEnvios).values({ id: envioId, ausenciaId, sesionesIds, destinatario: para, tipo: tipoEnvio, asunto: subject, html, replyTo: q.email, programadoPara, estado: futuro ? 'pendiente' : 'enviando' }).returning({ id: sustEnvios.id });
   try {
     if (!futuro) {
       await enviar('sustituciones', mensaje);
@@ -710,6 +732,9 @@ async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Qui
     return { error: m.slice(0, 300) };
   }
 }
+
+/** El Message-ID de un envío (para que otro correo pueda ser «respuesta» a él). */
+export const messageIdDeEnvio = (id: string) => `<sust-${id}@${COLEGIO.dominio}>`;
 
 /**
  * Anula los correos de una ausencia que aún no han salido (los de Resend se cancelan en Resend).
@@ -1061,10 +1086,15 @@ async function avisarTodo(id: string, q: Quien, soloPendientes = false): Promise
     soloPendientes && q.enviarYa && a.avisarAusente
       ? (await db.select({ id: sustEnvios.id }).from(sustEnvios).where(and(eq(sustEnvios.ausenciaId, id), eq(sustEnvios.tipo, 'ausente'), inArray(sustEnvios.estado, ['pendiente', 'programado']))).limit(1)).length > 0
       : false;
+  // Un borrador (guardado sin avisar): al ausente no le ha llegado nada todavía, así que también le toca.
+  const ausenteNunca =
+    soloPendientes && a.avisarAusente
+      ? (await db.select({ id: sustEnvios.id }).from(sustEnvios).where(and(eq(sustEnvios.ausenciaId, id), eq(sustEnvios.tipo, 'ausente'), inArray(sustEnvios.estado, ['pendiente', 'programado', 'enviando', 'enviado']))).limit(1)).length === 0
+      : false;
   // Se rehacen solo los avisos de estas horas (y el del ausente): los demás sustitutos conservan el suyo.
   await cancelarEnvios(id, q, soloPendientes ? aSustitutos.map((s) => s.id) : undefined, !soloPendientes || ausenteEsperando);
   const r1 = await avisarSustitutos(a, aSustitutos, q, plantillas, profes);
-  const r2 = (soloPendientes && !ausenteEsperando) || !a.avisarAusente ? vacio() : await avisarAusente(a, sesiones, q, plantillas, profes);
+  const r2 = (soloPendientes && !ausenteEsperando && !ausenteNunca) || !a.avisarAusente ? vacio() : await avisarAusente(a, sesiones, q, plantillas, profes);
   return sumar(r1, r2);
 }
 
@@ -1125,6 +1155,24 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     const resto = sesiones.filter((x) => x.id !== s.id);
     const r1 = (s.sustitutoId || s.sustituto2Id) && yaAvisada(s, sinSalir) ? await avisarSustitutos(a, [s], q, plantillas, profes, 'cambio') : vacio();
     return { avisos: sumar(r1, await avisarAusente(a, resto, q, plantillas, profes)) };
+  }
+
+  if (cambio.accion === 'no_hace_falta') {
+    // Su grupo se ha ido de salida (o ya no hay clase): la hora sigue contando como ausencia, pero
+    // nadie tiene que entrar. Al sustituto que ya lo sabía, «ya no hace falta».
+    const s = sesiones.find((x) => x.id === cambio.sesionId);
+    if (!s) throw new ErrorSustitucion('Esa hora no es de esta ausencia.', 404);
+    await db.batch([
+      db
+        .update(sustSesiones)
+        .set({ hayQueCubrir: false, sustitutoId: null, sustitutoNombre: null, sustitutoEmail: null, sustitutoHoraInicio: null, sustitutoHoraFin: null, sustituto2Id: null, sustituto2Nombre: null, sustituto2Email: null, sustituto2HoraInicio: null, sustituto2HoraFin: null, nivel: null, disponibilidad: null, avisoEstado: 'no', avisoProgramadoPara: null, avisoError: null, confirmacionToken: null, confirmacionEstado: 'pendiente', confirmacionAt: null, confirmacion2Token: null, confirmacion2Estado: 'pendiente', confirmacion2At: null, updatedAt: ahora })
+        .where(eq(sustSesiones.id, s.id)),
+      tocar(),
+    ]);
+    const sinSalir = await cancelarEnvios(id, q, [s.id]);
+    if (!cambio.avisar) return { avisos: null };
+    const r1 = (s.sustitutoId || s.sustituto2Id) && yaAvisada(s, sinSalir) ? await avisarSustitutos(a, [s], q, plantillas, profes, 'cambio') : vacio();
+    return { avisos: r1 };
   }
 
   if (cambio.accion === 'fechas') {
@@ -1413,8 +1461,9 @@ export interface FilaHistorial {
 }
 
 /** Las ausencias que tocan un mes (o las últimas), con sus cuentas. */
-export async function listarHistorial(f: { mes?: string | null; profeId?: string | null }): Promise<FilaHistorial[]> {
+export async function listarHistorial(f: { mes?: string | null; profeId?: string | null; etapas?: readonly string[] }): Promise<FilaHistorial[]> {
   const conds = [];
+  if (f.etapas) conds.push(inArray(sustAusencias.etapa, [...f.etapas]));
   if (f.mes) conds.push(lte(sustAusencias.desde, finDeMes(`${f.mes}-01`)), gte(sustAusencias.hasta, `${f.mes}-01`));
   if (f.profeId) conds.push(eq(sustAusencias.profeId, f.profeId));
   const filas = await db
@@ -1472,8 +1521,10 @@ async function filasCuenta(desde: string, hasta: string, etapas?: readonly strin
 export async function cifras(periodo: PeriodoCifras, hoy = hoyEnEspana(), etapa?: string): Promise<{ periodo: PeriodoCifras; etapa: string; desde: string; hasta: string; resumen: Resumen }> {
   const { trimestres } = await getAjustesOratorios(cursoDeFecha(hoy));
   const r = rangoPeriodo(periodo, hoy, trimestres);
-  const filtro = (CONFIGURACION.sustituciones.etapas as readonly string[]).includes(etapa ?? '') ? etapa : undefined;
-  return { periodo, etapa: filtro ?? 'todas', ...r, resumen: resumir(await filasCuenta(r.desde, r.hasta, filtro ? [filtro] : undefined)) };
+  // Una etapa suelta (EI, EP, ESO) o una jefatura entera (`infantil-primaria`, `eso`).
+  const jefatura = CONFIGURACION.sustituciones.jefaturas.find((j) => j.clave === etapa);
+  const filtro = jefatura ? [...jefatura.etapas] : (CONFIGURACION.sustituciones.etapas as readonly string[]).includes(etapa ?? '') ? [etapa!] : undefined;
+  return { periodo, etapa: filtro ? etapa! : 'todas', ...r, resumen: resumir(await filasCuenta(r.desde, r.hasta, filtro)) };
 }
 
 // ─── Informe mensual (decisión 12) ───────────────────────────────────────────
@@ -1882,6 +1933,16 @@ export interface MiSustitucion {
   cubreA: string;
   indicaciones: string | null;
   enAula: boolean;
+  /** Ya ha dicho que sí (con el enlace del correo o desde aquí). */
+  confirmada?: boolean;
+}
+
+/**
+ * ¿Le ha llegado ya el correo de esta hora a esta persona? (David, 23-nov-2026: en «Mis
+ * sustituciones» solo sale lo que ya se ha avisado: un borrador o un aviso programado no.)
+ */
+function avisadaA(email: string, tipos: string[]) {
+  return sql`exists (select 1 from ${sustEnvios} e where e.estado = 'enviado' and e.tipo in (${sql.join(tipos.map((t) => sql`${t}`), sql`, `)}) and lower(e.destinatario) = ${email.toLowerCase()} and ${sustSesiones.id}::text = any(e.sesiones_ids))`;
 }
 
 export interface TeCubren {
@@ -1907,7 +1968,7 @@ export async function misSustituciones(email: string, hoy = hoyEnEspana()): Prom
     .limit(1);
   const profeId = yo[0]?.id ?? null;
   if (!profeId) return { profeId: null, proximas: [], pasadas: [], teCubren: [] };
-  const desde = sumarDias(hoy, -30);
+  const desde = hoy; // solo hoy y lo que viene: lo pasado no se enseña (David, 23-nov-2026)
   const [cubro, mias] = await Promise.all([
     db
       .select({
@@ -1922,10 +1983,11 @@ export async function misSustituciones(email: string, hoy = hoyEnEspana()): Prom
         nivel: sql<string | null>`case when ${sustSesiones.sustitutoId} = ${profeId} then ${sustSesiones.nivel} else 'manual' end`,
         cubreA: sustAusencias.profeNombre,
         indicaciones: sustAusencias.indicaciones,
+        confirmada: sql<boolean>`case when ${sustSesiones.sustitutoId} = ${profeId} then ${sustSesiones.confirmacionEstado} = 'confirmada' else ${sustSesiones.confirmacion2Estado} = 'confirmada' end`,
       })
       .from(sustSesiones)
       .innerJoin(sustAusencias, eq(sustAusencias.id, sustSesiones.ausenciaId))
-      .where(and(or(eq(sustSesiones.sustitutoId, profeId), eq(sustSesiones.sustituto2Id, profeId)), eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, desde)))
+      .where(and(or(eq(sustSesiones.sustitutoId, profeId), eq(sustSesiones.sustituto2Id, profeId)), eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, desde), avisadaA(email, ['sustituto'])))
       .orderBy(asc(sustSesiones.fecha), asc(sustSesiones.horaInicio)),
     db
       .select({
@@ -1942,7 +2004,7 @@ export async function misSustituciones(email: string, hoy = hoyEnEspana()): Prom
       })
       .from(sustSesiones)
       .innerJoin(sustAusencias, eq(sustAusencias.id, sustSesiones.ausenciaId))
-      .where(and(eq(sustAusencias.profeId, profeId), eq(sustAusencias.estado, 'confirmada'), gte(sustAusencias.hasta, hoy)))
+      .where(and(eq(sustAusencias.profeId, profeId), eq(sustAusencias.estado, 'confirmada'), gte(sustSesiones.fecha, hoy), avisadaA(email, ['ausente'])))
       .orderBy(asc(sustSesiones.fecha), asc(sustSesiones.horaInicio)),
   ]);
   const a = (x: (typeof cubro)[number]): MiSustitucion => ({ ...x, enAula: x.nivel === 'en_aula' });
@@ -1986,6 +2048,7 @@ export async function avisoMisSustituciones(email: string, hoy = hoyEnEspana()):
         eq(sustAusencias.estado, 'confirmada'),
         gte(sustSesiones.fecha, hoy),
         lte(sustSesiones.fecha, hasta),
+        avisadaA(email, ['sustituto']),
       ),
     )
     .orderBy(asc(sustSesiones.fecha), asc(sustSesiones.horaInicio));
@@ -2001,6 +2064,8 @@ export interface ProfeSelector {
   estado: string | null;
   /** De baja hoy con sustituto: sale, pero señalado (no se le apunta nada esos días). */
   cubierto: boolean;
+  /** Sus etapas (ficha); para poner primero los de la etapa de quien mira. */
+  etapas: string[];
 }
 
 /**
@@ -2010,7 +2075,7 @@ export interface ProfeSelector {
  * del alta, se apunta normal).
  */
 export async function profesConHorario(hoy = hoyEnEspana()): Promise<ProfeSelector[]> {
-  const [profes, conHorario, coberturas, bajas] = await Promise.all([
+  const [profes, conHorario, coberturas, bajas, fichas] = await Promise.all([
     getProfes(),
     db
       .selectDistinct({ id: horAsignacionProfes.eduTeacherId })
@@ -2023,7 +2088,9 @@ export async function profesConHorario(hoy = hoyEnEspana()): Promise<ProfeSelect
       .from(eduCoberturasBaja)
       .where(eq(eduCoberturasBaja.activa, true)),
     bajasEnRango(hoy, hoy),
+    db.select({ id: eduTeachers.id, etapa: eduTeachers.etapa, etapas: eduTeachers.etapas }).from(eduTeachers).where(eq(eduTeachers.active, true)),
   ]);
+  const etapasFicha = new Map(fichas.map((f) => [f.id, etapasDePersona([], { etapa: f.etapa, etapas: f.etapas })]));
   const ids = new Set(conHorario.map((x) => x.id));
   const titularConHorario = new Set(coberturas.filter((c) => ids.has(c.titularId)).map((c) => c.sustitutoId));
   const nombre = new Map(profes.map((p) => [p.id, p.nombre]));
@@ -2038,7 +2105,10 @@ export async function profesConHorario(hoy = hoyEnEspana()): Promise<ProfeSelect
       if (leCubren.length > 0) estado = `de baja · la cubre ${lista(leCubren)}`;
       else if (deBaja) estado = 'de baja · sin sustituto';
       else if (cubreA.length > 0) estado = `sustituye a ${lista(cubreA)}`;
-      return { id: p.id, nombre: p.nombre, estado, cubierto: leCubren.length > 0 };
+      // Quien cubre una baja hereda la etapa del titular.
+      const etapas = new Set<string>(etapasFicha.get(p.id) ?? []);
+      for (const c of coberturas) if (c.sustitutoId === p.id && coberturaVigente(c, hoy)) for (const e of etapasFicha.get(c.titularId) ?? []) etapas.add(e);
+      return { id: p.id, nombre: p.nombre, estado, cubierto: leCubren.length > 0, etapas: [...etapas] };
     });
 }
 
@@ -2050,4 +2120,9 @@ export async function nombreDe(email: string): Promise<string> {
     .where(sql`lower(${eduTeachers.email}) = ${email.toLowerCase()}`)
     .limit(1);
   return p ? nombreProfeBreve(p) : email;
+}
+
+/** El claustro activo, solo id y nombre corto (para la paleta ⌘K). */
+export async function profesParaPaleta(): Promise<{ id: string; nombre: string }[]> {
+  return (await getProfes()).map((p) => ({ id: p.id, nombre: p.nombre }));
 }

@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation';
+import { getSessionUser } from '@/lib/auth-guards';
+import { etapasActivas } from '@/lib/jefaturas-server';
 import { hoyEnEspana, sumarDias } from '@/lib/oratorios';
 import { cursoDeFecha } from '@/lib/sustituciones';
 import { CONFIGURACION } from '@/lib/configuracion';
@@ -19,13 +22,16 @@ export default async function HistorialPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const mes = sp.mes && /^\d{4}-\d{2}$/.test(sp.mes) ? sp.mes : null;
   const profeId = sp.profe && /^[0-9a-f-]{36}$/i.test(sp.profe) ? sp.profe : null;
-  const [filas, profes] = await Promise.all([listarHistorial({ mes, profeId }), profesConAusencias()]);
+  const user = await getSessionUser();
+  if (!user) redirect('/gestion/login');
+  const { grupo, etapas } = await etapasActivas(user.email);
+  const [filas, profes] = await Promise.all([listarHistorial({ mes, profeId, etapas }), profesConAusencias()]);
   const meses = mesesDelCurso(hoyEnEspana());
   if (mes && !meses.includes(mes)) meses.push(mes);
   return (
     <>
       <h1 className="sr-only">Historial de ausencias</h1>
-      <Historial filas={filas} meses={meses} profes={profes} mes={mes} profeId={profeId} />
+      <Historial filas={filas} meses={meses} profes={profes} mes={mes} profeId={profeId} grupoEtapas={grupo} />
     </>
   );
 }

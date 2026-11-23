@@ -46,11 +46,14 @@ export type EstadoAvisoSust = (typeof ESTADOS_AVISO)[number];
 export const NIVEL_EN_AULA = 'en_aula';
 export const NIVEL_LIBRE = 'libre';
 export const NIVEL_MANUAL = 'manual';
+/** Su clase de esa hora se ha ido de salida (Sustituciones › Salidas): está libre del todo. */
+export const NIVEL_GRUPO_FUERA = 'grupo_fuera';
 
 /** El nombre corto de un nivel («Codocencia», «Ya está en el aula»…). */
 export function nombreNivel(clave: string | null | undefined, cfg: ConfigSustituciones = CFG): string {
   if (!clave) return 'Tiene clase';
   if (clave === NIVEL_EN_AULA) return 'Ya está en el aula';
+  if (clave === NIVEL_GRUPO_FUERA) return 'Su grupo está de salida';
   if (clave === NIVEL_LIBRE) return 'Hora libre';
   if (clave === NIVEL_MANUAL) return 'Elegido a mano';
   return cfg.niveles.find((n) => n.clave === clave)?.nombre ?? clave;
@@ -58,7 +61,8 @@ export function nombreNivel(clave: string | null | undefined, cfg: ConfigSustitu
 
 /** Posición de un nivel en el orden (menos = antes). `en_aula` va el primero; sin nivel, el último. */
 export function rangoNivel(clave: string | null | undefined, cfg: ConfigSustituciones = CFG): number {
-  if (clave === NIVEL_EN_AULA) return -1;
+  if (clave === NIVEL_EN_AULA) return -2;
+  if (clave === NIVEL_GRUPO_FUERA) return -1;
   if (clave === NIVEL_LIBRE) return cfg.niveles.length;
   if (clave === NIVEL_MANUAL || !clave) return cfg.niveles.length + 1;
   const i = cfg.niveles.findIndex((n) => n.clave === clave);
@@ -354,6 +358,40 @@ export interface SesionDia {
   materia: string | null;
   aula: string | null;
   profes: ProfeEnSesion[];
+  /** Los grupos como clave estable `curso|letra` (para casarlos con una salida). */
+  gruposClave?: string[];
+  /** Todos sus grupos están de salida a esa hora: quien la da está libre y no hay que cubrirla. */
+  grupoFuera?: boolean;
+}
+
+/** La clave estable de un grupo: `4ESO|A`. */
+export const claveGrupo = (curso: string, letra: string | null | undefined) => `${curso.toUpperCase()}|${(letra ?? '').toUpperCase()}`;
+
+/** Una salida (Sustituciones › Salidas): unos grupos fuera un día, entero o unas horas. */
+export interface SalidaGrupos {
+  fecha: string;
+  /** null = todo el día. */
+  horaInicio: string | null;
+  horaFin: string | null;
+  grupos: readonly string[];
+}
+
+/**
+ * Marca las sesiones cuyos grupos están TODOS de salida a esa hora (David, 23-nov-2026: «se libera a
+ * todos los profes de esas horas»). Quien las da queda libre (nivel `grupo_fuera`, el primero tras «ya
+ * está en el aula») y, si falta, esa hora no hace falta cubrirla. Si la sesión junta un grupo que se va
+ * con otro que se queda, no se libera: sigue habiendo alumnos.
+ */
+export function marcarGruposFuera(sesiones: readonly SesionDia[], salidas: readonly SalidaGrupos[]): SesionDia[] {
+  const delDia = (f: string) => salidas.filter((x) => x.fecha === f);
+  return sesiones.map((s) => {
+    const claves = s.gruposClave ?? [];
+    if (claves.length === 0) return s;
+    const fuera = delDia(s.fecha).filter((x) => x.horaInicio === null || x.horaFin === null || solapa(s, { horaInicio: x.horaInicio, horaFin: x.horaFin }));
+    if (fuera.length === 0) return s;
+    const ausentes = new Set(fuera.flatMap((x) => x.grupos.map((g) => g.toUpperCase())));
+    return claves.every((c) => ausentes.has(c.toUpperCase())) ? { ...s, grupoFuera: true } : s;
+  });
 }
 
 /**
@@ -407,7 +445,7 @@ export function sesionesDelAusente(sesiones: readonly SesionDia[], profeId: stri
       ...s,
       // Con grupo, o una de las horas «con alumnos aunque el horario no ponga el grupo» (el Almuerzo
       // de infantil, el Taller de Pensamiento, el Huerto: `nuncaLiberables`).
-      hayQueCubrir: (s.grupos.length > 0 || conAlumnosSinGrupo(s, cfg)) && esPrincipalEn(s, profeId),
+      hayQueCubrir: !s.grupoFuera && (s.grupos.length > 0 || conAlumnosSinGrupo(s, cfg)) && esPrincipalEn(s, profeId),
       otrosEnAula: s.grupos.length > 0 || conAlumnosSinGrupo(s, cfg) ? s.profes.filter((p) => p.id !== profeId).map((p) => p.id) : [],
     }))
     .sort(ordenSesion);
@@ -447,6 +485,7 @@ function casaNivel(n: NivelSustitucionConfig, s: SesionDia, principal: boolean, 
  * que no sea de la lista, un oratorio que no es Godly, o una etiqueta de `nuncaLiberables`).
  */
 export function nivelDe(s: SesionDia, profeId: string, cfg: ConfigSustituciones = CFG): string | null {
+  if (s.grupoFuera) return NIVEL_GRUPO_FUERA;
   const etiqueta = normalizar(s.etiqueta);
   if (cfg.nuncaLiberables.some((t) => etiqueta.includes(t))) return null;
   const principal = esPrincipalEn(s, profeId);
@@ -458,6 +497,7 @@ export function nivelDe(s: SesionDia, profeId: string, cfg: ConfigSustituciones 
 /** Disponibilidad automática de un nivel (lo que no está en la configuración es «No»). */
 export function disponibilidadDeNivel(nivel: string | null, cfg: ConfigSustituciones = CFG): Disponibilidad {
   if (!nivel) return 'no';
+  if (nivel === NIVEL_GRUPO_FUERA) return 'si';
   return cfg.disponibilidadPorDefecto[nivel] ?? 'no';
 }
 
@@ -519,7 +559,7 @@ export function evaluar(
     automatica = enElColegio ? disponibilidadDeNivel(NIVEL_LIBRE, cfg) : 'no';
   } else {
     enElColegio = true;
-    let peorRango = -2;
+    let peorRango = -Infinity;
     automatica = 'si';
     for (const s of solapadas) {
       const n = opciones.mismaSesion && s.sesionId === opciones.mismaSesion && cfg.enAulaPrimero ? NIVEL_EN_AULA : nivelDe(s, profeId, cfg);
@@ -802,6 +842,7 @@ export function agruparCandidatos(candidatos: readonly Candidato[], cfg: ConfigS
   for (const c of candidatos) {
     let etiqueta: string;
     if (c.nivel === NIVEL_EN_AULA && c.disponibilidad !== 'no') etiqueta = 'Ya está en el aula';
+    else if (c.nivel === NIVEL_GRUPO_FUERA && c.disponibilidad !== 'no') etiqueta = 'Libre: su grupo está de salida';
     else if (c.disponibilidad === 'urgencia') etiqueta = 'Solo urgencia';
     else if (c.disponibilidad === 'no') etiqueta = c.enCuadro || c.nivel === NIVEL_LIBRE ? 'No disponible' : 'Todo el claustro (tiene clase o no está)';
     else etiqueta = `${DISPONIBILIDAD_INFO[c.disponibilidad].nombre} · ${nombreNivel(c.nivel, cfg)}`;
@@ -1180,6 +1221,136 @@ export function puedeVerMisSustituciones(acceso: Acceso | null | undefined, cfg:
   return canAccess(acceso, 'sustituciones');
 }
 
+// ─── El estado de una hora (David, 23-nov-2026) ──────────────────────────────
+
+/**
+ * Lo que Jefatura necesita saber de un vistazo, de mejor a peor:
+ * - `confirmada`: cubierta y el sustituto ha dicho que sí (la perfecta).
+ * - `cubierta`: tiene sustituto y el aviso ha salido (o está programado): «yo ya la tengo clara».
+ * - `borrador`: tiene sustituto pero aún no se ha avisado a nadie.
+ * - `sin_cubrir`: hace falta alguien y no hay nadie.
+ * - `error`: el correo no ha salido.
+ * - `no_hace_falta`: cuenta como ausencia, pero no pide sustituto (codocencia ajena, reunión, su grupo de salida…).
+ * Una hora ya pasada que se apuntó sin avisar (se registra a posteriori) es `cubierta`: no queda nada que hacer.
+ */
+export const ESTADOS_HORA = ['confirmada', 'cubierta', 'borrador', 'sin_cubrir', 'error', 'no_hace_falta'] as const;
+export type EstadoHoraSust = (typeof ESTADOS_HORA)[number];
+
+export const ESTADO_HORA_INFO: Record<EstadoHoraSust, { nombre: string; frase: string; tono: 'ok' | 'info' | 'neutro' | 'aviso' | 'error' }> = {
+  confirmada: { nombre: 'Confirmada', frase: 'Cubierta y el sustituto ha dicho que sí', tono: 'ok' },
+  cubierta: { nombre: 'Cubierta', frase: 'Avisada: falta que confirme', tono: 'info' },
+  borrador: { nombre: 'Borrador', frase: 'Tiene sustituto, pero aún no se ha avisado', tono: 'neutro' },
+  sin_cubrir: { nombre: 'Sin cubrir', frase: 'Falta alguien que entre', tono: 'aviso' },
+  error: { nombre: 'Correo con error', frase: 'El aviso no ha salido', tono: 'error' },
+  no_hace_falta: { nombre: 'No hace falta', frase: 'Cuenta, pero no pide sustituto', tono: 'neutro' },
+};
+
+export interface HoraConEstado {
+  fecha: string;
+  hayQueCubrir: boolean;
+  sustitutoId: string | null;
+  sustituto2Id?: string | null;
+  avisoEstado: string;
+  confirmacionEstado?: string | null;
+  confirmacion2Estado?: string | null;
+}
+
+export function estadoHora(s: HoraConEstado, hoy: string): EstadoHoraSust {
+  if (!s.hayQueCubrir) return 'no_hace_falta';
+  if (!s.sustitutoId && !s.sustituto2Id) return 'sin_cubrir';
+  if (s.avisoEstado === 'error') return 'error';
+  const ok1 = !s.sustitutoId || s.confirmacionEstado === 'confirmada';
+  const ok2 = !s.sustituto2Id || s.confirmacion2Estado === 'confirmada';
+  if (ok1 && ok2 && (s.avisoEstado === 'enviado' || s.confirmacionEstado === 'confirmada')) return 'confirmada';
+  if (s.avisoEstado === 'enviado' || s.avisoEstado === 'programado') return 'cubierta';
+  return s.fecha < hoy ? 'cubierta' : 'borrador';
+}
+
+/** Cuántas horas hay en cada estado (las que no hace falta cubrir no se cuentan). */
+export function contarEstados(horas: readonly HoraConEstado[], hoy: string): Record<EstadoHoraSust, number> {
+  const c: Record<EstadoHoraSust, number> = { confirmada: 0, cubierta: 0, borrador: 0, sin_cubrir: 0, error: 0, no_hace_falta: 0 };
+  for (const h of horas) c[estadoHora(h, hoy)]++;
+  return c;
+}
+
+// ─── El calendario (días × horas) ────────────────────────────────────────────
+
+/** El lunes de la semana de una fecha. */
+export function lunesDe(fecha: string): string {
+  return sumarDias(fecha, 1 - diaSemana(fecha));
+}
+
+/** Lunes a viernes de la semana de un lunes. */
+export function diasDeSemana(lunes: string): string[] {
+  return [0, 1, 2, 3, 4].map((i) => sumarDias(lunes, i));
+}
+
+/** «23 – 27 nov 2026» o «30 nov – 4 dic 2026». */
+export function rotuloSemana(lunes: string): string {
+  const viernes = sumarDias(lunes, 4);
+  const y = viernes.slice(0, 4);
+  if (lunes.slice(0, 7) === viernes.slice(0, 7)) return `${dia(lunes)} – ${dia(viernes)} ${MESES_CORTOS[mes(viernes) - 1]} ${y}`;
+  return `${dia(lunes)} ${MESES_CORTOS[mes(lunes) - 1]} – ${dia(viernes)} ${MESES_CORTOS[mes(viernes) - 1]} ${y}`;
+}
+
+/** El día de la semana en corto y número: «Lun 23». */
+export function rotuloDia(fecha: string): { corto: string; numero: number; largo: string } {
+  const d = DIAS_CORTOS[diaSemana(fecha) - 1];
+  return { corto: d.charAt(0).toUpperCase() + d.slice(1), numero: dia(fecha), largo: fechaLarga(fecha) };
+}
+
+export interface Colocado {
+  id: string;
+  /** Columna dentro de su grupo de solapes (0…columnas-1). */
+  columna: number;
+  columnas: number;
+}
+
+/**
+ * Coloca bloques que se pisan uno al lado de otro, como un calendario: los que solapan forman un
+ * grupo y cada uno va en la primera columna libre; todos los del grupo comparten el ancho.
+ */
+export function colocarBloques(bloques: readonly (Franja & { id: string })[]): Colocado[] {
+  const orden = [...bloques].sort((a, b) => aMin(a.horaInicio) - aMin(b.horaInicio) || aMin(b.horaFin) - aMin(a.horaFin) || a.id.localeCompare(b.id));
+  const salida = new Map<string, Colocado>();
+  let grupo: { id: string; columna: number; fin: number }[] = [];
+  let finGrupo = -1;
+  const cerrar = () => {
+    const n = Math.max(0, ...grupo.map((g) => g.columna + 1));
+    for (const g of grupo) salida.set(g.id, { id: g.id, columna: g.columna, columnas: n });
+    grupo = [];
+  };
+  for (const b of orden) {
+    const ini = aMin(b.horaInicio);
+    if (grupo.length > 0 && ini >= finGrupo) cerrar();
+    const ocupadas = new Set(grupo.filter((g) => g.fin > ini).map((g) => g.columna));
+    let col = 0;
+    while (ocupadas.has(col)) col++;
+    const fin = aMin(b.horaFin);
+    grupo.push({ id: b.id, columna: col, fin });
+    finGrupo = Math.max(grupo.length === 1 ? fin : finGrupo, fin);
+  }
+  if (grupo.length > 0) cerrar();
+  return bloques.map((b) => salida.get(b.id)!);
+}
+
+/** Minutos → 'HH:mm'. */
+export function aHHMM(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// ─── Grupos de etapas (Jefatura de cada una) ─────────────────────────────────
+
+export type GrupoEtapas = (typeof CONFIGURACION.sustituciones.jefaturas)[number]['clave'];
+
+/** Las etapas de una jefatura (`infantil-primaria` → EI, EP). Sin clave o desconocida: todas. */
+export function etapasDeGrupo(clave: string | null | undefined, cfg: ConfigSustituciones = CFG): Etapa[] {
+  const j = cfg.jefaturas.find((x) => x.clave === clave);
+  return j ? [...j.etapas] : [...cfg.etapas];
+}
+
 // ─── Peticiones (Zod, compartidas cliente/servidor) ──────────────────────────
 
 const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha no válida');
@@ -1223,6 +1394,7 @@ export const PeticionCambio = z.discriminatedUnion('accion', [
   z.object({ accion: z.literal('cambiar'), sesionId: uuid, sustitutoId: uuid.nullable(), avisar: z.boolean().default(true) }),
   z.object({ accion: z.literal('anadir'), sesiones: z.array(SesionElegida).min(1).max(100), avisar: z.boolean().default(true) }),
   z.object({ accion: z.literal('quitar'), sesionId: uuid, avisar: z.boolean().default(true) }),
+  z.object({ accion: z.literal('no_hace_falta'), sesionId: uuid, avisar: z.boolean().default(true) }),
   z.object({ accion: z.literal('fechas'), desde: fecha, hasta: fecha, avisar: z.boolean().default(true) }),
   z.object({ accion: z.literal('indicaciones'), indicaciones: textoCorto(1500) }),
   z.object({ accion: z.literal('motivo'), motivo, nota: textoCorto(300) }),
@@ -1247,5 +1419,21 @@ export const PeticionPlantillas = z.object({
   anulacion: plantilla,
 });
 
+const horaHHMM = z.string().regex(/^\d{2}:\d{2}$/);
+
+/** Una salida (decisión 25): grupos fuera un día, entero o unas horas, y quién va con ellos. */
+export const PeticionSalida = z
+  .object({
+    fecha,
+    horaInicio: horaHHMM.nullable(),
+    horaFin: horaHHMM.nullable(),
+    grupos: z.array(z.object({ curso: z.string().min(1).max(20), letra: z.string().max(10).nullable() })).min(1, 'Elige al menos un grupo').max(40),
+    descripcion: z.string().trim().min(2, 'Di adónde van').max(200),
+    acompanantes: z.array(uuid).max(30),
+  })
+  .refine((p) => (p.horaInicio === null) === (p.horaFin === null), { message: 'Pon las dos horas, o ninguna para todo el día', path: ['horaFin'] })
+  .refine((p) => !p.horaInicio || !p.horaFin || p.horaInicio < p.horaFin, { message: 'La hora de vuelta va después de la de salida', path: ['horaFin'] });
+
+export type EntradaSalida = z.infer<typeof PeticionSalida>;
 export type EntradaAusencia = z.infer<typeof PeticionAusencia>;
 export type EntradaCambio = z.infer<typeof PeticionCambio>;

@@ -1,12 +1,13 @@
-import { hoyEnEspana } from '@/lib/oratorios';
-import { profesConHorario } from '@/lib/sustituciones-server';
-import { NuevaAusencia } from '@/components/sustituciones/nueva';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Nueva ausencia · Sustituciones' };
-
+// Apuntar se hace en el panel del calendario (tocar un hueco, la cabecera de un día, o ⌘K).
 export default async function NuevaAusenciaPage({ searchParams }: { searchParams: Promise<{ profe?: string; fecha?: string }> }) {
-  const [sp, profes] = await Promise.all([searchParams, profesConHorario()]);
-  const fecha = sp.fecha && /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha) ? sp.fecha : undefined;
-  return <NuevaAusencia profes={profes} hoy={hoyEnEspana()} inicial={{ profeId: profes.some((p) => p.id === sp.profe) ? sp.profe : undefined, fecha }} />;
+  const sp = await searchParams;
+  const p = new URLSearchParams({ nueva: '1' });
+  if (sp.profe) p.set('profe', sp.profe);
+  if (sp.fecha) {
+    p.set('desde', sp.fecha);
+    p.set('semana', sp.fecha);
+  }
+  redirect(`/gestion/sustituciones?${p.toString()}`);
 }

@@ -28,6 +28,7 @@ alumnado `edu_*` y login por roles `auth_*`).
   y marcar `[x]` en el mismo commit).
 - **Las checklists de `docs/` son el estado real del proyecto.** Marca `[x]` solo lo verificado;
   actualiza la tabla maestra cuando un estado cambie.
+- **No apuntes «probar con sesión real» ni «dar una vuelta» como pendiente**: David la da siempre.
 - **Si `src/db/sql/pendientes.txt` no está vacío, hay schema sin aplicar en Neon.** Con
   `DATABASE_URL` en el entorno (o en `.env.local`), aplícalo tú:
   `pnpm db:sql --pendientes` (`--dry` para ver antes qué haría). Son ficheros idempotentes.

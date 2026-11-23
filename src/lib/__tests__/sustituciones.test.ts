@@ -524,12 +524,13 @@ describe('cuentas y datos de salud (decisión 11)', () => {
 });
 
 describe('«Mis sustituciones» (decisión 16)', () => {
-  it('prueba de concepto: solo quien tiene el módulo; abierta, todo el claustro', () => {
+  it('abierta a todo el claustro (23-nov-2026); cerrada, solo quien tiene el módulo', () => {
     expect(puedeVerMisSustituciones({ role: 'jefe' })).toBe(true);
-    expect(puedeVerMisSustituciones({ role: 'tutor' })).toBe(false);
+    expect(puedeVerMisSustituciones({ role: 'tutor' })).toBe(true);
     expect(puedeVerMisSustituciones(null)).toBe(false);
-    const abierta: ConfigSustituciones = { ...CONFIGURACION.sustituciones, misSustitucionesParaTodos: true };
-    expect(puedeVerMisSustituciones({ role: 'tutor' }, abierta)).toBe(true);
+    const cerrada: ConfigSustituciones = { ...CONFIGURACION.sustituciones, misSustitucionesParaTodos: false };
+    expect(puedeVerMisSustituciones({ role: 'tutor' }, cerrada)).toBe(false);
+    expect(puedeVerMisSustituciones({ role: 'jefe' }, cerrada)).toBe(true);
   });
 });
 

@@ -7,13 +7,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
-import { CalendarClock, DoorOpen, Flag, GraduationCap, KanbanSquare, Loader2, Plus, Search, User } from 'lucide-react';
+import { CalendarClock, DoorOpen, Flag, GraduationCap, KanbanSquare, Loader2, Plus, Search, Sparkles, User, UserRoundMinus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
 import { buscarHerramientas, type Grupo, type Herramienta, type IconoHerramienta } from '@/lib/escritorio';
 import { elegirPersona, elegirTablero, esTareaRapida, interpretarTarea, normalizar } from '@/lib/paleta';
 import { PRIORIDAD_LABELS } from '@/lib/tableros';
+import { interpretar, pareceSustitucion, urlNueva, type Interpretacion } from '@/lib/sustituciones-interpretar';
+import { CONFIGURACION } from '@/lib/configuracion';
 import type { DestinoTarea } from '@/lib/tareas-rapidas-server';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { IconoModulo } from '@/components/ui/icono-modulo';
@@ -44,6 +46,10 @@ interface Datos {
   alumnado: boolean;
   /** A dónde se reenvía un correo para que sea tarea (`tic+tarea@…`). */
   correoTareas: string | null;
+  /** Con el módulo Sustituciones: el claustro, para «Marta falta mañana a 3ª» (docs/32). */
+  profesSust?: { id: string; nombre: string }[] | null;
+  /** Hay IA para entender lo que se escape. */
+  iaSust?: boolean;
 }
 interface AlumnoPaleta {
   id: string;
@@ -105,6 +111,31 @@ export function Paleta() {
   }, [abierta]);
 
   const tarea = esTareaRapida(q);
+  // «Marta falta mañana a 3ª y 4ª, médico» (o «s marta mañana»): una sustitución escrita como se dice.
+  const sust = useMemo<Interpretacion | null>(() => {
+    if (tarea || !datos?.profesSust?.length || !pareceSustitucion(q)) return null;
+    return interpretar(q.replace(/^\s*s\s+/i, ''), hoyLocal(), datos.profesSust);
+  }, [tarea, datos, q]);
+  const [entendiendo, setEntendiendo] = useState(false);
+
+  async function abrirSustitucion(i: Interpretacion) {
+    if (entendiendo) return;
+    // Si falta cuándo, a qué horas o por qué, y hay IA, que lo entienda (sin el nombre de nadie).
+    const falta = !i.desde || (i.tramos.length === 0 && !i.horaInicio) || !i.motivo;
+    let final = i;
+    if (falta && datos?.iaSust) {
+      setEntendiendo(true);
+      try {
+        const r = await fetch('/api/sustituciones/admin/interpretar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: q }) });
+        if (r.ok) final = { ...((await r.json()) as Interpretacion), profe: i.profe ?? null };
+      } catch {
+        // Sin IA: se abre con lo entendido aquí.
+      } finally {
+        setEntendiendo(false);
+      }
+    }
+    ir(urlNueva(final));
+  }
 
   // Alumnos: en el servidor (solo los de su alcance), con una pausa para no preguntar a cada letra.
   // El resultado se guarda con la búsqueda a la que responde: si ya no es la de ahora, no se pinta.
@@ -201,7 +232,7 @@ export function Paleta() {
               value={q}
               onValueChange={setQ}
               autoFocus
-              placeholder="Ir a…  ·  t tarea @persona viernes !alta"
+              placeholder={datos?.profesSust?.length ? 'Ir a…  ·  «Marta falta mañana a 3ª»  ·  t tarea' : 'Ir a…  ·  t tarea @persona viernes !alta'}
               className="h-14 w-full bg-transparent text-base text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
             />
             {(buscando || creando) && <Loader2 aria-hidden className="size-4 animate-spin text-zinc-500" />}
@@ -212,6 +243,34 @@ export function Paleta() {
               <Command.Loading>
                 <p className="px-3 py-6 text-center text-sm text-zinc-500">Cargando…</p>
               </Command.Loading>
+            )}
+
+            {sust && (
+              <Command.Group heading="Nueva sustitución" className={GRUPO}>
+                {(sust.profe ? [sust.profe] : sust.dudas.length ? sust.dudas : [null]).map((p) => (
+                  <Command.Item key={p?.id ?? 'nadie'} value={`sust-${p?.id ?? 'nadie'}`} onSelect={() => void abrirSustitucion({ ...sust, profe: p })} className={cn(ITEM, 'items-start py-3')}>
+                    <UserRoundMinus aria-hidden className="mt-0.5 size-5 shrink-0 text-blue-600" />
+                    <span className="min-w-0 flex-1 space-y-1.5">
+                      <span className="block font-semibold text-zinc-900 dark:text-zinc-100">{p ? `Falta ${p.nombre}` : 'Apuntar una sustitución (elige quién en el panel)'}</span>
+                      <span className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                        <Estado tono="neutro" icono={<CalendarClock />}>
+                          {sust.desde ? (sust.desde === sust.hasta ? fechaCorta(sust.desde) : `${fechaCorta(sust.desde)} → ${fechaCorta(sust.hasta ?? sust.desde)}`) : 'hoy'}
+                        </Estado>
+                        {sust.tramos.length > 0 && <Estado tono="neutro">{sust.tramos.join(', ')}</Estado>}
+                        {sust.horaInicio && <Estado tono="neutro">{sust.horaFin ? `${sust.horaInicio}-${sust.horaFin}` : `a las ${sust.horaInicio}`}</Estado>}
+                        {sust.motivo && <Estado tono="info">{CONFIGURACION.sustituciones.motivos.find((m) => m.clave === sust.motivo)?.nombre ?? sust.motivo}</Estado>}
+                        {datos?.iaSust && (!sust.desde || (!sust.tramos.length && !sust.horaInicio) || !sust.motivo) && (
+                          <span className="inline-flex items-center gap-1">
+                            <Sparkles aria-hidden className="size-3.5" /> lo que falte, con IA
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    {entendiendo ? <Loader2 aria-hidden className="size-4 animate-spin text-zinc-500" /> : <kbd className="hidden shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 font-mono text-xs text-zinc-500 sm:block dark:border-zinc-700">↵</kbd>}
+                  </Command.Item>
+                ))}
+                <p className="px-3 pb-2 text-xs text-zinc-500">Se abre la propuesta ya rellena; nada se guarda hasta que confirmes.</p>
+              </Command.Group>
             )}
 
             {tarea && plan && (

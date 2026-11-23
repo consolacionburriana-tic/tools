@@ -55,6 +55,8 @@ export interface Mensaje {
    * remitente del perfil con su nombre delante y su correo de `Reply-To`.
    */
   como?: { nombre: string; email: string };
+  /** Cabeceras de hilo (`Message-ID`, `In-Reply-To`, `References`), para que un correo sea respuesta de otro. */
+  cabeceras?: Record<string, string>;
 }
 
 const DOMINIO = COLEGIO.dominio;
@@ -175,6 +177,7 @@ export async function enviar(perfil: PerfilCorreo, mensaje: Mensaje): Promise<vo
       subject: mensaje.subject,
       html: mensaje.html,
       replyTo,
+      cabeceras: mensaje.cabeceras,
     });
     return;
   }
@@ -184,6 +187,7 @@ export async function enviar(perfil: PerfilCorreo, mensaje: Mensaje): Promise<vo
     replyTo,
     subject: mensaje.subject,
     html: mensaje.html,
+    ...(mensaje.cabeceras ? { headers: mensaje.cabeceras } : {}),
   });
   if (error) throw new Error(error.message);
 }
@@ -270,6 +274,7 @@ export async function programar(perfil: PerfilCorreo, mensaje: Mensaje, cuando: 
     subject: mensaje.subject,
     html: mensaje.html,
     scheduledAt: cuando.toISOString(),
+    ...(mensaje.cabeceras ? { headers: mensaje.cabeceras } : {}),
   });
   if (error || !data?.id) throw new Error(error?.message ?? 'Resend no devolvió el id del correo');
   return data.id;

@@ -334,7 +334,16 @@ export const CONFIGURACION = {
      * «Mis sustituciones» para todo el claustro (decisión 16). `false` = prueba de concepto: solo
      * la ve quien tiene el módulo. Abrirla es poner `true` (y redesplegar).
      */
-    misSustitucionesParaTodos: false as boolean,
+    misSustitucionesParaTodos: true as boolean,
+    /**
+     * Cada Jefatura de estudios y sus etapas (David, 23-nov-2026: «separación total de infantil-primaria
+     * vs secundaria»). Quién lleva cada una se elige en Ajustes del colegio (`cfg_ajustes`, clave
+     * `jefaturas`); en Sustituciones cada una ve por defecto SOLO lo suyo, y puede mirar lo de la otra.
+     */
+    jefaturas: [
+      { clave: 'infantil-primaria', nombre: 'Infantil y Primaria', etapas: ['EI', 'EP'] },
+      { clave: 'eso', nombre: 'ESO', etapas: ['ESO'] },
+    ] as const satisfies readonly { clave: string; nombre: string; etapas: readonly Etapa[] }[],
     /**
      * El informe del día 1, partido por etapa (David, 16-nov-2026). Cada ausencia cuenta en la etapa
      * del profe que falta (`sust_ausencias.etapa`). `buzon` es la clave del buzón en `colegio.ts`.

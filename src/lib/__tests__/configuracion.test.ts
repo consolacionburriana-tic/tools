@@ -119,7 +119,8 @@ describe('el resto de parámetros, con los valores de Consolación', () => {
     expect(c.maxDiasAusencia).toBe(15);
     expect(c.diasReparto).toBe(30);
     expect(c.avisoProximosDias).toBe(7);
-    expect(c.misSustitucionesParaTodos).toBe(false);
+    expect(c.misSustitucionesParaTodos).toBe(true);
+    expect(c.jefaturas.map((j) => [j.clave, [...j.etapas]])).toEqual([["infantil-primaria", ["EI", "EP"]], ["eso", ["ESO"]]]);
     expect(c.niveles.map((n) => n.clave)).toEqual([
       'guardia', 'codocencia', 'lectura', 'tut_indiv', 'je', 'al', 'pt', 'godly', 'huerto', 'tic', 'pastoral', 'gabinete', 'direccion', 'otras',
     ]);

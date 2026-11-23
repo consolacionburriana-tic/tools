@@ -68,6 +68,8 @@ export interface MensajeGmail {
   subject: string;
   html: string;
   replyTo?: string;
+  /** Cabeceras de hilo (`Message-ID`, `In-Reply-To`, `References`): solo ASCII. */
+  cabeceras?: Record<string, string>;
 }
 
 export function construirMime(m: MensajeGmail): string {
@@ -77,6 +79,9 @@ export function construirMime(m: MensajeGmail): string {
     `To: ${m.to.join(', ')}`,
     m.replyTo ? `Reply-To: ${m.replyTo}` : null,
     `Subject: ${encabezado(m.subject)}`,
+    ...Object.entries(m.cabeceras ?? {})
+      .filter(([k, v]) => /^[A-Za-z-]+$/.test(k) && /^[\x20-\x7E]*$/.test(v))
+      .map(([k, v]) => `${k}: ${v}`),
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=UTF-8',
     'Content-Transfer-Encoding: base64',
