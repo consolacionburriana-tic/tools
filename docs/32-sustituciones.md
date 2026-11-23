@@ -13,6 +13,19 @@ real y el primer correo de verdad — ver §5). Las sustituciones largas de Educ
 > anteriores de las decisiones 7, 10 y 12 en lo que se contradigan. Las ausencias se asignan a la
 > etapa principal de `edu_teachers.etapa`; si está vacía se usa la primera etapa de `edu_teachers.etapas`.
 
+> **Bajas y ajustes del 23-nov-2026 (David).** Nueva sección **Bajas** (`/gestion/sustituciones/bajas`,
+> decisión 22): se anota quién está de baja, desde cuándo (pasado o futuro), con un **alta prevista**
+> (posible) o un **alta** (segura o ya llegada), el **motivo** (enfermedad, accidente, maternidad,
+> paternidad, riesgo durante el embarazo, otros) y si es **ampliable**, y **quién la cubre**. Es el sitio
+> donde se gestionan las Coberturas por baja: lo que viene de Educamos sale arriba para acogerlo y
+> ponerle fechas; la tarjeta de Profesorado sigue, con un enlace aquí. Mientras alguien está de baja
+> **no recibe sustituciones** (con o sin sustituto); fuera de esas fechas, sí. Además: los sustitutos ya
+> salen en «Profe que falta» y en Disponibilidad (antes no: no tienen horario propio, lo heredan);
+> **ningún correo sale en sábado ni domingo** (lo que tocaba sale el lunes a las 8; «Enviar ya» lo
+> salta, decisión 10); el **Huerto** es un nivel más de la prioridad (decisión 7), y la rejilla de
+> disponibilidad deja **subir a mano también una clase propia** (decisión 15). Lo que sustituye a lo
+> anterior en lo que se contradiga.
+
 > **Ampliación solicitada el 16-nov-2026:** los avisos por sustitución se encolan para respetar el
 > límite de las 18:00 y la antelación máxima de dos días; se entregan desde las 08:00 (Europe/Madrid)
 > sin cron: el correo se entrega a **Resend con `scheduled_at`** y Resend lo dispara a su hora (ver
@@ -30,7 +43,7 @@ real y el primer correo de verdad — ver §5). Las sustituciones largas de Educ
 Idea y primer plan de Jose Miguel Batalla (12-nov-2026, con David). Revisado contra el código y
 contra los horarios reales de Neon y cerrado con David el 13-nov-2026 (§1: lo que cambió y por qué).
 
-Ruta: `/gestion/sustituciones` (secciones **Hoy · Disponibilidad · Historial · Números**, y un
+Ruta: `/gestion/sustituciones` (secciones **Hoy · Disponibilidad · Bajas · Historial · Números**, y un
 enlace a **Ajustes** de los correos). Grupo del escritorio: **Organización del centro**, pero con
 **icono en índigo**, no en el teal del grupo, para no confundirlo con Oratorios (decisión 20).
 «Mis sustituciones» en `/gestion/mis-sustituciones`, de momento solo para quien tiene el módulo
@@ -197,7 +210,10 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
    **Nunca liberables**: una clase o tutoría propia como `principal` (dejaría otra clase sola),
    cualquier hora **con grupo** que no sea codocencia (el Almuerzo de infantil, por ejemplo), un
    `oratorio` que no sea Godly y las etiquetas de `nuncaLiberables` (`TALLER DE PENSAMIENTO`,
-   `HUERTO`: son horas con alumnos aunque el horario no ponga el grupo).
+   `ALMUERZO`: son horas con alumnos aunque el horario no ponga el grupo).
+   **Huerto** (David, 23-nov-2026: «cuenta como opción disponible para sustituir»): sale de
+   `nuncaLiberables` y es un nivel propio justo **después de Godly**, «Si hace falta». En Neon es un
+   `oratorio` con etiqueta «Huerto», sin grupo, un profe y dos sesiones.
    Sondeo con estos niveles (primaria, mañanas, sin el 13): entre 2 y 12 candidatos por hora;
    **el martes a 6ª salen 0** (todo el claustro está en la reunión de Coordinación, que con el
    nivel 13 pasa a ser liberable en último lugar). «Sin cubrir» es un estado normal, no un error.
@@ -238,8 +254,10 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
       deshace** la ausencia; la ficha enseña el error y el botón «Reenviar».
     - **Programación sin cron** (18-nov-2026; antes un cron diario a las 7:05 UTC lo entregaba todo, y si
       el cron no corría —Hobby solo admite 2 diarios— el correo se quedaba en «programado» para siempre).
-      Reglas de `cuandoEnviar`: nunca antes de las 08:00 ni después de las 18:00 (Madrid) y como mucho
-      2 días antes. Si toca ya, sale por el transporte del perfil; si toca más tarde, **se entrega a
+      Reglas de `cuandoEnviar`: nunca antes de las 08:00 ni después de las 18:00 (Madrid), como mucho
+      2 días antes y **nunca en sábado ni domingo** (`sinCorreoLosDias`, David 23-nov-2026): lo que
+      caería en fin de semana sale el **lunes a las 8**. **Enviar ya** se lo salta: un interruptor en
+      Nueva ausencia y un botón en la ficha cuando hay avisos programados (`enviarYa`). Si toca ya, sale por el transporte del perfil; si toca más tarde, **se entrega a
       Resend con `scheduled_at`** (`programar()` en `email.ts`; sale por Resend aunque el transporte
       global sea Gmail, que no sabe programar) y se guarda el id en `sust_envios.resend_id`. Resend solo
       guarda 30 días: si la hora pasa de 29, o `RESEND_API_KEY` no está, queda `pendiente`.
@@ -286,7 +304,9 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     Dentro de un mismo estado ordena el nivel, así que atención a familias queda detrás de toda la
     lista. **Solo se guarda lo que Jefatura cambia a mano** (`sust_disponibilidad`), por **día +
     hora de inicio y fin** y curso, no por id de tramo (como `ora_disponibilidad`: reimportar
-    horarios no lo borra). Una clase propia como principal **no** se puede subir de «No». Un botón
+    horarios no lo borra). Una clase propia como principal sale en «No», pero **se puede subir a mano**
+    (David, 23-nov-2026: «pueden pasar cosas»; antes no se podía): la casilla dice «a mano · tiene
+    clase» y la propuesta la tiene en cuenta como cualquier retoque. Un botón
     «Volver a lo del horario» borra los retoques de un profe.
 16. **«Mis sustituciones»: hecho para todo el claustro, abierto de momento solo a quien tiene el
     módulo** (David, 13-nov-2026: «prueba de concepto»). Se construye entero, pero
@@ -340,6 +360,40 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     hora, «En el cuadro: Lucía, Pere»; y en Disponibilidad › La semana, en cada casilla. **Antes de
     leerlo hay que ver su formato** en un `.docx` real (no está en el repo: los ficheros con datos
     no se commitean).
+22. **Bajas** (David, 23-nov-2026). Tabla `edu_bajas` (`edu-bajas.sql`, aplicado en Neon el
+    23-nov-2026): profe, `desde`, `alta_prevista`, `alta_real`, `motivo`
+    (`CONFIGURACION.sustituciones.motivosBaja`), `ampliable`, nota. Lógica pura en `src/lib/bajas.ts`
+    (con tests) y servidor en `bajas-server.ts`.
+    - **Vigencia.** Está de baja un día si `desde <= día` y no hay alta real o el día es anterior a
+      ella: el **alta es el primer día de vuelta**. El **alta prevista no cierra la baja** (decisión
+      de implementación, ver 00-desarrollos-futuros): cuando pasa sin alta real, la tarjeta avisa
+      («¿ha vuelto?») para confirmarla o ampliarla. Así nadie de baja recibe una sustitución por
+      despiste. Dos bajas de la misma persona no se pisan.
+    - **Con sustituto.** Cada sustituto es una Cobertura por baja (`edu_sustituciones`) con `baja_id`,
+      origen `manual` (el sync de Educamos ya no le toca las fechas) y fechas que pone la baja:
+      empieza con la baja o cuando llega el sustituto (lo que sea más tarde: Paula de baja desde el
+      10, Alba llega el 19) y acaba el día antes del alta. Todo lo que ya leía las coberturas
+      (tutorías, avisos, Mi horario, Oratorios, esta propuesta) sigue igual. El titular
+      «desaparece»: no se le propone y no se le apunta ausencia esos días.
+    - **Sin sustituto.** Sus horas se cubren con ausencias (como hasta ahora): «Nueva ausencia» lo
+      detecta, pone el motivo «Baja» y apaga el correo al ausente (se puede encender). Tampoco
+      recibe sustituciones mientras dure.
+    - **Fuera de la baja, normal**: una baja futura no impide cubrir antes (vuelve el lunes, médico
+      el viernes), y una ausencia de hace tres meses, antes de la baja, se apunta y cuenta igual.
+      Todo se decide **día a día** (`deBajaEn`).
+    - **Pantalla**: aviso arriba con las coberturas sin baja anotada («Anotar la baja», que la
+      prellena), «De baja ahora», «Próximas» y «Terminadas» (plegadas); cada tarjeta con «Con / Sin
+      sustituto», motivo, fechas, quién la cubre, «Editar», «Dar el alta» y «Borrar» (solo si se
+      apuntó por error; sus coberturas se quedan, sin baja). El motivo es dato de salud: solo aquí.
+    - **Dónde se ve**: en «Profe que falta» y en Disponibilidad cada nombre lleva su estado de hoy
+      («de baja · la cubre Ángela», «de baja · sin sustituto», «sustituye a Alejandro»); en el
+      desplegable de candidatos, quien está de baja ese día sale **deshabilitado** en «De baja (no
+      reciben sustituciones)»; «La semana» no los cuenta. La tarjeta de Profesorado avisa de que
+      esto se gestiona aquí.
+23. **Los sustitutos, en las listas** (arreglo del 23-nov-2026). «Profe que falta» solo listaba a
+    quien tiene horario propio importado y Disponibilidad calculaba las etapas con el horario sin
+    coberturas: Ángela, Elena, Alba… (que heredan el horario del titular) no salían. Ahora salen en
+    los dos (comprobado contra Neon: 51 en el selector, con los 6 sustitutos y sus etapas).
 
 ---
 
@@ -467,7 +521,7 @@ sustituciones: {
     otras: 'si_hace_falta',          // atención a familias incluida
     libre: 'urgencia',
   },
-  nuncaLiberables: ['TALLER DE PENSAMIENTO', 'HUERTO'],   // etiquetas, normalizadas
+  nuncaLiberables: ['TALLER DE PENSAMIENTO', 'ALMUERZO'],   // etiquetas, normalizadas (Huerto: nivel desde 23-nov-2026)
   niveles: [                         // decisión 7; texto normalizado (MAYÚSCULAS, sin acentos)
     { clave: 'guardia',    nombre: 'Guardia',     actividades: ['guardia'] },
     { clave: 'codocencia', nombre: 'Codocencia',  actividades: ['clase', 'tutoria'], noPrincipal: true, conGrupo: true },
@@ -567,7 +621,7 @@ Más su test en `configuracion.test.ts` (fija los valores de Consolación, como 
 ### 4.7 Pantallas (todo con piezas de `src/components/ui/`, ver [`diseno.md`](./diseno.md))
 
 `layout.tsx`: `PaginaModulo modulo="sustituciones" ancho="normal"`, `secciones` **Hoy ·
-Disponibilidad · Historial · Números**, acción principal **«Nueva ausencia»**
+Disponibilidad · Bajas · Historial · Números**, acción principal **«Nueva ausencia»**
 (`buttonVariants({ size: 'sm' })` con `Plus`, enlace a `/gestion/sustituciones/nueva`). Modelo de
 cómo queda: Nouvinguts.
 
@@ -717,6 +771,17 @@ cómo queda: Nouvinguts.
 - [x] Retoque de disponibilidad desde las casillas «Por profe»; la vista «La semana» sigue siendo un resumen agregado.
 - [x] **Ajustes de correos**: plantillas editables en `cfg_ajustes`, vista previa en vivo, prueba y volver al de fábrica.
 - [~] **Cuadro del centro** (decisión 21): hechos la tabla `hor_cuadro_sustituciones`, el tercer criterio de orden y «En el cuadro: …» en Nueva ausencia y La semana. **Falta leerlo en el importador**: ver el formato en un `.docx` real (pedírselo a Jose Miguel), leerlo en el importador de horarios con tests, `hor_cuadro_sustituciones`, y usarlo en la propuesta y en las dos pantallas.
+
+### Bajas y ajustes del 23-nov-2026
+
+- [x] `edu_bajas` + `edu_sustituciones.baja_id` (`edu-bajas.sql`), aplicado en Neon el 23-nov-2026.
+- [x] `bajas.ts` puro con tests (vigencia, alta prevista, estado, quién está de baja un día, fechas de la cobertura, petición).
+- [x] Sección **Bajas**: alta, edición, dar el alta y borrar; acoger lo de Educamos. Escritura probada contra Neon con fichas inactivas (crear, solape rechazado, alta → cobertura cerrada el día antes, quitar sustituto → apagada y suelta, borrar) y dejado limpio.
+- [x] Propuesta: de baja (con o sin sustituto) fuera de candidatos día a día, y deshabilitados en el desplegable; ausencia bloqueada solo los días con la baja cubierta; «Baja» y sin correo al ausente si está de baja sin sustituto.
+- [x] Sustitutos en «Profe que falta» y en Disponibilidad, con su estado de hoy (comprobado contra Neon).
+- [x] Sin correos en sábado ni domingo (al lunes a las 8), con tests; «Enviar ya» en Nueva ausencia y en la ficha.
+- [x] Huerto como nivel (después de Godly) y retoque a mano también en una clase propia, con tests.
+- [ ] Probar la sección Bajas con sesión real y acoger las 6 coberturas de Educamos (Ángela, Elena, Alba, Meritxell, Roberto, Sandra) con sus fechas y motivos.
 
 ### Fase 3 · cuentas e informe
 

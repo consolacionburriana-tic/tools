@@ -277,6 +277,12 @@ salga un profe = llamar a esos helpers, nunca volver a juntar `[nombre, apellido
 
 ### Coberturas por baja: «Ángela Guillamón cubre la baja de Alejandro Sánchez» (2-nov-2026)
 
+> **Desde el 23-nov-2026 se gestionan en Sustituciones › Bajas** ([`32`](./32-sustituciones.md),
+> decisión 22): cada cobertura cuelga de una **baja** (`edu_bajas`, por `edu_sustituciones.baja_id`)
+> con su inicio, alta prevista o real y motivo, y la baja le pone las fechas. Lo que llega de Educamos
+> sin baja anotada sale allí para acogerlo; al acogerlo pasa a origen `manual` (el sync ya no le
+> cambia las fechas). La tarjeta de `/gestion/profes` sigue, con un enlace a Bajas.
+
 > **Nombre (13-nov-2026, David):** esto se llamaba «Sustituciones». Pasa a llamarse **coberturas
 > por baja** en pantalla y en código (`src/lib/coberturas-baja.ts`, `coberturas-baja-server.ts`,
 > `components/profes/coberturas-baja-panel.tsx`, `/api/profes/admin/coberturas-baja`,

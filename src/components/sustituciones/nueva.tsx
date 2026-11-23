@@ -28,7 +28,7 @@ import {
   type PropuestaSesion,
   type SesionAusente,
 } from '@/lib/sustituciones';
-import type { RespuestaPropuesta } from '@/lib/sustituciones-server';
+import type { ProfeSelector, RespuestaPropuesta } from '@/lib/sustituciones-server';
 import { Aviso } from '@/components/ui/aviso';
 import { BarraAcciones } from '@/components/ui/barra-acciones';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -48,17 +48,19 @@ import { horaRango, pedir, textoAvisos, type Avisos } from './comun';
 const CFG = CONFIGURACION.sustituciones;
 const SIN_CUBRIR = '__sin__';
 
-export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; nombre: string }[]; hoy: string; inicial: { profeId?: string; fecha?: string } }) {
+export function NuevaAusencia({ profes, hoy, inicial }: { profes: ProfeSelector[]; hoy: string; inicial: { profeId?: string; fecha?: string } }) {
   const router = useRouter();
   const [profeId, setProfeId] = useState(inicial.profeId ?? '');
   const [desde, setDesde] = useState(inicial.fecha ?? hoy);
   const [hasta, setHasta] = useState(inicial.fecha ?? hoy);
   const [motivo, setMotivo] = useState('');
   const [avisarAusente, setAvisarAusente] = useState(true);
+  const [enviarYa, setEnviarYa] = useState(false);
   const [nota, setNota] = useState('');
   const [indicaciones, setIndicaciones] = useState('');
   const [avisar, setAvisar] = useState(desde >= hoy);
   const avisarTocado = useRef(false);
+  const motivoTocado = useRef(false);
   const [datos, setDatos] = useState<RespuestaPropuesta | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +106,11 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
       const r = await pedir<RespuestaPropuesta>('/api/sustituciones/admin/propuesta', { body: { profeId, desde, hasta } });
       if (n !== peticion.current) return;
       setDatos(r);
+      // De baja sin sustituto: sus horas se cubren con esta ausencia; el motivo es «Baja» y, de salida, no se le escribe.
+      if (r.deBajaSinSustituto && !motivoTocado.current) {
+        setMotivo('baja');
+        setAvisarAusente(false);
+      }
       const ya = (s: SesionAusente) => r.yaApuntadas.some((y) => y.fecha === s.fecha && solapa(y, s));
       setEncendidas(new Set(r.dias.flatMap((d) => d.sesiones.filter((s) => s.hayQueCubrir && !ya(s)).map(claveSesion))));
       setFijados({});
@@ -194,7 +201,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
         } : {}),
       }));
       const r = await pedir<{ id: string; avisos: Avisos | null; liberadas: unknown[] }>('/api/sustituciones/admin/ausencias', {
-        body: { profeId: datos.profe.id, desde: datos.desde, hasta: datos.hasta, motivo, nota: nota || null, indicaciones: indicaciones || null, avisar, avisarAusente, sesiones },
+        body: { profeId: datos.profe.id, desde: datos.desde, hasta: datos.hasta, motivo, nota: nota || null, indicaciones: indicaciones || null, avisar, avisarAusente, enviarYa, sesiones },
       });
       haptic.success();
       const avisos = textoAvisos(r.avisos);
@@ -227,7 +234,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
               <option value="">Elige…</option>
               {profes.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nombre}
+                  {p.estado ? `${p.nombre} — ${p.estado}` : p.nombre}
                 </option>
               ))}
             </Selector>
@@ -241,7 +248,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
             </Campo>
           </div>
           <Campo etiqueta="Motivo" id="motivo" ayuda="Solo lo ve quien tiene este módulo: no sale en los correos.">
-            <Selector id="motivo" value={motivo} onChange={(e) => { setMotivo(e.target.value); setAvisarAusente(e.target.value !== 'baja'); }}>
+            <Selector id="motivo" value={motivo} onChange={(e) => { motivoTocado.current = true; setMotivo(e.target.value); setAvisarAusente(e.target.value !== 'baja'); }}>
               <option value="">Elige…</option>
               {CFG.motivos.map((m) => (
                 <option key={m.clave} value={m.clave}>
@@ -271,13 +278,18 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
       {datos && (
         <div className={cn('space-y-5 transition-opacity', cargando && 'opacity-60')} aria-busy={cargando}>
           {datos.excede && (
-            <Aviso tono="aviso" titulo={`Más de ${CFG.maxDiasAusencia} días lectivos`} accion={<Link href="/gestion/profes" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Ir a Profesorado</Link>}>
-              Una ausencia tan larga es una cobertura por baja: se apunta en Profesorado y tutorías, y quien la cubre hereda su horario.
+            <Aviso tono="aviso" titulo={`Más de ${CFG.maxDiasAusencia} días lectivos`} accion={<Link href="/gestion/sustituciones/bajas" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Ir a Bajas</Link>}>
+              Apúntala por tramos más cortos o, si viene alguien a sustituirle, anota la baja con su sustituto en «Bajas»: quien la cubre hereda su horario.
             </Aviso>
           )}
           {datos.bajaCubiertaPor && (
-            <Aviso tono="aviso" titulo="Su baja ya está cubierta" accion={<Link href="/gestion/profes" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Ver en Profesorado</Link>}>
+            <Aviso tono="aviso" titulo="Su baja ya está cubierta" accion={<Link href="/gestion/sustituciones/bajas" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Ver en Bajas</Link>}>
               Su baja la cubre {datos.bajaCubiertaPor}: sus clases ya tienen quien las dé. No se le apunta una ausencia.
+            </Aviso>
+          )}
+          {datos.deBajaSinSustituto && !datos.excede && (
+            <Aviso tono="info" titulo="Está de baja, sin sustituto">
+              Sus horas se cubren con esta ausencia. El motivo va como «Baja» y, de salida, no se le escribe: tú decides si le llega el correo.
             </Aviso>
           )}
           {datos.saltados.length > 0 && !datos.excede && <p className="text-sm text-zinc-500 dark:text-zinc-400">{textoSaltados(datos.saltados)}</p>}
@@ -386,6 +398,7 @@ export function NuevaAusencia({ profes, hoy, inicial }: { profes: { id: string; 
               className="w-auto flex-row-reverse justify-end border-0 bg-transparent px-0 py-0 hover:border-0 dark:bg-transparent"
             />
             {avisar && <Interruptor activo={avisarAusente} onChange={setAvisarAusente} etiqueta="Avisar también a quien falta" className="w-auto flex-row-reverse justify-end border-0 bg-transparent px-0 py-0 hover:border-0 dark:bg-transparent" />}
+            {avisar && <Interruptor activo={enviarYa} onChange={setEnviarYa} etiqueta="Enviar ya (aunque sea fin de semana o fuera de horas)" className="w-auto flex-row-reverse justify-end border-0 bg-transparent px-0 py-0 hover:border-0 dark:bg-transparent" />}
             {sinCubrir > 0 && <span className="hidden text-amber-700 sm:inline dark:text-amber-400">{sinCubrir === 1 ? '1 sin cubrir' : `${sinCubrir} sin cubrir`}</span>}
           </div>
         }
@@ -484,6 +497,15 @@ export function FilaHora({
                       ))}
                     </optgroup>
                   ))}
+                  {propuesta.deBaja.length > 0 && (
+                    <optgroup label="De baja (no reciben sustituciones)">
+                      {propuesta.deBaja.map((n) => (
+                        <option key={`baja-${n}`} value="" disabled>
+                          {n} — de baja
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </Selector>
                 {elegido ? (
                   <Estado tono={elegido.disponibilidad === 'urgencia' || elegido.disponibilidad === 'no' ? 'aviso' : 'ok'}>{nombreNivel(elegido.nivel)}</Estado>

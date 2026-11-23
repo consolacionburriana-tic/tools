@@ -42,7 +42,9 @@ import { cancelarProgramados, enviar, estadoCorreo, MAX_DIAS_PROGRAMADO, program
 import { hoyEnEspana, sumarDias, diaSemana } from '@/lib/oratorios';
 import { getAjustes as getAjustesOratorios } from '@/lib/oratorios-server';
 import { nombreProfeBreve, pilaProfe } from '@/lib/profes';
-import type { CoberturaBajaBase } from '@/lib/coberturas-baja';
+import { esVigente as coberturaVigente, type CoberturaBajaBase } from '@/lib/coberturas-baja';
+import { bajaVigente, deBajaEn, type BajaBase } from '@/lib/bajas';
+import { bajasEnRango } from '@/lib/bajas-server';
 import {
   aplicarCoberturas,
   aulaVisible,
@@ -70,7 +72,6 @@ import {
   resumir,
   sesionesDelAusente,
   solapa,
-  titularesDeBaja,
   type Bloqueo,
   type CasillaDisponibilidad,
   type CasillaSemana,
@@ -118,6 +119,8 @@ export interface Quien {
   emulando?: boolean;
   /** Lo que se apunta como «hecho por» (`autorDe`: la persona real y a quién emulaba). */
   firma?: string;
+  /** Saltarse la ventana de envío (fin de semana, antes de las 8, después de las 18…): salen ya. */
+  enviarYa?: boolean;
 }
 
 // ─── El claustro ─────────────────────────────────────────────────────────────
@@ -311,6 +314,8 @@ interface Cargado {
   saltados: DiaSaltado[];
   notasPorDia: Map<string, string[]>;
   coberturas: CoberturaBajaBase[];
+  /** Las bajas anotadas que tocan el rango (Sustituciones › Bajas). */
+  bajas: BajaBase[];
 }
 
 /** Ventanas de otras ausencias: de la primera a la última hora de cada una cada día. */
@@ -333,7 +338,7 @@ async function cargar(desde: string, hasta: string, excluirAusencia?: string | n
   const inicioReparto = sumarDias(desde, -CFG.diasReparto);
   const inicioMes = `${desde.slice(0, 7)}-01`;
   const otra = excluirAusencia ? ne(sustAusencias.id, excluirAusencia) : undefined;
-  const [base, profes, festivos, coberturas, sustFilas, oratorios, retoques, cargas, esteMes] = await Promise.all([
+  const [base, profes, festivos, coberturas, sustFilas, oratorios, retoques, cargas, esteMes, bajas] = await Promise.all([
     getHorarioBase(),
     getProfes(),
     db
@@ -371,6 +376,7 @@ async function cargar(desde: string, hasta: string, excluirAusencia?: string | n
       .where(eq(sustDisponibilidad.academicYear, academicYear)),
     contarCubiertas(inicioReparto, sumarDias(desde, -1)),
     contarCubiertas(inicioMes, finDeMes(desde)),
+    bajasEnRango(desde, hasta),
   ]);
 
   const { lectivos, saltados } = diasLectivos(desde, hasta, festivos);
@@ -385,7 +391,8 @@ async function cargar(desde: string, hasta: string, excluirAusencia?: string | n
     notasPorDia.set(f, d.notas);
     const dia = diaSemana(f);
     for (const c of base.cuadro) if (c.dia === dia && d.periodos.has(c.periodoId)) cuadro.push({ profeId: c.profeId, fecha: f, horaInicio: c.horaInicio, horaFin: c.horaFin });
-    deBaja.push([f, [...titularesDeBaja(f, coberturas).keys()]]);
+    // De baja ese día (con o sin sustituto): no recibe sustituciones. Fuera de esas fechas, sí.
+    deBaja.push([f, [...deBajaEn(f, bajas, coberturas)]]);
   }
 
   return {
@@ -394,6 +401,7 @@ async function cargar(desde: string, hasta: string, excluirAusencia?: string | n
     saltados,
     notasPorDia,
     coberturas,
+    bajas,
     ctx: {
       profes,
       horario,
@@ -450,8 +458,10 @@ export interface RespuestaPropuesta {
   saltados: DiaSaltado[];
   /** Pasa del tope de días lectivos: es una cobertura por baja. */
   excede: boolean;
-  /** Su baja la cubre alguien (no se le apunta una ausencia). */
+  /** Su baja la cubre alguien todos esos días (no se le apunta una ausencia). */
   bajaCubiertaPor: string | null;
+  /** Está de baja SIN sustituto alguno de esos días: sus horas se cubren con esta ausencia (motivo «Baja»). */
+  deBajaSinSustituto: boolean;
   /** Ya tiene otras ausencias en esas fechas (sus horas no se pueden repetir). */
   yaApuntadas: { fecha: string; horaInicio: string; horaFin: string }[];
   /** Horas en las que esta persona ya cubre a otra (si falta a esa hora, esas se quedan sin cubrir). */
@@ -465,7 +475,16 @@ export async function propuesta(profeId: string, desde: string, hasta: string, e
   const profe = c.ctx.profes.find((p) => p.id === profeId);
   if (!profe) throw new ErrorSustitucion('Ese profe no está en el claustro activo.', 404);
   const dias: DiaPropuesta[] = c.ctx.horario.map(([fecha, sesiones]) => ({ fecha, sesiones: sesionesDelAusente(sesiones, profeId), notas: c.notasPorDia.get(fecha) ?? [] }));
-  const cubre = c.coberturas.find((x) => x.titularId === profeId && c.lectivos.some((f) => (!x.desde || x.desde <= f) && (!x.hasta || f <= x.hasta)));
+  // Los días en que su baja la cubre alguien: sus horas ya son de quien le sustituye (no hay nada que cubrir).
+  const cubiertoPor = (f: string) => c.coberturas.find((x) => x.titularId === profeId && coberturaVigente(x, f));
+  const diasCubiertos = c.lectivos.filter((f) => cubiertoPor(f));
+  const cubre = diasCubiertos.length > 0 && diasCubiertos.length === c.lectivos.length ? cubiertoPor(diasCubiertos[0]) : undefined;
+  for (const f of diasCubiertos) {
+    const quien = c.ctx.profes.find((p) => p.id === cubiertoPor(f)?.sustitutoId)?.nombre ?? 'otra persona';
+    const d = dias.find((x) => x.fecha === f);
+    if (d) d.notas = [...d.notas, `Ese día su baja la cubre ${quien}: sus horas son suyas.`];
+  }
+  const deBajaSinSustituto = c.lectivos.some((f) => !cubiertoPor(f) && c.bajas.some((b) => b.profeId === profeId && bajaVigente(b, f)));
   // Lo que ya está apuntado de este profe (otra ausencia): esas horas no se pueden repetir.
   const [yaApuntadas, cubreYa] = await Promise.all([horasApuntadas(profeId, desde, hasta, excluirAusencia), horasQueCubre(profeId, desde, hasta)]);
   const excede = excedeTope(c.lectivos);
@@ -473,7 +492,7 @@ export async function propuesta(profeId: string, desde: string, hasta: string, e
   // Lo que viaja a la pantalla: solo lo que hace falta para volver a proponer allí (recortado).
   const porDia = new Map(dias.map((d) => [d.fecha, d.sesiones]));
   const contexto: ContextoPropuesta = { ...c.ctx, horario: c.ctx.horario.map(([f, delDia]) => [f, recortarHorario(delDia, porDia.get(f) ?? [])]) };
-  const base = { profe: { id: profe.id, nombre: profe.nombre }, desde, hasta, saltados: c.saltados, excede, bajaCubiertaPor, yaApuntadas, cubreYa };
+  const base = { profe: { id: profe.id, nombre: profe.nombre }, desde, hasta, saltados: c.saltados, excede, bajaCubiertaPor, deBajaSinSustituto, yaApuntadas, cubreYa };
   if (excede || bajaCubiertaPor) return { ...base, dias: [], contexto: { ...contexto, horario: [] } };
   return { ...base, dias, contexto };
 }
@@ -625,16 +644,36 @@ function horaLocalMadrid(fecha: string, hhmm: string): Date {
   return new Date(objetivo - (comoUtc - prueba.getTime()));
 }
 
-/** Máximo dos días de antelación; dentro de 08:00–18:00 Europe/Madrid (antes de las 8, a las 8; después de las 18, a las 8 del día siguiente). */
-export function cuandoEnviar(fechaSustitucion: string, ahora = new Date()): Date {
-  const desde = horaLocalMadrid(sumarDias(fechaSustitucion, -2), '08:00');
-  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ahora);
+/** El día (`yyyy-MM-dd`) y la hora de un instante en Madrid. */
+function enMadrid(instante: Date): { dia: string; hora: number; minuto: number } {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(instante);
   const v = Object.fromEntries(p.map((x) => [x.type, x.value]));
-  const local = `${v.year}-${v.month}-${v.day}`;
-  const tarde = Number(v.hour) > 18 || (Number(v.hour) === 18 && Number(v.minute) > 0);
-  const temprano = Number(v.hour) < 8;
+  return { dia: `${v.year}-${v.month}-${v.day}`, hora: Number(v.hour), minuto: Number(v.minute) };
+}
+
+/** ¿Ese día (Madrid) no sale correo? Sábado y domingo (`sinCorreoLosDias`, David 23-nov-2026). */
+const diaSinCorreo = (dia: string) => CFG.sinCorreoLosDias.includes(diaSemana(dia));
+
+/**
+ * Máximo dos días de antelación; dentro de 08:00–18:00 Europe/Madrid (antes de las 8, a las 8; después
+ * de las 18, a las 8 del día siguiente); y nunca en sábado ni domingo: lo que caería en fin de semana
+ * sale el lunes a las 8. Con `forzar` (Jefatura lo pide a mano), ya.
+ */
+export function cuandoEnviar(fechaSustitucion: string, ahora = new Date(), forzar = false): Date {
+  if (forzar) return ahora;
+  const desde = horaLocalMadrid(sumarDias(fechaSustitucion, -2), '08:00');
+  const { dia: local, hora, minuto } = enMadrid(ahora);
+  const tarde = hora > 18 || (hora === 18 && minuto > 0);
+  const temprano = hora < 8;
   const apertura = tarde ? horaLocalMadrid(sumarDias(local, 1), '08:00') : temprano ? horaLocalMadrid(local, '08:00') : ahora;
-  return new Date(Math.max(desde.getTime(), apertura.getTime()));
+  let cuando = new Date(Math.max(desde.getTime(), apertura.getTime()));
+  // Fin de semana: al primer día con correo, a las 8.
+  let dia = enMadrid(cuando).dia;
+  if (diaSinCorreo(dia)) {
+    for (let i = 0; i < 7 && diaSinCorreo(dia); i++) dia = sumarDias(dia, 1);
+    cuando = horaLocalMadrid(dia, '08:00');
+  }
+  return cuando;
 }
 
 type TipoEnvio = 'sustituto' | 'ausente' | 'anulacion_sustituto' | 'anulacion_ausente' | 'cambio_sustituto';
@@ -648,7 +687,7 @@ type TipoEnvio = 'sustituto' | 'ausente' | 'anulacion_sustituto' | 'anulacion_au
 async function mandar(para: string, d: Parameters<typeof correoAviso>[0], q: Quien, ausenciaId: string, sesionesIds: string[], tipoEnvio: TipoEnvio): Promise<{ error?: string; programadoPara?: Date }> {
   const { subject, html } = correoAviso(d);
   const mensaje = { to: para, subject, html, replyTo: q.email };
-  const programadoPara = cuandoEnviar(d.horas[0]?.fecha ?? d.desde);
+  const programadoPara = cuandoEnviar(d.horas[0]?.fecha ?? d.desde, new Date(), q.enviarYa);
   const ahora = Date.now();
   const futuro = programadoPara.getTime() > ahora + 60_000;
   const [fila] = await db.insert(sustEnvios).values({ ausenciaId, sesionesIds, destinatario: para, tipo: tipoEnvio, asunto: subject, html, replyTo: q.email, programadoPara, estado: futuro ? 'pendiente' : 'enviando' }).returning({ id: sustEnvios.id });
@@ -943,8 +982,9 @@ export async function confirmarAusencia(e: EntradaAusencia, q: Quien): Promise<R
   const c = await cargar(e.desde, e.hasta);
   const profe = c.ctx.profes.find((p) => p.id === e.profeId);
   if (!profe) throw new ErrorSustitucion('Ese profe no está en el claustro activo.', 404);
-  if (excedeTope(c.lectivos)) throw new ErrorSustitucion(`Son más de ${CFG.maxDiasAusencia} días lectivos: es una cobertura por baja (Profesorado y tutorías).`);
-  if (c.ctx.deBaja.some(([, ids]) => ids.includes(e.profeId))) throw new ErrorSustitucion('Su baja ya la cubre alguien (Coberturas por baja): no se le apunta una ausencia.');
+  if (excedeTope(c.lectivos)) throw new ErrorSustitucion(`Son más de ${CFG.maxDiasAusencia} días lectivos: apúntala por tramos, o como baja con sustituto (Sustituciones › Bajas).`);
+  // Con la baja cubierta ese día, sus horas son de quien le sustituye: no se le apunta nada. Sin sustituto, sí (es como se cubren).
+  if (e.sesiones.some((x) => c.coberturas.some((k) => k.titularId === e.profeId && coberturaVigente(k, x.fecha)))) throw new ErrorSustitucion('Su baja ya la cubre alguien esos días (Sustituciones › Bajas): no se le apunta una ausencia.');
   for (const s of e.sesiones) if (s.fecha < e.desde || s.fecha > e.hasta) throw new ErrorSustitucion('Hay una hora fuera de las fechas de la ausencia.');
   const yaApuntadas = await horasApuntadas(e.profeId, e.desde, e.hasta);
   const elegidas = resolverPedidas(e.sesiones, e.profeId, c, yaApuntadas);
@@ -1015,10 +1055,15 @@ function soltar(ids: string[], ahora: Date) {
 async function avisarTodo(id: string, q: Quien, soloPendientes = false): Promise<ResultadoAvisos> {
   const [{ a, sesiones }, plantillas, profes] = await Promise.all([leerAusencia(id), getPlantillas(), profesPorId()]);
   const aSustitutos = sesiones.filter((s) => (s.sustitutoId || s.sustituto2Id) && (!soloPendientes || s.avisoEstado !== 'enviado'));
+  // Forzado («Enviar ya»): el resumen del ausente que estuviera esperando sale también ahora.
+  const ausenteEsperando =
+    soloPendientes && q.enviarYa && a.avisarAusente
+      ? (await db.select({ id: sustEnvios.id }).from(sustEnvios).where(and(eq(sustEnvios.ausenciaId, id), eq(sustEnvios.tipo, 'ausente'), inArray(sustEnvios.estado, ['pendiente', 'programado']))).limit(1)).length > 0
+      : false;
   // Se rehacen solo los avisos de estas horas (y el del ausente): los demás sustitutos conservan el suyo.
-  await cancelarEnvios(id, q, soloPendientes ? aSustitutos.map((s) => s.id) : undefined, !soloPendientes);
+  await cancelarEnvios(id, q, soloPendientes ? aSustitutos.map((s) => s.id) : undefined, !soloPendientes || ausenteEsperando);
   const r1 = await avisarSustitutos(a, aSustitutos, q, plantillas, profes);
-  const r2 = soloPendientes || !a.avisarAusente ? vacio() : await avisarAusente(a, sesiones, q, plantillas, profes);
+  const r2 = (soloPendientes && !ausenteEsperando) || !a.avisarAusente ? vacio() : await avisarAusente(a, sesiones, q, plantillas, profes);
   return sumar(r1, r2);
 }
 
@@ -1086,7 +1131,7 @@ export async function cambiarAusencia(id: string, cambio: EntradaCambio, q: Quie
     const fuera = sesiones.filter((s) => s.fecha < cambio.desde || s.fecha > cambio.hasta);
     if (fuera.length === sesiones.length) throw new ErrorSustitucion('Con esas fechas no le queda ninguna hora: si al final no falta, anula la ausencia.');
     const { lectivos } = diasLectivos(cambio.desde, cambio.hasta, await festivosEntre(cambio.desde, cambio.hasta));
-    if (excedeTope(lectivos)) throw new ErrorSustitucion(`Son más de ${CFG.maxDiasAusencia} días lectivos: es una cobertura por baja.`);
+    if (excedeTope(lectivos)) throw new ErrorSustitucion(`Son más de ${CFG.maxDiasAusencia} días lectivos: apúntala por tramos, o como baja con sustituto (Sustituciones › Bajas).`);
     // Si alarga, los días nuevos no traen horas solas: se añaden después desde la ficha («Añadir horas»),
     // que es donde se comprueba que no se solapen con otra ausencia suya.
     const fechas = db.update(sustAusencias).set({ desde: cambio.desde, hasta: cambio.hasta, academicYear: cursoDeFecha(cambio.desde), updatedAt: ahora }).where(eq(sustAusencias.id, id));
@@ -1603,8 +1648,8 @@ export async function repasarEnvios(): Promise<{ conciliados: number; programado
   }
 
   // 2) Los que aún guardamos nosotros.
-  const hh = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hourCycle: 'h23' }).format(ahora));
-  const ventanaAbierta = hh >= 8 && hh < 18;
+  const madrid = enMadrid(ahora);
+  const ventanaAbierta = madrid.hora >= 8 && madrid.hora < 18 && !diaSinCorreo(madrid.dia);
   const limiteResend = new Date(ahora.getTime() + MAX_DIAS_PROGRAMADO * 86_400_000);
   const filas = await db
     .select({ id: sustEnvios.id, ausenciaId: sustEnvios.ausenciaId, sesionesIds: sustEnvios.sesionesIds, destinatario: sustEnvios.destinatario, tipo: sustEnvios.tipo, asunto: sustEnvios.asunto, html: sustEnvios.html, replyTo: sustEnvios.replyTo, programadoPara: sustEnvios.programadoPara, profeId: sustAusencias.profeId })
@@ -1658,6 +1703,10 @@ export interface SemanaTipo {
   semana: Map<number, SesionDia[]>;
   retoques: Retoque[];
   cuadro: { profeId: string; dia: number; horaInicio: string; horaFin: string }[];
+  /** Cómo está hoy cada uno («de baja · la cubre Ángela», «sustituye a Alejandro»). */
+  estados: Record<string, string>;
+  /** De baja hoy: no cuentan en «La semana» (no van a cubrir nada). */
+  deBaja: Set<string>;
 }
 
 /**
@@ -1665,7 +1714,8 @@ export interface SemanaTipo {
  * en que no haya especiales), para la rejilla de disponibilidad. Sin fecha concreta: es la semana tipo.
  */
 async function semanaTipo(academicYear: string): Promise<SemanaTipo> {
-  const [base, profes, retoques, coberturas] = await Promise.all([
+  const hoy = hoyEnEspana();
+  const [base, profes, retoques, coberturas, bajas] = await Promise.all([
     getHorarioBase(),
     getProfes(),
     db
@@ -1676,12 +1726,12 @@ async function semanaTipo(academicYear: string): Promise<SemanaTipo> {
       .select({ sustitutoId: eduCoberturasBaja.sustitutoId, titularId: eduCoberturasBaja.titularId, desde: eduCoberturasBaja.desde, hasta: eduCoberturasBaja.hasta, activa: eduCoberturasBaja.activa })
       .from(eduCoberturasBaja)
       .where(eq(eduCoberturasBaja.activa, true)),
+    bajasEnRango(hoy, hoy),
   ]);
   const ordinarios = base.periodos.filter((p) => p.esOrdinario && cursoDeFecha(p.fechaInicio) === academicYear);
   const ordIds = new Set(ordinarios.map((p) => p.id));
   const rejillas = base.rejillas.filter((r) => ordIds.has(r.periodoId));
   const rejIds = new Set(rejillas.map((r) => r.id));
-  const hoy = hoyEnEspana();
   const semana = new Map<number, SesionDia[]>();
   for (let dia = 1; dia <= 5; dia++) {
     const del = base.sesiones.filter((s) => s.dia === dia && rejIds.has(s.rejillaId)).map((s) => aSesionDia(s, hoy));
@@ -1705,9 +1755,21 @@ async function semanaTipo(academicYear: string): Promise<SemanaTipo> {
     const propias = r && r.ambitos.some((a) => a.etapa) ? (etapaDeRejilla.get(r.id) ?? []) : [];
     for (const p of s.profes) etapasDe[p.id] = [...new Set([...(etapasDe[p.id] ?? []), ...propias])];
   }
+  // Quien cubre una baja hereda el horario del titular, y con él sus etapas (si no, no salía en la lista).
+  for (const c of coberturas) {
+    if (!coberturaVigente(c, hoy) || !etapasDe[c.titularId]) continue;
+    etapasDe[c.sustitutoId] = [...new Set([...(etapasDe[c.sustitutoId] ?? []), ...etapasDe[c.titularId]])];
+  }
   for (const id of Object.keys(etapasDe)) etapasDe[id].sort((a, b) => CFG.etapas.indexOf(a) - CFG.etapas.indexOf(b));
+  const nombre = new Map(profes.map((p) => [p.id, p.nombre]));
+  const estados: Record<string, string> = {};
+  for (const id of deBajaEn(hoy, bajas, coberturas)) {
+    const leCubren = coberturas.filter((c) => c.titularId === id && coberturaVigente(c, hoy)).map((c) => nombre.get(c.sustitutoId) ?? '—');
+    estados[id] = leCubren.length > 0 ? `de baja · la cubre ${leCubren.join(' y ')}` : 'de baja';
+  }
+  for (const c of coberturas) if (coberturaVigente(c, hoy) && !estados[c.sustitutoId]) estados[c.sustitutoId] = `sustituye a ${nombre.get(c.titularId) ?? '—'}`;
   const cuadro = base.cuadro.filter((c) => ordIds.has(c.periodoId)).map((c) => ({ profeId: c.profeId, dia: c.dia, horaInicio: c.horaInicio, horaFin: c.horaFin }));
-  return { academicYear, profes, franjasPorEtapa, etapasDe, semana, retoques: retoques.map((r) => ({ ...r, estado: r.estado as Disponibilidad })), cuadro };
+  return { academicYear, profes, franjasPorEtapa, etapasDe, semana, retoques: retoques.map((r) => ({ ...r, estado: r.estado as Disponibilidad })), cuadro, estados, deBaja: deBajaEn(hoy, bajas, coberturas) };
 }
 
 export interface DatosDisponibilidadProfe {
@@ -1718,7 +1780,7 @@ export interface DatosDisponibilidadProfe {
 
 export interface DatosDisponibilidad {
   academicYear: string;
-  profes: { id: string; nombre: string; etapas: Etapa[] }[];
+  profes: { id: string; nombre: string; etapas: Etapa[]; estado: string | null }[];
   porProfe: DatosDisponibilidadProfe | null;
   semana: { etapa: Etapa; franjas: Franja[]; casillas: CasillaSemana[] }[];
 }
@@ -1738,12 +1800,12 @@ export async function disponibilidad(academicYear: string, profeId: string | nul
   const semana = CFG.etapas.map((etapa) => {
     const franjas = t.franjasPorEtapa[etapa] ?? [];
     // Todo el claustro con horario: un candidato puede ser de cualquier etapa (decisión 1).
-    return { etapa, franjas, casillas: mapaSemana(conHorario, t.semana, franjas, t.retoques, t.cuadro) };
+    return { etapa, franjas, casillas: mapaSemana(conHorario.filter((p) => !t.deBaja.has(p.id)), t.semana, franjas, t.retoques, t.cuadro) };
   });
-  return { academicYear, profes: conHorario.map((p) => ({ id: p.id, nombre: p.nombre, etapas: t.etapasDe[p.id] ?? [] })), porProfe, semana };
+  return { academicYear, profes: conHorario.map((p) => ({ id: p.id, nombre: p.nombre, etapas: t.etapasDe[p.id] ?? [], estado: t.estados[p.id] ?? null })), porProfe, semana };
 }
 
-/** Guarda (o borra, con `estado` null = «Automático») un retoque. Una clase propia no se sube de «No». */
+/** Guarda (o borra, con `estado` null = «Automático») un retoque. También en una clase propia (lo decide Jefatura). */
 export async function guardarRetoque(
   academicYear: string,
   r: { profeId: string; dia: number; horaInicio: string; horaFin: string; estado: Disponibilidad | null; nota?: string | null },
@@ -1909,9 +1971,23 @@ export async function avisoMisSustituciones(email: string, hoy = hoyEnEspana()):
 
 // ─── Para los selectores ─────────────────────────────────────────────────────
 
-/** El claustro con horario (para «Profe que falta»), por nombre. */
-export async function profesConHorario(): Promise<{ id: string; nombre: string }[]> {
-  const [profes, conHorario] = await Promise.all([
+export interface ProfeSelector {
+  id: string;
+  nombre: string;
+  /** Cómo está hoy: «de baja · la cubre Ángela», «de baja · sin sustituto», «sustituye a Alejandro». */
+  estado: string | null;
+  /** De baja hoy con sustituto: sale, pero señalado (no se le apunta nada esos días). */
+  cubierto: boolean;
+}
+
+/**
+ * El claustro con horario (para «Profe que falta»), por nombre: quien tiene horario propio y quien lo
+ * hereda por cubrir una baja (antes no salían: Ángela, Elena, Alba…). Quien está de baja sale con su
+ * estado de hoy; el servidor decide luego día a día (una ausencia de antes de la baja, o de después
+ * del alta, se apunta normal).
+ */
+export async function profesConHorario(hoy = hoyEnEspana()): Promise<ProfeSelector[]> {
+  const [profes, conHorario, coberturas, bajas] = await Promise.all([
     getProfes(),
     db
       .selectDistinct({ id: horAsignacionProfes.eduTeacherId })
@@ -1919,9 +1995,28 @@ export async function profesConHorario(): Promise<{ id: string; nombre: string }
       .innerJoin(horAsignaciones, eq(horAsignaciones.id, horAsignacionProfes.asignacionId))
       .innerJoin(horPeriodos, eq(horPeriodos.id, horAsignaciones.periodoId))
       .where(and(eq(horAsignaciones.active, true), eq(horPeriodos.active, true))),
+    db
+      .select({ sustitutoId: eduCoberturasBaja.sustitutoId, titularId: eduCoberturasBaja.titularId, desde: eduCoberturasBaja.desde, hasta: eduCoberturasBaja.hasta, activa: eduCoberturasBaja.activa })
+      .from(eduCoberturasBaja)
+      .where(eq(eduCoberturasBaja.activa, true)),
+    bajasEnRango(hoy, hoy),
   ]);
   const ids = new Set(conHorario.map((x) => x.id));
-  return profes.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, nombre: p.nombre }));
+  const titularConHorario = new Set(coberturas.filter((c) => ids.has(c.titularId)).map((c) => c.sustitutoId));
+  const nombre = new Map(profes.map((p) => [p.id, p.nombre]));
+  const lista = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+  return profes
+    .filter((p) => ids.has(p.id) || titularConHorario.has(p.id))
+    .map((p) => {
+      const leCubren = coberturas.filter((c) => c.titularId === p.id && coberturaVigente(c, hoy)).map((c) => nombre.get(c.sustitutoId) ?? '—');
+      const cubreA = coberturas.filter((c) => c.sustitutoId === p.id && coberturaVigente(c, hoy)).map((c) => nombre.get(c.titularId) ?? '—');
+      const deBaja = bajas.some((b) => b.profeId === p.id && bajaVigente(b, hoy));
+      let estado: string | null = null;
+      if (leCubren.length > 0) estado = `de baja · la cubre ${lista(leCubren)}`;
+      else if (deBaja) estado = 'de baja · sin sustituto';
+      else if (cubreA.length > 0) estado = `sustituye a ${lista(cubreA)}`;
+      return { id: p.id, nombre: p.nombre, estado, cubierto: leCubren.length > 0 };
+    });
 }
 
 /** El profe de una cuenta (para saber de quién es «Mis sustituciones»), sin cargar todo su horario. */

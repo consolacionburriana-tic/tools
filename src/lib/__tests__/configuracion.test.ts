@@ -121,13 +121,17 @@ describe('el resto de parámetros, con los valores de Consolación', () => {
     expect(c.avisoProximosDias).toBe(7);
     expect(c.misSustitucionesParaTodos).toBe(false);
     expect(c.niveles.map((n) => n.clave)).toEqual([
-      'guardia', 'codocencia', 'lectura', 'tut_indiv', 'je', 'al', 'pt', 'godly', 'tic', 'pastoral', 'gabinete', 'direccion', 'otras',
+      'guardia', 'codocencia', 'lectura', 'tut_indiv', 'je', 'al', 'pt', 'godly', 'huerto', 'tic', 'pastoral', 'gabinete', 'direccion', 'otras',
     ]);
     expect(c.disponibilidadPorDefecto.en_aula).toBe('si');
     expect(c.disponibilidadPorDefecto.guardia).toBe('si');
     expect(c.disponibilidadPorDefecto.otras).toBe('si_hace_falta');
     expect(c.disponibilidadPorDefecto.libre).toBe('urgencia');
-    expect(c.nuncaLiberables).toEqual(['TALLER DE PENSAMIENTO', 'HUERTO', 'ALMUERZO']);
+    expect(c.nuncaLiberables).toEqual(['TALLER DE PENSAMIENTO', 'ALMUERZO']); // el Huerto se libera desde el 23-nov-2026
+    // Bajas (23-nov-2026): la enfermedad, ampliable de salida; la paternidad, no. Sin correo en fin de semana.
+    expect(c.motivosBaja.find((m) => m.clave === 'enfermedad')?.ampliable).toBe(true);
+    expect(c.motivosBaja.find((m) => m.clave === 'paternidad')?.ampliable).toBeFalsy();
+    expect(c.sinCorreoLosDias).toEqual([6, 7]);
     // El informe del día 1 (16-nov-2026): Infantil y Primaria, ESO y uno conjunto para Dirección titular.
     expect(c.informes.map((i) => [i.etapas.join('+'), COLEGIO[i.buzon]])).toEqual([
       ['EI+EP', 'jeinfyprim@consolacionburriana.com'],

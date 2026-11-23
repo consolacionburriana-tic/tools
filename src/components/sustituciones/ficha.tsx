@@ -5,7 +5,7 @@
 // Las ausencias no se borran nunca: se anulan (dejan de contar).
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Ban, CalendarRange, Mail, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { Ban, CalendarRange, Mail, Plus, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { CONFIGURACION } from '@/lib/configuracion';
@@ -73,10 +73,10 @@ export function FichaAusencia({ ficha, hoy }: { ficha: DatosFicha; hoy: string }
     }
   }
 
-  async function reenviar(todos: boolean) {
-    setOcupado(todos ? 'reenviar-todos' : 'reenviar');
+  async function reenviar(todos: boolean, enviarYa = false) {
+    setOcupado(enviarYa ? 'enviar-ya' : todos ? 'reenviar-todos' : 'reenviar');
     try {
-      const r = await pedir<{ avisos: Avisos }>(`/api/sustituciones/admin/ausencias/${a.id}/reenviar`, { body: { todos } });
+      const r = await pedir<{ avisos: Avisos }>(`/api/sustituciones/admin/ausencias/${a.id}/reenviar`, { body: { todos, enviarYa } });
       const t = textoAvisos(r.avisos);
       if (r.avisos.fallidos.length) toast.warning(t ?? 'Ha fallado otra vez');
       else toast.success(t ?? 'No había nada que reenviar');
@@ -104,6 +104,8 @@ export function FichaAusencia({ ficha, hoy }: { ficha: DatosFicha; hoy: string }
   const porDia = new Map<string, typeof ficha.sesiones>();
   for (const s of ficha.sesiones) porDia.set(s.fecha, [...(porDia.get(s.fecha) ?? []), s]);
   const conError = ficha.sesiones.filter((s) => s.avisoEstado === 'error');
+  const programadas = ficha.sesiones.filter((s) => s.avisoEstado === 'programado' && s.avisoProgramadoPara);
+  const primeraProgramada = programadas.map((s) => new Date(s.avisoProgramadoPara!)).sort((x, y) => x.getTime() - y.getTime())[0];
   const aCubrir = ficha.sesiones.filter((s) => s.hayQueCubrir);
   const sinCubrir = aCubrir.filter((s) => !s.sustitutoId && !s.sustituto2Id).length;
   const avisados = new Set(ficha.sesiones.filter((s) => s.avisoEstado === 'enviado' && s.fecha >= hoy).flatMap((s) => [s.sustitutoId, s.sustituto2Id]).filter(Boolean)).size;
@@ -149,6 +151,20 @@ export function FichaAusencia({ ficha, hoy }: { ficha: DatosFicha; hoy: string }
           }
         >
           {[...new Set(conError.map((s) => `${s.sustitutoNombre ?? '—'}: ${s.avisoError ?? 'error'}`))].join(' · ')}
+        </Aviso>
+      )}
+
+      {!anulada && primeraProgramada && (
+        <Aviso
+          tono="info"
+          titulo={programadas.length === 1 ? 'Un aviso está programado' : `${programadas.length} avisos están programados`}
+          accion={
+            <Button variant="outline" size="sm" cargando={ocupado === 'enviar-ya'} onClick={() => void reenviar(false, true)}>
+              <Send aria-hidden /> Enviar ya
+            </Button>
+          }
+        >
+          Saldrán el {primeraProgramada.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} (nunca antes de las 8, después de las 18 ni en fin de semana). Si hace falta antes, envíalos ya.
         </Aviso>
       )}
 
@@ -209,6 +225,15 @@ export function FichaAusencia({ ficha, hoy }: { ficha: DatosFicha; hoy: string }
                                   ))}
                                 </optgroup>
                               ))}
+                              {prop.deBaja.length > 0 && (
+                                <optgroup label="De baja (no reciben sustituciones)">
+                                  {prop.deBaja.map((n) => (
+                                    <option key={`baja-${n}`} value="" disabled>
+                                      {n} — de baja
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              )}
                             </Selector>
                           )}
                           {s.sustitutoId && <span className="text-xs text-zinc-500 dark:text-zinc-400">{nombreNivel(s.nivel)} · {TEXTO_AVISO[s.avisoEstado] ?? s.avisoEstado}{s.avisoProgramadoPara ? ` para ${s.avisoProgramadoPara.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', dateStyle: 'short', timeStyle: 'short' })}` : ''}{s.confirmacionToken ? ` · ${s.confirmacionEstado === 'confirmada' ? 'confirmada por el sustituto' : 'pendiente de confirmación'}` : ''}</span>}

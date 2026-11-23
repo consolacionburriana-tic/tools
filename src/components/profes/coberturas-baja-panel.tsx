@@ -11,13 +11,15 @@
 // el estado (vigente, programada, caducada…) lo calcula siempre el servidor con la fecha de hoy.
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, Download, Plus, UserRoundCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 import { Tarjeta } from '@/components/ui/tarjeta';
 import { Rotulo } from '@/components/ui/rotulo';
-import { Button } from '@/components/ui/button';
+import { Aviso } from '@/components/ui/aviso';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Selector } from '@/components/ui/selector';
 import { Campo } from '@/components/ui/campo';
@@ -111,6 +113,18 @@ export function CoberturasBajaPanel({ filas, profes }: { filas: CoberturaBajaUI[
 
       {abierto && (
         <div className="space-y-5 border-t border-zinc-100 px-4 py-4 dark:border-zinc-800">
+          {/* Desde el 23-nov-2026 las bajas (fechas de baja y alta, motivo y quién las cubre) se llevan en Sustituciones › Bajas (docs/32). */}
+          <Aviso
+            tono="info"
+            titulo="Las bajas se gestionan ahora en Sustituciones › Bajas"
+            accion={
+              <Link href="/gestion/sustituciones/bajas" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                Ir a Bajas
+              </Link>
+            }
+          >
+            Allí se anota desde cuándo, el alta prevista o la real, el motivo y quién la cubre. Esta lista sigue siendo la misma; lo que vino de Educamos se acoge allí para ponerle fechas.
+          </Aviso>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             Mientras una cobertura por baja esté <strong>vigente</strong>, quien sustituye es tutor/a de las clases del titular
             (los avisos van a esa persona, no a quien falta). Las que vienen de Educamos se crean y se cierran solas con

@@ -19,6 +19,7 @@ Reglas para quien lo toque (personas o agentes):
 - **Identificación de familias · DNI del alumno**: ¿se acepta también el DNI/NIE del propio alumno en las pantallas públicas? (Hoy, documento del tutor o NIA.)
 - **Huerto** como tipo nuevo de Oratorios, Godly Play y Talleres ([`26`](./26-oratorios.md)).
 - **Horarios · cambiar el aula de una clase a mano** y modelar los desdobles hora a hora ([`07`](./07-horarios.md)).
+- **Sustituciones · Bajas: decisiones tomadas al construirlo (23-nov-2026)** ([`32`](./32-sustituciones.md), decisión 22). Revisar: (1) el **alta prevista no cierra la baja**: sigue de baja hasta anotar el alta real, con aviso cuando pasa la prevista (lo contrario dejaría a alguien de baja recibiendo sustituciones si se olvida); (2) el **alta** es el primer día de vuelta; (3) una baja sin sustituto sigue con el tope de 15 días lectivos por ausencia (se apunta por tramos); (4) el fin de semana sin correos no incluye los **festivos** (¿también?); (5) una misma pareja sustituto–titular es una sola cobertura: si se repite en otra baja, pasa a la nueva.
 
 ## Ideas (sin decidir)
 
@@ -30,6 +31,7 @@ Reglas para quien lo toque (personas o agentes):
 - **Salidas · CSV del seguimiento** de una salida.
 - **Ajustes del centro editables desde la app** (hoy `configuracion.ts` + redeploy; ver [`09`](./09-parametros-del-centro.md)).
 - **Barra de plataforma con selector de módulos** (opción D de [`diseno.md`](./diseno.md)).
+- **Revisión de diseño · ¿componentes nativos o propios?** (David, 23-nov-2026): el selector de fecha (`<input type="date">`) y los desplegables (`<select>`, `Selector`) son los del navegador. Revisar si conviene usar piezas propias para que todo sea coherente con el resto de la app y lo más cómodo posible en iPad (empezando por Sustituciones). Para más adelante.
 
 ## Limpieza técnica pendiente
 
