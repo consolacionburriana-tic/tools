@@ -1,6 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { ChevronDown, Code2, Cloud, MousePointerClick, Palette, Sparkles } from 'lucide-react';
+import { candidatosJefatura, getJefaturas } from '@/lib/jefaturas-server';
+import { JefaturasForm } from '@/components/ajustes/jefaturas-form';
 import { getAjustesIA, hayClaveIA } from '@/lib/ajustes-server';
 import { inventarioCentro, inventarioEntorno, type OrigenAjuste } from '@/lib/ajustes-inventario';
 import { AjustesIAForm } from '@/components/ajustes/ia-form';
@@ -27,7 +29,8 @@ function Origen({ origen }: { origen: OrigenAjuste }) {
 }
 
 export default async function AjustesPage() {
-  const ia = await getAjustesIA();
+  const [ia, jefaturas, candidatos] = await Promise.all([getAjustesIA(), getJefaturas(), candidatosJefatura()]);
+  const { _meta: metaJefaturas, ...jefes } = jefaturas;
   const secciones = inventarioCentro();
   const entorno = inventarioEntorno();
 
@@ -45,6 +48,22 @@ export default async function AjustesPage() {
           <Origen origen="codigo" /> con un cambio en el repo (por ahora)
         </span>
       </div>
+
+      <section className="space-y-2">
+        <Rotulo>Jefaturas de estudios</Rotulo>
+        <Tarjeta className="space-y-3 p-4">
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            Cada jefatura ve por defecto solo lo de sus etapas en Sustituciones (y puede mirar lo de la otra con un toque).
+          </p>
+          <JefaturasForm inicial={jefes} candidatos={candidatos} />
+          {metaJefaturas.updatedAt && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Último cambio: {metaJefaturas.updatedAt.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}
+              {metaJefaturas.updatedByEmail && ` · ${metaJefaturas.updatedByEmail}`}
+            </p>
+          )}
+        </Tarjeta>
+      </section>
 
       {secciones.map((s) => (
         <section key={s.titulo} className="space-y-2">
@@ -106,14 +125,14 @@ export default async function AjustesPage() {
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Análisis con inteligencia artificial</span>
             <span className="block text-sm text-zinc-500 dark:text-zinc-400">
-              Por ahora solo lo usa Evaluaciones. {ia.activado ? 'Activado.' : 'Desactivado.'}
+              Lo usan Evaluaciones y la paleta ⌘K de Sustituciones. {ia.activado ? 'Activado.' : 'Desactivado.'}
             </span>
           </span>
           <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180" />
         </summary>
         <div className="space-y-3 border-t border-zinc-100 px-4 pt-3 pb-4 dark:border-zinc-800">
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            Se usa en Evaluaciones → Resultados («Lo que ve la IA») para resumir lo que dicen las respuestas. <strong className="font-semibold text-zinc-900 dark:text-zinc-100">No se le envía ningún dato personal</strong>: solo las cifras y los comentarios escritos, sin nombres ni correos. Cada análisis se guarda y no se repite solo.
+            Se usa en Evaluaciones → Resultados («Lo que ve la IA») para resumir lo que dicen las respuestas. <strong className="font-semibold text-zinc-900 dark:text-zinc-100">No se le envía ningún dato personal</strong>: solo las cifras y los comentarios escritos, sin nombres ni correos. Cada análisis se guarda y no se repite solo. En Sustituciones (⌘K) entiende fechas y horas escritas a mano; el nombre del profe se quita antes de enviarlo.
           </p>
           <AjustesIAForm inicial={{ activado: ia.activado, modelo: ia.modelo, contexto: ia.contexto }} hayClave={hayClaveIA()} huella={huellaClaveIA()} />
           {ia.updatedAt && (

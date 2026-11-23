@@ -32,7 +32,7 @@ chips (`BOTON_PRIMARIO`, `ESTILO_CAMPO`…): usa estas.
 | Avisar de algo dentro de la página | `Aviso` (`info`, `aviso`, `error`, `ok`) | `ui/aviso` |
 | Avisar de algo hecho | `toast` (con `action: { label: 'Deshacer', … }` si se puede) | `sonner` |
 | Confirmar | `ConfirmarEnLinea`, `ConfirmarDialogo`, `useConfirmar` | `ui/confirmar` |
-| Una ventana encima | `Dialog`… (`variante="hoja"` para fichas que se abren con el dedo) | `ui/dialog` |
+| Una ventana encima | `Dialog`… (`variante="hoja"` para fichas que se abren con el dedo; `variante="lateral"` para trabajar al lado de lo que se mira: panel a la derecha, hoja alta en el móvil, pie con `sticky bottom-0`) | `ui/dialog` |
 | Botones fijos abajo | `BarraAcciones` | `ui/barra-acciones` |
 | Cuánto lleva algo · una tarea larga del servidor | `Progreso` · `EnCurso` | `ui/progreso` |
 | Un sí/no que se aplica al momento | `Interruptor` (`etiquetaOculta` dentro de una fila) | `ui/interruptor` |

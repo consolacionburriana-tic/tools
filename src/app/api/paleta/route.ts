@@ -14,6 +14,8 @@ import { cartelClase } from '@/lib/inventario';
 import { PRIORIDADES } from '@/lib/tableros';
 import { crearTareaRapida, destinosTarea } from '@/lib/tareas-rapidas-server';
 import { direccionDeTareas } from '@/lib/tareas-correo-server';
+import { profesParaPaleta } from '@/lib/sustituciones-server';
+import { getAjustesIA, hayClaveIA } from '@/lib/ajustes-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,7 +61,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ alumnos });
   }
 
-  const [oratoriosComun, tableros, aulas] = await Promise.all([
+  const conSust = canAccess(user, 'sustituciones');
+  const [oratoriosComun, tableros, aulas, profesSust, ia] = await Promise.all([
     !canAccess(user, 'oratorios') && canAccess(user, 'oratorios-ver') ? accesoComunActivo().catch(() => false) : false,
     canAccess(user, 'tableros') ? destinosTarea(user.email).catch(() => []) : [],
     canAccess(user, 'inventario')
@@ -71,6 +74,8 @@ export async function GET(request: Request) {
           .orderBy(invAulas.piso, invAulas.orden)
           .catch(() => [])
       : [],
+    conSust ? profesParaPaleta().catch(() => null) : null,
+    conSust && hayClaveIA() ? getAjustesIA().catch(() => null) : null,
   ]);
   const herramientas = herramientasDe(user, { oratoriosComun, nouvinguts: null, dispositivosSinInformar: null, inventario: null, tableros: null })
     .filter((h) => !h.bloqueo)
@@ -86,6 +91,8 @@ export async function GET(request: Request) {
     })),
     alumnado: canAccess(user, 'alumnado'),
     correoTareas: tableros.length ? direccionDeTareas() : null,
+    profesSust,
+    iaSust: Boolean(ia?.activado),
   });
 }
 

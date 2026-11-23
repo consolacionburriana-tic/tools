@@ -43,12 +43,18 @@ function DialogOverlay({
  * - `centrado` (por defecto): la ventana en medio de la pantalla.
  * - `hoja`: en el móvil sube desde abajo y respeta la barra de inicio del iPhone; desde `sm`
  *   es igual que la centrada. Para fichas y detalles que se abren con el dedo.
+ * - `lateral`: un panel de trabajo junto a lo que se mira (hoja alta en el móvil, a la derecha
+ *   desde `md`). Su contenido pone el pie fijo con `sticky bottom-0`.
  */
 const VARIANTE = {
   centrado:
     "top-1/2 left-1/2 max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl sm:max-w-md data-open:zoom-in-95 data-closed:zoom-out-95",
   hoja:
     "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-2xl pb-[max(1.25rem,env(safe-area-inset-bottom))] data-open:slide-in-from-bottom data-closed:slide-out-to-bottom sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:pb-5 sm:data-open:slide-in-from-bottom-0 sm:data-open:zoom-in-95 sm:data-closed:slide-out-to-bottom-0 sm:data-closed:zoom-out-95",
+  // Un panel que se abre al lado de lo que se está mirando (el calendario de Sustituciones): en el
+  // móvil, una hoja casi a pantalla completa; desde `md`, a la derecha y de arriba abajo.
+  lateral:
+    "inset-x-0 bottom-0 max-h-[94dvh] gap-3 rounded-t-2xl px-4 pt-4 pb-0 data-open:slide-in-from-bottom data-closed:slide-out-to-bottom md:inset-y-0 md:right-0 md:left-auto md:max-h-dvh md:w-[min(46rem,100vw)] md:rounded-none md:rounded-l-2xl md:px-6 md:pt-5 md:data-open:slide-in-from-right md:data-closed:slide-out-to-right",
 } as const
 
 function DialogContent({

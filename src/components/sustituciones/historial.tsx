@@ -13,8 +13,9 @@ import { Filtro, Filtros } from '@/components/ui/filtro';
 import { Selector } from '@/components/ui/selector';
 import { Tarjeta } from '@/components/ui/tarjeta';
 import { Vacio } from '@/components/ui/vacio';
+import { FiltroJefatura } from './comun';
 
-export function Historial({ filas, meses, profes, mes, profeId }: { filas: FilaHistorial[]; meses: string[]; profes: { id: string; nombre: string }[]; mes: string | null; profeId: string | null }) {
+export function Historial({ filas, meses, profes, mes, profeId, grupoEtapas }: { filas: FilaHistorial[]; meses: string[]; profes: { id: string; nombre: string }[]; mes: string | null; profeId: string | null; grupoEtapas: string }) {
   const router = useRouter();
   const ruta = usePathname();
   const sp = useSearchParams();
@@ -32,6 +33,7 @@ export function Historial({ filas, meses, profes, mes, profeId }: { filas: FilaH
   const vistas = grupo ? filas.filter((f) => agruparMotivo(f.motivo) === grupo) : filas;
   return (
     <div className="space-y-5">
+      <FiltroJefatura grupo={grupoEtapas} />
       <div className="flex flex-wrap items-center gap-3">
         <Selector aria-label="Mes" className="w-48" value={mes ?? ''} onChange={(e) => ir({ mes: e.target.value || null })}>
           <option value="">Las últimas</option>

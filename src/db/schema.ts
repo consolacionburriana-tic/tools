@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, date, doublePrecision, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { type AnyPgColumn, boolean, date, doublePrecision, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 // Solo el tipo (se borra al compilar) y ruta relativa: drizzle-kit no resuelve el alias '@/'.
 import type { Etapa } from '../lib/cursos';
 
@@ -1857,6 +1857,7 @@ export const sustAusencias = pgTable('sust_ausencias', {
   profeId: uuid('profe_id').notNull().references(() => eduTeachers.id),
   profeNombre: text('profe_nombre').notNull(),
   etapa: text('etapa').notNull().default('EP'), // 'EI' | 'EP' | 'ESO', etapa a la que pertenece la ausencia
+  salidaId: uuid('salida_id').references((): AnyPgColumn => sustSalidas.id), // la de un acompañante de una salida
   avisarAusente: boolean('avisar_ausente').notNull().default(true),
   // 'actividad_escolar'|'medico'|'medico_familiar'|'enfermedad_leve'|'baja'|'otros'. Dato de
   // salud en casi todos: NUNCA sale en un correo, en «Mis sustituciones» ni en un log.
@@ -1968,6 +1969,26 @@ export const sustEnvios = pgTable('sust_envios', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Una salida (decisión 25): unos grupos fuera un día, entero (horas a null) o unas horas. Libera a
+// quien les da clase esas horas y hace faltar a los acompañantes (ausencias con `salida_id`).
+export const sustSalidas = pgTable('sust_salidas', {
+  id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  academicYear: text('academic_year').notNull(),
+  fecha: date('fecha').notNull(),
+  horaInicio: text('hora_inicio'),
+  horaFin: text('hora_fin'),
+  grupos: jsonb('grupos').$type<{ curso: string; letra: string | null; etiqueta: string }[]>().notNull().default([]),
+  acompanantes: jsonb('acompanantes').$type<{ id: string; nombre: string }[]>().notNull().default([]),
+  descripcion: text('descripcion').notNull(),
+  estado: text('estado').notNull().default('activa'), // 'activa' | 'anulada'
+  creadaPorEmail: text('creada_por_email').notNull(),
+  anuladaPorEmail: text('anulada_por_email'),
+  anuladaAt: timestamp('anulada_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [index('sust_salidas_fecha_idx').on(t.fecha)]);
+
+export type SustSalida = typeof sustSalidas.$inferSelect;
 export type SustAusencia = typeof sustAusencias.$inferSelect;
 export type SustSesion = typeof sustSesiones.$inferSelect;
 export type NewSustSesion = typeof sustSesiones.$inferInsert;

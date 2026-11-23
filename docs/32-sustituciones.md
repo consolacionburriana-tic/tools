@@ -1,8 +1,21 @@
 # Sustituciones · cubrir las ausencias del profesorado (Infantil, Primaria y ESO)
 
-**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (todas las tablas en Neon, también etapas, confirmaciones, envíos
-programados y coberturas dobles, 16-nov-2026; faltan el cuadro del centro en el importador, una vuelta con sesión
-real y el primer correo de verdad — ver §5). Las sustituciones largas de Educamos ya se llaman **Coberturas por baja**.
+**Estado:** plan funcional ✅ · plan técnico ✅ · implementado 🟡 (todas las tablas en Neon; rediseño del 23-nov-2026 con
+calendario semanal, estados, salidas, jefaturas por etapa, «Mis sustituciones» abierta y ⌘K; faltan el cuadro del centro en
+el importador y ver salir el primer correo de verdad — ver §5). Las sustituciones largas de Educamos ya se llaman
+**Coberturas por baja**.
+
+> **Rediseño del 23-nov-2026 (David).** Lo principal pasa a ser **un calendario de la semana** (decisión 28): las horas a
+> escala de reloj (cada etapa tiene su rejilla, así que Infantil y Primaria van juntas en el mismo eje), cada hora que pide
+> sustituto pintada con su **estado** (decisión 29: **Confirmada** verde · **Cubierta** azul · **Borrador** gris punteado ·
+> **Sin cubrir** ámbar · **Correo con error** rojo), y las salidas y bajas de cada día encima. Se apunta **tocando un hueco**
+> (esa hora ya marcada), **el nombre del día** (el día entero) o con **⌘K** en lenguaje natural (decisión 27); todo en un
+> panel al lado, sin salir de la semana, con la propuesta hecha: elegir quién falta, el motivo y «Guardar y avisar» (o
+> «Borrador»). En el móvil, día a día. **Jefaturas por etapa** (decisión 30): José Miguel Batalla lleva Infantil y Primaria
+> y Lucía Vives la ESO (se cambia en Ajustes del colegio); cada una ve por defecto solo lo suyo en todas las secciones y
+> puede mirar lo de la otra con un toque. **Salidas** (decisión 25), **aviso a Jefatura cuando un sustituto confirma**
+> (decisión 26) y **«Mis sustituciones» abierta a todo el claustro**, solo con lo de hoy en adelante y ya avisado (decisión
+> 16). Lo que sustituye a lo anterior en lo que se contradiga (la pantalla «Hoy» y la de «Nueva ausencia» desaparecen).
 
 > **Ajustes acordados el 16-nov-2026:** el perfil de correo sale desde
 > `jeinfyprim@consolacionburriana.com`; el aviso al sustituto incluye un enlace para confirmar y da las
@@ -43,11 +56,10 @@ real y el primer correo de verdad — ver §5). Las sustituciones largas de Educ
 Idea y primer plan de Jose Miguel Batalla (12-nov-2026, con David). Revisado contra el código y
 contra los horarios reales de Neon y cerrado con David el 13-nov-2026 (§1: lo que cambió y por qué).
 
-Ruta: `/gestion/sustituciones` (secciones **Hoy · Disponibilidad · Bajas · Historial · Números**, y un
-enlace a **Ajustes** de los correos). Grupo del escritorio: **Organización del centro**, pero con
+Ruta: `/gestion/sustituciones` (secciones **Semana · Salidas · Bajas · Disponibilidad · Historial · Números**, y un
+enlace a **Correos y avisos**). Grupo del escritorio: **Organización del centro**, pero con
 **icono en índigo**, no en el teal del grupo, para no confundirlo con Oratorios (decisión 20).
-«Mis sustituciones» en `/gestion/mis-sustituciones`, de momento solo para quien tiene el módulo
-(decisión 16).
+«Mis sustituciones» en `/gestion/mis-sustituciones`, para todo el claustro (decisión 16).
 
 Cuando un profe falta unas horas o unos días, Jefatura tiene que decidir quién entra en cada una
 de sus clases, avisar a cada sustituto y al ausente, y llevar la cuenta de cuántas horas falta
@@ -308,7 +320,12 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     (David, 23-nov-2026: «pueden pasar cosas»; antes no se podía): la casilla dice «a mano · tiene
     clase» y la propuesta la tiene en cuenta como cualquier retoque. Un botón
     «Volver a lo del horario» borra los retoques de un profe.
-16. **«Mis sustituciones»: hecho para todo el claustro, abierto de momento solo a quien tiene el
+16. **«Mis sustituciones»: abierta a todo el claustro desde el 23-nov-2026** (`misSustitucionesParaTodos = true`; David:
+    «que lo puedan ver los profes, pero solo las de hoy o del futuro, y solo si ha salido el aviso por correo»). Cada uno ve
+    lo suyo de hoy en adelante y solo lo que ya le ha llegado por correo (`sust_envios` enviado a su dirección con esa hora);
+    nada de lo pasado. Grande y por días («Hoy», «Mañana»…), con «Confirmar» (lo mismo que el enlace del correo) y «Añadir
+    a mi Google Calendar». Lo que sigue es la historia de cómo empezó:
+    **«Mis sustituciones»: hecho para todo el claustro, abierto de momento solo a quien tiene el
     módulo** (David, 13-nov-2026: «prueba de concepto»). Se construye entero, pero
     `CONFIGURACION.sustituciones.misSustitucionesParaTodos = false` hace que la página, su API y
     el aviso del escritorio pidan el módulo `sustituciones` (Jefatura, Dirección, Secretaría, TIC).
@@ -410,6 +427,57 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
     los dos (comprobado contra Neon: 51 en el selector, con los 6 sustitutos y sus etapas).
 
 ---
+
+25. **Salidas** (David, 23-nov-2026: «4º ESO A este día no está: se libera a todos los profes de esas horas menos a
+    fulanito y menganito, que se van a la salida, y si tienen clases hay que sustituirles; bien integrado y que no se
+    solapen»). Sección **Salidas**, pantalla sencilla: adónde, día, todo el día o de tal a tal hora, qué grupos (los de mi
+    etapa; «ver otras») y quién va. Tabla `sust_salidas` y `sust_ausencias.salida_id` (`sustituciones-salidas.sql`, aplicado
+    en Neon el 23-nov-2026). Al guardarla:
+    - **Libera**: una sesión cuyos grupos están TODOS fuera a esa hora (`marcarGruposFuera`, por `curso|letra`) deja libre
+      a quien la da: nivel `grupo_fuera` («Su grupo está de salida»), disponibilidad «Sí», el primero tras «Ya está en el
+      aula». Si junta un grupo que se va con otro que se queda, no se libera. Y si quien la da falta, esa hora ya no pide
+      sustituto.
+    - **Acompañantes**: a cada uno se le prepara una **ausencia en borrador** (motivo Actividad escolar, nota «Salida: …»)
+      con sus horas de esa franja menos las de su propio grupo de salida, y la propuesta de quién entra (sin proponer a
+      otro acompañante). Nadie recibe nada hasta que Jefatura la revisa y pulsa «Avisar».
+    - **Sin pisar nada**: las horas que el acompañante ya tenía en otra ausencia se saltan; lo que él cubría se queda sin
+      cubrir (y se dice); las sustituciones de esos grupos que ya no hacen falta se señalan en la salida y en el calendario
+      (bloque con autobús) con «Ya no hace falta» (acción `no_hace_falta`: la hora sigue contando, nadie entra, y al
+      sustituto que ya lo sabía le llega «ya no hace falta»).
+    - **Anular** una salida anula las ausencias de sus acompañantes (avisando a quien ya lo sabía).
+26. **Aviso a Jefatura cuando confirman** (David, 23-nov-2026). Cada persona de Jefatura se lo activa o no en Correos y
+    avisos («Avisarme por correo cuando un sustituto confirme»; `cfg_ajustes` `sustituciones.avisoConfirmacion`, lista de
+    correos). Le llega de lo de su etapa y de lo que apuntó, **como respuesta al aviso que salió** (cada envío lleva su
+    `Message-ID` `<sust-{envío}@dominio>` y la respuesta va con `In-Reply-To`/`References`), y el asunto lo dice todo:
+    `Re: Sustitución · mar 24 nov · 10:30 · 2º B · Confirmada: Lucía Vives cubre a Marta Rubio`.
+27. **⌘K en lenguaje natural** (David, 23-nov-2026). En la paleta, «Marta falta mañana a 3ª y 4ª, médico» (o `s marta
+    mañana`) ofrece «Falta Marta Rubio · mié 25 nov · 3ª, 4ª · Médico»; Intro abre el panel con todo rellenado y la
+    propuesta hecha (nada se guarda sin confirmar). Lo entiende primero **sin IA** (`sustituciones-interpretar.ts`, con
+    tests: nombres sin tildes y por apellido, hoy/mañana/días/fechas, ordinales y horas de reloj, motivo por palabras); si
+    falta cuándo, a qué horas o el motivo y la IA está activada en Ajustes del colegio, **Claude** rellena lo que falte. A
+    Claude **no le llega el nombre de nadie**: se quita antes (`anonimizar`). Con dos Martas, la paleta ofrece las dos.
+28. **El calendario** (David, 23-nov-2026). Semana de lunes a viernes, eje de horas a escala (1,2 px por minuto, de la
+    primera a la última hora de las rejillas de las etapas que se ven), una columna por día; los bloques que se pisan van
+    uno al lado de otro (`colocarBloques`). Cabecera del día: tocarla apunta el día entero; debajo, salidas y bajas que
+    empiezan o acaban (las de toda la semana van en una línea arriba, plegable). Hueco: un botón por hora (accesible con
+    teclado) y el minuto sale de dónde se toca; tocar cerca de una clase vale como tocarla. ← → cambian de semana, `N`
+    apunta. En el móvil, pestañas L-V y «Anterior / Siguiente» (pasa de semana). Solo las horas que piden sustituto: las
+    que solo cuentan se ven en la ficha. La ficha de una ausencia se abre en el mismo panel (`/gestion/sustituciones/[id]`
+    redirige a la semana con el panel abierto).
+29. **Estados de una hora** (David, 23-nov-2026: «una sustitución perfecta es la cubierta y confirmada»). `estadoHora`
+    (puro, con tests): **Confirmada** (tiene sustituto y ha dicho que sí, con el enlace o desde «Mis sustituciones»),
+    **Cubierta** (avisada o con el aviso programado: «yo ya la tengo clara»), **Borrador** (tiene sustituto y no se ha
+    avisado; hoy o futura), **Sin cubrir**, **Correo con error** y **No hace falta**. Una hora pasada apuntada sin avisar
+    (lo que se registra a posteriori, la mayoría de lo que hay en Neon) es **Cubierta**: ya no queda nada que hacer. Con
+    dos sustitutos, confirmada cuando confirman los dos. Guardar sin avisar es «Borrador»; la ficha tiene «Avisar a N
+    personas» (manda a los sustitutos pendientes y, si nunca le llegó, al ausente).
+30. **Jefaturas por etapa** (David, 23-nov-2026: «separación total de infantil-primaria vs secundaria; que se pueda
+    cambiar fácil, no en el módulo»). En **Ajustes del colegio › Jefaturas de estudios**, quién lleva Infantil y Primaria y
+    quién la ESO (`cfg_ajustes` `jefaturas`; las jefaturas y sus etapas en `CONFIGURACION.sustituciones.jefaturas`).
+    Puesto en Neon: José Miguel Batalla e Infantil y Primaria, Lucía Vives y ESO. En Semana, Salidas, Bajas, Historial,
+    Números y Disponibilidad cada uno ve por defecto lo suyo (`etapasActivas`), con «Infantil y Primaria · ESO · Todo»
+    para mirar lo otro; la elección se recuerda (cookie `sust_etapas`). Al apuntar, los profes de su etapa salen primero.
+    Una ausencia es de la etapa del profe que falta (como hasta ahora).
 
 ## 3. Preguntas para David
 
@@ -525,7 +593,7 @@ sustituciones: {
   enAulaPrimero: true,
   diasReparto: 30,                   // ventana del desempate «quien menos ha cubierto»
   avisoProximosDias: 7,              // «Tus sustituciones» en el escritorio
-  misSustitucionesParaTodos: false,  // decisión 16: prueba de concepto, solo con el módulo
+  misSustitucionesParaTodos: true,   // decisión 16: abierta a todo el claustro (23-nov-2026)
   // Disponibilidad automática (decisión 15). Lo que no está aquí es 'no'.
   disponibilidadPorDefecto: {
     en_aula: 'si', guardia: 'si',
@@ -773,7 +841,6 @@ cómo queda: Nouvinguts.
 - [x] Pantallas **Nueva ausencia** (con rango de fechas) y **Ficha** con `loading.tsx`; claro/oscuro, 390/1180 px sin desplazamiento lateral; `diseno:guardia` en verde (pintadas en local con datos de Neon).
 - [x] Pantalla **Hoy** con cifras y estado vacío (cambiar de día con `pushState`).
 - [x] Tabla maestra de `plataforma.md` y esta ficha al día.
-- [ ] **Vuelta completa con sesión real** (Jefatura): apuntar, cambiar, añadir, quitar, anular y reenviar desde las pantallas. La lógica está probada contra Neon y las pantallas pintadas, pero no se ha pulsado con una sesión de verdad.
 
 ### Fase 2 · después de confirmar
 
@@ -795,8 +862,19 @@ cómo queda: Nouvinguts.
 - [x] Sustitutos en «Profe que falta» y en Disponibilidad, con su estado de hoy (comprobado contra Neon).
 - [x] Sin correos en sábado ni domingo (al lunes a las 8), con tests; «Enviar ya» en Nueva ausencia y en la ficha.
 - [x] Huerto como nivel (después de Godly) y retoque a mano también en una clase propia, con tests.
-- [x] Disponibilidad por etapa (decisión 24): filtro de etapa en las dos vistas, equipo directivo al final y marcado, `etapasDePersona` y `mapaSemana` con tests; comprobado contra Neon (Bárbara ya solo sale en ESO; Infantil pasa de 9 disponibles a 4 a las 9:00 del martes). Falta mirarlo en el navegador con sesión real.
-- [ ] Probar la sección Bajas con sesión real y acoger las 6 coberturas de Educamos (Ángela, Elena, Alba, Meritxell, Roberto, Sandra) con sus fechas y motivos.
+- [x] Disponibilidad por etapa (decisión 24): filtro de etapa en las dos vistas, equipo directivo al final y marcado, `etapasDePersona` y `mapaSemana` con tests; comprobado contra Neon (Bárbara ya solo sale en ESO; Infantil pasa de 9 disponibles a 4 a las 9:00 del martes).
+- [ ] Acoger las 6 coberturas de Educamos (Ángela, Elena, Alba, Meritxell, Roberto, Sandra) con sus fechas y motivos (lo hace Jefatura desde Bajas).
+
+### Rediseño del 23-nov-2026
+
+- [x] Calendario semanal (decisión 28): eje de horas a escala, bloques por estado y en columnas si se pisan, salidas y bajas por día, día a día en el móvil, ← → y `N`; datos de una tanda (`datosSemana`). Pintado en local con datos de Neon a 1366 y 390 px, claro y oscuro.
+- [x] Panel lateral (variante `lateral` de `Dialog`) para apuntar (buscar quién falta escribiendo, motivo de un toque, propuesta hecha, «Partir la hora» solo cuando hace falta, «Borrador» o «Guardar y avisar a N») y para la ficha. «Nueva ausencia» y «Hoy» desaparecen (redirigen).
+- [x] Estados (decisión 29) con `estadoHora`/`contarEstados` y tests; «Avisar a N personas» desde la ficha para los borradores.
+- [x] Jefaturas por etapa (decisión 30) en Ajustes del colegio, puestas en Neon; filtro por defecto en todas las secciones.
+- [x] Salidas (decisión 25): tabla y SQL aplicados en Neon; `marcarGruposFuera` con tests; probado contra Neon el 23-nov-2026 (salida de 4º ESO A un martes de diciembre: a la acompañante se le preparan 5 horas en borrador y entran primero los profes liberados) y dejado limpio.
+- [x] «Mis sustituciones» abierta a todo el claustro (decisión 16): solo de hoy en adelante y lo ya avisado por correo (también «Te cubren», el aviso del escritorio y la franja de Mi horario), con «Confirmar» desde la pantalla.
+- [x] Aviso a Jefatura cuando confirman (decisión 26), como respuesta al aviso (`Message-ID` propio en cada envío).
+- [x] ⌘K en lenguaje natural (decisión 27): `interpretar` con tests, y Claude para lo que falte (sin nombres).
 
 ### Fase 3 · cuentas e informe
 
@@ -808,15 +886,11 @@ cómo queda: Nouvinguts.
 
 ### Más adelante (ideas, no se hacen sin que David las pida)
 
-- **Calendario de sustituciones** (David, 13-nov-2026): ver todas las que hay en marcha en una
-  **semana** entera, días × franjas, con cada sesión cubierta en su hueco (quién falta, quién
-  entra, grupo), y pasar de semana con ◀ ▶. Mismo dato que «Hoy», otra vista (un `Filtro` Día /
-  Semana en Hoy, o una sección más).
-- **Abrir «Mis sustituciones» a todo el profesorado**: `misSustitucionesParaTodos = true` (decisión 16).
 - **Que el propio profe avise de que falta** desde Mi horario («Mañana no estoy a 1ª y 2ª, voy al
-  médico») y le llegue a Jefatura ya rellenada como propuesta (David, 13-nov-2026: para el futuro).
+  médico») y le llegue a Jefatura ya rellenada como propuesta (David, 13-nov-2026 y 23-nov-2026: «para otra vez»).
 - **Que cada profe marque su propia rejilla** de disponibilidad y Jefatura la valide.
-- **Avisar al tutor del grupo** cuando el ausente es un especialista (sabe quién entra en su clase).
+- **Avisar al tutor del grupo** cuando el ausente es un especialista (sabe quién entra en su clase). **Pendiente de que
+  José Miguel lo valide** (David, 23-nov-2026).
 - [~] Aviso al profesor sustituido opcional; desactivado por defecto para motivo «Baja».
 - [~] Registrar etapa en cada ausencia y ofrecer filtro EI, EP y ESO en Números.
 - [~] Confirmación del sustituto por enlace de un solo grupo de sesiones.

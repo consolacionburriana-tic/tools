@@ -14,13 +14,14 @@ import { EnlaceVolver, TituloPagina } from '@/components/ui/cabecera-modulo';
 import { Campo } from '@/components/ui/campo';
 import { Filtro, Filtros } from '@/components/ui/filtro';
 import { Input } from '@/components/ui/input';
+import { Interruptor } from '@/components/ui/interruptor';
 import { Tarjeta, TarjetaCabecera, TarjetaCuerpo } from '@/components/ui/tarjeta';
 import { Textarea } from '@/components/ui/textarea';
 import { pedir } from './comun';
 
 type Campo = 'asunto' | 'antes' | 'despues';
 
-export function AjustesCorreos({ inicial, quien, hoy, actualizado }: { inicial: Plantillas; quien: string; hoy: string; actualizado: string | null }) {
+export function AjustesCorreos({ inicial, quien, hoy, actualizado, avisoConfirmacion }: { inicial: Plantillas; quien: string; hoy: string; actualizado: string | null; avisoConfirmacion: boolean }) {
   const [guardadas, setGuardadas] = useState(inicial);
   const [plantillas, setPlantillas] = useState(inicial);
   const [tipo, setTipo] = useState<TipoPlantilla>('sustituto');
@@ -84,8 +85,10 @@ export function AjustesCorreos({ inicial, quien, hoy, actualizado }: { inicial: 
     <div className="space-y-5">
       <div>
         <EnlaceVolver href="/gestion/sustituciones">Sustituciones</EnlaceVolver>
-        <TituloPagina descripcion={actualizado ? `Última vez guardadas: ${actualizado}` : 'Ahora mismo, los textos de fábrica.'}>Correos</TituloPagina>
+        <TituloPagina descripcion={actualizado ? `Plantillas guardadas por última vez: ${actualizado}` : 'Plantillas: ahora mismo, los textos de fábrica.'}>Correos y avisos</TituloPagina>
       </div>
+
+      <AvisoConfirmacion inicial={avisoConfirmacion} />
 
       <Filtros etiqueta="Plantilla">
         {TIPOS_PLANTILLA.map((t) => (
@@ -142,5 +145,28 @@ export function AjustesCorreos({ inicial, quien, hoy, actualizado }: { inicial: 
         </Button>
       </BarraAcciones>
     </div>
+  );
+}
+
+/** Lo de cada uno: un correo cuando un sustituto confirma, como respuesta al aviso que salió. */
+function AvisoConfirmacion({ inicial }: { inicial: boolean }) {
+  const [activo, setActivo] = useState(inicial);
+  async function cambiar(v: boolean) {
+    setActivo(v);
+    try {
+      await pedir('/api/sustituciones/admin/preferencias', { method: 'PUT', body: { avisoConfirmacion: v } });
+      toast.success(v ? 'Te avisaremos cuando confirmen' : 'Ya no te llegará ese aviso');
+    } catch (e) {
+      setActivo(!v);
+      toast.error(e instanceof Error ? e.message : 'No se ha podido guardar');
+    }
+  }
+  return (
+    <Interruptor
+      activo={activo}
+      onChange={(v) => void cambiar(v)}
+      etiqueta="Avisarme por correo cuando un sustituto confirme"
+      descripcion="Solo para ti. Te llega como respuesta al aviso que se le mandó, y el asunto lo dice todo: cuándo, dónde, quién cubre y a quién. Solo de tu etapa y de lo que apuntes tú."
+    />
   );
 }

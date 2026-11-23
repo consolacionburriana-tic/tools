@@ -1,70 +1,48 @@
 import { redirect } from 'next/navigation';
-import { CalendarPlus, CalendarX2, UserX } from 'lucide-react';
+import { CalendarCheck2, UserX } from 'lucide-react';
 import { getSessionUser } from '@/lib/auth-guards';
-import { CONFIGURACION } from '@/lib/configuracion';
-import { hoyEnEspana } from '@/lib/oratorios';
-import { enlaceGoogleCalendar, fechaLarga, hora, lugarDe, mayuscula, rangoLargo } from '@/lib/sustituciones';
+import { hoyEnEspana, sumarDias } from '@/lib/oratorios';
+import { fechaLarga, hora, mayuscula, rangoLargo } from '@/lib/sustituciones';
 import { misSustituciones, type MiSustitucion } from '@/lib/sustituciones-server';
-import { Aviso } from '@/components/ui/aviso';
-import { buttonVariants } from '@/components/ui/button';
-import { Estado } from '@/components/ui/estado';
 import { Rotulo } from '@/components/ui/rotulo';
 import { Tarjeta } from '@/components/ui/tarjeta';
 import { Vacio } from '@/components/ui/vacio';
+import { rotuloDiaMio, TarjetaMia } from '@/components/sustituciones/mis-sustituciones';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Mis sustituciones · Consolación' };
-
-function TarjetaHora({ s, pasada }: { s: MiSustitucion; pasada?: boolean }) {
-  const lugar = lugarDe(s);
-  return (
-    <Tarjeta className="space-y-2 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-lg font-semibold text-zinc-900 tabular-nums dark:text-zinc-100">
-            {hora(s.horaInicio)} – {hora(s.horaFin)}
-          </p>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300">{mayuscula(fechaLarga(s.fecha))}</p>
-        </div>
-        {s.enAula && <Estado tono="info">Ya estás en el aula</Estado>}
-      </div>
-      {lugar && <p className="text-base font-medium text-zinc-900 dark:text-zinc-100">{lugar}</p>}
-      <p className="text-sm text-zinc-600 dark:text-zinc-300">Cubres a {s.cubreA}</p>
-      {s.indicaciones && <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm whitespace-pre-line text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">{s.indicaciones}</p>}
-      {!pasada && (
-        <a
-          href={enlaceGoogleCalendar({ titulo: `Sustitución · ${[s.grupos, s.materia].filter(Boolean).join(' · ') || s.cubreA}`, fecha: s.fecha, horaInicio: s.horaInicio, horaFin: s.horaFin, lugar: s.aula ? mayuscula(s.aula) : s.grupos, detalles: [`Cubres a ${s.cubreA}.`, s.indicaciones].filter(Boolean).join('\n\n') })}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
-          <CalendarPlus aria-hidden /> Añadir a mi Google Calendar
-        </a>
-      )}
-    </Tarjeta>
-  );
-}
 
 export default async function MisSustitucionesPage() {
   const user = await getSessionUser();
   if (!user) redirect('/gestion/login');
   const hoy = hoyEnEspana();
+  const manana = sumarDias(hoy, 1);
   const datos = await misSustituciones(user.email, hoy);
+  const porDia = new Map<string, MiSustitucion[]>();
+  for (const s of datos.proximas) porDia.set(s.fecha, [...(porDia.get(s.fecha) ?? []), s]);
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <h1 className="sr-only">Mis sustituciones</h1>
-      {!CONFIGURACION.sustituciones.misSustitucionesParaTodos && (
-        <Aviso tono="info" titulo="Prueba de concepto">
-          De momento esta pantalla solo la ven Jefatura, Dirección, Secretaría y TIC. Para abrirla a todo el profesorado hay que cambiar{' '}
-          <code className="font-mono text-xs">misSustitucionesParaTodos</code> en <code className="font-mono text-xs">src/lib/configuracion.ts</code> (docs/32, decisión 16).
-        </Aviso>
-      )}
       {!datos.profeId ? (
         <Vacio icono={<UserX />} titulo="Tu correo no está enlazado a ningún profe">
           {user.email} no aparece en la BBDD central. Habla con TIC para que lo revisen.
         </Vacio>
       ) : (
         <>
+          {porDia.size === 0 ? (
+            <Vacio icono={<CalendarCheck2 />} titulo="No tienes sustituciones a la vista">
+              Cuando te toque cubrir una hora te llegará un correo, y aparecerá aquí.
+            </Vacio>
+          ) : (
+            [...porDia].map(([fecha, lista]) => (
+              <section key={fecha} className="space-y-2">
+                <Rotulo>{rotuloDiaMio(fecha, hoy, manana)}</Rotulo>
+                {lista.map((s) => (
+                  <TarjetaMia key={s.id} s={s} hoy={hoy} />
+                ))}
+              </section>
+            ))
+          )}
           {datos.teCubren.length > 0 && (
             <section className="space-y-2">
               <Rotulo>Te cubren</Rotulo>
@@ -86,22 +64,6 @@ export default async function MisSustitucionesPage() {
                     ))}
                   </ul>
                 </Tarjeta>
-              ))}
-            </section>
-          )}
-          <section className="space-y-2">
-            <Rotulo>Próximas</Rotulo>
-            {datos.proximas.length === 0 ? (
-              <Vacio icono={<CalendarX2 />} titulo="No tienes sustituciones a la vista" />
-            ) : (
-              datos.proximas.map((s) => <TarjetaHora key={s.id} s={s} />)
-            )}
-          </section>
-          {datos.pasadas.length > 0 && (
-            <section className="space-y-2">
-              <Rotulo>Últimos 30 días</Rotulo>
-              {datos.pasadas.map((s) => (
-                <TarjetaHora key={s.id} s={s} pasada />
               ))}
             </section>
           )}
