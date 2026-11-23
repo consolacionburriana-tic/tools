@@ -390,6 +390,20 @@ El plan de partida era bueno en lo funcional; estos fallos habrían salido en pr
       desplegable de candidatos, quien está de baja ese día sale **deshabilitado** en «De baja (no
       reciben sustituciones)»; «La semana» no los cuenta. La tarjeta de Profesorado avisa de que
       esto se gestiona aquí.
+24. **Disponibilidad, por etapa** (David, 23-nov-2026: «Bárbara Adsuara no tiene que salir en
+    Infantil»). Antes «La semana» evaluaba a TODO el claustro contra las franjas de cada etapa, así que
+    quien tenía algo a esa hora en otra etapa contaba como disponible allí. Ahora un filtro **Etapa**
+    (Infantil · Primaria · ESO) manda en las dos vistas:
+    - **Pertenencia** (`etapasDePersona`): las etapas de su ficha (`edu_teachers.etapas`, o la etapa
+      única; ESO y Bachillerato juntas) **más** las de su horario (rejillas propias de cada etapa y las
+      del titular al que cubre). Quien da en dos etapas sale en las dos; quien no es de la etapa, no sale.
+    - **Equipo directivo** (`equipoDirectivoRoles`: roles `direccion` y `jefe`): va **al final** de cada
+      etapa. Si es de la etapa cuenta; si no lo es, sale **marcado** («no es de esta etapa» en el
+      selector; «Directivos de otra etapa (no cuentan)» en la casilla) y no cuenta ni tapa un hueco.
+    - **Por profe**: el desplegable lista la etapa elegida, luego «Equipo directivo»; al elegir a alguien
+      de otra etapa (o abrir un enlace) salta a la suya. **La semana**: sus casillas desglosan
+      «disponibles», «Equipo directivo» y los de otra etapa.
+    - La propuesta de sustitutos **no cambia**: un candidato puede ser de cualquier etapa (decisión 1).
 23. **Los sustitutos, en las listas** (arreglo del 23-nov-2026). «Profe que falta» solo listaba a
     quien tiene horario propio importado y Disponibilidad calculaba las etapas con el horario sin
     coberturas: Ángela, Elena, Alba… (que heredan el horario del titular) no salían. Ahora salen en
@@ -781,6 +795,7 @@ cómo queda: Nouvinguts.
 - [x] Sustitutos en «Profe que falta» y en Disponibilidad, con su estado de hoy (comprobado contra Neon).
 - [x] Sin correos en sábado ni domingo (al lunes a las 8), con tests; «Enviar ya» en Nueva ausencia y en la ficha.
 - [x] Huerto como nivel (después de Godly) y retoque a mano también en una clase propia, con tests.
+- [x] Disponibilidad por etapa (decisión 24): filtro de etapa en las dos vistas, equipo directivo al final y marcado, `etapasDePersona` y `mapaSemana` con tests; comprobado contra Neon (Bárbara ya solo sale en ESO; Infantil pasa de 9 disponibles a 4 a las 9:00 del martes). Falta mirarlo en el navegador con sesión real.
 - [ ] Probar la sección Bajas con sesión real y acoger las 6 coberturas de Educamos (Ángela, Elena, Alba, Meritxell, Roberto, Sandra) con sus fechas y motivos.
 
 ### Fase 3 · cuentas e informe

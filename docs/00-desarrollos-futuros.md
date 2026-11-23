@@ -20,6 +20,7 @@ Reglas para quien lo toque (personas o agentes):
 - **Huerto** como tipo nuevo de Oratorios, Godly Play y Talleres ([`26`](./26-oratorios.md)).
 - **Horarios · cambiar el aula de una clase a mano** y modelar los desdobles hora a hora ([`07`](./07-horarios.md)).
 - **Sustituciones · Bajas: decisiones tomadas al construirlo (23-nov-2026)** ([`32`](./32-sustituciones.md), decisión 22). Revisar: (1) el **alta prevista no cierra la baja**: sigue de baja hasta anotar el alta real, con aviso cuando pasa la prevista (lo contrario dejaría a alguien de baja recibiendo sustituciones si se olvida); (2) el **alta** es el primer día de vuelta; (3) una baja sin sustituto sigue con el tope de 15 días lectivos por ausencia (se apunta por tramos); (4) el fin de semana sin correos no incluye los **festivos** (¿también?); (5) una misma pareja sustituto–titular es una sola cobertura: si se repite en otra baja, pasa a la nueva.
+- **Sustituciones · Disponibilidad por etapa: decisiones al construirlo (23-nov-2026)** ([`32`](./32-sustituciones.md), decisión 24). Revisar: (1) «equipo directivo» = roles `direccion` y `jefe` (¿también orientación?); (2) la etapa de cada profe es la de su ficha **más** la de su horario (si alguien tiene una sola hora suelta en otra etapa, sale en las dos: se ve en «Por profe»); (3) un directivo de otra etapa sale marcado pero no cuenta para «va a faltar gente».
 
 ## Ideas (sin decidir)
 

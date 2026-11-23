@@ -59,6 +59,7 @@ import {
   hora,
   horarioDeFecha,
   leerPlantillas,
+  etapasDePersona,
   mapaSemana,
   mesAnterior,
   NIVEL_MANUAL,
@@ -1700,6 +1701,10 @@ export interface SemanaTipo {
   franjasPorEtapa: Partial<Record<Etapa, Franja[]>>;
   /** Por profe, en qué etapas tiene horario. */
   etapasDe: Record<string, Etapa[]>;
+  /** Por profe, a qué etapas pertenece (su horario más lo que se marcó en su ficha: `etapasDePersona`). */
+  pertenece: Record<string, Etapa[]>;
+  /** Equipo directivo (`equipoDirectivoRoles`): sale al final de cada etapa, marcado si no es de ella. */
+  directivos: Set<string>;
   semana: Map<number, SesionDia[]>;
   retoques: Retoque[];
   cuadro: { profeId: string; dia: number; horaInicio: string; horaFin: string }[];
@@ -1715,7 +1720,7 @@ export interface SemanaTipo {
  */
 async function semanaTipo(academicYear: string): Promise<SemanaTipo> {
   const hoy = hoyEnEspana();
-  const [base, profes, retoques, coberturas, bajas] = await Promise.all([
+  const [base, profes, retoques, coberturas, bajas, fichas, roles] = await Promise.all([
     getHorarioBase(),
     getProfes(),
     db
@@ -1727,6 +1732,8 @@ async function semanaTipo(academicYear: string): Promise<SemanaTipo> {
       .from(eduCoberturasBaja)
       .where(eq(eduCoberturasBaja.activa, true)),
     bajasEnRango(hoy, hoy),
+    db.select({ id: eduTeachers.id, etapa: eduTeachers.etapa, etapas: eduTeachers.etapas }).from(eduTeachers).where(eq(eduTeachers.active, true)),
+    db.select({ email: authUsers.email }).from(authUsers).where(and(eq(authUsers.active, true), inArray(authUsers.role, [...CFG.equipoDirectivoRoles]))),
   ]);
   const ordinarios = base.periodos.filter((p) => p.esOrdinario && cursoDeFecha(p.fechaInicio) === academicYear);
   const ordIds = new Set(ordinarios.map((p) => p.id));
@@ -1761,6 +1768,11 @@ async function semanaTipo(academicYear: string): Promise<SemanaTipo> {
     etapasDe[c.sustitutoId] = [...new Set([...(etapasDe[c.sustitutoId] ?? []), ...etapasDe[c.titularId]])];
   }
   for (const id of Object.keys(etapasDe)) etapasDe[id].sort((a, b) => CFG.etapas.indexOf(a) - CFG.etapas.indexOf(b));
+  const fichaDe = new Map(fichas.map((f) => [f.id, f]));
+  const pertenece: Record<string, Etapa[]> = {};
+  for (const p of profes) pertenece[p.id] = etapasDePersona(etapasDe[p.id] ?? [], fichaDe.get(p.id) ?? { etapa: null, etapas: null });
+  const correosDirectivos = new Set(roles.map((r) => r.email.toLowerCase()));
+  const directivos = new Set(profes.filter((p) => p.email && correosDirectivos.has(p.email)).map((p) => p.id));
   const nombre = new Map(profes.map((p) => [p.id, p.nombre]));
   const estados: Record<string, string> = {};
   for (const id of deBajaEn(hoy, bajas, coberturas)) {
@@ -1769,7 +1781,7 @@ async function semanaTipo(academicYear: string): Promise<SemanaTipo> {
   }
   for (const c of coberturas) if (coberturaVigente(c, hoy) && !estados[c.sustitutoId]) estados[c.sustitutoId] = `sustituye a ${nombre.get(c.titularId) ?? '—'}`;
   const cuadro = base.cuadro.filter((c) => ordIds.has(c.periodoId)).map((c) => ({ profeId: c.profeId, dia: c.dia, horaInicio: c.horaInicio, horaFin: c.horaFin }));
-  return { academicYear, profes, franjasPorEtapa, etapasDe, semana, retoques: retoques.map((r) => ({ ...r, estado: r.estado as Disponibilidad })), cuadro, estados, deBaja: deBajaEn(hoy, bajas, coberturas) };
+  return { academicYear, profes, franjasPorEtapa, etapasDe, pertenece, directivos, semana, retoques: retoques.map((r) => ({ ...r, estado: r.estado as Disponibilidad })), cuadro, estados, deBaja: deBajaEn(hoy, bajas, coberturas) };
 }
 
 export interface DatosDisponibilidadProfe {
@@ -1780,7 +1792,8 @@ export interface DatosDisponibilidadProfe {
 
 export interface DatosDisponibilidad {
   academicYear: string;
-  profes: { id: string; nombre: string; etapas: Etapa[]; estado: string | null }[];
+  /** `etapas`: a las que pertenece (para el filtro por etapa); `directivo`: al final y marcado en las que no son suyas. */
+  profes: { id: string; nombre: string; etapas: Etapa[]; directivo: boolean; estado: string | null }[];
   porProfe: DatosDisponibilidadProfe | null;
   semana: { etapa: Etapa; franjas: Franja[]; casillas: CasillaSemana[] }[];
 }
@@ -1799,10 +1812,20 @@ export async function disponibilidad(academicYear: string, profeId: string | nul
   }
   const semana = CFG.etapas.map((etapa) => {
     const franjas = t.franjasPorEtapa[etapa] ?? [];
-    // Todo el claustro con horario: un candidato puede ser de cualquier etapa (decisión 1).
-    return { etapa, franjas, casillas: mapaSemana(conHorario.filter((p) => !t.deBaja.has(p.id)), t.semana, franjas, t.retoques, t.cuadro) };
+    // Por etapa: quien es de ella (y su equipo directivo, que cuenta) y, aparte y sin contar, el equipo
+    // directivo de otras etapas. Quien no es de la etapa no sale: aunque tenga algo a esa hora en la suya,
+    // no le toca (un candidato sí puede ser de cualquier etapa a la hora de proponer: decisión 1).
+    const vivos = conHorario.filter((p) => !t.deBaja.has(p.id));
+    const dela = vivos.filter((p) => (t.pertenece[p.id] ?? []).includes(etapa)).map((p) => ({ id: p.id, nombre: p.nombre, directivo: t.directivos.has(p.id) }));
+    const aparte = vivos.filter((p) => t.directivos.has(p.id) && !(t.pertenece[p.id] ?? []).includes(etapa));
+    return { etapa, franjas, casillas: mapaSemana(dela, t.semana, franjas, t.retoques, t.cuadro, undefined, aparte) };
   });
-  return { academicYear, profes: conHorario.map((p) => ({ id: p.id, nombre: p.nombre, etapas: t.etapasDe[p.id] ?? [], estado: t.estados[p.id] ?? null })), porProfe, semana };
+  return {
+    academicYear,
+    profes: conHorario.map((p) => ({ id: p.id, nombre: p.nombre, etapas: t.pertenece[p.id] ?? [], directivo: t.directivos.has(p.id), estado: t.estados[p.id] ?? null })),
+    porProfe,
+    semana,
+  };
 }
 
 /** Guarda (o borra, con `estado` null = «Automático») un retoque. También en una clase propia (lo decide Jefatura). */

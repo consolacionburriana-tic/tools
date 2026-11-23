@@ -12,6 +12,7 @@ import {
   diasLectivos,
   disponibilidadDeNivel,
   enlaceGoogleCalendar,
+  etapasDePersona,
   etiquetaGrupo,
   evaluar,
   excedeTope,
@@ -433,6 +434,24 @@ describe('disponibilidad (decisión 15)', () => {
     const m = mapaSemana([{ id: 'ana', nombre: 'Ana' }, { id: 'pere', nombre: 'Pere' }], semana, franjas, []).filter((c) => c.dia === 2);
     expect(m[1].cuenta).toEqual({ si: 1, si_hace_falta: 1, urgencia: 0, no: 0 });
     expect(m[0].falta).toBe(true);
+  });
+  it('la semana por etapa: quien no es de la etapa no cuenta ni sale; el equipo directivo, al final y marcado si no es de ella', () => {
+    const franja10 = (cs: ReturnType<typeof mapaSemana>) => cs.find((c) => c.dia === 2 && c.horaInicio === '10:00')!;
+    // Pere (guardia, «Sí») es del equipo directivo de esta etapa: cuenta, pero va en su línea.
+    const propio = franja10(mapaSemana([{ id: 'ana', nombre: 'Ana' }, { id: 'pere', nombre: 'Pere', directivo: true }], semana, franjas, []));
+    expect(propio).toMatchObject({ cuenta: { si: 1, si_hace_falta: 1, urgencia: 0, no: 0 }, disponibles: ['Ana'], directivos: ['Pere'], deOtraEtapa: [] });
+    // Pere, directivo de OTRA etapa: sale marcado y NO cuenta.
+    const otra = franja10(mapaSemana([{ id: 'ana', nombre: 'Ana' }], semana, franjas, [], [], undefined, [{ id: 'pere', nombre: 'Pere' }]));
+    expect(otra).toMatchObject({ cuenta: { si: 0, si_hace_falta: 1, urgencia: 0, no: 0 }, disponibles: ['Ana'], directivos: [], deOtraEtapa: ['Pere'] });
+    // Si nadie de la etapa pudiera, el directivo de otra no tapa el hueco.
+    expect(franja10(mapaSemana([], semana, franjas, [], [], undefined, [{ id: 'pere', nombre: 'Pere' }])).falta).toBe(true);
+  });
+  it('a qué etapas pertenece alguien: su ficha más su horario; quien da en dos, en las dos; ESO y Bachillerato juntas', () => {
+    expect(etapasDePersona(['ESO'], { etapa: 'ESO', etapas: null })).toEqual(['ESO']); // Bárbara: no sale en Infantil
+    expect(etapasDePersona(['EI', 'EP'], { etapa: null, etapas: null })).toEqual(['EI', 'EP']);
+    expect(etapasDePersona([], { etapa: 'EP', etapas: ['EI', 'EP', 'ESO'] })).toEqual(['EI', 'EP', 'ESO']); // la multiselección manda sobre la etapa única
+    expect(etapasDePersona([], { etapa: 'BACH', etapas: null })).toEqual(['ESO']);
+    expect(etapasDePersona([], { etapa: null, etapas: null })).toEqual([]);
   });
   it('dos ocupaciones a la vez: manda la peor', () => {
     const delDia = [
