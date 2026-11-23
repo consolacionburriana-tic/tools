@@ -585,6 +585,13 @@ queda a medias entre dos peticiones.
 - [~] Análisis con IA (`eval_insights`, mismo SQL, aplicado). Verificado: el informe con datos
       reales, el esquema de salida estructurada con el SDK y el error claro sin clave. **Falta
       poner `ANTHROPIC_API_KEY` en Vercel y lanzar un análisis de verdad.**
+- [x] Borrador local en el formulario público (23-nov-2026): lo contestado se guarda en el
+      `localStorage` del dispositivo (clave por formulario e invitación, `eval-borrador:…`,
+      caduca a los 3 días, `src/lib/evaluaciones-borrador.ts` con tests) y se restaura al
+      recargar, con un aviso «Empezar de cero» por si el iPad es compartido. Se borra al
+      enviar; en la vista previa no se guarda. Lo restaurado se filtra contra las preguntas y
+      opciones actuales. Verificado con tests, lint y typecheck; **falta probarlo a mano en el
+      navegador con un formulario real** (contestar, recargar, enviar).
 
 ### Pendiente para más adelante
 - Evaluación de **asignaturas y su profesorado** (el modelo ya lo admite: `tipo='asignatura'`).

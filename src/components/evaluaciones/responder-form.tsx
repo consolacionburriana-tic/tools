@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowDown, CheckCircle2, Loader2, Lock, PartyPopper, Send, Sparkles, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,6 +14,13 @@ import {
   type PreguntaParaValidar,
   type RespuestaCruda,
 } from '@/lib/evaluaciones';
+import {
+  BORRADOR_VERSION,
+  borradorVacio,
+  claveBorrador,
+  restaurarBorrador,
+  type BorradorRespuestas,
+} from '@/lib/evaluaciones-borrador';
 import { Celebracion, sortearCelebracion, type IdCelebracion } from '@/components/evaluaciones/celebraciones';
 import { ProgresoAnillo } from '@/components/evaluaciones/progreso-anillo';
 import { EstrellasInput } from '@/components/evaluaciones/estrellas-input';
@@ -101,8 +108,85 @@ export function ResponderForm({
   const [fallan, setFallan] = useState<string[]>([]);
   const [hecho, setHecho] = useState<{ mensaje: string | null; quiz: ResultadoQuiz[]; celebracion: IdCelebracion } | null>(null);
   const refs = useRef<Record<string, HTMLDivElement | null>>({});
+  // No se guarda nada hasta haber intentado restaurar: si no, el primer render (vacío)
+  // pisaría el borrador antes de leerlo.
+  const [borradorListo, setBorradorListo] = useState(false);
 
   const preguntas = useMemo(() => bloques.flatMap((b) => b.preguntas), [bloques]);
+
+  // Borrador local: si se recarga o se cierra la pestaña, lo contestado no se pierde.
+  // Va por formulario (y por invitación) y solo en este dispositivo. En la vista previa
+  // no se guarda nada, igual que no se envía.
+  const claveLocal = useMemo(() => claveBorrador(token, invite), [token, invite]);
+
+  useEffect(() => {
+    if (soloVistaPrevia) return;
+    try {
+      const r = restaurarBorrador(
+        localStorage.getItem(claveLocal),
+        preguntas,
+        clases.map(claseKey),
+        ETAPAS.map((e) => e.value),
+      );
+      if (r) {
+        /* eslint-disable react-hooks/set-state-in-effect -- se lee una vez al montar: localStorage no existe en el servidor */
+        if (!claseConocida) setClase(r.clase);
+        setEtapa(r.etapa);
+        setEscalas(r.escalas);
+        setOpciones(r.opciones);
+        setTextos(r.textos);
+        setOtras(r.otras);
+        /* eslint-enable react-hooks/set-state-in-effect */
+        toast('Hemos recuperado lo que llevabas contestado.', {
+          action: {
+            label: 'Empezar de cero',
+            onClick: () => {
+              setClase(null);
+              setEtapa(null);
+              setEscalas({});
+              setOpciones({});
+              setTextos({});
+              setOtras({});
+              try {
+                localStorage.removeItem(claveLocal);
+              } catch {
+                // sin localStorage: nada que borrar
+              }
+            },
+          },
+        });
+      }
+    } catch {
+      // localStorage no disponible (modo privado…): el formulario funciona igual, sin borrador
+    }
+    setBorradorListo(true);
+    // Solo al montar: las preguntas y las clases no cambian durante la visita.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!borradorListo || soloVistaPrevia || hecho) return;
+    // Pequeño retardo: en un textarea se guarda cuando se hace una pausa, no en cada tecla.
+    const t = setTimeout(() => {
+      try {
+        const b: BorradorRespuestas = {
+          version: BORRADOR_VERSION,
+          guardadoEl: Date.now(),
+          clase,
+          etapa,
+          escalas,
+          opciones,
+          textos,
+          otras,
+        };
+        if (borradorVacio(b)) localStorage.removeItem(claveLocal);
+        else localStorage.setItem(claveLocal, JSON.stringify(b));
+      } catch {
+        // sin espacio o sin localStorage: se sigue sin borrador
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [borradorListo, soloVistaPrevia, hecho, claveLocal, clase, etapa, escalas, opciones, textos, otras]);
 
   const respuestas = useMemo<RespuestaCruda[]>(() => {
     const out: RespuestaCruda[] = [];
@@ -256,6 +340,11 @@ export function ResponderForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo enviar');
       haptic.success();
+      try {
+        localStorage.removeItem(claveLocal);
+      } catch {
+        // sin localStorage: nada que borrar
+      }
       setHecho({ mensaje: data.mensajeFinal ?? null, quiz: data.quiz ?? [], celebracion: sortearCelebracion(audiencia) });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
